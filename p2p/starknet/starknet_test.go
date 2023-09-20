@@ -20,7 +20,7 @@ func TestClientHandler(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	testPID := protocol.ID("testProtocol")
+	testNetwork := utils.INTEGRATION
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
@@ -37,44 +37,74 @@ func TestClientHandler(t *testing.T) {
 	handler := starknet.NewHandler(mockReader, log)
 
 	handlerHost := mockNet.Host(handlerID)
-	handlerHost.SetStreamHandler(testPID, handler.StreamHandler)
+	handlerHost.SetStreamHandler(starknet.BlockHeadersPID(testNetwork), handler.BlockHeadersHandler)
+	handlerHost.SetStreamHandler(starknet.BlockBodiesPID(testNetwork), handler.BlockBodiesHandler)
+	handlerHost.SetStreamHandler(starknet.EventsPID(testNetwork), handler.EventsHandler)
+	handlerHost.SetStreamHandler(starknet.ReceiptsPID(testNetwork), handler.ReceiptsHandler)
+	handlerHost.SetStreamHandler(starknet.TransactionsPID(testNetwork), handler.TransactionsHandler)
 
 	clientHost := mockNet.Host(clientID)
 	client := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return clientHost.NewStream(ctx, handlerID, pids...)
-	}, testPID, log)
+	}, testNetwork, log)
 
-	t.Run("get blocks", func(t *testing.T) {
-		res, cErr := client.GetBlocks(testCtx, &spec.GetBlocks{})
+	t.Run("get block headers", func(t *testing.T) {
+		res, cErr := client.RequestBlockHeaders(testCtx, &spec.BlockHeadersRequest{})
 		require.NoError(t, cErr)
 
-		count := uint32(0)
+		count := uint64(0)
 		for header, valid := res(); valid; header, valid = res() {
-			assert.Equal(t, count, header.State.NLeaves)
+			assert.Equal(t, count, header.GetPart()[0].GetHeader().Number)
 			count++
 		}
-		require.Equal(t, uint32(4), count)
+		require.Equal(t, uint64(4), count)
 	})
 
-	t.Run("get signatures", func(t *testing.T) {
-		res, cErr := client.GetSignatures(testCtx, &spec.GetSignatures{
-			Id: &spec.BlockID{
-				Height: 44,
-			},
-		})
+	t.Run("get block bodies", func(t *testing.T) {
+		res, cErr := client.RequestBlockBodies(testCtx, &spec.BlockBodiesRequest{})
 		require.NoError(t, cErr)
-		require.Equal(t, res.Id.Height, uint64(44))
+
+		count := uint64(0)
+		for body, valid := res(); valid; body, valid = res() {
+			assert.Equal(t, count, body.Id.Number)
+			count++
+		}
+		require.Equal(t, uint64(4), count)
 	})
 
 	t.Run("get receipts", func(t *testing.T) {
-		res, cErr := client.GetReceipts(testCtx, &spec.GetReceipts{})
+		res, cErr := client.RequestReceipts(testCtx, &spec.ReceiptsRequest{})
 		require.NoError(t, cErr)
-		require.Len(t, res.GetReceipts(), 37)
+
+		count := uint64(0)
+		for receipt, valid := res(); valid; receipt, valid = res() {
+			assert.Equal(t, count, receipt.Id.Number)
+			count++
+		}
+		require.Equal(t, uint64(4), count)
 	})
 
 	t.Run("get txns", func(t *testing.T) {
-		res, cErr := client.GetTransactions(testCtx, &spec.GetTransactions{})
+		res, cErr := client.RequestTransactions(testCtx, &spec.TransactionsRequest{})
 		require.NoError(t, cErr)
-		require.Len(t, res.GetTransactions(), 1337)
+
+		count := uint64(0)
+		for txn, valid := res(); valid; txn, valid = res() {
+			assert.Equal(t, count, txn.Id.Number)
+			count++
+		}
+		require.Equal(t, uint64(4), count)
+	})
+
+	t.Run("get events", func(t *testing.T) {
+		res, cErr := client.RequestEvents(testCtx, &spec.EventsRequest{})
+		require.NoError(t, cErr)
+
+		count := uint64(0)
+		for evnt, valid := res(); valid; evnt, valid = res() {
+			assert.Equal(t, count, evnt.Id.Number)
+			count++
+		}
+		require.Equal(t, uint64(4), count)
 	})
 }

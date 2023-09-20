@@ -209,410 +209,6 @@ func (x *MessageToL2) GetNonce() *Felt252 {
 	return nil
 }
 
-type CommonTransactionReceiptProperties struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	TransactionHash  *Felt252       `protobuf:"bytes,1,opt,name=transaction_hash,json=transactionHash,proto3" json:"transaction_hash,omitempty"`
-	TransactionIndex uint32         `protobuf:"varint,2,opt,name=transaction_index,json=transactionIndex,proto3" json:"transaction_index,omitempty"`
-	ActualFee        *Felt252       `protobuf:"bytes,3,opt,name=actual_fee,json=actualFee,proto3" json:"actual_fee,omitempty"`
-	MessagesSent     []*MessageToL1 `protobuf:"bytes,4,rep,name=messages_sent,json=messagesSent,proto3" json:"messages_sent,omitempty"`
-	// repeated Event events = 5; separate
-	// Optional
-	ConsumedMessage    *MessageToL2        `protobuf:"bytes,5,opt,name=consumed_message,json=consumedMessage,proto3" json:"consumed_message,omitempty"`
-	ExecutionResources *ExecutionResources `protobuf:"bytes,6,opt,name=execution_resources,json=executionResources,proto3" json:"execution_resources,omitempty"`
-}
-
-func (x *CommonTransactionReceiptProperties) Reset() {
-	*x = CommonTransactionReceiptProperties{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *CommonTransactionReceiptProperties) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CommonTransactionReceiptProperties) ProtoMessage() {}
-
-func (x *CommonTransactionReceiptProperties) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CommonTransactionReceiptProperties.ProtoReflect.Descriptor instead.
-func (*CommonTransactionReceiptProperties) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *CommonTransactionReceiptProperties) GetTransactionHash() *Felt252 {
-	if x != nil {
-		return x.TransactionHash
-	}
-	return nil
-}
-
-func (x *CommonTransactionReceiptProperties) GetTransactionIndex() uint32 {
-	if x != nil {
-		return x.TransactionIndex
-	}
-	return 0
-}
-
-func (x *CommonTransactionReceiptProperties) GetActualFee() *Felt252 {
-	if x != nil {
-		return x.ActualFee
-	}
-	return nil
-}
-
-func (x *CommonTransactionReceiptProperties) GetMessagesSent() []*MessageToL1 {
-	if x != nil {
-		return x.MessagesSent
-	}
-	return nil
-}
-
-func (x *CommonTransactionReceiptProperties) GetConsumedMessage() *MessageToL2 {
-	if x != nil {
-		return x.ConsumedMessage
-	}
-	return nil
-}
-
-func (x *CommonTransactionReceiptProperties) GetExecutionResources() *ExecutionResources {
-	if x != nil {
-		return x.ExecutionResources
-	}
-	return nil
-}
-
-type ExecutionResources struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	BuiltinInstanceCounter *ExecutionResources_BuiltinInstanceCounter `protobuf:"bytes,1,opt,name=builtin_instance_counter,json=builtinInstanceCounter,proto3" json:"builtin_instance_counter,omitempty"`
-	NSteps                 uint64                                     `protobuf:"varint,2,opt,name=n_steps,json=nSteps,proto3" json:"n_steps,omitempty"`
-	NMemoryHoles           uint64                                     `protobuf:"varint,3,opt,name=n_memory_holes,json=nMemoryHoles,proto3" json:"n_memory_holes,omitempty"`
-}
-
-func (x *ExecutionResources) Reset() {
-	*x = ExecutionResources{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[4]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ExecutionResources) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ExecutionResources) ProtoMessage() {}
-
-func (x *ExecutionResources) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[4]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ExecutionResources.ProtoReflect.Descriptor instead.
-func (*ExecutionResources) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *ExecutionResources) GetBuiltinInstanceCounter() *ExecutionResources_BuiltinInstanceCounter {
-	if x != nil {
-		return x.BuiltinInstanceCounter
-	}
-	return nil
-}
-
-func (x *ExecutionResources) GetNSteps() uint64 {
-	if x != nil {
-		return x.NSteps
-	}
-	return 0
-}
-
-func (x *ExecutionResources) GetNMemoryHoles() uint64 {
-	if x != nil {
-		return x.NMemoryHoles
-	}
-	return 0
-}
-
-// TBD: also deploy of contract?
-type InvokeTransactionReceipt struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Common *CommonTransactionReceiptProperties `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
-}
-
-func (x *InvokeTransactionReceipt) Reset() {
-	*x = InvokeTransactionReceipt{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[5]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *InvokeTransactionReceipt) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*InvokeTransactionReceipt) ProtoMessage() {}
-
-func (x *InvokeTransactionReceipt) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[5]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use InvokeTransactionReceipt.ProtoReflect.Descriptor instead.
-func (*InvokeTransactionReceipt) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *InvokeTransactionReceipt) GetCommon() *CommonTransactionReceiptProperties {
-	if x != nil {
-		return x.Common
-	}
-	return nil
-}
-
-type L1HandlerTransactionReceipt struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Common *CommonTransactionReceiptProperties `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
-}
-
-func (x *L1HandlerTransactionReceipt) Reset() {
-	*x = L1HandlerTransactionReceipt{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[6]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *L1HandlerTransactionReceipt) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*L1HandlerTransactionReceipt) ProtoMessage() {}
-
-func (x *L1HandlerTransactionReceipt) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[6]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use L1HandlerTransactionReceipt.ProtoReflect.Descriptor instead.
-func (*L1HandlerTransactionReceipt) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *L1HandlerTransactionReceipt) GetCommon() *CommonTransactionReceiptProperties {
-	if x != nil {
-		return x.Common
-	}
-	return nil
-}
-
-type DeclareTransactionReceipt struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Common *CommonTransactionReceiptProperties `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
-}
-
-func (x *DeclareTransactionReceipt) Reset() {
-	*x = DeclareTransactionReceipt{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[7]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *DeclareTransactionReceipt) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeclareTransactionReceipt) ProtoMessage() {}
-
-func (x *DeclareTransactionReceipt) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[7]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeclareTransactionReceipt.ProtoReflect.Descriptor instead.
-func (*DeclareTransactionReceipt) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *DeclareTransactionReceipt) GetCommon() *CommonTransactionReceiptProperties {
-	if x != nil {
-		return x.Common
-	}
-	return nil
-}
-
-type DeprecatedDeployTransactionReceipt struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Common          *CommonTransactionReceiptProperties `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
-	ContractAddress *Felt252                            `protobuf:"bytes,2,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
-}
-
-func (x *DeprecatedDeployTransactionReceipt) Reset() {
-	*x = DeprecatedDeployTransactionReceipt{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[8]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *DeprecatedDeployTransactionReceipt) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeprecatedDeployTransactionReceipt) ProtoMessage() {}
-
-func (x *DeprecatedDeployTransactionReceipt) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[8]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeprecatedDeployTransactionReceipt.ProtoReflect.Descriptor instead.
-func (*DeprecatedDeployTransactionReceipt) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *DeprecatedDeployTransactionReceipt) GetCommon() *CommonTransactionReceiptProperties {
-	if x != nil {
-		return x.Common
-	}
-	return nil
-}
-
-func (x *DeprecatedDeployTransactionReceipt) GetContractAddress() *Felt252 {
-	if x != nil {
-		return x.ContractAddress
-	}
-	return nil
-}
-
-type DeployAccountTransactionReceipt struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Common          *CommonTransactionReceiptProperties `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
-	ContractAddress *Felt252                            `protobuf:"bytes,2,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
-}
-
-func (x *DeployAccountTransactionReceipt) Reset() {
-	*x = DeployAccountTransactionReceipt{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *DeployAccountTransactionReceipt) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeployAccountTransactionReceipt) ProtoMessage() {}
-
-func (x *DeployAccountTransactionReceipt) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeployAccountTransactionReceipt.ProtoReflect.Descriptor instead.
-func (*DeployAccountTransactionReceipt) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *DeployAccountTransactionReceipt) GetCommon() *CommonTransactionReceiptProperties {
-	if x != nil {
-		return x.Common
-	}
-	return nil
-}
-
-func (x *DeployAccountTransactionReceipt) GetContractAddress() *Felt252 {
-	if x != nil {
-		return x.ContractAddress
-	}
-	return nil
-}
-
 type Receipt struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -620,18 +216,18 @@ type Receipt struct {
 
 	// Types that are assignable to Receipt:
 	//
-	//	*Receipt_Invoke
-	//	*Receipt_L1Handler
-	//	*Receipt_Declare
+	//	*Receipt_Invoke_
+	//	*Receipt_L1Handler_
+	//	*Receipt_Declare_
 	//	*Receipt_DeprecatedDeploy
-	//	*Receipt_DeployAccount
+	//	*Receipt_DeployAccount_
 	Receipt isReceipt_Receipt `protobuf_oneof:"receipt"`
 }
 
 func (x *Receipt) Reset() {
 	*x = Receipt{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[10]
+		mi := &file_p2p_proto_receipt_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -644,7 +240,7 @@ func (x *Receipt) String() string {
 func (*Receipt) ProtoMessage() {}
 
 func (x *Receipt) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[10]
+	mi := &file_p2p_proto_receipt_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -657,7 +253,7 @@ func (x *Receipt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Receipt.ProtoReflect.Descriptor instead.
 func (*Receipt) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{10}
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3}
 }
 
 func (m *Receipt) GetReceipt() isReceipt_Receipt {
@@ -667,36 +263,36 @@ func (m *Receipt) GetReceipt() isReceipt_Receipt {
 	return nil
 }
 
-func (x *Receipt) GetInvoke() *InvokeTransactionReceipt {
-	if x, ok := x.GetReceipt().(*Receipt_Invoke); ok {
+func (x *Receipt) GetInvoke() *Receipt_Invoke {
+	if x, ok := x.GetReceipt().(*Receipt_Invoke_); ok {
 		return x.Invoke
 	}
 	return nil
 }
 
-func (x *Receipt) GetL1Handler() *L1HandlerTransactionReceipt {
-	if x, ok := x.GetReceipt().(*Receipt_L1Handler); ok {
+func (x *Receipt) GetL1Handler() *Receipt_L1Handler {
+	if x, ok := x.GetReceipt().(*Receipt_L1Handler_); ok {
 		return x.L1Handler
 	}
 	return nil
 }
 
-func (x *Receipt) GetDeclare() *DeclareTransactionReceipt {
-	if x, ok := x.GetReceipt().(*Receipt_Declare); ok {
+func (x *Receipt) GetDeclare() *Receipt_Declare {
+	if x, ok := x.GetReceipt().(*Receipt_Declare_); ok {
 		return x.Declare
 	}
 	return nil
 }
 
-func (x *Receipt) GetDeprecatedDeploy() *DeprecatedDeployTransactionReceipt {
+func (x *Receipt) GetDeprecatedDeploy() *Receipt_Deploy {
 	if x, ok := x.GetReceipt().(*Receipt_DeprecatedDeploy); ok {
 		return x.DeprecatedDeploy
 	}
 	return nil
 }
 
-func (x *Receipt) GetDeployAccount() *DeployAccountTransactionReceipt {
-	if x, ok := x.GetReceipt().(*Receipt_DeployAccount); ok {
+func (x *Receipt) GetDeployAccount() *Receipt_DeployAccount {
+	if x, ok := x.GetReceipt().(*Receipt_DeployAccount_); ok {
 		return x.DeployAccount
 	}
 	return nil
@@ -706,61 +302,61 @@ type isReceipt_Receipt interface {
 	isReceipt_Receipt()
 }
 
-type Receipt_Invoke struct {
-	Invoke *InvokeTransactionReceipt `protobuf:"bytes,1,opt,name=invoke,proto3,oneof"`
+type Receipt_Invoke_ struct {
+	Invoke *Receipt_Invoke `protobuf:"bytes,1,opt,name=invoke,proto3,oneof"`
 }
 
-type Receipt_L1Handler struct {
-	L1Handler *L1HandlerTransactionReceipt `protobuf:"bytes,2,opt,name=l1_handler,json=l1Handler,proto3,oneof"`
+type Receipt_L1Handler_ struct {
+	L1Handler *Receipt_L1Handler `protobuf:"bytes,2,opt,name=l1_handler,json=l1Handler,proto3,oneof"`
 }
 
-type Receipt_Declare struct {
-	Declare *DeclareTransactionReceipt `protobuf:"bytes,3,opt,name=declare,proto3,oneof"`
+type Receipt_Declare_ struct {
+	Declare *Receipt_Declare `protobuf:"bytes,3,opt,name=declare,proto3,oneof"`
 }
 
 type Receipt_DeprecatedDeploy struct {
-	DeprecatedDeploy *DeprecatedDeployTransactionReceipt `protobuf:"bytes,4,opt,name=deprecated_deploy,json=deprecatedDeploy,proto3,oneof"`
+	DeprecatedDeploy *Receipt_Deploy `protobuf:"bytes,4,opt,name=deprecated_deploy,json=deprecatedDeploy,proto3,oneof"`
 }
 
-type Receipt_DeployAccount struct {
-	DeployAccount *DeployAccountTransactionReceipt `protobuf:"bytes,5,opt,name=deploy_account,json=deployAccount,proto3,oneof"`
+type Receipt_DeployAccount_ struct {
+	DeployAccount *Receipt_DeployAccount `protobuf:"bytes,5,opt,name=deploy_account,json=deployAccount,proto3,oneof"`
 }
 
-func (*Receipt_Invoke) isReceipt_Receipt() {}
+func (*Receipt_Invoke_) isReceipt_Receipt() {}
 
-func (*Receipt_L1Handler) isReceipt_Receipt() {}
+func (*Receipt_L1Handler_) isReceipt_Receipt() {}
 
-func (*Receipt_Declare) isReceipt_Receipt() {}
+func (*Receipt_Declare_) isReceipt_Receipt() {}
 
 func (*Receipt_DeprecatedDeploy) isReceipt_Receipt() {}
 
-func (*Receipt_DeployAccount) isReceipt_Receipt() {}
+func (*Receipt_DeployAccount_) isReceipt_Receipt() {}
 
-type GetReceipts struct {
+type ReceiptsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id *BlockID `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Iteration *Iteration `protobuf:"bytes,1,opt,name=iteration,proto3" json:"iteration,omitempty"`
 }
 
-func (x *GetReceipts) Reset() {
-	*x = GetReceipts{}
+func (x *ReceiptsRequest) Reset() {
+	*x = ReceiptsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[11]
+		mi := &file_p2p_proto_receipt_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *GetReceipts) String() string {
+func (x *ReceiptsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetReceipts) ProtoMessage() {}
+func (*ReceiptsRequest) ProtoMessage() {}
 
-func (x *GetReceipts) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[11]
+func (x *ReceiptsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -771,14 +367,14 @@ func (x *GetReceipts) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetReceipts.ProtoReflect.Descriptor instead.
-func (*GetReceipts) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{11}
+// Deprecated: Use ReceiptsRequest.ProtoReflect.Descriptor instead.
+func (*ReceiptsRequest) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *GetReceipts) GetId() *BlockID {
+func (x *ReceiptsRequest) GetIteration() *Iteration {
 	if x != nil {
-		return x.Id
+		return x.Iteration
 	}
 	return nil
 }
@@ -788,13 +384,13 @@ type Receipts struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Receipts []*Receipt `protobuf:"bytes,1,rep,name=receipts,proto3" json:"receipts,omitempty"`
+	Items []*Receipt `protobuf:"bytes,2,rep,name=items,proto3" json:"items,omitempty"`
 }
 
 func (x *Receipts) Reset() {
 	*x = Receipts{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_p2p_proto_receipt_proto_msgTypes[12]
+		mi := &file_p2p_proto_receipt_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -807,7 +403,7 @@ func (x *Receipts) String() string {
 func (*Receipts) ProtoMessage() {}
 
 func (x *Receipts) ProtoReflect() protoreflect.Message {
-	mi := &file_p2p_proto_receipt_proto_msgTypes[12]
+	mi := &file_p2p_proto_receipt_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -820,31 +416,462 @@ func (x *Receipts) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Receipts.ProtoReflect.Descriptor instead.
 func (*Receipts) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{12}
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *Receipts) GetReceipts() []*Receipt {
+func (x *Receipts) GetItems() []*Receipt {
 	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+type ReceiptsResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id *BlockID `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"` // may not appear if Fin is sent to end the whole response
+	// Types that are assignable to Responses:
+	//
+	//	*ReceiptsResponse_Receipts
+	//	*ReceiptsResponse_Fin
+	Responses isReceiptsResponse_Responses `protobuf_oneof:"responses"`
+}
+
+func (x *ReceiptsResponse) Reset() {
+	*x = ReceiptsResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ReceiptsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiptsResponse) ProtoMessage() {}
+
+func (x *ReceiptsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiptsResponse.ProtoReflect.Descriptor instead.
+func (*ReceiptsResponse) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ReceiptsResponse) GetId() *BlockID {
+	if x != nil {
+		return x.Id
+	}
+	return nil
+}
+
+func (m *ReceiptsResponse) GetResponses() isReceiptsResponse_Responses {
+	if m != nil {
+		return m.Responses
+	}
+	return nil
+}
+
+func (x *ReceiptsResponse) GetReceipts() *Receipts {
+	if x, ok := x.GetResponses().(*ReceiptsResponse_Receipts); ok {
 		return x.Receipts
 	}
 	return nil
 }
 
-type ExecutionResources_BuiltinInstanceCounter struct {
+func (x *ReceiptsResponse) GetFin() *Fin {
+	if x, ok := x.GetResponses().(*ReceiptsResponse_Fin); ok {
+		return x.Fin
+	}
+	return nil
+}
+
+type isReceiptsResponse_Responses interface {
+	isReceiptsResponse_Responses()
+}
+
+type ReceiptsResponse_Receipts struct {
+	Receipts *Receipts `protobuf:"bytes,2,opt,name=receipts,proto3,oneof"`
+}
+
+type ReceiptsResponse_Fin struct {
+	Fin *Fin `protobuf:"bytes,3,opt,name=fin,proto3,oneof"`
+}
+
+func (*ReceiptsResponse_Receipts) isReceiptsResponse_Responses() {}
+
+func (*ReceiptsResponse_Fin) isReceiptsResponse_Responses() {}
+
+type Receipt_ExecutionResources struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BitwiseBuiltin    uint64 `protobuf:"varint,1,opt,name=bitwise_builtin,json=bitwiseBuiltin,proto3" json:"bitwise_builtin,omitempty"`
-	EcdsaBuiltin      uint64 `protobuf:"varint,2,opt,name=ecdsa_builtin,json=ecdsaBuiltin,proto3" json:"ecdsa_builtin,omitempty"`
-	EcOpBuiltin       uint64 `protobuf:"varint,3,opt,name=ec_op_builtin,json=ecOpBuiltin,proto3" json:"ec_op_builtin,omitempty"`
-	OutputBuiltin     uint64 `protobuf:"varint,4,opt,name=output_builtin,json=outputBuiltin,proto3" json:"output_builtin,omitempty"`
-	PedersenBuiltin   uint64 `protobuf:"varint,5,opt,name=pedersen_builtin,json=pedersenBuiltin,proto3" json:"pedersen_builtin,omitempty"`
-	RangeCheckBuiltin uint64 `protobuf:"varint,6,opt,name=range_check_builtin,json=rangeCheckBuiltin,proto3" json:"range_check_builtin,omitempty"`
+	Builtins    *Receipt_ExecutionResources_BuiltinCounter `protobuf:"bytes,1,opt,name=builtins,proto3" json:"builtins,omitempty"`
+	Steps       uint32                                     `protobuf:"varint,2,opt,name=steps,proto3" json:"steps,omitempty"`
+	MemoryHoles uint32                                     `protobuf:"varint,3,opt,name=memory_holes,json=memoryHoles,proto3" json:"memory_holes,omitempty"`
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) Reset() {
-	*x = ExecutionResources_BuiltinInstanceCounter{}
+func (x *Receipt_ExecutionResources) Reset() {
+	*x = Receipt_ExecutionResources{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Receipt_ExecutionResources) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Receipt_ExecutionResources) ProtoMessage() {}
+
+func (x *Receipt_ExecutionResources) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Receipt_ExecutionResources.ProtoReflect.Descriptor instead.
+func (*Receipt_ExecutionResources) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 0}
+}
+
+func (x *Receipt_ExecutionResources) GetBuiltins() *Receipt_ExecutionResources_BuiltinCounter {
+	if x != nil {
+		return x.Builtins
+	}
+	return nil
+}
+
+func (x *Receipt_ExecutionResources) GetSteps() uint32 {
+	if x != nil {
+		return x.Steps
+	}
+	return 0
+}
+
+func (x *Receipt_ExecutionResources) GetMemoryHoles() uint32 {
+	if x != nil {
+		return x.MemoryHoles
+	}
+	return 0
+}
+
+type Receipt_Common struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	TransactionHash    *Hash                       `protobuf:"bytes,1,opt,name=transaction_hash,json=transactionHash,proto3" json:"transaction_hash,omitempty"`
+	ActualFee          *Felt252                    `protobuf:"bytes,2,opt,name=actual_fee,json=actualFee,proto3" json:"actual_fee,omitempty"`
+	MessagesSent       []*MessageToL1              `protobuf:"bytes,3,rep,name=messages_sent,json=messagesSent,proto3" json:"messages_sent,omitempty"`
+	ExecutionResources *Receipt_ExecutionResources `protobuf:"bytes,4,opt,name=execution_resources,json=executionResources,proto3" json:"execution_resources,omitempty"`
+	RevertReason       string                      `protobuf:"bytes,5,opt,name=revert_reason,json=revertReason,proto3" json:"revert_reason,omitempty"`
+}
+
+func (x *Receipt_Common) Reset() {
+	*x = Receipt_Common{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Receipt_Common) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Receipt_Common) ProtoMessage() {}
+
+func (x *Receipt_Common) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Receipt_Common.ProtoReflect.Descriptor instead.
+func (*Receipt_Common) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 1}
+}
+
+func (x *Receipt_Common) GetTransactionHash() *Hash {
+	if x != nil {
+		return x.TransactionHash
+	}
+	return nil
+}
+
+func (x *Receipt_Common) GetActualFee() *Felt252 {
+	if x != nil {
+		return x.ActualFee
+	}
+	return nil
+}
+
+func (x *Receipt_Common) GetMessagesSent() []*MessageToL1 {
+	if x != nil {
+		return x.MessagesSent
+	}
+	return nil
+}
+
+func (x *Receipt_Common) GetExecutionResources() *Receipt_ExecutionResources {
+	if x != nil {
+		return x.ExecutionResources
+	}
+	return nil
+}
+
+func (x *Receipt_Common) GetRevertReason() string {
+	if x != nil {
+		return x.RevertReason
+	}
+	return ""
+}
+
+type Receipt_Invoke struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Common *Receipt_Common `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
+}
+
+func (x *Receipt_Invoke) Reset() {
+	*x = Receipt_Invoke{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Receipt_Invoke) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Receipt_Invoke) ProtoMessage() {}
+
+func (x *Receipt_Invoke) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Receipt_Invoke.ProtoReflect.Descriptor instead.
+func (*Receipt_Invoke) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 2}
+}
+
+func (x *Receipt_Invoke) GetCommon() *Receipt_Common {
+	if x != nil {
+		return x.Common
+	}
+	return nil
+}
+
+type Receipt_L1Handler struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Common  *Receipt_Common `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
+	MsgHash *Hash           `protobuf:"bytes,2,opt,name=msg_hash,json=msgHash,proto3" json:"msg_hash,omitempty"`
+}
+
+func (x *Receipt_L1Handler) Reset() {
+	*x = Receipt_L1Handler{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Receipt_L1Handler) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Receipt_L1Handler) ProtoMessage() {}
+
+func (x *Receipt_L1Handler) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Receipt_L1Handler.ProtoReflect.Descriptor instead.
+func (*Receipt_L1Handler) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 3}
+}
+
+func (x *Receipt_L1Handler) GetCommon() *Receipt_Common {
+	if x != nil {
+		return x.Common
+	}
+	return nil
+}
+
+func (x *Receipt_L1Handler) GetMsgHash() *Hash {
+	if x != nil {
+		return x.MsgHash
+	}
+	return nil
+}
+
+type Receipt_Declare struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Common *Receipt_Common `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
+}
+
+func (x *Receipt_Declare) Reset() {
+	*x = Receipt_Declare{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Receipt_Declare) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Receipt_Declare) ProtoMessage() {}
+
+func (x *Receipt_Declare) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Receipt_Declare.ProtoReflect.Descriptor instead.
+func (*Receipt_Declare) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 4}
+}
+
+func (x *Receipt_Declare) GetCommon() *Receipt_Common {
+	if x != nil {
+		return x.Common
+	}
+	return nil
+}
+
+type Receipt_Deploy struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Common          *Receipt_Common `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
+	ContractAddress *Felt252        `protobuf:"bytes,2,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
+}
+
+func (x *Receipt_Deploy) Reset() {
+	*x = Receipt_Deploy{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Receipt_Deploy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Receipt_Deploy) ProtoMessage() {}
+
+func (x *Receipt_Deploy) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Receipt_Deploy.ProtoReflect.Descriptor instead.
+func (*Receipt_Deploy) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 5}
+}
+
+func (x *Receipt_Deploy) GetCommon() *Receipt_Common {
+	if x != nil {
+		return x.Common
+	}
+	return nil
+}
+
+func (x *Receipt_Deploy) GetContractAddress() *Felt252 {
+	if x != nil {
+		return x.ContractAddress
+	}
+	return nil
+}
+
+type Receipt_DeployAccount struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Common          *Receipt_Common `protobuf:"bytes,1,opt,name=common,proto3" json:"common,omitempty"`
+	ContractAddress *Felt252        `protobuf:"bytes,2,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
+}
+
+func (x *Receipt_DeployAccount) Reset() {
+	*x = Receipt_DeployAccount{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_p2p_proto_receipt_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -852,13 +879,13 @@ func (x *ExecutionResources_BuiltinInstanceCounter) Reset() {
 	}
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) String() string {
+func (x *Receipt_DeployAccount) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ExecutionResources_BuiltinInstanceCounter) ProtoMessage() {}
+func (*Receipt_DeployAccount) ProtoMessage() {}
 
-func (x *ExecutionResources_BuiltinInstanceCounter) ProtoReflect() protoreflect.Message {
+func (x *Receipt_DeployAccount) ProtoReflect() protoreflect.Message {
 	mi := &file_p2p_proto_receipt_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -870,49 +897,116 @@ func (x *ExecutionResources_BuiltinInstanceCounter) ProtoReflect() protoreflect.
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ExecutionResources_BuiltinInstanceCounter.ProtoReflect.Descriptor instead.
-func (*ExecutionResources_BuiltinInstanceCounter) Descriptor() ([]byte, []int) {
-	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{4, 0}
+// Deprecated: Use Receipt_DeployAccount.ProtoReflect.Descriptor instead.
+func (*Receipt_DeployAccount) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 6}
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) GetBitwiseBuiltin() uint64 {
+func (x *Receipt_DeployAccount) GetCommon() *Receipt_Common {
 	if x != nil {
-		return x.BitwiseBuiltin
+		return x.Common
+	}
+	return nil
+}
+
+func (x *Receipt_DeployAccount) GetContractAddress() *Felt252 {
+	if x != nil {
+		return x.ContractAddress
+	}
+	return nil
+}
+
+type Receipt_ExecutionResources_BuiltinCounter struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Bitwise    uint32 `protobuf:"varint,1,opt,name=bitwise,proto3" json:"bitwise,omitempty"`
+	Ecdsa      uint32 `protobuf:"varint,2,opt,name=ecdsa,proto3" json:"ecdsa,omitempty"`
+	EcOp       uint32 `protobuf:"varint,3,opt,name=ec_op,json=ecOp,proto3" json:"ec_op,omitempty"`
+	Pedersen   uint32 `protobuf:"varint,4,opt,name=pedersen,proto3" json:"pedersen,omitempty"`
+	RangeCheck uint32 `protobuf:"varint,5,opt,name=range_check,json=rangeCheck,proto3" json:"range_check,omitempty"`
+	Poseidon   uint32 `protobuf:"varint,6,opt,name=poseidon,proto3" json:"poseidon,omitempty"`
+	Keccak     uint32 `protobuf:"varint,7,opt,name=keccak,proto3" json:"keccak,omitempty"`
+}
+
+func (x *Receipt_ExecutionResources_BuiltinCounter) Reset() {
+	*x = Receipt_ExecutionResources_BuiltinCounter{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_receipt_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Receipt_ExecutionResources_BuiltinCounter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Receipt_ExecutionResources_BuiltinCounter) ProtoMessage() {}
+
+func (x *Receipt_ExecutionResources_BuiltinCounter) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_receipt_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Receipt_ExecutionResources_BuiltinCounter.ProtoReflect.Descriptor instead.
+func (*Receipt_ExecutionResources_BuiltinCounter) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_receipt_proto_rawDescGZIP(), []int{3, 0, 0}
+}
+
+func (x *Receipt_ExecutionResources_BuiltinCounter) GetBitwise() uint32 {
+	if x != nil {
+		return x.Bitwise
 	}
 	return 0
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) GetEcdsaBuiltin() uint64 {
+func (x *Receipt_ExecutionResources_BuiltinCounter) GetEcdsa() uint32 {
 	if x != nil {
-		return x.EcdsaBuiltin
+		return x.Ecdsa
 	}
 	return 0
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) GetEcOpBuiltin() uint64 {
+func (x *Receipt_ExecutionResources_BuiltinCounter) GetEcOp() uint32 {
 	if x != nil {
-		return x.EcOpBuiltin
+		return x.EcOp
 	}
 	return 0
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) GetOutputBuiltin() uint64 {
+func (x *Receipt_ExecutionResources_BuiltinCounter) GetPedersen() uint32 {
 	if x != nil {
-		return x.OutputBuiltin
+		return x.Pedersen
 	}
 	return 0
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) GetPedersenBuiltin() uint64 {
+func (x *Receipt_ExecutionResources_BuiltinCounter) GetRangeCheck() uint32 {
 	if x != nil {
-		return x.PedersenBuiltin
+		return x.RangeCheck
 	}
 	return 0
 }
 
-func (x *ExecutionResources_BuiltinInstanceCounter) GetRangeCheckBuiltin() uint64 {
+func (x *Receipt_ExecutionResources_BuiltinCounter) GetPoseidon() uint32 {
 	if x != nil {
-		return x.RangeCheckBuiltin
+		return x.Poseidon
+	}
+	return 0
+}
+
+func (x *Receipt_ExecutionResources_BuiltinCounter) GetKeccak() uint32 {
+	if x != nil {
+		return x.Keccak
 	}
 	return 0
 }
@@ -950,122 +1044,105 @@ var file_p2p_proto_receipt_proto_rawDesc = []byte{
 	0x74, 0x72, 0x79, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x53, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x6f, 0x72,
 	0x12, 0x1e, 0x0a, 0x05, 0x6e, 0x6f, 0x6e, 0x63, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32,
 	0x08, 0x2e, 0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x05, 0x6e, 0x6f, 0x6e, 0x63, 0x65,
-	0x22, 0xe1, 0x02, 0x0a, 0x22, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x54, 0x72, 0x61, 0x6e, 0x73,
-	0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x50, 0x72, 0x6f,
-	0x70, 0x65, 0x72, 0x74, 0x69, 0x65, 0x73, 0x12, 0x33, 0x0a, 0x10, 0x74, 0x72, 0x61, 0x6e, 0x73,
+	0x22, 0xa6, 0x0a, 0x0a, 0x07, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x12, 0x29, 0x0a, 0x06,
+	0x69, 0x6e, 0x76, 0x6f, 0x6b, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x52,
+	0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x49, 0x6e, 0x76, 0x6f, 0x6b, 0x65, 0x48, 0x00, 0x52,
+	0x06, 0x69, 0x6e, 0x76, 0x6f, 0x6b, 0x65, 0x12, 0x33, 0x0a, 0x0a, 0x6c, 0x31, 0x5f, 0x68, 0x61,
+	0x6e, 0x64, 0x6c, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x52, 0x65,
+	0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x4c, 0x31, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x48,
+	0x00, 0x52, 0x09, 0x6c, 0x31, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x12, 0x2c, 0x0a, 0x07,
+	0x64, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e,
+	0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x44, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x65, 0x48,
+	0x00, 0x52, 0x07, 0x64, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x65, 0x12, 0x3e, 0x0a, 0x11, 0x64, 0x65,
+	0x70, 0x72, 0x65, 0x63, 0x61, 0x74, 0x65, 0x64, 0x5f, 0x64, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x18,
+	0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e,
+	0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x48, 0x00, 0x52, 0x10, 0x64, 0x65, 0x70, 0x72, 0x65, 0x63,
+	0x61, 0x74, 0x65, 0x64, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x12, 0x3f, 0x0a, 0x0e, 0x64, 0x65,
+	0x70, 0x6c, 0x6f, 0x79, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x16, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x44, 0x65, 0x70,
+	0x6c, 0x6f, 0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x48, 0x00, 0x52, 0x0d, 0x64, 0x65,
+	0x70, 0x6c, 0x6f, 0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x1a, 0xde, 0x02, 0x0a, 0x12,
+	0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
+	0x65, 0x73, 0x12, 0x46, 0x0a, 0x08, 0x62, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x73, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x2a, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x45,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65,
+	0x73, 0x2e, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72,
+	0x52, 0x08, 0x62, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x73, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x74,
+	0x65, 0x70, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x73, 0x74, 0x65, 0x70, 0x73,
+	0x12, 0x21, 0x0a, 0x0c, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x5f, 0x68, 0x6f, 0x6c, 0x65, 0x73,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0b, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x48, 0x6f,
+	0x6c, 0x65, 0x73, 0x1a, 0xc6, 0x01, 0x0a, 0x0e, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x43,
+	0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x12, 0x18, 0x0a, 0x07, 0x62, 0x69, 0x74, 0x77, 0x69, 0x73,
+	0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x07, 0x62, 0x69, 0x74, 0x77, 0x69, 0x73, 0x65,
+	0x12, 0x14, 0x0a, 0x05, 0x65, 0x63, 0x64, 0x73, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52,
+	0x05, 0x65, 0x63, 0x64, 0x73, 0x61, 0x12, 0x13, 0x0a, 0x05, 0x65, 0x63, 0x5f, 0x6f, 0x70, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x04, 0x65, 0x63, 0x4f, 0x70, 0x12, 0x1a, 0x0a, 0x08, 0x70,
+	0x65, 0x64, 0x65, 0x72, 0x73, 0x65, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x08, 0x70,
+	0x65, 0x64, 0x65, 0x72, 0x73, 0x65, 0x6e, 0x12, 0x1f, 0x0a, 0x0b, 0x72, 0x61, 0x6e, 0x67, 0x65,
+	0x5f, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0a, 0x72, 0x61,
+	0x6e, 0x67, 0x65, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x1a, 0x0a, 0x08, 0x70, 0x6f, 0x73, 0x65,
+	0x69, 0x64, 0x6f, 0x6e, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x08, 0x70, 0x6f, 0x73, 0x65,
+	0x69, 0x64, 0x6f, 0x6e, 0x12, 0x16, 0x0a, 0x06, 0x6b, 0x65, 0x63, 0x63, 0x61, 0x6b, 0x18, 0x07,
+	0x20, 0x01, 0x28, 0x0d, 0x52, 0x06, 0x6b, 0x65, 0x63, 0x63, 0x61, 0x6b, 0x1a, 0x89, 0x02, 0x0a,
+	0x06, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x12, 0x30, 0x0a, 0x10, 0x74, 0x72, 0x61, 0x6e, 0x73,
 	0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x08, 0x2e, 0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x0f, 0x74, 0x72, 0x61,
-	0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x61, 0x73, 0x68, 0x12, 0x2b, 0x0a, 0x11,
-	0x74, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x64, 0x65,
-	0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x10, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x27, 0x0a, 0x0a, 0x61, 0x63, 0x74,
-	0x75, 0x61, 0x6c, 0x5f, 0x66, 0x65, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e,
+	0x0b, 0x32, 0x05, 0x2e, 0x48, 0x61, 0x73, 0x68, 0x52, 0x0f, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x61,
+	0x63, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x61, 0x73, 0x68, 0x12, 0x27, 0x0a, 0x0a, 0x61, 0x63, 0x74,
+	0x75, 0x61, 0x6c, 0x5f, 0x66, 0x65, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e,
 	0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x09, 0x61, 0x63, 0x74, 0x75, 0x61, 0x6c, 0x46,
 	0x65, 0x65, 0x12, 0x31, 0x0a, 0x0d, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x5f, 0x73,
-	0x65, 0x6e, 0x74, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x4d, 0x65, 0x73, 0x73,
+	0x65, 0x6e, 0x74, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x4d, 0x65, 0x73, 0x73,
 	0x61, 0x67, 0x65, 0x54, 0x6f, 0x4c, 0x31, 0x52, 0x0c, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
-	0x73, 0x53, 0x65, 0x6e, 0x74, 0x12, 0x37, 0x0a, 0x10, 0x63, 0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65,
-	0x64, 0x5f, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x0c, 0x2e, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x54, 0x6f, 0x4c, 0x32, 0x52, 0x0f, 0x63,
-	0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65, 0x64, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x44,
-	0x0a, 0x13, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x72, 0x65, 0x73, 0x6f,
-	0x75, 0x72, 0x63, 0x65, 0x73, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x45, 0x78,
-	0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73,
-	0x52, 0x12, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75,
-	0x72, 0x63, 0x65, 0x73, 0x22, 0xc8, 0x03, 0x0a, 0x12, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69,
-	0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x12, 0x64, 0x0a, 0x18, 0x62,
-	0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x5f, 0x69, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x5f,
-	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x2a, 0x2e,
-	0x45, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63,
-	0x65, 0x73, 0x2e, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e,
-	0x63, 0x65, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x52, 0x16, 0x62, 0x75, 0x69, 0x6c, 0x74,
-	0x69, 0x6e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x65,
-	0x72, 0x12, 0x17, 0x0a, 0x07, 0x6e, 0x5f, 0x73, 0x74, 0x65, 0x70, 0x73, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x04, 0x52, 0x06, 0x6e, 0x53, 0x74, 0x65, 0x70, 0x73, 0x12, 0x24, 0x0a, 0x0e, 0x6e, 0x5f,
-	0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x5f, 0x68, 0x6f, 0x6c, 0x65, 0x73, 0x18, 0x03, 0x20, 0x01,
-	0x28, 0x04, 0x52, 0x0c, 0x6e, 0x4d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x48, 0x6f, 0x6c, 0x65, 0x73,
-	0x1a, 0x8c, 0x02, 0x0a, 0x16, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x49, 0x6e, 0x73, 0x74,
-	0x61, 0x6e, 0x63, 0x65, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x12, 0x27, 0x0a, 0x0f, 0x62,
-	0x69, 0x74, 0x77, 0x69, 0x73, 0x65, 0x5f, 0x62, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x04, 0x52, 0x0e, 0x62, 0x69, 0x74, 0x77, 0x69, 0x73, 0x65, 0x42, 0x75, 0x69,
-	0x6c, 0x74, 0x69, 0x6e, 0x12, 0x23, 0x0a, 0x0d, 0x65, 0x63, 0x64, 0x73, 0x61, 0x5f, 0x62, 0x75,
-	0x69, 0x6c, 0x74, 0x69, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0c, 0x65, 0x63, 0x64,
-	0x73, 0x61, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x12, 0x22, 0x0a, 0x0d, 0x65, 0x63, 0x5f,
-	0x6f, 0x70, 0x5f, 0x62, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04,
-	0x52, 0x0b, 0x65, 0x63, 0x4f, 0x70, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x12, 0x25, 0x0a,
-	0x0e, 0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x5f, 0x62, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x18,
-	0x04, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0d, 0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x42, 0x75, 0x69,
-	0x6c, 0x74, 0x69, 0x6e, 0x12, 0x29, 0x0a, 0x10, 0x70, 0x65, 0x64, 0x65, 0x72, 0x73, 0x65, 0x6e,
-	0x5f, 0x62, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x18, 0x05, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0f,
-	0x70, 0x65, 0x64, 0x65, 0x72, 0x73, 0x65, 0x6e, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x12,
-	0x2e, 0x0a, 0x13, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x5f, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x5f, 0x62,
-	0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x18, 0x06, 0x20, 0x01, 0x28, 0x04, 0x52, 0x11, 0x72, 0x61,
-	0x6e, 0x67, 0x65, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x42, 0x75, 0x69, 0x6c, 0x74, 0x69, 0x6e, 0x22,
-	0x57, 0x0a, 0x18, 0x49, 0x6e, 0x76, 0x6f, 0x6b, 0x65, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x12, 0x3b, 0x0a, 0x06, 0x63,
-	0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x43, 0x6f,
-	0x6d, 0x6d, 0x6f, 0x6e, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52,
-	0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x50, 0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x69, 0x65, 0x73,
-	0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x22, 0x5a, 0x0a, 0x1b, 0x4c, 0x31, 0x48, 0x61,
-	0x6e, 0x64, 0x6c, 0x65, 0x72, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e,
-	0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x12, 0x3b, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f,
-	0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
-	0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69,
-	0x70, 0x74, 0x50, 0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x69, 0x65, 0x73, 0x52, 0x06, 0x63, 0x6f,
-	0x6d, 0x6d, 0x6f, 0x6e, 0x22, 0x58, 0x0a, 0x19, 0x44, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x65, 0x54,
-	0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70,
-	0x74, 0x12, 0x3b, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x23, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61,
-	0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x50, 0x72, 0x6f, 0x70,
-	0x65, 0x72, 0x74, 0x69, 0x65, 0x73, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x22, 0x96,
-	0x01, 0x0a, 0x22, 0x44, 0x65, 0x70, 0x72, 0x65, 0x63, 0x61, 0x74, 0x65, 0x64, 0x44, 0x65, 0x70,
-	0x6c, 0x6f, 0x79, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65,
-	0x63, 0x65, 0x69, 0x70, 0x74, 0x12, 0x3b, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x54, 0x72,
-	0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74,
-	0x50, 0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x69, 0x65, 0x73, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d,
-	0x6f, 0x6e, 0x12, 0x33, 0x0a, 0x10, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x5f, 0x61,
-	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x46,
-	0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x0f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74,
-	0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0x93, 0x01, 0x0a, 0x1f, 0x44, 0x65, 0x70, 0x6c,
-	0x6f, 0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x12, 0x3b, 0x0a, 0x06, 0x63,
-	0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x43, 0x6f,
-	0x6d, 0x6d, 0x6f, 0x6e, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52,
-	0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x50, 0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x69, 0x65, 0x73,
-	0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x12, 0x33, 0x0a, 0x10, 0x63, 0x6f, 0x6e, 0x74,
-	0x72, 0x61, 0x63, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x08, 0x2e, 0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x0f, 0x63, 0x6f,
-	0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x22, 0xdf, 0x02,
-	0x0a, 0x07, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x12, 0x33, 0x0a, 0x06, 0x69, 0x6e, 0x76,
-	0x6f, 0x6b, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x49, 0x6e, 0x76, 0x6f,
-	0x6b, 0x65, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63,
-	0x65, 0x69, 0x70, 0x74, 0x48, 0x00, 0x52, 0x06, 0x69, 0x6e, 0x76, 0x6f, 0x6b, 0x65, 0x12, 0x3d,
-	0x0a, 0x0a, 0x6c, 0x31, 0x5f, 0x68, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x1c, 0x2e, 0x4c, 0x31, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x54, 0x72,
-	0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74,
-	0x48, 0x00, 0x52, 0x09, 0x6c, 0x31, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x12, 0x36, 0x0a,
-	0x07, 0x64, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a,
-	0x2e, 0x44, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x65, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74,
-	0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x48, 0x00, 0x52, 0x07, 0x64, 0x65,
-	0x63, 0x6c, 0x61, 0x72, 0x65, 0x12, 0x52, 0x0a, 0x11, 0x64, 0x65, 0x70, 0x72, 0x65, 0x63, 0x61,
-	0x74, 0x65, 0x64, 0x5f, 0x64, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x23, 0x2e, 0x44, 0x65, 0x70, 0x72, 0x65, 0x63, 0x61, 0x74, 0x65, 0x64, 0x44, 0x65, 0x70,
-	0x6c, 0x6f, 0x79, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65,
-	0x63, 0x65, 0x69, 0x70, 0x74, 0x48, 0x00, 0x52, 0x10, 0x64, 0x65, 0x70, 0x72, 0x65, 0x63, 0x61,
-	0x74, 0x65, 0x64, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x12, 0x49, 0x0a, 0x0e, 0x64, 0x65, 0x70,
-	0x6c, 0x6f, 0x79, 0x5f, 0x61, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x20, 0x2e, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e,
-	0x74, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x63, 0x65,
-	0x69, 0x70, 0x74, 0x48, 0x00, 0x52, 0x0d, 0x64, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x41, 0x63, 0x63,
-	0x6f, 0x75, 0x6e, 0x74, 0x42, 0x09, 0x0a, 0x07, 0x72, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x22,
-	0x27, 0x0a, 0x0b, 0x47, 0x65, 0x74, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x73, 0x12, 0x18,
-	0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x42, 0x6c, 0x6f,
-	0x63, 0x6b, 0x49, 0x44, 0x52, 0x02, 0x69, 0x64, 0x22, 0x30, 0x0a, 0x08, 0x52, 0x65, 0x63, 0x65,
-	0x69, 0x70, 0x74, 0x73, 0x12, 0x24, 0x0a, 0x08, 0x72, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x73,
-	0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74,
-	0x52, 0x08, 0x72, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x73, 0x53, 0x65, 0x6e, 0x74, 0x12, 0x4c, 0x0a, 0x13, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69,
+	0x6f, 0x6e, 0x5f, 0x72, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x45, 0x78, 0x65,
+	0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x52,
+	0x12, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x6f, 0x75, 0x72,
+	0x63, 0x65, 0x73, 0x12, 0x23, 0x0a, 0x0d, 0x72, 0x65, 0x76, 0x65, 0x72, 0x74, 0x5f, 0x72, 0x65,
+	0x61, 0x73, 0x6f, 0x6e, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x72, 0x65, 0x76, 0x65,
+	0x72, 0x74, 0x52, 0x65, 0x61, 0x73, 0x6f, 0x6e, 0x1a, 0x31, 0x0a, 0x06, 0x49, 0x6e, 0x76, 0x6f,
+	0x6b, 0x65, 0x12, 0x27, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x43, 0x6f, 0x6d,
+	0x6d, 0x6f, 0x6e, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x1a, 0x56, 0x0a, 0x09, 0x4c,
+	0x31, 0x48, 0x61, 0x6e, 0x64, 0x6c, 0x65, 0x72, 0x12, 0x27, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d,
+	0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69,
+	0x70, 0x74, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f,
+	0x6e, 0x12, 0x20, 0x0a, 0x08, 0x6d, 0x73, 0x67, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x05, 0x2e, 0x48, 0x61, 0x73, 0x68, 0x52, 0x07, 0x6d, 0x73, 0x67, 0x48,
+	0x61, 0x73, 0x68, 0x1a, 0x32, 0x0a, 0x07, 0x44, 0x65, 0x63, 0x6c, 0x61, 0x72, 0x65, 0x12, 0x27,
+	0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f,
+	0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x52,
+	0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x1a, 0x66, 0x0a, 0x06, 0x44, 0x65, 0x70, 0x6c, 0x6f,
+	0x79, 0x12, 0x27, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x0f, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x43, 0x6f, 0x6d, 0x6d,
+	0x6f, 0x6e, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x12, 0x33, 0x0a, 0x10, 0x63, 0x6f,
+	0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x0f,
+	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x1a,
+	0x6d, 0x0a, 0x0d, 0x44, 0x65, 0x70, 0x6c, 0x6f, 0x79, 0x41, 0x63, 0x63, 0x6f, 0x75, 0x6e, 0x74,
+	0x12, 0x27, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x0f, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x6f,
+	0x6e, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x12, 0x33, 0x0a, 0x10, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x61, 0x63, 0x74, 0x5f, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x0f, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x61, 0x63, 0x74, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x42, 0x09,
+	0x0a, 0x07, 0x72, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x22, 0x3b, 0x0a, 0x0f, 0x52, 0x65, 0x63,
+	0x65, 0x69, 0x70, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x28, 0x0a, 0x09,
+	0x69, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
+	0x0a, 0x2e, 0x49, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x09, 0x69, 0x74, 0x65,
+	0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x2a, 0x0a, 0x08, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70,
+	0x74, 0x73, 0x12, 0x1e, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x08, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x52, 0x05, 0x69, 0x74, 0x65,
+	0x6d, 0x73, 0x22, 0x88, 0x01, 0x0a, 0x10, 0x52, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x49, 0x44, 0x48, 0x01, 0x52,
+	0x02, 0x69, 0x64, 0x88, 0x01, 0x01, 0x12, 0x27, 0x0a, 0x08, 0x72, 0x65, 0x63, 0x65, 0x69, 0x70,
+	0x74, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x09, 0x2e, 0x52, 0x65, 0x63, 0x65, 0x69,
+	0x70, 0x74, 0x73, 0x48, 0x00, 0x52, 0x08, 0x72, 0x65, 0x63, 0x65, 0x69, 0x70, 0x74, 0x73, 0x12,
+	0x18, 0x0a, 0x03, 0x66, 0x69, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x04, 0x2e, 0x46,
+	0x69, 0x6e, 0x48, 0x00, 0x52, 0x03, 0x66, 0x69, 0x6e, 0x42, 0x0b, 0x0a, 0x09, 0x72, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x73, 0x42, 0x05, 0x0a, 0x03, 0x5f, 0x69, 0x64, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1080,59 +1157,66 @@ func file_p2p_proto_receipt_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_receipt_proto_rawDescData
 }
 
-var file_p2p_proto_receipt_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_p2p_proto_receipt_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_p2p_proto_receipt_proto_goTypes = []interface{}{
 	(*MessageToL1)(nil),                               // 0: MessageToL1
 	(*EthereumAddress)(nil),                           // 1: EthereumAddress
 	(*MessageToL2)(nil),                               // 2: MessageToL2
-	(*CommonTransactionReceiptProperties)(nil),        // 3: CommonTransactionReceiptProperties
-	(*ExecutionResources)(nil),                        // 4: ExecutionResources
-	(*InvokeTransactionReceipt)(nil),                  // 5: InvokeTransactionReceipt
-	(*L1HandlerTransactionReceipt)(nil),               // 6: L1HandlerTransactionReceipt
-	(*DeclareTransactionReceipt)(nil),                 // 7: DeclareTransactionReceipt
-	(*DeprecatedDeployTransactionReceipt)(nil),        // 8: DeprecatedDeployTransactionReceipt
-	(*DeployAccountTransactionReceipt)(nil),           // 9: DeployAccountTransactionReceipt
-	(*Receipt)(nil),                                   // 10: Receipt
-	(*GetReceipts)(nil),                               // 11: GetReceipts
-	(*Receipts)(nil),                                  // 12: Receipts
-	(*ExecutionResources_BuiltinInstanceCounter)(nil), // 13: ExecutionResources.BuiltinInstanceCounter
-	(*Felt252)(nil),                                   // 14: Felt252
-	(*BlockID)(nil),                                   // 15: BlockID
+	(*Receipt)(nil),                                   // 3: Receipt
+	(*ReceiptsRequest)(nil),                           // 4: ReceiptsRequest
+	(*Receipts)(nil),                                  // 5: Receipts
+	(*ReceiptsResponse)(nil),                          // 6: ReceiptsResponse
+	(*Receipt_ExecutionResources)(nil),                // 7: Receipt.ExecutionResources
+	(*Receipt_Common)(nil),                            // 8: Receipt.Common
+	(*Receipt_Invoke)(nil),                            // 9: Receipt.Invoke
+	(*Receipt_L1Handler)(nil),                         // 10: Receipt.L1Handler
+	(*Receipt_Declare)(nil),                           // 11: Receipt.Declare
+	(*Receipt_Deploy)(nil),                            // 12: Receipt.Deploy
+	(*Receipt_DeployAccount)(nil),                     // 13: Receipt.DeployAccount
+	(*Receipt_ExecutionResources_BuiltinCounter)(nil), // 14: Receipt.ExecutionResources.BuiltinCounter
+	(*Felt252)(nil),                                   // 15: Felt252
+	(*Iteration)(nil),                                 // 16: Iteration
+	(*BlockID)(nil),                                   // 17: BlockID
+	(*Fin)(nil),                                       // 18: Fin
+	(*Hash)(nil),                                      // 19: Hash
 }
 var file_p2p_proto_receipt_proto_depIdxs = []int32{
-	14, // 0: MessageToL1.from_address:type_name -> Felt252
-	14, // 1: MessageToL1.payload:type_name -> Felt252
+	15, // 0: MessageToL1.from_address:type_name -> Felt252
+	15, // 1: MessageToL1.payload:type_name -> Felt252
 	1,  // 2: MessageToL1.to_address:type_name -> EthereumAddress
 	1,  // 3: MessageToL2.from_address:type_name -> EthereumAddress
-	14, // 4: MessageToL2.payload:type_name -> Felt252
-	14, // 5: MessageToL2.to_address:type_name -> Felt252
-	14, // 6: MessageToL2.entry_point_selector:type_name -> Felt252
-	14, // 7: MessageToL2.nonce:type_name -> Felt252
-	14, // 8: CommonTransactionReceiptProperties.transaction_hash:type_name -> Felt252
-	14, // 9: CommonTransactionReceiptProperties.actual_fee:type_name -> Felt252
-	0,  // 10: CommonTransactionReceiptProperties.messages_sent:type_name -> MessageToL1
-	2,  // 11: CommonTransactionReceiptProperties.consumed_message:type_name -> MessageToL2
-	4,  // 12: CommonTransactionReceiptProperties.execution_resources:type_name -> ExecutionResources
-	13, // 13: ExecutionResources.builtin_instance_counter:type_name -> ExecutionResources.BuiltinInstanceCounter
-	3,  // 14: InvokeTransactionReceipt.common:type_name -> CommonTransactionReceiptProperties
-	3,  // 15: L1HandlerTransactionReceipt.common:type_name -> CommonTransactionReceiptProperties
-	3,  // 16: DeclareTransactionReceipt.common:type_name -> CommonTransactionReceiptProperties
-	3,  // 17: DeprecatedDeployTransactionReceipt.common:type_name -> CommonTransactionReceiptProperties
-	14, // 18: DeprecatedDeployTransactionReceipt.contract_address:type_name -> Felt252
-	3,  // 19: DeployAccountTransactionReceipt.common:type_name -> CommonTransactionReceiptProperties
-	14, // 20: DeployAccountTransactionReceipt.contract_address:type_name -> Felt252
-	5,  // 21: Receipt.invoke:type_name -> InvokeTransactionReceipt
-	6,  // 22: Receipt.l1_handler:type_name -> L1HandlerTransactionReceipt
-	7,  // 23: Receipt.declare:type_name -> DeclareTransactionReceipt
-	8,  // 24: Receipt.deprecated_deploy:type_name -> DeprecatedDeployTransactionReceipt
-	9,  // 25: Receipt.deploy_account:type_name -> DeployAccountTransactionReceipt
-	15, // 26: GetReceipts.id:type_name -> BlockID
-	10, // 27: Receipts.receipts:type_name -> Receipt
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	15, // 4: MessageToL2.payload:type_name -> Felt252
+	15, // 5: MessageToL2.to_address:type_name -> Felt252
+	15, // 6: MessageToL2.entry_point_selector:type_name -> Felt252
+	15, // 7: MessageToL2.nonce:type_name -> Felt252
+	9,  // 8: Receipt.invoke:type_name -> Receipt.Invoke
+	10, // 9: Receipt.l1_handler:type_name -> Receipt.L1Handler
+	11, // 10: Receipt.declare:type_name -> Receipt.Declare
+	12, // 11: Receipt.deprecated_deploy:type_name -> Receipt.Deploy
+	13, // 12: Receipt.deploy_account:type_name -> Receipt.DeployAccount
+	16, // 13: ReceiptsRequest.iteration:type_name -> Iteration
+	3,  // 14: Receipts.items:type_name -> Receipt
+	17, // 15: ReceiptsResponse.id:type_name -> BlockID
+	5,  // 16: ReceiptsResponse.receipts:type_name -> Receipts
+	18, // 17: ReceiptsResponse.fin:type_name -> Fin
+	14, // 18: Receipt.ExecutionResources.builtins:type_name -> Receipt.ExecutionResources.BuiltinCounter
+	19, // 19: Receipt.Common.transaction_hash:type_name -> Hash
+	15, // 20: Receipt.Common.actual_fee:type_name -> Felt252
+	0,  // 21: Receipt.Common.messages_sent:type_name -> MessageToL1
+	7,  // 22: Receipt.Common.execution_resources:type_name -> Receipt.ExecutionResources
+	8,  // 23: Receipt.Invoke.common:type_name -> Receipt.Common
+	8,  // 24: Receipt.L1Handler.common:type_name -> Receipt.Common
+	19, // 25: Receipt.L1Handler.msg_hash:type_name -> Hash
+	8,  // 26: Receipt.Declare.common:type_name -> Receipt.Common
+	8,  // 27: Receipt.Deploy.common:type_name -> Receipt.Common
+	15, // 28: Receipt.Deploy.contract_address:type_name -> Felt252
+	8,  // 29: Receipt.DeployAccount.common:type_name -> Receipt.Common
+	15, // 30: Receipt.DeployAccount.contract_address:type_name -> Felt252
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_p2p_proto_receipt_proto_init() }
@@ -1179,90 +1263,6 @@ func file_p2p_proto_receipt_proto_init() {
 			}
 		}
 		file_p2p_proto_receipt_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CommonTransactionReceiptProperties); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_p2p_proto_receipt_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExecutionResources); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_p2p_proto_receipt_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InvokeTransactionReceipt); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_p2p_proto_receipt_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*L1HandlerTransactionReceipt); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_p2p_proto_receipt_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DeclareTransactionReceipt); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_p2p_proto_receipt_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DeprecatedDeployTransactionReceipt); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_p2p_proto_receipt_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DeployAccountTransactionReceipt); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_p2p_proto_receipt_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Receipt); i {
 			case 0:
 				return &v.state
@@ -1274,8 +1274,8 @@ func file_p2p_proto_receipt_proto_init() {
 				return nil
 			}
 		}
-		file_p2p_proto_receipt_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetReceipts); i {
+		file_p2p_proto_receipt_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ReceiptsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1286,7 +1286,7 @@ func file_p2p_proto_receipt_proto_init() {
 				return nil
 			}
 		}
-		file_p2p_proto_receipt_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_p2p_proto_receipt_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Receipts); i {
 			case 0:
 				return &v.state
@@ -1298,8 +1298,104 @@ func file_p2p_proto_receipt_proto_init() {
 				return nil
 			}
 		}
+		file_p2p_proto_receipt_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ReceiptsResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_p2p_proto_receipt_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Receipt_ExecutionResources); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_p2p_proto_receipt_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Receipt_Common); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_p2p_proto_receipt_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Receipt_Invoke); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_p2p_proto_receipt_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Receipt_L1Handler); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_p2p_proto_receipt_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Receipt_Declare); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_p2p_proto_receipt_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Receipt_Deploy); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 		file_p2p_proto_receipt_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExecutionResources_BuiltinInstanceCounter); i {
+			switch v := v.(*Receipt_DeployAccount); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_p2p_proto_receipt_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Receipt_ExecutionResources_BuiltinCounter); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1311,12 +1407,16 @@ func file_p2p_proto_receipt_proto_init() {
 			}
 		}
 	}
-	file_p2p_proto_receipt_proto_msgTypes[10].OneofWrappers = []interface{}{
-		(*Receipt_Invoke)(nil),
-		(*Receipt_L1Handler)(nil),
-		(*Receipt_Declare)(nil),
+	file_p2p_proto_receipt_proto_msgTypes[3].OneofWrappers = []interface{}{
+		(*Receipt_Invoke_)(nil),
+		(*Receipt_L1Handler_)(nil),
+		(*Receipt_Declare_)(nil),
 		(*Receipt_DeprecatedDeploy)(nil),
-		(*Receipt_DeployAccount)(nil),
+		(*Receipt_DeployAccount_)(nil),
+	}
+	file_p2p_proto_receipt_proto_msgTypes[6].OneofWrappers = []interface{}{
+		(*ReceiptsResponse_Receipts)(nil),
+		(*ReceiptsResponse_Fin)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1324,7 +1424,7 @@ func file_p2p_proto_receipt_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_p2p_proto_receipt_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
