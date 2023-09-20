@@ -29,6 +29,8 @@ const (
 	MethodNotFound = -32601 // The method does not exist / is not available.
 	InvalidParams  = -32602 // Invalid method parameter(s).
 	InternalError  = -32603 // Internal JSON-RPC error.
+
+	bufferSize = 16
 )
 
 var (
@@ -268,7 +270,7 @@ func (s *Server) Handle(ctx context.Context, conn io.ReadWriter) error {
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
 func (s *Server) handle(ctx context.Context, conn io.ReadWriter) ([]byte, error) {
-	bufferedReader := bufio.NewReader(conn)
+	bufferedReader := bufio.NewReaderSize(conn, bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
 		Version: "2.0",
