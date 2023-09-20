@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"runtime"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -70,11 +72,12 @@ type Transaction interface {
 }
 
 var (
-	_ Transaction = (*DeployTransaction)(nil)
-	_ Transaction = (*DeployAccountTransaction)(nil)
-	_ Transaction = (*DeclareTransaction)(nil)
-	_ Transaction = (*InvokeTransaction)(nil)
-	_ Transaction = (*L1HandlerTransaction)(nil)
+	_            Transaction = (*DeployTransaction)(nil)
+	_            Transaction = (*DeployAccountTransaction)(nil)
+	_            Transaction = (*DeclareTransaction)(nil)
+	_            Transaction = (*InvokeTransaction)(nil)
+	_            Transaction = (*L1HandlerTransaction)(nil)
+	queryVersion             = new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(queryBit))
 )
 
 const (
@@ -82,7 +85,53 @@ const (
 	// provides 1 in 51 possibility of false positives for approximately 1000 elements
 	eventsBloomLength    = 8192
 	eventsBloomHashFuncs = 6
+	queryBit             = 128
 )
+
+// Keep in mind that this is used as a storage type, make sure you migrate
+// the DB if you change the underlying type
+type TransactionVersion felt.Felt
+
+func (v *TransactionVersion) SetUint64(u64 uint64) *TransactionVersion {
+	v.AsFelt().SetUint64(u64)
+	return v
+}
+
+func (v *TransactionVersion) HasQueryBit() bool {
+	// if versionWithoutQueryBit >= queryBit
+	return v.AsFelt().Cmp(queryVersion) != -1
+}
+
+// Is compares the version (without query bit) with the given value
+func (v *TransactionVersion) Is(u64 uint64) bool {
+	var tmpV TransactionVersion
+	tmpV.SetUint64(u64)
+	return tmpV == v.WithoutQueryBit()
+}
+
+func (v *TransactionVersion) WithoutQueryBit() TransactionVersion {
+	vFelt := felt.Felt(*v)
+	if v.HasQueryBit() {
+		vFelt.Sub(&vFelt, queryVersion)
+	}
+	return TransactionVersion(vFelt)
+}
+
+func (v *TransactionVersion) String() string {
+	return v.AsFelt().String()
+}
+
+func (v *TransactionVersion) AsFelt() *felt.Felt {
+	return (*felt.Felt)(v)
+}
+
+func (v *TransactionVersion) MarshalCBOR() ([]byte, error) {
+	return cbor.Marshal(v.AsFelt())
+}
+
+func (v *TransactionVersion) UnmarshalCBOR(data []byte) error {
+	return cbor.Unmarshal(data, v.AsFelt())
+}
 
 type DeployTransaction struct {
 	TransactionHash *felt.Felt
@@ -100,7 +149,7 @@ type DeployTransaction struct {
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
-	Version *felt.Felt
+	Version *TransactionVersion
 }
 
 func (d *DeployTransaction) Hash() *felt.Felt {
@@ -142,7 +191,7 @@ type InvokeTransaction struct {
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
-	Version *felt.Felt
+	Version *TransactionVersion
 
 	// Version 0 fields
 	// The encoding of the selector for the function invoked (the entry point in the contract)
@@ -180,7 +229,7 @@ type DeclareTransaction struct {
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
-	Version *felt.Felt
+	Version *TransactionVersion
 
 	// Version 2 fields
 	CompiledClassHash *felt.Felt
@@ -207,7 +256,7 @@ type L1HandlerTransaction struct {
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
-	Version *felt.Felt
+	Version *TransactionVersion
 }
 
 func (l *L1HandlerTransaction) Hash() *felt.Felt {
@@ -244,26 +293,26 @@ var (
 	deployAccountFelt = new(felt.Felt).SetBytes([]byte("deploy_account"))
 )
 
-func errInvalidTransactionVersion(t Transaction, version *felt.Felt) error {
-	return fmt.Errorf("invalid Transaction (type: %T) version: %v", t, version.Text(felt.Base10))
+func errInvalidTransactionVersion(t Transaction, version *TransactionVersion) error {
+	return fmt.Errorf("invalid Transaction (type: %T) version: %s", t, version)
 }
 
 func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
 	switch {
-	case i.Version.IsZero():
+	case i.Version.Is(0):
 		return crypto.PedersenArray(
 			invokeFelt,
-			i.Version,
+			i.Version.AsFelt(),
 			i.ContractAddress,
 			i.EntryPointSelector,
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
 			n.ChainID(),
 		), nil
-	case i.Version.IsOne():
+	case i.Version.Is(1):
 		return crypto.PedersenArray(
 			invokeFelt,
-			i.Version,
+			i.Version.AsFelt(),
 			i.SenderAddress,
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
@@ -278,13 +327,13 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 
 func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
 	switch {
-	case d.Version.IsZero():
+	case d.Version.Is(0):
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
 		return d.TransactionHash, nil
-	case d.Version.IsOne():
+	case d.Version.Is(1):
 		return crypto.PedersenArray(
 			declareFelt,
-			d.Version,
+			d.Version.AsFelt(),
 			d.SenderAddress,
 			new(felt.Felt),
 			crypto.PedersenArray(d.ClassHash),
@@ -292,10 +341,10 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			n.ChainID(),
 			d.Nonce,
 		), nil
-	case d.Version.Equal(new(felt.Felt).SetUint64(2)):
+	case d.Version.Is(2):
 		return crypto.PedersenArray(
 			declareFelt,
-			d.Version,
+			d.Version.AsFelt(),
 			d.SenderAddress,
 			&felt.Zero,
 			crypto.PedersenArray(d.ClassHash),
@@ -312,7 +361,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 
 func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.Felt, error) {
 	switch {
-	case l.Version.IsZero():
+	case l.Version.Is(0):
 		// There are some l1 handler transaction which do not return a nonce and for some random
 		// transaction the following hash fails.
 		if l.Nonce == nil {
@@ -320,7 +369,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 		}
 		return crypto.PedersenArray(
 			l1HandlerFelt,
-			l.Version,
+			l.Version.AsFelt(),
 			l.ContractAddress,
 			l.EntryPointSelector,
 			crypto.PedersenArray(l.CallData...),
@@ -337,10 +386,10 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 	callData := []*felt.Felt{d.ClassHash, d.ContractAddressSalt}
 	callData = append(callData, d.ConstructorCallData...)
 	// There is no version 0 for deploy account
-	if d.Version.IsOne() {
+	if d.Version.Is(1) {
 		return crypto.PedersenArray(
 			deployAccountFelt,
-			d.Version,
+			d.Version.AsFelt(),
 			d.ContractAddress,
 			&felt.Zero,
 			crypto.PedersenArray(callData...),

@@ -84,21 +84,21 @@ func (m *BucketMigrator) Migrate(txn db.Transaction, network utils.Network) erro
 		}
 
 		if pass, err := m.keyFilter(key); err != nil {
-			return db.CloseAndWrapOnError(iterator.Close, err)
+			return utils.RunAndWrapOnError(iterator.Close, err)
 		} else if pass {
 			if remainingInBatch == 0 {
 				m.startFrom = key
-				return db.CloseAndWrapOnError(iterator.Close, ErrCallWithNewTransaction)
+				return utils.RunAndWrapOnError(iterator.Close, ErrCallWithNewTransaction)
 			}
 
 			remainingInBatch--
 			value, err := iterator.Value()
 			if err != nil {
-				return db.CloseAndWrapOnError(iterator.Close, err)
+				return utils.RunAndWrapOnError(iterator.Close, err)
 			}
 
 			if err = m.do(txn, key, value, network); err != nil {
-				return db.CloseAndWrapOnError(iterator.Close, err)
+				return utils.RunAndWrapOnError(iterator.Close, err)
 			}
 		}
 	}

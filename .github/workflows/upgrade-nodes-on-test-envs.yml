@@ -77,14 +77,20 @@ jobs:
                     nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }} \
                     --db-path /var/lib/juno \
                     --http \
+                    --http-host 0.0.0.0 \
                     --http-port $httpPort \
                     --network $network \
                     --colour=false \
                     --pending-poll-interval 2s \
                     --metrics \
+                    --metrics-host 0.0.0.0 \
                     --metrics-port $metricsPort \
                     --pprof \
+                    --pprof-host 0.0.0.0 \
                     --pprof-port $pprofPort \
+                    --ws \
+                    --ws-host 0.0.0.0 \
+                    --ws-port $((httpPort+1)) \
                     $ETH_NODE_PARAM 
 
                 httpPort=$((httpPort+5))

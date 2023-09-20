@@ -69,7 +69,7 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 			if err == nil {
 				return updateSub, nil
 			}
-			c.log.Warnw("Failed to subscribe to L1 state updates", "tryAgainIn", c.resubscribeDelay, "err", err)
+			c.log.Debugw("Failed to subscribe to L1 state updates", "tryAgainIn", c.resubscribeDelay, "err", err)
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
@@ -122,7 +122,9 @@ func (c *Client) Run(ctx context.Context) error {
 				select {
 				case err := <-updateSub.Err():
 					// TODO can we use geth's event.Resubscribe?
-					c.log.Warnw("L1 update subscription failed, resubscribing", "error", err)
+					// We can't use a warn log level here since we guarantee the L1 url will only be printed
+					// in debug logs and panics (to avoid leaking the API key).
+					c.log.Debugw("L1 update subscription failed, resubscribing", "error", err)
 					updateSub.Unsubscribe()
 
 					updateSub, err = c.subscribeToUpdates(ctx, updateChan)
@@ -168,7 +170,7 @@ func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 			if err == nil {
 				return finalisedHeight
 			}
-			c.log.Warnw("Failed to retrieve L1 finalised height, retrying...", "error", err)
+			c.log.Debugw("Failed to retrieve L1 finalised height, retrying...", "error", err)
 		}
 	}
 }

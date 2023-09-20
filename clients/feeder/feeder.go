@@ -61,6 +61,11 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
+func (c *Client) WithTimeout(t time.Duration) *Client {
+	c.client.Timeout = t
+	return c
+}
+
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	return wait * 2
 }
@@ -234,7 +239,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			c.log.Warnw("failed query to feeder, retrying...", "retryAfter", wait.String())
+			c.log.Debugw("Failed query to feeder, retrying...", "retryAfter", wait.String(), "err", err)
 		}
 	}
 	return nil, err

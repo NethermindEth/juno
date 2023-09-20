@@ -76,15 +76,20 @@ func TestService(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(closer)
 
-		for i := 0; i < 4; i++ {
+		maxRetries := 4
+	RetryLoop:
+		for i := 0; i < maxRetries; i++ {
 			gossipedMessage := []byte(`veryImportantMessage`)
 			require.NoError(t, peerB.PublishOnTopic(topic, gossipedMessage))
 
 			select {
 			case <-time.After(time.Second):
-				require.NotEqual(t, 3, i)
+				if i == maxRetries-1 {
+					require.Fail(t, "timeout: never received the message")
+				}
 			case msg := <-ch:
 				require.Equal(t, gossipedMessage, msg)
+				break RetryLoop
 			}
 		}
 	})

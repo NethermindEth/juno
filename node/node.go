@@ -31,7 +31,9 @@ import (
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -44,20 +46,25 @@ const (
 type Config struct {
 	LogLevel            utils.LogLevel `mapstructure:"log-level"`
 	HTTP                bool           `mapstructure:"http"`
+	HTTPHost            string         `mapstructure:"http-host"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
 	Websocket           bool           `mapstructure:"ws"`
+	WebsocketHost       string         `mapstructure:"ws-host"`
 	WebsocketPort       uint16         `mapstructure:"ws-port"`
 	GRPC                bool           `mapstructure:"grpc"`
+	GRPCHost            string         `mapstructure:"grpc-host"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
 	EthNode             string         `mapstructure:"eth-node"`
 	Pprof               bool           `mapstructure:"pprof"`
+	PprofHost           string         `mapstructure:"pprof-host"`
 	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 
 	Metrics     bool   `mapstructure:"metrics"`
+	MetricsHost string `mapstructure:"metrics-host"`
 	MetricsPort uint16 `mapstructure:"metrics-port"`
 
 	P2P          bool   `mapstructure:"p2p"`
@@ -107,7 +114,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services := make([]service.Service, 0)
 
 	chain := blockchain.New(database, cfg.Network, log)
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua)
+	feederClientTimeout := 5 * time.Second
+	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
@@ -122,19 +130,19 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, jsonrpcServer, log))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, jsonrpcServer, log))
 	}
 	if cfg.Metrics {
-		services = append(services, makeMetrics(cfg.MetricsPort))
+		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
-		services = append(services, makeGRPC(cfg.GRPCPort, database, version))
+		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
 	}
 	if cfg.Pprof {
-		services = append(services, makePPROF(cfg.PprofPort))
+		services = append(services, makePPROF(cfg.PprofHost, cfg.PprofPort))
 	}
 
 	n := &Node{
@@ -213,6 +221,19 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
+	cfg := make(map[string]interface{})
+	err := mapstructure.Decode(n.cfg, &cfg)
+	if err != nil {
+		n.log.Errorw("Error while decoding config to mapstructure", "err", err)
+		return
+	}
+	yamlConfig, err := yaml.Marshal(n.cfg)
+	if err != nil {
+		n.log.Errorw("Error while marshalling config", "err", err)
+		return
+	}
+	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
+
 	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
@@ -223,9 +244,11 @@ func (n *Node) Run(ctx context.Context) {
 	for _, s := range n.services {
 		s := s
 		wg.Go(func() {
+			// Immediately acknowledge panicing services by shutting down the node
+			// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
+			defer cancel()
 			if err := s.Run(ctx); err != nil {
 				n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
-				cancel()
 			}
 		})
 	}

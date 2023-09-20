@@ -24,7 +24,6 @@ type Gateway interface {
 }
 
 var (
-	ErrNoTraceAvailable                = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
 	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
 	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrInvalidTxHash                   = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
@@ -61,7 +60,7 @@ const (
 
 type Handler struct {
 	bcReader      blockchain.Reader
-	synchronizer  *sync.Synchronizer
+	syncReader    sync.Reader
 	network       utils.Network
 	gatewayClient Gateway
 	feederClient  *feeder.Client
@@ -70,12 +69,12 @@ type Handler struct {
 	version       string
 }
 
-func New(bcReader blockchain.Reader, synchronizer *sync.Synchronizer, n utils.Network,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
-		synchronizer:  synchronizer,
+		syncReader:    syncReader,
 		network:       n,
 		log:           logger,
 		feederClient:  feederClient,
@@ -233,7 +232,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
-			Version:             v.Version,
+			Version:             v.Version.AsFelt(),
 			ContractAddressSalt: v.ContractAddressSalt,
 			ConstructorCallData: &v.ConstructorCallData,
 		}
@@ -247,7 +246,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 		txn = &Transaction{
 			Hash:                v.Hash(),
 			MaxFee:              v.MaxFee,
-			Version:             v.Version,
+			Version:             v.Version.AsFelt(),
 			Signature:           &sig,
 			Nonce:               v.Nonce,
 			Type:                TxnDeployAccount,
@@ -260,7 +259,7 @@ func adaptTransaction(t core.Transaction) *Transaction {
 		txn = &Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
-			Version:            v.Version,
+			Version:            v.Version.AsFelt(),
 			Nonce:              v.Nonce,
 			ContractAddress:    v.ContractAddress,
 			EntryPointSelector: v.EntryPointSelector,
@@ -283,7 +282,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 		Type:               TxnInvoke,
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
-		Version:            t.Version,
+		Version:            t.Version.AsFelt(),
 		Signature:          &sig,
 		Nonce:              t.Nonce,
 		CallData:           &t.CallData,
@@ -302,7 +301,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 		Type:              TxnDeclare,
 		Hash:              t.Hash(),
 		MaxFee:            t.MaxFee,
-		Version:           t.Version,
+		Version:           t.Version.AsFelt(),
 		Signature:         &sig,
 		Nonce:             t.Nonce,
 		ClassHash:         t.ClassHash,
@@ -579,11 +578,11 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	defaultSyncState := &Sync{Syncing: new(bool)}
 
-	startingBlockNumber := h.synchronizer.StartingBlockNumber
-	if startingBlockNumber == nil {
+	startingBlockNumber, err := h.syncReader.StartingBlockNumber()
+	if err != nil {
 		return defaultSyncState, nil
 	}
-	startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(*startingBlockNumber)
+	startingBlockHeader, err := h.bcReader.BlockHeaderByNumber(startingBlockNumber)
 	if err != nil {
 		return defaultSyncState, nil
 	}
@@ -591,7 +590,7 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	if err != nil {
 		return defaultSyncState, nil
 	}
-	highestBlockHeader := h.synchronizer.HighestBlockHeader.Load()
+	highestBlockHeader := h.syncReader.HighestBlockHeader()
 	if highestBlockHeader == nil {
 		return defaultSyncState, nil
 	}
@@ -688,11 +687,9 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 	if err != nil {
 		return nil, ErrBlockNotFound
 	}
-	declared, err := state.Class(&classHash)
-	if closerErr := stateCloser(); closerErr != nil {
-		h.log.Errorw("Error closing state reader in getClass", "err", closerErr)
-	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClass")
 
+	declared, err := state.Class(&classHash)
 	if err != nil {
 		return nil, ErrClassHashNotFound
 	}

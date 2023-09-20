@@ -8,7 +8,7 @@ title: Quick Start
 
 Suitable for casual setups, production-grade indexers, and everything in between.
 
-- :floppy_disk: **Tiny database size**: ~71Gb on mainnet
+- :floppy_disk: **Tiny database size**: ~65Gb on mainnet
 - :zap: **Blazing fast sync**: constrained only by hardware and the sequencer
 - :100: **100% [JSON-RPC spec](https://github.com/starkware-libs/starknet-specs/tree/master) compliance**: all things Starknet, in one place
 - :racing_car: **Minimal RPC response latency**: to keep your applications moving
