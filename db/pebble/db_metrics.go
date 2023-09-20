@@ -2,12 +2,14 @@ package pebble
 
 import (
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/metrics"
 	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
+	gto "github.com/prometheus/client_model/go"
 )
 
 // metricsReporter is an interface designed for exporting Pebble database metrics.
@@ -53,12 +55,12 @@ type levelsReporter struct {
 		numFiles        [lvlsAmount]prometheus.Gauge
 		size            [lvlsAmount]prometheus.Gauge
 		score           [lvlsAmount]prometheus.Gauge
-		bytesIn         [lvlsAmount]prometheus.Gauge
-		bytesIngested   [lvlsAmount]prometheus.Gauge
-		bytesMoved      [lvlsAmount]prometheus.Gauge
-		bytesRead       [lvlsAmount]prometheus.Gauge
-		bytesCompacted  [lvlsAmount]prometheus.Gauge
-		bytesFlushed    [lvlsAmount]prometheus.Gauge
+		bytesIn         [lvlsAmount]prometheus.Counter
+		bytesIngested   [lvlsAmount]prometheus.Counter
+		bytesMoved      [lvlsAmount]prometheus.Counter
+		bytesRead       [lvlsAmount]prometheus.Counter
+		bytesCompacted  [lvlsAmount]prometheus.Counter
+		bytesFlushed    [lvlsAmount]prometheus.Counter
 		tablesCompacted [lvlsAmount]prometheus.Counter
 		tablesFlushed   [lvlsAmount]prometheus.Counter
 		tablesIngested  [lvlsAmount]prometheus.Counter
@@ -94,32 +96,32 @@ func newLevelsReporter() *levelsReporter {
 		Subsystem: subsystem,
 		Name:      "score",
 	}, []string{"lvl"})
-	bytesIn := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	bytesIn := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "bytes_in",
 	}, []string{"lvl"})
-	bytesIngested := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	bytesIngested := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "bytes_ingested",
 	}, []string{"lvl"})
-	bytesMoved := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	bytesMoved := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "bytes_moved",
 	}, []string{"lvl"})
-	bytesRead := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	bytesRead := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "bytes_read",
 	}, []string{"lvl"})
-	bytesCompacted := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	bytesCompacted := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "bytes_compacted",
 	}, []string{"lvl"})
-	bytesFlushed := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	bytesFlushed := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "bytes_flushed",
@@ -247,12 +249,12 @@ func (reporter *levelsReporter) report(stats *pebble.Metrics) {
 		reporter.metrics.numFiles[i].Set(float64(lvl.NumFiles))
 		reporter.metrics.size[i].Set(float64(lvl.Size))
 		reporter.metrics.score[i].Set(lvl.Score)
-		reporter.metrics.bytesIn[i].Set(float64(bytesIn[i]))
-		reporter.metrics.bytesIngested[i].Set(float64(bytesIngested[i]))
-		reporter.metrics.bytesMoved[i].Set(float64(bytesMoved[i]))
-		reporter.metrics.bytesRead[i].Set(float64(bytesRead[i]))
-		reporter.metrics.bytesCompacted[i].Set(float64(bytesCompacted[i]))
-		reporter.metrics.bytesFlushed[i].Set(float64(bytesFlushed[i]))
+		reporter.metrics.bytesIn[i].Add(float64(bytesIn[i]))
+		reporter.metrics.bytesIngested[i].Add(float64(bytesIngested[i]))
+		reporter.metrics.bytesMoved[i].Add(float64(bytesMoved[i]))
+		reporter.metrics.bytesRead[i].Add(float64(bytesRead[i]))
+		reporter.metrics.bytesCompacted[i].Add(float64(bytesCompacted[i]))
+		reporter.metrics.bytesFlushed[i].Add(float64(bytesFlushed[i]))
 		reporter.metrics.tablesCompacted[i].Add(float64(tablesCompacted[i]))
 		reporter.metrics.tablesFlushed[i].Add(float64(tablesFlushed[i]))
 		reporter.metrics.tablesIngested[i].Add(float64(tablesIngested[i]))
@@ -432,11 +434,15 @@ func (reporter *compactReporter) report(stats *pebble.Metrics) {
 
 // cacheReporter reports about `pebble.Metrics.BlockCache` metrics.
 type cacheReporter struct {
+	cache struct {
+		Hits   uint64
+		Misses uint64
+	}
 	metrics struct {
 		Size   prometheus.Gauge
 		Count  prometheus.Gauge
-		Hits   prometheus.Gauge
-		Misses prometheus.Gauge
+		Hits   prometheus.Counter
+		Misses prometheus.Counter
 	}
 }
 
@@ -453,26 +459,31 @@ func newCacheReporter() *cacheReporter {
 		Subsystem: subsystem,
 		Name:      "count",
 	})
-	hitsGauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	hitCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "hits",
 	}, []string{"succesfull"})
-	reporter.metrics.Hits = hitsGauge.WithLabelValues("true")
-	reporter.metrics.Misses = hitsGauge.WithLabelValues("false")
+	reporter.metrics.Hits = hitCounter.WithLabelValues("true")
+	reporter.metrics.Misses = hitCounter.WithLabelValues("false")
 	metrics.MustRegister(
 		reporter.metrics.Size,
 		reporter.metrics.Count,
-		hitsGauge,
+		hitCounter,
 	)
 	return reporter
 }
 
 func (reporter *cacheReporter) report(stats *pebble.Metrics) {
+	cache := reporter.cache
+
+	reporter.cache.Hits = uint64(stats.BlockCache.Hits)
+	reporter.cache.Misses = uint64(stats.BlockCache.Misses)
+
 	reporter.metrics.Size.Set(float64(stats.BlockCache.Size))
 	reporter.metrics.Count.Set(float64(stats.BlockCache.Count))
-	reporter.metrics.Hits.Set(float64(stats.BlockCache.Hits))
-	reporter.metrics.Misses.Set(float64(stats.BlockCache.Misses))
+	reporter.metrics.Hits.Add(float64(reporter.cache.Hits - cache.Hits))
+	reporter.metrics.Misses.Add(float64(reporter.cache.Misses - cache.Misses))
 }
 
 // flushReporter reports about `pebble.Metrics.Flush` metrics.
@@ -705,7 +716,7 @@ type snapshotsReporter struct {
 		Count          prometheus.Gauge
 		EarliestSeqNum prometheus.Gauge
 		PinnedKeys     prometheus.Counter
-		PinnedSize     prometheus.Gauge
+		PinnedSize     prometheus.Counter
 	}
 }
 
@@ -727,7 +738,7 @@ func newSnapshotReporter() *snapshotsReporter {
 		Subsystem: subsystem,
 		Name:      "pinned_keys",
 	})
-	reporter.metrics.PinnedSize = prometheus.NewGauge(prometheus.GaugeOpts{
+	reporter.metrics.PinnedSize = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "pinned_size",
@@ -750,7 +761,7 @@ func (reporter *snapshotsReporter) report(stats *pebble.Metrics) {
 	reporter.metrics.Count.Set(float64(stats.Snapshots.Count))
 	reporter.metrics.EarliestSeqNum.Set(float64(stats.Snapshots.EarliestSeqNum))
 	reporter.metrics.PinnedKeys.Add(float64(reporter.cache.PinnedKeys - cache.PinnedKeys))
-	reporter.metrics.PinnedSize.Set(float64(reporter.cache.PinnedSize - cache.PinnedSize))
+	reporter.metrics.PinnedSize.Add(float64(reporter.cache.PinnedSize - cache.PinnedSize))
 }
 
 // tableReporter reports about `pebble.Metrics.Table`, `pebble.Metrics.TableCache` and `pebble.Metrics.TableIters` metrics.
@@ -925,3 +936,114 @@ func (reporter *walReporter) report(stats *pebble.Metrics) {
 	reporter.metrics.BytesIn.Add(float64(reporter.cache.BytesIn - cache.BytesIn))
 	reporter.metrics.BytesWritten.Add(float64(reporter.cache.BytesWritten - cache.BytesWritten))
 }
+
+// logsReporter reports about `pebble.Metrics.LogWriter` metrics
+type logsReporter struct {
+	cache struct {
+		Bytes        uint64
+		IdleDuration time.Duration
+		WorkDuration time.Duration
+	}
+	metrics struct {
+		// FSyncLatency is managed by the pebble itself
+		FSyncLatency prometheus.Histogram
+
+		// WriteThroughput metrics
+		Bytes        prometheus.Counter
+		WorkDuration prometheus.Counter
+		IdleDuration prometheus.Counter
+
+		// PendingBufferLen metric
+		PendingBufferLenMean prometheus.Gauge
+		// SyncQueueLen metric
+		SyncQueueLenMean prometheus.Gauge
+	}
+
+	once sync.Once
+}
+
+func newLogsReporter() *logsReporter {
+	const subsystem = "logs"
+	reporter := &logsReporter{}
+
+	reporter.metrics.Bytes = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "write_throughput_bytes",
+	})
+	workCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "write_throughput_work",
+	}, []string{"state"})
+	reporter.metrics.WorkDuration = workCounter.WithLabelValues("work")
+	reporter.metrics.IdleDuration = workCounter.WithLabelValues("idle")
+	reporter.metrics.PendingBufferLenMean = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "pending_buffer_len",
+	})
+	reporter.metrics.SyncQueueLenMean = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "sync_queue_len",
+	})
+	metrics.MustRegister(
+		reporter.metrics.Bytes,
+		workCounter,
+		reporter.metrics.PendingBufferLenMean,
+		reporter.metrics.SyncQueueLenMean,
+	)
+	return reporter
+}
+
+func (reporter *logsReporter) report(stats *pebble.Metrics) {
+	// The 'pebble.Metrics.LogWriter.FsyncLatency' metric lacks a valid description for registration.
+	// Furthermore, it doesn't provide a direct method for manual data retrieval.
+	// To address these issues, we encapsulate it within another histogram while providing
+	// a meaningful description that aligns with our specific use case.
+	reporter.once.Do(func() {
+		reporter.registerFSyncHistogram(stats.LogWriter.FsyncLatency)
+	})
+
+	cache := reporter.cache
+	reporter.cache.Bytes = uint64(stats.LogWriter.WriteThroughput.Bytes)
+	reporter.cache.WorkDuration = stats.LogWriter.WriteThroughput.WorkDuration
+	reporter.cache.IdleDuration = stats.LogWriter.WriteThroughput.IdleDuration
+
+	reporter.metrics.Bytes.Add(float64(reporter.cache.Bytes - cache.Bytes))
+	reporter.metrics.WorkDuration.Add((reporter.cache.WorkDuration - cache.WorkDuration).Seconds())
+	reporter.metrics.IdleDuration.Add((reporter.cache.IdleDuration - cache.IdleDuration).Seconds())
+	reporter.metrics.PendingBufferLenMean.Set(stats.LogWriter.PendingBufferLen.Mean())
+	reporter.metrics.SyncQueueLenMean.Set(stats.LogWriter.SyncQueueLen.Mean())
+}
+
+func (reporter *logsReporter) registerFSyncHistogram(hist prometheus.Histogram) {
+	wrapped := &dualHistogram{}
+	wrapped.valueHist = hist
+	wrapped.descrHistogram = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: namespace,
+		Subsystem: "logs",
+		Name:      "fsync_latency",
+	})
+	reporter.metrics.FSyncLatency = wrapped
+	metrics.MustRegister(reporter.metrics.FSyncLatency)
+}
+
+// dualHistogram is a histogram wrapper for reporting histogram under different description.
+type dualHistogram struct {
+	// valueHist represents a Prometheus Histogram for tracking metric values.
+	valueHist prometheus.Histogram
+	// valueHist represents a Prometheus Histogram for description.
+	descrHistogram prometheus.Histogram
+}
+
+func (hist *dualHistogram) Observe(v float64) { hist.valueHist.Observe(v) }
+
+func (hist *dualHistogram) Describe(ch chan<- *prometheus.Desc) { hist.descrHistogram.Describe(ch) }
+
+func (hist *dualHistogram) Desc() *prometheus.Desc { return hist.descrHistogram.Desc() }
+
+func (hist *dualHistogram) Write(metric *gto.Metric) error { return hist.valueHist.Write(metric) }
+
+func (hist *dualHistogram) Collect(ch chan<- prometheus.Metric) { ch <- hist }
