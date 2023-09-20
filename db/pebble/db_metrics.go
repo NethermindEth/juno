@@ -657,7 +657,6 @@ func newMemtableReporter() *memtableReporter {
 		Subsystem: subsystem,
 		Name:      "zombies",
 	})
-
 	metrics.MustRegister(
 		reporter.metrics.Size,
 		reporter.metrics.Count,
@@ -695,7 +694,6 @@ func newKeysReporter() *keysReporter {
 		Subsystem: subsystem,
 		Name:      "tombstones",
 	})
-
 	metrics.MustRegister(
 		reporter.metrics.RangeKeySets,
 		reporter.metrics.Tombstones,
@@ -1038,7 +1036,7 @@ func (reporter *logsReporter) registerFSyncHistogram(hist prometheus.Histogram) 
 type dualHistogram struct {
 	// valueHist represents a Prometheus Histogram for tracking metric values.
 	valueHist prometheus.Histogram
-	// valueHist represents a Prometheus Histogram for description.
+	// descrHistogram represents a Prometheus Histogram for description.
 	descrHistogram prometheus.Histogram
 }
 
