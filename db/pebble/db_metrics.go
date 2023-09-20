@@ -186,12 +186,14 @@ func newLevelsReporter() *levelsReporter {
 	return reporter
 }
 
+//nolint:gocritic
 func (reporter *levelsReporter) onCompBegin(ci pebble.CompactionInfo) {
 	for _, input := range ci.Input {
 		reporter.compLvls[input.Level].Add(1)
 	}
 }
 
+//nolint:gocritic
 func (reporter *levelsReporter) onCompEnd(ci pebble.CompactionInfo) {
 	reporter.compDuration.Add(int64(ci.TotalDuration))
 }
@@ -631,6 +633,7 @@ type memtableReporter struct {
 	}
 }
 
+//nolint:dupl
 func newMemtableReporter() *memtableReporter {
 	const subsystem = "memtable"
 	reporter := &memtableReporter{}
@@ -720,6 +723,7 @@ type snapshotsReporter struct {
 	}
 }
 
+//nolint:dupl
 func newSnapshotReporter() *snapshotsReporter {
 	const subsystem = "snapshots"
 	reporter := &snapshotsReporter{}
