@@ -17,7 +17,7 @@ func TestServer(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	httpService := makeHTTPService(6060, handler)
+	httpService := makeHTTPService("http://127.0.0.1:6060", 6060, handler)
 	wg.Go(func() {
 		err := httpService.Run(ctx)
 		// make sure http server shutdown properly
