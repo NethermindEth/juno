@@ -31,7 +31,9 @@ import (
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -218,6 +220,19 @@ func (n *Node) Run(ctx context.Context) {
 			n.log.Errorw("Error while closing the DB", "err", closeErr)
 		}
 	}()
+
+	cfg := make(map[string]interface{})
+	err := mapstructure.Decode(n.cfg, &cfg)
+	if err != nil {
+		n.log.Errorw("Error while decoding config to mapstructure", "err", err)
+		return
+	}
+	yamlConfig, err := yaml.Marshal(n.cfg)
+	if err != nil {
+		n.log.Errorw("Error while marshalling config", "err", err)
+		return
+	}
+	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
 	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
 		n.log.Errorw("Error while migrating the DB", "err", err)
