@@ -96,20 +96,9 @@ func AdaptExecutionResources(response *feeder.ExecutionResources) *core.Executio
 	}
 
 	return &core.ExecutionResources{
-		BuiltinInstanceCounter: AdaptBuiltinInstanceCounter(response.BuiltinInstanceCounter),
+		BuiltinInstanceCounter: core.BuiltinInstanceCounter(response.BuiltinInstanceCounter),
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
-	}
-}
-
-func AdaptBuiltinInstanceCounter(response feeder.BuiltinInstanceCounter) core.BuiltinInstanceCounter {
-	return core.BuiltinInstanceCounter{
-		Bitwise:    response.Bitwise,
-		EcOp:       response.EcOp,
-		Ecsda:      response.Ecsda,
-		Output:     response.Output,
-		Pedersen:   response.Pedersen,
-		RangeCheck: response.RangeCheck,
 	}
 }
 
