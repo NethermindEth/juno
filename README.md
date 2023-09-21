@@ -93,7 +93,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar) |
+| **>=v0.6.0**  | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
 
 #### Goerli
 
@@ -114,7 +114,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   curl -o juno_mainnet_166353.tar https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar
+   curl -o juno_mainnet_247401.tar https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.3_247401.tar
    ```
 
 2. **Prepare Directory**
@@ -130,7 +130,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_166353.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet_247401.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**
