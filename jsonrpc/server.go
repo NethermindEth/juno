@@ -28,6 +28,7 @@ const (
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
+	bufferSize       = 128
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
 
@@ -198,7 +199,7 @@ func (s *Server) Handle(ctx context.Context, data []byte) ([]byte, error) {
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
 func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, error) {
-	bufferedReader := bufio.NewReader(reader)
+	bufferedReader := bufio.NewReaderSize(reader, bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
 		Version: "2.0",
