@@ -61,7 +61,7 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
      -p 6060:6060 \
      -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
      nethermind/juno \
-     --http \
+	 --http \
      --db-path /var/lib/juno
    ```
 
