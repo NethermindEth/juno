@@ -62,35 +62,45 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 	}
 }
 
-func makeRPCMetrics() jsonrpc.EventListener {
+func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonrpc.EventListener) {
 	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "requests",
-	}, []string{"method"})
+	}, []string{"method", "version"})
 	failedRequests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "failed_requests",
-	}, []string{"method"})
+	}, []string{"method", "version"})
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "requests_latency",
-	}, []string{"method"})
+	}, []string{"method", "version"})
 	prometheus.MustRegister(requests, failedRequests, requestLatencies)
 
 	return &jsonrpc.SelectiveListener{
-		OnNewRequestCb: func(method string) {
-			requests.WithLabelValues(method).Inc()
-		},
-		OnRequestHandledCb: func(method string, took time.Duration) {
-			requestLatencies.WithLabelValues(method).Observe(took.Seconds())
-		},
-		OnRequestFailedCb: func(method string, data any) {
-			failedRequests.WithLabelValues(method).Inc()
-		},
-	}
+			OnNewRequestCb: func(method string) {
+				requests.WithLabelValues(method, version).Inc()
+			},
+			OnRequestHandledCb: func(method string, took time.Duration) {
+				requestLatencies.WithLabelValues(method, version).Observe(took.Seconds())
+			},
+			OnRequestFailedCb: func(method string, data any) {
+				failedRequests.WithLabelValues(method, version).Inc()
+			},
+		}, &jsonrpc.SelectiveListener{
+			OnNewRequestCb: func(method string) {
+				requests.WithLabelValues(method, legacyVersion).Inc()
+			},
+			OnRequestHandledCb: func(method string, took time.Duration) {
+				requestLatencies.WithLabelValues(method, legacyVersion).Observe(took.Seconds())
+			},
+			OnRequestFailedCb: func(method string, data any) {
+				failedRequests.WithLabelValues(method, legacyVersion).Inc()
+			},
+		}
 }
 
 func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {

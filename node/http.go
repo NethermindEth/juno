@@ -60,25 +60,41 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 	}
 }
 
-func makeRPCOverHTTP(host string, port uint16, server *jsonrpc.Server, log utils.SimpleLogger, metricsEnabled bool) *httpService {
-	httpHandler := jsonrpc.NewHTTP(server, log)
+func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
+	log utils.SimpleLogger, metricsEnabled bool,
+) *httpService {
+	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
-		httpHandler.WithListener(makeHTTPMetrics())
+		listener = makeHTTPMetrics()
 	}
+
 	mux := http.NewServeMux()
-	mux.Handle("/", httpHandler)
-	mux.Handle("/v0_4", httpHandler)
+	for path, server := range servers {
+		httpHandler := jsonrpc.NewHTTP(server, log)
+		if listener != nil {
+			httpHandler = httpHandler.WithListener(listener)
+		}
+		mux.Handle(path, httpHandler)
+	}
 	return makeHTTPService(host, port, mux)
 }
 
-func makeRPCOverWebsocket(host string, port uint16, server *jsonrpc.Server, log utils.SimpleLogger, metricsEnabled bool) *httpService {
-	wsHandler := jsonrpc.NewWebsocket(server, log)
+func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
+	log utils.SimpleLogger, metricsEnabled bool,
+) *httpService {
+	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
-		wsHandler.WithListener(makeWSMetrics())
+		listener = makeWSMetrics()
 	}
+
 	mux := http.NewServeMux()
-	mux.Handle("/", wsHandler)
-	mux.Handle("/v0_4", wsHandler)
+	for path, server := range servers {
+		wsHandler := jsonrpc.NewWebsocket(server, log)
+		if listener != nil {
+			wsHandler = wsHandler.WithListener(listener)
+		}
+		mux.Handle(path, wsHandler)
+	}
 	return makeHTTPService(host, port, mux)
 }
 
