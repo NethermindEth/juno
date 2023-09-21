@@ -482,3 +482,18 @@ func assertBatchResponse(t *testing.T, expectedStr, actualStr string) {
 
 	assert.ElementsMatch(t, expected, actual)
 }
+
+func BenchmarkHandle(b *testing.B) {
+	listener := CountingEventListener{}
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
+	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
+		Name:    "bench",
+		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
+	}))
+
+	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
+	for i := 0; i < b.N; i++ {
+		_, err := server.Handle(context.Background(), []byte(request))
+		require.NoError(b, err)
+	}
+}
