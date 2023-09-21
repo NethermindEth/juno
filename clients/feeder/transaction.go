@@ -160,6 +160,7 @@ type BuiltinInstanceCounter struct {
 	Output     uint64 `json:"output_builtin"`
 	Ecsda      uint64 `json:"ecdsa_builtin"`
 	EcOp       uint64 `json:"ec_op_builtin"`
+	Keccak     uint64 `json:"keccak_builtin"`
 }
 
 type TransactionReceipt struct {
