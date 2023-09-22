@@ -1420,10 +1420,6 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.Events,
 		},
 		{
-			Name:    "starknet_pendingTransactions",
-			Handler: h.PendingTransactions,
-		},
-		{
 			Name:    "juno_version",
 			Handler: h.Version,
 		},
