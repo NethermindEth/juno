@@ -151,6 +151,13 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
+func (h *Handler) LegacyBlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	block, err := h.BlockWithTxHashes(id)
+	block.BlockHeader.L1GasPrice = nil
+	block.BlockHeader.StarknetVersion = ""
+	return block, err
+}
+
 func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
 	l1Head, err := h.bcReader.L1Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -186,6 +193,10 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
+		L1GasPrice: &ResourcePrice{
+			InWei: header.GasPrice,
+		},
+		StarknetVersion: header.ProtocolVersion,
 	}
 }
 
@@ -221,6 +232,13 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
+}
+
+func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	block, err := h.BlockWithTxs(id)
+	block.BlockHeader.L1GasPrice = nil
+	block.BlockHeader.StarknetVersion = ""
+	return block, err
 }
 
 func adaptTransaction(t core.Transaction) *Transaction {
@@ -1482,12 +1500,12 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxHashes,
+			Handler: h.LegacyBlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxs,
+			Handler: h.LegacyBlockWithTxs,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
