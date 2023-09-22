@@ -54,6 +54,7 @@ type BuiltinInstanceCounter struct {
 	Ecsda      uint64
 	EcOp       uint64
 	Keccak     uint64
+	Poseidon   uint64
 }
 
 type TransactionReceipt struct {

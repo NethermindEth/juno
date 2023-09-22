@@ -495,18 +495,44 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	}
 
 	return &TransactionReceipt{
-		FinalityStatus:  status,
-		ExecutionStatus: es,
-		Type:            adaptTransaction(txn).Type,
-		Hash:            txn.Hash(),
-		ActualFee:       receipt.Fee,
-		BlockHash:       blockHash,
-		BlockNumber:     receiptBlockNumber,
-		MessagesSent:    messages,
-		Events:          events,
-		ContractAddress: contractAddress,
-		RevertReason:    receipt.RevertReason,
+		FinalityStatus:     status,
+		ExecutionStatus:    es,
+		Type:               adaptTransaction(txn).Type,
+		Hash:               txn.Hash(),
+		ActualFee:          receipt.Fee,
+		BlockHash:          blockHash,
+		BlockNumber:        receiptBlockNumber,
+		MessagesSent:       messages,
+		Events:             events,
+		ContractAddress:    contractAddress,
+		RevertReason:       receipt.RevertReason,
+		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
 	}, nil
+}
+
+func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
+	if resources == nil {
+		return &ExecutionResources{}
+	}
+	return &ExecutionResources{
+		Steps:       resources.Steps,
+		MemoryHoles: resources.MemoryHoles,
+		Pedersen:    resources.BuiltinInstanceCounter.Pedersen,
+		RangeCheck:  resources.BuiltinInstanceCounter.RangeCheck,
+		Bitwise:     resources.BuiltinInstanceCounter.Bitwise,
+		Ecsda:       resources.BuiltinInstanceCounter.Ecsda,
+		EcOp:        resources.BuiltinInstanceCounter.EcOp,
+		Keccak:      resources.BuiltinInstanceCounter.Keccak,
+		Poseidon:    resources.BuiltinInstanceCounter.Poseidon,
+	}
+}
+
+func (h *Handler) LegacyTransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	receipt, err := h.TransactionReceiptByHash(hash)
+	if receipt != nil {
+		receipt.ExecutionResources = nil
+	}
+	return receipt, err
 }
 
 // StateUpdate returns the state update identified by the given BlockID.
@@ -1523,7 +1549,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionReceiptByHash,
+			Handler: h.LegacyTransactionReceiptByHash,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",

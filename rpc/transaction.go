@@ -148,19 +148,32 @@ type Event struct {
 	Data []*felt.Felt `json:"data"`
 }
 
+type ExecutionResources struct {
+	Steps       uint64 `json:"steps"`
+	MemoryHoles uint64 `json:"memory_holes"`
+	Pedersen    uint64 `json:"pedersen_builtin_applications"`
+	RangeCheck  uint64 `json:"range_check_builtin_applications"`
+	Bitwise     uint64 `json:"bitwise_builtin_applications"`
+	Ecsda       uint64 `json:"ecdsa_builtin_applications"`
+	EcOp        uint64 `json:"ec_op_builtin_applications"`
+	Keccak      uint64 `json:"keccak_builtin_applications"`
+	Poseidon    uint64 `json:"poseidon_builtin_applications"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type            TransactionType    `json:"type"`
-	Hash            *felt.Felt         `json:"transaction_hash"`
-	ActualFee       *felt.Felt         `json:"actual_fee"`
-	ExecutionStatus TxnExecutionStatus `json:"execution_status"`
-	FinalityStatus  TxnFinalityStatus  `json:"finality_status"`
-	BlockHash       *felt.Felt         `json:"block_hash,omitempty"`
-	BlockNumber     *uint64            `json:"block_number,omitempty"`
-	MessagesSent    []*MsgToL1         `json:"messages_sent"`
-	Events          []*Event           `json:"events"`
-	ContractAddress *felt.Felt         `json:"contract_address,omitempty"`
-	RevertReason    string             `json:"revert_reason,omitempty"`
+	Type               TransactionType     `json:"type"`
+	Hash               *felt.Felt          `json:"transaction_hash"`
+	ActualFee          *felt.Felt          `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
+	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
+	BlockNumber        *uint64             `json:"block_number,omitempty"`
+	MessagesSent       []*MsgToL1          `json:"messages_sent"`
+	Events             []*Event            `json:"events"`
+	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
+	RevertReason       string              `json:"revert_reason,omitempty"`
+	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
 type AddTxResponse struct {
