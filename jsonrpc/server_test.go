@@ -3,11 +3,14 @@ package jsonrpc_test
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"net"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
+	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -504,4 +507,68 @@ func BenchmarkHandle(b *testing.B) {
 		_, err := server.Handle(context.Background(), []byte(request))
 		require.NoError(b, err)
 	}
+}
+
+func TestCannotWriteToConnInHandler(t *testing.T) {
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name: "test",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			w, ok := jsonrpc.ConnFromContext(ctx)
+			require.False(t, ok)
+			require.Nil(t, w)
+			return 0, nil
+		},
+	}))
+	res, err := server.Handle(context.Background(), []byte(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	require.NoError(t, err)
+	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
+}
+
+func TestWriteToConnInHandler(t *testing.T) {
+	testBytes := "written from handler"
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name: "test",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			w, ok := jsonrpc.ConnFromContext(ctx)
+			require.True(t, ok)
+			n, err := w.Write([]byte(testBytes))
+			require.NoError(t, err)
+			require.Equal(t, len(testBytes), n)
+			return 0, nil
+		},
+	}))
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	wg := conc.NewWaitGroup()
+	t.Cleanup(wg.Wait)
+	wg.Go(func() {
+		ctx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, serverConn)
+		resp, err := server.HandleReader(ctx, serverConn)
+		write(t, serverConn, string(resp))
+		require.NoError(t, err)
+	})
+
+	write(t, clientConn, `{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`)
+	require.Equal(t, testBytes, read(t, clientConn, len(testBytes)))
+	want := `{"jsonrpc":"2.0","result":0,"id":1}`
+	require.Equal(t, want, read(t, clientConn, len(want)))
+}
+
+func read(t *testing.T, c io.Reader, length int) string {
+	got := make([]byte, length)
+	_, err := c.Read(got)
+	require.NoError(t, err)
+	return string(got)
+}
+
+func write(t *testing.T, c io.Writer, data string) {
+	_, err := c.Write([]byte(data))
+	require.NoError(t, err)
 }

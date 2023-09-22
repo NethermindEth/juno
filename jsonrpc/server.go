@@ -195,6 +195,17 @@ func (s *Server) Handle(ctx context.Context, data []byte) ([]byte, error) {
 	return s.HandleReader(ctx, bytes.NewReader(data))
 }
 
+type ConnKey struct{}
+
+func ConnFromContext(ctx context.Context) (io.Writer, bool) {
+	conn := ctx.Value(ConnKey{})
+	if conn == nil {
+		return nil, false
+	}
+	w, ok := conn.(io.Writer)
+	return w, ok
+}
+
 // HandleReader processes a request to the server
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
