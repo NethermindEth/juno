@@ -967,9 +967,9 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InvalidContractClassVersion:
 		return ErrUnsupportedContractClassVersion
 	default:
-		unexpectedErr := ErrUnexpectedError
+		unexpectedErr := *ErrUnexpectedError
 		unexpectedErr.Data = gatewayErr.Message
-		return unexpectedErr
+		return &unexpectedErr
 	}
 }
 
