@@ -60,6 +60,16 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 	}
 }
 
+func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path {
+			http.NotFound(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}
+}
+
 func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
 	log utils.SimpleLogger, metricsEnabled bool,
 ) *httpService {
@@ -74,7 +84,7 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 		if listener != nil {
 			httpHandler = httpHandler.WithListener(listener)
 		}
-		mux.Handle(path, httpHandler)
+		mux.Handle(path, exactPathServer(path, httpHandler))
 	}
 	return makeHTTPService(host, port, mux)
 }
@@ -93,7 +103,7 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 		if listener != nil {
 			wsHandler = wsHandler.WithListener(listener)
 		}
-		mux.Handle(path, wsHandler)
+		mux.Handle(path, exactPathServer(path, wsHandler))
 	}
 	return makeHTTPService(host, port, mux)
 }
