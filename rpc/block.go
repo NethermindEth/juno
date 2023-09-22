@@ -72,14 +72,21 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type ResourcePrice struct {
+	InStark *felt.Felt `json:"price_in_strk,omitempty"`
+	InWei   *felt.Felt `json:"price_in_wei,omitempty"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
 type BlockHeader struct {
-	Hash             *felt.Felt `json:"block_hash,omitempty"`
-	ParentHash       *felt.Felt `json:"parent_hash"`
-	Number           *uint64    `json:"block_number,omitempty"`
-	NewRoot          *felt.Felt `json:"new_root,omitempty"`
-	Timestamp        uint64     `json:"timestamp"`
-	SequencerAddress *felt.Felt `json:"sequencer_address,omitempty"`
+	Hash             *felt.Felt     `json:"block_hash,omitempty"`
+	ParentHash       *felt.Felt     `json:"parent_hash"`
+	Number           *uint64        `json:"block_number,omitempty"`
+	NewRoot          *felt.Felt     `json:"new_root,omitempty"`
+	Timestamp        uint64         `json:"timestamp"`
+	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
+	L1GasPrice       *ResourcePrice `json:"l1_gas_price,omitempty"`
+	StarknetVersion  string         `json:"starknet_version,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
