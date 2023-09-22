@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
@@ -224,4 +225,42 @@ func TestTransactionVersi(t *testing.T) {
 	assert.True(t, withoutQBit.Is(2))
 	assert.False(t, withoutQBit.Is(1))
 	assert.False(t, withoutQBit.Is(0))
+}
+
+func TestMessageHash(t *testing.T) {
+	tests := []struct {
+		expected string
+		tx       *core.L1HandlerTransaction
+	}{
+		{
+			expected: "f3507cad1b674c2b2f26a0a51cc8abebe96ad7a8a9cd1aa54b00fddee776e4cf",
+			tx: &core.L1HandlerTransaction{
+				ContractAddress:    utils.HexToFelt(t, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82"),
+				EntryPointSelector: utils.HexToFelt(t, "0x02d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5"),
+				Nonce:              utils.HexToFelt(t, "0xbf0dd"),
+				CallData: []*felt.Felt{
+					utils.HexToFelt(t, "0xc3511006c04ef1d78af4c8e0e74ec18a6e64ff9e"),
+					utils.HexToFelt(t, "0x3efc988748484820f1c157fb48e218d39cadc07a662482d3875d37445b3c082"),
+					utils.HexToFelt(t, "0x11c37937e08000"),
+					utils.HexToFelt(t, "0x0"),
+				},
+			},
+		},
+		{
+			expected: "546479edde51ea965cfa77ecde8d749d198e54e4ec71e4b543866dbe837d8a26",
+			tx: &core.L1HandlerTransaction{
+				ContractAddress:    utils.HexToFelt(t, "0x078466c2444176f0be70650b3d1f520e19a095ca5fa6ff124ddc49f27a30bdac"),
+				EntryPointSelector: utils.HexToFelt(t, "0xe3f5e9e1456ffa52a3fbc7e8c296631d4cc2120c0be1e2829301c0d8fa026b"),
+				CallData: []*felt.Felt{
+					utils.HexToFelt(t, "0xeaea1710a78bd93bf022fda3e95100dc12973b1b"),
+					utils.HexToFelt(t, "0x8c1e1e5b47980d214965f3bd8ea34c413e120ae4"),
+					utils.HexToFelt(t, "0x1"),
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		assert.Equal(t, test.expected, hex.EncodeToString(test.tx.MessageHash()))
+	}
 }
