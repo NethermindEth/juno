@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -463,12 +464,15 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
+	var messageHash string
 	var contractAddress *felt.Felt
 	switch v := txn.(type) {
 	case *core.DeployTransaction:
 		contractAddress = v.ContractAddress
 	case *core.DeployAccountTransaction:
 		contractAddress = v.ContractAddress
+	case *core.L1HandlerTransaction:
+		messageHash = "0x" + hex.EncodeToString(v.MessageHash())
 	}
 
 	var receiptBlockNumber *uint64
@@ -507,6 +511,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		ContractAddress:    contractAddress,
 		RevertReason:       receipt.RevertReason,
 		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
+		MessageHash:        messageHash,
 	}, nil
 }
 
@@ -531,6 +536,7 @@ func (h *Handler) LegacyTransactionReceiptByHash(hash felt.Felt) (*TransactionRe
 	receipt, err := h.TransactionReceiptByHash(hash)
 	if receipt != nil {
 		receipt.ExecutionResources = nil
+		receipt.MessageHash = ""
 	}
 	return receipt, err
 }

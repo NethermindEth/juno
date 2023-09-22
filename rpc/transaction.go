@@ -174,6 +174,7 @@ type TransactionReceipt struct {
 	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
 	RevertReason       string              `json:"revert_reason,omitempty"`
 	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
+	MessageHash        string              `json:"message_hash,omitempty"`
 }
 
 type AddTxResponse struct {
