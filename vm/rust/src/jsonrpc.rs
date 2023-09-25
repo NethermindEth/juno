@@ -1,11 +1,18 @@
 use blockifier;
 use blockifier::execution::entry_point::{CallType, OrderedL2ToL1Message};
+use blockifier::state::cached_state::TransactionalState;
+use blockifier::state::errors::StateError;
+use blockifier::state::state_api::{State, StateReader};
+use indexmap::IndexMap;
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::Transaction as StarknetApiTransaction;
+use starknet_api::state::ThinStateDiff;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
+
+use crate::juno_state_reader::JunoStateReader;
 
 #[derive(Serialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -33,6 +40,8 @@ pub struct TransactionTrace {
     #[serde(skip_serializing_if = "Option::is_none")]
     function_invocation: Option<FunctionInvocation>,
     r#type: TransactionType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    state_diff: Option<ThinStateDiff>,
 }
 
 impl Default for TransactionTrace {
@@ -44,6 +53,7 @@ impl Default for TransactionTrace {
             constructor_invocation: None,
             function_invocation: None,
             r#type: TransactionType::Unknown,
+            state_diff: None,
         }
     }
 }
@@ -59,9 +69,10 @@ type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionIn
 pub fn new_transaction_trace(
     tx: StarknetApiTransaction,
     info: BlockifierTxInfo,
-) -> TransactionTrace {
+    state: &mut TransactionalState<JunoStateReader>,
+) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
-
+    let mut deprecated_declared_class: Option<ClassHash> = None;
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             trace.function_invocation = info.execute_call_info.map(|v| v.into());
@@ -84,10 +95,19 @@ pub fn new_transaction_trace(
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
             trace.r#type = TransactionType::Invoke;
         }
-        StarknetApiTransaction::Declare(_) => {
+        StarknetApiTransaction::Declare(declare_txn) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
             trace.r#type = TransactionType::Declare;
+            deprecated_declared_class = if info.revert_error.is_none() {
+                match declare_txn {
+                    DeclareTransaction::V0(_) => Some(declare_txn.class_hash()),
+                    DeclareTransaction::V1(_) => Some(declare_txn.class_hash()),
+                    DeclareTransaction::V2(_) => None,
+                }
+            } else {
+                None
+            }
         }
         StarknetApiTransaction::Deploy(_) => {
             // shouldn't happen since we don't support deploy
@@ -95,7 +115,8 @@ pub fn new_transaction_trace(
         }
     };
 
-    trace
+    trace.state_diff = Some(make_thin_state_diff(state, deprecated_declared_class)?);
+    Ok(trace)
 }
 
 #[derive(Serialize)]
@@ -192,3 +213,34 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 
 #[derive(Debug, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
+
+fn make_thin_state_diff(
+    state: &mut TransactionalState<JunoStateReader>,
+    deprecated_declared_class: Option<ClassHash>,
+) -> Result<ThinStateDiff, StateError> {
+    let diff = state.to_state_diff();
+    let mut deployed_contracts = IndexMap::new();
+    let mut replaced_classes = IndexMap::new();
+
+    for pair in diff.address_to_class_hash {
+        let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
+        if existing_class_hash == ClassHash::default() {
+            deployed_contracts.insert(pair.0, pair.1);
+        } else {
+            replaced_classes.insert(pair.0, pair.1);
+        }
+    }
+
+    let mut deprecated_declared_classes = Vec::default();
+    if deprecated_declared_class.is_some() {
+        deprecated_declared_classes.push(deprecated_declared_class.unwrap())
+    }
+    Ok(ThinStateDiff {
+        deployed_contracts: deployed_contracts,
+        storage_diffs: diff.storage_updates,
+        declared_classes: diff.class_hash_to_compiled_class_hash,
+        deprecated_declared_classes: deprecated_declared_classes,
+        nonces: diff.address_to_nonce,
+        replaced_classes: replaced_classes,
+    })
+}
