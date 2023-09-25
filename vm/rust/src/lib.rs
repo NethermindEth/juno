@@ -220,10 +220,13 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
+        let mut txn_state = CachedState::create_transactional(&mut state);
         let res = match txn.unwrap() {
-            Transaction::AccountTransaction(t) => t.execute(&mut state, &block_context, charge_fee),
+            Transaction::AccountTransaction(t) => {
+                t.execute(&mut txn_state, &block_context, charge_fee)
+            }
             Transaction::L1HandlerTransaction(t) => {
-                t.execute(&mut state, &block_context, charge_fee)
+                t.execute(&mut txn_state, &block_context, charge_fee)
             }
         };
 
@@ -246,20 +249,28 @@ pub extern "C" fn cairoVMExecute(
                     t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context).unwrap();
                 }
 
-                unsafe {
-                    JunoAppendActualFee(
+                let actual_fee = t.actual_fee.0.into();
+                let trace = jsonrpc::new_transaction_trace(sn_api_txn, t, &mut txn_state);
+                if trace.is_err() {
+                    report_error(
                         reader_handle,
-                        felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
+                        format!(
+                            "failed building txn state diff reason: {:?}",
+                            trace.err().unwrap()
+                        )
+                        .as_str(),
                     );
+                    return;
+                }
 
-                    append_trace(
-                        reader_handle,
-                        jsonrpc::new_transaction_trace(sn_api_txn, t),
-                        &mut trace_buffer,
-                    );
+                unsafe {
+                    JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
+
+                    append_trace(reader_handle, trace.unwrap(), &mut trace_buffer);
                 }
             }
         }
+        txn_state.commit();
     }
 }
 
