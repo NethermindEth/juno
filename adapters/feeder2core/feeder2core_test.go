@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/feeder2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,7 @@ func TestAdaptBlock(t *testing.T) {
 		number          uint64
 		protocolVersion string
 		network         utils.Network
+		sig             *feeder.Signature
 	}{
 		{
 			number:  147,
@@ -32,6 +34,9 @@ func TestAdaptBlock(t *testing.T) {
 			number:          304740,
 			protocolVersion: "0.12.1",
 			network:         utils.INTEGRATION,
+			sig: &feeder.Signature{
+				Signature: []*felt.Felt{utils.HexToFelt(t, "0x44"), utils.HexToFelt(t, "0x37")},
+			},
 		},
 	}
 
@@ -43,7 +48,7 @@ func TestAdaptBlock(t *testing.T) {
 
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
-			block, err := feeder2core.AdaptBlock(response)
+			block, err := feeder2core.AdaptBlock(response, test.sig)
 			require.NoError(t, err)
 
 			expectedEventCount := uint64(0)
@@ -68,6 +73,13 @@ func TestAdaptBlock(t *testing.T) {
 			assert.Equal(t, expectedEventCount, block.EventCount)
 			assert.Equal(t, test.protocolVersion, block.ProtocolVersion)
 			assert.Nil(t, block.ExtraData)
+
+			if test.sig != nil {
+				require.Len(t, block.Signatures, 1)
+				assert.Equal(t, test.sig.Signature, block.Signatures[0])
+			} else {
+				assert.Empty(t, block.Signatures)
+			}
 		})
 	}
 }

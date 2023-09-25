@@ -25,9 +25,11 @@ func TestBlockByNumber(t *testing.T) {
 		t.Run("mainnet block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
 			response, err := client.Block(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
+			sig, err := client.Signature(ctx, strconv.FormatUint(number, 10))
+			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
-			adaptedResponse, err := feeder2core.AdaptBlock(response)
+			adaptedResponse, err := feeder2core.AdaptBlock(response, sig)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, block)
 		})
@@ -41,9 +43,11 @@ func TestBlockLatest(t *testing.T) {
 
 	response, err := client.Block(ctx, "latest")
 	require.NoError(t, err)
+	sig, err := client.Signature(ctx, "latest")
+	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
-	adaptedResponse, err := feeder2core.AdaptBlock(response)
+	adaptedResponse, err := feeder2core.AdaptBlock(response, sig)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, block)
 }
@@ -200,9 +204,11 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		t.Run("integration block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
 			response, err := client.StateUpdateWithBlock(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
+			sig, err := client.Signature(ctx, strconv.FormatUint(number, 10))
+			require.NoError(t, err)
 			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
 			require.NoError(t, err)
-			adaptedBlock, err := feeder2core.AdaptBlock(response.Block)
+			adaptedBlock, err := feeder2core.AdaptBlock(response.Block, sig)
 			require.NoError(t, err)
 			adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
 			require.NoError(t, err)
@@ -219,7 +225,7 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 
 	response, err := client.StateUpdateWithBlock(ctx, "pending")
 	require.NoError(t, err)
-	adaptedBlock, err := feeder2core.AdaptBlock(response.Block)
+	adaptedBlock, err := feeder2core.AdaptBlock(response.Block, nil)
 	require.NoError(t, err)
 	adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
 	require.NoError(t, err)
