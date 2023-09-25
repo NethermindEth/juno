@@ -206,10 +206,7 @@ pub extern "C" fn cairoVMExecute(
         let paid_fee_on_l1: Option<Fee> = match sn_api_txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {
-                    report_error(
-                        reader_handle,
-                        "missing fee paid on l1b",
-                    );
+                    report_error(reader_handle, "missing fee paid on l1b");
                     return;
                 }
                 Some(*paid_fees_on_l1.remove(0))
@@ -261,7 +258,7 @@ pub extern "C" fn cairoVMExecute(
                         &mut trace_buffer,
                     );
                 }
-            },
+            }
         }
     }
 }
@@ -300,7 +297,11 @@ fn transaction_from_api(
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
-fn append_trace(reader_handle: usize, trace: jsonrpc::TransactionTrace, trace_buffer: &mut Vec<u8>) {
+fn append_trace(
+    reader_handle: usize,
+    trace: jsonrpc::TransactionTrace,
+    trace_buffer: &mut Vec<u8>,
+) {
     trace_buffer.clear();
     serde_json::to_writer(&mut *trace_buffer, &trace).unwrap();
 

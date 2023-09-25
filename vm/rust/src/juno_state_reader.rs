@@ -117,10 +117,12 @@ impl StateReader for JunoStateReader {
             let contract_class = contract_class_from_json_str(json_str);
             unsafe { JunoFree(ptr as *const c_void) };
 
-            contract_class.map_err(|_| StateError::StateReadError(format!(
-                "error parsing JSON string for class hash {}",
-                class_hash.0
-            )))
+            contract_class.map_err(|_| {
+                StateError::StateReadError(format!(
+                    "error parsing JSON string for class hash {}",
+                    class_hash.0
+                ))
+            })
         }
     }
 
