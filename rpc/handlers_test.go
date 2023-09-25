@@ -2163,8 +2163,8 @@ func TestTraceBlockTransactions(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
 		mockReader.EXPECT().BlockByHash(blockHash).Return(nil, errors.New("some new err"))
 
-		result, err := handler.TraceBlockTransactions(*blockHash)
-		require.Equal(t, rpc.ErrInvalidBlockHash, err)
+		result, err := handler.TraceBlockTransactions(rpc.BlockID{Hash: blockHash})
+		require.Equal(t, rpc.ErrBlockNotFound, err)
 		assert.Nil(t, result)
 	})
 	t.Run("pending block", func(t *testing.T) {
@@ -2210,7 +2210,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, height+1, header.Timestamp, sequencerAddress,
 			state, network, paidL1Fees, false, header.GasPrice).Return(nil, []json.RawMessage{vmTrace, vmTrace}, nil)
 
-		result, err := handler.TraceBlockTransactions(*blockHash)
+		result, err := handler.TraceBlockTransactions(rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, vmTrace, result[0].TraceRoot)
 		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
@@ -2259,7 +2259,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				TraceRoot:       vmTrace,
 			},
 		}
-		result, err := handler.TraceBlockTransactions(*blockHash)
+		result, err := handler.TraceBlockTransactions(rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, expectedResult, result)
 	})

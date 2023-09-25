@@ -8,28 +8,43 @@ use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payloa
 use starknet_api::transaction::{Transaction as StarknetApiTransaction};
 
 #[derive(Serialize)]
-#[serde(untagged)]
-pub enum TransactionTrace {
-    // used for INVOKE_TXN_TRACE and DECLARE_TXN_TRACE
-    Common {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        validate_invocation: Option<FunctionInvocation>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        execute_invocation: Option<ExecuteInvocation>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        fee_transfer_invocation: Option<FunctionInvocation>,
-    },
-    DeployAccount {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        validate_invocation: Option<FunctionInvocation>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        constructor_invocation: Option<FunctionInvocation>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        fee_transfer_invocation: Option<FunctionInvocation>,
-    },
-    L1Handler {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        function_invocation: Option<FunctionInvocation>
+#[serde(rename_all = "UPPERCASE")]
+pub enum TransactionType {
+    // dummy type for implementing Default trait
+    Unknown,
+    Invoke,
+    Declare,
+    #[serde(rename = "DEPLOY_ACCOUNT")]
+    DeployAccount,
+    #[serde(rename = "L1_HANDLER")]
+    L1Handler,
+}
+
+#[derive(Serialize)]
+pub struct TransactionTrace {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    validate_invocation: Option<FunctionInvocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    execute_invocation: Option<ExecuteInvocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fee_transfer_invocation: Option<FunctionInvocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    constructor_invocation: Option<FunctionInvocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    function_invocation: Option<FunctionInvocation>,
+    r#type: TransactionType,
+}
+
+impl Default for TransactionTrace {
+    fn default() -> Self {
+        Self {
+            validate_invocation: None,
+            execute_invocation: None,
+            fee_transfer_invocation: None,
+            constructor_invocation: None,
+            function_invocation: None,
+            r#type: TransactionType::Unknown,
+        }
     }
 }
 
@@ -44,34 +59,40 @@ pub enum ExecuteInvocation {
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
 pub fn new_transaction_trace(tx: StarknetApiTransaction, info: BlockifierTxInfo) -> TransactionTrace {
+    let mut trace = TransactionTrace::default();
+    
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
-            TransactionTrace::L1Handler {
-                function_invocation: info.execute_call_info.map(|v| v.into()),
-            }
+            trace.function_invocation = info.execute_call_info.map(|v| v.into());
+            trace.r#type = TransactionType::L1Handler;
         },
         StarknetApiTransaction::DeployAccount(_) => {
-            TransactionTrace::DeployAccount {
-                validate_invocation: info.validate_call_info.map(|v| v.into()),
-                constructor_invocation: info.execute_call_info.map(|v| v.into()),
-                fee_transfer_invocation: info.fee_transfer_call_info.map(|v| v.into()),
-            }
+            trace.validate_invocation = info.validate_call_info.map(|v| v.into());
+            trace.constructor_invocation = info.execute_call_info.map(|v| v.into());
+            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.r#type = TransactionType::DeployAccount;
         },
-        StarknetApiTransaction::Declare(_) | StarknetApiTransaction::Invoke(_) => {
-            TransactionTrace::Common {
-                validate_invocation: info.validate_call_info.map(|v| v.into()),
-                execute_invocation: match info.revert_error {
-                    Some(str) => Some(ExecuteInvocation::Revert{revert_reason: str}),
-                    None => info.execute_call_info.map(|v| ExecuteInvocation::Ok(v.into())),
-                },
-                fee_transfer_invocation: info.fee_transfer_call_info.map(|v| v.into()),
-            }
+        StarknetApiTransaction::Invoke(_) => {
+            trace.validate_invocation = info.validate_call_info.map(|v| v.into());
+            trace.execute_invocation = match info.revert_error {
+                Some(str) => Some(ExecuteInvocation::Revert{revert_reason: str}),
+                None => info.execute_call_info.map(|v| ExecuteInvocation::Ok(v.into())),
+            };
+            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.r#type = TransactionType::Invoke;
+        },
+        StarknetApiTransaction::Declare(_) => {
+            trace.validate_invocation = info.validate_call_info.map(|v| v.into());
+            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.r#type = TransactionType::Declare;
         },
         StarknetApiTransaction::Deploy(_) => {
             // shouldn't happen since we don't support deploy
             panic!("Can't create transaction trace for deploy transaction (unsupported)");
         }
-    }
+    };
+    
+    trace
 }
 
 #[derive(Serialize)]
