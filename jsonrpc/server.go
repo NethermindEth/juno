@@ -372,18 +372,6 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 }
 
 func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
-	if isNil(params) {
-		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
-			return p.Optional
-		})
-
-		if len(method.Params) > 0 && !allParamsAreOptional {
-			return nil, errors.New("missing non-optional param field")
-		}
-
-		return s.buildDefaultArguments(ctx, method)
-	}
-
 	handlerType := reflect.TypeOf(method.Handler)
 
 	numArgs := handlerType.NumIn()
@@ -393,6 +381,23 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 	if method.needsContext {
 		args = append(args, reflect.ValueOf(ctx))
 		addContext = 1
+	}
+
+	if isNil(params) {
+		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
+			return p.Optional
+		})
+
+		if len(method.Params) > 0 && !allParamsAreOptional {
+			return nil, errors.New("missing non-optional param field")
+		}
+
+		for i := addContext; i < numArgs; i++ {
+			arg := reflect.New(handlerType.In(i)).Elem()
+			args = append(args, arg)
+		}
+
+		return args, nil
 	}
 
 	switch reflect.TypeOf(params).Kind() {
@@ -434,20 +439,6 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		// Todo: consider returning InternalError
 		return nil, errors.New("impossible param type: check request.isSane")
 	}
-	return args, nil
-}
-
-func (s *Server) buildDefaultArguments(_ context.Context, method Method) ([]reflect.Value, error) {
-	handlerType := reflect.TypeOf(method.Handler)
-
-	numArgs := handlerType.NumIn()
-	args := make([]reflect.Value, 0, numArgs)
-
-	for i := 0; i < numArgs; i++ {
-		arg := reflect.New(handlerType.In(i)).Elem()
-		args = append(args, arg)
-	}
-
 	return args, nil
 }
 

@@ -138,13 +138,17 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
-			Name:    "acceptsContext",
-			Handler: func(_ context.Context) (int, *jsonrpc.Error) { return 0, nil },
+			Name: "acceptsContext",
+			Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+				require.NotNil(t, ctx)
+				return 0, nil
+			},
 		},
 		{
 			Name:   "acceptsContextAndTwoParams",
 			Params: []jsonrpc.Parameter{{Name: "a"}, {Name: "b"}},
-			Handler: func(_ context.Context, a, b int) (int, *jsonrpc.Error) {
+			Handler: func(ctx context.Context, a, b int) (int, *jsonrpc.Error) {
+				require.NotNil(t, ctx)
 				return b - a, nil
 			},
 		},
@@ -379,6 +383,10 @@ func TestHandle(t *testing.T) {
 		},
 		"handler accepts context with array params": {
 			req: `{"jsonrpc": "2.0", "method": "acceptsContext", "params": [], "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+		"handler accepts context without params": {
+			req: `{"jsonrpc": "2.0", "method": "acceptsContext","id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
 		"handler accepts context and two params with array params": {
