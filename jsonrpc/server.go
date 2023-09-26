@@ -391,7 +391,7 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 	if elems > 0 {
 		res.Result = tuple[0].Interface()
 	} else {
-		res.Result = ([]byte)(nil)
+		res.Result = []byte(nil)
 	}
 	return res, nil
 }
