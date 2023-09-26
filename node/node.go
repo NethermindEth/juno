@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"time"
@@ -85,13 +84,6 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
-	if cfg.DatabasePath == "" {
-		dirPrefix, err := utils.DefaultDataDir()
-		if err != nil {
-			return nil, err
-		}
-		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
-	}
 	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
