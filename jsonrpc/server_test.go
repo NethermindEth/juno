@@ -503,11 +503,11 @@ func TestHandle(t *testing.T) {
 		},
 		"echo nil error": {
 			req: `{"jsonrpc": "2.0", "method": "echoError", "params": ["nil"], "id": 1}`,
-			res: `{"jsonrpc":"2.0","id":1}`,
+			res: `{"jsonrpc":"2.0","result":null,"id":1}`,
 		},
 		"void": {
 			req: `{"jsonrpc": "2.0", "method": "void", "id": 1}`,
-			res: `{"jsonrpc":"2.0","id":1}`,
+			res: `{"jsonrpc":"2.0","result":null,"id":1}`,
 		},
 	}
 
