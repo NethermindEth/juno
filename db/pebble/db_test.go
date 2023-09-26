@@ -32,10 +32,7 @@ func (l *eventListener) OnIO(write bool) {
 func TestTransaction(t *testing.T) {
 	listener := eventListener{}
 	t.Run("new transaction can retrieve existing value", func(t *testing.T) {
-		testDB := pebble.NewMemTest().WithListener(&listener)
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t).WithListener(&listener)
 
 		txn := testDB.NewTransaction(true)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
@@ -56,10 +53,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("discarded transaction is not committed to DB", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		txn := testDB.NewTransaction(true)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
@@ -72,10 +66,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("value committed by a transactions are not accessible to other transactions created"+
 		" before Commit()", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		txn1 := testDB.NewTransaction(true)
 		txn2 := testDB.NewTransaction(false)
@@ -96,10 +87,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("discarded transaction cannot commit", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		txn := testDB.NewTransaction(true)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
@@ -111,10 +99,7 @@ func TestTransaction(t *testing.T) {
 
 func TestViewUpdate(t *testing.T) {
 	t.Run("value after Update is committed to DB", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		// Test View
 		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
@@ -137,10 +122,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("Update error does not commit value to DB", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		// Test Update
 		require.EqualError(t, testDB.Update(func(txn db.Transaction) error {
@@ -156,10 +138,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a zero-length value should be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		assert.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			require.NoError(t, txn.Set([]byte("key"), []byte{}))
@@ -172,10 +151,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a nil value should be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		assert.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			require.NoError(t, txn.Set([]byte("key"), nil))
@@ -188,10 +164,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a zero-length key should not be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		assert.Error(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set([]byte{}, []byte("value"))
@@ -199,10 +172,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a nil key should not be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest()
-		t.Cleanup(func() {
-			require.NoError(t, testDB.Close())
-		})
+		testDB := pebble.NewMemTest(t)
 
 		assert.Error(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set(nil, []byte("value"))
@@ -211,10 +181,7 @@ func TestViewUpdate(t *testing.T) {
 }
 
 func TestConcurrentUpdate(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 	wg := sync.WaitGroup{}
 
 	key := []byte{0}
@@ -268,10 +235,7 @@ func TestConcurrentUpdate(t *testing.T) {
 }
 
 func TestSeek(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
@@ -323,10 +287,7 @@ func TestPrefixSearch(t *testing.T) {
 		{123, []byte("f")},
 	}
 
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 
 	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 		for _, d := range data {
@@ -371,10 +332,7 @@ func TestPrefixSearch(t *testing.T) {
 }
 
 func TestNext(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
@@ -412,10 +370,7 @@ func TestNext(t *testing.T) {
 }
 
 func TestPanic(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 
 	t.Run("view", func(t *testing.T) {
 		defer func() {

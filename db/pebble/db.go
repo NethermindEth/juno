@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"testing"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
@@ -38,11 +39,16 @@ func NewMem() (db.DB, error) {
 }
 
 // NewMemTest opens a new in-memory database, panics on error
-func NewMemTest() db.DB {
+func NewMemTest(t *testing.T) db.DB {
 	memDB, err := NewMem()
 	if err != nil {
-		panic(err)
+		t.Fatalf("create in-memory db: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := memDB.Close(); err != nil {
+			t.Errorf("close in-memory db: %v", err)
+		}
+	})
 	return memDB
 }
 

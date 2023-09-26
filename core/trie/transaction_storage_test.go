@@ -13,7 +13,7 @@ import (
 )
 
 func TestTransactionStorage(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	prefix := []byte{37, 44}
 	key := trie.NewKey(44, nil)
 

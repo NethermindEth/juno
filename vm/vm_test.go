@@ -17,13 +17,12 @@ import (
 )
 
 func TestV0Call(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
 	})
 
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
@@ -76,13 +75,12 @@ func TestV0Call(t *testing.T) {
 }
 
 func TestV1Call(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	client := feeder.NewTestClient(t, utils.GOERLI)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
 	})
 
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
@@ -143,11 +141,10 @@ func TestV1Call(t *testing.T) {
 func TestExecute(t *testing.T) {
 	const network = utils.GOERLI2
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(false)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
 	})
 
 	state := core.NewState(txn)

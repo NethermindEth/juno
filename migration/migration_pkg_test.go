@@ -21,10 +21,7 @@ import (
 )
 
 func TestMigration0000(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 
 	t.Run("empty DB", func(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
@@ -43,10 +40,7 @@ func TestMigration0000(t *testing.T) {
 }
 
 func TestRelocateContractStorageRootKeys(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 
 	txn := testDB.NewTransaction(true)
 
@@ -81,10 +75,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 }
 
 func TestRecalculateBloomFilters(t *testing.T) {
-	testdb := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testdb.Close())
-	})
+	testdb := pebble.NewMemTest(t)
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
@@ -111,10 +102,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 }
 
 func TestChangeTrieNodeEncoding(t *testing.T) {
-	testdb := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testdb.Close())
-	})
+	testdb := pebble.NewMemTest(t)
 
 	buckets := []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
 
@@ -170,10 +158,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 }
 
 func TestCalculateBlockCommitments(t *testing.T) {
-	testdb := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testdb.Close())
-	})
+	testdb := pebble.NewMemTest(t)
 	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)

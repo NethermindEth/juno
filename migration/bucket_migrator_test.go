@@ -22,7 +22,7 @@ func TestBucketMover(t *testing.T) {
 		return len(b) > 1, nil
 	})
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 		for i := byte(0); i < 3; i++ {
 			if err := txn.Set(sourceBucket.Key([]byte{i}), []byte{i}); err != nil {
