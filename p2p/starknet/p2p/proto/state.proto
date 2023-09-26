@@ -12,13 +12,13 @@ message StateDiff
 {
     // a bit more efficient than the state sync separation
     message ContractDiff {
-        Address address = 1;
-        optional Felt252 nonce = 2;
-        optional Felt252 class_hash = 3; // can change for replace_class or new contract
+        Address  address                    = 1;
+        optional Felt252 nonce              = 2;
+        optional Felt252 class_hash         = 3;  // can change for replace_class or new contract
         repeated ContractStoredValue values = 4;
     }
 
-    uint32 tree_id = 1;
+    uint32   domain                      = 1;  // volition state domain
     repeated ContractDiff contract_diffs = 2;
 }
 
@@ -27,12 +27,14 @@ message StateDiff
 // or, make the definitions optional? maybe it is enough to know only that a class exists, not its definition
 // which may be fetched lazily later.
 message Class {
-    Hash compiled_hash = 2; // TBD: add also/instead CASM definition (instead of every node compiling)?
-    bytes definition = 3; // compressed? size limit or split to chunks.
+    Hash     compiled_hash      = 2;  // TBD: add also/instead CASM definition (instead of every node compiling)?
+    bytes    definition         = 3;  // compressed? size limit or split to chunks.
+    optional uint32 total_parts = 4;  // if a class is too large to be sent in one message
+    optional uint32 part_num    = 5;  // 0 based
 }
 
 message Classes {
-    uint32 tree_id = 1;
+    uint32   domain        = 1;
     repeated Class classes = 2;
 }
 

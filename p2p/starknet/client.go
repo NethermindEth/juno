@@ -14,20 +14,20 @@ import (
 type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Stream, error)
 
 type Client struct {
-	newStream  NewStreamFunc
-	protocolID protocol.ID
-	log        utils.Logger
+	newStream NewStreamFunc
+	network   utils.Network
+	log       utils.Logger
 }
 
-func NewClient(newStream NewStreamFunc, protocolID protocol.ID, log utils.Logger) *Client {
+func NewClient(newStream NewStreamFunc, snNetwork utils.Network, log utils.Logger) *Client {
 	return &Client{
-		newStream:  newStream,
-		protocolID: protocolID,
-		log:        log,
+		newStream: newStream,
+		network:   snNetwork,
+		log:       log,
 	}
 }
 
-func (c *Client) sendAndCloseWrite(stream network.Stream, req proto.Message) error {
+func sendAndCloseWrite(stream network.Stream, req proto.Message) error {
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		return err
@@ -39,101 +39,48 @@ func (c *Client) sendAndCloseWrite(stream network.Stream, req proto.Message) err
 	return stream.CloseWrite()
 }
 
-func (c *Client) receiveInto(stream network.Stream, res proto.Message) error {
+func receiveInto(stream network.Stream, res proto.Message) error {
 	return protodelim.UnmarshalFrom(&byteReader{stream}, res)
 }
 
-func (c *Client) sendAndReceiveInto(ctx context.Context, req, res proto.Message) error {
-	stream, err := c.newStream(ctx, c.protocolID)
-	if err != nil {
-		return err
-	}
-	defer stream.Close() // todo: dont ignore close errors
-
-	if err = c.sendAndCloseWrite(stream, req); err != nil {
-		return err
-	}
-
-	return c.receiveInto(stream, res)
-}
-
-func (c *Client) GetBlocks(ctx context.Context, req *spec.GetBlocks) (Stream[*spec.BlockHeader], error) {
-	wrappedReq := spec.Request{
-		Req: &spec.Request_GetBlocks{
-			GetBlocks: req,
-		},
-	}
-
-	stream, err := c.newStream(ctx, c.protocolID)
+func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context.Context,
+	newStream NewStreamFunc, protocolID protocol.ID, req ReqT,
+) (Stream[ResT], error) {
+	stream, err := newStream(ctx, protocolID)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.sendAndCloseWrite(stream, &wrappedReq); err != nil {
+	if err := sendAndCloseWrite(stream, req); err != nil {
 		return nil, err
 	}
 
-	return func() (*spec.BlockHeader, bool) {
-		var res spec.BlockHeader
-		if err := c.receiveInto(stream, &res); err != nil {
+	return func() (ResT, bool) {
+		var zero ResT
+		res := zero.ProtoReflect().New().Interface()
+		if err := receiveInto(stream, res); err != nil {
 			stream.Close() // todo: dont ignore close errors
-			return nil, false
+			return zero, false
 		}
-		return &res, true
+		return res.(ResT), true
 	}, nil
 }
 
-func (c *Client) GetSignatures(ctx context.Context, req *spec.GetSignatures) (*spec.Signatures, error) {
-	wrappedReq := spec.Request{
-		Req: &spec.Request_GetSignatures{
-			GetSignatures: req,
-		},
-	}
-
-	var res spec.Signatures
-	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
+func (c *Client) RequestBlockHeaders(ctx context.Context, req *spec.BlockHeadersRequest) (Stream[*spec.BlockHeadersResponse], error) {
+	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(c.network), req)
 }
 
-func (c *Client) GetEvents(ctx context.Context, req *spec.GetEvents) (*spec.Events, error) {
-	wrappedReq := spec.Request{
-		Req: &spec.Request_GetEvents{
-			GetEvents: req,
-		},
-	}
-
-	var res spec.Events
-	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
+func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (Stream[*spec.BlockBodiesResponse], error) {
+	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](ctx, c.newStream, BlockBodiesPID(c.network), req)
 }
 
-func (c *Client) GetReceipts(ctx context.Context, req *spec.GetReceipts) (*spec.Receipts, error) {
-	wrappedReq := spec.Request{
-		Req: &spec.Request_GetReceipts{
-			GetReceipts: req,
-		},
-	}
-
-	var res spec.Receipts
-	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
+func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (Stream[*spec.EventsResponse], error) {
+	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(c.network), req)
 }
 
-func (c *Client) GetTransactions(ctx context.Context, req *spec.GetTransactions) (*spec.Transactions, error) {
-	wrappedReq := spec.Request{
-		Req: &spec.Request_GetTransactions{
-			GetTransactions: req,
-		},
-	}
+func (c *Client) RequestReceipts(ctx context.Context, req *spec.ReceiptsRequest) (Stream[*spec.ReceiptsResponse], error) {
+	return requestAndReceiveStream[*spec.ReceiptsRequest, *spec.ReceiptsResponse](ctx, c.newStream, ReceiptsPID(c.network), req)
+}
 
-	var res spec.Transactions
-	if err := c.sendAndReceiveInto(ctx, &wrappedReq, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
+func (c *Client) RequestTransactions(ctx context.Context, req *spec.TransactionsRequest) (Stream[*spec.TransactionsResponse], error) {
+	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](ctx, c.newStream, TransactionsPID(c.network), req)
 }
