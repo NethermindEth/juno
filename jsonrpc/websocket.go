@@ -54,16 +54,21 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO include connection information, such as the remote address, in the logs.
 
-	wsc := newWebsocketConn(r.Context(), conn, ws.connParams, ws.listener)
+	wsc := newWebsocketConn(r.Context(), conn, ws.connParams)
 
 	ctx := context.WithValue(wsc.ctx, ConnKey{}, wsc)
 	for {
-		var resp []byte
-		resp, err = ws.rpc.HandleReader(ctx, wsc)
+		var msg []byte
+		_, msg, err = wsc.conn.Read(ctx)
 		if err != nil {
 			break
 		}
-		wsc.listener.OnNewRequest("any")
+		var resp []byte
+		resp, err = ws.rpc.Handle(ctx, msg)
+		if err != nil {
+			break
+		}
+		ws.listener.OnNewRequest("any")
 		if _, err = wsc.Write(resp); err != nil {
 			break
 		}
@@ -105,40 +110,18 @@ func DefaultWebsocketConnParams() *WebsocketConnParams {
 }
 
 type websocketConn struct {
-	conn     *websocket.Conn
-	buf      []byte
-	ctx      context.Context
-	params   *WebsocketConnParams
-	listener NewRequestListener
+	conn   *websocket.Conn
+	ctx    context.Context
+	params *WebsocketConnParams
 }
 
-func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *WebsocketConnParams, listener NewRequestListener) *websocketConn {
+func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *WebsocketConnParams) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
-		conn:     conn,
-		ctx:      ctx,
-		params:   params,
-		listener: listener,
+		conn:   conn,
+		ctx:    ctx,
+		params: params,
 	}
-}
-
-func (wsc *websocketConn) Read(p []byte) (int, error) {
-	if wsc.buf == nil {
-		var err error
-		_, wsc.buf, err = wsc.conn.Read(wsc.ctx)
-		if err != nil {
-			return len(wsc.buf), err
-		}
-	}
-	var n int
-	if len(wsc.buf) > len(p) {
-		n = copy(p, wsc.buf[:len(p)])
-		wsc.buf = wsc.buf[len(p):]
-	} else {
-		n = copy(p, wsc.buf)
-		wsc.buf = nil
-	}
-	return n, nil
 }
 
 // Write returns the number of bytes of p sent, not including the header.
