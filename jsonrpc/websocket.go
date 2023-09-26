@@ -132,9 +132,8 @@ func (wsc *websocketConn) Write(p []byte) (int, error) {
 	writeCtx, writeCancel := context.WithTimeout(wsc.ctx, wsc.params.WriteDuration)
 	defer writeCancel()
 	// Use MessageText since JSON is a text format.
-	err := wsc.conn.Write(writeCtx, websocket.MessageText, p)
-	if err != nil {
+	if err := wsc.conn.Write(writeCtx, websocket.MessageText, p); err != nil {
 		return 0, err
 	}
-	return len(p), err
+	return len(p), nil
 }
