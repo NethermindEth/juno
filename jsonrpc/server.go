@@ -103,9 +103,9 @@ type Method struct {
 	Params  []Parameter
 	Handler any
 
-	// The method takes a context as its first parameter.
 	// Set upon successful registration.
-	needsContext bool
+	needsContext bool // The method takes a context as its first parameter.
+	returnsError bool // Whether method returns error.
 }
 
 type Server struct {
@@ -175,11 +175,18 @@ func (s *Server) registerMethod(method Method) error {
 	if numArgs != len(method.Params) {
 		return errors.New("number of non-context function params and param names must match")
 	}
-	if handlerT.NumOut() != 2 {
-		return errors.New("handler must return 2 values")
-	}
-	if handlerT.Out(1) != reflect.TypeOf(&Error{}) {
-		return errors.New("second return value must be a *jsonrpc.Error")
+
+	switch handlerT.NumOut() {
+	case 0:
+	case 1:
+		method.returnsError = handlerT.Out(0) == reflect.TypeOf(&Error{})
+	case 2:
+		method.returnsError = true
+		if handlerT.Out(1) != reflect.TypeOf(&Error{}) {
+			return errors.New("second return value must be a *jsonrpc.Error")
+		}
+	default:
+		return errors.New("method return values can't be greater than 2")
 	}
 
 	// The method is valid. Mutate the appropriate fields and register on the server.
@@ -372,13 +379,18 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 	if res.ID == nil { // notification
 		return nil, nil
 	}
-
-	if errAny := tuple[1].Interface(); !isNil(errAny) {
-		res.Error = errAny.(*Error)
-		s.listener.OnRequestFailed(req.Method, err)
-		return res, nil
+	elems := len(tuple)
+	if calledMethod.returnsError {
+		if errAny := tuple[elems-1].Interface(); !isNil(errAny) {
+			res.Error = errAny.(*Error)
+			s.listener.OnRequestFailed(req.Method, err)
+			return res, nil
+		}
+		elems--
 	}
-	res.Result = tuple[0].Interface()
+	if elems > 0 {
+		res.Result = tuple[0].Interface()
+	}
 	return res, nil
 }
 
