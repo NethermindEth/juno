@@ -134,7 +134,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
 	}
 	if cfg.Metrics {
-		database.WithListener(makeDBMetrics())
+		database.WithListener(makeDBMetrics()).Meter(5 * time.Second)
 		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
 		jsonrpcServer.WithListener(rpcMetrics)
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)

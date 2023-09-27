@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
@@ -18,6 +19,8 @@ type DB struct {
 	pebble   *pebble.DB
 	wMutex   *sync.Mutex
 	listener db.EventListener
+
+	reporters []metricsReporter
 }
 
 // New opens a new database at the given path
@@ -53,21 +56,41 @@ func NewMemTest(t *testing.T) db.DB {
 }
 
 func newPebble(path string, options *pebble.Options) (*DB, error) {
+	reporters := []metricsReporter{
+		&levelsReporter{},
+	}
+	var (
+		database = &DB{
+			wMutex:    new(sync.Mutex),
+			listener:  &db.SelectiveListener{},
+			reporters: reporters,
+		}
+		err error
+	)
 	// hookup into events
 	if options.EventListener == nil {
 		options.EventListener = &pebble.EventListener{}
 	}
-	pDB, err := pebble.Open(path, options)
+
+	database.pebble, err = pebble.Open(path, options)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{pebble: pDB, wMutex: new(sync.Mutex), listener: &db.SelectiveListener{}}, nil
+	return database, nil
 }
 
 // WithListener registers an EventListener
 func (d *DB) WithListener(listener db.EventListener) db.DB {
 	d.listener = listener
+	for _, reporter := range d.reporters {
+		reporter.setListener(d.listener)
+	}
 	return d
+}
+
+// Meter: see db.DB.Meter
+func (d *DB) Meter(interval time.Duration) {
+	go d.meter(interval)
 }
 
 // NewTransaction : see db.DB.NewTransaction

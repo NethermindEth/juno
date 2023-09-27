@@ -1,6 +1,7 @@
 package node
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -9,6 +10,151 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+const (
+	dbLvlsAmount = 7
+	dbNamespace  = "db"
+)
+
+// levelsListener listens for `db.LevelsMetrics`.
+type levelsListener struct {
+	numFiles        [dbLvlsAmount]prometheus.Gauge
+	size            [dbLvlsAmount]prometheus.Gauge
+	score           [dbLvlsAmount]prometheus.Gauge
+	bytesIn         [dbLvlsAmount]prometheus.Counter
+	bytesIngested   [dbLvlsAmount]prometheus.Counter
+	bytesMoved      [dbLvlsAmount]prometheus.Counter
+	bytesRead       [dbLvlsAmount]prometheus.Counter
+	bytesCompacted  [dbLvlsAmount]prometheus.Counter
+	bytesFlushed    [dbLvlsAmount]prometheus.Counter
+	tablesCompacted [dbLvlsAmount]prometheus.Counter
+	tablesFlushed   [dbLvlsAmount]prometheus.Counter
+	tablesIngested  [dbLvlsAmount]prometheus.Counter
+	tablesMoved     [dbLvlsAmount]prometheus.Counter
+}
+
+func newLevelsListener() *levelsListener {
+	const subsystem = "lvl"
+	listener := &levelsListener{}
+	numFiles := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "num_files",
+	}, []string{"lvl"})
+	size := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "size",
+	}, []string{"lvl"})
+	score := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "score",
+	}, []string{"lvl"})
+	bytesIn := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_in",
+	}, []string{"lvl"})
+	bytesIngested := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_ingested",
+	}, []string{"lvl"})
+	bytesMoved := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_moved",
+	}, []string{"lvl"})
+	bytesRead := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_read",
+	}, []string{"lvl"})
+	bytesCompacted := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_compacted",
+	}, []string{"lvl"})
+	bytesFlushed := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_flushed",
+	}, []string{"lvl"})
+	tablesCompacted := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "tables_compacted",
+	}, []string{"lvl"})
+	tablesFlushed := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "tables_flushed",
+	}, []string{"lvl"})
+	tablesIngested := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "tables_ingested",
+	}, []string{"lvl"})
+	tablesMoved := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "tables_moved",
+	}, []string{"lvl"})
+	for i := 0; i < dbLvlsAmount; i++ {
+		label := strconv.Itoa(i)
+		listener.numFiles[i] = numFiles.WithLabelValues(label)
+		listener.size[i] = size.WithLabelValues(label)
+		listener.score[i] = score.WithLabelValues(label)
+		listener.bytesIn[i] = bytesIn.WithLabelValues(label)
+		listener.bytesIngested[i] = bytesIngested.WithLabelValues(label)
+		listener.bytesMoved[i] = bytesMoved.WithLabelValues(label)
+		listener.bytesRead[i] = bytesRead.WithLabelValues(label)
+		listener.bytesCompacted[i] = bytesCompacted.WithLabelValues(label)
+		listener.bytesFlushed[i] = bytesFlushed.WithLabelValues(label)
+		listener.bytesFlushed[i] = bytesFlushed.WithLabelValues(label)
+		listener.bytesFlushed[i] = bytesFlushed.WithLabelValues(label)
+		listener.bytesFlushed[i] = bytesFlushed.WithLabelValues(label)
+		listener.tablesCompacted[i] = tablesCompacted.WithLabelValues(label)
+		listener.tablesFlushed[i] = tablesFlushed.WithLabelValues(label)
+		listener.tablesIngested[i] = tablesIngested.WithLabelValues(label)
+		listener.tablesMoved[i] = tablesMoved.WithLabelValues(label)
+	}
+	prometheus.MustRegister(
+		numFiles,
+		size,
+		score,
+		bytesIn,
+		bytesIngested,
+		bytesMoved,
+		bytesRead,
+		bytesCompacted,
+		bytesFlushed,
+		tablesCompacted,
+		tablesFlushed,
+		tablesIngested,
+		tablesMoved,
+	)
+	return listener
+}
+
+func (listener *levelsListener) gather(metrics db.LevelsMetrics) {
+	for i, lvl := range metrics.Level {
+		listener.numFiles[i].Set(float64(lvl.NumFiles))
+		listener.size[i].Set(float64(lvl.Size))
+		listener.score[i].Set(lvl.Score)
+		listener.bytesIn[i].Add(float64(lvl.BytesIn))
+		listener.bytesIngested[i].Add(float64(lvl.BytesIngested))
+		listener.bytesMoved[i].Add(float64(lvl.BytesMoved))
+		listener.bytesRead[i].Add(float64(lvl.BytesRead))
+		listener.bytesCompacted[i].Add(float64(lvl.BytesCompacted))
+		listener.bytesFlushed[i].Add(float64(lvl.BytesFlushed))
+		listener.tablesCompacted[i].Add(float64(lvl.TablesCompacted))
+		listener.tablesFlushed[i].Add(float64(lvl.TablesFlushed))
+		listener.tablesIngested[i].Add(float64(lvl.TablesIngested))
+		listener.tablesMoved[i].Add(float64(lvl.TablesMoved))
+	}
+}
 
 func makeDBMetrics() db.EventListener {
 	readCounter := prometheus.NewCounter(prometheus.CounterOpts{
@@ -20,7 +166,7 @@ func makeDBMetrics() db.EventListener {
 		Name:      "write",
 	})
 	prometheus.MustRegister(readCounter, writeCounter)
-
+	levels := newLevelsListener()
 	return &db.SelectiveListener{
 		OnIOCb: func(write bool) {
 			if write {
@@ -29,6 +175,7 @@ func makeDBMetrics() db.EventListener {
 				readCounter.Inc()
 			}
 		},
+		OnLevelsCb: levels.gather,
 	}
 }
 

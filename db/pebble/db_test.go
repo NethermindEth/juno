@@ -29,6 +29,8 @@ func (l *eventListener) OnIO(write bool) {
 	}
 }
 
+func (l *eventListener) OnLevels(_ db.LevelsMetrics) {}
+
 func TestTransaction(t *testing.T) {
 	listener := eventListener{}
 	t.Run("new transaction can retrieve existing value", func(t *testing.T) {

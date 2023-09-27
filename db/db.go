@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"io"
+	"time"
 )
 
 // ErrKeyNotFound is returned when key isn't found on a txn.Get.
@@ -29,6 +30,9 @@ type DB interface {
 
 	// WithListener registers an EventListener
 	WithListener(listener EventListener) DB
+
+	// Meter enables expensive metrics collection.
+	Meter(interval time.Duration)
 }
 
 // Iterator is an iterator over a DB's key/value pairs.
