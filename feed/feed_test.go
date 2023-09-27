@@ -28,3 +28,23 @@ func TestFeed(t *testing.T) {
 	sub.Unsubscribe() // Unsubscribing twice is ok.
 	f.Send(1)         // Sending without subscribers is ok.
 }
+
+func TestTee(t *testing.T) {
+	// sourceFeed -> sourceSub
+	sourceFeed := feed.New[int]()
+	sourceSub := sourceFeed.Subscribe()
+	t.Cleanup(sourceSub.Unsubscribe)
+	// nextFeed -> nextSub
+	nextFeed := feed.New[int]()
+	nextSub := nextFeed.Subscribe()
+	t.Cleanup(nextSub.Unsubscribe)
+
+	// sourceSub -> nextFeed
+	feed.Tee(sourceSub, nextFeed)
+
+	// nextSub receives values from sourceFeed and nextFeed.
+	sourceFeed.Send(1)
+	require.Equal(t, 1, <-nextSub.Recv())
+	nextFeed.Send(2)
+	require.Equal(t, 2, <-nextSub.Recv())
+}

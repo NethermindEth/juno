@@ -2,10 +2,13 @@ package rpc
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"slices"
+	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -13,10 +16,12 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/sourcegraph/conc"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -52,6 +57,9 @@ var (
 	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
+
+	// These errors can be only be returned by Juno-specific methods.
+	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
 )
 
 const (
@@ -68,6 +76,18 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 	version       string
+
+	newHeads *feed.Feed[*core.Header]
+
+	idgen         func() uint64
+	mu            stdsync.Mutex // protects subscriptions.
+	subscriptions map[uint64]*subscription
+}
+
+type subscription struct {
+	cancel func()
+	wg     conc.WaitGroup
+	conn   jsonrpc.Conn
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
@@ -81,8 +101,32 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 		feederClient:  feederClient,
 		gatewayClient: gatewayClient,
 		vm:            virtualMachine,
+		idgen: func() uint64 {
+			var n uint64
+			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
+			}
+			return n
+		},
 		version:       version,
+		newHeads:      feed.New[*core.Header](),
+		subscriptions: make(map[uint64]*subscription),
 	}
+}
+
+func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
+	h.idgen = idgen
+	return h
+}
+
+func (h *Handler) Run(ctx context.Context) error {
+	newHeadsSub := h.bcReader.SubscribeNewHeads().Subscription
+	defer newHeadsSub.Unsubscribe()
+	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	<-ctx.Done()
+	for _, sub := range h.subscriptions {
+		sub.wg.Wait()
+	}
+	return nil
 }
 
 // ChainID returns the chain ID of the currently configured network.
@@ -1408,6 +1452,78 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "0.5.0", nil
 }
 
+func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error) {
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	id := h.idgen()
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	sub := &subscription{
+		cancel: subscriptionCtxCancel,
+		conn:   w,
+	}
+	h.mu.Lock()
+	h.subscriptions[id] = sub
+	h.mu.Unlock()
+	sub.wg.Go(func() {
+		headerSub := h.newHeads.Subscribe()
+		defer func() {
+			headerSub.Unsubscribe()
+			h.unsubscribe(sub, id)
+		}()
+		for {
+			select {
+			case <-subscriptionCtx.Done():
+				return
+			case header := <-headerSub.Recv():
+				resp, err := json.Marshal(jsonrpc.Request{
+					Version: "2.0",
+					Method:  "juno_subscribeNewHeads",
+					Params: map[string]any{
+						"result":       adaptBlockHeader(header),
+						"subscription": id,
+					},
+				})
+				if err != nil {
+					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					return
+				}
+				if _, err = w.Write(resp); err != nil {
+					h.log.Warnw("Error writing a subscription reply", "err", err)
+					return
+				}
+			}
+		}
+	})
+	return id, nil
+}
+
+func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+	h.mu.Lock()
+	sub, ok := h.subscriptions[id]
+	h.mu.Unlock() // Don't defer since h.unsubscribe acquires the lock.
+	if !ok || !sub.conn.Equal(w) {
+		return false, ErrSubscriptionNotFound
+	}
+	sub.cancel()
+	sub.wg.Wait() // Let the subscription finish before responding.
+	return true, nil
+}
+
+// unsubscribe assumes h.mu is unlocked. It releases all subscription resources.
+func (h *Handler) unsubscribe(sub *subscription, id uint64) {
+	sub.cancel()
+	h.mu.Lock()
+	delete(h.subscriptions, id)
+	h.mu.Unlock()
+}
+
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -1548,6 +1664,15 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.SpecVersion,
+		},
+		{
+			Name:    "juno_subscribeNewHeads",
+			Handler: h.SubscribeNewHeads,
+		},
+		{
+			Name:    "juno_unsubscribe",
+			Params:  []jsonrpc.Parameter{{Name: "id"}},
+			Handler: h.Unsubscribe,
 		},
 	}, "/v0_5"
 }

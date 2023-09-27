@@ -62,3 +62,13 @@ func (f *Feed[T]) Send(v T) {
 		}
 	}
 }
+
+// Tee forwards all values received from sub to f.
+// It stops tee-ing values when sub is unsubscribed.
+func Tee[T any](sub *Subscription[T], f *Feed[T]) {
+	go func() {
+		for v := range sub.Recv() {
+			f.Send(v)
+		}
+	}()
+}
