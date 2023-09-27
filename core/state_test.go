@@ -23,7 +23,7 @@ func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -152,7 +152,7 @@ func TestContractClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -211,7 +211,7 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -262,7 +262,7 @@ func TestNonce(t *testing.T) {
 }
 
 func TestStateHistory(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -316,7 +316,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -364,7 +364,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 }
 
 func TestClass(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -408,7 +408,7 @@ func TestClass(t *testing.T) {
 }
 
 func TestRevert(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -555,7 +555,7 @@ func TestRevert(t *testing.T) {
 				return err
 			}
 			assert.False(t, it.Next())
-			return nil
+			return it.Close()
 		}))
 	})
 }
@@ -564,7 +564,7 @@ func TestRevertNoClassContracts(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -602,7 +602,7 @@ func TestRevertNoClassContracts(t *testing.T) {
 }
 
 func TestRevertDeclaredClasses(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())

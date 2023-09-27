@@ -1568,10 +1568,7 @@ func TestClassAt(t *testing.T) {
 }
 
 func TestEvents(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 	chain := blockchain.New(testDB, utils.GOERLI2, utils.NewNopZapLogger())
 
 	client := feeder.NewTestClient(t, utils.GOERLI2)
