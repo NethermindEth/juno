@@ -283,7 +283,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 }}],
 					[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 }}]]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 		"no method": {
 			req: `{
@@ -447,12 +447,12 @@ func TestHandle(t *testing.T) {
 		},
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 		"rpc call with invalid Batch": {
 			isBatch: true,
 			req:     `[1,2,3]`,
-			res:     `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
+			res:     `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 	}
 
@@ -526,6 +526,16 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
 }
 
+type fakeConn struct{}
+
+func (fc *fakeConn) Write(p []byte) (int, error) {
+	return 0, nil
+}
+
+func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
+	return false
+}
+
 func TestWriteToConnInHandler(t *testing.T) {
 	testBytes := "written from handler"
 	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
@@ -540,6 +550,8 @@ func TestWriteToConnInHandler(t *testing.T) {
 				n, err := w.Write([]byte(testBytes))
 				require.NoError(t, err)
 				require.Equal(t, len(testBytes), n)
+				require.True(t, w.Equal(w)) //nolint:gocritic
+				require.False(t, w.Equal(&fakeConn{}))
 			})
 			return 0, nil
 		},
