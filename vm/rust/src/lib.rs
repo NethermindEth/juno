@@ -130,6 +130,7 @@ pub extern "C" fn cairoVMExecute(
     paid_fees_on_l1_json: *const c_char,
     skip_charge_fee: c_uchar,
     gas_price: *const c_uchar,
+    legacy_json: c_uchar,
 ) {
     let reader = JunoStateReader::new(reader_handle);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
@@ -250,7 +251,7 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 let actual_fee = t.actual_fee.0.into();
-                let trace = jsonrpc::new_transaction_trace(sn_api_txn, t, &mut txn_state);
+                let mut trace = jsonrpc::new_transaction_trace(sn_api_txn, t, &mut txn_state);
                 if trace.is_err() {
                     report_error(
                         reader_handle,
@@ -265,9 +266,11 @@ pub extern "C" fn cairoVMExecute(
 
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-
-                    append_trace(reader_handle, trace.unwrap(), &mut trace_buffer);
                 }
+                if legacy_json == 1 {
+                    trace.as_mut().unwrap().make_legacy()
+                }
+                append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
             }
         }
         txn_state.commit();
@@ -310,11 +313,11 @@ fn transaction_from_api(
 
 fn append_trace(
     reader_handle: usize,
-    trace: jsonrpc::TransactionTrace,
+    trace: &jsonrpc::TransactionTrace,
     trace_buffer: &mut Vec<u8>,
 ) {
     trace_buffer.clear();
-    serde_json::to_writer(&mut *trace_buffer, &trace).unwrap();
+    serde_json::to_writer(&mut *trace_buffer, trace).unwrap();
 
     let ptr = trace_buffer.as_ptr();
     let len = trace_buffer.len();

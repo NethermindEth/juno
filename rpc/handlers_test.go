@@ -2030,10 +2030,10 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any(), utils.MAINNET, gomock.Any(), gomock.Any(), latestHeader.GasPrice).DoAndReturn(
+		gomock.Any(), utils.MAINNET, gomock.Any(), gomock.Any(), latestHeader.GasPrice, gomock.Any()).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-			skipChargeFee bool, gasPrice *felt.Felt,
+			skipChargeFee bool, gasPrice *felt.Felt, legacyTraceJson bool,
 		) ([]*felt.Felt, []json.RawMessage, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
@@ -2112,7 +2112,7 @@ func TestTraceTransaction(t *testing.T) {
 		"fee_transfer_invocation": {"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": ["0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x2cb6", "0x0"], "caller_address": "0xd747220b2744d8d8d48c8a52bd3869fb98aea915665ab2485d5eadb49def6a", "class_hash": "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3", "entry_point_type": "EXTERNAL", "call_type": "CALL", "result": ["0x1"], "calls": [{"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", "entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e", "calldata": ["0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x2cb6", "0x0"], "caller_address": "0xd747220b2744d8d8d48c8a52bd3869fb98aea915665ab2485d5eadb49def6a", "class_hash": "0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0", "entry_point_type": "EXTERNAL", "call_type": "LIBRARY_CALL", "result": ["0x1"], "calls": [], "events": [{"keys": ["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"], "data": ["0xd747220b2744d8d8d48c8a52bd3869fb98aea915665ab2485d5eadb49def6a", "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8", "0x2cb6", "0x0"]}], "messages": []}], "events": [], "messages": []}
 	}`)
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
-			nil, utils.MAINNET, []*felt.Felt{}, false, gomock.Any()).Return(nil, []json.RawMessage{vmTrace}, nil)
+			nil, utils.MAINNET, []*felt.Felt{}, false, gomock.Any(), false).Return(nil, []json.RawMessage{vmTrace}, nil)
 
 		trace, err := handler.TraceTransaction(*hash)
 		require.Nil(t, err)
@@ -2142,7 +2142,7 @@ func TestSimulateTransactions(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, nil).
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
@@ -2210,7 +2210,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			"fee_transfer_invocation": {}
 		}`)
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, height+1, header.Timestamp, sequencerAddress,
-			state, network, paidL1Fees, false, header.GasPrice).Return(nil, []json.RawMessage{vmTrace, vmTrace}, nil)
+			state, network, paidL1Fees, false, header.GasPrice, false).Return(nil, []json.RawMessage{vmTrace, vmTrace}, nil)
 
 		result, err := handler.TraceBlockTransactions(rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
@@ -2253,7 +2253,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			"fee_transfer_invocation":{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0","entry_point_type":"EXTERNAL","call_type":"LIBRARY_CALL","result":["0x1"],"calls":[],"events":[{"keys":["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"]}],"messages":[]}],"events":[],"messages":[]}}
 		}`)
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
-			nil, network, []*felt.Felt{}, false, header.GasPrice).Return(nil, []json.RawMessage{vmTrace}, nil)
+			nil, network, []*felt.Felt{}, false, header.GasPrice, false).Return(nil, []json.RawMessage{vmTrace}, nil)
 
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
