@@ -39,9 +39,35 @@ pub struct TransactionTrace {
     constructor_invocation: Option<FunctionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     function_invocation: Option<FunctionInvocation>,
-    r#type: TransactionType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    r#type: Option<TransactionType>,
     #[serde(skip_serializing_if = "Option::is_none")]
     state_diff: Option<ThinStateDiff>,
+}
+
+impl TransactionTrace {
+    pub fn make_legacy(&mut self) {
+        self.state_diff = None;
+        self.r#type = None;
+        if let Some(invocation) = &mut self.validate_invocation {
+            invocation.make_legacy()
+        }
+        if let Some(invocation) = &mut self.execute_invocation {
+            match invocation {
+                ExecuteInvocation::Ok(fn_invocation) => { fn_invocation.make_legacy() }
+                _ => {}
+            }
+        }
+        if let Some(invocation) = &mut self.fee_transfer_invocation {
+            invocation.make_legacy()
+        }
+        if let Some(invocation) = &mut self.constructor_invocation {
+            invocation.make_legacy()
+        }
+        if let Some(invocation) = &mut self.function_invocation {
+            invocation.make_legacy()
+        }
+    }
 }
 
 impl Default for TransactionTrace {
@@ -52,7 +78,7 @@ impl Default for TransactionTrace {
             fee_transfer_invocation: None,
             constructor_invocation: None,
             function_invocation: None,
-            r#type: TransactionType::Unknown,
+            r#type: None,
             state_diff: None,
         }
     }
@@ -76,13 +102,13 @@ pub fn new_transaction_trace(
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             trace.function_invocation = info.execute_call_info.map(|v| v.into());
-            trace.r#type = TransactionType::L1Handler;
+            trace.r#type = Some(TransactionType::L1Handler);
         }
         StarknetApiTransaction::DeployAccount(_) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.constructor_invocation = info.execute_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.r#type = TransactionType::DeployAccount;
+            trace.r#type = Some(TransactionType::DeployAccount);
         }
         StarknetApiTransaction::Invoke(_) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
@@ -93,12 +119,12 @@ pub fn new_transaction_trace(
                     .map(|v| ExecuteInvocation::Ok(v.into())),
             };
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.r#type = TransactionType::Invoke;
+            trace.r#type = Some(TransactionType::Invoke);
         }
         StarknetApiTransaction::Declare(declare_txn) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.r#type = TransactionType::Declare;
+            trace.r#type = Some(TransactionType::Declare);
             deprecated_declared_class = if info.revert_error.is_none() {
                 match declare_txn {
                     DeclareTransaction::V0(_) => Some(declare_txn.class_hash()),
@@ -121,7 +147,8 @@ pub fn new_transaction_trace(
 
 #[derive(Serialize)]
 pub struct OrderedEvent {
-    pub order: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<usize>,
     #[serde(flatten)]
     pub event: EventContent,
 }
@@ -130,7 +157,7 @@ type BlockifierOrderedEvent = blockifier::execution::entry_point::OrderedEvent;
 impl From<BlockifierOrderedEvent> for OrderedEvent {
     fn from(val: BlockifierOrderedEvent) -> Self {
         OrderedEvent {
-            order: val.order,
+            order: Some(val.order),
             event: val.event,
         }
     }
@@ -144,10 +171,24 @@ pub struct FunctionInvocation {
     pub class_hash: Option<ClassHash>,
     pub entry_point_type: EntryPointType,
     pub call_type: String,
-    pub result: Option<Vec<StarkFelt>>,
-    pub calls: Option<Vec<FunctionInvocation>>,
-    pub events: Option<Vec<OrderedEvent>>,
-    pub messages: Option<Vec<OrderedMessage>>,
+    pub result: Vec<StarkFelt>,
+    pub calls: Vec<FunctionInvocation>,
+    pub events: Vec<OrderedEvent>,
+    pub messages: Vec<OrderedMessage>,
+}
+
+impl FunctionInvocation {
+    fn make_legacy(&mut self) {
+        for indx in 0..self.events.len() {
+            self.events[indx].order = None;
+        }
+        for indx in 0..self.messages.len() {
+            self.messages[indx].order = None;
+        }
+        for indx in 0..self.calls.len() {
+            self.calls[indx].make_legacy();
+        }
+    }
 }
 
 type BlockifierCallInfo = blockifier::execution::entry_point::CallInfo;
@@ -162,16 +203,15 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
             .to_string(),
             caller_address: val.call.caller_address,
             class_hash: val.call.class_hash,
-            result: Some(val.execution.retdata.0),
+            result: val.execution.retdata.0,
             function_call: FunctionCall {
                 contract_address: val.call.storage_address,
                 entry_point_selector: val.call.entry_point_selector,
                 calldata: val.call.calldata,
             },
-            calls: Some(val.inner_calls.into_iter().map(|v| v.into()).collect()),
-            events: Some(val.execution.events.into_iter().map(|v| v.into()).collect()),
-            messages: Some(
-                val.execution
+            calls: val.inner_calls.into_iter().map(|v| v.into()).collect(),
+            events: val.execution.events.into_iter().map(|v| v.into()).collect(),
+            messages: val.execution
                     .l2_to_l1_messages
                     .into_iter()
                     .map(|v| {
@@ -180,7 +220,6 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
                         ordered_message
                     })
                     .collect(),
-            ),
         }
     }
 }
@@ -194,7 +233,8 @@ pub struct FunctionCall {
 
 #[derive(Serialize)]
 pub struct OrderedMessage {
-    pub order: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order: Option<usize>,
     pub from_address: ContractAddress,
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
@@ -203,7 +243,7 @@ pub struct OrderedMessage {
 impl From<OrderedL2ToL1Message> for OrderedMessage {
     fn from(val: OrderedL2ToL1Message) -> Self {
         OrderedMessage {
-            order: val.order,
+            order: Some(val.order),
             from_address: ContractAddress(PatriciaKey::default()),
             to_address: val.message.to_address,
             payload: val.message.payload,

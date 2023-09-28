@@ -1179,7 +1179,15 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
-	_, _, blockNumber, err := h.bcReader.Receipt(&hash)
+	return h.traceTransaction(&hash, false)
+}
+
+func (h *Handler) LegacyTraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
+	return h.traceTransaction(&hash, true)
+}
+
+func (h *Handler) traceTransaction(hash *felt.Felt, legacyTraceJSON bool) (json.RawMessage, *jsonrpc.Error) {
+	_, _, blockNumber, err := h.bcReader.Receipt(hash)
 	if err != nil {
 		return nil, ErrInvalidTxHash
 	}
@@ -1190,13 +1198,13 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 	}
 
 	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
-		return tx.Hash().Equal(&hash)
+		return tx.Hash().Equal(hash)
 	})
 	if txIndex == -1 {
 		return nil, ErrTxnHashNotFound
 	}
 
-	traceResults, traceBlockErr := h.traceBlockTransactions(block, txIndex+1)
+	traceResults, traceBlockErr := h.traceBlockTransactions(block, txIndex+1, legacyTraceJSON)
 	if traceBlockErr != nil {
 		return nil, traceBlockErr
 	}
@@ -1206,6 +1214,18 @@ func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Er
 
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
+) ([]SimulatedTransaction, *jsonrpc.Error) {
+	return h.simulateTransactions(id, transactions, simulationFlags, false)
+}
+
+func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag,
+) ([]SimulatedTransaction, *jsonrpc.Error) {
+	return h.simulateTransactions(id, transactions, simulationFlags, true)
+}
+
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, legacyTraceJSON bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	if slices.Contains(simulationFlags, SkipValidateFlag) {
 		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Skip validate is not supported")
@@ -1257,7 +1277,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice)
+		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice, legacyTraceJSON)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1286,14 +1306,19 @@ func (h *Handler) TraceBlockTransactions(id BlockID) ([]TracedBlockTransaction, 
 		return nil, ErrBlockNotFound
 	}
 
-	return h.traceBlockTransactions(block, len(block.Transactions))
+	return h.traceBlockTransactions(block, len(block.Transactions), false)
 }
 
 func (h *Handler) LegacyTraceBlockTransactions(hash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	return h.TraceBlockTransactions(BlockID{Hash: &hash})
+	block, err := h.bcReader.BlockByHash(&hash)
+	if err != nil {
+		return nil, ErrBlockNotFound
+	}
+
+	return h.traceBlockTransactions(block, len(block.Transactions), true)
 }
 
-func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int, legacyTraceJSON bool) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
@@ -1351,7 +1376,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int) ([]Trac
 	}
 
 	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice)
+		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyTraceJSON)
 	if err != nil {
 		rpcErr := *ErrContractError
 		rpcErr.Data = err.Error()
@@ -1652,12 +1677,12 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_traceTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TraceTransaction,
+			Handler: h.LegacyTraceTransaction,
 		},
 		{
 			Name:    "starknet_simulateTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.SimulateTransactions,
+			Handler: h.LegacySimulateTransactions,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
