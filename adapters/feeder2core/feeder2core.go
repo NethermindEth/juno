@@ -19,16 +19,19 @@ func AdaptBlock(response *feeder.Block) (*core.Block, error) {
 	}
 
 	txns := make([]core.Transaction, len(response.Transactions))
-	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
-	eventCount := uint64(0)
 	for i, txn := range response.Transactions {
 		var err error
 		txns[i], err = AdaptTransaction(txn)
 		if err != nil {
 			return nil, err
 		}
-		receipts[i] = AdaptTransactionReceipt(response.Receipts[i])
-		eventCount += uint64(len(response.Receipts[i].Events))
+	}
+
+	receipts := make([]*core.TransactionReceipt, len(response.Receipts))
+	eventCount := uint64(0)
+	for i, receipt := range response.Receipts {
+		receipts[i] = AdaptTransactionReceipt(receipt)
+		eventCount += uint64(len(receipt.Events))
 	}
 
 	return &core.Block{
