@@ -71,6 +71,7 @@ docker run -d \
   nethermind/juno \
   --http \
   --http-port 6060 \
+  --http-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --eth-node <YOUR-ETH-NODE>
 ```
