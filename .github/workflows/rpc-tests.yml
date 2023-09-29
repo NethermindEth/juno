@@ -1,23 +1,19 @@
 name: RPC Tests
 
 on:
-  workflow_dispatch:
-    inputs:
-      NODE_ADDRESS:
-        description: 'Target Node Address, e.g http://IP_ADDRESS:PORT'
+  workflow_call:
+    secrets:
+      STARKNET_RPC:
+        required: false
+      REPOSITORY_DISPATCH_TOKEN:
         required: true
-      NETWORK:
-        description: 'Target Network'
-        required: true
-        default: 'mainnet'
 
 jobs:
-  RPC_Tests:
-    name: RPC Test Execution
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Juno Smoke Tests
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v4
         with:
           repository: NethermindEth/juno-smoke-tests
           token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
@@ -29,4 +25,4 @@ jobs:
 
       - name: Execute RPC Tests
         working-directory: rpc-tests/tests
-        run: go test -v --nodeURL=${{ github.event.inputs.NODE_ADDRESS }} --network=${{ github.event.inputs.NETWORK }}
+        run: go test -v --nodeURL=${{ secrets.STARKNET_RPC }} --network=mainnet

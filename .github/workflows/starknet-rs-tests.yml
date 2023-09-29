@@ -1,18 +1,17 @@
 name: starknet-rs tests
 
 on:
-  workflow_dispatch:
-    inputs:
-      NODE_URL:
-        description: 'URL of the node to test against'
-        required: true
+  workflow_call:
+    secrets:
+      STARKNET_RPC:
+        required: false
 
 jobs:
-  starknet-rs-tests:
+  test:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v3.5.3
+      uses: actions/checkout@v4
       with:
         repository: xJonathanLEI/starknet-rs
         ref: starknet/v0.6.0
@@ -29,5 +28,4 @@ jobs:
         cd starknet-providers && cargo test jsonrpc
         cd ../starknet-accounts && cargo test jsonrpc -- --skip can_declare_cairo0_contract_with_jsonrpc
       env:
-        STARKNET_RPC: ${{ github.event.inputs.NODE_URL }}
-
+        STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
