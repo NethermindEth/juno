@@ -2,7 +2,7 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, wojciechos/cleanup-ci]
     tags: [v*]
     
 jobs:
@@ -12,8 +12,6 @@ jobs:
       - name: Call AMD Build Workflow
         id: amd_build
         uses: ./.github/workflows/docker-build-publish-amd.yml
-        with:
-          tag: ${{ github.ref }}
     outputs:
       AMD_IMAGE_TAG: ${{ steps.amd_build.outputs.AMD_IMAGE_TAG }}
 
