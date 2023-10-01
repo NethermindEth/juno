@@ -17,60 +17,16 @@ on:
 
 jobs:
   build_and_push_docker_image_amd:
-    if: github.repository_owner == 'NethermindEth'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-            fetch-depth: 0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          platforms: 'linux/amd64'
-          push: true
-          tags: nethermindeth/juno:${{ github.event.inputs.tag }}
+      - name: Call AMD Build Workflow
+        uses: ./.github/workflows/docker-build-publish-amd.yml
 
   build_and_push_docker_image_arm:
-    if: github.repository_owner == 'NethermindEth'
     runs-on: self-hosted
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-            fetch-depth: 0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-            
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Build and push ARM
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          platforms: 'linux/arm64'
-          push: true
-          tags: nethermindeth/juno:${{ github.event.inputs.tag }}-arm64
-      
-      - name: Cleanup self-hosted
-        run: |
-          docker system prune -af
+      - name: Call ARM Build Workflow
+        uses: ./.github/workflows/docker-build-publish-arm.yml
 
   create_and_push_official_image:
     if: github.repository_owner == 'NethermindEth' && github.event.inputs.repo_type == 'official'
@@ -96,4 +52,3 @@ jobs:
         if: always()
         run: |
           rm -f ${HOME}/.docker/config.json
-  
