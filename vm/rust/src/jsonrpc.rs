@@ -3,12 +3,10 @@ use blockifier::execution::entry_point::{CallType, OrderedL2ToL1Message};
 use blockifier::state::cached_state::TransactionalState;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{State, StateReader};
-use indexmap::IndexMap;
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::state::ThinStateDiff;
 use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 
@@ -42,7 +40,53 @@ pub struct TransactionTrace {
     #[serde(skip_serializing_if = "Option::is_none")]
     r#type: Option<TransactionType>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    state_diff: Option<ThinStateDiff>,
+    state_diff: Option<StateDiff>,
+}
+
+#[derive(Serialize)]
+struct StateDiff {
+    storage_diffs: Vec<StorageDiff>,
+    nonces: Vec<Nonce>,
+    deployed_contracts: Vec<DeployedContract>,
+    deprecated_declared_classes: Vec<StarkFelt>,
+    declared_classes: Vec<DeclaredClass>,
+    replaced_classes: Vec<ReplacedClass>,
+}
+
+#[derive(Serialize)]
+struct Nonce {
+    contract_address: StarkFelt,
+    nonce: StarkFelt,
+}
+
+#[derive(Serialize)]
+struct StorageDiff {
+    address: StarkFelt,
+    storage_entries: Vec<Entry>,
+}
+
+#[derive(Serialize)]
+struct Entry {
+    key: StarkFelt,
+    value: StarkFelt,
+}
+
+#[derive(Serialize)]
+struct DeployedContract {
+    address: StarkFelt,
+    class_hash: StarkFelt,
+}
+
+#[derive(Serialize)]
+struct ReplacedClass {
+    contract_address: StarkFelt,
+    class_hash: StarkFelt,
+}
+
+#[derive(Serialize)]
+struct DeclaredClass {
+    class_hash: StarkFelt,
+    compiled_class_hash: StarkFelt,
 }
 
 impl TransactionTrace {
@@ -141,7 +185,7 @@ pub fn new_transaction_trace(
         }
     };
 
-    trace.state_diff = Some(make_thin_state_diff(state, deprecated_declared_class)?);
+    trace.state_diff = Some(make_state_diff(state, deprecated_declared_class)?);
     Ok(trace)
 }
 
@@ -254,33 +298,51 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 #[derive(Debug, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
-fn make_thin_state_diff(
+fn make_state_diff(
     state: &mut TransactionalState<JunoStateReader>,
     deprecated_declared_class: Option<ClassHash>,
-) -> Result<ThinStateDiff, StateError> {
+) -> Result<StateDiff, StateError> {
     let diff = state.to_state_diff();
-    let mut deployed_contracts = IndexMap::new();
-    let mut replaced_classes = IndexMap::new();
+    let mut deployed_contracts = Vec::new();
+    let mut replaced_classes = Vec::new();
 
     for pair in diff.address_to_class_hash {
         let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
         if existing_class_hash == ClassHash::default() {
-            deployed_contracts.insert(pair.0, pair.1);
+            deployed_contracts.push(DeployedContract {
+                address: pair.0.0.key().clone(),
+                class_hash: pair.1.0,
+            });
         } else {
-            replaced_classes.insert(pair.0, pair.1);
+            replaced_classes.push(ReplacedClass {
+                contract_address: pair.0.0.key().clone(),
+                class_hash: pair.1.0,
+            });
         }
     }
 
     let mut deprecated_declared_classes = Vec::default();
     if deprecated_declared_class.is_some() {
-        deprecated_declared_classes.push(deprecated_declared_class.unwrap())
+        deprecated_declared_classes.push(deprecated_declared_class.unwrap().0)
     }
-    Ok(ThinStateDiff {
+    Ok(StateDiff {
         deployed_contracts: deployed_contracts,
-        storage_diffs: diff.storage_updates,
-        declared_classes: diff.class_hash_to_compiled_class_hash,
+        storage_diffs: diff.storage_updates.into_iter().map(| v | StorageDiff {
+            address: v.0.0.key().clone(),
+            storage_entries: v.1.into_iter().map(| e | Entry {
+                key: e.0.0.key().clone(),
+                value: e.1
+            }).collect()
+        }).collect(),
+        declared_classes: diff.class_hash_to_compiled_class_hash.into_iter().map(| v | DeclaredClass {
+            class_hash: v.0.0,
+            compiled_class_hash: v.1.0,
+        }).collect(),
         deprecated_declared_classes: deprecated_declared_classes,
-        nonces: diff.address_to_nonce,
+        nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
+          contract_address: v.0.0.key().clone(),
+          nonce: v.1.0,  
+        }).collect(),
         replaced_classes: replaced_classes,
     })
 }
