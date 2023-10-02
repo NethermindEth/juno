@@ -520,15 +520,15 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 		return &ExecutionResources{}
 	}
 	return &ExecutionResources{
-		Steps:       resources.Steps,
-		MemoryHoles: resources.MemoryHoles,
-		Pedersen:    resources.BuiltinInstanceCounter.Pedersen,
-		RangeCheck:  resources.BuiltinInstanceCounter.RangeCheck,
-		Bitwise:     resources.BuiltinInstanceCounter.Bitwise,
-		Ecsda:       resources.BuiltinInstanceCounter.Ecsda,
-		EcOp:        resources.BuiltinInstanceCounter.EcOp,
-		Keccak:      resources.BuiltinInstanceCounter.Keccak,
-		Poseidon:    resources.BuiltinInstanceCounter.Poseidon,
+		Steps:       NumAsHex(resources.Steps),
+		MemoryHoles: NumAsHex(resources.MemoryHoles),
+		Pedersen:    NumAsHex(resources.BuiltinInstanceCounter.Pedersen),
+		RangeCheck:  NumAsHex(resources.BuiltinInstanceCounter.RangeCheck),
+		Bitwise:     NumAsHex(resources.BuiltinInstanceCounter.Bitwise),
+		Ecsda:       NumAsHex(resources.BuiltinInstanceCounter.Ecsda),
+		EcOp:        NumAsHex(resources.BuiltinInstanceCounter.EcOp),
+		Keccak:      NumAsHex(resources.BuiltinInstanceCounter.Keccak),
+		Poseidon:    NumAsHex(resources.BuiltinInstanceCounter.Poseidon),
 	}
 }
 
