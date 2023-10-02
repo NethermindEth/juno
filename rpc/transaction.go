@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/NethermindEth/juno/adapters/feeder2core"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -148,16 +149,22 @@ type Event struct {
 	Data []*felt.Felt `json:"data"`
 }
 
+type NumAsHex uint64
+
+func (n NumAsHex) MarshalJSON() ([]byte, error) {
+	return []byte(`"0x` + strconv.FormatUint(uint64(n), 16) + `"`), nil
+}
+
 type ExecutionResources struct {
-	Steps       uint64 `json:"steps"`
-	MemoryHoles uint64 `json:"memory_holes"`
-	Pedersen    uint64 `json:"pedersen_builtin_applications"`
-	RangeCheck  uint64 `json:"range_check_builtin_applications"`
-	Bitwise     uint64 `json:"bitwise_builtin_applications"`
-	Ecsda       uint64 `json:"ecdsa_builtin_applications"`
-	EcOp        uint64 `json:"ec_op_builtin_applications"`
-	Keccak      uint64 `json:"keccak_builtin_applications"`
-	Poseidon    uint64 `json:"poseidon_builtin_applications"`
+	Steps       NumAsHex `json:"steps"`
+	MemoryHoles NumAsHex `json:"memory_holes"`
+	Pedersen    NumAsHex `json:"pedersen_builtin_applications"`
+	RangeCheck  NumAsHex `json:"range_check_builtin_applications"`
+	Bitwise     NumAsHex `json:"bitwise_builtin_applications"`
+	Ecsda       NumAsHex `json:"ecdsa_builtin_applications"`
+	EcOp        NumAsHex `json:"ec_op_builtin_applications"`
+	Keccak      NumAsHex `json:"keccak_builtin_applications"`
+	Poseidon    NumAsHex `json:"poseidon_builtin_applications"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
