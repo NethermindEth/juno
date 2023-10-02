@@ -1077,11 +1077,19 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 
 	res, err := h.vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
-		contractErr := *ErrContractError
-		contractErr.Data = err.Error()
-		return nil, &contractErr
+		return nil, makeContractError(err)
 	}
 	return res, nil
+}
+
+func makeContractError(err error) *jsonrpc.Error {
+	contractErr := *ErrContractError
+	contractErr.Data = struct {
+		RevertError string `json:"revert_error"`
+	}{
+		RevertError: err.Error(),
+	}
+	return &contractErr
 }
 
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
@@ -1279,9 +1287,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
 		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice, legacyTraceJSON)
 	if err != nil {
-		rpcErr := *ErrContractError
-		rpcErr.Data = err.Error()
-		return nil, &rpcErr
+		return nil, makeContractError(err)
 	}
 
 	var result []SimulatedTransaction
@@ -1378,9 +1384,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int, legacyT
 	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
 		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyTraceJSON)
 	if err != nil {
-		rpcErr := *ErrContractError
-		rpcErr.Data = err.Error()
-		return nil, &rpcErr
+		return nil, makeContractError(err)
 	}
 
 	var result []TracedBlockTransaction
