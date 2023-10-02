@@ -846,8 +846,6 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	if err != nil {
 		return err
 	}
-	b.newHeads.Send(newHeader)
-
 	if err := storeEmptyPending(txn, newHeader); err != nil {
 		return err
 	}
