@@ -25,7 +25,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Set up rust
+        if: runner.os == 'Linux'
+        uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: vm/rust
