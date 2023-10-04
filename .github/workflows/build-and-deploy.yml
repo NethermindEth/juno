@@ -3,6 +3,8 @@ name: Docker Build, Publish and Deploy
 on:
   push:
     branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   id-token: write
