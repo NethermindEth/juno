@@ -3,9 +3,9 @@ on:
   push:
     branches:
       - main
-      - develop
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   test:
@@ -25,6 +25,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install upx cargo-c
+
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
