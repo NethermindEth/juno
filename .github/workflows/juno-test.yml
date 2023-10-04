@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         go: ['1.21']
-        os: [ubuntu-latest, macOS-11, self-hosted-linux-arm64]
+        os: [ubuntu-latest, macOS-latest, self-hosted-linux-arm64]
 
     env:
       VM_DEBUG: true
@@ -47,10 +47,10 @@ jobs:
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust Dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: vm/rust
+      # - name: Cache Rust Dependencies
+      #   uses: Swatinem/rust-cache@v2
+      #   with:
+      #     workspaces: vm/rust
 
       - name: Run Tests with Coverage
         run: make test-cover
