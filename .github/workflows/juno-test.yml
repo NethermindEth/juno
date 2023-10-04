@@ -1,43 +1,66 @@
 name: Juno Test
+
 on:
   push:
     branches:
       - main
-      - develop
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   test:
-    name: Run Tests
+    name: Run Tests on ${{ matrix.os }} with Go ${{ matrix.go }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        go: [ '1.21' ]
-        os: [ ubuntu-latest, macOS-latest, self-hosted-linux-arm64]
-    runs-on: ${{ matrix.os }}
+        go: ['1.21']
+        os: [ubuntu-latest, macOS-11, self-hosted-linux-arm64]
+
     env:
       VM_DEBUG: true
+      XCODE_VERSION: '/Applications/Xcode_14.2.app/Contents/Developer'
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up go
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Xcode Version (macOS)
+        if: runner.os == 'macOS'
+        run: sudo xcode-select -s $XCODE_VERSION
+
+      - name: Install Dependencies (Ubuntu or self-hosted Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y upx-ucl build-essential cargo git
+
+      - name: Install Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install upx cargo-c
+
+      - name: Setup Go Environment
         uses: actions/setup-go@v4.1.0
         with:
           go-version-file: go.mod
           cache: true
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: vm/rust
-      - name: Install deps
-        run: make install-deps
-      - name: Tests
+
+      - name: Run Tests with Coverage
         run: make test-cover
-      - name: Benchmark
+
+      - name: Run Benchmarks
         run: make benchmarks
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+
+      - name: Upload Coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v3
         with:
           fail_ci_if_error: true
           files: ./coverage/coverage.out
