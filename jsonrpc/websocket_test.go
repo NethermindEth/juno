@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
@@ -60,14 +61,18 @@ func TestSendFromHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	wg := conc.NewWaitGroup()
+	t.Cleanup(wg.Wait)
 	msg := "test msg"
 	method := jsonrpc.Method{
 		Name: "test",
 		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
 			conn, ok := jsonrpc.ConnFromContext(ctx)
 			require.True(t, ok)
-			_, err := conn.Write([]byte(msg))
-			require.NoError(t, err)
+			wg.Go(func() {
+				_, err := conn.Write([]byte(msg))
+				require.NoError(t, err)
+			})
 			return 0, nil
 		},
 	}
@@ -77,14 +82,14 @@ func TestSendFromHandler(t *testing.T) {
 	err := conn.Write(context.Background(), websocket.MessageText, []byte(req))
 	require.NoError(t, err)
 
-	_, resp1, err := conn.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, msg, string(resp1))
-
 	want := `{"jsonrpc":"2.0","result":0,"id":1}`
 	_, got, err := conn.Read(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, want, string(got))
+
+	_, resp1, err := conn.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, msg, string(resp1))
 
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
 }

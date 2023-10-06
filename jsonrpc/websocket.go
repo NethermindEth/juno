@@ -3,6 +3,7 @@ package jsonrpc
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -56,20 +57,17 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	wsc := newWebsocketConn(r.Context(), conn, ws.connParams)
 
-	ctx := context.WithValue(wsc.ctx, ConnKey{}, wsc)
 	for {
-		var msg []byte
-		_, msg, err = wsc.conn.Read(ctx)
-		if err != nil {
-			break
-		}
-		var resp []byte
-		resp, err = ws.rpc.Handle(ctx, msg)
+		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
 		if err != nil {
 			break
 		}
 		ws.listener.OnNewRequest("any")
-		if _, err = wsc.Write(resp); err != nil {
+		if err = ws.rpc.HandleReadWriter(wsc.ctx, wsc); err != nil {
+			break
+		}
+		// From websocket docs: "Read to EOF otherwise connection will hang."
+		if _, err = io.Copy(io.Discard, wsc.r); err != nil {
 			break
 		}
 	}
@@ -110,6 +108,7 @@ func DefaultWebsocketConnParams() *WebsocketConnParams {
 }
 
 type websocketConn struct {
+	r      io.Reader
 	conn   *websocket.Conn
 	ctx    context.Context
 	params *WebsocketConnParams
@@ -122,6 +121,10 @@ func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *Websock
 		ctx:    ctx,
 		params: params,
 	}
+}
+
+func (wsc *websocketConn) Read(p []byte) (int, error) {
+	return wsc.r.Read(p)
 }
 
 // Write returns the number of bytes of p sent, not including the header.
