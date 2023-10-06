@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
@@ -54,6 +55,29 @@ func TestHandler(t *testing.T) {
 	assert.Len(t, listener.OnNewRequestLogs, 1)
 
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestNotification(t *testing.T) {
+	ctx := context.Background()
+	method := jsonrpc.Method{
+		Name: "test",
+		Handler: func() (int, *jsonrpc.Error) {
+			return 0, nil
+		},
+	}
+	listener := CountingEventListener{}
+	conn := testConnection(t, ctx, method, &listener)
+
+	msg := `{"jsonrpc" : "2.0", "method" : "test"}` // Note lack of ID.
+	err := conn.Write(context.Background(), websocket.MessageText, []byte(msg))
+	require.NoError(t, err)
+
+	// There should be no response.
+	readCtx, readCancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	_, _, err = conn.Read(readCtx)
+	readCancel()
+	require.Error(t, err, context.DeadlineExceeded)
+	// Connection is closed for us.
 }
 
 func TestSendFromHandler(t *testing.T) {

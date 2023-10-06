@@ -69,8 +69,10 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		ws.listener.OnNewRequest("any")
-		if _, err = wsc.Write(resp); err != nil {
-			break
+		if resp != nil {
+			if _, err = wsc.Write(resp); err != nil {
+				break
+			}
 		}
 	}
 
