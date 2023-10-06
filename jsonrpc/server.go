@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -188,22 +189,59 @@ func (s *Server) registerMethod(method Method) error {
 	return nil
 }
 
-// Handle processes a request to the server
-// It returns the response in a byte array, only returns an
-// error if it can not create the response byte array
-func (s *Server) Handle(ctx context.Context, data []byte) ([]byte, error) {
-	return s.HandleReader(ctx, bytes.NewReader(data))
+type connection struct {
+	w         io.Writer
+	activated <-chan struct{}
+
+	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
+	initialErr error
 }
 
-type ConnKey struct{}
+func (c *connection) Write(p []byte) (int, error) {
+	<-c.activated
+	if c.initialErr != nil {
+		return 0, fmt.Errorf("there was an error while writing the initial response: %w", c.initialErr)
+	}
+	return c.w.Write(p)
+}
 
+type connKey struct{}
+
+// ConnFromContext returns a writable connection. The connection should
+// be written in a separate goroutine, since writes from handlers are
+// blocked until the initial response is sent.
 func ConnFromContext(ctx context.Context) (io.Writer, bool) {
-	conn := ctx.Value(ConnKey{})
+	conn := ctx.Value(connKey{})
 	if conn == nil {
 		return nil, false
 	}
 	w, ok := conn.(io.Writer)
 	return w, ok
+}
+
+// HandleReadWriter permits methods to send messages on the connection after the server sends the initial response.
+// rw must permit concurrent writes.
+// A non-nil error indicates the initial response could not be sent, and that no method will be able to write the connection.
+func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
+	activated := make(chan struct{})
+	defer close(activated)
+	conn := &connection{
+		w:         rw.(io.Writer),
+		activated: activated,
+	}
+	msgCtx := context.WithValue(ctx, connKey{}, conn)
+	resp, err := s.HandleReader(msgCtx, rw)
+	if err != nil {
+		conn.initialErr = err
+		return err
+	}
+	if resp != nil {
+		if _, err = rw.Write(resp); err != nil {
+			conn.initialErr = err
+			return err
+		}
+	}
+	return nil
 }
 
 // HandleReader processes a request to the server

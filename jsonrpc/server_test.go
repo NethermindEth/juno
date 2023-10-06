@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -461,7 +462,7 @@ func TestHandle(t *testing.T) {
 			oldRequestFailedEventCount := len(listener.OnRequestFailedCalls)
 			oldRequestHandledCalls := len(listener.OnRequestHandledCalls)
 
-			res, err := server.Handle(context.Background(), []byte(test.req))
+			res, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
 			require.NoError(t, err)
 
 			if test.isBatch {
@@ -504,7 +505,7 @@ func BenchmarkHandle(b *testing.B) {
 
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
 	for i := 0; i < b.N; i++ {
-		_, err := server.Handle(context.Background(), []byte(request))
+		_, err := server.HandleReader(context.Background(), strings.NewReader(request))
 		require.NoError(b, err)
 	}
 }
@@ -520,7 +521,7 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 			return 0, nil
 		},
 	}))
-	res, err := server.Handle(context.Background(), []byte(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	res, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
 }
@@ -528,14 +529,18 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 func TestWriteToConnInHandler(t *testing.T) {
 	testBytes := "written from handler"
 	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	wg := conc.NewWaitGroup()
+	t.Cleanup(wg.Wait)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
 		Name: "test",
 		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
 			w, ok := jsonrpc.ConnFromContext(ctx)
 			require.True(t, ok)
-			n, err := w.Write([]byte(testBytes))
-			require.NoError(t, err)
-			require.Equal(t, len(testBytes), n)
+			wg.Go(func() {
+				n, err := w.Write([]byte(testBytes))
+				require.NoError(t, err)
+				require.Equal(t, len(testBytes), n)
+			})
 			return 0, nil
 		},
 	}))
@@ -546,19 +551,50 @@ func TestWriteToConnInHandler(t *testing.T) {
 		require.NoError(t, clientConn.Close())
 	})
 
-	wg := conc.NewWaitGroup()
-	t.Cleanup(wg.Wait)
 	wg.Go(func() {
-		ctx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, serverConn)
-		resp, err := server.HandleReader(ctx, serverConn)
-		write(t, serverConn, string(resp))
+		err := server.HandleReadWriter(context.Background(), serverConn)
 		require.NoError(t, err)
 	})
 
 	write(t, clientConn, `{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`)
+	initialResp := `{"jsonrpc":"2.0","result":0,"id":1}`
+	require.Equal(t, initialResp, read(t, clientConn, len(initialResp)))
 	require.Equal(t, testBytes, read(t, clientConn, len(testBytes)))
-	want := `{"jsonrpc":"2.0","result":0,"id":1}`
-	require.Equal(t, want, read(t, clientConn, len(want)))
+}
+
+func TestWriteToClosedConnInHandler(t *testing.T) {
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	wg := conc.NewWaitGroup()
+	t.Cleanup(wg.Wait)
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name: "test",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			w, ok := jsonrpc.ConnFromContext(ctx)
+			require.True(t, ok)
+			wg.Go(func() {
+				for i := 0; i < 3; i++ {
+					_, err := w.Write([]byte("test"))
+					require.ErrorIs(t, err, io.ErrClosedPipe)
+					require.ErrorContains(t, err, "there was an error while writing the initial response")
+				}
+			})
+			return 0, nil
+		},
+	}))
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		// We close clientConn early.
+	})
+
+	wg.Go(func() {
+		err := server.HandleReadWriter(context.Background(), serverConn)
+		require.ErrorIs(t, err, io.ErrClosedPipe)
+	})
+
+	write(t, clientConn, `{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`)
+	require.NoError(t, clientConn.Close())
 }
 
 func read(t *testing.T, c io.Reader, length int) string {
