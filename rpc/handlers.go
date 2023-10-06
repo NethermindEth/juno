@@ -1405,7 +1405,7 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "v0.5.0", nil
+	return "0.5.0", nil
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
