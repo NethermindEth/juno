@@ -22,6 +22,7 @@ type pebbleListener struct {
 	levels *levelsListener     // Listener for level-specific metrics.
 	comp   *compactionListener // Listener for compaction-specific metrics.
 	cache  *cacheListener      // Listener for cache-specific metrics.
+	flush  *flushListener      // Listener for flush-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
@@ -30,6 +31,7 @@ func newPebbleListener() *pebbleListener {
 		levels: newLevelsListener(),
 		comp:   newCompactionListener(),
 		cache:  newCacheListener(),
+		flush:  newFlushListener(),
 	}
 }
 
@@ -40,6 +42,7 @@ func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.levels.gather(metrics) // gather level-specific metrics.
 	listener.comp.gather(metrics)   // gather compaction-specific metrics.
 	listener.cache.gather(metrics)  // gather cache-specific metrics.
+	listener.flush.gather(metrics)  // gather flush-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -195,6 +198,7 @@ func (listener *levelsListener) format(levels *[7]pebble.LevelMetrics) {
 func (listener *levelsListener) gather(metrics *db.PebbleMetrics) {
 	levels := metrics.Src.Levels
 	listener.format(&levels)
+
 	for i, lvl := range levels {
 		listener.numFiles[i].Set(float64(lvl.NumFiles))
 		listener.size[i].Set(float64(lvl.Size))
@@ -352,6 +356,7 @@ func (listener *compactionListener) format(stats *pebble.Metrics) struct {
 // gather collects and updates compaction-specific metrics from pebble.
 func (listener *compactionListener) gather(metrics *db.PebbleMetrics) {
 	formatted := listener.format(metrics.Src)
+
 	listener.Defaults.Add(float64(formatted.DefaultCount))
 	listener.DeletesOnly.Add(float64(formatted.DeleteOnlyCount))
 	listener.ElisionsOnly.Add(float64(formatted.ElisionOnlyCount))
@@ -427,6 +432,146 @@ func (listener *cacheListener) gather(stats *db.PebbleMetrics) {
 	listener.Count.Set(float64(stats.Src.BlockCache.Count))
 	listener.Hits.Add(float64(listener.cache.Hits - cache.Hits))
 	listener.Misses.Add(float64(listener.cache.Misses - cache.Misses))
+}
+
+// flushListener listens for pebble flush metrics.
+type flushListener struct {
+	// cache stores previous data in order to calculate delta.
+	cache struct {
+		AsIngestCount      uint64
+		AsIngestTableCount uint64
+		AsIngestBytes      uint64
+		BytesProcessed     uint64
+		Count              uint64
+		WorkDuration       time.Duration
+		IdleDuration       time.Duration
+	}
+
+	Count              prometheus.Counter
+	AsIngestCount      prometheus.Counter
+	AsIngestTableCount prometheus.Counter
+	AsIngestBytes      prometheus.Counter
+	BytesProcessed     prometheus.Counter
+	NumInProgress      prometheus.Gauge
+	WorkDuration       prometheus.Counter
+	IdleDuration       prometheus.Counter
+}
+
+// newFlushListener creates and returns a new flushListener instance with setup prometheus metrics.
+func newFlushListener() *flushListener {
+	const subsystem = "flush"
+	reporter := &flushListener{}
+	reporter.Count = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "amount",
+	})
+	reporter.AsIngestCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "ingests",
+	})
+	reporter.AsIngestTableCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "ingest_tables",
+	})
+	reporter.AsIngestBytes = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "ingest_bytes",
+	})
+	reporter.BytesProcessed = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_processed",
+	})
+	reporter.NumInProgress = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "in_progress",
+	})
+	workCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "work",
+	}, []string{"state"})
+	reporter.WorkDuration = workCounter.WithLabelValues("work")
+	reporter.IdleDuration = workCounter.WithLabelValues("idle")
+	prometheus.MustRegister(
+		reporter.Count,
+		reporter.AsIngestCount,
+		reporter.AsIngestTableCount,
+		reporter.AsIngestBytes,
+		reporter.NumInProgress,
+		reporter.BytesProcessed,
+		workCounter,
+	)
+	return reporter
+}
+
+// updateCache updates the cache with new data and returns the older version.
+func (listener *flushListener) updateCache(stats *pebble.Metrics) struct {
+	AsIngestCount      uint64
+	AsIngestTableCount uint64
+	AsIngestBytes      uint64
+	BytesProcessed     uint64
+	Count              uint64
+	WorkDuration       time.Duration
+	IdleDuration       time.Duration
+} {
+	cache := listener.cache
+	listener.cache.Count = uint64(stats.Flush.Count)
+	listener.cache.AsIngestCount = stats.Flush.AsIngestCount
+	listener.cache.AsIngestTableCount = stats.Flush.AsIngestTableCount
+	listener.cache.AsIngestBytes = stats.Flush.AsIngestBytes
+	listener.cache.BytesProcessed = uint64(stats.Flush.WriteThroughput.Bytes)
+	listener.cache.IdleDuration = stats.Flush.WriteThroughput.IdleDuration
+	listener.cache.WorkDuration = stats.Flush.WriteThroughput.WorkDuration
+	return cache
+}
+
+// format formats provided data into collectable metrics.
+func (listener *flushListener) format(stats *pebble.Metrics) struct {
+	Count              uint64
+	AsIngestCount      uint64
+	AsIngestTableCount uint64
+	AsIngestBytes      uint64
+	BytesProcessed     uint64
+	IdleDuration       time.Duration
+	WorkDuration       time.Duration
+} {
+	cache := listener.updateCache(stats)
+	return struct {
+		Count              uint64
+		AsIngestCount      uint64
+		AsIngestTableCount uint64
+		AsIngestBytes      uint64
+		BytesProcessed     uint64
+		IdleDuration       time.Duration
+		WorkDuration       time.Duration
+	}{
+		Count:              listener.cache.Count - cache.Count,
+		AsIngestCount:      listener.cache.AsIngestCount - cache.AsIngestCount,
+		AsIngestTableCount: listener.cache.AsIngestTableCount - cache.AsIngestTableCount,
+		AsIngestBytes:      listener.cache.AsIngestBytes - cache.AsIngestBytes,
+		BytesProcessed:     listener.cache.BytesProcessed - cache.BytesProcessed,
+		IdleDuration:       listener.cache.IdleDuration - cache.IdleDuration,
+		WorkDuration:       listener.cache.WorkDuration - cache.WorkDuration,
+	}
+}
+
+// gather collects and updates flush-specific metrics from pebble.
+func (listener *flushListener) gather(stats *db.PebbleMetrics) {
+	formatted := listener.format(stats.Src)
+
+	listener.Count.Add(float64(formatted.Count))
+	listener.AsIngestCount.Add(float64(formatted.AsIngestCount))
+	listener.AsIngestTableCount.Add(float64(formatted.AsIngestTableCount))
+	listener.AsIngestBytes.Add(float64(formatted.AsIngestBytes))
+	listener.BytesProcessed.Add(float64(formatted.BytesProcessed))
+	listener.IdleDuration.Add((formatted.IdleDuration).Seconds())
+	listener.WorkDuration.Add((formatted.WorkDuration).Seconds())
 }
 
 func makeDBMetrics() db.EventListener {
