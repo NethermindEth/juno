@@ -19,21 +19,23 @@ const (
 
 // pebbleListener listens for pebble metrics.
 type pebbleListener struct {
-	levels *levelsListener     // Listener for level-specific metrics.
-	comp   *compactionListener // Listener for compaction-specific metrics.
-	cache  *cacheListener      // Listener for cache-specific metrics.
-	flush  *flushListener      // Listener for flush-specific metrics.
-	filter *filterListener     // Listener for filter-specific metrics.
+	levels   *levelsListener     // Listener for level-specific metrics.
+	comp     *compactionListener // Listener for compaction-specific metrics.
+	cache    *cacheListener      // Listener for cache-specific metrics.
+	flush    *flushListener      // Listener for flush-specific metrics.
+	filter   *filterListener     // Listener for filter-specific metrics.
+	memtable *memtableListener   // Listener for memtable-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
 func newPebbleListener() *pebbleListener {
 	return &pebbleListener{
-		levels: newLevelsListener(),
-		comp:   newCompactionListener(),
-		cache:  newCacheListener(),
-		flush:  newFlushListener(),
-		filter: newFilterListener(),
+		levels:   newLevelsListener(),
+		comp:     newCompactionListener(),
+		cache:    newCacheListener(),
+		flush:    newFlushListener(),
+		filter:   newFilterListener(),
+		memtable: newMemtableListener(),
 	}
 }
 
@@ -41,11 +43,12 @@ func newPebbleListener() *pebbleListener {
 //
 // This method delegates the collection of various metrics to their respective listeners.
 func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
-	listener.levels.gather(metrics) // gather level-specific metrics.
-	listener.comp.gather(metrics)   // gather compaction-specific metrics.
-	listener.cache.gather(metrics)  // gather cache-specific metrics.
-	listener.flush.gather(metrics)  // gather flush-specific metrics.
-	listener.filter.gather(metrics) // gather filter-specific metrics.
+	listener.levels.gather(metrics)   // gather level-specific metrics.
+	listener.comp.gather(metrics)     // gather compaction-specific metrics.
+	listener.cache.gather(metrics)    // gather cache-specific metrics.
+	listener.flush.gather(metrics)    // gather flush-specific metrics.
+	listener.filter.gather(metrics)   // gather filter-specific metrics.
+	listener.memtable.gather(metrics) // gather memtable-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -577,18 +580,16 @@ func (listener *flushListener) gather(stats *db.PebbleMetrics) {
 	listener.WorkDuration.Add((formatted.WorkDuration).Seconds())
 }
 
-// filterReporter reports about `pebble.Metrics.Filter` metrics.
+// flushListener listens for pebble filter metrics.
 type filterListener struct {
-	// previous data
+	// cache stores previous data in order to calculate delta.
 	cache struct {
 		Hits   uint64
 		Misses uint64
 	}
 
-	metrics struct {
-		Hits   prometheus.Counter
-		Misses prometheus.Counter
-	}
+	Hits   prometheus.Counter
+	Misses prometheus.Counter
 }
 
 // newFilterListener creates and returns a new filterListener instance with setup prometheus metrics.
@@ -600,8 +601,8 @@ func newFilterListener() *filterListener {
 		Subsystem: subsystem,
 		Name:      "hits",
 	}, []string{"succesfull"})
-	listener.metrics.Hits = filterCounter.WithLabelValues("true")
-	listener.metrics.Misses = filterCounter.WithLabelValues("false")
+	listener.Hits = filterCounter.WithLabelValues("true")
+	listener.Misses = filterCounter.WithLabelValues("false")
 	prometheus.MustRegister(filterCounter)
 	return listener
 }
@@ -633,11 +634,60 @@ func (listener *filterListener) format(stats pebble.FilterMetrics) struct {
 }
 
 // gather collects and updates filter-specific metrics from pebble.
-func (reporter *filterListener) gather(stats *db.PebbleMetrics) {
-	formatted := reporter.format(stats.Src.Filter)
+func (listener *filterListener) gather(stats *db.PebbleMetrics) {
+	formatted := listener.format(stats.Src.Filter)
 
-	reporter.metrics.Hits.Add(float64(formatted.Hits))
-	reporter.metrics.Misses.Add(float64(formatted.Misses))
+	listener.Hits.Add(float64(formatted.Hits))
+	listener.Misses.Add(float64(formatted.Misses))
+}
+
+// memtableListener listens for pebble memtable metrics.
+type memtableListener struct {
+	Size       prometheus.Gauge
+	Count      prometheus.Gauge
+	ZombieSize prometheus.Gauge
+	Zombies    prometheus.Gauge
+}
+
+// newMemtableListener creates and returns a new memtableListener instance with setup prometheus metrics.
+func newMemtableListener() *memtableListener {
+	const subsystem = "memtable"
+	listener := &memtableListener{}
+	listener.Size = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "size",
+	})
+	listener.Count = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "amount",
+	})
+	listener.ZombieSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "zombie_size",
+	})
+	listener.Zombies = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "zombies",
+	})
+	prometheus.MustRegister(
+		listener.Size,
+		listener.Count,
+		listener.ZombieSize,
+		listener.Zombies,
+	)
+	return listener
+}
+
+// gather collects and updates memtable-specific metrics from pebble.
+func (listener *memtableListener) gather(stats *db.PebbleMetrics) {
+	listener.Size.Set(float64(stats.Src.MemTable.Size))
+	listener.Count.Set(float64(stats.Src.MemTable.Count))
+	listener.ZombieSize.Set(float64(stats.Src.MemTable.ZombieSize))
+	listener.Zombies.Set(float64(stats.Src.MemTable.ZombieCount))
 }
 
 func makeDBMetrics() db.EventListener {
