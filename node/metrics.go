@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -16,8 +17,36 @@ const (
 	dbNamespace  = "db"
 )
 
-// levelsListener listens for `db.LevelsMetrics`.
+// pebbleListener listens for pebble metrics.
+type pebbleListener struct {
+	levels *levelsListener     // Listener for level-specific metrics.
+	comp   *compactionListener // Listener for compaction metrics.
+}
+
+// newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
+func newPebbleListener() *pebbleListener {
+	return &pebbleListener{
+		levels: newLevelsListener(),
+		comp:   newCompactionListener(),
+	}
+}
+
+// gather collects and updates metrics from a Pebble database.
+//
+// This method delegates the collection of various metrics to their respective listeners.
+func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
+	listener.levels.gather(metrics) // gather level-specific metrics.
+	listener.comp.gather(metrics)   // gather compaction-specific metrics.
+}
+
+// levelsListener listens for pebble levels metrics.
 type levelsListener struct {
+	// cache stores previous data in order to calculate delta.
+	cache struct {
+		Lvls [dbLvlsAmount]pebble.LevelMetrics
+	}
+
+	// metrics
 	numFiles        [dbLvlsAmount]prometheus.Gauge
 	size            [dbLvlsAmount]prometheus.Gauge
 	score           [dbLvlsAmount]prometheus.Gauge
@@ -33,6 +62,7 @@ type levelsListener struct {
 	tablesMoved     [dbLvlsAmount]prometheus.Counter
 }
 
+// newLevelsListener creates and returns a new levelsListener instance with setup prometheus metrics.
 func newLevelsListener() *levelsListener {
 	const subsystem = "lvl"
 	listener := &levelsListener{}
@@ -138,8 +168,31 @@ func newLevelsListener() *levelsListener {
 	return listener
 }
 
-func (listener *levelsListener) gather(metrics db.LevelsMetrics) {
-	for i, lvl := range metrics.Level {
+// format formats provided levels metrics data into a collectable structure.
+func (listener *levelsListener) format(levels *[7]pebble.LevelMetrics) {
+	// swap cache
+	cache := listener.cache
+	listener.cache.Lvls = *levels
+	for i := 0; i < len(levels); i++ {
+		// These metrics are only ever increasing, use delta instead of total.
+		levels[i].BytesIn -= cache.Lvls[i].BytesIn
+		levels[i].BytesIngested -= cache.Lvls[i].BytesIngested
+		levels[i].BytesMoved -= cache.Lvls[i].BytesMoved
+		levels[i].BytesRead -= cache.Lvls[i].BytesRead
+		levels[i].BytesCompacted -= cache.Lvls[i].BytesCompacted
+		levels[i].BytesFlushed -= cache.Lvls[i].BytesFlushed
+		levels[i].TablesCompacted -= cache.Lvls[i].TablesCompacted
+		levels[i].TablesFlushed -= cache.Lvls[i].TablesFlushed
+		levels[i].TablesIngested -= cache.Lvls[i].TablesIngested
+		levels[i].TablesMoved -= cache.Lvls[i].TablesMoved
+	}
+}
+
+// gather collects and updates level-specific metrics from pebble.
+func (listener *levelsListener) gather(metrics *db.PebbleMetrics) {
+	levels := metrics.Src.Levels
+	listener.format(&levels)
+	for i, lvl := range levels {
 		listener.numFiles[i].Set(float64(lvl.NumFiles))
 		listener.size[i].Set(float64(lvl.Size))
 		listener.score[i].Set(lvl.Score)
@@ -156,6 +209,147 @@ func (listener *levelsListener) gather(metrics db.LevelsMetrics) {
 	}
 }
 
+// compactionListener listens for pebble compaction metrics.
+type compactionListener struct {
+	// cache stores previous data in order to calculate delta.
+	cache struct {
+		DefaultCount     int64
+		DeleteOnlyCount  int64
+		ElisionOnlyCount int64
+		MoveCount        int64
+		ReadCount        int64
+		RewriteCount     int64
+		MultiLevelCount  int64
+	}
+
+	// metrics
+	Defaults        prometheus.Counter
+	DeletesOnly     prometheus.Counter
+	ElisionsOnly    prometheus.Counter
+	Moves           prometheus.Counter
+	Reads           prometheus.Counter
+	Rewrites        prometheus.Counter
+	MultiLevels     prometheus.Counter
+	EstimatedDebt   prometheus.Gauge
+	InProgressBytes prometheus.Gauge
+	NumInProgress   prometheus.Gauge
+	MarkedFiles     prometheus.Gauge
+}
+
+// newCompactionListener creates and returns a new compactionListener instance with setup prometheus metrics.
+func newCompactionListener() *compactionListener {
+	const subsystem = "compaction"
+	listener := &compactionListener{}
+	listener.EstimatedDebt = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "estimated_debt",
+	})
+	listener.InProgressBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "in_progress_bytes",
+	})
+	listener.NumInProgress = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "num_in_progress",
+	})
+	listener.MarkedFiles = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "marked_files",
+	})
+	compactionsCounts := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "amount",
+	}, []string{"type"})
+	listener.Defaults = compactionsCounts.WithLabelValues("default")
+	listener.DeletesOnly = compactionsCounts.WithLabelValues("delete")
+	listener.ElisionsOnly = compactionsCounts.WithLabelValues("elision")
+	listener.Moves = compactionsCounts.WithLabelValues("move")
+	listener.Reads = compactionsCounts.WithLabelValues("read")
+	listener.Rewrites = compactionsCounts.WithLabelValues("rewrite")
+	listener.MultiLevels = compactionsCounts.WithLabelValues("multi_level")
+	prometheus.MustRegister(
+		compactionsCounts,
+		listener.EstimatedDebt,
+		listener.InProgressBytes,
+		listener.NumInProgress,
+		listener.MarkedFiles,
+	)
+	return listener
+}
+
+// format formats provided data into collectable metrics.
+func (listener *compactionListener) format(stats *pebble.Metrics) struct {
+	DefaultCount     int64
+	DeleteOnlyCount  int64
+	ElisionOnlyCount int64
+	MoveCount        int64
+	ReadCount        int64
+	RewriteCount     int64
+	MultiLevelCount  int64
+	EstimatedDebt    uint64
+	InProgressBytes  int64
+	NumInProgress    int64
+	MarkedFiles      int
+} {
+	cache := listener.cache
+	// update cache
+	listener.cache.DefaultCount = stats.Compact.DefaultCount
+	listener.cache.DeleteOnlyCount = stats.Compact.DeleteOnlyCount
+	listener.cache.ElisionOnlyCount = stats.Compact.ElisionOnlyCount
+	listener.cache.MoveCount = stats.Compact.MoveCount
+	listener.cache.ReadCount = stats.Compact.ReadCount
+	listener.cache.RewriteCount = stats.Compact.RewriteCount
+	listener.cache.MultiLevelCount = stats.Compact.MultiLevelCount
+
+	return struct {
+		DefaultCount     int64
+		DeleteOnlyCount  int64
+		ElisionOnlyCount int64
+		MoveCount        int64
+		ReadCount        int64
+		RewriteCount     int64
+		MultiLevelCount  int64
+		EstimatedDebt    uint64
+		InProgressBytes  int64
+		NumInProgress    int64
+		MarkedFiles      int
+	}{
+		EstimatedDebt:   stats.Compact.EstimatedDebt,
+		InProgressBytes: stats.Compact.InProgressBytes,
+		NumInProgress:   stats.Compact.NumInProgress,
+		MarkedFiles:     stats.Compact.MarkedFiles,
+		// These metrics are only ever increasing, return delta instead of total.
+		DefaultCount:     listener.cache.DefaultCount - cache.DefaultCount,
+		DeleteOnlyCount:  listener.cache.DeleteOnlyCount - cache.DeleteOnlyCount,
+		ElisionOnlyCount: listener.cache.ElisionOnlyCount - cache.ElisionOnlyCount,
+		MoveCount:        listener.cache.MoveCount - cache.MoveCount,
+		ReadCount:        listener.cache.ReadCount - cache.ReadCount,
+		RewriteCount:     listener.cache.RewriteCount - cache.RewriteCount,
+		MultiLevelCount:  listener.cache.MultiLevelCount - cache.MultiLevelCount,
+	}
+}
+
+// gather collects and updates compaction-specific metrics from pebble.
+func (listener *compactionListener) gather(metrics *db.PebbleMetrics) {
+	formatted := listener.format(metrics.Src)
+	listener.Defaults.Add(float64(formatted.DefaultCount))
+	listener.DeletesOnly.Add(float64(formatted.DeleteOnlyCount))
+	listener.ElisionsOnly.Add(float64(formatted.ElisionOnlyCount))
+	listener.Moves.Add(float64(formatted.MoveCount))
+	listener.Reads.Add(float64(formatted.ReadCount))
+	listener.Rewrites.Add(float64(formatted.RewriteCount))
+	listener.MultiLevels.Add(float64(formatted.MultiLevelCount))
+	listener.EstimatedDebt.Set(float64(formatted.EstimatedDebt))
+	listener.InProgressBytes.Set(float64(formatted.InProgressBytes))
+	listener.NumInProgress.Set(float64(formatted.NumInProgress))
+	listener.MarkedFiles.Set(float64(formatted.MarkedFiles))
+}
+
 func makeDBMetrics() db.EventListener {
 	readCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "db",
@@ -166,7 +360,7 @@ func makeDBMetrics() db.EventListener {
 		Name:      "write",
 	})
 	prometheus.MustRegister(readCounter, writeCounter)
-	levels := newLevelsListener()
+	pebbleListener := newPebbleListener()
 	return &db.SelectiveListener{
 		OnIOCb: func(write bool) {
 			if write {
@@ -175,7 +369,7 @@ func makeDBMetrics() db.EventListener {
 				readCounter.Inc()
 			}
 		},
-		OnLevelsCb: levels.gather,
+		OnPebbleMetricsCb: pebbleListener.gather,
 	}
 }
 

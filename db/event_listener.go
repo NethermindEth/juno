@@ -1,36 +1,24 @@
 package db
 
-type LevelsMetrics struct {
-	Level [7]struct {
-		Sublevels       int32
-		NumFiles        int64
-		Size            int64
-		Score           float64
-		BytesIn         uint64
-		BytesIngested   uint64
-		BytesMoved      uint64
-		BytesRead       uint64
-		BytesCompacted  uint64
-		BytesFlushed    uint64
-		TablesCompacted uint64
-		TablesFlushed   uint64
-		TablesIngested  uint64
-		TablesMoved     uint64
-	}
+import "github.com/cockroachdb/pebble"
+
+type PebbleMetrics struct {
+	Src *pebble.Metrics
 }
 
-type LevelsListener interface {
-	OnLevels(LevelsMetrics)
+type PebbleListener interface {
+	OnPebbleMetrics(*PebbleMetrics)
 }
 
 type EventListener interface {
 	OnIO(write bool)
-	LevelsListener
+	PebbleListener
 }
 
 type SelectiveListener struct {
-	OnIOCb     func(write bool)
-	OnLevelsCb func(LevelsMetrics)
+	OnIOCb func(write bool)
+
+	OnPebbleMetricsCb func(*PebbleMetrics)
 }
 
 func (l *SelectiveListener) OnIO(write bool) {
@@ -39,8 +27,8 @@ func (l *SelectiveListener) OnIO(write bool) {
 	}
 }
 
-func (l *SelectiveListener) OnLevels(m LevelsMetrics) {
-	if l.OnLevelsCb != nil {
-		l.OnLevelsCb(m)
+func (l *SelectiveListener) OnPebbleMetrics(m *PebbleMetrics) {
+	if l.OnPebbleMetricsCb != nil {
+		l.OnPebbleMetricsCb(m)
 	}
 }

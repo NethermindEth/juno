@@ -16,11 +16,12 @@ import (
 var _ db.DB = (*DB)(nil)
 
 type DB struct {
-	pebble   *pebble.DB
-	wMutex   *sync.Mutex
+	pebble *pebble.DB
+	wMutex *sync.Mutex
+
 	listener db.EventListener
 
-	reporters []metricsReporter
+	collectors []eventCollector
 }
 
 // New opens a new database at the given path
@@ -56,19 +57,17 @@ func NewMemTest(t *testing.T) db.DB {
 }
 
 func newPebble(path string, options *pebble.Options) (*DB, error) {
-	reporters := []metricsReporter{
-		&levelsReporter{},
-	}
 	var (
 		database = &DB{
-			wMutex:    new(sync.Mutex),
-			listener:  &db.SelectiveListener{},
-			reporters: reporters,
+			wMutex:     new(sync.Mutex),
+			listener:   &db.SelectiveListener{},
+			collectors: make([]eventCollector, 0),
 		}
 		err error
 	)
 	// hookup into events
 	if options.EventListener == nil {
+		// TODO hookup into events
 		options.EventListener = &pebble.EventListener{}
 	}
 
@@ -82,14 +81,14 @@ func newPebble(path string, options *pebble.Options) (*DB, error) {
 // WithListener registers an EventListener
 func (d *DB) WithListener(listener db.EventListener) db.DB {
 	d.listener = listener
-	for _, reporter := range d.reporters {
-		reporter.setListener(d.listener)
-	}
 	return d
 }
 
 // Meter: see db.DB.Meter
 func (d *DB) Meter(interval time.Duration) {
+	if d.listener == nil {
+		return
+	}
 	go d.meter(interval)
 }
 

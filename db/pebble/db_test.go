@@ -29,7 +29,7 @@ func (l *eventListener) OnIO(write bool) {
 	}
 }
 
-func (l *eventListener) OnLevels(_ db.LevelsMetrics) {}
+func (l *eventListener) OnPebbleMetrics(_ *db.PebbleMetrics) {}
 
 func TestTransaction(t *testing.T) {
 	listener := eventListener{}
