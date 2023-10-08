@@ -20,7 +20,8 @@ const (
 // pebbleListener listens for pebble metrics.
 type pebbleListener struct {
 	levels *levelsListener     // Listener for level-specific metrics.
-	comp   *compactionListener // Listener for compaction metrics.
+	comp   *compactionListener // Listener for compaction-specific metrics.
+	cache  *cacheListener      // Listener for cache-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
@@ -28,6 +29,7 @@ func newPebbleListener() *pebbleListener {
 	return &pebbleListener{
 		levels: newLevelsListener(),
 		comp:   newCompactionListener(),
+		cache:  newCacheListener(),
 	}
 }
 
@@ -37,6 +39,7 @@ func newPebbleListener() *pebbleListener {
 func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.levels.gather(metrics) // gather level-specific metrics.
 	listener.comp.gather(metrics)   // gather compaction-specific metrics.
+	listener.cache.gather(metrics)  // gather cache-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -282,6 +285,27 @@ func newCompactionListener() *compactionListener {
 	return listener
 }
 
+// updateCache updates the cache with new data and returns the older version.
+func (listener *compactionListener) updateCache(stats *pebble.Metrics) struct {
+	DefaultCount     int64
+	DeleteOnlyCount  int64
+	ElisionOnlyCount int64
+	MoveCount        int64
+	ReadCount        int64
+	RewriteCount     int64
+	MultiLevelCount  int64
+} {
+	cache := listener.cache
+	listener.cache.DefaultCount = stats.Compact.DefaultCount
+	listener.cache.DeleteOnlyCount = stats.Compact.DeleteOnlyCount
+	listener.cache.ElisionOnlyCount = stats.Compact.ElisionOnlyCount
+	listener.cache.MoveCount = stats.Compact.MoveCount
+	listener.cache.ReadCount = stats.Compact.ReadCount
+	listener.cache.RewriteCount = stats.Compact.RewriteCount
+	listener.cache.MultiLevelCount = stats.Compact.MultiLevelCount
+	return cache
+}
+
 // format formats provided data into collectable metrics.
 func (listener *compactionListener) format(stats *pebble.Metrics) struct {
 	DefaultCount     int64
@@ -296,16 +320,7 @@ func (listener *compactionListener) format(stats *pebble.Metrics) struct {
 	NumInProgress    int64
 	MarkedFiles      int
 } {
-	cache := listener.cache
-	// update cache
-	listener.cache.DefaultCount = stats.Compact.DefaultCount
-	listener.cache.DeleteOnlyCount = stats.Compact.DeleteOnlyCount
-	listener.cache.ElisionOnlyCount = stats.Compact.ElisionOnlyCount
-	listener.cache.MoveCount = stats.Compact.MoveCount
-	listener.cache.ReadCount = stats.Compact.ReadCount
-	listener.cache.RewriteCount = stats.Compact.RewriteCount
-	listener.cache.MultiLevelCount = stats.Compact.MultiLevelCount
-
+	cache := listener.updateCache(stats)
 	return struct {
 		DefaultCount     int64
 		DeleteOnlyCount  int64
@@ -348,6 +363,70 @@ func (listener *compactionListener) gather(metrics *db.PebbleMetrics) {
 	listener.InProgressBytes.Set(float64(formatted.InProgressBytes))
 	listener.NumInProgress.Set(float64(formatted.NumInProgress))
 	listener.MarkedFiles.Set(float64(formatted.MarkedFiles))
+}
+
+// cacheListener listens for pebble cache metrics.
+type cacheListener struct {
+	// cache stores previous data in order to calculate delta.
+	cache struct {
+		Hits   uint64
+		Misses uint64
+	}
+
+	Size   prometheus.Gauge
+	Count  prometheus.Gauge
+	Hits   prometheus.Counter
+	Misses prometheus.Counter
+}
+
+// newCacheListener creates and returns a new cacheListener instance with setup prometheus metrics.
+func newCacheListener() *cacheListener {
+	const subsystem = "cache"
+	listener := &cacheListener{}
+	listener.Size = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "size",
+	})
+	listener.Count = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "count",
+	})
+	hitCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "hits",
+	}, []string{"succesfull"})
+	listener.Hits = hitCounter.WithLabelValues("true")
+	listener.Misses = hitCounter.WithLabelValues("false")
+	prometheus.MustRegister(
+		listener.Size,
+		listener.Count,
+		hitCounter,
+	)
+	return listener
+}
+
+// updateCache updates the cache with new data and returns the older version.
+func (listener *cacheListener) updateCache(stats pebble.CacheMetrics) struct {
+	Hits   uint64
+	Misses uint64
+} {
+	cache := listener.cache
+	listener.cache.Hits = uint64(stats.Hits)
+	listener.cache.Misses = uint64(stats.Misses)
+	return cache
+}
+
+// gather collects and updates cache-specific metrics from pebble.
+func (listener *cacheListener) gather(stats *db.PebbleMetrics) {
+	cache := listener.updateCache(stats.Src.BlockCache)
+
+	listener.Size.Set(float64(stats.Src.BlockCache.Size))
+	listener.Count.Set(float64(stats.Src.BlockCache.Count))
+	listener.Hits.Add(float64(listener.cache.Hits - cache.Hits))
+	listener.Misses.Add(float64(listener.cache.Misses - cache.Misses))
 }
 
 func makeDBMetrics() db.EventListener {
