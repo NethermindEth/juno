@@ -19,25 +19,27 @@ const (
 
 // pebbleListener listens for pebble metrics.
 type pebbleListener struct {
-	levels   *levelsListener     // Listener for level-specific metrics.
-	comp     *compactionListener // Listener for compaction-specific metrics.
-	cache    *cacheListener      // Listener for cache-specific metrics.
-	flush    *flushListener      // Listener for flush-specific metrics.
-	filter   *filterListener     // Listener for filter-specific metrics.
-	memtable *memtableListener   // Listener for memtable-specific metrics.
-	keys     *keysListener       // Listener for keys-specific metrics.
+	levels    *levelsListener     // Listener for level-specific metrics.
+	comp      *compactionListener // Listener for compaction-specific metrics.
+	cache     *cacheListener      // Listener for cache-specific metrics.
+	flush     *flushListener      // Listener for flush-specific metrics.
+	filter    *filterListener     // Listener for filter-specific metrics.
+	memtable  *memtableListener   // Listener for memtable-specific metrics.
+	keys      *keysListener       // Listener for keys-specific metrics.
+	snapshots *snapshotsListener  // Listener for snapshots-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
 func newPebbleListener() *pebbleListener {
 	return &pebbleListener{
-		levels:   newLevelsListener(),
-		comp:     newCompactionListener(),
-		cache:    newCacheListener(),
-		flush:    newFlushListener(),
-		filter:   newFilterListener(),
-		memtable: newMemtableListener(),
-		keys:     newKeysListener(),
+		levels:    newLevelsListener(),
+		comp:      newCompactionListener(),
+		cache:     newCacheListener(),
+		flush:     newFlushListener(),
+		filter:    newFilterListener(),
+		memtable:  newMemtableListener(),
+		keys:      newKeysListener(),
+		snapshots: newSnapshotListener(),
 	}
 }
 
@@ -45,13 +47,14 @@ func newPebbleListener() *pebbleListener {
 //
 // This method delegates the collection of various metrics to their respective listeners.
 func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
-	listener.levels.gather(metrics)   // gather level-specific metrics.
-	listener.comp.gather(metrics)     // gather compaction-specific metrics.
-	listener.cache.gather(metrics)    // gather cache-specific metrics.
-	listener.flush.gather(metrics)    // gather flush-specific metrics.
-	listener.filter.gather(metrics)   // gather filter-specific metrics.
-	listener.memtable.gather(metrics) // gather memtable-specific metrics.
-	listener.keys.gather(metrics)     // gather keys-specific metrics.
+	listener.levels.gather(metrics)    // gather level-specific metrics.
+	listener.comp.gather(metrics)      // gather compaction-specific metrics.
+	listener.cache.gather(metrics)     // gather cache-specific metrics.
+	listener.flush.gather(metrics)     // gather flush-specific metrics.
+	listener.filter.gather(metrics)    // gather filter-specific metrics.
+	listener.memtable.gather(metrics)  // gather memtable-specific metrics.
+	listener.keys.gather(metrics)      // gather keys-specific metrics.
+	listener.snapshots.gather(metrics) // gather snapshots-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -469,33 +472,33 @@ type flushListener struct {
 // newFlushListener creates and returns a new flushListener instance with setup prometheus metrics.
 func newFlushListener() *flushListener {
 	const subsystem = "flush"
-	reporter := &flushListener{}
-	reporter.Count = prometheus.NewCounter(prometheus.CounterOpts{
+	listener := &flushListener{}
+	listener.Count = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: dbNamespace,
 		Subsystem: subsystem,
 		Name:      "amount",
 	})
-	reporter.AsIngestCount = prometheus.NewCounter(prometheus.CounterOpts{
+	listener.AsIngestCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: dbNamespace,
 		Subsystem: subsystem,
 		Name:      "ingests",
 	})
-	reporter.AsIngestTableCount = prometheus.NewCounter(prometheus.CounterOpts{
+	listener.AsIngestTableCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: dbNamespace,
 		Subsystem: subsystem,
 		Name:      "ingest_tables",
 	})
-	reporter.AsIngestBytes = prometheus.NewCounter(prometheus.CounterOpts{
+	listener.AsIngestBytes = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: dbNamespace,
 		Subsystem: subsystem,
 		Name:      "ingest_bytes",
 	})
-	reporter.BytesProcessed = prometheus.NewCounter(prometheus.CounterOpts{
+	listener.BytesProcessed = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: dbNamespace,
 		Subsystem: subsystem,
 		Name:      "bytes_processed",
 	})
-	reporter.NumInProgress = prometheus.NewGauge(prometheus.GaugeOpts{
+	listener.NumInProgress = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: dbNamespace,
 		Subsystem: subsystem,
 		Name:      "in_progress",
@@ -505,18 +508,18 @@ func newFlushListener() *flushListener {
 		Subsystem: subsystem,
 		Name:      "work",
 	}, []string{"state"})
-	reporter.WorkDuration = workCounter.WithLabelValues("work")
-	reporter.IdleDuration = workCounter.WithLabelValues("idle")
+	listener.WorkDuration = workCounter.WithLabelValues("work")
+	listener.IdleDuration = workCounter.WithLabelValues("idle")
 	prometheus.MustRegister(
-		reporter.Count,
-		reporter.AsIngestCount,
-		reporter.AsIngestTableCount,
-		reporter.AsIngestBytes,
-		reporter.NumInProgress,
-		reporter.BytesProcessed,
+		listener.Count,
+		listener.AsIngestCount,
+		listener.AsIngestTableCount,
+		listener.AsIngestBytes,
+		listener.NumInProgress,
+		listener.BytesProcessed,
 		workCounter,
 	)
-	return reporter
+	return listener
 }
 
 // updateCache updates the cache with new data and returns the older version.
@@ -724,6 +727,95 @@ func newKeysListener() *keysListener {
 func (listener *keysListener) gather(stats *db.PebbleMetrics) {
 	listener.RangeKeySets.Set(float64(stats.Src.Keys.RangeKeySetsCount))
 	listener.Tombstones.Set(float64(stats.Src.Keys.TombstoneCount))
+}
+
+// snapshotsListener listens for pebble snapshot metrics.
+type snapshotsListener struct {
+	// cache stores previous data in order to calculate delta.
+	cache struct {
+		PinnedKeys uint64
+		PinnedSize uint64
+	}
+
+	Count          prometheus.Gauge
+	EarliestSeqNum prometheus.Gauge
+	PinnedKeys     prometheus.Counter
+	PinnedSize     prometheus.Counter
+}
+
+// newSnapshotListener creates and returns a new snapshotsListener instance with setup prometheus metrics.
+func newSnapshotListener() *snapshotsListener {
+	const subsystem = "snapshots"
+	listener := &snapshotsListener{}
+	listener.Count = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "amount",
+	})
+	listener.EarliestSeqNum = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "earliest_seq_num",
+	})
+	listener.PinnedKeys = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "pinned_keys",
+	})
+	listener.PinnedSize = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "pinned_size",
+	})
+	prometheus.MustRegister(
+		listener.Count,
+		listener.EarliestSeqNum,
+		listener.PinnedKeys,
+		listener.PinnedSize,
+	)
+	return listener
+}
+
+// updateCache updates the cache with new data and returns the older version.
+func (listener *snapshotsListener) updateCache(stats *pebble.Metrics) struct {
+	PinnedKeys uint64
+	PinnedSize uint64
+} {
+	cache := listener.cache
+	listener.cache.PinnedKeys = stats.Snapshots.PinnedKeys
+	listener.cache.PinnedSize = stats.Snapshots.PinnedSize
+	return cache
+}
+
+// format formats provided data into collectable metrics.
+func (listener *snapshotsListener) format(stats *pebble.Metrics) struct {
+	Count          int
+	EarliestSeqNum uint64
+	PinnedKeys     uint64
+	PinnedSize     uint64
+} {
+	cache := listener.updateCache(stats)
+	return struct {
+		Count          int
+		EarliestSeqNum uint64
+		PinnedKeys     uint64
+		PinnedSize     uint64
+	}{
+		Count:          stats.Snapshots.Count,
+		EarliestSeqNum: stats.Snapshots.EarliestSeqNum,
+		PinnedKeys:     listener.cache.PinnedKeys - cache.PinnedKeys,
+		PinnedSize:     listener.cache.PinnedSize - cache.PinnedSize,
+	}
+}
+
+// gather collects and updates snapshot-specific metrics from pebble.
+func (listener *snapshotsListener) gather(stats *db.PebbleMetrics) {
+	formatted := listener.format(stats.Src)
+
+	listener.Count.Set(float64(formatted.Count))
+	listener.EarliestSeqNum.Set(float64(formatted.EarliestSeqNum))
+	listener.PinnedKeys.Add(float64(formatted.PinnedKeys))
+	listener.PinnedSize.Add(float64(formatted.PinnedSize))
 }
 
 func makeDBMetrics() db.EventListener {
