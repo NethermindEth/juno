@@ -23,6 +23,7 @@ type pebbleListener struct {
 	comp   *compactionListener // Listener for compaction-specific metrics.
 	cache  *cacheListener      // Listener for cache-specific metrics.
 	flush  *flushListener      // Listener for flush-specific metrics.
+	filter *filterListener     // Listener for filter-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
@@ -32,6 +33,7 @@ func newPebbleListener() *pebbleListener {
 		comp:   newCompactionListener(),
 		cache:  newCacheListener(),
 		flush:  newFlushListener(),
+		filter: newFilterListener(),
 	}
 }
 
@@ -43,6 +45,7 @@ func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.comp.gather(metrics)   // gather compaction-specific metrics.
 	listener.cache.gather(metrics)  // gather cache-specific metrics.
 	listener.flush.gather(metrics)  // gather flush-specific metrics.
+	listener.filter.gather(metrics) // gather filter-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -572,6 +575,69 @@ func (listener *flushListener) gather(stats *db.PebbleMetrics) {
 	listener.BytesProcessed.Add(float64(formatted.BytesProcessed))
 	listener.IdleDuration.Add((formatted.IdleDuration).Seconds())
 	listener.WorkDuration.Add((formatted.WorkDuration).Seconds())
+}
+
+// filterReporter reports about `pebble.Metrics.Filter` metrics.
+type filterListener struct {
+	// previous data
+	cache struct {
+		Hits   uint64
+		Misses uint64
+	}
+
+	metrics struct {
+		Hits   prometheus.Counter
+		Misses prometheus.Counter
+	}
+}
+
+// newFilterListener creates and returns a new filterListener instance with setup prometheus metrics.
+func newFilterListener() *filterListener {
+	const subsystem = "filter"
+	listener := &filterListener{}
+	filterCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "hits",
+	}, []string{"succesfull"})
+	listener.metrics.Hits = filterCounter.WithLabelValues("true")
+	listener.metrics.Misses = filterCounter.WithLabelValues("false")
+	prometheus.MustRegister(filterCounter)
+	return listener
+}
+
+// updateCache updates the cache with new data and returns the older version.
+func (listener *filterListener) updateCache(stats pebble.FilterMetrics) struct {
+	Hits   uint64
+	Misses uint64
+} {
+	cache := listener.cache
+	listener.cache.Hits = uint64(stats.Hits)
+	listener.cache.Misses = uint64(stats.Misses)
+	return cache
+}
+
+// format formats provided data into collectable metrics.
+func (listener *filterListener) format(stats pebble.FilterMetrics) struct {
+	Hits   uint64
+	Misses uint64
+} {
+	cache := listener.updateCache(stats)
+	return struct {
+		Hits   uint64
+		Misses uint64
+	}{
+		Hits:   listener.cache.Hits - cache.Hits,
+		Misses: listener.cache.Misses - cache.Misses,
+	}
+}
+
+// gather collects and updates filter-specific metrics from pebble.
+func (reporter *filterListener) gather(stats *db.PebbleMetrics) {
+	formatted := reporter.format(stats.Src.Filter)
+
+	reporter.metrics.Hits.Add(float64(formatted.Hits))
+	reporter.metrics.Misses.Add(float64(formatted.Misses))
 }
 
 func makeDBMetrics() db.EventListener {
