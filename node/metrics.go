@@ -25,6 +25,7 @@ type pebbleListener struct {
 	flush    *flushListener      // Listener for flush-specific metrics.
 	filter   *filterListener     // Listener for filter-specific metrics.
 	memtable *memtableListener   // Listener for memtable-specific metrics.
+	keys     *keysListener       // Listener for keys-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
@@ -36,6 +37,7 @@ func newPebbleListener() *pebbleListener {
 		flush:    newFlushListener(),
 		filter:   newFilterListener(),
 		memtable: newMemtableListener(),
+		keys:     newKeysListener(),
 	}
 }
 
@@ -49,6 +51,7 @@ func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.flush.gather(metrics)    // gather flush-specific metrics.
 	listener.filter.gather(metrics)   // gather filter-specific metrics.
 	listener.memtable.gather(metrics) // gather memtable-specific metrics.
+	listener.keys.gather(metrics)     // gather keys-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -688,6 +691,39 @@ func (listener *memtableListener) gather(stats *db.PebbleMetrics) {
 	listener.Count.Set(float64(stats.Src.MemTable.Count))
 	listener.ZombieSize.Set(float64(stats.Src.MemTable.ZombieSize))
 	listener.Zombies.Set(float64(stats.Src.MemTable.ZombieCount))
+}
+
+// keysListener listens for pebble keys metrics.
+type keysListener struct {
+	RangeKeySets prometheus.Gauge
+	Tombstones   prometheus.Gauge
+}
+
+// newKeysListener creates and returns a new keysListener instance with setup prometheus metrics.
+func newKeysListener() *keysListener {
+	const subsystem = "keys"
+	listener := &keysListener{}
+	listener.RangeKeySets = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "range_key_sets",
+	})
+	listener.Tombstones = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "tombstones",
+	})
+	prometheus.MustRegister(
+		listener.RangeKeySets,
+		listener.Tombstones,
+	)
+	return listener
+}
+
+// gather collects and updates keys-specific metrics from pebble.
+func (listener *keysListener) gather(stats *db.PebbleMetrics) {
+	listener.RangeKeySets.Set(float64(stats.Src.Keys.RangeKeySetsCount))
+	listener.Tombstones.Set(float64(stats.Src.Keys.TombstoneCount))
 }
 
 func makeDBMetrics() db.EventListener {
