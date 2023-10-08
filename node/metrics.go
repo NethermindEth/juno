@@ -27,6 +27,7 @@ type pebbleListener struct {
 	memtable  *memtableListener   // Listener for memtable-specific metrics.
 	keys      *keysListener       // Listener for keys-specific metrics.
 	snapshots *snapshotsListener  // Listener for snapshots-specific metrics.
+	table     *tableListener      // Listener for table-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
@@ -40,6 +41,7 @@ func newPebbleListener() *pebbleListener {
 		memtable:  newMemtableListener(),
 		keys:      newKeysListener(),
 		snapshots: newSnapshotListener(),
+		table:     newTableListener(),
 	}
 }
 
@@ -55,6 +57,7 @@ func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.memtable.gather(metrics)  // gather memtable-specific metrics.
 	listener.keys.gather(metrics)      // gather keys-specific metrics.
 	listener.snapshots.gather(metrics) // gather snapshots-specific metrics.
+	listener.table.gather(metrics)     // gather table-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -816,6 +819,96 @@ func (listener *snapshotsListener) gather(stats *db.PebbleMetrics) {
 	listener.EarliestSeqNum.Set(float64(formatted.EarliestSeqNum))
 	listener.PinnedKeys.Add(float64(formatted.PinnedKeys))
 	listener.PinnedSize.Add(float64(formatted.PinnedSize))
+}
+
+// tableListener listens for pebble table metrics.
+type tableListener struct {
+	// Table metrics
+	ObsoleteSize  prometheus.Gauge
+	ObsoleteCount prometheus.Gauge
+	ZombieSize    prometheus.Gauge
+	ZombieCount   prometheus.Gauge
+
+	// TableCache metrics
+	Size   prometheus.Gauge
+	Count  prometheus.Gauge
+	Hits   prometheus.Gauge
+	Misses prometheus.Gauge
+
+	// TableIters metrics
+	Iters prometheus.Gauge
+}
+
+// newTableListener creates and returns a new tableListener instance with setup prometheus metrics.
+func newTableListener() *tableListener {
+	const subsystem = "table"
+	listener := &tableListener{}
+	listener.ObsoleteSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "obsolete_size",
+	})
+	listener.ObsoleteCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "obsolete",
+	})
+	listener.ZombieSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "zombie_size",
+	})
+	listener.ZombieCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "zombies",
+	})
+	listener.Size = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "cache_size",
+	})
+	listener.Count = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "cache_count",
+	})
+	hitsGauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "cache_hits",
+	}, []string{"succesfull"})
+	listener.Hits = hitsGauge.WithLabelValues("true")
+	listener.Misses = hitsGauge.WithLabelValues("false")
+	listener.Iters = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "iters",
+	})
+	prometheus.MustRegister(
+		listener.ObsoleteSize,
+		listener.ObsoleteCount,
+		listener.ZombieSize,
+		listener.ZombieCount,
+		listener.Size,
+		listener.Count,
+		hitsGauge,
+		listener.Iters,
+	)
+	return listener
+}
+
+// gather collects and updates table-specific metrics from pebble.
+func (listener *tableListener) gather(stats *db.PebbleMetrics) {
+	listener.ObsoleteSize.Set(float64(stats.Src.Table.ObsoleteSize))
+	listener.ObsoleteCount.Set(float64(stats.Src.Table.ObsoleteCount))
+	listener.ZombieSize.Set(float64(stats.Src.Table.ZombieSize))
+	listener.ZombieCount.Set(float64(stats.Src.Table.ZombieCount))
+	listener.Size.Set(float64(stats.Src.TableCache.Size))
+	listener.Count.Set(float64(stats.Src.TableCache.Count))
+	listener.Hits.Set(float64(stats.Src.TableCache.Hits))
+	listener.Misses.Set(float64(stats.Src.TableCache.Misses))
+	listener.Iters.Set(float64(stats.Src.TableIters))
 }
 
 func makeDBMetrics() db.EventListener {
