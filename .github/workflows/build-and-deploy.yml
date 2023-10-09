@@ -82,21 +82,53 @@ jobs:
       TEST_RPC_URL: ${{ secrets.DEV_GOERLI_URL }}/v0_4
       TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
-      
+
+  approval-check:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    needs: [deploy_to_dev]
+    steps:
+      - name: Wait for 10 minutes
+        run: sleep 600 
+            
+      - name: Check if workflow approval for previous job has been approved
+        env:
+          GH_TOKEN: ${{ github.token }}
+        id: check_approvals
+        run: |
+          echo "Workflow approval for previous job has not been approved. ccanceling workflow..."
+          gh api --method POST -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/cancel
+  
+      # steps:
+      #   - name: Wait for 5 minutes
+      #     run: sleep 300 
+  
+      #   - name: Check for deployment review
+      #     id: check_review
+      #     run: |
+      #       #   curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+      #       #   https://api.github.com/repos/${{ github.repository }}/deployments/${{ github.event.deployment.id }}/statuses
+            
+      #   - name: Cancel job if no review
+      #     if: steps.check_review.outputs.review_status != 'APPROVED'
+      #     run: |
+      #       #   curl -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+      #       #   https://api.github.com/repos/${{ github.repository }}/actions/jobs/${{ github.job_id }}/cancel
+            
   deploy_to_staging:
     needs: [docker_build_and_publish, deploy_to_dev]
     runs-on: ubuntu-latest
     environment: 
       name: Staging
-    steps:
-      - name: Repository Dispatch Staging
-        env:
+    steps:         
+    - name: Repository Dispatch Staging
+      env:
           EVENT_NAME: juno-staging
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
           GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
           INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
           MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
-        run: |
+      run: |
           curl -L \
           -X POST \
           -H "Accept: application/vnd.github+json" \
@@ -154,3 +186,4 @@ jobs:
       TEST_RPC_URL: ${{ secrets.PROD_GOERLI_URL }}/v0_4
       TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
+
