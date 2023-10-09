@@ -91,14 +91,14 @@ type BlockHeader struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
-	Status BlockStatus `json:"status"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
 type BlockWithTxHashes struct {
-	Status BlockStatus `json:"status"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
