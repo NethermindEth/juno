@@ -1318,7 +1318,7 @@ func (h *Handler) TraceBlockTransactions(id BlockID) ([]TracedBlockTransaction, 
 func (h *Handler) LegacyTraceBlockTransactions(hash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	block, err := h.bcReader.BlockByHash(&hash)
 	if err != nil {
-		return nil, ErrBlockNotFound
+		return nil, ErrInvalidBlockHash
 	}
 
 	return h.traceBlockTransactions(block, len(block.Transactions), true)
