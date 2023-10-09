@@ -1022,11 +1022,11 @@ func (listener *walListener) format(stats *pebble.Metrics) struct {
 		BytesWritten         uint64
 	}{
 		Files:                stats.WAL.Files,
-		ObsoleteFiles:        stats.WAL.Files,
+		ObsoleteFiles:        stats.WAL.ObsoleteFiles,
 		ObsoletePhysicalSize: stats.WAL.ObsoletePhysicalSize,
 		Size:                 stats.WAL.Size,
 		PhysicalSize:         stats.WAL.PhysicalSize,
-		BytesIn:              listener.cache.BytesWritten - cache.BytesWritten,
+		BytesIn:              listener.cache.BytesIn - cache.BytesIn,
 		BytesWritten:         listener.cache.BytesWritten - cache.BytesWritten,
 	}
 }
