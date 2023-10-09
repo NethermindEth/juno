@@ -17,16 +17,16 @@ func TestIterator(t *testing.T) {
 
 	t.Run("wrong args", func(t *testing.T) {
 		// zero limit
-		_, err := newIterator(nil, 1, 0, 1, false)
+		_, err := newIteratorByNumber(nil, 1, 0, 1, false)
 		assert.Error(t, err)
 
 		// zero step
-		_, err = newIterator(nil, 1, 1, 0, false)
+		_, err = newIteratorByNumber(nil, 1, 1, 0, false)
 		assert.Error(t, err)
 	})
 	t.Run("forward", func(t *testing.T) {
 		reader := mocks.NewMockReader(mockCtrl)
-		it, err := newIterator(reader, 1, 10, 2, true)
+		it, err := newIteratorByNumber(reader, 1, 10, 2, true)
 		require.NoError(t, err)
 
 		blocks := []*core.Block{
@@ -55,7 +55,7 @@ func TestIterator(t *testing.T) {
 	})
 	t.Run("backward", func(t *testing.T) {
 		reader := mocks.NewMockReader(mockCtrl)
-		it, err := newIterator(reader, 10, 3, 2, false)
+		it, err := newIteratorByNumber(reader, 10, 3, 2, false)
 		require.NoError(t, err)
 
 		blocks := []*core.Block{

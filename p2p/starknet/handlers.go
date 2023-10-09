@@ -3,9 +3,11 @@ package starknet
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -97,19 +99,35 @@ func (h *Handler) TransactionsHandler(stream network.Stream) {
 }
 
 func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
+	it, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
 	return func() (proto.Message, bool) {
-		if count > 3 {
+		if it.Valid() {
 			return nil, false
 		}
-		count++
+
+		header, err := it.Header()
+		if err != nil {
+			h.log.Errorw("Failed to fetch header", "err", err)
+			return nil, false
+		}
+		it.Next()
+
 		return &spec.BlockHeadersResponse{
 			Part: []*spec.BlockHeadersResponsePart{
 				{
 					HeaderMessage: &spec.BlockHeadersResponsePart_Header{
-						Header: &spec.BlockHeader{
-							Number: count - 1,
+						Header: core2p2p.AdaptHeader(header),
+					},
+				},
+				{
+					HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
+						Signatures: &spec.Signatures{
+							Block:      core2p2p.AdaptBlockID(header),
+							Signatures: []*spec.ConsensusSignature{}, // ???
 						},
 					},
 				},
@@ -216,5 +234,13 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 
 func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
 	forward := it.Direction == spec.Iteration_Forward
-	return newIterator(h.bcReader, it.GetBlockNumber(), it.Limit, it.Step, forward)
+
+	switch v := it.Start.(type) {
+	case *spec.Iteration_BlockNumber:
+		return newIteratorByNumber(h.bcReader, v.BlockNumber, it.Limit, it.Step, forward)
+	case *spec.Iteration_Header:
+		return newIteratorByHash(h.bcReader, p2p2core.AdaptHash(v.Header), it.Limit, it.Step, forward)
+	default:
+		return nil, fmt.Errorf("unsupported iteration start type %T", v)
+	}
 }
