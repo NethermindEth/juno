@@ -35,7 +35,7 @@ type pebbleListener struct {
 	logs      *logsListener       // Listener for logs-specific metrics.
 }
 
-// newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
+// newPebbleListener creates and returns a new pebbleListener instance with initialised listeners.
 func newPebbleListener() *pebbleListener {
 	return &pebbleListener{
 		levels:    newLevelsListener(),
@@ -996,8 +996,8 @@ func (listener *walListener) updateCache(stats *pebble.Metrics) struct {
 	BytesWritten uint64
 } {
 	cache := listener.cache
-	listener.cache.BytesIn = uint64(stats.WAL.BytesIn)
-	listener.cache.BytesWritten = uint64(stats.WAL.BytesWritten)
+	listener.cache.BytesIn = stats.WAL.BytesIn
+	listener.cache.BytesWritten = stats.WAL.BytesWritten
 	return cache
 }
 
