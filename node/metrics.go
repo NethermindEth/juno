@@ -2,6 +2,7 @@ package node
 
 import (
 	"strconv"
+	gosync "sync"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -10,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
+	gto "github.com/prometheus/client_model/go"
 )
 
 const (
@@ -29,6 +31,7 @@ type pebbleListener struct {
 	snapshots *snapshotsListener  // Listener for snapshots-specific metrics.
 	table     *tableListener      // Listener for table-specific metrics.
 	wal       *walListener        // Listener for wal-specific metrics.
+	logs      *logsListener       // Listener for logs-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
@@ -44,6 +47,7 @@ func newPebbleListener() *pebbleListener {
 		snapshots: newSnapshotListener(),
 		table:     newTableListener(),
 		wal:       newWalListener(),
+		logs:      newLogsListener(),
 	}
 }
 
@@ -61,6 +65,7 @@ func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.snapshots.gather(metrics) // gather snapshots-specific metrics.
 	listener.table.gather(metrics)     // gather table-specific metrics.
 	listener.wal.gather(metrics)       // gather wal-specific metrics.
+	listener.logs.gather(metrics)      // gather logs-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -1035,6 +1040,151 @@ func (listener *walListener) gather(stats *db.PebbleMetrics) {
 	listener.BytesIn.Add(float64(formatted.BytesIn))
 	listener.BytesWritten.Add(float64(formatted.BytesWritten))
 }
+
+// logsListener listens for pebble logs metrics.
+type logsListener struct {
+	// cache stores previous data in order to calculate delta.
+	cache struct {
+		Bytes        uint64
+		IdleDuration time.Duration
+		WorkDuration time.Duration
+	}
+
+	// FSyncLatency is managed by the pebble itself
+	FSyncLatency prometheus.Histogram
+
+	// WriteThroughput metrics
+	Bytes        prometheus.Counter
+	WorkDuration prometheus.Counter
+	IdleDuration prometheus.Counter
+
+	// PendingBufferLen metric
+	PendingBufferLenMean prometheus.Gauge
+	// SyncQueueLen metric
+	SyncQueueLenMean prometheus.Gauge
+
+	once gosync.Once
+}
+
+// newLogsListener creates and returns a new logsListener instance with setup prometheus metrics.
+func newLogsListener() *logsListener {
+	const subsystem = "logs"
+	listener := &logsListener{}
+	listener.Bytes = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "write_throughput_bytes",
+	})
+	workCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "write_throughput_work",
+	}, []string{"state"})
+	listener.WorkDuration = workCounter.WithLabelValues("work")
+	listener.IdleDuration = workCounter.WithLabelValues("idle")
+	listener.PendingBufferLenMean = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "pending_buffer_len",
+	})
+	listener.SyncQueueLenMean = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "sync_queue_len",
+	})
+	prometheus.MustRegister(
+		listener.Bytes,
+		workCounter,
+		listener.PendingBufferLenMean,
+		listener.SyncQueueLenMean,
+	)
+	return listener
+}
+
+// updateCache updates the cache with new data and returns the older version.
+func (listener *logsListener) updateCache(stats *pebble.Metrics) struct {
+	Bytes        uint64
+	IdleDuration time.Duration
+	WorkDuration time.Duration
+} {
+	cache := listener.cache
+	listener.cache.Bytes = uint64(stats.LogWriter.WriteThroughput.Bytes)
+	listener.cache.WorkDuration = stats.LogWriter.WriteThroughput.WorkDuration
+	listener.cache.IdleDuration = stats.LogWriter.WriteThroughput.IdleDuration
+	return cache
+}
+
+// format formats provided data into collectable metrics.
+func (listener *logsListener) format(stats *pebble.Metrics) struct {
+	Bytes                uint64
+	WorkDuration         time.Duration
+	IdleDuration         time.Duration
+	PendingBufferLenMean float64
+	SyncQueueLenMean     float64
+} {
+	cache := listener.updateCache(stats)
+	return struct {
+		Bytes                uint64
+		WorkDuration         time.Duration
+		IdleDuration         time.Duration
+		PendingBufferLenMean float64
+		SyncQueueLenMean     float64
+	}{
+		Bytes:                listener.cache.Bytes - cache.Bytes,
+		WorkDuration:         listener.cache.WorkDuration - cache.WorkDuration,
+		IdleDuration:         listener.cache.IdleDuration - cache.IdleDuration,
+		PendingBufferLenMean: stats.LogWriter.PendingBufferLen.Mean(),
+		SyncQueueLenMean:     stats.LogWriter.SyncQueueLen.Mean(),
+	}
+}
+
+func (listener *logsListener) gather(stats *db.PebbleMetrics) {
+	formatted := listener.format(stats.Src)
+	// The 'pebble.Metrics.LogWriter.FsyncLatency' metric lacks a valid description for registration.
+	// Furthermore, it doesn't provide a direct method for manual data retrieval.
+	// To address these issues, we encapsulate it within another histogram while providing
+	// a meaningful description that aligns with our specific use case.
+	listener.once.Do(func() {
+		listener.registerFSyncHistogram(stats.Src.LogWriter.FsyncLatency)
+	})
+
+	listener.Bytes.Add(float64(formatted.Bytes))
+	listener.WorkDuration.Add(formatted.WorkDuration.Seconds())
+	listener.IdleDuration.Add(formatted.IdleDuration.Seconds())
+	listener.PendingBufferLenMean.Set(formatted.PendingBufferLenMean)
+	listener.SyncQueueLenMean.Set(formatted.SyncQueueLenMean)
+}
+
+// registerFSyncHistogram registers a Prometheus histogram metric for tracking filesystem sync latency.
+func (listener *logsListener) registerFSyncHistogram(hist prometheus.Histogram) {
+	wrapped := &dualHistogram{}
+	wrapped.valueHist = hist
+	wrapped.descrHistogram = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: dbNamespace,
+		Subsystem: "logs",
+		Name:      "fsync_latency",
+	})
+	listener.FSyncLatency = wrapped
+	prometheus.MustRegister(listener.FSyncLatency)
+}
+
+// dualHistogram is a histogram wrapper for reporting histogram under different description.
+type dualHistogram struct {
+	// valueHist represents a Prometheus Histogram for tracking metric values.
+	valueHist prometheus.Histogram
+	// descrHistogram represents a Prometheus Histogram for description.
+	descrHistogram prometheus.Histogram
+}
+
+func (hist *dualHistogram) Observe(v float64) { hist.valueHist.Observe(v) }
+
+func (hist *dualHistogram) Describe(ch chan<- *prometheus.Desc) { hist.descrHistogram.Describe(ch) }
+
+func (hist *dualHistogram) Desc() *prometheus.Desc { return hist.descrHistogram.Desc() }
+
+func (hist *dualHistogram) Write(metric *gto.Metric) error { return hist.valueHist.Write(metric) }
+
+func (hist *dualHistogram) Collect(ch chan<- prometheus.Metric) { ch <- hist }
 
 func makeDBMetrics() db.EventListener {
 	readCounter := prometheus.NewCounter(prometheus.CounterOpts{
