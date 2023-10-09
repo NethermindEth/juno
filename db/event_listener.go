@@ -4,6 +4,7 @@ import "github.com/cockroachdb/pebble"
 
 type PebbleMetrics struct {
 	Src *pebble.Metrics
+	// TODO Add additional metrics derrived from events
 }
 
 type PebbleListener interface {

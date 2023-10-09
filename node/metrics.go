@@ -31,6 +31,7 @@ type pebbleListener struct {
 	snapshots *snapshotsListener  // Listener for snapshots-specific metrics.
 	table     *tableListener      // Listener for table-specific metrics.
 	wal       *walListener        // Listener for wal-specific metrics.
+	disk      *diskListener       // Listener for disk-specific metrics.
 	logs      *logsListener       // Listener for logs-specific metrics.
 }
 
@@ -47,6 +48,7 @@ func newPebbleListener() *pebbleListener {
 		snapshots: newSnapshotListener(),
 		table:     newTableListener(),
 		wal:       newWalListener(),
+		disk:      newDiskListener(),
 		logs:      newLogsListener(),
 	}
 }
@@ -65,6 +67,7 @@ func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.snapshots.gather(metrics) // gather snapshots-specific metrics.
 	listener.table.gather(metrics)     // gather table-specific metrics.
 	listener.wal.gather(metrics)       // gather wal-specific metrics.
+	listener.disk.gather(metrics)      // gather disk-specific metrics.
 	listener.logs.gather(metrics)      // gather logs-specific metrics.
 }
 
@@ -1039,6 +1042,30 @@ func (listener *walListener) gather(stats *db.PebbleMetrics) {
 	listener.PhysicalSize.Set(float64(formatted.PhysicalSize))
 	listener.BytesIn.Add(float64(formatted.BytesIn))
 	listener.BytesWritten.Add(float64(formatted.BytesWritten))
+}
+
+// diskListener listens for pebble disk metrics.
+type diskListener struct {
+	// metrics
+	diskUsage prometheus.Gauge
+}
+
+// newDiskListener creates and returns a new diskListener instance with setup prometheus metrics.
+func newDiskListener() *diskListener {
+	const subsystem = "disk"
+	listener := &diskListener{}
+	listener.diskUsage = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "usage",
+	})
+	prometheus.MustRegister(listener.diskUsage)
+	return listener
+}
+
+// gather collects and updates disk-specific metrics from pebble.
+func (listener *diskListener) gather(stats *db.PebbleMetrics) {
+	listener.diskUsage.Set(float64(stats.Src.DiskSpaceUsage()))
 }
 
 // logsListener listens for pebble logs metrics.
