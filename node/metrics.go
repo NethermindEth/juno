@@ -36,20 +36,20 @@ type pebbleListener struct {
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialised listeners.
-func newPebbleListener() *pebbleListener {
+func newPebbleListener(registry prometheus.Registerer) *pebbleListener {
 	return &pebbleListener{
-		levels:    newLevelsListener(),
-		comp:      newCompactionListener(),
-		cache:     newCacheListener(),
-		flush:     newFlushListener(),
-		filter:    newFilterListener(),
-		memtable:  newMemtableListener(),
-		keys:      newKeysListener(),
-		snapshots: newSnapshotListener(),
-		table:     newTableListener(),
-		wal:       newWalListener(),
-		disk:      newDiskListener(),
-		logs:      newLogsListener(),
+		levels:    newLevelsListener(registry),
+		comp:      newCompactionListener(registry),
+		cache:     newCacheListener(registry),
+		flush:     newFlushListener(registry),
+		filter:    newFilterListener(registry),
+		memtable:  newMemtableListener(registry),
+		keys:      newKeysListener(registry),
+		snapshots: newSnapshotListener(registry),
+		table:     newTableListener(registry),
+		wal:       newWalListener(registry),
+		disk:      newDiskListener(registry),
+		logs:      newLogsListener(registry),
 	}
 }
 
@@ -95,7 +95,7 @@ type levelsListener struct {
 }
 
 // newLevelsListener creates and returns a new levelsListener instance with setup prometheus metrics.
-func newLevelsListener() *levelsListener {
+func newLevelsListener(registry prometheus.Registerer) *levelsListener {
 	const subsystem = "lvl"
 	listener := &levelsListener{}
 	numFiles := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -182,7 +182,7 @@ func newLevelsListener() *levelsListener {
 		listener.tablesIngested[i] = tablesIngested.WithLabelValues(label)
 		listener.tablesMoved[i] = tablesMoved.WithLabelValues(label)
 	}
-	prometheus.MustRegister(
+	registry.MustRegister(
 		numFiles,
 		size,
 		score,
@@ -270,7 +270,7 @@ type compactionListener struct {
 }
 
 // newCompactionListener creates and returns a new compactionListener instance with setup prometheus metrics.
-func newCompactionListener() *compactionListener {
+func newCompactionListener(registry prometheus.Registerer) *compactionListener {
 	const subsystem = "compaction"
 	listener := &compactionListener{}
 	listener.EstimatedDebt = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -305,7 +305,7 @@ func newCompactionListener() *compactionListener {
 	listener.Reads = compactionsCounts.WithLabelValues("read")
 	listener.Rewrites = compactionsCounts.WithLabelValues("rewrite")
 	listener.MultiLevels = compactionsCounts.WithLabelValues("multi_level")
-	prometheus.MustRegister(
+	registry.MustRegister(
 		compactionsCounts,
 		listener.EstimatedDebt,
 		listener.InProgressBytes,
@@ -411,7 +411,7 @@ type cacheListener struct {
 }
 
 // newCacheListener creates and returns a new cacheListener instance with setup prometheus metrics.
-func newCacheListener() *cacheListener {
+func newCacheListener(registry prometheus.Registerer) *cacheListener {
 	const subsystem = "cache"
 	listener := &cacheListener{}
 	listener.Size = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -431,7 +431,7 @@ func newCacheListener() *cacheListener {
 	}, []string{"succesfull"})
 	listener.Hits = hitCounter.WithLabelValues("true")
 	listener.Misses = hitCounter.WithLabelValues("false")
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.Size,
 		listener.Count,
 		hitCounter,
@@ -484,7 +484,7 @@ type flushListener struct {
 }
 
 // newFlushListener creates and returns a new flushListener instance with setup prometheus metrics.
-func newFlushListener() *flushListener {
+func newFlushListener(registry prometheus.Registerer) *flushListener {
 	const subsystem = "flush"
 	listener := &flushListener{}
 	listener.Count = prometheus.NewCounter(prometheus.CounterOpts{
@@ -524,7 +524,7 @@ func newFlushListener() *flushListener {
 	}, []string{"state"})
 	listener.WorkDuration = workCounter.WithLabelValues("work")
 	listener.IdleDuration = workCounter.WithLabelValues("idle")
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.Count,
 		listener.AsIngestCount,
 		listener.AsIngestTableCount,
@@ -613,7 +613,7 @@ type filterListener struct {
 }
 
 // newFilterListener creates and returns a new filterListener instance with setup prometheus metrics.
-func newFilterListener() *filterListener {
+func newFilterListener(registry prometheus.Registerer) *filterListener {
 	const subsystem = "filter"
 	listener := &filterListener{}
 	filterCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -623,7 +623,7 @@ func newFilterListener() *filterListener {
 	}, []string{"succesfull"})
 	listener.Hits = filterCounter.WithLabelValues("true")
 	listener.Misses = filterCounter.WithLabelValues("false")
-	prometheus.MustRegister(filterCounter)
+	registry.MustRegister(filterCounter)
 	return listener
 }
 
@@ -670,7 +670,7 @@ type memtableListener struct {
 }
 
 // newMemtableListener creates and returns a new memtableListener instance with setup prometheus metrics.
-func newMemtableListener() *memtableListener {
+func newMemtableListener(registry prometheus.Registerer) *memtableListener {
 	const subsystem = "memtable"
 	listener := &memtableListener{}
 	listener.Size = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -693,7 +693,7 @@ func newMemtableListener() *memtableListener {
 		Subsystem: subsystem,
 		Name:      "zombies",
 	})
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.Size,
 		listener.Count,
 		listener.ZombieSize,
@@ -717,7 +717,7 @@ type keysListener struct {
 }
 
 // newKeysListener creates and returns a new keysListener instance with setup prometheus metrics.
-func newKeysListener() *keysListener {
+func newKeysListener(registry prometheus.Registerer) *keysListener {
 	const subsystem = "keys"
 	listener := &keysListener{}
 	listener.RangeKeySets = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -730,7 +730,7 @@ func newKeysListener() *keysListener {
 		Subsystem: subsystem,
 		Name:      "tombstones",
 	})
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.RangeKeySets,
 		listener.Tombstones,
 	)
@@ -758,7 +758,7 @@ type snapshotsListener struct {
 }
 
 // newSnapshotListener creates and returns a new snapshotsListener instance with setup prometheus metrics.
-func newSnapshotListener() *snapshotsListener {
+func newSnapshotListener(registry prometheus.Registerer) *snapshotsListener {
 	const subsystem = "snapshots"
 	listener := &snapshotsListener{}
 	listener.Count = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -781,7 +781,7 @@ func newSnapshotListener() *snapshotsListener {
 		Subsystem: subsystem,
 		Name:      "pinned_size",
 	})
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.Count,
 		listener.EarliestSeqNum,
 		listener.PinnedKeys,
@@ -851,7 +851,7 @@ type tableListener struct {
 }
 
 // newTableListener creates and returns a new tableListener instance with setup prometheus metrics.
-func newTableListener() *tableListener {
+func newTableListener(registry prometheus.Registerer) *tableListener {
 	const subsystem = "table"
 	listener := &tableListener{}
 	listener.ObsoleteSize = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -896,7 +896,7 @@ func newTableListener() *tableListener {
 		Subsystem: subsystem,
 		Name:      "iters",
 	})
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.ObsoleteSize,
 		listener.ObsoleteCount,
 		listener.ZombieSize,
@@ -940,7 +940,7 @@ type walListener struct {
 }
 
 // newWalListener creates and returns a new walListener instance with setup prometheus metrics.
-func newWalListener() *walListener {
+func newWalListener(registry prometheus.Registerer) *walListener {
 	const subsystem = "wal"
 	listener := &walListener{}
 	listener.Files = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -978,7 +978,7 @@ func newWalListener() *walListener {
 		Subsystem: subsystem,
 		Name:      "bytes_written",
 	})
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.Files,
 		listener.ObsoleteFiles,
 		listener.ObsoletePhysicalSize,
@@ -1051,7 +1051,7 @@ type diskListener struct {
 }
 
 // newDiskListener creates and returns a new diskListener instance with setup prometheus metrics.
-func newDiskListener() *diskListener {
+func newDiskListener(registry prometheus.Registerer) *diskListener {
 	const subsystem = "disk"
 	listener := &diskListener{}
 	listener.diskUsage = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -1059,7 +1059,7 @@ func newDiskListener() *diskListener {
 		Subsystem: subsystem,
 		Name:      "usage",
 	})
-	prometheus.MustRegister(listener.diskUsage)
+	registry.MustRegister(listener.diskUsage)
 	return listener
 }
 
@@ -1070,6 +1070,8 @@ func (listener *diskListener) gather(stats *db.PebbleMetrics) {
 
 // logsListener listens for pebble logs metrics.
 type logsListener struct {
+	// registry in order to late register FSyncLatency histogram
+	registry prometheus.Registerer
 	// cache stores previous data in order to calculate delta.
 	cache struct {
 		Bytes        uint64
@@ -1094,9 +1096,9 @@ type logsListener struct {
 }
 
 // newLogsListener creates and returns a new logsListener instance with setup prometheus metrics.
-func newLogsListener() *logsListener {
+func newLogsListener(registry prometheus.Registerer) *logsListener {
 	const subsystem = "logs"
-	listener := &logsListener{}
+	listener := &logsListener{registry: registry}
 	listener.Bytes = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: dbNamespace,
 		Subsystem: subsystem,
@@ -1119,7 +1121,7 @@ func newLogsListener() *logsListener {
 		Subsystem: subsystem,
 		Name:      "sync_queue_len",
 	})
-	prometheus.MustRegister(
+	registry.MustRegister(
 		listener.Bytes,
 		workCounter,
 		listener.PendingBufferLenMean,
@@ -1192,7 +1194,7 @@ func (listener *logsListener) registerFSyncHistogram(hist prometheus.Histogram) 
 		Name:      "fsync_latency",
 	})
 	listener.FSyncLatency = wrapped
-	prometheus.MustRegister(listener.FSyncLatency)
+	listener.registry.MustRegister(listener.FSyncLatency)
 }
 
 // dualHistogram is a histogram wrapper for reporting histogram under different description.
@@ -1223,7 +1225,7 @@ func makeDBMetrics() db.EventListener {
 		Name:      "write",
 	})
 	prometheus.MustRegister(readCounter, writeCounter)
-	pebbleListener := newPebbleListener()
+	pebbleListener := newPebbleListener(prometheus.DefaultRegisterer)
 	return &db.SelectiveListener{
 		OnIOCb: func(write bool) {
 			if write {

@@ -19,7 +19,7 @@ import (
 // properly collected and match the expected values.
 func TestPebbleMetrics(t *testing.T) {
 	var (
-		listener = newPebbleListener()
+		listener = newPebbleListener(prometheus.NewRegistry())
 		wg       sync.WaitGroup
 		gathered bool
 		metrics  *db.PebbleMetrics
