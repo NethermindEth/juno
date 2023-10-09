@@ -28,6 +28,7 @@ type pebbleListener struct {
 	keys      *keysListener       // Listener for keys-specific metrics.
 	snapshots *snapshotsListener  // Listener for snapshots-specific metrics.
 	table     *tableListener      // Listener for table-specific metrics.
+	wal       *walListener        // Listener for wal-specific metrics.
 }
 
 // newPebbleListener creates and returns a new pebbleListener instance with initialized listeners.
@@ -42,6 +43,7 @@ func newPebbleListener() *pebbleListener {
 		keys:      newKeysListener(),
 		snapshots: newSnapshotListener(),
 		table:     newTableListener(),
+		wal:       newWalListener(),
 	}
 }
 
@@ -58,6 +60,7 @@ func (listener *pebbleListener) gather(metrics *db.PebbleMetrics) {
 	listener.keys.gather(metrics)      // gather keys-specific metrics.
 	listener.snapshots.gather(metrics) // gather snapshots-specific metrics.
 	listener.table.gather(metrics)     // gather table-specific metrics.
+	listener.wal.gather(metrics)       // gather wal-specific metrics.
 }
 
 // levelsListener listens for pebble levels metrics.
@@ -909,6 +912,128 @@ func (listener *tableListener) gather(stats *db.PebbleMetrics) {
 	listener.Hits.Set(float64(stats.Src.TableCache.Hits))
 	listener.Misses.Set(float64(stats.Src.TableCache.Misses))
 	listener.Iters.Set(float64(stats.Src.TableIters))
+}
+
+// walListener listens for pebble wal metrics.
+type walListener struct {
+	// cache stores previous data in order to calculate delta.
+	cache struct {
+		BytesIn      uint64
+		BytesWritten uint64
+	}
+
+	Files                prometheus.Gauge
+	ObsoleteFiles        prometheus.Gauge
+	ObsoletePhysicalSize prometheus.Gauge
+	Size                 prometheus.Gauge
+	PhysicalSize         prometheus.Gauge
+	BytesIn              prometheus.Counter
+	BytesWritten         prometheus.Counter
+}
+
+// newWalListener creates and returns a new walListener instance with setup prometheus metrics.
+func newWalListener() *walListener {
+	const subsystem = "wal"
+	listener := &walListener{}
+	listener.Files = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "files",
+	})
+	listener.ObsoleteFiles = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "obsolete_files",
+	})
+	listener.ObsoletePhysicalSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "obsolete_physical_size",
+	})
+	listener.Size = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "size",
+	})
+	listener.PhysicalSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "physical_size",
+	})
+	listener.BytesIn = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_in",
+	})
+	listener.BytesWritten = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: dbNamespace,
+		Subsystem: subsystem,
+		Name:      "bytes_written",
+	})
+	prometheus.MustRegister(
+		listener.Files,
+		listener.ObsoleteFiles,
+		listener.ObsoletePhysicalSize,
+		listener.Size,
+		listener.PhysicalSize,
+		listener.BytesIn,
+		listener.BytesWritten,
+	)
+	return listener
+}
+
+// updateCache updates the cache with new data and returns the older version.
+func (listener *walListener) updateCache(stats *pebble.Metrics) struct {
+	BytesIn      uint64
+	BytesWritten uint64
+} {
+	cache := listener.cache
+	listener.cache.BytesIn = uint64(stats.WAL.BytesIn)
+	listener.cache.BytesWritten = uint64(stats.WAL.BytesWritten)
+	return cache
+}
+
+// format formats provided data into collectable metrics.
+func (listener *walListener) format(stats *pebble.Metrics) struct {
+	Files                int64
+	ObsoleteFiles        int64
+	ObsoletePhysicalSize uint64
+	Size                 uint64
+	PhysicalSize         uint64
+	BytesIn              uint64
+	BytesWritten         uint64
+} {
+	cache := listener.updateCache(stats)
+	return struct {
+		Files                int64
+		ObsoleteFiles        int64
+		ObsoletePhysicalSize uint64
+		Size                 uint64
+		PhysicalSize         uint64
+		BytesIn              uint64
+		BytesWritten         uint64
+	}{
+		Files:                stats.WAL.Files,
+		ObsoleteFiles:        stats.WAL.Files,
+		ObsoletePhysicalSize: stats.WAL.ObsoletePhysicalSize,
+		Size:                 stats.WAL.Size,
+		PhysicalSize:         stats.WAL.PhysicalSize,
+		BytesIn:              listener.cache.BytesWritten - cache.BytesWritten,
+		BytesWritten:         listener.cache.BytesWritten - cache.BytesWritten,
+	}
+}
+
+// gather collects and updates wal-specific metrics from pebble.
+func (listener *walListener) gather(stats *db.PebbleMetrics) {
+	formatted := listener.format(stats.Src)
+
+	listener.Files.Set(float64(formatted.Files))
+	listener.ObsoleteFiles.Set(float64(formatted.ObsoleteFiles))
+	listener.ObsoletePhysicalSize.Set(float64(formatted.ObsoletePhysicalSize))
+	listener.Size.Set(float64(formatted.Size))
+	listener.PhysicalSize.Set(float64(formatted.PhysicalSize))
+	listener.BytesIn.Add(float64(formatted.BytesIn))
+	listener.BytesWritten.Add(float64(formatted.BytesWritten))
 }
 
 func makeDBMetrics() db.EventListener {
