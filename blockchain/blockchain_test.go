@@ -771,8 +771,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, chain.Store(block0, &core.BlockCommitments{}, su0, nil))
 
-	sink := make(chan *core.Header, 2048)
-	sub := chain.SubscribeNewHeads(sink)
+	sub := chain.SubscribeNewHeads()
 	t.Cleanup(sub.Unsubscribe)
 
 	t.Run("send on store", func(t *testing.T) {
@@ -782,7 +781,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(block1, &core.BlockCommitments{}, su1, nil))
 
-		got1, notClosed := <-sink
+		got1, notClosed := <-sub.Recv()
 		require.True(t, notClosed)
 		assert.Equal(t, block1.Header, got1)
 	})
