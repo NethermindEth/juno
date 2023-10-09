@@ -161,7 +161,7 @@ func TestPebbleMetrics(t *testing.T) {
 	})
 }
 
-// Tests whether DualHistogram correctly registers a histogram with a different name,
+// TestDualHistogram tests whether DualHistogram correctly registers a histogram with a different name,
 // and verifies that the original histogram values are reflected.
 // It ensures that only the histogram with the name "foo" is registered with Prometheus,
 // and verifies this behavior.
