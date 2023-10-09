@@ -376,8 +376,8 @@ func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
 					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
 					s.highestBlockHeader.Store(highestBlock.Header)
+					s.bestBlockGauge.Set(float64(highestBlock.Header.Number))
 				}
-				s.bestBlockGauge.Set(float64(highestBlock.Header.Number))
 			}()
 		default:
 		}
