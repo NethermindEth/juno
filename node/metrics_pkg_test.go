@@ -37,7 +37,7 @@ func TestPebbleMetrics(t *testing.T) {
 		},
 	}
 
-	testDB := pebble.NewMemTest().WithListener(selectiveListener)
+	testDB := pebble.NewMemTest(t).WithListener(selectiveListener)
 	// do some arbitrary load in order to have some data in gathered metrics
 	for i := 0; i < 1024*32; i++ {
 		txn := testDB.NewTransaction(true)
