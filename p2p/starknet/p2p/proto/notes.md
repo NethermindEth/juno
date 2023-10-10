@@ -15,7 +15,7 @@
 * TBD: stark friendly hashes or not (calculate in os? so light nodes don't trust the consensus)
 * TBD: "pubsub" mechanism where a node subscribes to getting push messages instead of GetXXX.
 ** GetXXX messages will need to be supported for network issues / failures
-* Consensus: send (Transactions*, StateDiff*)* Proposal. The state diffs allows paralelization as the transactions following it can be executed from that state in parallel to whatever is already executing
+* Consensus: send (Transactions*, StateDiff*)* Proposal. The state diffs allows parallelization as the transactions following it can be executed from that state in parallel to whatever is already executing
 * Assuming L1 state update will have block header hash and number.
 * tx calldata limited to 30K
 
