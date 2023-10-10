@@ -379,8 +379,8 @@ fn build_block_context(
             (KECCAK_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 2048.0),
         ])
         .into(),
-        invoke_tx_max_n_steps: 1_000_000,
-        validate_max_n_steps: 1_000_000,
+        invoke_tx_max_n_steps: 3_000_000,
+        validate_max_n_steps: 3_000_000,
         max_recursion_depth: 50,
     }
 }
