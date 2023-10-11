@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -105,6 +106,8 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 			wsHandler = wsHandler.WithListener(listener)
 		}
 		mux.Handle(path, exactPathServer(path, wsHandler))
+		wsPrefixedPath := strings.TrimSuffix("/ws"+path, "/")
+		mux.Handle(wsPrefixedPath, exactPathServer(wsPrefixedPath, wsHandler))
 	}
 	return makeHTTPService(host, port, cors.Default().Handler(mux))
 }
