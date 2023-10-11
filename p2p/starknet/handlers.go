@@ -116,11 +116,17 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 		}
 		it.Next()
 
+		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
+		if err != nil {
+			h.log.Errorw("Failed to fetch block commitments", "err", err)
+			return nil, false
+		}
+
 		return &spec.BlockHeadersResponse{
 			Part: []*spec.BlockHeadersResponsePart{
 				{
 					HeaderMessage: &spec.BlockHeadersResponsePart_Header{
-						Header: core2p2p.AdaptHeader(header),
+						Header: core2p2p.AdaptHeader(header, commitments),
 					},
 				},
 				{

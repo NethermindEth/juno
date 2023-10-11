@@ -44,6 +44,8 @@ type Reader interface {
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 	PendingState() (core.StateReader, StateCloser, error)
 
+	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
+
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error)
 
 	Pending() (Pending, error)

@@ -20,18 +20,27 @@ func AdaptBlockID(header *core.Header) *spec.BlockID {
 	}
 }
 
-func AdaptHeader(header *core.Header) *spec.BlockHeader {
+func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.BlockHeader {
 	return &spec.BlockHeader{
 		ParentHeader:     AdaptHash(header.ParentHash),
 		Number:           header.Number,
 		Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
 		SequencerAddress: AdaptAddress(header.SequencerAddress),
+		ProofFact:        nil, // not defined yet
+		Receipts:         nil, // not defined yet
 		StateDiffs:       nil,
-		State:            nil,
-		ProofFact:        nil, // ???
-		Transactions:     nil,
-		Events:           nil,
-		Receipts:         nil,
+		State: &spec.Patricia{
+			Height: 0,
+			Root:   AdaptHash(header.GlobalStateRoot),
+		},
+		Transactions: &spec.Merkle{
+			NLeaves: uint32(header.TransactionCount),
+			Root:    AdaptHash(commitments.TransactionCommitment),
+		},
+		Events: &spec.Merkle{
+			NLeaves: uint32(header.EventCount),
+			Root:    AdaptHash(commitments.EventCommitment),
+		},
 	}
 }
 
