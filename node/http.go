@@ -19,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
 )
@@ -66,7 +67,7 @@ func makeRPCOverHTTP(host string, port uint16, jsonrpcServer *jsonrpc.Server, lo
 	mux := http.NewServeMux()
 	mux.Handle("/", httpHandler)
 	mux.Handle("/v0_4", httpHandler)
-	return makeHTTPService(host, port, mux)
+	return makeHTTPService(host, port, cors.Default().Handler(mux))
 }
 
 func makeRPCOverWebsocket(host string, port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
@@ -74,7 +75,7 @@ func makeRPCOverWebsocket(host string, port uint16, jsonrpcServer *jsonrpc.Serve
 	mux := http.NewServeMux()
 	mux.Handle("/", wsHandler)
 	mux.Handle("/v0_4", wsHandler)
-	return makeHTTPService(host, port, mux)
+	return makeHTTPService(host, port, cors.Default().Handler(mux))
 }
 
 func makeMetrics(host string, port uint16) *httpService {
