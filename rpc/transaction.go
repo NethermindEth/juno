@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
@@ -231,12 +231,12 @@ type FeeEstimate struct {
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn feeder.Transaction
+	var feederTxn starknet.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
 		return nil, nil, nil, err
 	}
 
-	txn, err := feeder2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(&feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -29,7 +29,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
-			adaptedResponse, err := feeder2core.AdaptBlock(response, sig)
+			adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, block)
 		})
@@ -47,7 +47,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
-	adaptedResponse, err := feeder2core.AdaptBlock(response, sig)
+	adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, block)
 }
@@ -66,7 +66,7 @@ func TestStateUpdate(t *testing.T) {
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
 
-			adaptedResponse, err := feeder2core.AdaptStateUpdate(response)
+			adaptedResponse, err := sn2core.AdaptStateUpdate(response)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, feederUpdate)
 		})
@@ -93,7 +93,7 @@ func TestClassV0(t *testing.T) {
 			classGeneric, err := adapter.Class(ctx, hash)
 			require.NoError(t, err)
 
-			adaptedResponse, err := feeder2core.AdaptCairo0Class(response.V0)
+			adaptedResponse, err := sn2core.AdaptCairo0Class(response.V0)
 			require.NoError(t, err)
 			require.Equal(t, adaptedResponse, classGeneric)
 		})
@@ -119,7 +119,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		invokeTx, ok := txn.(*core.InvokeTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptInvokeTransaction(responseTx), invokeTx)
+		assert.Equal(t, sn2core.AdaptInvokeTransaction(responseTx), invokeTx)
 	})
 
 	t.Run("deploy transaction", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		deployTx, ok := txn.(*core.DeployTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeployTransaction(responseTx), deployTx)
+		assert.Equal(t, sn2core.AdaptDeployTransaction(responseTx), deployTx)
 	})
 
 	t.Run("deploy account transaction", func(t *testing.T) {
@@ -145,7 +145,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeployAccountTransaction(responseTx), deployAccountTx)
+		assert.Equal(t, sn2core.AdaptDeployAccountTransaction(responseTx), deployAccountTx)
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
@@ -158,7 +158,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		declareTx, ok := txn.(*core.DeclareTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeclareTransaction(responseTx), declareTx)
+		assert.Equal(t, sn2core.AdaptDeclareTransaction(responseTx), declareTx)
 	})
 
 	t.Run("l1handler transaction", func(t *testing.T) {
@@ -171,7 +171,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
+		assert.Equal(t, sn2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
 	})
 }
 
@@ -188,7 +188,7 @@ func TestClassV1(t *testing.T) {
 	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
-	adaptedResponse, err := feeder2core.AdaptCairo1Class(feederClass.V1, compiled)
+	adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, class)
 }
@@ -208,9 +208,9 @@ func TestStateUpdateWithBlock(t *testing.T) {
 			require.NoError(t, err)
 			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
 			require.NoError(t, err)
-			adaptedBlock, err := feeder2core.AdaptBlock(response.Block, sig)
+			adaptedBlock, err := sn2core.AdaptBlock(response.Block, sig)
 			require.NoError(t, err)
-			adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
+			adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
 			require.NoError(t, err)
 			assert.Equal(t, block, adaptedBlock)
 			assert.Equal(t, stateUpdate, adaptedStateUpdate)
@@ -225,9 +225,9 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 
 	response, err := client.StateUpdateWithBlock(ctx, "pending")
 	require.NoError(t, err)
-	adaptedBlock, err := feeder2core.AdaptBlock(response.Block, nil)
+	adaptedBlock, err := sn2core.AdaptBlock(response.Block, nil)
 	require.NoError(t, err)
-	adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
+	adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
 	require.NoError(t, err)
 	stateUpdate, block, err := adapter.StateUpdatePendingWithBlock(ctx)
 	require.NoError(t, err)

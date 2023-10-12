@@ -1,14 +1,15 @@
-package feeder2core_test
+package sn2core_test
 
 import (
 	"context"
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ func TestAdaptBlock(t *testing.T) {
 		number          uint64
 		protocolVersion string
 		network         utils.Network
-		sig             *feeder.Signature
+		sig             *starknet.Signature
 	}{
 		{
 			number:  147,
@@ -34,7 +35,7 @@ func TestAdaptBlock(t *testing.T) {
 			number:          304740,
 			protocolVersion: "0.12.1",
 			network:         utils.INTEGRATION,
-			sig: &feeder.Signature{
+			sig: &starknet.Signature{
 				Signature: []*felt.Felt{utils.HexToFelt(t, "0x44"), utils.HexToFelt(t, "0x37")},
 			},
 		},
@@ -48,7 +49,7 @@ func TestAdaptBlock(t *testing.T) {
 
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
-			block, err := feeder2core.AdaptBlock(response, test.sig)
+			block, err := sn2core.AdaptBlock(response, test.sig)
 			require.NoError(t, err)
 
 			expectedEventCount := uint64(0)
@@ -66,7 +67,7 @@ func TestAdaptBlock(t *testing.T) {
 			assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
 			if assert.Equal(t, len(response.Receipts), len(block.Receipts)) {
 				for i, feederReceipt := range response.Receipts {
-					assert.Equal(t, feederReceipt.ExecutionStatus == feeder.Reverted, block.Receipts[i].Reverted)
+					assert.Equal(t, feederReceipt.ExecutionStatus == starknet.Reverted, block.Receipts[i].Reverted)
 					assert.Equal(t, feederReceipt.RevertError, block.Receipts[i].RevertReason)
 				}
 			}
@@ -94,7 +95,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
 			response, err := client.StateUpdate(ctx, strconv.FormatUint(number, 10))
 			require.NoError(t, err)
-			feederUpdate, err := feeder2core.AdaptStateUpdate(response)
+			feederUpdate, err := sn2core.AdaptStateUpdate(response)
 			require.NoError(t, err)
 
 			assert.True(t, response.NewRoot.Equal(feederUpdate.NewRoot))
@@ -143,7 +144,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
 			require.NoError(t, err)
-			update, err := feeder2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(feederUpdate)
 			require.NoError(t, err)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -153,7 +154,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("declared Cairo1 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283364")
 			require.NoError(t, err)
-			update, err := feeder2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.NotEmpty(t, update.StateDiff.DeclaredV1Classes)
@@ -163,7 +164,7 @@ func TestStateUpdate(t *testing.T) {
 		t.Run("replaced classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283428")
 			require.NoError(t, err)
-			update, err := feeder2core.AdaptStateUpdate(feederUpdate)
+			update, err := sn2core.AdaptStateUpdate(feederUpdate)
 			require.NoError(t, err)
 			assert.Empty(t, update.StateDiff.DeclaredV0Classes)
 			assert.Empty(t, update.StateDiff.DeclaredV1Classes)
@@ -188,7 +189,7 @@ func TestClassV0(t *testing.T) {
 			hash := utils.HexToFelt(t, hashString)
 			response, err := client.ClassDefinition(ctx, hash)
 			require.NoError(t, err)
-			classGeneric, err := feeder2core.AdaptCairo0Class(response.V0)
+			classGeneric, err := sn2core.AdaptCairo0Class(response.V0)
 			require.NoError(t, err)
 			class, ok := classGeneric.(*core.Cairo0Class)
 			require.True(t, ok)
@@ -227,7 +228,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		invokeTx, ok := txn.(*core.InvokeTransaction)
 		require.True(t, ok)
@@ -249,7 +250,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		deployTx, ok := txn.(*core.DeployTransaction)
 		require.True(t, ok)
@@ -269,7 +270,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
 		require.True(t, ok)
@@ -292,7 +293,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		declareTx, ok := txn.(*core.DeclareTransaction)
 		require.True(t, ok)
@@ -313,7 +314,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := feeder2core.AdaptTransaction(responseTx)
+		txn, err := sn2core.AdaptTransaction(responseTx)
 		require.NoError(t, err)
 		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
 		require.True(t, ok)
@@ -338,7 +339,7 @@ func TestClassV1(t *testing.T) {
 	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
-	class, err := feeder2core.AdaptCairo1Class(feederClass.V1, compiled)
+	class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
 	require.NoError(t, err)
 
 	v1Class, ok := class.(*core.Cairo1Class)

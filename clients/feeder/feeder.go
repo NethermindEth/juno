@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -245,7 +246,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	return nil, err
 }
 
-func (c *Client) StateUpdate(ctx context.Context, blockID string) (*StateUpdate, error) {
+func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -256,14 +257,14 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*StateUpdate,
 	}
 	defer body.Close()
 
-	update := new(StateUpdate)
+	update := new(starknet.StateUpdate)
 	if err = json.NewDecoder(body).Decode(update); err != nil {
 		return nil, err
 	}
 	return update, nil
 }
 
-func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
+func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
 	queryURL := c.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
@@ -274,14 +275,14 @@ func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 	}
 	defer body.Close()
 
-	txStatus := new(TransactionStatus)
+	txStatus := new(starknet.TransactionStatus)
 	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
 		return nil, err
 	}
 	return txStatus, nil
 }
 
-func (c *Client) Block(ctx context.Context, blockID string) (*Block, error) {
+func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -292,14 +293,14 @@ func (c *Client) Block(ctx context.Context, blockID string) (*Block, error) {
 	}
 	defer body.Close()
 
-	block := new(Block)
+	block := new(starknet.Block)
 	if err = json.NewDecoder(body).Decode(block); err != nil {
 		return nil, err
 	}
 	return block, nil
 }
 
-func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
+func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash": classHash.String(),
 	})
@@ -310,7 +311,7 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*Cl
 	}
 	defer body.Close()
 
-	class := new(ClassDefinition)
+	class := new(starknet.ClassDefinition)
 	if err = json.NewDecoder(body).Decode(class); err != nil {
 		return nil, err
 	}
@@ -353,7 +354,7 @@ func (c *Client) PublickKey(ctx context.Context) (*felt.Felt, error) {
 	return publicKey, nil
 }
 
-func (c *Client) Signature(ctx context.Context, blockID string) (*Signature, error) {
+func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
 	queryURL := c.buildQueryString("get_signature", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -364,7 +365,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*Signature, err
 	}
 	defer body.Close()
 
-	signature := new(Signature)
+	signature := new(starknet.Signature)
 	if err := json.NewDecoder(body).Decode(signature); err != nil {
 		return nil, err
 	}
@@ -372,7 +373,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*Signature, err
 	return signature, nil
 }
 
-func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*StateUpdateWithBlock, error) {
+func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber":  blockID,
 		"includeBlock": "true",
@@ -384,7 +385,7 @@ func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*Sta
 	}
 	defer body.Close()
 
-	stateUpdate := new(StateUpdateWithBlock)
+	stateUpdate := new(starknet.StateUpdateWithBlock)
 	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}
