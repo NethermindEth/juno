@@ -1142,8 +1142,12 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
 	case nil:
+		finality, err := adaptFinalityStatusToStatus(receipt.FinalityStatus)
+		if err != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, err)
+		}
 		status = &TransactionStatus{
-			Finality:  receipt.FinalityStatus,
+			Finality:  finality,
 			Execution: receipt.ExecutionStatus,
 		}
 	case ErrTxnHashNotFound:
@@ -1151,25 +1155,14 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
-		// Check if the error is due to a transaction not being found
 		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
 			return nil, ErrTxnHashNotFound
 		}
 
 		status = new(TransactionStatus)
-
-		switch txStatus.FinalityStatus {
-		case feeder.AcceptedOnL1:
-			status.Finality = TxnAcceptedOnL1
-		case feeder.AcceptedOnL2:
-			status.Finality = TxnAcceptedOnL2
-		default:
-			// pre-0.12.1
-			if txStatus.Status == "ACCEPTED_ON_L1" {
-				status.Finality = TxnAcceptedOnL1
-			} else {
-				status.Finality = TxnAcceptedOnL2
-			}
+		status.Finality, err = adaptFeederStatus(txStatus.Status)
+		if err != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, err)
 		}
 
 		switch txStatus.ExecutionStatus {
@@ -1177,9 +1170,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			status.Execution = TxnSuccess
 		case feeder.Reverted:
 			status.Execution = TxnFailure
-		default:
-			// pre-0.12.1
-			status.Execution = TxnSuccess
+		default: // Omit the field on error. It's optional in the spec.
 		}
 	default:
 		return nil, txErr

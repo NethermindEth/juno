@@ -1888,7 +1888,7 @@ func TestTransactionStatus(t *testing.T) {
 					handler := rpc.New(mockReader, nil, test.network, nil, nil, nil, "", nil)
 
 					want := &rpc.TransactionStatus{
-						Finality:  rpc.TxnAcceptedOnL2,
+						Finality:  rpc.TxnStatusAcceptedOnL2,
 						Execution: rpc.TxnSuccess,
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
@@ -1906,7 +1906,7 @@ func TestTransactionStatus(t *testing.T) {
 					handler := rpc.New(mockReader, nil, test.network, nil, nil, nil, "", nil)
 
 					want := &rpc.TransactionStatus{
-						Finality:  rpc.TxnAcceptedOnL1,
+						Finality:  rpc.TxnStatusAcceptedOnL1,
 						Execution: rpc.TxnSuccess,
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
@@ -1916,15 +1916,15 @@ func TestTransactionStatus(t *testing.T) {
 			})
 			t.Run("transaction not found in db", func(t *testing.T) {
 				notFoundTests := map[string]struct {
-					finality rpc.TxnFinalityStatus
+					finality rpc.TxnStatus
 					hash     *felt.Felt
 				}{
 					"verified": {
-						finality: rpc.TxnAcceptedOnL1,
+						finality: rpc.TxnStatusAcceptedOnL1,
 						hash:     test.verifiedTxHash,
 					},
 					"not verified": {
-						finality: rpc.TxnAcceptedOnL2,
+						finality: rpc.TxnStatusAcceptedOnL2,
 						hash:     test.nonVerifiedTxHash,
 					},
 				}

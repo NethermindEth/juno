@@ -66,6 +66,59 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type TxnStatus uint8
+
+const (
+	TxnStatusReceived TxnStatus = iota + 1
+	TxnStatusRejected
+	TxnStatusAcceptedOnL2
+	TxnStatusAcceptedOnL1
+)
+
+// adaptFeederStatus assumes s != "NOT_RECEIVED".
+func adaptFeederStatus(s string) (TxnStatus, error) {
+	switch s {
+	case "RECEIVED":
+		return TxnStatusReceived, nil
+	case "REJECTED":
+		return TxnStatusRejected, nil
+	case "ACCEPTED_ON_L2":
+		return TxnStatusAcceptedOnL2, nil
+	case "ACCEPTED_ON_L1":
+		return TxnStatusAcceptedOnL1, nil
+	default:
+		// Should not happen
+		return 0, errors.New("unknown feeder status")
+	}
+}
+
+func (s TxnStatus) MarshalJSON() ([]byte, error) {
+	switch s {
+	case TxnStatusReceived:
+		return []byte(`"RECEIVED"`), nil
+	case TxnStatusRejected:
+		return []byte(`"REJECTED"`), nil
+	case TxnStatusAcceptedOnL1:
+		return []byte(`"ACCEPTED_ON_L1"`), nil
+	case TxnStatusAcceptedOnL2:
+		return []byte(`"ACCEPTED_ON_L2"`), nil
+	default:
+		return nil, errors.New("unknown ExecutionStatus")
+	}
+}
+
+func adaptFinalityStatusToStatus(s TxnFinalityStatus) (TxnStatus, error) {
+	switch s {
+	case TxnAcceptedOnL1:
+		return TxnStatusAcceptedOnL1, nil
+	case TxnAcceptedOnL2:
+		return TxnStatusAcceptedOnL2, nil
+	default:
+		// Should not happen
+		return 0, errors.New("unknown finality status")
+	}
+}
+
 type TxnExecutionStatus uint8
 
 const (
@@ -123,8 +176,8 @@ type Transaction struct {
 }
 
 type TransactionStatus struct {
-	Finality  TxnFinalityStatus  `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status"`
+	Finality  TxnStatus          `json:"finality_status"`
+	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
 type MsgFromL1 struct {
