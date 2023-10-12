@@ -142,7 +142,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 	}
 
 	return func() (proto.Message, bool) {
-		if it.Valid() {
+		if !it.Valid() {
 			return nil, false
 		}
 

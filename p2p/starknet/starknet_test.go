@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -97,14 +98,37 @@ func TestClientHandler(t *testing.T) {
 	})
 
 	t.Run("get events", func(t *testing.T) {
-		res, cErr := client.RequestEvents(testCtx, &spec.EventsRequest{})
+		const limit = 3
+
+		for i := 0; i < limit; i++ {
+			blockNumber := uint64(i)
+			mockReader.EXPECT().BlockByNumber(blockNumber).Return(&core.Block{
+				Header: &core.Header{
+					Number: blockNumber,
+				},
+				Receipts: []*core.TransactionReceipt{
+					{Events: []*core.Event{}},
+				},
+			}, nil)
+		}
+
+		res, cErr := client.RequestEvents(testCtx, &spec.EventsRequest{
+			Iteration: &spec.Iteration{
+				Start: &spec.Iteration_BlockNumber{
+					BlockNumber: 0,
+				},
+				Direction: spec.Iteration_Forward,
+				Limit:     limit,
+				Step:      1,
+			},
+		})
 		require.NoError(t, cErr)
 
-		count := uint64(0)
+		var count uint64
 		for evnt, valid := res(); valid; evnt, valid = res() {
 			assert.Equal(t, count, evnt.Id.Number)
 			count++
 		}
-		require.Equal(t, uint64(4), count)
+		require.Equal(t, uint64(limit), count)
 	})
 }
