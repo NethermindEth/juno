@@ -179,10 +179,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	if cfg.P2P {
-		var privKeyStr string
-		privKeyStr, _ = os.LookupEnv("P2P_PRIVATE_KEY")
-		var p2pService *p2p.Service
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
