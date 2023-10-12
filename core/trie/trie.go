@@ -12,17 +12,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-// Storage is the Persistent storage for the [Trie]
-type Storage interface {
-	Put(key *Key, value *Node) error
-	Get(key *Key) (*Node, error)
-	Delete(key *Key) error
-
-	PutRootKey(newRootKey *Key) error
-	RootKey() (*Key, error)
-	DeleteRootKey() error
-}
-
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
@@ -46,24 +35,24 @@ type Trie struct {
 	height  uint8
 	rootKey *Key
 	maxKey  *felt.Felt
-	storage Storage
+	storage *TransactionStorage
 	hash    hashFunc
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
 }
 
-type NewTrieFunc func(Storage, uint8) (*Trie, error)
+type NewTrieFunc func(*TransactionStorage, uint8) (*Trie, error)
 
-func NewTriePedersen(storage Storage, height uint8) (*Trie, error) {
+func NewTriePedersen(storage *TransactionStorage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Pedersen)
 }
 
-func NewTriePoseidon(storage Storage, height uint8) (*Trie, error) {
+func NewTriePoseidon(storage *TransactionStorage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage Storage, height uint8, hash hashFunc) (*Trie, error) {
+func newTrie(storage *TransactionStorage, height uint8, hash hashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
