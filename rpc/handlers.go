@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -992,7 +993,7 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 	}
 
 	if txnType, typeFound := request["type"]; typeFound && txnType == TxnInvoke.String() {
-		request["type"] = feeder.TxnInvoke.String()
+		request["type"] = starknet.TxnInvoke.String()
 
 		updatedReq, errIn := json.Marshal(request)
 		if errIn != nil {
@@ -1163,22 +1164,22 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 
 		var status TransactionStatus
 		switch txStatus.FinalityStatus {
-		case feeder.AcceptedOnL1:
+		case starknet.AcceptedOnL1:
 			status.Finality = TxnStatusAcceptedOnL1
-		case feeder.AcceptedOnL2:
+		case starknet.AcceptedOnL2:
 			status.Finality = TxnStatusAcceptedOnL2
-		case feeder.Received:
+		case starknet.Received:
 			status.Finality = TxnStatusReceived
 		default:
 			return nil, ErrTxnHashNotFound
 		}
 
 		switch txStatus.ExecutionStatus {
-		case feeder.Succeeded:
+		case starknet.Succeeded:
 			status.Execution = TxnSuccess
-		case feeder.Reverted:
+		case starknet.Reverted:
 			status.Execution = TxnFailure
-		case feeder.Rejected:
+		case starknet.Rejected:
 			status.Finality = TxnStatusRejected
 		default: // Omit the field on error. It's optional in the spec.
 		}
