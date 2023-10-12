@@ -67,15 +67,11 @@ func New(
 		return nil, err
 	}
 
-	p2phost, err := libp2p.New(
-		libp2p.ListenAddrs(sourceMultiAddr),
-		libp2p.Identity(prvKey),
-		libp2p.UserAgent(userAgent),
-	)
+	p2pHost, err := libp2p.New(libp2p.ListenAddrs(sourceMultiAddr), libp2p.Identity(prvKey), libp2p.UserAgent(userAgent))
 	if err != nil {
 		return nil, err
 	}
-	return NewWithHost(p2phost, bootPeers, snNetwork, log)
+	return NewWithHost(p2pHost, bootPeers, snNetwork, log)
 }
 
 func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, log utils.SimpleLogger) (*Service, error) {
