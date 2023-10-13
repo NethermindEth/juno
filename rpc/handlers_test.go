@@ -4,8 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"math/rand"
+	"net"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -22,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"nhooyr.io/websocket"
 )
 
 func nopCloser() error { return nil }
@@ -2293,4 +2299,162 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		require.NoError(t, err, rpcErr)
 		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
+}
+
+type fakeConn struct {
+	w io.Writer
+}
+
+func (fc *fakeConn) Write(p []byte) (int, error) {
+	return fc.w.Write(p)
+}
+
+func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
+	fc2, ok := other.(*fakeConn)
+	if !ok {
+		return false
+	}
+	return fc.w == fc2.w
+}
+
+func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	network := utils.MAINNET
+	client := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(client)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	su, block, err := gw.StateUpdateWithBlock(ctx, 0)
+	require.NoError(t, err)
+	chain := blockchain.New(pebble.NewMemTest(t), network, log)
+	handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
+	// Sleep for a moment just in case.
+	time.Sleep(50 * time.Millisecond)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	// Subscribe without setting the connection on the context.
+	id, rpcErr := handler.SubscribeNewHeads(ctx)
+	require.Zero(t, id)
+	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
+
+	// Subscribe.
+	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	id, rpcErr = handler.SubscribeNewHeads(subCtx)
+	require.Nil(t, rpcErr)
+
+	// Sync block.
+	require.NoError(t, chain.Store(block, nil, su, nil))
+
+	// Receive a block header.
+	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_wei":"0x0"}},"subscription":%d}}`
+	want = fmt.Sprintf(want, id)
+	got := make([]byte, len(want))
+	_, err = clientConn.Read(got)
+	require.NoError(t, err)
+	require.Equal(t, want, string(got))
+
+	// Unsubscribe without setting the connection on the context.
+	ok, rpcErr := handler.Unsubscribe(ctx, id)
+	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
+	require.False(t, ok)
+
+	// Unsubscribe on correct connection with the incorrect id.
+	ok, rpcErr = handler.Unsubscribe(subCtx, id+1)
+	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
+	require.False(t, ok)
+
+	// Unsubscribe on incorrect connection with the correct id.
+	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{})
+	ok, rpcErr = handler.Unsubscribe(subCtx, id)
+	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
+	require.False(t, ok)
+
+	// Unsubscribe on correct connection with the correct id.
+	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	ok, rpcErr = handler.Unsubscribe(subCtx, id)
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
+}
+
+func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	network := utils.MAINNET
+	feederClient := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(feederClient)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	su, block, err := gw.StateUpdateWithBlock(ctx, 0)
+	require.NoError(t, err)
+	chain := blockchain.New(pebble.NewMemTest(t), network, log)
+	handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
+	// Sleep for a moment just in case.
+	time.Sleep(50 * time.Millisecond)
+
+	server := jsonrpc.NewServer(1, log)
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "juno_subscribeNewHeads",
+		Handler: handler.SubscribeNewHeads,
+	}, jsonrpc.Method{
+		Name:    "juno_unsubscribe",
+		Params:  []jsonrpc.Parameter{{Name: "id"}},
+		Handler: handler.Unsubscribe,
+	}))
+	ws := jsonrpc.NewWebsocket(server, log)
+	httpSrv := httptest.NewServer(ws)
+	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+	require.NoError(t, err)
+	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+	require.NoError(t, err)
+
+	subscribeMsg := []byte(`{"jsonrpc":"2.0","id":1,"method":"juno_subscribeNewHeads"}`)
+
+	firstID := uint64(1)
+	secondID := uint64(2)
+	handler.WithIDGen(func() uint64 { return firstID })
+	require.NoError(t, conn1.Write(ctx, websocket.MessageText, subscribeMsg))
+
+	want := `{"jsonrpc":"2.0","result":%d,"id":1}`
+	firstWant := fmt.Sprintf(want, firstID)
+	_, firstGot, err := conn1.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, firstWant, string(firstGot))
+
+	handler.WithIDGen(func() uint64 { return secondID })
+	require.NoError(t, conn2.Write(ctx, websocket.MessageText, subscribeMsg))
+	secondWant := fmt.Sprintf(want, secondID)
+	_, secondGot, err := conn2.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, secondWant, string(secondGot))
+
+	// Sync block.
+	require.NoError(t, chain.Store(block, nil, su, nil))
+
+	// Receive a block header.
+	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_wei":"0x0"}},"subscription":%d}}`
+	firstWant = fmt.Sprintf(want, firstID)
+	_, firstGot, err = conn1.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, []byte(firstWant), firstGot)
+	secondWant = fmt.Sprintf(want, secondID)
+	_, secondGot, err = conn2.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, []byte(secondWant), secondGot)
+
+	// Unsubscribe
+	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"juno_unsubscribe","params":[%d]}`
+	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, firstID))))
+	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, secondID))))
 }

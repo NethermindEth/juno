@@ -771,8 +771,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, chain.Store(block0, &core.BlockCommitments{}, su0, nil))
 
-	sink := make(chan *core.Header, 2048)
-	chain.SubscribeNewHeads(sink)
+	sub := chain.SubscribeNewHeads()
+	t.Cleanup(sub.Unsubscribe)
 
 	t.Run("send on store", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(context.Background(), 1)
@@ -781,16 +781,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(block1, &core.BlockCommitments{}, su1, nil))
 
-		got1, notClosed := <-sink
+		got1, notClosed := <-sub.Recv()
 		require.True(t, notClosed)
 		assert.Equal(t, block1.Header, got1)
-	})
-
-	t.Run("send on revert", func(t *testing.T) {
-		require.NoError(t, chain.RevertHead())
-
-		got0, notClosed := <-sink
-		require.True(t, notClosed)
-		assert.Equal(t, block0.Header, got0)
 	})
 }

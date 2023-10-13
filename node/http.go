@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -18,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
 )
@@ -86,7 +88,7 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 		}
 		mux.Handle(path, exactPathServer(path, httpHandler))
 	}
-	return makeHTTPService(host, port, mux)
+	return makeHTTPService(host, port, cors.Default().Handler(mux))
 }
 
 func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
@@ -104,8 +106,10 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 			wsHandler = wsHandler.WithListener(listener)
 		}
 		mux.Handle(path, exactPathServer(path, wsHandler))
+		wsPrefixedPath := strings.TrimSuffix("/ws"+path, "/")
+		mux.Handle(wsPrefixedPath, exactPathServer(wsPrefixedPath, wsHandler))
 	}
-	return makeHTTPService(host, port, mux)
+	return makeHTTPService(host, port, cors.Default().Handler(mux))
 }
 
 func makeMetrics(host string, port uint16) *httpService {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -32,7 +33,7 @@ var (
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
 
-type request struct {
+type Request struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Params  any    `json:"params,omitempty"`
@@ -67,7 +68,7 @@ func Err(code int, data any) *Error {
 	}
 }
 
-func (r *request) isSane() error {
+func (r *Request) isSane() error {
 	if r.Version != "2.0" {
 		return errors.New("unsupported RPC request version")
 	}
@@ -188,22 +189,77 @@ func (s *Server) registerMethod(method Method) error {
 	return nil
 }
 
-// Handle processes a request to the server
-// It returns the response in a byte array, only returns an
-// error if it can not create the response byte array
-func (s *Server) Handle(ctx context.Context, data []byte) ([]byte, error) {
-	return s.HandleReader(ctx, bytes.NewReader(data))
+type Conn interface {
+	io.Writer
+	Equal(Conn) bool
 }
 
+type connection struct {
+	w         io.Writer
+	activated <-chan struct{}
+
+	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
+	initialErr error
+}
+
+var _ Conn = (*connection)(nil)
+
+func (c *connection) Write(p []byte) (int, error) {
+	<-c.activated
+	if c.initialErr != nil {
+		return 0, fmt.Errorf("there was an error while writing the initial response: %w", c.initialErr)
+	}
+	return c.w.Write(p)
+}
+
+func (c *connection) Equal(other Conn) bool {
+	c2, ok := other.(*connection)
+	if !ok {
+		return false
+	}
+	return c.w == c2.w
+}
+
+// ConnKey the key used to retrieve the connection from the context passed to a handler.
+// It is exported to allow transports to set it manually if they decide not to use HandleReadWriter, which sets it automatically.
+// Manually setting the connection can be especially useful when testing handlers.
 type ConnKey struct{}
 
-func ConnFromContext(ctx context.Context) (io.Writer, bool) {
+// ConnFromContext returns a writable connection. The connection should
+// be written in a separate goroutine, since writes from handlers are
+// blocked until the initial response is sent.
+func ConnFromContext(ctx context.Context) (Conn, bool) {
 	conn := ctx.Value(ConnKey{})
 	if conn == nil {
 		return nil, false
 	}
-	w, ok := conn.(io.Writer)
+	w, ok := conn.(Conn)
 	return w, ok
+}
+
+// HandleReadWriter permits methods to send messages on the connection after the server sends the initial response.
+// rw must permit concurrent writes.
+// A non-nil error indicates the initial response could not be sent, and that no method will be able to write the connection.
+func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
+	activated := make(chan struct{})
+	defer close(activated)
+	conn := &connection{
+		w:         rw.(io.Writer),
+		activated: activated,
+	}
+	msgCtx := context.WithValue(ctx, ConnKey{}, conn)
+	resp, err := s.HandleReader(msgCtx, rw)
+	if err != nil {
+		conn.initialErr = err
+		return err
+	}
+	if resp != nil {
+		if _, err = rw.Write(resp); err != nil {
+			conn.initialErr = err
+			return err
+		}
+	}
+	return nil
 }
 
 // HandleReader processes a request to the server
@@ -220,7 +276,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 	dec.UseNumber()
 
 	if !requestIsBatch {
-		req := new(request)
+		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
 			res.Error = Err(InvalidJSON, jsonErr.Error())
 		} else if resObject, handleErr := s.handleRequest(ctx, req); handleErr != nil {
@@ -273,7 +329,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
 		reqDec.UseNumber()
 
-		req := new(request)
+		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
 			addResponse(&response{
 				Version: "2.0",
@@ -333,7 +389,7 @@ func isNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
-func (s *Server) handleRequest(ctx context.Context, req *request) (*response, error) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
 	reqJSON, err := json.Marshal(req)
 	if err == nil {
 		s.log.Debugw("Serving RPC request", "request", string(reqJSON))
