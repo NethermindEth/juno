@@ -225,20 +225,20 @@ func (listener *levelsListener) gather(metrics *db.PebbleMetrics) {
 	levels := metrics.Src.Levels
 	listener.format(&levels)
 
-	for i, lvl := range levels {
-		listener.numFiles[i].Set(float64(lvl.NumFiles))
-		listener.size[i].Set(float64(lvl.Size))
-		listener.score[i].Set(lvl.Score)
-		listener.bytesIn[i].Add(float64(lvl.BytesIn))
-		listener.bytesIngested[i].Add(float64(lvl.BytesIngested))
-		listener.bytesMoved[i].Add(float64(lvl.BytesMoved))
-		listener.bytesRead[i].Add(float64(lvl.BytesRead))
-		listener.bytesCompacted[i].Add(float64(lvl.BytesCompacted))
-		listener.bytesFlushed[i].Add(float64(lvl.BytesFlushed))
-		listener.tablesCompacted[i].Add(float64(lvl.TablesCompacted))
-		listener.tablesFlushed[i].Add(float64(lvl.TablesFlushed))
-		listener.tablesIngested[i].Add(float64(lvl.TablesIngested))
-		listener.tablesMoved[i].Add(float64(lvl.TablesMoved))
+	for i := 0; i < len(levels); i++ {
+		listener.numFiles[i].Set(float64(levels[i].NumFiles))
+		listener.size[i].Set(float64(levels[i].Size))
+		listener.score[i].Set(levels[i].Score)
+		listener.bytesIn[i].Add(float64(levels[i].BytesIn))
+		listener.bytesIngested[i].Add(float64(levels[i].BytesIngested))
+		listener.bytesMoved[i].Add(float64(levels[i].BytesMoved))
+		listener.bytesRead[i].Add(float64(levels[i].BytesRead))
+		listener.bytesCompacted[i].Add(float64(levels[i].BytesCompacted))
+		listener.bytesFlushed[i].Add(float64(levels[i].BytesFlushed))
+		listener.tablesCompacted[i].Add(float64(levels[i].TablesCompacted))
+		listener.tablesFlushed[i].Add(float64(levels[i].TablesFlushed))
+		listener.tablesIngested[i].Add(float64(levels[i].TablesIngested))
+		listener.tablesMoved[i].Add(float64(levels[i].TablesMoved))
 	}
 }
 
@@ -760,27 +760,28 @@ type snapshotsListener struct {
 // newSnapshotListener creates and returns a new snapshotsListener instance with setup prometheus metrics.
 func newSnapshotListener(registry prometheus.Registerer) *snapshotsListener {
 	const subsystem = "snapshots"
-	listener := &snapshotsListener{}
-	listener.Count = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: dbNamespace,
-		Subsystem: subsystem,
-		Name:      "amount",
-	})
-	listener.EarliestSeqNum = prometheus.NewGauge(prometheus.GaugeOpts{
-		Namespace: dbNamespace,
-		Subsystem: subsystem,
-		Name:      "earliest_seq_num",
-	})
-	listener.PinnedKeys = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: dbNamespace,
-		Subsystem: subsystem,
-		Name:      "pinned_keys",
-	})
-	listener.PinnedSize = prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: dbNamespace,
-		Subsystem: subsystem,
-		Name:      "pinned_size",
-	})
+	listener := &snapshotsListener{
+		Count: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: dbNamespace,
+			Subsystem: subsystem,
+			Name:      "amount",
+		}),
+		EarliestSeqNum: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: dbNamespace,
+			Subsystem: subsystem,
+			Name:      "earliest_seq_num",
+		}),
+		PinnedKeys: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: dbNamespace,
+			Subsystem: subsystem,
+			Name:      "pinned_keys",
+		}),
+		PinnedSize: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: dbNamespace,
+			Subsystem: subsystem,
+			Name:      "pinned_size",
+		}),
+	}
 	registry.MustRegister(
 		listener.Count,
 		listener.EarliestSeqNum,

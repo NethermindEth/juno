@@ -42,7 +42,8 @@ func TestPebbleMetrics(t *testing.T) {
 	for i := 0; i < 1024*32; i++ {
 		txn := testDB.NewTransaction(true)
 		key := make([]byte, 32)
-		rand.Read(key)
+		_, err := rand.Read(key)
+		require.NoError(t, err)
 		require.NoError(t, txn.Set(key, key))
 		require.NoError(t, txn.Commit())
 	}
@@ -54,7 +55,7 @@ func TestPebbleMetrics(t *testing.T) {
 		for i := 0; i < len(metrics.Src.Levels); i++ {
 			assert.Equal(t, float64(metrics.Src.Levels[i].NumFiles), testutil.ToFloat64(listener.levels.numFiles[i]))
 			assert.Equal(t, float64(metrics.Src.Levels[i].Size), testutil.ToFloat64(listener.levels.size[i]))
-			assert.Equal(t, float64(metrics.Src.Levels[i].Score), testutil.ToFloat64(listener.levels.score[i]))
+			assert.Equal(t, metrics.Src.Levels[i].Score, testutil.ToFloat64(listener.levels.score[i]))
 			assert.Equal(t, float64(metrics.Src.Levels[i].BytesIn), testutil.ToFloat64(listener.levels.bytesIn[i]))
 			assert.Equal(t, float64(metrics.Src.Levels[i].BytesIngested), testutil.ToFloat64(listener.levels.bytesIngested[i]))
 			assert.Equal(t, float64(metrics.Src.Levels[i].BytesMoved), testutil.ToFloat64(listener.levels.bytesMoved[i]))
@@ -83,6 +84,7 @@ func TestPebbleMetrics(t *testing.T) {
 		assert.Equal(t, float64(metrics.Src.Compact.MarkedFiles), testutil.ToFloat64(listener.comp.MarkedFiles))
 	})
 
+	//nolint:dupl
 	t.Run("cache", func(t *testing.T) {
 		assert.Equal(t, float64(metrics.Src.BlockCache.Size), testutil.ToFloat64(listener.cache.Size))
 		assert.Equal(t, float64(metrics.Src.BlockCache.Count), testutil.ToFloat64(listener.cache.Count))
@@ -106,6 +108,7 @@ func TestPebbleMetrics(t *testing.T) {
 		assert.Equal(t, float64(metrics.Src.Filter.Misses), testutil.ToFloat64(listener.filter.Misses))
 	})
 
+	//nolint:dupl
 	t.Run("memtable", func(t *testing.T) {
 		assert.Equal(t, float64(metrics.Src.MemTable.Size), testutil.ToFloat64(listener.memtable.Size))
 		assert.Equal(t, float64(metrics.Src.MemTable.Count), testutil.ToFloat64(listener.memtable.Count))
@@ -118,6 +121,7 @@ func TestPebbleMetrics(t *testing.T) {
 		assert.Equal(t, float64(metrics.Src.Keys.TombstoneCount), testutil.ToFloat64(listener.keys.Tombstones))
 	})
 
+	//nolint:dupl
 	t.Run("snapshots", func(t *testing.T) {
 		assert.Equal(t, float64(metrics.Src.Snapshots.Count), testutil.ToFloat64(listener.snapshots.Count))
 		assert.Equal(t, float64(metrics.Src.Snapshots.EarliestSeqNum), testutil.ToFloat64(listener.snapshots.EarliestSeqNum))
@@ -153,10 +157,10 @@ func TestPebbleMetrics(t *testing.T) {
 
 	t.Run("logs", func(t *testing.T) {
 		assert.Equal(t, float64(metrics.Src.LogWriter.WriteThroughput.Bytes), testutil.ToFloat64(listener.logs.Bytes))
-		assert.Equal(t, float64(metrics.Src.LogWriter.WriteThroughput.WorkDuration.Seconds()), testutil.ToFloat64(listener.logs.WorkDuration))
-		assert.Equal(t, float64(metrics.Src.LogWriter.WriteThroughput.IdleDuration.Seconds()), testutil.ToFloat64(listener.logs.IdleDuration))
-		assert.Equal(t, float64(metrics.Src.LogWriter.PendingBufferLen.Mean()), testutil.ToFloat64(listener.logs.PendingBufferLenMean))
-		assert.Equal(t, float64(metrics.Src.LogWriter.SyncQueueLen.Mean()), testutil.ToFloat64(listener.logs.SyncQueueLenMean))
+		assert.Equal(t, metrics.Src.LogWriter.WriteThroughput.WorkDuration.Seconds(), testutil.ToFloat64(listener.logs.WorkDuration))
+		assert.Equal(t, metrics.Src.LogWriter.WriteThroughput.IdleDuration.Seconds(), testutil.ToFloat64(listener.logs.IdleDuration))
+		assert.Equal(t, metrics.Src.LogWriter.PendingBufferLen.Mean(), testutil.ToFloat64(listener.logs.PendingBufferLenMean))
+		assert.Equal(t, metrics.Src.LogWriter.SyncQueueLen.Mean(), testutil.ToFloat64(listener.logs.SyncQueueLenMean))
 		assert.Equal(t, 1, testutil.CollectAndCount(listener.logs.FSyncLatency))
 	})
 }
