@@ -77,6 +77,11 @@ func TestClientHandler(t *testing.T) {
 
 		var count uint64
 		for header, valid := res(); valid; header, valid = res() {
+			if count == limit {
+				assert.NotNil(t, header.GetPart()[0].GetFin())
+				break
+			}
+
 			assert.Equal(t, count, header.GetPart()[0].GetHeader().Number)
 			count++
 		}

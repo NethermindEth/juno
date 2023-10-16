@@ -103,30 +103,30 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 	if err != nil {
 		return nil, err
 	}
-	fin := &spec.BlockHeadersResponse{
+
+	fin := h.newFin(&spec.BlockHeadersResponse{
 		Part: []*spec.BlockHeadersResponsePart{
 			{
 				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
 			},
 		},
-	}
-
+	})
 	return func() (proto.Message, bool) {
 		if !it.Valid() {
-			return fin, false
+			return fin()
 		}
 
 		header, err := it.Header()
 		if err != nil {
 			h.log.Errorw("Failed to fetch header", "err", err)
-			return fin, false
+			return fin()
 		}
 		it.Next()
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
 			h.log.Errorw("Failed to fetch block commitments", "err", err)
-			return fin, false
+			return fin()
 		}
 
 		return &spec.BlockHeadersResponse{
@@ -140,7 +140,7 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 					HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
 						Signatures: &spec.Signatures{
 							Block:      core2p2p.AdaptBlockID(header),
-							Signatures: []*spec.ConsensusSignature{}, // todo fill signatures
+							Signatures: utils.Map(header.Signatures, core2p2p.AdaptSignature),
 						},
 					},
 				},
@@ -255,5 +255,18 @@ func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
 		return newIteratorByHash(h.bcReader, p2p2core.AdaptHash(v.Header), it.Limit, it.Step, forward)
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)
+	}
+}
+
+func (h *Handler) newFin(finMsg proto.Message) func() (proto.Message, bool) {
+	var finSent bool
+
+	return func() (proto.Message, bool) {
+		if finSent {
+			return nil, false
+		}
+		finSent = true
+
+		return finMsg, true
 	}
 }

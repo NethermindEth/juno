@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -17,6 +18,13 @@ func AdaptBlockID(header *core.Header) *spec.BlockID {
 	return &spec.BlockID{
 		Number: header.Number,
 		Header: AdaptHash(header.Hash),
+	}
+}
+
+func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
+	return &spec.ConsensusSignature{
+		R: AdaptFelt(sig[0]),
+		S: AdaptFelt(sig[1]),
 	}
 }
 
