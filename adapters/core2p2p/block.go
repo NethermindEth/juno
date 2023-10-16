@@ -36,7 +36,7 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.
 		SequencerAddress: AdaptAddress(header.SequencerAddress),
 		ProofFact:        nil, // not defined yet
 		Receipts:         nil, // not defined yet
-		StateDiffs:       nil,
+		StateDiffs:       nil, // not defined yet
 		State: &spec.Patricia{
 			Height: uint32(header.Number),
 			Root:   AdaptHash(header.GlobalStateRoot),
