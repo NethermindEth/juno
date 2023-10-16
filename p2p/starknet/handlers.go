@@ -103,23 +103,30 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 	if err != nil {
 		return nil, err
 	}
+	fin := &spec.BlockHeadersResponse{
+		Part: []*spec.BlockHeadersResponsePart{
+			{
+				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
+			},
+		},
+	}
 
 	return func() (proto.Message, bool) {
-		if it.Valid() {
-			return nil, false
+		if !it.Valid() {
+			return fin, false
 		}
 
 		header, err := it.Header()
 		if err != nil {
 			h.log.Errorw("Failed to fetch header", "err", err)
-			return nil, false
+			return fin, false
 		}
 		it.Next()
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
 			h.log.Errorw("Failed to fetch block commitments", "err", err)
-			return nil, false
+			return fin, false
 		}
 
 		return &spec.BlockHeadersResponse{
