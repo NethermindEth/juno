@@ -140,7 +140,7 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 					HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
 						Signatures: &spec.Signatures{
 							Block:      core2p2p.AdaptBlockID(header),
-							Signatures: []*spec.ConsensusSignature{}, // ???
+							Signatures: []*spec.ConsensusSignature{}, // todo fill signatures
 						},
 					},
 				},

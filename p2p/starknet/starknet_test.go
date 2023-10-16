@@ -53,15 +53,34 @@ func TestClientHandler(t *testing.T) {
 	}, testNetwork, log)
 
 	t.Run("get block headers", func(t *testing.T) {
-		res, cErr := client.RequestBlockHeaders(testCtx, &spec.BlockHeadersRequest{})
+		const limit uint64 = 2
+		const firstBlockNumber uint64 = 0
+
+		for i := firstBlockNumber; i < limit; i++ {
+			mockReader.EXPECT().BlockHeaderByNumber(i).Return(&core.Header{
+				Number: i,
+			}, nil)
+			mockReader.EXPECT().BlockCommitmentsByNumber(i).Return(&core.BlockCommitments{}, nil)
+		}
+
+		res, cErr := client.RequestBlockHeaders(testCtx, &spec.BlockHeadersRequest{
+			Iteration: &spec.Iteration{
+				Start: &spec.Iteration_BlockNumber{
+					BlockNumber: firstBlockNumber,
+				},
+				Direction: spec.Iteration_Forward,
+				Limit:     limit,
+				Step:      1,
+			},
+		})
 		require.NoError(t, cErr)
 
-		count := uint64(0)
+		var count uint64
 		for header, valid := res(); valid; header, valid = res() {
 			assert.Equal(t, count, header.GetPart()[0].GetHeader().Number)
 			count++
 		}
-		require.Equal(t, uint64(4), count)
+		require.Equal(t, limit, count)
 	})
 
 	t.Run("get block bodies", func(t *testing.T) {
