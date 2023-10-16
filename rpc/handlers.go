@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/sourcegraph/conc"
 )
 
@@ -65,7 +66,13 @@ var (
 const (
 	maxEventChunkSize  = 10240
 	maxEventFilterKeys = 1024
+	traceCacheSize     = 128
 )
+
+type traceCacheKey struct {
+	blockHash felt.Felt
+	legacy    bool
+}
 
 type Handler struct {
 	bcReader      blockchain.Reader
@@ -82,6 +89,8 @@ type Handler struct {
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
 	subscriptions map[uint64]*subscription
+
+	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 }
 
 type subscription struct {
@@ -110,6 +119,8 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
 		subscriptions: make(map[uint64]*subscription),
+
+		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 	}
 }
 
@@ -1256,7 +1267,7 @@ func (h *Handler) traceTransaction(hash *felt.Felt, legacyTraceJSON bool) (json.
 		return nil, ErrTxnHashNotFound
 	}
 
-	traceResults, traceBlockErr := h.traceBlockTransactions(block, txIndex+1, legacyTraceJSON)
+	traceResults, traceBlockErr := h.traceBlockTransactions(block, legacyTraceJSON)
 	if traceBlockErr != nil {
 		return nil, traceBlockErr
 	}
@@ -1356,7 +1367,7 @@ func (h *Handler) TraceBlockTransactions(id BlockID) ([]TracedBlockTransaction, 
 		return nil, ErrBlockNotFound
 	}
 
-	return h.traceBlockTransactions(block, len(block.Transactions), false)
+	return h.traceBlockTransactions(block, false)
 }
 
 func (h *Handler) LegacyTraceBlockTransactions(hash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
@@ -1365,11 +1376,20 @@ func (h *Handler) LegacyTraceBlockTransactions(hash felt.Felt) ([]TracedBlockTra
 		return nil, ErrInvalidBlockHash
 	}
 
-	return h.traceBlockTransactions(block, len(block.Transactions), true)
+	return h.traceBlockTransactions(block, true)
 }
 
-func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int, legacyTraceJSON bool) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) traceBlockTransactions(block *core.Block, legacyJSON bool) ([]TracedBlockTransaction, *jsonrpc.Error) { //nolint: gocyclo
 	isPending := block.Hash == nil
+
+	if !isPending {
+		if trace, hit := h.blockTraceCache.Get(traceCacheKey{
+			blockHash: *block.Hash,
+			legacy:    legacyJSON,
+		}); hit {
+			return trace, nil
+		}
+	}
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
@@ -1394,8 +1414,7 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int, legacyT
 	var classes []core.Class
 	paidFeesOnL1 := []*felt.Felt{}
 
-	transactions := block.Transactions[:numTxns]
-	for _, transaction := range transactions {
+	for _, transaction := range block.Transactions {
 		switch tx := transaction.(type) {
 		case *core.DeclareTransaction:
 			class, stateErr := headState.Class(tx.ClassHash)
@@ -1425,8 +1444,8 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int, legacyT
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 
-	_, traces, err := h.vm.Execute(transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyTraceJSON)
+	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
+		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyJSON)
 	if err != nil {
 		return nil, makeContractError(err)
 	}
@@ -1435,8 +1454,15 @@ func (h *Handler) traceBlockTransactions(block *core.Block, numTxns int, legacyT
 	for i, trace := range traces {
 		result = append(result, TracedBlockTransaction{
 			TraceRoot:       trace,
-			TransactionHash: transactions[i].Hash(),
+			TransactionHash: block.Transactions[i].Hash(),
 		})
+	}
+
+	if !isPending {
+		h.blockTraceCache.Add(traceCacheKey{
+			blockHash: *block.Hash,
+			legacy:    legacyJSON,
+		}, result)
 	}
 
 	return result, nil
