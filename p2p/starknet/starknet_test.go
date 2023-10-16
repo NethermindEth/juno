@@ -98,10 +98,10 @@ func TestClientHandler(t *testing.T) {
 	})
 
 	t.Run("get events", func(t *testing.T) {
-		const limit = 3
+		const limit uint64 = 3
+		const firstBlock uint64 = 0
 
-		for i := 0; i < limit; i++ {
-			blockNumber := uint64(i)
+		for blockNumber := firstBlock; blockNumber < limit; blockNumber++ {
 			mockReader.EXPECT().BlockByNumber(blockNumber).Return(&core.Block{
 				Header: &core.Header{
 					Number: blockNumber,
@@ -115,7 +115,7 @@ func TestClientHandler(t *testing.T) {
 		res, cErr := client.RequestEvents(testCtx, &spec.EventsRequest{
 			Iteration: &spec.Iteration{
 				Start: &spec.Iteration_BlockNumber{
-					BlockNumber: 0,
+					BlockNumber: firstBlock,
 				},
 				Direction: spec.Iteration_Forward,
 				Limit:     limit,
@@ -126,9 +126,14 @@ func TestClientHandler(t *testing.T) {
 
 		var count uint64
 		for evnt, valid := res(); valid; evnt, valid = res() {
+			if count == limit {
+				assert.NotNil(t, evnt.GetFin())
+				break
+			}
+
 			assert.Equal(t, count, evnt.Id.Number)
 			count++
 		}
-		require.Equal(t, uint64(limit), count)
+		require.Equal(t, limit, count)
 	})
 }
