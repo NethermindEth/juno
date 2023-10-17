@@ -12,6 +12,7 @@ type ExecutionStatus uint8
 const (
 	Succeeded ExecutionStatus = iota + 1
 	Reverted
+	Rejected
 )
 
 func (es *ExecutionStatus) UnmarshalJSON(data []byte) error {
@@ -20,6 +21,8 @@ func (es *ExecutionStatus) UnmarshalJSON(data []byte) error {
 		*es = Succeeded
 	case `"REVERTED"`:
 		*es = Reverted
+	case `"REJECTED"`:
+		*es = Rejected
 	default:
 		return errors.New("unknown ExecutionStatus")
 	}
@@ -32,6 +35,7 @@ const (
 	AcceptedOnL2 FinalityStatus = iota + 1
 	AcceptedOnL1
 	NotReceived
+	Received
 )
 
 func (fs *FinalityStatus) UnmarshalJSON(data []byte) error {
@@ -42,6 +46,8 @@ func (fs *FinalityStatus) UnmarshalJSON(data []byte) error {
 		*fs = AcceptedOnL1
 	case `"NOT_RECEIVED"`:
 		*fs = NotReceived
+	case `"RECEIVED"`:
+		*fs = Received
 	default:
 		return errors.New("unknown FinalityStatus")
 	}

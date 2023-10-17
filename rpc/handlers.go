@@ -1148,39 +1148,29 @@ func makeContractError(err error) *jsonrpc.Error {
 }
 
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
-	var status *TransactionStatus
-
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
 	case nil:
-		status = &TransactionStatus{
-			Finality:  receipt.FinalityStatus,
+		return &TransactionStatus{
+			Finality:  TxnStatus(receipt.FinalityStatus),
 			Execution: receipt.ExecutionStatus,
-		}
+		}, nil
 	case ErrTxnHashNotFound:
 		txStatus, err := h.feederClient.Transaction(ctx, &hash)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
-		// Check if the error is due to a transaction not being found
-		if txStatus.Status == "NOT_RECEIVED" || txStatus.FinalityStatus == feeder.NotReceived {
-			return nil, ErrTxnHashNotFound
-		}
 
-		status = new(TransactionStatus)
-
+		var status TransactionStatus
 		switch txStatus.FinalityStatus {
 		case feeder.AcceptedOnL1:
-			status.Finality = TxnAcceptedOnL1
+			status.Finality = TxnStatusAcceptedOnL1
 		case feeder.AcceptedOnL2:
-			status.Finality = TxnAcceptedOnL2
+			status.Finality = TxnStatusAcceptedOnL2
+		case feeder.Received:
+			status.Finality = TxnStatusReceived
 		default:
-			// pre-0.12.1
-			if txStatus.Status == "ACCEPTED_ON_L1" {
-				status.Finality = TxnAcceptedOnL1
-			} else {
-				status.Finality = TxnAcceptedOnL2
-			}
+			return nil, ErrTxnHashNotFound
 		}
 
 		switch txStatus.ExecutionStatus {
@@ -1188,15 +1178,14 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			status.Execution = TxnSuccess
 		case feeder.Reverted:
 			status.Execution = TxnFailure
-		default:
-			// pre-0.12.1
-			status.Execution = TxnSuccess
+		case feeder.Rejected:
+			status.Finality = TxnStatusRejected
+		default: // Omit the field on error. It's optional in the spec.
 		}
+		return &status, nil
 	default:
 		return nil, txErr
 	}
-
-	return status, nil
 }
 
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
