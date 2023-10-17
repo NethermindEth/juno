@@ -66,6 +66,30 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type TxnStatus uint8
+
+const (
+	TxnStatusAcceptedOnL1 TxnStatus = iota + 1
+	TxnStatusAcceptedOnL2
+	TxnStatusReceived
+	TxnStatusRejected
+)
+
+func (s TxnStatus) MarshalJSON() ([]byte, error) {
+	switch s {
+	case TxnStatusReceived:
+		return []byte(`"RECEIVED"`), nil
+	case TxnStatusRejected:
+		return []byte(`"REJECTED"`), nil
+	case TxnStatusAcceptedOnL1:
+		return []byte(`"ACCEPTED_ON_L1"`), nil
+	case TxnStatusAcceptedOnL2:
+		return []byte(`"ACCEPTED_ON_L2"`), nil
+	default:
+		return nil, errors.New("unknown ExecutionStatus")
+	}
+}
+
 type TxnExecutionStatus uint8
 
 const (
@@ -123,8 +147,8 @@ type Transaction struct {
 }
 
 type TransactionStatus struct {
-	Finality  TxnFinalityStatus  `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status"`
+	Finality  TxnStatus          `json:"finality_status"`
+	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
 type MsgFromL1 struct {
