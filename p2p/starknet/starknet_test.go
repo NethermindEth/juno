@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -15,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestClientHandler(t *testing.T) {
@@ -98,24 +101,45 @@ func TestClientHandler(t *testing.T) {
 	})
 
 	t.Run("get events", func(t *testing.T) {
-		const limit uint64 = 3
-		const firstBlock uint64 = 0
-
-		for blockNumber := firstBlock; blockNumber < limit; blockNumber++ {
+		eventsPerBlock := [][]*core.Event{
+			{}, // block with no events
+			{
+				{
+					From: randFelt(t),
+					Data: feltSlice(t, 1, randFelt),
+					Keys: feltSlice(t, 1, randFelt),
+				},
+			},
+			{
+				{
+					From: randFelt(t),
+					Data: feltSlice(t, 2, randFelt),
+					Keys: feltSlice(t, 2, randFelt),
+				},
+				{
+					From: randFelt(t),
+					Data: feltSlice(t, 3, randFelt),
+					Keys: feltSlice(t, 3, randFelt),
+				},
+			},
+		}
+		for blockNumber, events := range eventsPerBlock {
+			blockNumber := uint64(blockNumber)
 			mockReader.EXPECT().BlockByNumber(blockNumber).Return(&core.Block{
 				Header: &core.Header{
 					Number: blockNumber,
 				},
 				Receipts: []*core.TransactionReceipt{
-					{Events: []*core.Event{}},
+					{Events: events},
 				},
 			}, nil)
 		}
 
+		limit := uint64(len(eventsPerBlock))
 		res, cErr := client.RequestEvents(testCtx, &spec.EventsRequest{
 			Iteration: &spec.Iteration{
 				Start: &spec.Iteration_BlockNumber{
-					BlockNumber: firstBlock,
+					BlockNumber: 0,
 				},
 				Direction: spec.Iteration_Forward,
 				Limit:     limit,
@@ -127,13 +151,50 @@ func TestClientHandler(t *testing.T) {
 		var count uint64
 		for evnt, valid := res(); valid; evnt, valid = res() {
 			if count == limit {
-				assert.NotNil(t, evnt.GetFin())
+				expectedFin := &spec.EventsResponse{
+					Responses: &spec.EventsResponse_Fin{},
+				}
+				assert.True(t, proto.Equal(expectedFin, evnt))
 				break
 			}
 
 			assert.Equal(t, count, evnt.Id.Number)
+
+			passedEvents := eventsPerBlock[int(count)]
+			expectedEventsResponse := &spec.EventsResponse_Events{
+				Events: &spec.Events{
+					Items: utils.Map(passedEvents, func(e *core.Event) *spec.Event {
+						adaptFelt := core2p2p.AdaptFelt
+						return &spec.Event{
+							FromAddress: adaptFelt(e.From),
+							Keys:        utils.Map(e.Keys, adaptFelt),
+							Data:        utils.Map(e.Data, adaptFelt),
+						}
+					}),
+				},
+			}
+
+			assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.Responses.(*spec.EventsResponse_Events).Events))
 			count++
 		}
 		require.Equal(t, limit, count)
 	})
+}
+
+func feltSlice(t *testing.T, n int, generator func(*testing.T) *felt.Felt) []*felt.Felt {
+	sl := make([]*felt.Felt, n)
+	for i := range sl {
+		sl[i] = generator(t)
+	}
+
+	return sl
+}
+
+func randFelt(t *testing.T) *felt.Felt {
+	t.Helper()
+
+	f, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
+
+	return f
 }
