@@ -39,7 +39,10 @@ func (h Handler) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionRep
 }
 
 func (h Handler) Tx(server gen.KV_TxServer) error {
-	dbTx := h.db.NewTransaction(false)
+	dbTx, err := h.db.NewTransaction(false)
+	if err != nil {
+		return err
+	}
 	tx := newTx(dbTx)
 
 	for {

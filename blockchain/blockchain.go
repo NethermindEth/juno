@@ -755,8 +755,12 @@ type StateCloser = func() error
 // HeadState returns a StateReader that provides a stable view to the latest state
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("HeadState")
-	txn := b.database.NewTransaction(false)
-	_, err := chainHeight(txn)
+	txn, err := b.database.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	_, err = chainHeight(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
@@ -767,8 +771,12 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
 func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("StateAtBlockNumber")
-	txn := b.database.NewTransaction(false)
-	_, err := blockHeaderByNumber(txn, blockNumber)
+	txn, err := b.database.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	_, err = blockHeaderByNumber(txn, blockNumber)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
@@ -785,7 +793,11 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 		return emptyState, txn.Discard, nil
 	}
 
-	txn := b.database.NewTransaction(false)
+	txn, err := b.database.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	header, err := blockHeaderByHash(txn, blockHash)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
@@ -797,7 +809,11 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
 func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error) {
 	b.listener.OnRead("EventFilter")
-	txn := b.database.NewTransaction(false)
+	txn, err := b.database.NewTransaction(false)
+	if err != nil {
+		return nil, err
+	}
+
 	latest, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
@@ -992,7 +1008,11 @@ func (b *Blockchain) Pending() (Pending, error) {
 // PendingState returns the state resulting from execution of the pending block
 func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("PendingState")
-	txn := b.database.NewTransaction(false)
+	txn, err := b.database.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	pending, err := pendingBlock(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
