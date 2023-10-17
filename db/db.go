@@ -2,7 +2,11 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"os"
+
+	"github.com/NethermindEth/juno/utils"
 )
 
 // ErrKeyNotFound is returned when key isn't found on a txn.Get.
@@ -14,7 +18,7 @@ type DB interface {
 
 	// NewTransaction returns a transaction on this database, it should block if an update transaction is requested
 	// while another one is still in progress
-	NewTransaction(update bool) Transaction
+	NewTransaction(update bool) (Transaction, error)
 	// View creates a read-only transaction and calls fn with the given transaction
 	// View should handle committing or discarding the transaction. Transaction should be discarded when fn
 	// returns an error
@@ -76,4 +80,39 @@ type Transaction interface {
 
 	// Impl returns the underlying transaction object
 	Impl() any
+}
+
+// View : see db.DB.View
+func View(d DB, fn func(txn Transaction) error) error {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return err
+	}
+
+	defer discardTxnOnPanic(txn)
+	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
+}
+
+// Update : see db.DB.Update
+func Update(d DB, fn func(txn Transaction) error) error {
+	txn, err := d.NewTransaction(true)
+	if err != nil {
+		return err
+	}
+
+	defer discardTxnOnPanic(txn)
+	if err := fn(txn); err != nil {
+		return utils.RunAndWrapOnError(txn.Discard, err)
+	}
+	return utils.RunAndWrapOnError(txn.Discard, txn.Commit())
+}
+
+func discardTxnOnPanic(txn Transaction) {
+	p := recover()
+	if p != nil {
+		if err := txn.Discard(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed discarding panicing txn err: %s", err)
+		}
+		panic(p)
+	}
 }

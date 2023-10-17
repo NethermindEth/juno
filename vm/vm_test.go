@@ -18,7 +18,8 @@ import (
 
 func TestV0Call(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
@@ -76,7 +77,8 @@ func TestV0Call(t *testing.T) {
 
 func TestV1Call(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	client := feeder.NewTestClient(t, utils.GOERLI)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
@@ -142,7 +144,8 @@ func TestExecute(t *testing.T) {
 	const network = utils.GOERLI2
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(false)
+	txn, err := testDB.NewTransaction(false)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})

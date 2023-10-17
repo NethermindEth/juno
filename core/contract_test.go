@@ -54,7 +54,8 @@ func TestContractAddress(t *testing.T) {
 func TestNewContract(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -62,7 +63,7 @@ func TestNewContract(t *testing.T) {
 	classHash := new(felt.Felt).SetBytes([]byte("class hash"))
 
 	t.Run("cannot create Contract instance if un-deployed", func(t *testing.T) {
-		_, err := core.NewContract(addr, txn)
+		_, err = core.NewContract(addr, txn)
 		require.EqualError(t, err, core.ErrContractNotDeployed.Error())
 	})
 
@@ -128,7 +129,8 @@ func TestNewContract(t *testing.T) {
 func TestNonceAndClassHash(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
@@ -166,7 +168,8 @@ func TestNonceAndClassHash(t *testing.T) {
 func TestUpdateStorageAndStorage(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
@@ -204,7 +207,8 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 func TestPurge(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
