@@ -98,7 +98,7 @@ impl TransactionTrace {
         }
         if let Some(invocation) = &mut self.execute_invocation {
             match invocation {
-                ExecuteInvocation::Ok(fn_invocation) => { fn_invocation.make_legacy() }
+                ExecuteInvocation::Ok(fn_invocation) => fn_invocation.make_legacy(),
                 _ => {}
             }
         }
@@ -255,15 +255,16 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
             },
             calls: val.inner_calls.into_iter().map(|v| v.into()).collect(),
             events: val.execution.events.into_iter().map(|v| v.into()).collect(),
-            messages: val.execution
-                    .l2_to_l1_messages
-                    .into_iter()
-                    .map(|v| {
-                        let mut ordered_message: OrderedMessage = v.into();
-                        ordered_message.from_address = val.call.storage_address;
-                        ordered_message
-                    })
-                    .collect(),
+            messages: val
+                .execution
+                .l2_to_l1_messages
+                .into_iter()
+                .map(|v| {
+                    let mut ordered_message: OrderedMessage = v.into();
+                    ordered_message.from_address = val.call.storage_address;
+                    ordered_message
+                })
+                .collect(),
         }
     }
 }
@@ -308,6 +309,7 @@ fn make_state_diff(
 
     for pair in diff.address_to_class_hash {
         let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
+        #[rustfmt::skip]
         if existing_class_hash == ClassHash::default() {
             deployed_contracts.push(DeployedContract {
                 address: pair.0.0.key().clone(),
@@ -325,6 +327,7 @@ fn make_state_diff(
     if deprecated_declared_class.is_some() {
         deprecated_declared_classes.push(deprecated_declared_class.unwrap().0)
     }
+    #[rustfmt::skip]
     Ok(StateDiff {
         deployed_contracts: deployed_contracts,
         storage_diffs: diff.storage_updates.into_iter().map(| v | StorageDiff {
