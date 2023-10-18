@@ -11,6 +11,7 @@ require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/go-playground/validator/v10 v10.11.1
+	github.com/golang/mock v1.6.0
 	github.com/jinzhu/copier v0.3.5
 	github.com/libp2p/go-libp2p v0.31.0
 	github.com/libp2p/go-libp2p-kad-dht v0.24.2
@@ -68,7 +69,6 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/gopacket v1.1.19 // indirect

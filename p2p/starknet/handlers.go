@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"sync"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -134,16 +135,48 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 }
 
 func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
-	return func() (proto.Message, bool) {
-		if count > 3 {
+	it, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	var finSent bool
+	fin := func() (proto.Message, bool) {
+		if finSent {
 			return nil, false
 		}
-		count++
+		finSent = true
+
 		return &spec.EventsResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
+			Responses: &spec.EventsResponse_Fin{},
+		}, true
+	}
+
+	return func() (proto.Message, bool) {
+		if !it.Valid() {
+			return fin()
+		}
+
+		block, err := it.Block()
+		if err != nil {
+			h.log.Errorw("Failed to fetch block", "err", err)
+			return fin()
+		}
+		it.Next()
+
+		events := make([]*spec.Event, 0, len(block.Receipts))
+		for _, receipt := range block.Receipts {
+			for _, event := range receipt.Events {
+				events = append(events, core2p2p.AdaptEvent(event))
+			}
+		}
+
+		return &spec.EventsResponse{
+			Id: core2p2p.AdaptBlockID(block.Header),
+			Responses: &spec.EventsResponse_Events{
+				Events: &spec.Events{
+					Items: events,
+				},
 			},
 		}, true
 	}, nil
@@ -179,4 +212,9 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 			},
 		}, true
 	}, nil
+}
+
+func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
+	forward := it.Direction == spec.Iteration_Forward
+	return newIterator(h.bcReader, it.GetBlockNumber(), it.Limit, it.Step, forward)
 }
