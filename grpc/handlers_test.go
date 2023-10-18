@@ -58,6 +58,11 @@ func (m *grpcStreamMock) RecvToClient() (*gen.Pair, error) {
 	return response, nil
 }
 
+func (m *grpcStreamMock) Close() {
+	close(m.recvToServer) // signal server that we are done
+	<-m.sentFromServer    // wait for server to shutdown
+}
+
 func TestHandlers_Version(t *testing.T) {
 	expectedVersion := &gen.VersionReply{
 		Major: 1,
@@ -75,18 +80,15 @@ func createTxStream(t *testing.T, h Handler) *grpcStreamMock {
 	go func() {
 		err := h.Tx(stream)
 		if err != nil {
-			t.Errorf(err.Error())
+			assert.ErrorContains(t, err, "empty")
 		}
 		close(stream.sentFromServer)
-		close(stream.recvToServer)
 	}()
 
 	return stream
 }
 
 func TestHandlers_Tx(t *testing.T) {
-	t.Skip("We need to add Op_CLOSE to grpc server to close iterators in tests.")
-
 	memDB := pebble.NewMemTest(t)
 	h := Handler{db: memDB}
 	stream := createTxStream(t, h)
@@ -103,6 +105,7 @@ func TestHandlers_Tx(t *testing.T) {
 		gen.Op_SEEK_EXACT,
 		gen.Op_NEXT,
 		gen.Op_CURRENT,
+		gen.Op_CLOSE,
 	}
 
 	for _, op := range ops {
@@ -116,4 +119,5 @@ func TestHandlers_Tx(t *testing.T) {
 		assert.Empty(t, cur.K)
 		assert.Empty(t, cur.V)
 	}
+	stream.Close()
 }
