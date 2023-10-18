@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"reflect"
 	"runtime"
 	"time"
@@ -179,8 +178,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	if cfg.P2P {
-		privKeyStr, _ := os.LookupEnv("P2P_PRIVATE_KEY")
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
