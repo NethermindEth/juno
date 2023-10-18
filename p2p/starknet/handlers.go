@@ -164,17 +164,18 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		}
 		it.Next()
 
-		items := make([]*spec.Event, 0, len(block.Receipts))
-		for _, item := range block.Receipts {
-			events := utils.Map(item.Events, core2p2p.AdaptEvent)
-			items = append(items, events...)
+		events := make([]*spec.Event, 0, len(block.Receipts))
+		for _, receipt := range block.Receipts {
+			for _, event := range receipt.Events {
+				events = append(events, core2p2p.AdaptEvent(event))
+			}
 		}
 
 		return &spec.EventsResponse{
 			Id: core2p2p.AdaptBlockID(block.Header),
 			Responses: &spec.EventsResponse_Events{
 				Events: &spec.Events{
-					Items: items,
+					Items: events,
 				},
 			},
 		}, true
