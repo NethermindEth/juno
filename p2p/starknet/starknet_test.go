@@ -135,14 +135,14 @@ func TestClientHandler(t *testing.T) {
 			}, nil)
 		}
 
-		limit := uint64(len(eventsPerBlock))
+		numOfBlocks := uint64(len(eventsPerBlock))
 		res, cErr := client.RequestEvents(testCtx, &spec.EventsRequest{
 			Iteration: &spec.Iteration{
 				Start: &spec.Iteration_BlockNumber{
 					BlockNumber: 0,
 				},
 				Direction: spec.Iteration_Forward,
-				Limit:     limit,
+				Limit:     numOfBlocks,
 				Step:      1,
 			},
 		})
@@ -150,11 +150,12 @@ func TestClientHandler(t *testing.T) {
 
 		var count uint64
 		for evnt, valid := res(); valid; evnt, valid = res() {
-			if count == limit {
+			if count == numOfBlocks {
 				expectedFin := &spec.EventsResponse{
 					Responses: &spec.EventsResponse_Fin{},
 				}
 				assert.True(t, proto.Equal(expectedFin, evnt))
+				count++
 				break
 			}
 
@@ -177,7 +178,8 @@ func TestClientHandler(t *testing.T) {
 			assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.Responses.(*spec.EventsResponse_Events).Events))
 			count++
 		}
-		require.Equal(t, limit, count)
+		expectedCount := numOfBlocks + 1 // numOfBlocks messages with blocks + 1 fin message
+		require.Equal(t, expectedCount, count)
 	})
 }
 
