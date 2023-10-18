@@ -7,7 +7,6 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -165,16 +164,17 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		}
 		it.Next()
 
-		var events []*core.Event
+		items := make([]*spec.Event, 0, len(block.Receipts))
 		for _, item := range block.Receipts {
-			events = append(events, item.Events...)
+			events := utils.Map(item.Events, core2p2p.AdaptEvent)
+			items = append(items, events...)
 		}
 
 		return &spec.EventsResponse{
 			Id: core2p2p.AdaptBlockID(block.Header),
 			Responses: &spec.EventsResponse_Events{
 				Events: &spec.Events{
-					Items: utils.Map(events, core2p2p.AdaptEvent),
+					Items: items,
 				},
 			},
 		}, true
