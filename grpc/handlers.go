@@ -1,3 +1,4 @@
+//go:generate protoc --go_out=gen --go_opt=paths=source_relative --go-grpc_out=gen --go-grpc_opt=paths=source_relative kv.proto
 package grpc
 
 import (
@@ -14,6 +15,7 @@ import (
 )
 
 type Handler struct {
+	gen.UnimplementedKVServer
 	db      db.DB
 	version string
 }
@@ -43,18 +45,16 @@ func (h Handler) Tx(server gen.KV_TxServer) error {
 	if err != nil {
 		return err
 	}
+
 	tx := newTx(dbTx)
-
 	for {
-		cursor, err := server.Recv()
-		if err != nil {
-			return utils.RunAndWrapOnError(tx.cleanup, err)
+		var cursor *gen.Cursor
+		if cursor, err = server.Recv(); err == nil {
+			if err = h.handleTxCursor(cursor, tx, server); err == nil {
+				continue
+			}
 		}
-
-		err = h.handleTxCursor(cursor, tx, server)
-		if err != nil {
-			return utils.RunAndWrapOnError(tx.cleanup, err)
-		}
+		return utils.RunAndWrapOnError(dbTx.Discard, utils.RunAndWrapOnError(tx.cleanup, err))
 	}
 }
 
@@ -106,6 +106,8 @@ func (h Handler) handleTxCursor(
 			responsePair.K = it.Key()
 			responsePair.V, err = it.Value()
 		}
+	case gen.Op_CLOSE:
+		err = tx.closeCursor(cur.Cursor)
 	default:
 		err = fmt.Errorf("unknown operation %q", cur.Op)
 	}

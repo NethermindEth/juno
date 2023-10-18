@@ -3,20 +3,22 @@ package grpc
 import (
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/db"
 )
 
 type tx struct {
-	dbTx db.Transaction
+	dbTx      db.Transaction
+	itCounter atomic.Uint32
 	// index is cursorId for an iterator
-	iterators []db.Iterator
+	iterators sync.Map
 }
 
 func newTx(dbTx db.Transaction) *tx {
 	return &tx{
-		dbTx:      dbTx,
-		iterators: make([]db.Iterator, 0),
+		dbTx: dbTx,
 	}
 }
 
@@ -25,25 +27,34 @@ func (t *tx) newCursor() (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	t.iterators = append(t.iterators, it)
+	cursorID := t.itCounter.Add(1)
+	t.iterators.Store(cursorID, it)
+	return cursorID, nil
+}
 
-	cursorID := len(t.iterators) - 1
-	return uint32(cursorID), nil
+func (t *tx) closeCursor(cursorID uint32) error {
+	it, err := t.iterator(cursorID)
+	if err != nil {
+		return err
+	}
+	t.iterators.Delete(cursorID)
+	return it.Close()
 }
 
 func (t *tx) iterator(cursorID uint32) (db.Iterator, error) {
-	if int(cursorID) >= len(t.iterators) {
+	it, found := t.iterators.Load(cursorID)
+	if !found {
 		return nil, fmt.Errorf("cursorID %d not found", cursorID)
 	}
-
-	return t.iterators[cursorID], nil
+	return it.(db.Iterator), nil
 }
 
 func (t *tx) cleanup() error {
 	var err error
-	for _, it := range t.iterators {
+	t.iterators.Range(func(key, value any) bool {
+		it := value.(db.Iterator)
 		err = errors.Join(err, it.Close())
-	}
-
+		return true
+	})
 	return err
 }
