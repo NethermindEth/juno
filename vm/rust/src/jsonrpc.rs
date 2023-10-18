@@ -309,13 +309,14 @@ fn make_state_diff(
 
     for pair in diff.address_to_class_hash {
         let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
-        #[rustfmt::skip]
         if existing_class_hash == ClassHash::default() {
+            #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
                 address: pair.0.0.key().clone(),
                 class_hash: pair.1.0,
             });
         } else {
+            #[rustfmt::skip]
             replaced_classes.push(ReplacedClass {
                 contract_address: pair.0.0.key().clone(),
                 class_hash: pair.1.0,
@@ -327,9 +328,9 @@ fn make_state_diff(
     if deprecated_declared_class.is_some() {
         deprecated_declared_classes.push(deprecated_declared_class.unwrap().0)
     }
-    #[rustfmt::skip]
     Ok(StateDiff {
-        deployed_contracts: deployed_contracts,
+        deployed_contracts,
+        #[rustfmt::skip]
         storage_diffs: diff.storage_updates.into_iter().map(| v | StorageDiff {
             address: v.0.0.key().clone(),
             storage_entries: v.1.into_iter().map(| e | Entry {
@@ -337,15 +338,17 @@ fn make_state_diff(
                 value: e.1
             }).collect()
         }).collect(),
+        #[rustfmt::skip]
         declared_classes: diff.class_hash_to_compiled_class_hash.into_iter().map(| v | DeclaredClass {
             class_hash: v.0.0,
             compiled_class_hash: v.1.0,
         }).collect(),
-        deprecated_declared_classes: deprecated_declared_classes,
+        deprecated_declared_classes,
+        #[rustfmt::skip]
         nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
           contract_address: v.0.0.key().clone(),
-          nonce: v.1.0,  
+          nonce: v.1.0,
         }).collect(),
-        replaced_classes: replaced_classes,
+        replaced_classes,
     })
 }
