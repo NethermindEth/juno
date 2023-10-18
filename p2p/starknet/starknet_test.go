@@ -3,10 +3,17 @@ package starknet_test
 import (
 	"context"
 	"testing"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
-	"github.com/NethermindEth/juno/core"
+
 	"github.com/NethermindEth/juno/core/felt"
+
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -17,7 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestClientHandler(t *testing.T) {
@@ -53,20 +59,42 @@ func TestClientHandler(t *testing.T) {
 	}, testNetwork, log)
 
 	t.Run("get block headers", func(t *testing.T) {
-		const limit uint64 = 2
-		const firstBlockNumber uint64 = 0
-
-		for i := firstBlockNumber; i < limit; i++ {
-			mockReader.EXPECT().BlockHeaderByNumber(i).Return(&core.Header{
-				Number: i,
-			}, nil)
-			mockReader.EXPECT().BlockCommitmentsByNumber(i).Return(&core.BlockCommitments{}, nil)
+		type pair struct {
+			header      *core.Header
+			commitments *core.BlockCommitments
+		}
+		pairsPerBlock := []pair{}
+		for i := 0; i < 2; i++ {
+			ui := uint64(i)
+			pairsPerBlock = append(pairsPerBlock, pair{
+				header: &core.Header{
+					Number:           ui,
+					ParentHash:       randFelt(t),
+					Timestamp:        ui,
+					SequencerAddress: randFelt(t),
+					GlobalStateRoot:  randFelt(t),
+					TransactionCount: ui,
+					EventCount:       ui,
+					Hash:             randFelt(t),
+				},
+				commitments: &core.BlockCommitments{
+					TransactionCommitment: randFelt(t),
+					EventCommitment:       randFelt(t),
+				},
+			})
 		}
 
+		for blockNumber, pair := range pairsPerBlock {
+			blockNumber := uint64(blockNumber)
+			mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(pair.header, nil)
+			mockReader.EXPECT().BlockCommitmentsByNumber(blockNumber).Return(pair.commitments, nil)
+		}
+
+		limit := uint64(len(pairsPerBlock))
 		res, cErr := client.RequestBlockHeaders(testCtx, &spec.BlockHeadersRequest{
 			Iteration: &spec.Iteration{
 				Start: &spec.Iteration_BlockNumber{
-					BlockNumber: firstBlockNumber,
+					BlockNumber: 0,
 				},
 				Direction: spec.Iteration_Forward,
 				Limit:     limit,
@@ -76,13 +104,53 @@ func TestClientHandler(t *testing.T) {
 		require.NoError(t, cErr)
 
 		var count uint64
-		for header, valid := res(); valid; header, valid = res() {
+		for response, valid := res(); valid; response, valid = res() {
 			if count == limit {
-				assert.NotNil(t, header.GetPart()[0].GetFin())
+				assert.NotNil(t, response.Part[0].GetFin())
 				break
 			}
 
-			assert.Equal(t, count, header.GetPart()[0].GetHeader().Number)
+			adaptHash := core2p2p.AdaptHash
+			expectedPair := pairsPerBlock[count]
+			header := expectedPair.header
+
+			expectedResponse := &spec.BlockHeadersResponse{
+				Part: []*spec.BlockHeadersResponsePart{
+					{
+						HeaderMessage: &spec.BlockHeadersResponsePart_Header{
+							Header: &spec.BlockHeader{
+								ParentHeader:     adaptHash(header.ParentHash),
+								Number:           header.Number,
+								Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
+								SequencerAddress: core2p2p.AdaptAddress(header.SequencerAddress),
+								State: &spec.Patricia{
+									Height: uint32(header.Number),
+									Root:   adaptHash(header.GlobalStateRoot),
+								},
+								Transactions: &spec.Merkle{
+									NLeaves: uint32(header.TransactionCount),
+									Root:    adaptHash(expectedPair.commitments.TransactionCommitment),
+								},
+								Events: &spec.Merkle{
+									NLeaves: uint32(header.EventCount),
+									Root:    adaptHash(expectedPair.commitments.EventCommitment),
+								},
+							},
+						},
+					},
+					{
+						HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
+							Signatures: &spec.Signatures{
+								Block:      core2p2p.AdaptBlockID(expectedPair.header),
+								Signatures: utils.Map(expectedPair.header.Signatures, core2p2p.AdaptSignature),
+							},
+						},
+					},
+				},
+			}
+			assert.True(t, proto.Equal(expectedResponse.Part[1], response.Part[1]))
+
+			assert.Equal(t, count, response.Part[0].GetHeader().Number)
 			count++
 		}
 		require.Equal(t, limit, count)
