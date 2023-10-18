@@ -44,6 +44,7 @@ type Reader interface {
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
+	readOnlyBlockchain  bool
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
@@ -57,7 +58,7 @@ type Synchronizer struct {
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration,
+	log utils.SimpleLogger, pendingPollInterval time.Duration, readOnlyBlockchain bool,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
@@ -66,6 +67,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		newHeads:            feed.New[*core.Header](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
+		readOnlyBlockchain:  readOnlyBlockchain,
 	}
 	return s
 }
@@ -239,7 +241,9 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	s.startingBlockNumber = &startingHeight
 
 	pendingSem := make(chan struct{}, 1)
-	go s.pollPending(syncCtx, pendingSem)
+	if !s.readOnlyBlockchain {
+		go s.pollPending(syncCtx, pendingSem)
+	}
 	latestSem := make(chan struct{}, 1)
 	go s.pollLatest(syncCtx, latestSem)
 
@@ -262,6 +266,9 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
 		default:
+			if s.readOnlyBlockchain {
+				<-streamCtx.Done()
+			}
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
 				fetchTimer := time.Now()

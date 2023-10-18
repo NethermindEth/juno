@@ -57,6 +57,7 @@ const (
 	grpcHostF            = "grpc-host"
 	grpcPortF            = "grpc-port"
 	maxVMsF              = "max-vms"
+	remoteDBF            = "remote-db"
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -76,6 +77,7 @@ const (
 	defaultMetricsPort         = 9090
 	defaultGRPC                = false
 	defaultGRPCPort            = 6064
+	defaultRemoteDB            = ""
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -104,6 +106,7 @@ const (
 	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
 	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
+	remoteDBUsage            = "gRPC URL of a remote Juno node"
 )
 
 var Version string
@@ -223,6 +226,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
+	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
 
 	return junoCmd
 }

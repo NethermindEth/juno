@@ -2330,7 +2330,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	chain := blockchain.New(pebble.NewMemTest(t), network, log)
-	syncer := sync.New(chain, gw, log, 0)
+	syncer := sync.New(chain, gw, log, 0, false)
 	handler := rpc.New(chain, syncer, network, nil, nil, nil, "", log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))
@@ -2409,7 +2409,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	chain := blockchain.New(pebble.NewMemTest(t), network, log)
-	syncer := sync.New(chain, gw, log, 0)
+	syncer := sync.New(chain, gw, log, 0, false)
 	handler := rpc.New(chain, syncer, network, nil, nil, nil, "", log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))

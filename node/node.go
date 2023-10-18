@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
@@ -30,6 +31,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 )
 
@@ -59,6 +62,7 @@ type Config struct {
 	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
+	RemoteDB            string         `mapstructure:"remote-db"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -95,7 +99,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("create DB logger: %w", err)
 	}
 
-	database, err := pebble.New(cfg.DatabasePath, dbLog)
+	dbIsRemote := cfg.RemoteDB != ""
+	var database db.DB
+	if dbIsRemote {
+		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		database, err = pebble.New(cfg.DatabasePath, dbLog)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
@@ -106,7 +116,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	chain := blockchain.New(database, cfg.Network, log)
 	feederClientTimeout := 5 * time.Second
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
