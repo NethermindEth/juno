@@ -5,15 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"google.golang.org/protobuf/proto"
-
 	"github.com/NethermindEth/juno/adapters/core2p2p"
-
-	"github.com/NethermindEth/juno/core/felt"
-
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -24,6 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestClientHandler(t *testing.T) {
@@ -275,6 +271,7 @@ func TestClientHandler(t *testing.T) {
 	})
 }
 
+//nolint:unused
 func feltSlice(t *testing.T, n int, generator func(*testing.T) *felt.Felt) []*felt.Felt {
 	sl := make([]*felt.Felt, n)
 	for i := range sl {
