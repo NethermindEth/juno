@@ -87,10 +87,6 @@ func (it *iterator) Next() bool {
 	return it.Valid()
 }
 
-func (it *iterator) BlockNumber() uint64 {
-	return it.blockNumber
-}
-
 func (it *iterator) Block() (*core.Block, error) {
 	var (
 		block *core.Block
@@ -99,7 +95,7 @@ func (it *iterator) Block() (*core.Block, error) {
 
 	if it.blockHash != nil {
 		block, err = it.bcReader.BlockByHash(it.blockHash)
-		if err != nil {
+		if err == nil {
 			// after first successful fetch by hash
 			// we switch to iteration by block number
 			it.blockHash = nil

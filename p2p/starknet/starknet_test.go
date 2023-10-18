@@ -60,17 +60,16 @@ func TestClientHandler(t *testing.T) {
 			commitments *core.BlockCommitments
 		}
 		pairsPerBlock := []pair{}
-		for i := 0; i < 2; i++ {
-			ui := uint64(i)
+		for i := uint64(0); i < 2; i++ {
 			pairsPerBlock = append(pairsPerBlock, pair{
 				header: &core.Header{
-					Number:           ui,
+					Number:           i,
 					ParentHash:       randFelt(t),
-					Timestamp:        ui,
+					Timestamp:        i,
 					SequencerAddress: randFelt(t),
 					GlobalStateRoot:  randFelt(t),
-					TransactionCount: ui,
-					EventCount:       ui,
+					TransactionCount: i,
+					EventCount:       i,
 					Hash:             randFelt(t),
 				},
 				commitments: &core.BlockCommitments{
