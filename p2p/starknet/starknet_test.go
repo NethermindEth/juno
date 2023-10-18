@@ -271,7 +271,6 @@ func TestClientHandler(t *testing.T) {
 	})
 }
 
-//nolint:unused
 func feltSlice(t *testing.T, n int, generator func(*testing.T) *felt.Felt) []*felt.Felt {
 	sl := make([]*felt.Felt, n)
 	for i := range sl {
