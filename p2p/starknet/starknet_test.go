@@ -263,7 +263,7 @@ func TestClientHandler(t *testing.T) {
 				},
 			}
 
-			assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.Responses.(*spec.EventsResponse_Events).Events))
+			assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.GetEvents()))
 			count++
 		}
 		expectedCount := numOfBlocks + 1 // numOfBlocks messages with blocks + 1 fin message
