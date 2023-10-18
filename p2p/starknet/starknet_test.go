@@ -86,14 +86,14 @@ func TestClientHandler(t *testing.T) {
 			mockReader.EXPECT().BlockCommitmentsByNumber(blockNumber).Return(pair.commitments, nil)
 		}
 
-		limit := uint64(len(pairsPerBlock))
+		numOfBlocks := uint64(len(pairsPerBlock))
 		res, cErr := client.RequestBlockHeaders(testCtx, &spec.BlockHeadersRequest{
 			Iteration: &spec.Iteration{
 				Start: &spec.Iteration_BlockNumber{
 					BlockNumber: 0,
 				},
 				Direction: spec.Iteration_Forward,
-				Limit:     limit,
+				Limit:     numOfBlocks,
 				Step:      1,
 			},
 		})
@@ -101,8 +101,9 @@ func TestClientHandler(t *testing.T) {
 
 		var count uint64
 		for response, valid := res(); valid; response, valid = res() {
-			if count == limit {
-				assert.NotNil(t, response.Part[0].GetFin())
+			if count == numOfBlocks {
+				assert.True(t, proto.Equal(&spec.Fin{}, response.Part[0].GetFin()))
+				count++
 				break
 			}
 
@@ -144,12 +145,14 @@ func TestClientHandler(t *testing.T) {
 					},
 				},
 			}
-			assert.True(t, proto.Equal(expectedResponse.Part[1], response.Part[1]))
+			assert.True(t, proto.Equal(expectedResponse, response))
 
 			assert.Equal(t, count, response.Part[0].GetHeader().Number)
 			count++
 		}
-		require.Equal(t, limit, count)
+
+		expectedCount := numOfBlocks + 1 // plus fin
+		require.Equal(t, expectedCount, count)
 	})
 
 	t.Run("get block bodies", func(t *testing.T) {
@@ -239,10 +242,7 @@ func TestClientHandler(t *testing.T) {
 		var count uint64
 		for evnt, valid := res(); valid; evnt, valid = res() {
 			if count == numOfBlocks {
-				expectedFin := &spec.EventsResponse{
-					Responses: &spec.EventsResponse_Fin{},
-				}
-				assert.True(t, proto.Equal(expectedFin, evnt))
+				assert.True(t, proto.Equal(&spec.Fin{}, evnt.GetFin()))
 				count++
 				break
 			}

@@ -171,18 +171,9 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		return nil, err
 	}
 
-	var finSent bool
-	fin := func() (proto.Message, bool) {
-		if finSent {
-			return nil, false
-		}
-		finSent = true
-
-		return &spec.EventsResponse{
-			Responses: &spec.EventsResponse_Fin{},
-		}, true
-	}
-
+	fin := h.newFin(&spec.EventsResponse{
+		Responses: &spec.EventsResponse_Fin{},
+	})
 	return func() (proto.Message, bool) {
 		if !it.Valid() {
 			return fin()
