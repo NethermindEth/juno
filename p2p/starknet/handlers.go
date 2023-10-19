@@ -167,11 +167,6 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		return nil, err
 	}
 
-	// mark end of stream
-	fin := h.newFin(&spec.EventsResponse{
-		Responses: &spec.EventsResponse_Fin{},
-	})
-
 	var prevBlockID *spec.BlockID
 	return func() (proto.Message, bool) {
 		if prevBlockID != nil {
@@ -186,13 +181,13 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		}
 
 		if !it.Valid() {
-			return fin()
+			return nil, false
 		}
 
 		block, err := it.Block()
 		if err != nil {
 			h.log.Errorw("Failed to fetch block", "err", err)
-			return fin()
+			return nil, false
 		}
 		it.Next()
 

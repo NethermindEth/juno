@@ -137,6 +137,9 @@ func TestClientHandler(t *testing.T) {
 							},
 						},
 					},
+					{
+						HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
+					},
 				},
 			}
 			assert.True(t, proto.Equal(expectedResponse, response))
@@ -145,8 +148,7 @@ func TestClientHandler(t *testing.T) {
 			count++
 		}
 
-		expectedCount := numOfBlocks + 1 // plus fin
-		require.Equal(t, expectedCount, count)
+		require.Equal(t, numOfBlocks, count)
 	})
 
 	t.Run("get block bodies", func(t *testing.T) {
@@ -319,11 +321,14 @@ func TestClientHandler(t *testing.T) {
 		require.NoError(t, cErr)
 
 		var count uint64
+		var checkForFin bool
 		for evnt, valid := res(); valid; evnt, valid = res() {
-			if count == numOfBlocks {
+			// after each event block, we need to check that there is
+			// corresponding fin struct coming
+			if checkForFin {
 				assert.True(t, proto.Equal(&spec.Fin{}, evnt.GetFin()))
-				count++
-				break
+				checkForFin = false
+				continue
 			}
 
 			assert.Equal(t, count, evnt.Id.Number)
@@ -344,9 +349,9 @@ func TestClientHandler(t *testing.T) {
 
 			assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.GetEvents()))
 			count++
+			checkForFin = true
 		}
-		expectedCount := numOfBlocks + 1 // numOfBlocks messages with blocks + 1 fin message
-		require.Equal(t, expectedCount, count)
+		require.Equal(t, numOfBlocks, count)
 	})
 }
 
