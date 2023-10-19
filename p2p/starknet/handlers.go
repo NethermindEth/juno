@@ -104,29 +104,22 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 		return nil, err
 	}
 
-	fin := h.newFin(&spec.BlockHeadersResponse{
-		Part: []*spec.BlockHeadersResponsePart{
-			{
-				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
-			},
-		},
-	})
 	return func() (proto.Message, bool) {
 		if !it.Valid() {
-			return fin()
+			return nil, false
 		}
 
 		header, err := it.Header()
 		if err != nil {
 			h.log.Errorw("Failed to fetch header", "err", err)
-			return fin()
+			return nil, false
 		}
 		it.Next()
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
 			h.log.Errorw("Failed to fetch block commitments", "err", err)
-			return fin()
+			return nil, false
 		}
 
 		return &spec.BlockHeadersResponse{
@@ -143,6 +136,9 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 							Signatures: utils.Map(header.Signatures, core2p2p.AdaptSignature),
 						},
 					},
+				},
+				{
+					HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
 				},
 			},
 		}, true
@@ -171,10 +167,24 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		return nil, err
 	}
 
+	// mark end of stream
 	fin := h.newFin(&spec.EventsResponse{
 		Responses: &spec.EventsResponse_Fin{},
 	})
+
+	var prevBlockID *spec.BlockID
 	return func() (proto.Message, bool) {
+		if prevBlockID != nil {
+			// mark end of event message
+			finDelimeter := &spec.EventsResponse{
+				Id:        prevBlockID,
+				Responses: &spec.EventsResponse_Fin{},
+			}
+			prevBlockID = nil
+
+			return finDelimeter, true
+		}
+
 		if !it.Valid() {
 			return fin()
 		}
@@ -193,14 +203,17 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 			}
 		}
 
-		return &spec.EventsResponse{
+		resp := &spec.EventsResponse{
 			Id: core2p2p.AdaptBlockID(block.Header),
 			Responses: &spec.EventsResponse_Events{
 				Events: &spec.Events{
 					Items: events,
 				},
 			},
-		}, true
+		}
+		prevBlockID = resp.Id
+
+		return resp, true
 	}, nil
 }
 
