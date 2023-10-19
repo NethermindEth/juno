@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -20,7 +21,7 @@ type iterator struct {
 	reachedEnd bool
 }
 
-func newIterator(bcReader blockchain.Reader, blockNumber, limit, step uint64, forward bool) (*iterator, error) {
+func newIteratorByNumber(bcReader blockchain.Reader, blockNumber, limit, step uint64, forward bool) (*iterator, error) {
 	if step == 0 {
 		return nil, fmt.Errorf("step is zero")
 	}
@@ -36,6 +37,19 @@ func newIterator(bcReader blockchain.Reader, blockNumber, limit, step uint64, fo
 		forward:     forward,
 		reachedEnd:  false,
 	}, nil
+}
+
+func newIteratorByHash(bcReader blockchain.Reader, blockHash *felt.Felt, limit, step uint64, forward bool) (*iterator, error) {
+	if blockHash == nil {
+		return nil, fmt.Errorf("block hash is nil")
+	}
+
+	block, err := bcReader.BlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return newIteratorByNumber(bcReader, block.Number, limit, step, forward)
 }
 
 func (it *iterator) Valid() bool {
@@ -62,10 +76,6 @@ func (it *iterator) Next() bool {
 	return it.Valid()
 }
 
-func (it *iterator) BlockNumber() uint64 {
-	return it.blockNumber
-}
-
 func (it *iterator) Block() (*core.Block, error) {
 	block, err := it.bcReader.BlockByNumber(it.blockNumber)
 	if errors.Is(err, db.ErrKeyNotFound) {
@@ -73,4 +83,13 @@ func (it *iterator) Block() (*core.Block, error) {
 	}
 
 	return block, err
+}
+
+func (it *iterator) Header() (*core.Header, error) {
+	header, err := it.bcReader.BlockHeaderByNumber(it.blockNumber)
+	if errors.Is(err, db.ErrKeyNotFound) {
+		it.reachedEnd = true
+	}
+
+	return header, err
 }

@@ -3,6 +3,7 @@ package starknet_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/core"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestClientHandler(t *testing.T) {
@@ -53,15 +55,103 @@ func TestClientHandler(t *testing.T) {
 	}, testNetwork, log)
 
 	t.Run("get block headers", func(t *testing.T) {
-		res, cErr := client.RequestBlockHeaders(testCtx, &spec.BlockHeadersRequest{})
+		type pair struct {
+			header      *core.Header
+			commitments *core.BlockCommitments
+		}
+		pairsPerBlock := []pair{}
+		for i := uint64(0); i < 2; i++ {
+			pairsPerBlock = append(pairsPerBlock, pair{
+				header: &core.Header{
+					Number:           i,
+					ParentHash:       randFelt(t),
+					Timestamp:        i,
+					SequencerAddress: randFelt(t),
+					GlobalStateRoot:  randFelt(t),
+					TransactionCount: i,
+					EventCount:       i,
+					Hash:             randFelt(t),
+				},
+				commitments: &core.BlockCommitments{
+					TransactionCommitment: randFelt(t),
+					EventCommitment:       randFelt(t),
+				},
+			})
+		}
+
+		for blockNumber, pair := range pairsPerBlock {
+			blockNumber := uint64(blockNumber)
+			mockReader.EXPECT().BlockHeaderByNumber(blockNumber).Return(pair.header, nil)
+			mockReader.EXPECT().BlockCommitmentsByNumber(blockNumber).Return(pair.commitments, nil)
+		}
+
+		numOfBlocks := uint64(len(pairsPerBlock))
+		res, cErr := client.RequestBlockHeaders(testCtx, &spec.BlockHeadersRequest{
+			Iteration: &spec.Iteration{
+				Start: &spec.Iteration_BlockNumber{
+					BlockNumber: 0,
+				},
+				Direction: spec.Iteration_Forward,
+				Limit:     numOfBlocks,
+				Step:      1,
+			},
+		})
 		require.NoError(t, cErr)
 
-		count := uint64(0)
-		for header, valid := res(); valid; header, valid = res() {
-			assert.Equal(t, count, header.GetPart()[0].GetHeader().Number)
+		var count uint64
+		for response, valid := res(); valid; response, valid = res() {
+			if count == numOfBlocks {
+				assert.True(t, proto.Equal(&spec.Fin{}, response.Part[0].GetFin()))
+				count++
+				break
+			}
+
+			adaptHash := core2p2p.AdaptHash
+			expectedPair := pairsPerBlock[count]
+			header := expectedPair.header
+
+			expectedResponse := &spec.BlockHeadersResponse{
+				Part: []*spec.BlockHeadersResponsePart{
+					{
+						HeaderMessage: &spec.BlockHeadersResponsePart_Header{
+							Header: &spec.BlockHeader{
+								ParentHeader:     adaptHash(header.ParentHash),
+								Number:           header.Number,
+								Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
+								SequencerAddress: core2p2p.AdaptAddress(header.SequencerAddress),
+								State: &spec.Patricia{
+									Height: 251,
+									Root:   adaptHash(header.GlobalStateRoot),
+								},
+								Transactions: &spec.Merkle{
+									NLeaves: uint32(header.TransactionCount),
+									Root:    adaptHash(expectedPair.commitments.TransactionCommitment),
+								},
+								Events: &spec.Merkle{
+									NLeaves: uint32(header.EventCount),
+									Root:    adaptHash(expectedPair.commitments.EventCommitment),
+								},
+							},
+						},
+					},
+					{
+						HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
+							Signatures: &spec.Signatures{
+								Block:      core2p2p.AdaptBlockID(expectedPair.header),
+								Signatures: utils.Map(expectedPair.header.Signatures, core2p2p.AdaptSignature),
+							},
+						},
+					},
+				},
+			}
+			assert.True(t, proto.Equal(expectedResponse, response))
+
+			assert.Equal(t, count, response.Part[0].GetHeader().Number)
 			count++
 		}
-		require.Equal(t, uint64(4), count)
+
+		expectedCount := numOfBlocks + 1 // plus fin
+		require.Equal(t, expectedCount, count)
 	})
 
 	t.Run("get block bodies", func(t *testing.T) {
@@ -151,10 +241,7 @@ func TestClientHandler(t *testing.T) {
 		var count uint64
 		for evnt, valid := res(); valid; evnt, valid = res() {
 			if count == numOfBlocks {
-				expectedFin := &spec.EventsResponse{
-					Responses: &spec.EventsResponse_Fin{},
-				}
-				assert.True(t, proto.Equal(expectedFin, evnt))
+				assert.True(t, proto.Equal(&spec.Fin{}, evnt.GetFin()))
 				count++
 				break
 			}
@@ -175,7 +262,7 @@ func TestClientHandler(t *testing.T) {
 				},
 			}
 
-			assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.Responses.(*spec.EventsResponse_Events).Events))
+			assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.GetEvents()))
 			count++
 		}
 		expectedCount := numOfBlocks + 1 // numOfBlocks messages with blocks + 1 fin message

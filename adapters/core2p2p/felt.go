@@ -24,3 +24,13 @@ func AdaptFelt(f *felt.Felt) *spec.Felt252 {
 		Elements: f.Marshal(),
 	}
 }
+
+func AdaptAddress(f *felt.Felt) *spec.Address {
+	if f == nil {
+		return nil
+	}
+
+	return &spec.Address{
+		Elements: f.Marshal(),
+	}
+}

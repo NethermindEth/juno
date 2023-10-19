@@ -1,9 +1,11 @@
 package starknet
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/stretchr/testify/assert"
@@ -15,78 +17,145 @@ func TestIterator(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	t.Run("wrong args", func(t *testing.T) {
-		// zero limit
-		_, err := newIterator(nil, 1, 0, 1, false)
-		assert.Error(t, err)
+	t.Run("iterator by number", func(t *testing.T) {
+		t.Run("wrong args", func(t *testing.T) {
+			// zero limit
+			_, err := newIteratorByNumber(nil, 1, 0, 1, false)
+			assert.Error(t, err)
 
-		// zero step
-		_, err = newIterator(nil, 1, 1, 0, false)
-		assert.Error(t, err)
-	})
-	t.Run("forward", func(t *testing.T) {
-		reader := mocks.NewMockReader(mockCtrl)
-		it, err := newIterator(reader, 1, 10, 2, true)
-		require.NoError(t, err)
+			// zero step
+			_, err = newIteratorByNumber(nil, 1, 1, 0, false)
+			assert.Error(t, err)
+		})
+		t.Run("forward", func(t *testing.T) {
+			reader := mocks.NewMockReader(mockCtrl)
+			it, err := newIteratorByNumber(reader, 1, 10, 2, true)
+			require.NoError(t, err)
 
-		blocks := []*core.Block{
-			newBlock(1),
-			newBlock(3),
-			newBlock(5),
-		}
-
-		for _, block := range blocks {
-			reader.EXPECT().BlockByNumber(block.Number).Return(block, nil)
-		}
-		reader.EXPECT().BlockByNumber(uint64(7)).Return(nil, db.ErrKeyNotFound)
-
-		var i int
-		for it.Valid() {
-			block, err := it.Block()
-			if err != nil {
-				assert.Equal(t, err, db.ErrKeyNotFound)
-				continue
+			blocks := []*core.Block{
+				newBlock(1, nil),
+				newBlock(3, nil),
+				newBlock(5, nil),
 			}
-			assert.Equal(t, blocks[i], block)
 
-			it.Next()
-			i++
-		}
-	})
-	t.Run("backward", func(t *testing.T) {
-		reader := mocks.NewMockReader(mockCtrl)
-		it, err := newIterator(reader, 10, 3, 2, false)
-		require.NoError(t, err)
-
-		blocks := []*core.Block{
-			newBlock(10),
-			newBlock(8),
-			newBlock(6),
-		}
-
-		for _, block := range blocks {
-			reader.EXPECT().BlockByNumber(block.Number).Return(block, nil)
-		}
-
-		var i int
-		for it.Valid() {
-			block, err := it.Block()
-			if err != nil {
-				assert.Equal(t, err, db.ErrKeyNotFound)
-				continue
+			for _, block := range blocks {
+				reader.EXPECT().BlockByNumber(block.Number).Return(block, nil)
 			}
-			assert.Equal(t, blocks[i], block)
+			reader.EXPECT().BlockByNumber(uint64(7)).Return(nil, db.ErrKeyNotFound)
 
-			it.Next()
-			i++
-		}
+			var i int
+			for it.Valid() {
+				block, err := it.Block()
+				if err != nil {
+					assert.Equal(t, err, db.ErrKeyNotFound)
+					continue
+				}
+				assert.Equal(t, blocks[i], block)
+
+				it.Next()
+				i++
+			}
+			assert.Equal(t, len(blocks), i)
+		})
+		t.Run("backward", func(t *testing.T) {
+			reader := mocks.NewMockReader(mockCtrl)
+			it, err := newIteratorByNumber(reader, 10, 3, 2, false)
+			require.NoError(t, err)
+
+			blocks := []*core.Block{
+				newBlock(10, nil),
+				newBlock(8, nil),
+				newBlock(6, nil),
+			}
+
+			for _, block := range blocks {
+				reader.EXPECT().BlockByNumber(block.Number).Return(block, nil)
+			}
+
+			var i int
+			for it.Valid() {
+				block, err := it.Block()
+				if err != nil {
+					assert.Equal(t, err, db.ErrKeyNotFound)
+					continue
+				}
+				assert.Equal(t, blocks[i], block)
+
+				it.Next()
+				i++
+			}
+			assert.Equal(t, len(blocks), i)
+		})
+	})
+	t.Run("iterator by hash", func(t *testing.T) {
+		t.Run("wrong args", func(t *testing.T) {
+			reader := mocks.NewMockReader(mockCtrl)
+			// zero limit
+			hash := randFelt(t)
+			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 1}}, nil)
+			_, err := newIteratorByHash(reader, hash, 0, 1, false)
+			assert.Error(t, err)
+
+			// zero step
+			hash = randFelt(t)
+			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 2}}, nil)
+			_, err = newIteratorByHash(reader, hash, 1, 0, false)
+			assert.Error(t, err)
+
+			// nil hash
+			_, err = newIteratorByHash(reader, nil, 1, 1, false)
+			assert.Error(t, err)
+		})
+		t.Run("iteration", func(t *testing.T) {
+			firstBlockHash := randFelt(t)
+			blocks := []*core.Block{
+				newBlock(1, firstBlockHash),
+				newBlock(2, randFelt(t)),
+				newBlock(3, randFelt(t)),
+			}
+
+			reader := mocks.NewMockReader(mockCtrl)
+			reader.EXPECT().BlockByHash(firstBlockHash).Return(blocks[0], nil)
+
+			it, err := newIteratorByHash(reader, firstBlockHash, 3, 1, true)
+			require.NoError(t, err)
+
+			for _, block := range blocks {
+				reader.EXPECT().BlockByNumber(block.Number).Return(block, nil)
+			}
+
+			var i int
+			for it.Valid() {
+				fmt.Println("Block")
+				block, err := it.Block()
+				if err != nil {
+					assert.Equal(t, err, db.ErrKeyNotFound)
+					continue
+				}
+				assert.Equal(t, blocks[i], block)
+
+				it.Next()
+				i++
+			}
+			assert.Equal(t, len(blocks), i)
+		})
 	})
 }
 
-func newBlock(number uint64) *core.Block {
+func newBlock(number uint64, hash *felt.Felt) *core.Block {
 	return &core.Block{
 		Header: &core.Header{
 			Number: number,
+			Hash:   hash,
 		},
 	}
+}
+
+func randFelt(t *testing.T) *felt.Felt {
+	t.Helper()
+
+	f, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
+
+	return f
 }
