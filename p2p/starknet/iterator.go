@@ -13,7 +13,6 @@ import (
 type iterator struct {
 	bcReader blockchain.Reader
 
-	blockHash   *felt.Felt
 	blockNumber uint64
 	step        uint64
 	limit       uint64
@@ -33,7 +32,6 @@ func newIteratorByNumber(bcReader blockchain.Reader, blockNumber, limit, step ui
 	return &iterator{
 		bcReader:    bcReader,
 		blockNumber: blockNumber,
-		blockHash:   nil,
 		limit:       limit,
 		step:        step,
 		forward:     forward,
@@ -42,12 +40,6 @@ func newIteratorByNumber(bcReader blockchain.Reader, blockNumber, limit, step ui
 }
 
 func newIteratorByHash(bcReader blockchain.Reader, blockHash *felt.Felt, limit, step uint64, forward bool) (*iterator, error) {
-	if step == 0 {
-		return nil, fmt.Errorf("step is zero")
-	}
-	if limit == 0 {
-		return nil, fmt.Errorf("limit is zero")
-	}
 	if blockHash == nil {
 		return nil, fmt.Errorf("block hash is nil")
 	}

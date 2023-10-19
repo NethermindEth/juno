@@ -89,16 +89,21 @@ func TestIterator(t *testing.T) {
 	})
 	t.Run("iterator by hash", func(t *testing.T) {
 		t.Run("wrong args", func(t *testing.T) {
+			reader := mocks.NewMockReader(mockCtrl)
 			// zero limit
-			_, err := newIteratorByHash(nil, randFelt(t), 0, 1, false)
+			hash := randFelt(t)
+			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 1}}, nil)
+			_, err := newIteratorByHash(reader, hash, 0, 1, false)
 			assert.Error(t, err)
 
 			// zero step
-			_, err = newIteratorByHash(nil, randFelt(t), 1, 0, false)
+			hash = randFelt(t)
+			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 2}}, nil)
+			_, err = newIteratorByHash(reader, hash, 1, 0, false)
 			assert.Error(t, err)
 
 			// nil hash
-			_, err = newIteratorByHash(nil, nil, 1, 1, false)
+			_, err = newIteratorByHash(reader, nil, 1, 1, false)
 			assert.Error(t, err)
 		})
 		t.Run("iteration", func(t *testing.T) {
