@@ -52,15 +52,12 @@ func newIteratorByHash(bcReader blockchain.Reader, blockHash *felt.Felt, limit, 
 		return nil, fmt.Errorf("block hash is nil")
 	}
 
-	return &iterator{
-		bcReader:    bcReader,
-		blockHash:   blockHash,
-		blockNumber: 0,
-		limit:       limit,
-		step:        step,
-		forward:     forward,
-		reachedEnd:  false,
-	}, nil
+	block, err := bcReader.BlockByHash(blockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return newIteratorByNumber(bcReader, block.Number, limit, step, forward)
 }
 
 func (it *iterator) Valid() bool {
@@ -88,23 +85,7 @@ func (it *iterator) Next() bool {
 }
 
 func (it *iterator) Block() (*core.Block, error) {
-	var (
-		block *core.Block
-		err   error
-	)
-
-	if it.blockHash != nil {
-		block, err = it.bcReader.BlockByHash(it.blockHash)
-		if err == nil {
-			// after first successful fetch by hash
-			// we switch to iteration by block number
-			it.blockHash = nil
-			it.blockNumber = block.Number
-		}
-	} else {
-		block, err = it.bcReader.BlockByNumber(it.blockNumber)
-	}
-
+	block, err := it.bcReader.BlockByNumber(it.blockNumber)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		it.reachedEnd = true
 	}

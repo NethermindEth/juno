@@ -38,7 +38,7 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.
 		Receipts:         nil, // not defined yet
 		StateDiffs:       nil, // not defined yet
 		State: &spec.Patricia{
-			Height: uint32(header.Number),
+			Height: 251, // fixed
 			Root:   AdaptHash(header.GlobalStateRoot),
 		},
 		Transactions: &spec.Merkle{

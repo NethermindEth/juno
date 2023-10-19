@@ -105,19 +105,19 @@ func TestIterator(t *testing.T) {
 		})
 		t.Run("iteration", func(t *testing.T) {
 			firstBlockHash := randFelt(t)
-
-			reader := mocks.NewMockReader(mockCtrl)
-			it, err := newIteratorByHash(reader, firstBlockHash, 3, 1, true)
-			require.NoError(t, err)
-
 			blocks := []*core.Block{
 				newBlock(1, firstBlockHash),
 				newBlock(2, randFelt(t)),
 				newBlock(3, randFelt(t)),
 			}
 
+			reader := mocks.NewMockReader(mockCtrl)
 			reader.EXPECT().BlockByHash(firstBlockHash).Return(blocks[0], nil)
-			for _, block := range blocks[1:] {
+
+			it, err := newIteratorByHash(reader, firstBlockHash, 3, 1, true)
+			require.NoError(t, err)
+
+			for _, block := range blocks {
 				reader.EXPECT().BlockByNumber(block.Number).Return(block, nil)
 			}
 
