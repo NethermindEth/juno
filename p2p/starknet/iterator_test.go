@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/NethermindEth/juno/core"
 	"go.uber.org/mock/gomock"
 )
 
