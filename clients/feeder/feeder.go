@@ -144,6 +144,9 @@ func newTestServer(network utils.Network) *httptest.Server {
 		case strings.HasSuffix(r.URL.Path, "get_signature"):
 			dir = "signature"
 			queryArg = blockNumberArg
+		case strings.HasSuffix(r.URL.Path, "get_block_traces"):
+			dir = "traces"
+			queryArg = "blockHash"
 		}
 
 		fileName, found := queryMap[queryArg]
@@ -391,4 +394,22 @@ func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*sta
 	}
 
 	return stateUpdate, nil
+}
+
+func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error) {
+	queryURL := c.buildQueryString("get_block_traces", map[string]string{
+		"blockHash": blockHash,
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	traces := new(starknet.BlockTrace)
+	if err = json.NewDecoder(body).Decode(traces); err != nil {
+		return nil, err
+	}
+	return traces, nil
 }

@@ -461,3 +461,19 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.NotNil(t, actualStateUpdate)
 	})
 }
+
+func TestBlockTrace(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+
+	t.Run("old block", func(t *testing.T) {
+		trace, err := client.BlockTrace(context.Background(), "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279")
+		require.NoError(t, err)
+		require.Len(t, trace.Traces, 4)
+	})
+
+	t.Run("newer block", func(t *testing.T) {
+		trace, err := client.BlockTrace(context.Background(), "0xe3828bd9154ab385e2cbb95b3b650365fb3c6a4321660d98ce8b0a9194f9a3")
+		require.NoError(t, err)
+		require.Len(t, trace.Traces, 2)
+	})
+}
