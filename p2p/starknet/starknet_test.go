@@ -120,7 +120,7 @@ func TestClientHandler(t *testing.T) {
 								Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
 								SequencerAddress: core2p2p.AdaptAddress(header.SequencerAddress),
 								State: &spec.Patricia{
-									Height: uint32(header.Number),
+									Height: 251,
 									Root:   adaptHash(header.GlobalStateRoot),
 								},
 								Transactions: &spec.Merkle{
