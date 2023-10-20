@@ -242,7 +242,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
             entry_point_type: val.call.entry_point_type,
             call_type: match val.call.call_type {
                 CallType::Call => "CALL",
-                CallType::Delegate => "LIBRARY_CALL",
+                CallType::Delegate => "DELEGATE",
             }
             .to_string(),
             caller_address: val.call.caller_address,
