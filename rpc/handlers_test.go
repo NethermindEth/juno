@@ -2078,7 +2078,7 @@ func TestTraceTransaction(t *testing.T) {
 		// Receipt() returns error related to db
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 
-		trace, err := handler.TraceTransaction(*hash)
+		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		assert.Nil(t, trace)
 		assert.Equal(t, rpc.ErrInvalidTxHash, err)
 	})
@@ -2094,6 +2094,7 @@ func TestTraceTransaction(t *testing.T) {
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
+			ProtocolVersion:  "0.12.3",
 		}
 		block := &core.Block{
 			Header:       header,
@@ -2120,7 +2121,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
 			nil, utils.MAINNET, []*felt.Felt{}, false, gomock.Any(), false).Return(nil, []json.RawMessage{vmTrace}, nil)
 
-		trace, err := handler.TraceTransaction(*hash)
+		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
 		assert.Equal(t, vmTrace, trace)
 	})
@@ -2171,7 +2172,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
 		mockReader.EXPECT().BlockByHash(blockHash).Return(nil, errors.New("some new err"))
 
-		result, err := handler.TraceBlockTransactions(rpc.BlockID{Hash: blockHash})
+		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Equal(t, rpc.ErrBlockNotFound, err)
 		assert.Nil(t, result)
 	})
@@ -2179,9 +2180,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
 		header := &core.Header{
 			// hash is not set because it's pending block
-			ParentHash: utils.HexToFelt(t, "0x0C3"),
-			Number:     0,
-			GasPrice:   utils.HexToFelt(t, "0x777"),
+			ParentHash:      utils.HexToFelt(t, "0x0C3"),
+			Number:          0,
+			GasPrice:        utils.HexToFelt(t, "0x777"),
+			ProtocolVersion: "0.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x000000C"),
@@ -2218,7 +2220,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, height+1, header.Timestamp, sequencerAddress,
 			state, network, paidL1Fees, false, header.GasPrice, false).Return(nil, []json.RawMessage{vmTrace, vmTrace}, nil)
 
-		result, err := handler.TraceBlockTransactions(rpc.BlockID{Hash: blockHash})
+		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, vmTrace, result[0].TraceRoot)
 		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
@@ -2236,6 +2238,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
 			GasPrice:         utils.HexToFelt(t, "0x777"),
+			ProtocolVersion:  "0.12.3",
 		}
 		block := &core.Block{
 			Header:       header,
@@ -2267,7 +2270,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				TraceRoot:       vmTrace,
 			},
 		}
-		result, err := handler.TraceBlockTransactions(rpc.BlockID{Hash: blockHash})
+		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, expectedResult, result)
 	})
@@ -2457,4 +2460,44 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"juno_unsubscribe","params":[%d]}`
 	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, firstID))))
 	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, secondID))))
+}
+
+func TestTraceFallback(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	network := utils.INTEGRATION
+	client := feeder.NewTestClient(t, network)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	gateway := adaptfeeder.New(client)
+	handler := rpc.New(mockReader, nil, network, nil, client, nil, "", nil)
+
+	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
+		fmt.Println("adasd", number)
+		return gateway.BlockByNumber(context.Background(), number)
+	}).AnyTimes()
+	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
+
+	t.Run("old block", func(t *testing.T) {
+		mockReader.EXPECT().BlockByHash(utils.HexToFelt(t, "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279")).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+			return mockReader.BlockByNumber(0)
+		})
+		trace, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: 0})
+		require.Nil(t, jErr)
+		jsonStr, err := json.Marshal(trace)
+		require.NoError(t, err)
+		expectedTrace := `[{"trace_root":{"type":"DEPLOY","constructor_invocation":{"contract_address":"0x7b196a359045d4d0c10f73bdf244a9e1205a615dbb754b8df40173364288534","calldata":["0x187d50a5cf3ebd6d4d6fa8e29e4cad0a237759c6416304a25c4ea792ed4bba4","0x42f5af30d6693674296ad87301935d0c159036c3b24af4042ff0270913bf6c6"],"caller_address":"0x0","result":[],"calls":[],"events":[],"messages":[]}},"transaction_hash":"0x3fa1bff0c86f34b2eb32c26d12208b6bdb4a5f6a434ac1d4f0e2d1db71bd711"},{"trace_root":{"type":"DEPLOY","constructor_invocation":{"contract_address":"0x64ed79a8ebe97485d3357bbfdf5f6bea0d9db3b5f1feb6e80d564a179122dc6","calldata":["0x5cedec15acd969b0fba39fec9e7d9bd4d0b33f100969ad3a4543039a6f696d4","0xce9801d27b02543f4d88b60aa456860f94ee9f612fc56464abfbdeedc1ab72"],"caller_address":"0x0","result":[],"calls":[],"events":[],"messages":[]}},"transaction_hash":"0x154c02cc3165cceadaa32e7238a67061b3a1eac414138c4ebe1408f37fd93eb"},{"trace_root":{"type":"INVOKE","execute_invocation":{"contract_address":"0x64ed79a8ebe97485d3357bbfdf5f6bea0d9db3b5f1feb6e80d564a179122dc6","calldata":["0x17d9c35a8b9a0d4512fa05eafec01c2758a7a5b7ec7b47408a24a4b33124d9b","0x2","0x7f800b5bf79637f8f83f47a8fc4d368b43695c781b22a899f11b5f2faba874a","0x3a7a40d383612b0ad167aec8d90fb07e576e017d07948f63ac318b52511ae93"],"caller_address":"0x0","result":[],"calls":[],"events":[],"messages":[]}},"transaction_hash":"0x7893675c16da857b7c4229cda449e08a4fe13b07ca817e79d1db02e8a046047"},{"trace_root":{"type":"INVOKE","execute_invocation":{"contract_address":"0x64ed79a8ebe97485d3357bbfdf5f6bea0d9db3b5f1feb6e80d564a179122dc6","calldata":["0x17d9c35a8b9a0d4512fa05eafec01c2758a7a5b7ec7b47408a24a4b33124d9b","0x2","0x7f800b5bf79637f8f83f47a8fc4d368b43695c781b22a899f11b5f2faba874a","0xf140b304e9266c72f1054116dd06d9c1c8e981db7bf34e3c6da99640e9a7c8"],"caller_address":"0x0","result":[],"calls":[],"events":[],"messages":[]}},"transaction_hash":"0x4a277d67e3f42c4a343854081d1e2e9e425f1323255e4486d2badb37a1d8630"}]`
+		assert.JSONEq(t, expectedTrace, string(jsonStr))
+	})
+
+	t.Run("newer block", func(t *testing.T) {
+		mockReader.EXPECT().BlockByHash(utils.HexToFelt(t, "0xe3828bd9154ab385e2cbb95b3b650365fb3c6a4321660d98ce8b0a9194f9a3")).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+			return mockReader.BlockByNumber(300000)
+		})
+		trace, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: 300000})
+		require.Nil(t, jErr)
+		jsonStr, err := json.Marshal(trace)
+		require.NoError(t, err)
+		expectedTrace := `[{"trace_root":{"type":"INVOKE","validate_invocation":{"contract_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","entry_point_selector":"0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775","calldata":["0x1","0x332299dc083f3778122e5b7762bc9d399da18fefe93769aee67bb49f51c8d2","0x2d7cf5d5a324a320f9f37804b1615a533fde487400b41af80f13f7ac5581325","0x0","0x4","0x4","0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9","0x2","0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228","0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e"],"caller_address":"0x0","class_hash":"0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[],"events":[],"messages":[]},"execute_invocation":{"contract_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","entry_point_selector":"0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad","calldata":["0x1","0x332299dc083f3778122e5b7762bc9d399da18fefe93769aee67bb49f51c8d2","0x2d7cf5d5a324a320f9f37804b1615a533fde487400b41af80f13f7ac5581325","0x0","0x4","0x4","0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9","0x2","0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228","0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e"],"caller_address":"0x0","class_hash":"0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[{"contract_address":"0x332299dc083f3778122e5b7762bc9d399da18fefe93769aee67bb49f51c8d2","entry_point_selector":"0x2d7cf5d5a324a320f9f37804b1615a533fde487400b41af80f13f7ac5581325","calldata":["0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9","0x2","0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228","0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e"],"caller_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","class_hash":"0x165e7db96ab97a63c621229617a6d49633737238673477a54720e4c952f2c7e","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[],"events":[],"messages":[{"order":0,"to_address":"0xaf35ee8ed700ff132c5d1d298a73becda25ccdf9","payload":["0x6cd852fe1b2bbd8587bb0aaeb09813436c57c8ce21e75651e317273a1f22228","0x58feb991988e53fffcba71f6df23c803fb062f1b3bab126d2c9ce574255b36e"]}]}],"events":[],"messages":[]},"fee_transfer_invocation":{"contract_address":"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7","entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","0x127089df3a1984","0x0"],"caller_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"contract_address":"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7","entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","0x127089df3a1984","0x0"],"caller_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","class_hash":"0x28d7d394810ad8c52741ad8f7564717fd02c10ced68657a81d0b6710ce22079","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":["0x1"],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[]}},"transaction_hash":"0x2a648ab1aa6847eb38507fc842e050f256562bf87b26083c332f3f21318c2c3"},{"trace_root":{"type":"INVOKE","validate_invocation":{"contract_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","entry_point_selector":"0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775","calldata":["0x1","0x5f9211b05c9609d54a8bf5f9cfa4e2cd5a3cab3b5d79682c585575495a15dd1","0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f","0x0","0x4","0x4","0x447379c077035ef4f442411d0407ce9aa66c558f0060137f6455f4f230eabeb","0x2","0x6811b7755a7dd0ec1fb6f51a883e3f255368e2dfd497b5f6480c00cf9cd5a2e","0x23b9e26720dd7aaf98c7cea56499f48f75dc1d4123f7e2d6c23bfc4d5f4a336"],"caller_address":"0x0","class_hash":"0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[],"events":[],"messages":[]},"execute_invocation":{"contract_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","entry_point_selector":"0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad","calldata":["0x1","0x5f9211b05c9609d54a8bf5f9cfa4e2cd5a3cab3b5d79682c585575495a15dd1","0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f","0x0","0x4","0x4","0x447379c077035ef4f442411d0407ce9aa66c558f0060137f6455f4f230eabeb","0x2","0x6811b7755a7dd0ec1fb6f51a883e3f255368e2dfd497b5f6480c00cf9cd5a2e","0x23b9e26720dd7aaf98c7cea56499f48f75dc1d4123f7e2d6c23bfc4d5f4a336"],"caller_address":"0x0","class_hash":"0x646a72e2aab2fca75d713fbe4a58f2d12cbd64105621b89dc9ce7045b5bf02b","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[{"contract_address":"0x5f9211b05c9609d54a8bf5f9cfa4e2cd5a3cab3b5d79682c585575495a15dd1","entry_point_selector":"0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f","calldata":["0x447379c077035ef4f442411d0407ce9aa66c558f0060137f6455f4f230eabeb","0x2","0x6811b7755a7dd0ec1fb6f51a883e3f255368e2dfd497b5f6480c00cf9cd5a2e","0x23b9e26720dd7aaf98c7cea56499f48f75dc1d4123f7e2d6c23bfc4d5f4a336"],"caller_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","class_hash":"0x13abfd2f333f9c69f690f1569140cdae25f6f66e3f371c9cbb998b65f664a85","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[]},"fee_transfer_invocation":{"contract_address":"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7","entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","0x3b2d25cd7bccc","0x0"],"caller_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"contract_address":"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7","entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","0x3b2d25cd7bccc","0x0"],"caller_address":"0x58b7ee817bd2978c7657d05d3131e83e301ed1aa79d5ad16f01925fd52d1da7","class_hash":"0x28d7d394810ad8c52741ad8f7564717fd02c10ced68657a81d0b6710ce22079","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":["0x1"],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[]}},"transaction_hash":"0xbc984e8e1fe594dd518a3a51db4f338437a5d2fbdda772d4426b532a67ffff"}]`
+		assert.JSONEq(t, expectedTrace, string(jsonStr), string(jsonStr))
+	})
 }

@@ -162,13 +162,13 @@ type MsgFromL1 struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt     `json:"from_address"`
+	From    *felt.Felt     `json:"from_address,omitempty"`
 	To      common.Address `json:"to_address"`
 	Payload []*felt.Felt   `json:"payload"`
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address"`
+	From *felt.Felt   `json:"from_address,omitempty"`
 	Keys []*felt.Felt `json:"keys"`
 	Data []*felt.Felt `json:"data"`
 }
