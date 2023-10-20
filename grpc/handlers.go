@@ -54,30 +54,38 @@ func (h Handler) Tx(server gen.KV_TxServer) error {
 	}
 }
 
+//nolint:gocyclo
 func (h Handler) handleTxCursor(
 	cur *gen.Cursor,
 	tx *tx,
 	server gen.KV_TxServer,
 ) error {
+	responsePair := &gen.Pair{}
+
 	// open is special case: it's the only way to receive cursor id
 	if cur.Op == gen.Op_OPEN {
 		cursorID, err := tx.newCursor()
 		if err != nil {
 			return err
 		}
-
-		return server.Send(&gen.Pair{
-			CursorId: cursorID,
-		})
+		responsePair.CursorId = cursorID
+		return server.Send(responsePair)
+	} else if cur.Op == gen.Op_GET {
+		if err := tx.dbTx.Get(cur.K, func(b []byte) error {
+			responsePair.V = append(responsePair.V, b...)
+			responsePair.K = cur.K
+			return nil
+		}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+			return err
+		}
+		return server.Send(responsePair)
 	}
 
 	it, err := tx.iterator(cur.Cursor)
 	if err != nil {
 		return err
 	}
-	responsePair := &gen.Pair{
-		CursorId: cur.Cursor,
-	}
+	responsePair.CursorId = cur.Cursor
 
 	switch cur.Op {
 	case gen.Op_SEEK:

@@ -94,12 +94,14 @@ func TestHandlers_Tx(t *testing.T) {
 	})
 	cur, err := stream.RecvToClient()
 	require.NoError(t, err)
+	cID := cur.CursorId
 
 	ops := []gen.Op{
 		gen.Op_SEEK,
 		gen.Op_SEEK_EXACT,
 		gen.Op_NEXT,
 		gen.Op_CURRENT,
+		gen.Op_GET,
 		gen.Op_CLOSE,
 	}
 
@@ -107,7 +109,7 @@ func TestHandlers_Tx(t *testing.T) {
 		stream.SendFromClient(&gen.Cursor{
 			Op:         op,
 			BucketName: prefix.Key(),
-			Cursor:     cur.CursorId,
+			Cursor:     cID,
 		})
 		cur, err = stream.RecvToClient()
 		require.NoError(t, err)
