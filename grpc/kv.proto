@@ -20,6 +20,7 @@ enum Op {
   SEEK_EXACT = 15;
   OPEN = 30;
   CLOSE = 31;
+  GET = 64;
 }
 
 message Cursor {
