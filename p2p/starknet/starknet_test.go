@@ -38,7 +38,8 @@ func TestClientHandler(t *testing.T) {
 	handlerID := peers[0]
 	clientID := peers[1]
 
-	log := utils.NewNopZapLogger()
+	log, err := utils.NewZapLogger(utils.ERROR, false)
+	require.NoError(t, err)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := starknet.NewHandler(mockReader, log)
 
@@ -179,15 +180,138 @@ func TestClientHandler(t *testing.T) {
 	})
 
 	t.Run("get txns", func(t *testing.T) {
-		res, cErr := client.RequestTransactions(testCtx, &spec.TransactionsRequest{})
+		blocks := []*core.Block{
+			{
+				Header: &core.Header{
+					Number: 0,
+				},
+				Transactions: []core.Transaction{
+					&core.DeployTransaction{
+						TransactionHash:     randFelt(t),
+						ContractAddressSalt: randFelt(t),
+						ContractAddress:     randFelt(t),
+						ClassHash:           randFelt(t),
+						ConstructorCallData: feltSlice(t, 3, randFelt),
+					},
+					&core.L1HandlerTransaction{
+						TransactionHash:    randFelt(t),
+						ContractAddress:    randFelt(t),
+						EntryPointSelector: randFelt(t),
+						Nonce:              randFelt(t),
+						CallData:           feltSlice(t, 2, randFelt),
+						Version:            txVersion(1),
+					},
+				},
+			},
+			{
+				Header: &core.Header{
+					Number: 1,
+				},
+				Transactions: []core.Transaction{
+					&core.DeployAccountTransaction{
+						DeployTransaction: core.DeployTransaction{
+							TransactionHash:     randFelt(t),
+							ContractAddressSalt: randFelt(t),
+							ContractAddress:     randFelt(t),
+							ClassHash:           randFelt(t),
+							ConstructorCallData: feltSlice(t, 3, randFelt),
+							Version:             txVersion(1),
+						},
+						MaxFee:               randFelt(t),
+						TransactionSignature: feltSlice(t, 2, randFelt),
+						Nonce:                randFelt(t),
+					},
+				},
+			},
+			{
+				Header: &core.Header{
+					Number: 2,
+				},
+				Transactions: []core.Transaction{
+					&core.DeclareTransaction{
+						TransactionHash:      randFelt(t),
+						ClassHash:            randFelt(t),
+						SenderAddress:        randFelt(t),
+						MaxFee:               randFelt(t),
+						TransactionSignature: feltSlice(t, 2, randFelt),
+						Nonce:                randFelt(t),
+						Version:              txVersion(0),
+						CompiledClassHash:    randFelt(t),
+					},
+					&core.DeclareTransaction{
+						TransactionHash:      randFelt(t),
+						ClassHash:            randFelt(t),
+						SenderAddress:        randFelt(t),
+						MaxFee:               randFelt(t),
+						TransactionSignature: feltSlice(t, 2, randFelt),
+						Nonce:                randFelt(t),
+						Version:              txVersion(1),
+						CompiledClassHash:    randFelt(t),
+					},
+				},
+			},
+			{
+				Header: &core.Header{
+					Number: 3,
+				},
+				Transactions: []core.Transaction{
+					&core.InvokeTransaction{
+						TransactionHash:      randFelt(t),
+						CallData:             feltSlice(t, 3, randFelt),
+						TransactionSignature: feltSlice(t, 2, randFelt),
+						MaxFee:               randFelt(t),
+						ContractAddress:      randFelt(t),
+						Version:              txVersion(0),
+						EntryPointSelector:   randFelt(t),
+						Nonce:                randFelt(t),
+						SenderAddress:        randFelt(t),
+					},
+					&core.InvokeTransaction{
+						TransactionHash:      randFelt(t),
+						CallData:             feltSlice(t, 4, randFelt),
+						TransactionSignature: feltSlice(t, 2, randFelt),
+						MaxFee:               randFelt(t),
+						ContractAddress:      randFelt(t),
+						Version:              txVersion(1),
+						EntryPointSelector:   randFelt(t),
+						Nonce:                randFelt(t),
+						SenderAddress:        randFelt(t),
+					},
+				},
+			},
+		}
+		numOfBlocks := uint64(len(blocks))
+
+		for _, block := range blocks {
+			mockReader.EXPECT().BlockByNumber(block.Number).Return(block, nil)
+		}
+
+		res, cErr := client.RequestTransactions(testCtx, &spec.TransactionsRequest{
+			Iteration: &spec.Iteration{
+				Start: &spec.Iteration_BlockNumber{
+					BlockNumber: blocks[0].Number,
+				},
+				Direction: spec.Iteration_Forward,
+				Limit:     numOfBlocks,
+				Step:      1,
+			},
+		})
 		require.NoError(t, cErr)
 
-		count := uint64(0)
+		var count uint64
 		for txn, valid := res(); valid; txn, valid = res() {
+			if count == numOfBlocks {
+				assert.NotNil(t, txn.GetFin())
+				break
+			}
+
 			assert.Equal(t, count, txn.Id.Number)
+
+			expectedTx := mapToExpectedTransactions(blocks[count])
+			assert.True(t, proto.Equal(expectedTx, txn.GetTransactions()))
 			count++
 		}
-		require.Equal(t, uint64(4), count)
+		require.Equal(t, numOfBlocks, count)
 	})
 
 	t.Run("get events", func(t *testing.T) {
@@ -268,6 +392,101 @@ func TestClientHandler(t *testing.T) {
 		expectedCount := numOfBlocks + 1 // numOfBlocks messages with blocks + 1 fin message
 		require.Equal(t, expectedCount, count)
 	})
+}
+
+func mapToExpectedTransactions(block *core.Block) *spec.Transactions {
+	return &spec.Transactions{
+		Items: utils.Map(block.Transactions, mapToExpectedTransaction),
+	}
+}
+
+func mapToExpectedTransaction(tx core.Transaction) *spec.Transaction {
+	adaptHash := core2p2p.AdaptHash
+	adaptFelt := core2p2p.AdaptFelt
+	adaptAddress := core2p2p.AdaptAddress
+
+	var resp spec.Transaction
+	switch v := tx.(type) {
+	case *core.DeployTransaction:
+		resp.Txn = &spec.Transaction_Deploy_{
+			Deploy: &spec.Transaction_Deploy{
+				ClassHash:   adaptHash(v.ClassHash),
+				AddressSalt: adaptFelt(v.ContractAddressSalt),
+				Calldata:    utils.Map(v.ConstructorCallData, adaptFelt),
+			},
+		}
+	case *core.L1HandlerTransaction:
+		resp.Txn = &spec.Transaction_L1Handler{
+			L1Handler: &spec.Transaction_L1HandlerV1{
+				Nonce:              adaptFelt(v.Nonce),
+				Address:            adaptAddress(v.ContractAddress),
+				EntryPointSelector: adaptFelt(v.EntryPointSelector),
+				Calldata:           utils.Map(v.CallData, adaptFelt),
+			},
+		}
+	case *core.DeployAccountTransaction:
+		resp.Txn = &spec.Transaction_DeployAccountV1_{
+			DeployAccountV1: &spec.Transaction_DeployAccountV1{
+				MaxFee:      adaptFelt(v.MaxFee),
+				Signature:   core2p2p.AdaptAccountSignature(v.TransactionSignature),
+				ClassHash:   adaptHash(v.ClassHash),
+				Nonce:       adaptFelt(v.Nonce),
+				AddressSalt: adaptFelt(v.ContractAddressSalt),
+				Calldata:    utils.Map(v.ConstructorCallData, adaptFelt),
+			},
+		}
+	case *core.DeclareTransaction:
+		if v.Version.Is(0) {
+			resp.Txn = &spec.Transaction_DeclareV0_{
+				DeclareV0: &spec.Transaction_DeclareV0{
+					Sender:    adaptAddress(v.SenderAddress),
+					MaxFee:    adaptFelt(v.MaxFee),
+					Signature: core2p2p.AdaptAccountSignature(v.Signature()),
+					ClassHash: adaptHash(v.ClassHash),
+				},
+			}
+		} else if v.Version.Is(1) {
+			resp.Txn = &spec.Transaction_DeclareV1_{
+				DeclareV1: &spec.Transaction_DeclareV1{
+					Sender:    adaptAddress(v.SenderAddress),
+					MaxFee:    adaptFelt(v.MaxFee),
+					Signature: core2p2p.AdaptAccountSignature(v.Signature()),
+					ClassHash: adaptHash(v.ClassHash),
+					Nonce:     adaptFelt(v.Nonce),
+				},
+			}
+		}
+	case *core.InvokeTransaction:
+		if v.Version.Is(0) {
+			resp.Txn = &spec.Transaction_InvokeV0_{
+				InvokeV0: &spec.Transaction_InvokeV0{
+					MaxFee:             adaptFelt(v.MaxFee),
+					Signature:          core2p2p.AdaptAccountSignature(v.Signature()),
+					Address:            adaptAddress(v.SenderAddress),
+					EntryPointSelector: adaptFelt(v.EntryPointSelector),
+					Calldata:           utils.Map(v.CallData, adaptFelt),
+				},
+			}
+		} else if v.Version.Is(1) {
+			resp.Txn = &spec.Transaction_InvokeV1_{
+				InvokeV1: &spec.Transaction_InvokeV1{
+					Sender:    adaptAddress(v.SenderAddress),
+					MaxFee:    adaptFelt(v.MaxFee),
+					Signature: core2p2p.AdaptAccountSignature(v.Signature()),
+					Calldata:  utils.Map(v.CallData, adaptFelt),
+				},
+			}
+		}
+	}
+	return &resp
+}
+
+func txVersion(v uint64) *core.TransactionVersion {
+	var f felt.Felt
+	f.SetUint64(v)
+
+	txV := core.TransactionVersion(f)
+	return &txV
 }
 
 func feltSlice(t *testing.T, n int, generator func(*testing.T) *felt.Felt) []*felt.Felt {
