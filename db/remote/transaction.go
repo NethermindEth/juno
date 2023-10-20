@@ -53,22 +53,23 @@ func (t *transaction) Delete(key []byte) error {
 }
 
 func (t *transaction) Get(key []byte, cb func([]byte) error) error {
-	iter, err := t.NewIterator() // we shouldnt need to do this, add a new Op_GET
+	err := t.client.Send(&gen.Cursor{
+		Op: gen.Op_GET,
+		K:  key,
+	})
 	if err != nil {
 		return err
 	}
-	defer iter.Close()
 
-	if !iter.Seek(key) || !bytes.Equal(key, iter.Key()) {
+	pair, err := t.client.Recv()
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(key, pair.K) {
 		return db.ErrKeyNotFound
 	}
-
-	value, err := iter.Value()
-	if err != nil {
-		return err
-	}
-
-	return cb(value)
+	return cb(pair.V)
 }
 
 func (t *transaction) Impl() any {
