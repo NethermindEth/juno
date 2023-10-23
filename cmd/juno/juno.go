@@ -11,12 +11,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/l1data"
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/syncl1"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	_ "go.uber.org/automaxprocs"
+	"tailscale.com/logtail/backoff"
 )
 
 const greeting = `
@@ -142,6 +147,43 @@ func main() {
 		n.Run(cmd.Context())
 		return nil
 	})
+	endBlock := new(uint64)
+	cmd.AddCommand(newSyncL1Cmd(endBlock, func(cmd *cobra.Command, _ []string) error {
+		if config.Network != utils.Mainnet {
+			return fmt.Errorf("syncing from L1 is only supported on mainnet right now")
+		}
+
+		log, err := utils.NewZapLogger(config.LogLevel, config.Colour)
+		if err != nil {
+			return fmt.Errorf("create logger: %v", err)
+		}
+		database, err := pebble.New(config.DatabasePath, defaultCacheSizeMb, log)
+		if err != nil {
+			return fmt.Errorf("open DB: %v", err)
+		}
+		ethClient, err := ethclient.Dial(config.EthNode)
+		if err != nil {
+			return fmt.Errorf("dial %s: %v", config.EthNode, err)
+		}
+		l1Data, err := l1data.New(ethClient)
+		if err != nil {
+			return fmt.Errorf("create l1 client: %v", err)
+		}
+		l1Data.WithBackoff(backoff.NewBackoff("syncl1", func(format string, a ...any) {
+			log.Warnw(fmt.Sprintf(format, a...))
+		}, time.Minute))
+		fetcher := l1data.NewStateDiffFetcher(l1Data)
+		s, err := syncl1.New(database, l1Data, fetcher, syncl1.MainnetConfig, *endBlock, log)
+		if err != nil {
+			return fmt.Errorf("new l1 synchronizer: %v", err)
+		}
+
+		if err := s.Run(cmd.Context()); err != nil {
+			return fmt.Errorf("sync l1: %v", err)
+		}
+
+		return nil
+	}))
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
@@ -168,9 +210,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	var cfgFile string
 	var cwdErr error
 
-	// PreRunE populates the configuration struct from the Cobra flags and Viper configuration.
+	// PersistentPreRunE populates the configuration struct from the Cobra flags and Viper configuration.
 	// This is called in step 3 of the process described above.
-	junoCmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
+	junoCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		// If we couldn't find the current working directory and the database path is empty,
 		// return the error.
 		if cwdErr != nil && config.DatabasePath == "" {
@@ -212,20 +254,20 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
+	junoCmd.PersistentFlags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
 	junoCmd.Flags().String(wsHostF, defaulHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
-	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
-	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
-	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
+	junoCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
+	junoCmd.PersistentFlags().Var(&defaultNetwork, networkF, networkUsage)
+	junoCmd.PersistentFlags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
-	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
+	junoCmd.PersistentFlags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
