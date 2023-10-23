@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 )
 
-func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint: funlen,gocyclo
+func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint: gocyclo
 	if transaction == nil {
 		return nil
 	}

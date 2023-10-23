@@ -482,7 +482,7 @@ func fillFelts[T any](t *testing.T, i T) T {
 			if ftyp.String() == feltTypeStr {
 				f.Set(reflect.ValueOf(randFelt(t)))
 			} else if f.IsNil() {
-				// Initialize the pointer if it is nil
+				// Initialise the pointer if it's nil
 				f.Set(reflect.New(ftyp.Elem()))
 			}
 
