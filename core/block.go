@@ -90,7 +90,7 @@ func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 		}
 	default:
 		// This should never happen
-		panic(fmt.Sprintf("unknown network: %d", network))
+		panic(fmt.Sprintf("unknown network: %s", network))
 	}
 }
 
