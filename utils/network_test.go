@@ -92,6 +92,22 @@ func TestNetworkSet(t *testing.T) {
 		n := new(utils.Network)
 		require.ErrorIs(t, n.Set("blah"), utils.ErrUnknownNetwork)
 	})
+
+	t.Run("custom network", func(t *testing.T) {
+		n := new(utils.Network)
+
+		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM"))
+		assert.Equal(t, "custom", n.String())
+		assert.Equal(t, "baseURL/feeder_gateway/", n.FeederURL())
+		assert.Equal(t, "SN_CUSTOM", n.ChainIDString())
+
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,0x123,0xDEADBEEF"), "L1 Chain ID must be an integer (base 10)")
+		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xDEADBEEF"))
+		assert.Equal(t, uint64(123), n.DefaultL1ChainID().Uint64())
+		cc, err := n.CoreContractAddress()
+		require.NoError(t, err)
+		assert.Equal(t, "0x00000000000000000000000000000000DeaDBeef", cc.Hex())
+	})
 }
 
 func TestNetworkUnmarshalText(t *testing.T) {

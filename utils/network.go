@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
@@ -59,6 +60,13 @@ var (
 )
 
 func (n Network) String() string {
+	if n.name == "custom" {
+		str := fmt.Sprintf("%s,%s,%s", n.name, n.baseURL, n.chainID)
+		if n.l1ChainID != nil {
+			str = fmt.Sprintf("%s,%s,%s", str, n.l1ChainID.String(), n.coreContractAddress.String())
+		}
+		return str
+	}
 	return n.name
 }
 
@@ -81,7 +89,23 @@ func (n *Network) Set(s string) error {
 	case "INTEGRATION", "integration":
 		*n = INTEGRATION
 	default:
-		return ErrUnknownNetwork
+		*n = Network{}
+
+		elems := strings.Split(s, ",")
+		if len(elems) < 3 /* number of required fields in Network struct */ || elems[0] != "custom" {
+			return ErrUnknownNetwork
+		}
+		n.name = elems[0]
+		n.baseURL = elems[1]
+		n.chainID = elems[2]
+		if len(elems) == 5 { //includes l1ChainID and coreContractAddress as well
+			l1ChainID, success := new(big.Int).SetString(elems[3], 10)
+			if !success {
+				return errors.New("L1 Chain ID must be an integer (base 10)")
+			}
+			n.l1ChainID = l1ChainID
+			n.coreContractAddress = common.HexToAddress(elems[4])
+		}
 	}
 	return nil
 }
