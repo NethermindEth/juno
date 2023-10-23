@@ -129,9 +129,9 @@ jobs:
         env: 
           EVENT_NAME: juno-prod
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
-          GOERLI: apps/juno-prod/overlays/prod_goerli-1/config.yaml
-          INTEGRATION: apps/juno-prod/overlays/prod_integration/config.yaml
-          MAINNET: apps/juno-prod/overlays/prod_mainnet/config.yaml
+          GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
+          INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
+          MAINNET: apps/juno-prod/overlays/prod-mainnet/config.yaml
         run: |
           curl -L \
           -X POST \
