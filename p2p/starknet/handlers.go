@@ -226,17 +226,9 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 		return nil, err
 	}
 
-	var finSent bool
-	fin := func() (proto.Message, bool) {
-		if finSent {
-			return nil, false
-		}
-		finSent = true
-
-		return &spec.TransactionsResponse{
-			Responses: &spec.TransactionsResponse_Fin{},
-		}, true
-	}
+	fin := h.newFin(&spec.TransactionsResponse{
+		Responses: &spec.TransactionsResponse_Fin{},
+	})
 
 	return func() (proto.Message, bool) {
 		if !it.Valid() {

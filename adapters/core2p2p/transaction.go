@@ -32,23 +32,6 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint
 					Calldata:    AdaptFeltSlice(tx.ConstructorCallData),
 				},
 			}
-		case tx.Version.Is(3):
-			specTx.Txn = &spec.Transaction_DeployAccountV3_{
-				DeployAccountV3: &spec.Transaction_DeployAccountV3{
-					MaxFee:      AdaptFelt(tx.MaxFee),
-					Signature:   AdaptAccountSignature(tx.Signature()),
-					ClassHash:   AdaptHash(tx.ClassHash),
-					Nonce:       AdaptFelt(tx.Nonce),
-					AddressSalt: AdaptFelt(tx.ContractAddressSalt),
-					Calldata:    AdaptFeltSlice(tx.ConstructorCallData),
-					L1Gas:       nil,
-					L2Gas:       nil,
-					Tip:         nil,
-					Paymaster:   nil,
-					NonceDomain: "",
-					FeeDomain:   "",
-				},
-			}
 		default:
 			panic(fmt.Errorf("unsupported InvokeTransaction version %s", tx.Version))
 		}
@@ -84,23 +67,6 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint
 					ClassHash:         AdaptHash(tx.ClassHash),
 					Nonce:             AdaptFelt(tx.Nonce),
 					CompiledClassHash: AdaptFelt(tx.CompiledClassHash),
-				},
-			}
-		case tx.Version.Is(3):
-			specTx.Txn = &spec.Transaction_DeclareV3_{
-				DeclareV3: &spec.Transaction_DeclareV3{
-					Sender:            AdaptAddress(tx.SenderAddress),
-					MaxFee:            AdaptFelt(tx.MaxFee),
-					Signature:         AdaptAccountSignature(tx.Signature()),
-					ClassHash:         AdaptHash(tx.ClassHash),
-					Nonce:             AdaptFelt(tx.Nonce),
-					CompiledClassHash: AdaptFelt(tx.CompiledClassHash),
-					L1Gas:             nil,
-					L2Gas:             nil,
-					Tip:               nil,
-					Paymaster:         nil,
-					NonceDomain:       "",
-					FeeDomain:         "",
 				},
 			}
 		default:
