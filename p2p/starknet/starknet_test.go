@@ -2,6 +2,7 @@ package starknet_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -63,20 +64,13 @@ func TestClientHandler(t *testing.T) {
 		pairsPerBlock := []pair{}
 		for i := uint64(0); i < 2; i++ {
 			pairsPerBlock = append(pairsPerBlock, pair{
-				header: &core.Header{
+				header: fillFelts(t, &core.Header{
 					Number:           i,
-					ParentHash:       randFelt(t),
 					Timestamp:        i,
-					SequencerAddress: randFelt(t),
-					GlobalStateRoot:  randFelt(t),
 					TransactionCount: i,
 					EventCount:       i,
-					Hash:             randFelt(t),
-				},
-				commitments: &core.BlockCommitments{
-					TransactionCommitment: randFelt(t),
-					EventCommitment:       randFelt(t),
-				},
+				}),
+				commitments: fillFelts(t, &core.BlockCommitments{}),
 			})
 		}
 
@@ -186,21 +180,13 @@ func TestClientHandler(t *testing.T) {
 					Number: 0,
 				},
 				Transactions: []core.Transaction{
-					&core.DeployTransaction{
-						TransactionHash:     randFelt(t),
-						ContractAddressSalt: randFelt(t),
-						ContractAddress:     randFelt(t),
-						ClassHash:           randFelt(t),
-						ConstructorCallData: feltSlice(t, 3, randFelt),
-					},
-					&core.L1HandlerTransaction{
-						TransactionHash:    randFelt(t),
-						ContractAddress:    randFelt(t),
-						EntryPointSelector: randFelt(t),
-						Nonce:              randFelt(t),
-						CallData:           feltSlice(t, 2, randFelt),
-						Version:            txVersion(1),
-					},
+					fillFelts(t, &core.DeployTransaction{
+						ConstructorCallData: feltSlice(3),
+					}),
+					fillFelts(t, &core.L1HandlerTransaction{
+						CallData: feltSlice(2),
+						Version:  txVersion(1),
+					}),
 				},
 			},
 			{
@@ -208,19 +194,13 @@ func TestClientHandler(t *testing.T) {
 					Number: 1,
 				},
 				Transactions: []core.Transaction{
-					&core.DeployAccountTransaction{
+					fillFelts(t, &core.DeployAccountTransaction{
 						DeployTransaction: core.DeployTransaction{
-							TransactionHash:     randFelt(t),
-							ContractAddressSalt: randFelt(t),
-							ContractAddress:     randFelt(t),
-							ClassHash:           randFelt(t),
-							ConstructorCallData: feltSlice(t, 3, randFelt),
+							ConstructorCallData: feltSlice(3),
 							Version:             txVersion(1),
 						},
-						MaxFee:               randFelt(t),
-						TransactionSignature: feltSlice(t, 2, randFelt),
-						Nonce:                randFelt(t),
-					},
+						TransactionSignature: feltSlice(2),
+					}),
 				},
 			},
 			{
@@ -228,26 +208,14 @@ func TestClientHandler(t *testing.T) {
 					Number: 2,
 				},
 				Transactions: []core.Transaction{
-					&core.DeclareTransaction{
-						TransactionHash:      randFelt(t),
-						ClassHash:            randFelt(t),
-						SenderAddress:        randFelt(t),
-						MaxFee:               randFelt(t),
-						TransactionSignature: feltSlice(t, 2, randFelt),
-						Nonce:                randFelt(t),
+					fillFelts(t, &core.DeclareTransaction{
+						TransactionSignature: feltSlice(2),
 						Version:              txVersion(0),
-						CompiledClassHash:    randFelt(t),
-					},
-					&core.DeclareTransaction{
-						TransactionHash:      randFelt(t),
-						ClassHash:            randFelt(t),
-						SenderAddress:        randFelt(t),
-						MaxFee:               randFelt(t),
-						TransactionSignature: feltSlice(t, 2, randFelt),
-						Nonce:                randFelt(t),
+					}),
+					fillFelts(t, &core.DeclareTransaction{
+						TransactionSignature: feltSlice(2),
 						Version:              txVersion(1),
-						CompiledClassHash:    randFelt(t),
-					},
+					}),
 				},
 			},
 			{
@@ -255,28 +223,16 @@ func TestClientHandler(t *testing.T) {
 					Number: 3,
 				},
 				Transactions: []core.Transaction{
-					&core.InvokeTransaction{
-						TransactionHash:      randFelt(t),
-						CallData:             feltSlice(t, 3, randFelt),
-						TransactionSignature: feltSlice(t, 2, randFelt),
-						MaxFee:               randFelt(t),
-						ContractAddress:      randFelt(t),
+					fillFelts(t, &core.InvokeTransaction{
+						CallData:             feltSlice(3),
+						TransactionSignature: feltSlice(2),
 						Version:              txVersion(0),
-						EntryPointSelector:   randFelt(t),
-						Nonce:                randFelt(t),
-						SenderAddress:        randFelt(t),
-					},
-					&core.InvokeTransaction{
-						TransactionHash:      randFelt(t),
-						CallData:             feltSlice(t, 4, randFelt),
-						TransactionSignature: feltSlice(t, 2, randFelt),
-						MaxFee:               randFelt(t),
-						ContractAddress:      randFelt(t),
+					}),
+					fillFelts(t, &core.InvokeTransaction{
+						CallData:             feltSlice(4),
+						TransactionSignature: feltSlice(2),
 						Version:              txVersion(1),
-						EntryPointSelector:   randFelt(t),
-						Nonce:                randFelt(t),
-						SenderAddress:        randFelt(t),
-					},
+					}),
 				},
 			},
 		}
@@ -320,20 +276,20 @@ func TestClientHandler(t *testing.T) {
 			{
 				{
 					From: randFelt(t),
-					Data: feltSlice(t, 1, randFelt),
-					Keys: feltSlice(t, 1, randFelt),
+					Data: feltSlice(1),
+					Keys: feltSlice(1),
 				},
 			},
 			{
 				{
 					From: randFelt(t),
-					Data: feltSlice(t, 2, randFelt),
-					Keys: feltSlice(t, 2, randFelt),
+					Data: feltSlice(2),
+					Keys: feltSlice(2),
 				},
 				{
 					From: randFelt(t),
-					Data: feltSlice(t, 3, randFelt),
-					Keys: feltSlice(t, 3, randFelt),
+					Data: feltSlice(3),
+					Keys: feltSlice(3),
 				},
 			},
 		}
@@ -489,13 +445,8 @@ func txVersion(v uint64) *core.TransactionVersion {
 	return &txV
 }
 
-func feltSlice(t *testing.T, n int, generator func(*testing.T) *felt.Felt) []*felt.Felt {
-	sl := make([]*felt.Felt, n)
-	for i := range sl {
-		sl[i] = generator(t)
-	}
-
-	return sl
+func feltSlice(n int) []*felt.Felt {
+	return make([]*felt.Felt, n)
 }
 
 func randFelt(t *testing.T) *felt.Felt {
@@ -505,4 +456,53 @@ func randFelt(t *testing.T) *felt.Felt {
 	require.NoError(t, err)
 
 	return f
+}
+
+func fillFelts[T any](t *testing.T, i T) T {
+	v := reflect.ValueOf(i)
+	if v.Kind() == reflect.Ptr && !v.IsNil() {
+		v = v.Elem()
+	}
+	typ := v.Type()
+
+	const feltTypeStr = "*felt.Felt"
+
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		ftyp := typ.Field(i).Type // Get the type of the current field
+
+		// Skip unexported fields
+		if !f.CanSet() {
+			continue
+		}
+
+		switch f.Kind() {
+		case reflect.Ptr:
+			// Check if the type is Felt
+			if ftyp.String() == feltTypeStr {
+				f.Set(reflect.ValueOf(randFelt(t)))
+			} else if f.IsNil() {
+				// Initialize the pointer if it is nil
+				f.Set(reflect.New(ftyp.Elem()))
+			}
+
+			if f.Elem().Kind() == reflect.Struct {
+				// Recursive call for nested structs
+				fillFelts(t, f.Interface())
+			}
+		case reflect.Slice:
+			// For slices, loop and populate
+			for j := 0; j < f.Len(); j++ {
+				elem := f.Index(j)
+				if elem.Type().String() == feltTypeStr {
+					elem.Set(reflect.ValueOf(randFelt(t)))
+				}
+			}
+		case reflect.Struct:
+			// Recursive call for nested structs
+			fillFelts(t, f.Addr().Interface())
+		}
+	}
+
+	return i
 }
