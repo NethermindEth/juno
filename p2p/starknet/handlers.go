@@ -221,16 +221,33 @@ func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Mes
 }
 
 func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
+	it, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	fin := h.newFin(&spec.TransactionsResponse{
+		Responses: &spec.TransactionsResponse_Fin{},
+	})
+
 	return func() (proto.Message, bool) {
-		if count > 3 {
-			return nil, false
+		if !it.Valid() {
+			return fin()
 		}
-		count++
+
+		block, err := it.Block()
+		if err != nil {
+			h.log.Errorw("Iterator failure", "err", err)
+			return fin()
+		}
+		it.Next()
+
 		return &spec.TransactionsResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
+			Id: core2p2p.AdaptBlockID(block.Header),
+			Responses: &spec.TransactionsResponse_Transactions{
+				Transactions: &spec.Transactions{
+					Items: utils.Map(block.Transactions, core2p2p.AdaptTransaction),
+				},
 			},
 		}, true
 	}, nil
