@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 )
 
-func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint: gocyclo
+func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	if transaction == nil {
 		return nil
 	}
@@ -19,8 +19,6 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint
 		specTx.Txn = adaptDeployTransaction(tx)
 	case *core.DeployAccountTransaction:
 		switch {
-		case tx.Version == nil:
-			panic("DeployAccount transaction has not set version")
 		case tx.Version.Is(1):
 			specTx.Txn = &spec.Transaction_DeployAccountV1_{
 				DeployAccountV1: &spec.Transaction_DeployAccountV1{
@@ -37,8 +35,6 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint
 		}
 	case *core.DeclareTransaction:
 		switch {
-		case tx.Version == nil:
-			panic("Declare transaction has not set version field")
 		case tx.Version.Is(0):
 			specTx.Txn = &spec.Transaction_DeclareV0_{
 				DeclareV0: &spec.Transaction_DeclareV0{
@@ -74,8 +70,6 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint
 		}
 	case *core.InvokeTransaction:
 		switch {
-		case tx.Version == nil:
-			panic("Invoke transaction has not set version field")
 		case tx.Version.Is(0):
 			specTx.Txn = &spec.Transaction_InvokeV0_{
 				InvokeV0: &spec.Transaction_InvokeV0{
