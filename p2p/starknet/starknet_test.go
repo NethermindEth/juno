@@ -418,7 +418,7 @@ func mapToExpectedTransaction(tx core.Transaction) *spec.Transaction {
 				InvokeV0: &spec.Transaction_InvokeV0{
 					MaxFee:             adaptFelt(v.MaxFee),
 					Signature:          core2p2p.AdaptAccountSignature(v.Signature()),
-					Address:            adaptAddress(v.SenderAddress),
+					Address:            adaptAddress(v.ContractAddress),
 					EntryPointSelector: adaptFelt(v.EntryPointSelector),
 					Calldata:           utils.Map(v.CallData, adaptFelt),
 				},

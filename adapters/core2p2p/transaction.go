@@ -81,7 +81,7 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction { //nolint
 				InvokeV0: &spec.Transaction_InvokeV0{
 					MaxFee:             AdaptFelt(tx.MaxFee),
 					Signature:          AdaptAccountSignature(tx.Signature()),
-					Address:            AdaptAddress(tx.SenderAddress), // todo for review is it ok?
+					Address:            AdaptAddress(tx.ContractAddress),
 					EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
 					Calldata:           AdaptFeltSlice(tx.CallData),
 				},
