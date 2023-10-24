@@ -2,7 +2,6 @@ package starknet_test
 
 import (
 	"context"
-	"reflect"
 	"testing"
 	"time"
 
@@ -64,13 +63,13 @@ func TestClientHandler(t *testing.T) {
 		pairsPerBlock := []pair{}
 		for i := uint64(0); i < 2; i++ {
 			pairsPerBlock = append(pairsPerBlock, pair{
-				header: fillFelts(t, &core.Header{
+				header: utils.FillFelts(t, &core.Header{
 					Number:           i,
 					Timestamp:        i,
 					TransactionCount: i,
 					EventCount:       i,
 				}),
-				commitments: fillFelts(t, &core.BlockCommitments{}),
+				commitments: utils.FillFelts(t, &core.BlockCommitments{}),
 			})
 		}
 
@@ -182,10 +181,10 @@ func TestClientHandler(t *testing.T) {
 					Number: 0,
 				},
 				Transactions: []core.Transaction{
-					fillFelts(t, &core.DeployTransaction{
+					utils.FillFelts(t, &core.DeployTransaction{
 						ConstructorCallData: feltSlice(3),
 					}),
-					fillFelts(t, &core.L1HandlerTransaction{
+					utils.FillFelts(t, &core.L1HandlerTransaction{
 						CallData: feltSlice(2),
 						Version:  txVersion(1),
 					}),
@@ -196,7 +195,7 @@ func TestClientHandler(t *testing.T) {
 					Number: 1,
 				},
 				Transactions: []core.Transaction{
-					fillFelts(t, &core.DeployAccountTransaction{
+					utils.FillFelts(t, &core.DeployAccountTransaction{
 						DeployTransaction: core.DeployTransaction{
 							ConstructorCallData: feltSlice(3),
 							Version:             txVersion(1),
@@ -210,11 +209,11 @@ func TestClientHandler(t *testing.T) {
 					Number: 2,
 				},
 				Transactions: []core.Transaction{
-					fillFelts(t, &core.DeclareTransaction{
+					utils.FillFelts(t, &core.DeclareTransaction{
 						TransactionSignature: feltSlice(2),
 						Version:              txVersion(0),
 					}),
-					fillFelts(t, &core.DeclareTransaction{
+					utils.FillFelts(t, &core.DeclareTransaction{
 						TransactionSignature: feltSlice(2),
 						Version:              txVersion(1),
 					}),
@@ -225,12 +224,12 @@ func TestClientHandler(t *testing.T) {
 					Number: 3,
 				},
 				Transactions: []core.Transaction{
-					fillFelts(t, &core.InvokeTransaction{
+					utils.FillFelts(t, &core.InvokeTransaction{
 						CallData:             feltSlice(3),
 						TransactionSignature: feltSlice(2),
 						Version:              txVersion(0),
 					}),
-					fillFelts(t, &core.InvokeTransaction{
+					utils.FillFelts(t, &core.InvokeTransaction{
 						CallData:             feltSlice(4),
 						TransactionSignature: feltSlice(2),
 						Version:              txVersion(1),
@@ -277,19 +276,19 @@ func TestClientHandler(t *testing.T) {
 			{}, // block with no events
 			{
 				{
-					From: randFelt(t),
+					From: utils.RandFelt(t),
 					Data: feltSlice(1),
 					Keys: feltSlice(1),
 				},
 			},
 			{
 				{
-					From: randFelt(t),
+					From: utils.RandFelt(t),
 					Data: feltSlice(2),
 					Keys: feltSlice(2),
 				},
 				{
-					From: randFelt(t),
+					From: utils.RandFelt(t),
 					Data: feltSlice(3),
 					Keys: feltSlice(3),
 				},
@@ -452,62 +451,4 @@ func txVersion(v uint64) *core.TransactionVersion {
 
 func feltSlice(n int) []*felt.Felt {
 	return make([]*felt.Felt, n)
-}
-
-func randFelt(t *testing.T) *felt.Felt {
-	t.Helper()
-
-	f, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-
-	return f
-}
-
-func fillFelts[T any](t *testing.T, i T) T {
-	v := reflect.ValueOf(i)
-	if v.Kind() == reflect.Ptr && !v.IsNil() {
-		v = v.Elem()
-	}
-	typ := v.Type()
-
-	const feltTypeStr = "*felt.Felt"
-
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		ftyp := typ.Field(i).Type // Get the type of the current field
-
-		// Skip unexported fields
-		if !f.CanSet() {
-			continue
-		}
-
-		switch f.Kind() {
-		case reflect.Ptr:
-			// Check if the type is Felt
-			if ftyp.String() == feltTypeStr {
-				f.Set(reflect.ValueOf(randFelt(t)))
-			} else if f.IsNil() {
-				// Initialise the pointer if it's nil
-				f.Set(reflect.New(ftyp.Elem()))
-			}
-
-			if f.Elem().Kind() == reflect.Struct {
-				// Recursive call for nested structs
-				fillFelts(t, f.Interface())
-			}
-		case reflect.Slice:
-			// For slices, loop and populate
-			for j := 0; j < f.Len(); j++ {
-				elem := f.Index(j)
-				if elem.Type().String() == feltTypeStr {
-					elem.Set(reflect.ValueOf(randFelt(t)))
-				}
-			}
-		case reflect.Struct:
-			// Recursive call for nested structs
-			fillFelts(t, f.Addr().Interface())
-		}
-	}
-
-	return i
 }
