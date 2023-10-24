@@ -11,6 +11,10 @@ type SyncTransaction struct {
 }
 
 func NewSyncTransaction(txn Transaction) *SyncTransaction {
+	syncTxn, ok := txn.(*SyncTransaction)
+	if ok {
+		return syncTxn
+	}
 	return &SyncTransaction{
 		txn: txn,
 	}

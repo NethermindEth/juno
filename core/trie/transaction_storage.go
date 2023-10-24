@@ -122,6 +122,13 @@ func (t *TransactionStorage) DeleteRootKey() error {
 	return t.txn.Delete(t.prefix)
 }
 
+func (t *TransactionStorage) SyncedStorage() *TransactionStorage {
+	return &TransactionStorage{
+		txn:    db.NewSyncTransaction(t.txn),
+		prefix: t.prefix,
+	}
+}
+
 func newMemStorage() *TransactionStorage {
 	return NewTransactionStorage(db.NewMemTransaction(), nil)
 }
