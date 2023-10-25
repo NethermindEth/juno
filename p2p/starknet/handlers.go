@@ -104,22 +104,30 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 		return nil, err
 	}
 
+	fin := h.newFin(&spec.BlockHeadersResponse{
+		Part: []*spec.BlockHeadersResponsePart{
+			{
+				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
+			},
+		},
+	})
+
 	return func() (proto.Message, bool) {
 		if !it.Valid() {
-			return nil, false
+			return fin()
 		}
 
 		header, err := it.Header()
 		if err != nil {
 			h.log.Errorw("Failed to fetch header", "err", err)
-			return nil, false
+			return fin()
 		}
 		it.Next()
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
 			h.log.Errorw("Failed to fetch block commitments", "err", err)
-			return nil, false
+			return fin()
 		}
 
 		return &spec.BlockHeadersResponse{
@@ -167,27 +175,31 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		return nil, err
 	}
 
+	fin := h.newFin(&spec.EventsResponse{
+		Responses: &spec.EventsResponse_Fin{},
+	})
+
 	var prevBlockID *spec.BlockID
 	return func() (proto.Message, bool) {
 		if prevBlockID != nil {
 			// mark end of event message
-			finDelimeter := &spec.EventsResponse{
+			finDelimiter := &spec.EventsResponse{
 				Id:        prevBlockID,
 				Responses: &spec.EventsResponse_Fin{},
 			}
 			prevBlockID = nil
 
-			return finDelimeter, true
+			return finDelimiter, true
 		}
 
 		if !it.Valid() {
-			return nil, false
+			return fin()
 		}
 
 		block, err := it.Block()
 		if err != nil {
 			h.log.Errorw("Failed to fetch block", "err", err)
-			return nil, false
+			return fin()
 		}
 		it.Next()
 
@@ -238,7 +250,15 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 		Responses: &spec.TransactionsResponse_Fin{},
 	})
 
+	var prevBlockID *spec.BlockID
 	return func() (proto.Message, bool) {
+		if prevBlockID != nil {
+			return &spec.TransactionsResponse{
+				Id:        prevBlockID,
+				Responses: &spec.TransactionsResponse_Fin{},
+			}, true
+		}
+
 		if !it.Valid() {
 			return fin()
 		}
@@ -250,14 +270,17 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 		}
 		it.Next()
 
-		return &spec.TransactionsResponse{
+		resp := &spec.TransactionsResponse{
 			Id: core2p2p.AdaptBlockID(block.Header),
 			Responses: &spec.TransactionsResponse_Transactions{
 				Transactions: &spec.Transactions{
 					Items: utils.Map(block.Transactions, core2p2p.AdaptTransaction),
 				},
 			},
-		}, true
+		}
+		prevBlockID = resp.Id
+
+		return resp, true
 	}, nil
 }
 
