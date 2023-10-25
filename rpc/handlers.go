@@ -132,7 +132,7 @@ func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.bcReader.SubscribeNewHeads().Subscription
+	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
 	<-ctx.Done()
@@ -1521,8 +1521,8 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	h.mu.Lock()
 	h.subscriptions[id] = sub
 	h.mu.Unlock()
+	headerSub := h.newHeads.Subscribe()
 	sub.wg.Go(func() {
-		headerSub := h.newHeads.Subscribe()
 		defer func() {
 			headerSub.Unsubscribe()
 			h.unsubscribe(sub, id)
