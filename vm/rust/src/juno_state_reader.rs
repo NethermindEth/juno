@@ -149,10 +149,10 @@ pub fn contract_class_from_json_str(raw_json: &str) -> Result<ContractClass, Str
     let v0_class = ContractClassV0::try_from_json_string(raw_json);
     let v1_class = ContractClassV1::try_from_json_string(raw_json);
 
-    if v0_class.is_ok() {
-        Ok(v0_class.unwrap().into())
-    } else if v1_class.is_ok() {
-        Ok(v1_class.unwrap().into())
+    if let Ok(class) = v0_class {
+        Ok(class.into())
+    } else if let Ok(class) = v1_class {
+        Ok(class.into())
     } else {
         Err("not a valid contract class".to_string())
     }
