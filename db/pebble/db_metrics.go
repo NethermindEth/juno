@@ -52,13 +52,18 @@ func (d *DB) meter(interval time.Duration) {
 		compWrites       [2]uint64
 		compReads        [2]uint64
 		nWrites          [2]uint64
+		memComps         [2]uint32
+		lvl0Comps        [2]uint32
+		nonLvl0Comps     [2]uint32
+		seekComps        [2]uint32
 	)
 
 	// Gather metrics continuously at specified interval.
 	for i := 1; ; i++ {
 		var (
-			compWrite uint64
-			compRead  uint64
+			current, previous = i % 2, (i - 1) % 2
+			compWrite         uint64
+			compRead          uint64
 
 			stats           = d.pebble.Metrics()
 			compTime        = time.Duration(d.compTime.Load())
@@ -73,26 +78,30 @@ func (d *DB) meter(interval time.Duration) {
 			compWrite += levelMetrics.BytesCompacted
 			compRead += levelMetrics.BytesRead
 		}
-		compTimes[i%2] = compTime
-		writeDelayCounts[i%2] = writeDelayCount
-		writeDelayTimes[i%2] = writeDelayTime
-		compWrites[i%2] = compWrite
-		compReads[i%2] = compRead
-		nWrites[i%2] = nWrite
+		compTimes[current] = compTime
+		writeDelayCounts[current] = writeDelayCount
+		writeDelayTimes[current] = writeDelayTime
+		compWrites[current] = compWrite
+		compReads[current] = compRead
+		nWrites[current] = nWrite
+		memComps[current] = uint32(stats.Flush.Count)
+		lvl0Comps[current] = d.level0Comp.Load()
+		nonLvl0Comps[current] = d.nonLevel0Comp.Load()
+		seekComps[current] = uint32(stats.Compact.ReadCount)
 
 		metrics := db.PebbleMetrics{
-			CompTime:      compTimes[i%2] - compTimes[(i-1)%2],
-			CompRead:      compReads[i%2] - compReads[(i-1)%2],
-			CompWrite:     compWrites[i%2] - compWrites[(i-1)%2],
-			WriteDelayN:   writeDelayCounts[i%2] - writeDelayCounts[(i-1)%2],
-			WriteDelay:    writeDelayTimes[i%2] - writeDelayTimes[(i-1)%2],
+			CompTime:      compTimes[current] - compTimes[previous],
+			CompRead:      compReads[current] - compReads[previous],
+			CompWrite:     compWrites[current] - compWrites[previous],
+			WriteDelayN:   writeDelayCounts[current] - writeDelayCounts[previous],
+			WriteDelay:    writeDelayTimes[current] - writeDelayTimes[previous],
 			DiskSize:      stats.DiskSpaceUsage(),
 			DiskRead:      0, // pebble doesn't track non-compaction reads
-			DiskWrite:     nWrites[i%2] - nWrites[(i-1)%2],
-			MemComps:      uint32(stats.Flush.Count),
-			Level0Comp:    d.level0Comp.Load(),
-			NonLevel0Comp: d.nonLevel0Comp.Load(),
-			SeekComp:      uint32(stats.Compact.ReadCount),
+			DiskWrite:     nWrites[current] - nWrites[previous],
+			MemComps:      memComps[current] - memComps[previous],
+			Level0Comp:    lvl0Comps[current] - lvl0Comps[previous],
+			NonLevel0Comp: nonLvl0Comps[current] - nonLvl0Comps[previous],
+			SeekComp:      seekComps[current] - seekComps[previous],
 			LevelFiles:    make([]uint64, len(stats.Levels)),
 			// See https://github.com/cockroachdb/pebble/pull/1628#pullrequestreview-1026664054
 			ManualMemAlloc: uint64(stats.BlockCache.Size + int64(stats.MemTable.Size) + int64(stats.MemTable.ZombieSize)),
