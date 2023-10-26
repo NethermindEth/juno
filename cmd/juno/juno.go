@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -54,6 +55,7 @@ const (
 	grpcF                = "grpc"
 	grpcHostF            = "grpc-host"
 	grpcPortF            = "grpc-port"
+	maxVMsF              = "max-vms"
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -100,6 +102,7 @@ const (
 	grpcUsage                = "Enable the HTTP GRPC server on the default port."
 	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
+	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
 )
 
 var Version string
@@ -191,6 +194,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
 	defaultNetwork := utils.MAINNET
+	defaultMaxVMs := runtime.GOMAXPROCS(0)
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
@@ -217,6 +221,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
 	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
+	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 
 	return junoCmd
 }

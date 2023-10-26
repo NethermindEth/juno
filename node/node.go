@@ -67,6 +67,8 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+
+	MaxVMs uint `mapstructure:"max-vms"`
 }
 
 type Node struct {
@@ -108,7 +110,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(log), version, log)
+	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMs))
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
