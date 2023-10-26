@@ -40,7 +40,7 @@ pub struct JunoStateReader {
 
 impl JunoStateReader {
     pub fn new(handle: usize) -> Self {
-        Self { handle: handle }
+        Self { handle }
     }
 }
 
