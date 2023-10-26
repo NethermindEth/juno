@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,7 +22,15 @@ type DB struct {
 
 	listener db.EventListener
 
-	collectors []eventCollector
+	// event-derrived stats
+	activeComp          int           // Current number of active compactions
+	compStartTime       time.Time     // The start time of the earliest currently-active compaction
+	compTime            atomic.Int64  // Total time spent in compaction
+	level0Comp          atomic.Uint32 // Total number of level-zero compactions
+	nonLevel0Comp       atomic.Uint32 // Total number of non level-zero compactions
+	writeDelayStartTime time.Time     // The start time of the latest write stall
+	writeDelayCount     atomic.Uint64 // Total number of write stall counts
+	writeDelayTime      atomic.Int64  // Total time spent in write stalls
 }
 
 // New opens a new database at the given path
@@ -59,17 +68,19 @@ func NewMemTest(t *testing.T) db.DB {
 func newPebble(path string, options *pebble.Options) (*DB, error) {
 	var (
 		database = &DB{
-			wMutex:     new(sync.Mutex),
-			listener:   &db.SelectiveListener{},
-			collectors: make([]eventCollector, 0),
+			wMutex:   new(sync.Mutex),
+			listener: &db.SelectiveListener{},
 		}
 		err error
 	)
 	// hookup into events
 	if options.EventListener == nil {
-		// TODO hookup into events
 		options.EventListener = &pebble.EventListener{}
 	}
+	options.EventListener.CompactionBegin = database.onCompactionBegin
+	options.EventListener.CompactionEnd = database.onCompactionEnd
+	options.EventListener.WriteStallBegin = database.onWriteStallBegin
+	options.EventListener.WriteStallEnd = database.onWriteStallEnd
 
 	database.pebble, err = pebble.Open(path, options)
 	if err != nil {
