@@ -295,13 +295,13 @@ fn make_state_diff(
         if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
-                address: pair.0.0.key().clone(),
+                address: *pair.0.0.key(),
                 class_hash: pair.1.0,
             });
         } else {
             #[rustfmt::skip]
             replaced_classes.push(ReplacedClass {
-                contract_address: pair.0.0.key().clone(),
+                contract_address: *pair.0.0.key(),
                 class_hash: pair.1.0,
             });
         }
@@ -315,9 +315,9 @@ fn make_state_diff(
         deployed_contracts,
         #[rustfmt::skip]
         storage_diffs: diff.storage_updates.into_iter().map(| v | StorageDiff {
-            address: v.0.0.key().clone(),
+            address: *v.0.0.key(),
             storage_entries: v.1.into_iter().map(| e | Entry {
-                key: e.0.0.key().clone(),
+                key: *e.0.0.key(),
                 value: e.1
             }).collect()
         }).collect(),
@@ -329,7 +329,7 @@ fn make_state_diff(
         deprecated_declared_classes,
         #[rustfmt::skip]
         nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
-          contract_address: v.0.0.key().clone(),
+          contract_address: *v.0.0.key(),
           nonce: v.1.0,
         }).collect(),
         replaced_classes,
