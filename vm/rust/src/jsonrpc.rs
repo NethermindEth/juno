@@ -25,7 +25,7 @@ pub enum TransactionType {
     L1Handler,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct TransactionTrace {
     #[serde(skip_serializing_if = "Option::is_none")]
     validate_invocation: Option<FunctionInvocation>,
@@ -96,11 +96,8 @@ impl TransactionTrace {
         if let Some(invocation) = &mut self.validate_invocation {
             invocation.make_legacy()
         }
-        if let Some(invocation) = &mut self.execute_invocation {
-            match invocation {
-                ExecuteInvocation::Ok(fn_invocation) => fn_invocation.make_legacy(),
-                _ => {}
-            }
+        if let Some(ExecuteInvocation::Ok(fn_invocation)) = &mut self.execute_invocation {
+            fn_invocation.make_legacy()
         }
         if let Some(invocation) = &mut self.fee_transfer_invocation {
             invocation.make_legacy()
@@ -110,20 +107,6 @@ impl TransactionTrace {
         }
         if let Some(invocation) = &mut self.function_invocation {
             invocation.make_legacy()
-        }
-    }
-}
-
-impl Default for TransactionTrace {
-    fn default() -> Self {
-        Self {
-            validate_invocation: None,
-            execute_invocation: None,
-            fee_transfer_invocation: None,
-            constructor_invocation: None,
-            function_invocation: None,
-            r#type: None,
-            state_diff: None,
         }
     }
 }
@@ -325,8 +308,8 @@ fn make_state_diff(
     }
 
     let mut deprecated_declared_classes = Vec::default();
-    if deprecated_declared_class.is_some() {
-        deprecated_declared_classes.push(deprecated_declared_class.unwrap().0)
+    if let Some(v) = deprecated_declared_class {
+        deprecated_declared_classes.push(v.0)
     }
     Ok(StateDiff {
         deployed_contracts,

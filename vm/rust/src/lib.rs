@@ -87,7 +87,7 @@ pub extern "C" fn cairoVMCall(
         class_hash: None,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: INITIAL_GAS_COST.into(),
+        initial_gas: INITIAL_GAS_COST,
     };
 
     const GAS_PRICE: u128 = 1;
@@ -138,8 +138,8 @@ pub extern "C" fn cairoVMExecute(
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let sn_api_txns: Result<Vec<StarknetApiTransaction>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
-    if sn_api_txns.is_err() {
-        report_error(reader_handle, sn_api_txns.unwrap_err().to_string().as_str());
+    if let Err(e) = sn_api_txns {
+        report_error(reader_handle, e.to_string().as_str());
         return;
     }
 
@@ -148,8 +148,8 @@ pub extern "C" fn cairoVMExecute(
         let classes_json_str = unsafe { CStr::from_ptr(classes_json) }.to_str().unwrap();
         classes = serde_json::from_str(classes_json_str);
     }
-    if classes.is_err() {
-        report_error(reader_handle, classes.unwrap_err().to_string().as_str());
+    if let Err(e) = classes {
+        report_error(reader_handle, e.to_string().as_str());
         return;
     }
 
@@ -196,8 +196,8 @@ pub extern "C" fn cairoVMExecute(
                     maybe_cc = contract_class_from_sierra_json(class_json_str.get())
                 };
 
-                if maybe_cc.is_err() {
-                    report_error(reader_handle, maybe_cc.unwrap_err().to_string().as_str());
+                if let Err(e) = maybe_cc {
+                    report_error(reader_handle, e.to_string().as_str());
                     return;
                 }
                 Some(maybe_cc.unwrap())
@@ -217,8 +217,8 @@ pub extern "C" fn cairoVMExecute(
         };
 
         let txn = transaction_from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
-        if txn.is_err() {
-            report_error(reader_handle, txn.unwrap_err().to_string().as_str());
+        if let Err(e) = txn {
+            report_error(reader_handle, e.to_string().as_str());
             return;
         }
 
@@ -357,7 +357,7 @@ fn build_block_context(
             .unwrap(),
         )
         .unwrap(),
-        gas_price: gas_price, // fixed gas price, so that we can return "consumed gas" to Go side
+        gas_price, // fixed gas price, so that we can return "consumed gas" to Go side
         vm_resource_fee_cost: HashMap::from([
             (N_STEPS_RESOURCE.to_string(), N_STEPS_FEE_WEIGHT),
             (OUTPUT_BUILTIN_NAME.to_string(), 0.0),

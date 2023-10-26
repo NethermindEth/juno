@@ -7,6 +7,9 @@ debug:
 check:
 	cargo check --release
 
+lint:
+	cargo clippy
+
 clean:
 	cargo clean
 
