@@ -14,7 +14,7 @@ use blockifier::{
     block_context::BlockContext,
     execution::{
         contract_class::{ContractClass, ContractClassV1},
-        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources}, common_hints::ExecutionMode,
+        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
     },
     fee::fee_utils::calculate_tx_fee,
     state::cached_state::CachedState,
@@ -103,7 +103,6 @@ pub extern "C" fn cairoVMCall(
         ),
         AccountTransactionContext::default(),
         4_000_000,
-        ExecutionMode::Execute,
     );
     let call_info = entry_point.execute(&mut state, &mut resources, &mut context);
 
