@@ -1135,7 +1135,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	res, err := h.vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, makeUnexpectedError(err)
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
 		}
 		return nil, makeContractError(err)
 	}
@@ -1143,19 +1143,11 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 }
 
 func makeContractError(err error) *jsonrpc.Error {
-	contractErr := *ErrContractError
-	contractErr.Data = struct {
+	return ErrContractError.CloneWithData(struct {
 		RevertError string `json:"revert_error"`
 	}{
 		RevertError: err.Error(),
-	}
-	return &contractErr
-}
-
-func makeUnexpectedError(err error) *jsonrpc.Error {
-	unexpectedErr := *ErrUnexpectedError
-	unexpectedErr.Data = err.Error()
-	return &unexpectedErr
+	})
 }
 
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
@@ -1343,7 +1335,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, makeUnexpectedError(err)
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
 		}
 		return nil, makeContractError(err)
 	}
@@ -1390,7 +1382,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	isPending := block.Hash == nil
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
-			return nil, makeUnexpectedError(err)
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
 		} else if blockVer.Compare(traceFallbackVersion) != 1 {
 			// version <= 0.12.0
 			return h.fetchTraces(ctx, block.Hash, legacyJSON)
@@ -1461,7 +1453,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, makeUnexpectedError(err)
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
 		}
 		return nil, makeContractError(err)
 	}
@@ -1494,12 +1486,12 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt, legacyT
 
 	blockTrace, fErr := h.feederClient.BlockTrace(ctx, blockHash.String())
 	if fErr != nil {
-		return nil, makeUnexpectedError(fErr)
+		return nil, ErrUnexpectedError.CloneWithData(fErr.Error())
 	}
 
 	traces, aErr := adaptBlockTrace(rpcBlock, blockTrace, legacyTrace)
 	if aErr != nil {
-		return nil, makeUnexpectedError(aErr)
+		return nil, ErrUnexpectedError.CloneWithData(aErr.Error())
 	}
 
 	return traces, nil
