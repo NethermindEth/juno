@@ -53,6 +53,13 @@ type Error struct {
 	Data    any    `json:"data,omitempty"`
 }
 
+// CloneWithData copies the error and sets the data field on the copy
+func (e *Error) CloneWithData(data any) *Error {
+	dup := *e
+	dup.Data = data
+	return &dup
+}
+
 func Err(code int, data any) *Error {
 	switch code {
 	case InvalidJSON:
