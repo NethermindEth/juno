@@ -91,8 +91,8 @@ type Handler struct {
 	log           utils.Logger
 	version       string
 
-	newHeads     *feed.Feed[*core.Header]
-	pendingHeads *feed.Feed[*core.Header]
+	newBlocks    *feed.Feed[*core.Block]
+	pendingBlock *feed.Feed[*core.Block]
 	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
@@ -129,8 +129,8 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network, l1
 			return n
 		},
 		version:       version,
-		newHeads:      feed.New[*core.Header](),
-		pendingHeads:  feed.New[*core.Header](),
+		newBlocks:     feed.New[*core.Block](),
+		pendingBlock:  feed.New[*core.Block](),
 		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
@@ -151,13 +151,13 @@ func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
+	newHeadsSub := h.syncReader.SubscribeNewBlocks().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	feed.Tee[*core.Block](newHeadsSub, h.newBlocks)
 
-	pendingHeadsSub := h.syncReader.SubscribePendingHeads().Subscription
+	pendingHeadsSub := h.syncReader.SubscribePendingBlocks().Subscription
 	defer pendingHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](pendingHeadsSub, h.pendingHeads)
+	feed.Tee[*core.Block](pendingHeadsSub, h.pendingBlock)
 
 	// Providing an L1 node is optional.
 	if h.l1Reader != nil {
@@ -216,11 +216,6 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		return nil, rpcErr
 	}
 
-	txnHashes := make([]*felt.Felt, len(block.Transactions))
-	for index, txn := range block.Transactions {
-		txnHashes[index] = txn.Hash()
-	}
-
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return nil, jsonErr
@@ -233,11 +228,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		status = BlockAcceptedL1
 	}
 
-	return &BlockWithTxHashes{
-		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
-		TxnHashes:   txnHashes,
-	}, nil
+	return adaptBlockWithTxHashes(block, status), nil
 }
 
 func (h *Handler) LegacyBlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
@@ -328,11 +319,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		status = BlockAcceptedL1
 	}
 
-	return &BlockWithTxs{
-		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
-		Transactions: txs,
-	}, nil
+	return adaptBlockWithTxs(block, status), nil
 }
 
 func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
@@ -1712,26 +1699,26 @@ func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {
 type SubscriptionEvent byte
 
 const (
-	EventNewHeads SubscriptionEvent = iota + 1
-	EventPendingHeads
-	EventL1Heads
+	EventNewBlocks SubscriptionEvent = iota + 1
+	EventPendingBlocks
+	EventL1Blocks
 )
 
 func (s *SubscriptionEvent) UnmarshalJSON(data []byte) error {
 	switch string(data) {
-	case `"newHeads"`:
-		*s = EventNewHeads
-	case `"pendingHeads"`:
-		*s = EventPendingHeads
-	case `"l1Heads"`:
-		*s = EventL1Heads
+	case `"newBlocks"`:
+		*s = EventNewBlocks
+	case `"pendingBlocks"`:
+		*s = EventPendingBlocks
+	case `"l1Blocks"`:
+		*s = EventL1Blocks
 	default:
 		return fmt.Errorf("unknown subscription event type: %s", string(data))
 	}
 	return nil
 }
 
-func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent) (uint64, *jsonrpc.Error) {
+func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent, withTxs bool) (uint64, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -1746,16 +1733,25 @@ func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent) (uint6
 	h.mu.Lock()
 	h.subscriptions[id] = sub
 	h.mu.Unlock()
+
+	adaptBlock := func(block *core.Block, status BlockStatus) any {
+		return adaptBlockWithTxHashes(block, status)
+	}
+	if withTxs {
+		adaptBlock = func(block *core.Block, status BlockStatus) any {
+			return adaptBlockWithTxs(block, status)
+		}
+	}
 	switch event {
-	case EventNewHeads:
-		subscribe[*core.Header](subscriptionCtx, h.newHeads.Subscribe(), h, id, sub, func(h *core.Header) (any, error) {
-			return adaptBlockHeader(h), nil
+	case EventNewBlocks:
+		subscribe[*core.Block](subscriptionCtx, h.newBlocks.Subscribe(), h, id, sub, func(b *core.Block) (any, error) {
+			return adaptBlock(b, BlockAcceptedL2), nil
 		})
-	case EventPendingHeads:
-		subscribe[*core.Header](subscriptionCtx, h.pendingHeads.Subscribe(), h, id, sub, func(h *core.Header) (any, error) {
-			return adaptBlockHeader(h), nil
+	case EventPendingBlocks:
+		subscribe[*core.Block](subscriptionCtx, h.pendingBlock.Subscribe(), h, id, sub, func(b *core.Block) (any, error) {
+			return adaptBlock(b, BlockPending), nil
 		})
-	case EventL1Heads:
+	case EventL1Blocks:
 		if h.l1Reader == nil {
 			h.unsubscribe(id)
 			return 0, jsonrpc.Err(jsonrpc.InternalError, "subscription event not supported")
@@ -1765,7 +1761,7 @@ func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent) (uint6
 			if err != nil {
 				return nil, fmt.Errorf("get block %d: %v", l1Head.BlockNumber, err)
 			}
-			return adaptBlockHeader(block.Header), nil
+			return adaptBlock(block, BlockAcceptedL1), nil
 		})
 	default:
 		return 0, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unknown event type: %d", event))
@@ -1979,7 +1975,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_subscribe",
-			Params:  []jsonrpc.Parameter{{Name: "event"}},
+			Params:  []jsonrpc.Parameter{{Name: "event"}, {Name: "withTxs", Optional: true}},
 			Handler: h.Subscribe,
 		},
 		{
@@ -2133,7 +2129,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_subscribe",
-			Params:  []jsonrpc.Parameter{{Name: "event"}},
+			Params:  []jsonrpc.Parameter{{Name: "event"}, {Name: "withTxs", Optional: true}},
 			Handler: h.Subscribe,
 		},
 		{

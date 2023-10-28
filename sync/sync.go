@@ -30,16 +30,16 @@ const (
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
-type HeaderSubscription struct {
-	*feed.Subscription[*core.Header]
+type BlockSubscription struct {
+	*feed.Subscription[*core.Block]
 }
 
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
-	SubscribeNewHeads() HeaderSubscription
-	SubscribePendingHeads() HeaderSubscription
+	SubscribeNewBlocks() BlockSubscription
+	SubscribePendingBlocks() BlockSubscription
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -49,8 +49,8 @@ type Synchronizer struct {
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
-	newHeads            *feed.Feed[*core.Header]
-	pendingHeads        *feed.Feed[*core.Header]
+	newBlocks           *feed.Feed[*core.Block]
+	pendingBlock        *feed.Feed[*core.Block]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -66,8 +66,8 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		blockchain:          bc,
 		starknetData:        starkNetData,
 		log:                 log,
-		newHeads:            feed.New[*core.Header](),
-		pendingHeads:        feed.New[*core.Header](),
+		newBlocks:           feed.New[*core.Block](),
+		pendingBlock:        feed.New[*core.Block](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -215,7 +215,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
 			}
 
-			s.newHeads.Send(block.Header)
+			s.newBlocks.Send(block)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
@@ -414,7 +414,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	}); err != nil {
 		return err
 	} else if stored {
-		s.pendingHeads.Send(pendingBlock.Header)
+		s.pendingBlock.Send(pendingBlock)
 	}
 	return nil
 }
@@ -430,14 +430,14 @@ func (s *Synchronizer) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
 }
 
-func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
-	return HeaderSubscription{
-		Subscription: s.newHeads.Subscribe(),
+func (s *Synchronizer) SubscribeNewBlocks() BlockSubscription {
+	return BlockSubscription{
+		Subscription: s.newBlocks.Subscribe(),
 	}
 }
 
-func (s *Synchronizer) SubscribePendingHeads() HeaderSubscription {
-	return HeaderSubscription{
-		Subscription: s.pendingHeads.Subscribe(),
+func (s *Synchronizer) SubscribePendingBlocks() BlockSubscription {
+	return BlockSubscription{
+		Subscription: s.pendingBlock.Subscribe(),
 	}
 }
