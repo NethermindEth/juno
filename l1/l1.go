@@ -78,7 +78,9 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 func (c *Client) checkChainID(ctx context.Context) error {
 	gotChainID, err := c.l1.ChainID(ctx)
 	if err != nil {
-		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
+		// Instead of returning an error, log a warning and keep trying.
+		c.log.Warnw("Failed to retrieve Ethereum chain ID: ", err)
+		return nil
 	}
 
 	wantChainID := c.network.DefaultL1ChainID()
