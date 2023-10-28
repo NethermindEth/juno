@@ -2329,10 +2329,12 @@ func TestEvents(t *testing.T) {
 		} else {
 			b.Hash = nil
 			b.GlobalStateRoot = nil
-			require.NoError(t, chain.StorePending(&blockchain.Pending{
+			stored, err := chain.StorePending(&blockchain.Pending{
 				Block:       b,
 				StateUpdate: s,
-			}))
+			})
+			require.True(t, stored)
+			require.NoError(t, err)
 		}
 	}
 
@@ -3474,6 +3476,48 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	ok, rpcErr = handler.Unsubscribe(subCtx, id)
 	require.Nil(t, rpcErr)
 	require.True(t, ok)
+}
+
+func TestSubscribePendingHeads(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	network := utils.Mainnet
+	client := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(client)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	chain := blockchain.New(pebble.NewMemTest(t), network, log)
+	syncer := sync.New(chain, gw, log, time.Nanosecond, false)
+	handler := rpc.New(chain, syncer, network, nil, nil, nil, "", log)
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
+	// Sleep for a moment just in case.
+	time.Sleep(50 * time.Millisecond)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	// Subscribe.
+	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	id, rpcErr := handler.Subscribe(subCtx, rpc.EventPendingHeads)
+	require.Nil(t, rpcErr)
+
+	// Sync blocks.
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	require.NoError(t, syncer.Run(syncCtx))
+	syncCancel()
+
+	// Receive a block header.
+	want := `{"jsonrpc":"2.0","method":"juno_subscription","params":{"result":{"parent_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","timestamp":1637091683,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"starknet_version":""},"subscription":%d}}`
+	want = fmt.Sprintf(want, id)
+	got := make([]byte, len(want))
+	_, err := clientConn.Read(got)
+	require.NoError(t, err)
+	require.Equal(t, want, string(got))
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {

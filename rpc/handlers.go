@@ -89,7 +89,8 @@ type Handler struct {
 	log           utils.Logger
 	version       string
 
-	newHeads *feed.Feed[*core.Header]
+	newHeads     *feed.Feed[*core.Header]
+	pendingHeads *feed.Feed[*core.Header]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -125,6 +126,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 		},
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
+		pendingHeads:  feed.New[*core.Header](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -147,6 +149,9 @@ func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	pendingHeadsSub := h.syncReader.SubscribePendingHeads().Subscription
+	defer pendingHeadsSub.Unsubscribe()
+	feed.Tee[*core.Header](pendingHeadsSub, h.pendingHeads)
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -1694,12 +1699,15 @@ type SubscriptionEvent byte
 
 const (
 	EventNewHeads SubscriptionEvent = iota + 1
+	EventPendingHeads
 )
 
 func (s *SubscriptionEvent) UnmarshalJSON(data []byte) error {
 	switch string(data) {
 	case `"newHeads"`:
 		*s = EventNewHeads
+	case `"pendingHeads"`:
+		*s = EventPendingHeads
 	default:
 		return fmt.Errorf("unknown subscription event type: %s", string(data))
 	}
@@ -1724,6 +1732,10 @@ func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent) (uint6
 	switch event {
 	case EventNewHeads:
 		subscribe[*core.Header](subscriptionCtx, h.newHeads.Subscribe(), h, id, sub, func(h *core.Header) any {
+			return adaptBlockHeader(h)
+		})
+	case EventPendingHeads:
+		subscribe[*core.Header](subscriptionCtx, h.pendingHeads.Subscribe(), h, id, sub, func(h *core.Header) any {
 			return adaptBlockHeader(h)
 		})
 	default:
