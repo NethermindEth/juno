@@ -1690,7 +1690,23 @@ func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {
 	return "0.5.1", nil
 }
 
-func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error) {
+type SubscriptionEvent byte
+
+const (
+	EventNewHeads SubscriptionEvent = iota + 1
+)
+
+func (s *SubscriptionEvent) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"newHeads"`:
+		*s = EventNewHeads
+	default:
+		return fmt.Errorf("unknown subscription event type: %s", string(data))
+	}
+	return nil
+}
+
+func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent) (uint64, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -1705,37 +1721,51 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	h.mu.Lock()
 	h.subscriptions[id] = sub
 	h.mu.Unlock()
-	headerSub := h.newHeads.Subscribe()
-	sub.wg.Go(func() {
+	switch event {
+	case EventNewHeads:
+		subscribe[*core.Header](subscriptionCtx, h.newHeads.Subscribe(), h, id, sub, func(h *core.Header) any {
+			return adaptBlockHeader(h)
+		})
+	default:
+		return 0, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unknown event type: %d", event))
+	}
+	return id, nil
+}
+
+func subscribe[T any](ctx context.Context, sub *feed.Subscription[T], h *Handler, id uint64, vsub *subscription, adapt func(T) any) {
+	vsub.wg.Go(func() {
 		defer func() {
-			headerSub.Unsubscribe()
-			h.unsubscribe(sub, id)
+			sub.Unsubscribe()
+
+			vsub.cancel()
+			h.mu.Lock()
+			delete(h.subscriptions, id)
+			h.mu.Unlock()
 		}()
 		for {
 			select {
-			case <-subscriptionCtx.Done():
+			case <-ctx.Done():
 				return
-			case header := <-headerSub.Recv():
+			case v := <-sub.Recv():
 				resp, err := json.Marshal(jsonrpc.Request{
 					Version: "2.0",
-					Method:  "juno_subscribeNewHeads",
+					Method:  "juno_subscription",
 					Params: map[string]any{
-						"result":       adaptBlockHeader(header),
+						"result":       adapt(v),
 						"subscription": id,
 					},
 				})
 				if err != nil {
-					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					h.log.Warnw("Marshalling subscription reply failed, closing", "err", err)
 					return
 				}
-				if _, err = w.Write(resp); err != nil {
-					h.log.Warnw("Error writing a subscription reply", "err", err)
+				if _, err = vsub.conn.Write(resp); err != nil {
+					h.log.Warnw("Writing subscription reply failed, closing", "err", err)
 					return
 				}
 			}
 		}
 	})
-	return id, nil
 }
 
 func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
@@ -1752,14 +1782,6 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	sub.cancel()
 	sub.wg.Wait() // Let the subscription finish before responding.
 	return true, nil
-}
-
-// unsubscribe assumes h.mu is unlocked. It releases all subscription resources.
-func (h *Handler) unsubscribe(sub *subscription, id uint64) {
-	sub.cancel()
-	h.mu.Lock()
-	delete(h.subscriptions, id)
-	h.mu.Unlock()
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
@@ -1904,8 +1926,9 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
-			Handler: h.SubscribeNewHeads,
+			Name:    "juno_subscribe",
+			Params:  []jsonrpc.Parameter{{Name: "event"}},
+			Handler: h.Subscribe,
 		},
 		{
 			Name:    "juno_unsubscribe",
@@ -2057,8 +2080,9 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.LegacySpecVersion,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
-			Handler: h.SubscribeNewHeads,
+			Name:    "juno_subscribe",
+			Params:  []jsonrpc.Parameter{{Name: "event"}},
+			Handler: h.Subscribe,
 		},
 		{
 			Name:    "juno_unsubscribe",

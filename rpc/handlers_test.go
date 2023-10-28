@@ -3421,7 +3421,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	})
 
 	// Subscribe without setting the connection on the context.
-	id, rpcErr := handler.SubscribeNewHeads(ctx)
+	id, rpcErr := handler.Subscribe(ctx, rpc.EventNewHeads)
 	require.Zero(t, id)
 	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
 
@@ -3437,7 +3437,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	// Subscribe.
 	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-	id, rpcErr = handler.SubscribeNewHeads(subCtx)
+	id, rpcErr = handler.Subscribe(subCtx, rpc.EventNewHeads)
 	require.Nil(t, rpcErr)
 
 	// Sync the block we reverted above.
@@ -3446,7 +3446,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncCancel()
 
 	// Receive a block header.
-	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"starknet_version":""},"subscription":%d}}`
+	want := `{"jsonrpc":"2.0","method":"juno_subscription","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"starknet_version":""},"subscription":%d}}`
 	want = fmt.Sprintf(want, id)
 	got := make([]byte, len(want))
 	_, err := clientConn.Read(got)
@@ -3505,8 +3505,9 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	server := jsonrpc.NewServer(1, log)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "juno_subscribeNewHeads",
-		Handler: handler.SubscribeNewHeads,
+		Name:    "juno_subscribe",
+		Params:  []jsonrpc.Parameter{{Name: "event"}},
+		Handler: handler.Subscribe,
 	}, jsonrpc.Method{
 		Name:    "juno_unsubscribe",
 		Params:  []jsonrpc.Parameter{{Name: "id"}},
@@ -3519,7 +3520,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
 
-	subscribeMsg := []byte(`{"jsonrpc":"2.0","id":1,"method":"juno_subscribeNewHeads"}`)
+	subscribeMsg := []byte(`{"jsonrpc":"2.0","id":1,"method":"juno_subscribe","params":["newHeads"]}`)
 
 	firstID := uint64(1)
 	secondID := uint64(2)
@@ -3545,7 +3546,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncCancel()
 
 	// Receive a block header.
-	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"starknet_version":""},"subscription":%d}}`
+	want = `{"jsonrpc":"2.0","method":"juno_subscription","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"starknet_version":""},"subscription":%d}}`
 	firstWant = fmt.Sprintf(want, firstID)
 	_, firstGot, err = conn1.Read(ctx)
 	require.NoError(t, err)
