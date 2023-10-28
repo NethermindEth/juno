@@ -170,8 +170,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
-
+			if err == nil { // Only emit event if Store operation is successful
+				s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+			}
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 					// revert the head and restart the sync process, hoping that the reorg is not deep
