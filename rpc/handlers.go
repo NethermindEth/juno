@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -82,6 +83,7 @@ type traceCacheKey struct {
 type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
+	l1Reader      l1.Reader
 	network       utils.Network
 	gatewayClient Gateway
 	feederClient  *feeder.Client
@@ -91,6 +93,7 @@ type Handler struct {
 
 	newHeads     *feed.Feed[*core.Header]
 	pendingHeads *feed.Feed[*core.Header]
+	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -107,12 +110,13 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network, l1Reader l1.Reader,
 	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
 		syncReader:    syncReader,
+		l1Reader:      l1Reader,
 		network:       n,
 		log:           logger,
 		feederClient:  feederClient,
@@ -127,6 +131,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
 		pendingHeads:  feed.New[*core.Header](),
+		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -149,9 +154,18 @@ func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+
 	pendingHeadsSub := h.syncReader.SubscribePendingHeads().Subscription
 	defer pendingHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](pendingHeadsSub, h.pendingHeads)
+
+	// Providing an L1 node is optional.
+	if h.l1Reader != nil {
+		l1HeadsSub := h.l1Reader.SubscribeL1Heads().Subscription
+		defer l1HeadsSub.Unsubscribe()
+		feed.Tee[*core.L1Head](l1HeadsSub, h.l1Heads)
+	}
+
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -246,8 +260,8 @@ func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
 	return l1Head, nil
 }
 
-func isL1Verified(n uint64, l1 *core.L1Head) bool {
-	if l1 != nil && l1.BlockNumber >= n {
+func isL1Verified(n uint64, l1Head *core.L1Head) bool {
+	if l1Head != nil && l1Head.BlockNumber >= n {
 		return true
 	}
 	return false
@@ -1700,6 +1714,7 @@ type SubscriptionEvent byte
 const (
 	EventNewHeads SubscriptionEvent = iota + 1
 	EventPendingHeads
+	EventL1Heads
 )
 
 func (s *SubscriptionEvent) UnmarshalJSON(data []byte) error {
@@ -1708,6 +1723,8 @@ func (s *SubscriptionEvent) UnmarshalJSON(data []byte) error {
 		*s = EventNewHeads
 	case `"pendingHeads"`:
 		*s = EventPendingHeads
+	case `"l1Heads"`:
+		*s = EventL1Heads
 	default:
 		return fmt.Errorf("unknown subscription event type: %s", string(data))
 	}
@@ -1731,12 +1748,24 @@ func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent) (uint6
 	h.mu.Unlock()
 	switch event {
 	case EventNewHeads:
-		subscribe[*core.Header](subscriptionCtx, h.newHeads.Subscribe(), h, id, sub, func(h *core.Header) any {
-			return adaptBlockHeader(h)
+		subscribe[*core.Header](subscriptionCtx, h.newHeads.Subscribe(), h, id, sub, func(h *core.Header) (any, error) {
+			return adaptBlockHeader(h), nil
 		})
 	case EventPendingHeads:
-		subscribe[*core.Header](subscriptionCtx, h.pendingHeads.Subscribe(), h, id, sub, func(h *core.Header) any {
-			return adaptBlockHeader(h)
+		subscribe[*core.Header](subscriptionCtx, h.pendingHeads.Subscribe(), h, id, sub, func(h *core.Header) (any, error) {
+			return adaptBlockHeader(h), nil
+		})
+	case EventL1Heads:
+		if h.l1Reader == nil {
+			h.unsubscribe(id)
+			return 0, jsonrpc.Err(jsonrpc.InternalError, "subscription event not supported")
+		}
+		subscribe[*core.L1Head](subscriptionCtx, h.l1Heads.Subscribe(), h, id, sub, func(l1Head *core.L1Head) (any, error) {
+			block, err := h.bcReader.BlockByNumber(l1Head.BlockNumber)
+			if err != nil {
+				return nil, fmt.Errorf("get block %d: %v", l1Head.BlockNumber, err)
+			}
+			return adaptBlockHeader(block.Header), nil
 		})
 	default:
 		return 0, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unknown event type: %d", event))
@@ -1744,26 +1773,29 @@ func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent) (uint6
 	return id, nil
 }
 
-func subscribe[T any](ctx context.Context, sub *feed.Subscription[T], h *Handler, id uint64, vsub *subscription, adapt func(T) any) {
+func subscribe[T any](ctx context.Context, sub *feed.Subscription[T], h *Handler,
+	id uint64, vsub *subscription, adapt func(T) (any, error),
+) {
 	vsub.wg.Go(func() {
 		defer func() {
 			sub.Unsubscribe()
-
-			vsub.cancel()
-			h.mu.Lock()
-			delete(h.subscriptions, id)
-			h.mu.Unlock()
+			h.unsubscribe(id)
 		}()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case v := <-sub.Recv():
+				result, err := adapt(v)
+				if err != nil {
+					h.log.Warnw("Failed to adapt subscription result, closing", "err", err)
+					return
+				}
 				resp, err := json.Marshal(jsonrpc.Request{
 					Version: "2.0",
 					Method:  "juno_subscription",
 					Params: map[string]any{
-						"result":       adapt(v),
+						"result":       result,
 						"subscription": id,
 					},
 				})
@@ -1794,6 +1826,14 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	sub.cancel()
 	sub.wg.Wait() // Let the subscription finish before responding.
 	return true, nil
+}
+
+// unsubscribe acquires h.mu and assumes id has not yet been unsubscribed.
+func (h *Handler) unsubscribe(id uint64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.subscriptions[id].cancel()
+	delete(h.subscriptions, id)
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen

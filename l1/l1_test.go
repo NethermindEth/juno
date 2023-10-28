@@ -13,8 +13,9 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/contract"
-	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/l1/mocks"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -152,5 +153,54 @@ func TestEventListener(t *testing.T) {
 	require.Equal(t, &core.L1Head{
 		BlockHash: new(felt.Felt),
 		StateRoot: new(felt.Felt),
+	}, got)
+}
+
+func TestSubscribeL1Heads(t *testing.T) {
+	t.Parallel()
+
+	network := utils.Mainnet
+	ctrl := gomock.NewController(t)
+	nopLog := utils.NewNopZapLogger()
+	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
+
+	subscriber := mocks.NewMockSubscriber(ctrl)
+	subscriber.EXPECT().Close().Times(1)
+	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.
+		EXPECT().
+		ChainID(gomock.Any()).
+		Return(network.DefaultL1ChainID(), nil).
+		Times(1)
+	subscriber.
+		EXPECT().
+		WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, sink chan<- *contract.StarknetLogStateUpdate) {
+			sink <- &contract.StarknetLogStateUpdate{
+				GlobalRoot:  new(big.Int),
+				BlockNumber: new(big.Int),
+				BlockHash:   new(big.Int),
+				Raw: types.Log{
+					BlockNumber: 0,
+				},
+			}
+		}).
+		Return(newFakeSubscription(), nil)
+
+	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+
+	sub := client.SubscribeL1Heads()
+	t.Cleanup(sub.Unsubscribe)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	require.NoError(t, client.Run(ctx))
+	cancel()
+
+	got, ok := <-sub.Recv()
+	require.True(t, ok)
+	require.Equal(t, &core.L1Head{
+		BlockNumber: 0,
+		BlockHash:   new(felt.Felt),
+		StateRoot:   new(felt.Felt),
 	}, got)
 }

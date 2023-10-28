@@ -138,8 +138,34 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
+	var l1Client *l1.Client
+	var l1Reader l1.Reader
+	if cfg.EthNode == "" {
+		log.Warnw("Ethereum node address not found; will not verify against L1")
+		l1Reader = nil
+	} else {
+		var ethNodeURL *url.URL
+		ethNodeURL, err = url.Parse(cfg.EthNode)
+		if err != nil {
+			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		}
+		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
+			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		}
+		l1Client, err = newL1Client(cfg.EthNode, chain, log)
+		if err != nil {
+			return nil, fmt.Errorf("create L1 client: %w", err)
+		}
+		if cfg.Metrics {
+			l1Client.WithEventListener(makeL1Metrics())
+		}
+
+		services = append(services, l1Client)
+		l1Reader = l1Client
+	}
+
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, l1Reader, gatewayClient, client, throttledVM, version, log)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
@@ -193,28 +219,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		db:         database,
 		blockchain: chain,
 		services:   services,
-	}
-
-	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-	} else {
-		var ethNodeURL *url.URL
-		ethNodeURL, err = url.Parse(n.cfg.EthNode)
-		if err != nil {
-			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
-		}
-		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + n.cfg.EthNode)
-		}
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(n.cfg.EthNode, n.blockchain, n.log)
-		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
-		}
-		if cfg.Metrics {
-			l1Client.WithEventListener(makeL1Metrics())
-		}
-		n.services = append(n.services, l1Client)
 	}
 
 	if cfg.P2P {
