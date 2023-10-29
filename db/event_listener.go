@@ -1,17 +1,15 @@
 package db
 
-import "time"
-
 type EventListener interface {
-	OnIO(write bool, duration time.Duration)
+	OnIO(write bool)
 }
 
 type SelectiveListener struct {
-	OnIOCb func(write bool, duration time.Duration)
+	OnIOCb func(write bool)
 }
 
-func (l *SelectiveListener) OnIO(write bool, duration time.Duration) {
+func (l *SelectiveListener) OnIO(write bool) {
 	if l.OnIOCb != nil {
-		l.OnIOCb(write, duration)
+		l.OnIOCb(write)
 	}
 }

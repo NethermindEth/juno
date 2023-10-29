@@ -1,7 +1,6 @@
 package node
 
 import (
-	"math"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -12,41 +11,22 @@ import (
 )
 
 func makeDBMetrics() db.EventListener {
-	latencyBuckets := []float64{
-		25,
-		50,
-		75,
-		100,
-		250,
-		500,
-		1000, // 1ms
-		2000,
-		3000,
-		4000,
-		5000,
-		10000,
-		50000,
-		500000,
-		math.Inf(0),
-	}
-	readLatencyHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
+	readCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "db",
-		Name:      "read_latency",
-		Buckets:   latencyBuckets,
+		Name:      "read",
 	})
-	writeLatencyHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
+	writeCounter := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "db",
-		Name:      "write_latency",
-		Buckets:   latencyBuckets,
+		Name:      "write",
 	})
+	prometheus.MustRegister(readCounter, writeCounter)
 
-	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram)
 	return &db.SelectiveListener{
-		OnIOCb: func(write bool, duration time.Duration) {
+		OnIOCb: func(write bool) {
 			if write {
-				writeLatencyHistogram.Observe(float64(duration.Microseconds()))
+				writeCounter.Inc()
 			} else {
-				readLatencyHistogram.Observe(float64(duration.Microseconds()))
+				readCounter.Inc()
 			}
 		},
 	}

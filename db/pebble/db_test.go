@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -22,7 +21,7 @@ type eventListener struct {
 	ReadCount  int
 }
 
-func (l *eventListener) OnIO(write bool, _ time.Duration) {
+func (l *eventListener) OnIO(write bool) {
 	if write {
 		l.WriteCount++
 	} else {
