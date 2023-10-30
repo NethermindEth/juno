@@ -201,3 +201,27 @@ func TestPending(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, pending.Block.ParentHash)
 }
+
+func TestSubscribeNewHeads(t *testing.T) {
+	t.Parallel()
+	testDB := pebble.NewMemTest(t)
+	log := utils.NewNopZapLogger()
+	integration := utils.INTEGRATION
+	chain := blockchain.New(testDB, integration, log)
+	integrationClient := feeder.NewTestClient(t, integration)
+	gw := adaptfeeder.New(integrationClient)
+	syncer := sync.New(chain, gw, log, 0)
+
+	sub := syncer.SubscribeNewHeads()
+
+	// Receive on new block.
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	require.NoError(t, syncer.Run(ctx))
+	cancel()
+	got, ok := <-sub.Recv()
+	require.True(t, ok)
+	want, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	require.Equal(t, want.Header, got)
+	sub.Unsubscribe()
+}

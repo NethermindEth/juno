@@ -11,14 +11,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
 )
-
-// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
-type HeaderSubscription struct {
-	*feed.Subscription[*core.Header]
-}
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
@@ -49,8 +43,6 @@ type Reader interface {
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error)
 
 	Pending() (Pending, error)
-
-	SubscribeNewHeads() HeaderSubscription
 }
 
 var (
@@ -79,8 +71,6 @@ type Blockchain struct {
 	database db.DB
 
 	log utils.SimpleLogger
-
-	newHeads *feed.Feed[*core.Header]
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
@@ -89,7 +79,6 @@ func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockch
 		database: database,
 		network:  network,
 		log:      log,
-		newHeads: feed.New[*core.Header](),
 	}
 }
 
@@ -322,7 +311,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	err := b.database.Update(func(txn db.Transaction) error {
+	return b.database.Update(func(txn db.Transaction) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
@@ -357,10 +346,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
-	if err == nil {
-		b.newHeads.Send(block.Header)
-	}
-	return err
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -989,10 +974,4 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 		pending,
 		core.NewState(txn),
 	), txn.Discard, nil
-}
-
-func (b *Blockchain) SubscribeNewHeads() HeaderSubscription {
-	return HeaderSubscription{
-		Subscription: b.newHeads.Subscribe(),
-	}
 }
