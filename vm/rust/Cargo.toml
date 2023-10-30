@@ -9,7 +9,7 @@ edition = "2021"
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
 cached = "0.44.0"
-blockifier = {git = "https://github.com/starkware-libs/blockifier", rev = "72c7b4f4"}
+blockifier = {git = "https://github.com/starkware-libs/blockifier", rev = "4fe4a667c024caa"}
 starknet_api = "0.3.0"
 cairo-vm = "0.8.2"
 cairo-lang-casm = "2.1.0"
