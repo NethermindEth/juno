@@ -12,6 +12,7 @@ import (
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
+	sync "github.com/NethermindEth/juno/sync"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -65,4 +66,18 @@ func (m *MockSyncReader) StartingBlockNumber() (uint64, error) {
 func (mr *MockSyncReaderMockRecorder) StartingBlockNumber() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingBlockNumber", reflect.TypeOf((*MockSyncReader)(nil).StartingBlockNumber))
+}
+
+// SubscribeNewHeads mocks base method.
+func (m *MockSyncReader) SubscribeNewHeads() sync.HeaderSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeNewHeads")
+	ret0, _ := ret[0].(sync.HeaderSubscription)
+	return ret0
+}
+
+// SubscribeNewHeads indicates an expected call of SubscribeNewHeads.
+func (mr *MockSyncReaderMockRecorder) SubscribeNewHeads() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewHeads", reflect.TypeOf((*MockSyncReader)(nil).SubscribeNewHeads))
 }

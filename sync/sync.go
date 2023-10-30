@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
@@ -28,10 +29,16 @@ const (
 	OpFetch  = "fetch"
 )
 
+// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
+type HeaderSubscription struct {
+	*feed.Subscription[*core.Header]
+}
+
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
+	SubscribeNewHeads() HeaderSubscription
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -40,6 +47,7 @@ type Synchronizer struct {
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
+	newHeads            *feed.Feed[*core.Header]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -55,6 +63,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		blockchain:          bc,
 		starknetData:        starkNetData,
 		log:                 log,
+		newHeads:            feed.New[*core.Header](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 	}
@@ -198,6 +207,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
 			}
 
+			s.newHeads.Send(block.Header)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
@@ -400,4 +410,10 @@ func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
 
 func (s *Synchronizer) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
+}
+
+func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
+	return HeaderSubscription{
+		Subscription: s.newHeads.Subscribe(),
+	}
 }
