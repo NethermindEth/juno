@@ -4,11 +4,10 @@ import (
 	"crypto/rand"
 	"slices"
 
-	"github.com/NethermindEth/juno/core/felt"
-
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"google.golang.org/protobuf/proto"
@@ -143,20 +142,56 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 	}, true
 }
 
+type contractDiff struct {
+	address      *felt.Felt
+	classHash    *felt.Felt
+	storageDiffs []core.StorageDiff
+	nonce        *felt.Felt
+}
+
 func (b *blockBodyIterator) diff() (proto.Message, bool) {
+	var err error
 	diff := b.stateUpdate.StateDiff
 
-	var contractDiffs []*spec.StateDiff_ContractDiff
-	contractPairs := utils.Flatten(diff.DeployedContracts, diff.ReplacedClasses)
-	for _, pair := range contractPairs {
-		addr := *pair.Address
-		contractDiff := core2p2p.AdaptStateDiff(
-			pair,
-			diff.Nonces[addr],
-			diff.StorageDiffs[addr],
-		)
+	modifiedContracts := make(map[felt.Felt]*contractDiff)
+	initContractDiff := func(addr *felt.Felt) (*contractDiff, error) {
+		var cHash *felt.Felt
+		cHash, err = b.stateReader.ContractClassHash(addr)
+		if err != nil {
+			return nil, err
+		}
+		return &contractDiff{address: addr, classHash: cHash}, nil
+	}
 
-		contractDiffs = append(contractDiffs, contractDiff)
+	for addr, n := range diff.Nonces {
+		cDiff, ok := modifiedContracts[addr]
+		if !ok {
+			cDiff, err = initContractDiff(&addr)
+			if err != nil {
+				b.log.Errorw("Failed to get class hash", "err", err)
+				return b.fin()
+			}
+			modifiedContracts[addr] = cDiff
+		}
+		cDiff.nonce = n
+	}
+
+	for addr, sDiff := range diff.StorageDiffs {
+		cDiff, ok := modifiedContracts[addr]
+		if !ok {
+			cDiff, err = initContractDiff(&addr)
+			if err != nil {
+				b.log.Errorw("Failed to get class hash", "err", err)
+				return b.fin()
+			}
+			modifiedContracts[addr] = cDiff
+		}
+		cDiff.storageDiffs = sDiff
+	}
+
+	var contractDiffs []*spec.StateDiff_ContractDiff
+	for _, c := range modifiedContracts {
+		contractDiffs = append(contractDiffs, core2p2p.AdaptStateDiff(c.address, c.classHash, c.nonce, c.storageDiffs))
 	}
 
 	return &spec.BlockBodiesResponse{

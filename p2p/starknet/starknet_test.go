@@ -241,7 +241,10 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 				Class: cairo1Class,
 			}, nil)
 
-			mockReader.EXPECT().StateAtBlockNumber(block.number).Return(stateHistory, nopCloser, nil)
+			stateHistory.EXPECT().ContractClassHash(deployedAddress).Return(deployedClassHash, nil).AnyTimes()
+			stateHistory.EXPECT().ContractClassHash(replacedAddress).Return(replacedClassHash, nil).AnyTimes()
+
+			mockReader.EXPECT().StateAtBlockNumber(block.number).Return(stateHistory, nopCloser, nil).Times(2)
 		}
 
 		res, cErr := client.RequestBlockBodies(testCtx, &spec.BlockBodiesRequest{

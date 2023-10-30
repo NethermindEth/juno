@@ -7,11 +7,11 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(pair core.AddressClassHashPair, nonce *felt.Felt, diff []core.StorageDiff) *spec.StateDiff_ContractDiff {
+func AdaptStateDiff(addr, classHash, nonce *felt.Felt, diff []core.StorageDiff) *spec.StateDiff_ContractDiff {
 	return &spec.StateDiff_ContractDiff{
-		Address:   AdaptAddress(pair.Address),
+		Address:   AdaptAddress(addr),
 		Nonce:     AdaptFelt(nonce),
-		ClassHash: AdaptFelt(pair.ClassHash),
+		ClassHash: AdaptFelt(classHash),
 		Values:    AdaptStorageDiff(diff),
 	}
 }
