@@ -205,18 +205,37 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 }
 
 func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
+	blockchainIt, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	fin := h.newFin(&spec.ReceiptsResponse{Responses: &spec.ReceiptsResponse_Fin{}})
+
 	return func() (proto.Message, bool) {
-		if count > 3 {
-			return nil, false
+		if !blockchainIt.Valid() {
+			return fin()
 		}
-		count++
-		return &spec.ReceiptsResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
-			},
-		}, true
+
+		b, err := blockchainIt.Block()
+		if err != nil {
+			h.log.Errorw("Failed to fetch block", "block number", b.Number, "err", err)
+			return fin()
+		}
+		blockchainIt.Next()
+
+		receipts := make([]*spec.Receipt, len(b.Receipts))
+		for i := 0; i < len(b.Receipts); i++ {
+			receipts[i] = core2p2p.AdaptReceipt(b.Receipts[i], b.Transactions[i])
+		}
+
+		rs := &spec.Receipts{Items: receipts}
+		res := &spec.ReceiptsResponse{
+			Id:        core2p2p.AdaptBlockID(b.Header),
+			Responses: &spec.ReceiptsResponse_Receipts{Receipts: rs},
+		}
+
+		return res, true
 	}, nil
 }
 
