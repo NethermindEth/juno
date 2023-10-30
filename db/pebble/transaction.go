@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
@@ -53,6 +54,7 @@ func (t *Transaction) Commit() error {
 
 // Set : see db.Transaction.Set
 func (t *Transaction) Set(key, val []byte) error {
+	start := time.Now()
 	if t.batch == nil {
 		return errors.New("read only transaction")
 	}
@@ -60,22 +62,24 @@ func (t *Transaction) Set(key, val []byte) error {
 		return errors.New("empty key")
 	}
 
-	t.listener.OnIO(true)
+	defer func() { t.listener.OnIO(true, time.Since(start)) }()
 	return t.batch.Set(key, val, pebble.Sync)
 }
 
 // Delete : see db.Transaction.Delete
 func (t *Transaction) Delete(key []byte) error {
+	start := time.Now()
 	if t.batch == nil {
 		return errors.New("read only transaction")
 	}
 
-	t.listener.OnIO(true)
+	defer func() { t.listener.OnIO(true, time.Since(start)) }()
 	return t.batch.Delete(key, pebble.Sync)
 }
 
 // Get : see db.Transaction.Get
 func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
+	start := time.Now()
 	var val []byte
 	var closer io.Closer
 
@@ -88,7 +92,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 		return ErrDiscardedTransaction
 	}
 
-	t.listener.OnIO(false)
+	defer func() { t.listener.OnIO(false, time.Since(start)) }()
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return db.ErrKeyNotFound
