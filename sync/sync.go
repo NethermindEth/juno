@@ -171,7 +171,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
@@ -185,7 +184,10 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				}
 				resetStreams()
 				return
+			} else {
+				s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 			}
+
 			highestBlockHeader := s.highestBlockHeader.Load()
 			if highestBlockHeader != nil {
 				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
