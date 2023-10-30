@@ -157,6 +157,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 ) stream.Callback {
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+	s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
 	return func() {
 		select {
 		case <-ctx.Done():
@@ -166,8 +167,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
 				resetStreams()
 				return
-			} else {
-				s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
@@ -184,9 +183,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				}
 				resetStreams()
 				return
-			} else {
-				s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 			}
+			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			highestBlockHeader := s.highestBlockHeader.Load()
 			if highestBlockHeader != nil {
