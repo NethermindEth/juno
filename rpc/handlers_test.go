@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -2327,10 +2328,9 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	su, block, err := gw.StateUpdateWithBlock(ctx, 0)
-	require.NoError(t, err)
 	chain := blockchain.New(pebble.NewMemTest(t), network, log)
-	handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+	syncer := sync.New(chain, gw, log, 0)
+	handler := rpc.New(chain, syncer, network, nil, nil, nil, "", log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))
 	}()
@@ -2349,19 +2349,31 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.Zero(t, id)
 	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
 
+	// Sync blocks and then revert head.
+	// This is a super hacky way to deterministically receive a single block on the subscription.
+	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	require.NoError(t, syncer.Run(syncCtx))
+	syncCancel()
+	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
+	// But it works.
+	require.NoError(t, chain.RevertHead())
+
 	// Subscribe.
 	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 	id, rpcErr = handler.SubscribeNewHeads(subCtx)
 	require.Nil(t, rpcErr)
 
-	// Sync block.
-	require.NoError(t, chain.Store(block, nil, su, nil))
+	// Sync the block we reverted above.
+	syncCtx, syncCancel = context.WithTimeout(context.Background(), 250*time.Millisecond)
+	require.NoError(t, syncer.Run(syncCtx))
+	syncCancel()
 
 	// Receive a block header.
-	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_wei":"0x0"}},"subscription":%d}}`
+	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_wei":"0x0"}},"subscription":%d}}`
 	want = fmt.Sprintf(want, id)
 	got := make([]byte, len(want))
-	_, err = clientConn.Read(got)
+	_, err := clientConn.Read(got)
 	require.NoError(t, err)
 	require.Equal(t, want, string(got))
 
@@ -2395,16 +2407,25 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(feederClient)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	su, block, err := gw.StateUpdateWithBlock(ctx, 0)
-	require.NoError(t, err)
 	chain := blockchain.New(pebble.NewMemTest(t), network, log)
-	handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+	syncer := sync.New(chain, gw, log, 0)
+	handler := rpc.New(chain, syncer, network, nil, nil, nil, "", log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))
 	}()
 	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
 	// Sleep for a moment just in case.
 	time.Sleep(50 * time.Millisecond)
+
+	// Sync blocks and then revert head.
+	// This is a super hacky way to deterministically receive a single block on the subscription.
+	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	require.NoError(t, syncer.Run(syncCtx))
+	syncCancel()
+	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
+	// But it works.
+	require.NoError(t, chain.RevertHead())
 
 	server := jsonrpc.NewServer(1, log)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
@@ -2442,19 +2463,21 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, secondWant, string(secondGot))
 
-	// Sync block.
-	require.NoError(t, chain.Store(block, nil, su, nil))
+	// Now we're subscribed. Sync the block we reverted above.
+	syncCtx, syncCancel = context.WithTimeout(context.Background(), 250*time.Millisecond)
+	require.NoError(t, syncer.Run(syncCtx))
+	syncCancel()
 
 	// Receive a block header.
-	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_wei":"0x0"}},"subscription":%d}}`
+	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_wei":"0x0"}},"subscription":%d}}`
 	firstWant = fmt.Sprintf(want, firstID)
 	_, firstGot, err = conn1.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, []byte(firstWant), firstGot)
+	require.Equal(t, firstWant, string(firstGot))
 	secondWant = fmt.Sprintf(want, secondID)
 	_, secondGot, err = conn2.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, []byte(secondWant), secondGot)
+	require.Equal(t, secondWant, string(secondGot))
 
 	// Unsubscribe
 	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"juno_unsubscribe","params":[%d]}`
