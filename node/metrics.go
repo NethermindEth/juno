@@ -39,8 +39,26 @@ func makeDBMetrics() db.EventListener {
 		Name:      "write_latency",
 		Buckets:   latencyBuckets,
 	})
+	commitLatency := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "db",
+		Name:      "commit_latency",
+		Buckets: []float64{
+			5000,
+			10000,
+			20000,
+			30000,
+			40000,
+			50000,
+			100000, // 100ms
+			200000,
+			300000,
+			500000,
+			1000000,
+			math.Inf(0),
+		},
+	})
 
-	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram)
+	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency)
 	return &db.SelectiveListener{
 		OnIOCb: func(write bool, duration time.Duration) {
 			if write {
@@ -48,6 +66,9 @@ func makeDBMetrics() db.EventListener {
 			} else {
 				readLatencyHistogram.Observe(float64(duration.Microseconds()))
 			}
+		},
+		OnCommitCb: func(duration time.Duration) {
+			commitLatency.Observe(float64(duration.Microseconds()))
 		},
 	}
 }
