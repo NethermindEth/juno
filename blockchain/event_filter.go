@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -19,6 +20,7 @@ type EventFilter struct {
 	toBlock         uint64
 	contractAddress *felt.Felt
 	keys            [][]felt.Felt
+	maxScanned      uint // maximum number of scanned blocks in single call.
 }
 
 type EventFilterRange uint
@@ -35,7 +37,14 @@ func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]fel
 		keys:            keys,
 		fromBlock:       fromBlock,
 		toBlock:         toBlock,
+		maxScanned:      math.MaxUint,
 	}
+}
+
+// WithLimit sets the limit for events scan
+func (e *EventFilter) WithLimit(limit uint) *EventFilter {
+	e.maxScanned = limit
+	return e
 }
 
 // SetRangeEndBlockByNumber sets an end of the block range by block number
@@ -85,6 +94,7 @@ type FilteredEvent struct {
 	TransactionHash *felt.Felt
 }
 
+//nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
 	latest, err := chainHeight(e.txn)
@@ -111,7 +121,12 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		curBlock = cToken.fromBlock
 	}
 
-	for ; curBlock <= e.toBlock; curBlock++ {
+	var (
+		processedEvents        uint64
+		remainingScannedBlocks = e.maxScanned
+		rToken                 *ContinuationToken
+	)
+	for ; curBlock <= e.toBlock && remainingScannedBlocks > 0; curBlock, remainingScannedBlocks = curBlock+1, remainingScannedBlocks-1 {
 		var header *core.Header
 		if curBlock != latest+1 {
 			header, err = blockHeaderByNumber(e.txn, curBlock)
@@ -137,19 +152,20 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 			receipts = pending.Block.Receipts
 		}
 
-		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.appendBlockEvents(matchedEvents, header, receipts, filterKeysMaps, cToken, chunkSize)
 		if err != nil {
 			if errors.Is(err, errChunkSizeReached) {
-				return matchedEvents, &ContinuationToken{
-					fromBlock:       curBlock,
-					processedEvents: processedEvents,
-				}, nil
+				rToken = &ContinuationToken{fromBlock: curBlock, processedEvents: processedEvents}
+				break
 			}
 			return nil, nil, err
 		}
 	}
-	return matchedEvents, nil, nil
+
+	if remainingScannedBlocks == 0 && curBlock <= e.toBlock {
+		rToken = &ContinuationToken{fromBlock: curBlock, processedEvents: processedEvents}
+	}
+	return matchedEvents, rToken, nil
 }
 
 func (e *EventFilter) testBloom(bloomFilter *bloom.BloomFilter, keysMap []map[felt.Felt]struct{}) bool {

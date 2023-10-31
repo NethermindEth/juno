@@ -43,6 +43,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
 	defaultMaxVMs := uint(runtime.GOMAXPROCS(0))
+	defaultRPCMaxBlockScan := uint(512)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -75,6 +76,7 @@ func TestConfigPrecedence(t *testing.T) {
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"config file path is empty string": {
@@ -101,6 +103,7 @@ func TestConfigPrecedence(t *testing.T) {
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"config file doesn't exist": {
@@ -132,6 +135,7 @@ func TestConfigPrecedence(t *testing.T) {
 				PprofPort:           defaultPprofPort,
 				DatabasePath:        defaultDBPath,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -165,6 +169,7 @@ pprof: true
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -195,6 +200,7 @@ http-port: 4576
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"all flags without config file": {
@@ -203,26 +209,27 @@ http-port: 4576
 				"--db-path", "/home/.juno", "--network", "goerli", "--pprof",
 			},
 			expectedConfig: &node.Config{
-				LogLevel:      utils.DEBUG,
-				HTTP:          defaultHTTP,
-				HTTPHost:      "0.0.0.0",
-				HTTPPort:      4576,
-				Websocket:     defaultWS,
-				WebsocketHost: defaultHost,
-				WebsocketPort: defaultWSPort,
-				GRPC:          defaultGRPC,
-				GRPCHost:      defaultHost,
-				GRPCPort:      defaultGRPCPort,
-				Metrics:       defaultMetrics,
-				MetricsHost:   defaultHost,
-				MetricsPort:   defaultMetricsPort,
-				DatabasePath:  "/home/.juno",
-				Network:       utils.GOERLI,
-				Pprof:         true,
-				PprofHost:     defaultHost,
-				PprofPort:     defaultPprofPort,
-				Colour:        defaultColour,
-				MaxVMs:        defaultMaxVMs,
+				LogLevel:        utils.DEBUG,
+				HTTP:            defaultHTTP,
+				HTTPHost:        "0.0.0.0",
+				HTTPPort:        4576,
+				Websocket:       defaultWS,
+				WebsocketHost:   defaultHost,
+				WebsocketPort:   defaultWSPort,
+				GRPC:            defaultGRPC,
+				GRPCHost:        defaultHost,
+				GRPCPort:        defaultGRPCPort,
+				Metrics:         defaultMetrics,
+				MetricsHost:     defaultHost,
+				MetricsPort:     defaultMetricsPort,
+				DatabasePath:    "/home/.juno",
+				Network:         utils.GOERLI,
+				Pprof:           true,
+				PprofHost:       defaultHost,
+				PprofPort:       defaultPprofPort,
+				Colour:          defaultColour,
+				MaxVMs:          defaultMaxVMs,
+				RPCMaxBlockScan: defaultRPCMaxBlockScan,
 			},
 		},
 		"some flags without config file": {
@@ -252,6 +259,7 @@ http-port: 4576
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -303,6 +311,7 @@ pending-poll-interval: 5s
 				Colour:              defaultColour,
 				PendingPollInterval: time.Millisecond,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -335,6 +344,7 @@ network: goerli
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -363,6 +373,7 @@ network: goerli
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
 				MaxVMs:              defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 			},
 		},
 	}

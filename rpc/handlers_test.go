@@ -1723,6 +1723,23 @@ func TestEvents(t *testing.T) {
 		require.Nil(t, events)
 	})
 
+	t.Run("filter with limit", func(t *testing.T) {
+		handler = handler.WithFilterLimit(1)
+		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+		args.ChunkSize = 100
+		args.Keys = make([][]felt.Felt, 0)
+		args.Keys = append(args.Keys, []felt.Felt{*key})
+		events, err := handler.Events(args)
+		require.Nil(t, err)
+		require.NotEmpty(t, events.ContinuationToken)
+		require.Empty(t, events.Events)
+		handler = handler.WithFilterLimit(7)
+		events, err = handler.Events(args)
+		require.Nil(t, err)
+		require.Empty(t, events.ContinuationToken)
+		require.NotEmpty(t, events.Events)
+	})
+
 	t.Run("get pending events without pagination", func(t *testing.T) {
 		args = rpc.EventsArg{
 			EventFilter: rpc.EventFilter{
