@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"slices"
 	stdsync "sync"
 
@@ -93,6 +94,8 @@ type Handler struct {
 	subscriptions map[uint64]*subscription
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+
+	filterLimit uint
 }
 
 type subscription struct {
@@ -123,7 +126,14 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
+		filterLimit:     math.MaxUint,
 	}
+}
+
+// WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
+func (h *Handler) WithFilterLimit(limit uint) *Handler {
+	h.filterLimit = limit
+	return h
 }
 
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
@@ -918,6 +928,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if err != nil {
 		return nil, ErrInternal
 	}
+	filter = filter.WithLimit(h.filterLimit)
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events")
 
 	var cToken *blockchain.ContinuationToken
