@@ -168,3 +168,12 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		},
 	}
 }
+
+func makeJunoMetrics(version string) {
+	prometheus.MustRegister(prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace:   "juno",
+		Name:        "info",
+		Help:        "Information about the Juno binary",
+		ConstLabels: prometheus.Labels{"version": version},
+	}))
+}
