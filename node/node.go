@@ -73,6 +73,8 @@ type Config struct {
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
 
 	MaxVMs uint `mapstructure:"max-vms"`
+
+	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
 }
 
 type Node struct {
@@ -122,6 +124,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMs))
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
+	// set filter limit if provided
+	if cfg.RPCMaxBlockScan > 0 {
+		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
+	}
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
