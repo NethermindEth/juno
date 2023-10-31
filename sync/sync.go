@@ -166,7 +166,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 ) stream.Callback {
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	if err == nil {
+		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	}
 	return func() {
 		select {
 		case <-ctx.Done():
@@ -179,7 +181,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
@@ -194,6 +195,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+
 			highestBlockHeader := s.highestBlockHeader.Load()
 			if highestBlockHeader != nil {
 				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
