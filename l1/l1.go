@@ -76,13 +76,12 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 }
 
 func (c *Client) checkChainID(ctx context.Context) error {
-	retryAttempts := 3
-
-	for i := 0; i < retryAttempts; i++ {
+	for {
+		backOffDuration := time.Duration(1) * time.Second
 		gotChainID, err := c.l1.ChainID(ctx)
 		if err != nil {
 			c.log.Warnw("Failed to retrieve Ethereum chain ID: ", err)
-			backOffDuration := time.Duration(i+1) * time.Second
+			backOffDuration *= 2
 			time.Sleep(backOffDuration)
 			continue
 		}
@@ -96,8 +95,6 @@ func (c *Client) checkChainID(ctx context.Context) error {
 		// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
 		return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network)
 	}
-
-	return fmt.Errorf("retried %d times but failed to retrieve Ethereum chain ID", retryAttempts)
 }
 
 func (c *Client) Run(ctx context.Context) error {
