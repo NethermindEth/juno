@@ -2496,7 +2496,6 @@ func TestTraceFallback(t *testing.T) {
 	handler := rpc.New(mockReader, nil, network, nil, client, nil, "", nil)
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-		fmt.Println("adasd", number)
 		return gateway.BlockByNumber(context.Background(), number)
 	}).AnyTimes()
 	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
