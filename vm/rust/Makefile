@@ -7,5 +7,14 @@ debug:
 check:
 	cargo check --release
 
+lint:
+	cargo clippy
+
 clean:
 	cargo clean
+
+format:
+	cargo fmt
+
+install-rustfmt:
+	cargo install rustfmt

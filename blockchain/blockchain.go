@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/event"
 )
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -39,6 +38,8 @@ type Reader interface {
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 	PendingState() (core.StateReader, StateCloser, error)
 
+	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
+
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error)
 
 	Pending() (Pending, error)
@@ -46,7 +47,7 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	supportedStarknetVersion  = semver.MustParse("0.12.2")
+	supportedStarknetVersion  = semver.MustParse("0.12.3")
 )
 
 func checkBlockVersion(protocolVersion string) error {
@@ -70,8 +71,6 @@ type Blockchain struct {
 	database db.DB
 
 	log utils.SimpleLogger
-
-	newHeads event.FeedOf[*core.Header]
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
@@ -322,7 +321,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
-		b.newHeads.Send(block.Header)
 
 		for i, tx := range block.Transactions {
 			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
@@ -846,8 +844,6 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	if err != nil {
 		return err
 	}
-	b.newHeads.Send(newHeader)
-
 	if err := storeEmptyPending(txn, newHeader); err != nil {
 		return err
 	}
@@ -905,10 +901,10 @@ func storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
 			StateDiff: &core.StateDiff{
 				StorageDiffs:      make(map[felt.Felt][]core.StorageDiff, 0),
 				Nonces:            make(map[felt.Felt]*felt.Felt, 0),
-				DeployedContracts: make([]core.DeployedContract, 0),
+				DeployedContracts: make([]core.AddressClassHashPair, 0),
 				DeclaredV0Classes: make([]*felt.Felt, 0),
 				DeclaredV1Classes: make([]core.DeclaredV1Class, 0),
-				ReplacedClasses:   make([]core.ReplacedClass, 0),
+				ReplacedClasses:   make([]core.AddressClassHashPair, 0),
 			},
 		},
 		NewClasses: make(map[felt.Felt]core.Class, 0),
@@ -978,8 +974,4 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 		pending,
 		core.NewState(txn),
 	), txn.Discard, nil
-}
-
-func (b *Blockchain) SubscribeNewHeads(sink chan<- *core.Header) event.Subscription {
-	return b.newHeads.Subscribe(sink)
 }

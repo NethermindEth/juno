@@ -10,11 +10,10 @@ import (
 )
 
 func TestHistory(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
 	})
 
 	history := &history{txn: txn}

@@ -87,7 +87,7 @@ pub extern "C" fn cairoVMCall(
         class_hash: None,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: INITIAL_GAS_COST.into(),
+        initial_gas: INITIAL_GAS_COST,
     };
 
     const GAS_PRICE: u128 = 1;
@@ -130,14 +130,15 @@ pub extern "C" fn cairoVMExecute(
     paid_fees_on_l1_json: *const c_char,
     skip_charge_fee: c_uchar,
     gas_price: *const c_uchar,
+    legacy_json: c_uchar,
 ) {
     let reader = JunoStateReader::new(reader_handle);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let sn_api_txns: Result<Vec<StarknetApiTransaction>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
-    if sn_api_txns.is_err() {
-        report_error(reader_handle, sn_api_txns.unwrap_err().to_string().as_str());
+    if let Err(e) = sn_api_txns {
+        report_error(reader_handle, e.to_string().as_str());
         return;
     }
 
@@ -146,8 +147,8 @@ pub extern "C" fn cairoVMExecute(
         let classes_json_str = unsafe { CStr::from_ptr(classes_json) }.to_str().unwrap();
         classes = serde_json::from_str(classes_json_str);
     }
-    if classes.is_err() {
-        report_error(reader_handle, classes.unwrap_err().to_string().as_str());
+    if let Err(e) = classes {
+        report_error(reader_handle, e.to_string().as_str());
         return;
     }
 
@@ -194,8 +195,8 @@ pub extern "C" fn cairoVMExecute(
                     maybe_cc = contract_class_from_sierra_json(class_json_str.get())
                 };
 
-                if maybe_cc.is_err() {
-                    report_error(reader_handle, maybe_cc.unwrap_err().to_string().as_str());
+                if let Err(e) = maybe_cc {
+                    report_error(reader_handle, e.to_string().as_str());
                     return;
                 }
                 Some(maybe_cc.unwrap())
@@ -206,10 +207,7 @@ pub extern "C" fn cairoVMExecute(
         let paid_fee_on_l1: Option<Fee> = match sn_api_txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {
-                    report_error(
-                        reader_handle,
-                        "missing fee paid on l1b",
-                    );
+                    report_error(reader_handle, "missing fee paid on l1b");
                     return;
                 }
                 Some(*paid_fees_on_l1.remove(0))
@@ -218,15 +216,18 @@ pub extern "C" fn cairoVMExecute(
         };
 
         let txn = transaction_from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
-        if txn.is_err() {
-            report_error(reader_handle, txn.unwrap_err().to_string().as_str());
+        if let Err(e) = txn {
+            report_error(reader_handle, e.to_string().as_str());
             return;
         }
 
+        let mut txn_state = CachedState::create_transactional(&mut state);
         let res = match txn.unwrap() {
-            Transaction::AccountTransaction(t) => t.execute(&mut state, &block_context, charge_fee),
+            Transaction::AccountTransaction(t) => {
+                t.execute(&mut txn_state, &block_context, charge_fee)
+            }
             Transaction::L1HandlerTransaction(t) => {
-                t.execute(&mut state, &block_context, charge_fee)
+                t.execute(&mut txn_state, &block_context, charge_fee)
             }
         };
 
@@ -249,20 +250,30 @@ pub extern "C" fn cairoVMExecute(
                     t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context).unwrap();
                 }
 
-                unsafe {
-                    JunoAppendActualFee(
+                let actual_fee = t.actual_fee.0.into();
+                let mut trace = jsonrpc::new_transaction_trace(sn_api_txn, t, &mut txn_state);
+                if trace.is_err() {
+                    report_error(
                         reader_handle,
-                        felt_to_byte_array(&t.actual_fee.0.into()).as_ptr(),
+                        format!(
+                            "failed building txn state diff reason: {:?}",
+                            trace.err().unwrap()
+                        )
+                        .as_str(),
                     );
-
-                    append_trace(
-                        reader_handle,
-                        jsonrpc::new_transaction_trace(sn_api_txn, t),
-                        &mut trace_buffer,
-                    );
+                    return;
                 }
-            },
+
+                unsafe {
+                    JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
+                }
+                if legacy_json == 1 {
+                    trace.as_mut().unwrap().make_legacy()
+                }
+                append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
+            }
         }
+        txn_state.commit();
     }
 }
 
@@ -300,9 +311,13 @@ fn transaction_from_api(
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
-fn append_trace(reader_handle: usize, trace: jsonrpc::TransactionTrace, trace_buffer: &mut Vec<u8>) {
+fn append_trace(
+    reader_handle: usize,
+    trace: &jsonrpc::TransactionTrace,
+    trace_buffer: &mut Vec<u8>,
+) {
     trace_buffer.clear();
-    serde_json::to_writer(&mut *trace_buffer, &trace).unwrap();
+    serde_json::to_writer(&mut *trace_buffer, trace).unwrap();
 
     let ptr = trace_buffer.as_ptr();
     let len = trace_buffer.len();
@@ -341,7 +356,7 @@ fn build_block_context(
             .unwrap(),
         )
         .unwrap(),
-        gas_price: gas_price, // fixed gas price, so that we can return "consumed gas" to Go side
+        gas_price, // fixed gas price, so that we can return "consumed gas" to Go side
         vm_resource_fee_cost: HashMap::from([
             (N_STEPS_RESOURCE.to_string(), N_STEPS_FEE_WEIGHT),
             (OUTPUT_BUILTIN_NAME.to_string(), 0.0),
@@ -364,8 +379,8 @@ fn build_block_context(
             (KECCAK_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 2048.0),
         ])
         .into(),
-        invoke_tx_max_n_steps: 1_000_000,
-        validate_max_n_steps: 1_000_000,
+        invoke_tx_max_n_steps: 3_000_000,
+        validate_max_n_steps: 3_000_000,
         max_recursion_depth: 50,
     }
 }

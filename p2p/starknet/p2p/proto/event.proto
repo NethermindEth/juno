@@ -2,16 +2,25 @@ syntax = "proto3";
 import "p2p/proto/common.proto";
 
 message Event {
-    Felt252 from_address = 1;
+    Felt252  from_address = 1;
     repeated Felt252 keys = 2;
     repeated Felt252 data = 3;
 }
 
-message GetEvents {
-    BlockID id = 1;
+message EventsRequest {
+    Iteration iteration = 1;
+}
+
+message Events {
+    repeated Event items = 1;
 }
 
 // can be several in a single reply
-message Events {
-    repeated Event events = 2;
+message EventsResponse {
+    optional BlockID id = 1; // may not appear if Fin is sent to end the whole response
+
+    oneof responses {
+        Events events = 2;
+        Fin    fin    = 3;
+    }
 }

@@ -83,16 +83,16 @@ func (x *Event) GetData() []*Felt252 {
 	return nil
 }
 
-type GetEvents struct {
+type EventsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id *BlockID `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Iteration *Iteration `protobuf:"bytes,1,opt,name=iteration,proto3" json:"iteration,omitempty"`
 }
 
-func (x *GetEvents) Reset() {
-	*x = GetEvents{}
+func (x *EventsRequest) Reset() {
+	*x = EventsRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_p2p_proto_event_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -100,13 +100,13 @@ func (x *GetEvents) Reset() {
 	}
 }
 
-func (x *GetEvents) String() string {
+func (x *EventsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetEvents) ProtoMessage() {}
+func (*EventsRequest) ProtoMessage() {}
 
-func (x *GetEvents) ProtoReflect() protoreflect.Message {
+func (x *EventsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_p2p_proto_event_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -118,25 +118,24 @@ func (x *GetEvents) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetEvents.ProtoReflect.Descriptor instead.
-func (*GetEvents) Descriptor() ([]byte, []int) {
+// Deprecated: Use EventsRequest.ProtoReflect.Descriptor instead.
+func (*EventsRequest) Descriptor() ([]byte, []int) {
 	return file_p2p_proto_event_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *GetEvents) GetId() *BlockID {
+func (x *EventsRequest) GetIteration() *Iteration {
 	if x != nil {
-		return x.Id
+		return x.Iteration
 	}
 	return nil
 }
 
-// can be several in a single reply
 type Events struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Events []*Event `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	Items []*Event `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
 }
 
 func (x *Events) Reset() {
@@ -171,12 +170,102 @@ func (*Events) Descriptor() ([]byte, []int) {
 	return file_p2p_proto_event_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Events) GetEvents() []*Event {
+func (x *Events) GetItems() []*Event {
 	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+// can be several in a single reply
+type EventsResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id *BlockID `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"` // may not appear if Fin is sent to end the whole response
+	// Types that are assignable to Responses:
+	//
+	//	*EventsResponse_Events
+	//	*EventsResponse_Fin
+	Responses isEventsResponse_Responses `protobuf_oneof:"responses"`
+}
+
+func (x *EventsResponse) Reset() {
+	*x = EventsResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_event_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *EventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventsResponse) ProtoMessage() {}
+
+func (x *EventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_event_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventsResponse.ProtoReflect.Descriptor instead.
+func (*EventsResponse) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_event_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *EventsResponse) GetId() *BlockID {
+	if x != nil {
+		return x.Id
+	}
+	return nil
+}
+
+func (m *EventsResponse) GetResponses() isEventsResponse_Responses {
+	if m != nil {
+		return m.Responses
+	}
+	return nil
+}
+
+func (x *EventsResponse) GetEvents() *Events {
+	if x, ok := x.GetResponses().(*EventsResponse_Events); ok {
 		return x.Events
 	}
 	return nil
 }
+
+func (x *EventsResponse) GetFin() *Fin {
+	if x, ok := x.GetResponses().(*EventsResponse_Fin); ok {
+		return x.Fin
+	}
+	return nil
+}
+
+type isEventsResponse_Responses interface {
+	isEventsResponse_Responses()
+}
+
+type EventsResponse_Events struct {
+	Events *Events `protobuf:"bytes,2,opt,name=events,proto3,oneof"`
+}
+
+type EventsResponse_Fin struct {
+	Fin *Fin `protobuf:"bytes,3,opt,name=fin,proto3,oneof"`
+}
+
+func (*EventsResponse_Events) isEventsResponse_Responses() {}
+
+func (*EventsResponse_Fin) isEventsResponse_Responses() {}
 
 var File_p2p_proto_event_proto protoreflect.FileDescriptor
 
@@ -191,12 +280,21 @@ var file_p2p_proto_event_proto_rawDesc = []byte{
 	0x03, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x04, 0x6b,
 	0x65, 0x79, 0x73, 0x12, 0x1c, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x03, 0x20, 0x03, 0x28,
 	0x0b, 0x32, 0x08, 0x2e, 0x46, 0x65, 0x6c, 0x74, 0x32, 0x35, 0x32, 0x52, 0x04, 0x64, 0x61, 0x74,
-	0x61, 0x22, 0x25, 0x0a, 0x09, 0x47, 0x65, 0x74, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x18,
-	0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x42, 0x6c, 0x6f,
-	0x63, 0x6b, 0x49, 0x44, 0x52, 0x02, 0x69, 0x64, 0x22, 0x28, 0x0a, 0x06, 0x45, 0x76, 0x65, 0x6e,
-	0x74, 0x73, 0x12, 0x1e, 0x0a, 0x06, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x18, 0x02, 0x20, 0x03,
-	0x28, 0x0b, 0x32, 0x06, 0x2e, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x06, 0x65, 0x76, 0x65, 0x6e,
-	0x74, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x61, 0x22, 0x39, 0x0a, 0x0d, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x12, 0x28, 0x0a, 0x09, 0x69, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x49, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x52, 0x09, 0x69, 0x74, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x26, 0x0a, 0x06,
+	0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x1c, 0x0a, 0x05, 0x69, 0x74, 0x65, 0x6d, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x05, 0x69,
+	0x74, 0x65, 0x6d, 0x73, 0x22, 0x80, 0x01, 0x0a, 0x0e, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x49, 0x44, 0x48, 0x01, 0x52,
+	0x02, 0x69, 0x64, 0x88, 0x01, 0x01, 0x12, 0x21, 0x0a, 0x06, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x07, 0x2e, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x48,
+	0x00, 0x52, 0x06, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x12, 0x18, 0x0a, 0x03, 0x66, 0x69, 0x6e,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x04, 0x2e, 0x46, 0x69, 0x6e, 0x48, 0x00, 0x52, 0x03,
+	0x66, 0x69, 0x6e, 0x42, 0x0b, 0x0a, 0x09, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x73,
+	0x42, 0x05, 0x0a, 0x03, 0x5f, 0x69, 0x64, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -211,25 +309,31 @@ func file_p2p_proto_event_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_event_proto_rawDescData
 }
 
-var file_p2p_proto_event_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_p2p_proto_event_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_p2p_proto_event_proto_goTypes = []interface{}{
-	(*Event)(nil),     // 0: Event
-	(*GetEvents)(nil), // 1: GetEvents
-	(*Events)(nil),    // 2: Events
-	(*Felt252)(nil),   // 3: Felt252
-	(*BlockID)(nil),   // 4: BlockID
+	(*Event)(nil),          // 0: Event
+	(*EventsRequest)(nil),  // 1: EventsRequest
+	(*Events)(nil),         // 2: Events
+	(*EventsResponse)(nil), // 3: EventsResponse
+	(*Felt252)(nil),        // 4: Felt252
+	(*Iteration)(nil),      // 5: Iteration
+	(*BlockID)(nil),        // 6: BlockID
+	(*Fin)(nil),            // 7: Fin
 }
 var file_p2p_proto_event_proto_depIdxs = []int32{
-	3, // 0: Event.from_address:type_name -> Felt252
-	3, // 1: Event.keys:type_name -> Felt252
-	3, // 2: Event.data:type_name -> Felt252
-	4, // 3: GetEvents.id:type_name -> BlockID
-	0, // 4: Events.events:type_name -> Event
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	4, // 0: Event.from_address:type_name -> Felt252
+	4, // 1: Event.keys:type_name -> Felt252
+	4, // 2: Event.data:type_name -> Felt252
+	5, // 3: EventsRequest.iteration:type_name -> Iteration
+	0, // 4: Events.items:type_name -> Event
+	6, // 5: EventsResponse.id:type_name -> BlockID
+	2, // 6: EventsResponse.events:type_name -> Events
+	7, // 7: EventsResponse.fin:type_name -> Fin
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_p2p_proto_event_proto_init() }
@@ -252,7 +356,7 @@ func file_p2p_proto_event_proto_init() {
 			}
 		}
 		file_p2p_proto_event_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetEvents); i {
+			switch v := v.(*EventsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -275,6 +379,22 @@ func file_p2p_proto_event_proto_init() {
 				return nil
 			}
 		}
+		file_p2p_proto_event_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*EventsResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+	}
+	file_p2p_proto_event_proto_msgTypes[3].OneofWrappers = []interface{}{
+		(*EventsResponse_Events)(nil),
+		(*EventsResponse_Fin)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -282,7 +402,7 @@ func file_p2p_proto_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_p2p_proto_event_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

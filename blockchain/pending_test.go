@@ -7,9 +7,9 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestPendingState(t *testing.T) {
@@ -19,6 +19,8 @@ func TestPendingState(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	deployedAddr, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
+	deployedAddr2, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 	deployedClassHash, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
@@ -34,13 +36,17 @@ func TestPendingState(t *testing.T) {
 			NewRoot:   nil,
 			OldRoot:   nil,
 			StateDiff: &core.StateDiff{
-				DeployedContracts: []core.DeployedContract{
+				DeployedContracts: []core.AddressClassHashPair{
 					{
 						Address:   deployedAddr,
 						ClassHash: deployedClassHash,
 					},
+					{
+						Address:   deployedAddr2,
+						ClassHash: deployedClassHash,
+					},
 				},
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   replacedAddr,
 						ClassHash: replacedClassHash,
@@ -71,6 +77,10 @@ func TestPendingState(t *testing.T) {
 				cH, cErr := state.ContractClassHash(deployedAddr)
 				require.NoError(t, cErr)
 				assert.Equal(t, deployedClassHash, cH)
+
+				cH, cErr = state.ContractClassHash(deployedAddr2)
+				require.NoError(t, cErr)
+				assert.Equal(t, deployedClassHash, cH)
 			})
 			t.Run("replaced", func(t *testing.T) {
 				cH, cErr := state.ContractClassHash(replacedAddr)
@@ -92,6 +102,10 @@ func TestPendingState(t *testing.T) {
 			cN, cErr := state.ContractNonce(deployedAddr)
 			require.NoError(t, cErr)
 			assert.Equal(t, new(felt.Felt).SetUint64(44), cN)
+
+			cN, cErr = state.ContractNonce(deployedAddr2)
+			require.NoError(t, cErr)
+			assert.Equal(t, &felt.Zero, cN)
 		})
 		t.Run("from head", func(t *testing.T) {
 			expectedNonce := new(felt.Felt).SetUint64(1337)
@@ -108,6 +122,14 @@ func TestPendingState(t *testing.T) {
 			cV, cErr := state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(44))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedValue, cV)
+
+			cV, cErr = state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(0xDEADBEEF))
+			require.NoError(t, cErr)
+			assert.Equal(t, &felt.Zero, cV)
+
+			cV, cErr = state.ContractStorage(deployedAddr2, new(felt.Felt).SetUint64(0xDEADBEEF))
+			require.NoError(t, cErr)
+			assert.Equal(t, &felt.Zero, cV)
 		})
 		t.Run("from head", func(t *testing.T) {
 			expectedValue := new(felt.Felt).SetUint64(0xDEADBEEF)

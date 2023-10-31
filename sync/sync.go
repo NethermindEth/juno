@@ -11,11 +11,10 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/metrics"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sourcegraph/conc/stream"
 )
 
@@ -25,15 +24,21 @@ var (
 )
 
 const (
-	opVerifyLabel = "verify"
-	opStoreLabel  = "store"
-	opFetchLabel  = "fetch"
+	OpVerify = "verify"
+	OpStore  = "store"
+	OpFetch  = "fetch"
 )
+
+// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
+type HeaderSubscription struct {
+	*feed.Subscription[*core.Header]
+}
 
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
+	SubscribeNewHeads() HeaderSubscription
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -42,20 +47,13 @@ type Synchronizer struct {
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
+	newHeads            *feed.Feed[*core.Header]
 
-	log utils.SimpleLogger
+	log      utils.SimpleLogger
+	listener EventListener
 
 	pendingPollInterval time.Duration
-
-	catchUpMode bool
-
-	// metrics
-	opTimerHistogram *prometheus.HistogramVec
-	blockCount       prometheus.Counter
-	chainHeightGauge prometheus.Gauge
-	bestBlockGauge   prometheus.Gauge
-	reorgCount       prometheus.Counter
-	transactionCount prometheus.Counter
+	catchUpMode         bool
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -65,41 +63,16 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		blockchain:          bc,
 		starknetData:        starkNetData,
 		log:                 log,
+		newHeads:            feed.New[*core.Header](),
 		pendingPollInterval: pendingPollInterval,
-
-		opTimerHistogram: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: "sync",
-			Name:      "timers",
-		}, []string{"op"}),
-		blockCount: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "sync",
-			Name:      "blocks",
-		}),
-		chainHeightGauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: "sync",
-			Name:      "blockchain_height",
-		}),
-		bestBlockGauge: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: "sync",
-			Name:      "best_known_block_number",
-		}),
-		reorgCount: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "sync",
-			Name:      "reorganisations",
-		}),
-		transactionCount: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "sync",
-			Name:      "transactions",
-		}),
+		listener:            &SelectiveListener{},
 	}
-	metrics.MustRegister(
-		s.opTimerHistogram,
-		s.blockCount,
-		s.chainHeightGauge,
-		s.bestBlockGauge,
-		s.reorgCount,
-		s.transactionCount,
-	)
+	return s
+}
+
+// WithListener registers an EventListener
+func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
+	s.listener = listener
 	return s
 }
 
@@ -191,9 +164,9 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
-	timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opVerifyLabel))
+	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	timer.ObserveDuration()
+	s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
 	return func() {
 		select {
 		case <-ctx.Done():
@@ -204,9 +177,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
-			timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opStoreLabel))
+			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			timer.ObserveDuration()
+			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
@@ -231,14 +204,12 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 
 			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
-				if s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header) {
-					s.bestBlockGauge.Set(float64(block.Header.Number))
-				}
+				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
 			}
 
+			s.newHeads.Send(block.Header)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
-			s.updateStats(block)
 		}
 	}
 }
@@ -290,9 +261,9 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
-				timer := prometheus.NewTimer(s.opTimerHistogram.WithLabelValues(opFetchLabel))
+				fetchTimer := time.Now()
 				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
-				timer.ObserveDuration()
+				s.listener.OnSyncStepDone(OpFetch, curHeight, time.Since(fetchTimer))
 				return cb
 			})
 			nextHeight++
@@ -331,7 +302,7 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
-	s.reorgCount.Inc()
+	s.listener.OnReorg(head.Number)
 }
 
 func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
@@ -377,7 +348,6 @@ func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
 				} else {
 					s.highestBlockHeader.Store(highestBlock.Header)
 				}
-				s.bestBlockGauge.Set(float64(highestBlock.Header.Number))
 			}()
 		default:
 		}
@@ -431,17 +401,6 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	})
 }
 
-func (s *Synchronizer) updateStats(block *core.Block) {
-	var (
-		transactions  = block.TransactionCount
-		currentHeight = block.Number
-	)
-
-	s.blockCount.Inc()
-	s.chainHeightGauge.Set(float64(currentHeight))
-	s.transactionCount.Add(float64(transactions))
-}
-
 func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
 	if s.startingBlockNumber == nil {
 		return 0, errors.New("not running")
@@ -451,4 +410,10 @@ func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
 
 func (s *Synchronizer) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
+}
+
+func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
+	return HeaderSubscription{
+		Subscription: s.newHeads.Subscribe(),
+	}
 }

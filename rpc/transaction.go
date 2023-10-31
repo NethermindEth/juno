@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
@@ -63,6 +64,30 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 		return errors.New("unknown TransactionType")
 	}
 	return nil
+}
+
+type TxnStatus uint8
+
+const (
+	TxnStatusAcceptedOnL1 TxnStatus = iota + 1
+	TxnStatusAcceptedOnL2
+	TxnStatusReceived
+	TxnStatusRejected
+)
+
+func (s TxnStatus) MarshalJSON() ([]byte, error) {
+	switch s {
+	case TxnStatusReceived:
+		return []byte(`"RECEIVED"`), nil
+	case TxnStatusRejected:
+		return []byte(`"REJECTED"`), nil
+	case TxnStatusAcceptedOnL1:
+		return []byte(`"ACCEPTED_ON_L1"`), nil
+	case TxnStatusAcceptedOnL2:
+		return []byte(`"ACCEPTED_ON_L2"`), nil
+	default:
+		return nil, errors.New("unknown ExecutionStatus")
+	}
 }
 
 type TxnExecutionStatus uint8
@@ -122,8 +147,8 @@ type Transaction struct {
 }
 
 type TransactionStatus struct {
-	Finality  TxnFinalityStatus  `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status"`
+	Finality  TxnStatus          `json:"finality_status"`
+	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
 type MsgFromL1 struct {
@@ -137,30 +162,50 @@ type MsgFromL1 struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt     `json:"from_address"`
+	From    *felt.Felt     `json:"from_address,omitempty"`
 	To      common.Address `json:"to_address"`
 	Payload []*felt.Felt   `json:"payload"`
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address"`
+	From *felt.Felt   `json:"from_address,omitempty"`
 	Keys []*felt.Felt `json:"keys"`
 	Data []*felt.Felt `json:"data"`
 }
 
+type NumAsHex uint64
+
+func (n NumAsHex) MarshalJSON() ([]byte, error) {
+	return []byte(`"0x` + strconv.FormatUint(uint64(n), 16) + `"`), nil
+}
+
+type ExecutionResources struct {
+	Steps       NumAsHex `json:"steps"`
+	MemoryHoles NumAsHex `json:"memory_holes"`
+	Pedersen    NumAsHex `json:"pedersen_builtin_applications"`
+	RangeCheck  NumAsHex `json:"range_check_builtin_applications"`
+	Bitwise     NumAsHex `json:"bitwise_builtin_applications"`
+	Ecsda       NumAsHex `json:"ecdsa_builtin_applications"`
+	EcOp        NumAsHex `json:"ec_op_builtin_applications"`
+	Keccak      NumAsHex `json:"keccak_builtin_applications"`
+	Poseidon    NumAsHex `json:"poseidon_builtin_applications"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type            TransactionType    `json:"type"`
-	Hash            *felt.Felt         `json:"transaction_hash"`
-	ActualFee       *felt.Felt         `json:"actual_fee"`
-	ExecutionStatus TxnExecutionStatus `json:"execution_status"`
-	FinalityStatus  TxnFinalityStatus  `json:"finality_status"`
-	BlockHash       *felt.Felt         `json:"block_hash,omitempty"`
-	BlockNumber     *uint64            `json:"block_number,omitempty"`
-	MessagesSent    []*MsgToL1         `json:"messages_sent"`
-	Events          []*Event           `json:"events"`
-	ContractAddress *felt.Felt         `json:"contract_address,omitempty"`
-	RevertReason    string             `json:"revert_reason,omitempty"`
+	Type               TransactionType     `json:"type"`
+	Hash               *felt.Felt          `json:"transaction_hash"`
+	ActualFee          *felt.Felt          `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
+	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
+	BlockNumber        *uint64             `json:"block_number,omitempty"`
+	MessagesSent       []*MsgToL1          `json:"messages_sent"`
+	Events             []*Event            `json:"events"`
+	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
+	RevertReason       string              `json:"revert_reason,omitempty"`
+	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
+	MessageHash        string              `json:"message_hash,omitempty"`
 }
 
 type AddTxResponse struct {
@@ -186,12 +231,12 @@ type FeeEstimate struct {
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn feeder.Transaction
+	var feederTxn starknet.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
 		return nil, nil, nil, err
 	}
 
-	txn, err := feeder2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(&feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}

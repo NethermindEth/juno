@@ -11,19 +11,19 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar) |
+| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.0_166353.tar) |
 
 ## Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
+| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
 
 ## Goerli2
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
 
 ## Run Juno Using Snapshot
 

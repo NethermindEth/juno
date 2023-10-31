@@ -7,8 +7,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-var _ Storage = (*TransactionStorage)(nil)
-
 // bufferPool caches unused buffer objects for later reuse.
 var bufferPool = sync.Pool{
 	New: func() any {
@@ -124,6 +122,13 @@ func (t *TransactionStorage) DeleteRootKey() error {
 	return t.txn.Delete(t.prefix)
 }
 
-func newMemStorage() Storage {
+func (t *TransactionStorage) SyncedStorage() *TransactionStorage {
+	return &TransactionStorage{
+		txn:    db.NewSyncTransaction(t.txn),
+		prefix: t.prefix,
+	}
+}
+
+func newMemStorage() *TransactionStorage {
 	return NewTransactionStorage(db.NewMemTransaction(), nil)
 }

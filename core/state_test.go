@@ -23,7 +23,7 @@ func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -152,7 +152,7 @@ func TestContractClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -192,7 +192,7 @@ func TestContractClassHash(t *testing.T) {
 			BlockHash: utils.HexToFelt(t, "0xDEADBEEF"),
 			NewRoot:   utils.HexToFelt(t, "0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b"),
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   su1.StateDiff.DeployedContracts[0].Address,
 						ClassHash: utils.HexToFelt(t, "0x1337"),
@@ -211,7 +211,7 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -226,7 +226,7 @@ func TestNonce(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.DeployedContract{
+			DeployedContracts: []core.AddressClassHashPair{
 				{
 					Address:   addr,
 					ClassHash: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
@@ -262,7 +262,7 @@ func TestNonce(t *testing.T) {
 }
 
 func TestStateHistory(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -316,7 +316,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -364,7 +364,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 }
 
 func TestClass(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -408,7 +408,7 @@ func TestClass(t *testing.T) {
 }
 
 func TestRevert(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -431,7 +431,7 @@ func TestRevert(t *testing.T) {
 			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   addr,
 						ClassHash: utils.HexToFelt(t, "0xDEADBEEF"),
@@ -555,7 +555,7 @@ func TestRevert(t *testing.T) {
 				return err
 			}
 			assert.False(t, it.Next())
-			return nil
+			return it.Close()
 		}))
 	})
 }
@@ -564,7 +564,7 @@ func TestRevertNoClassContracts(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -602,7 +602,7 @@ func TestRevertNoClassContracts(t *testing.T) {
 }
 
 func TestRevertDeclaredClasses(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())

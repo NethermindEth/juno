@@ -10,10 +10,7 @@ import (
 )
 
 func TestMigrateIfNeeded(t *testing.T) {
-	testDB := pebble.NewMemTest()
-	t.Cleanup(func() {
-		require.NoError(t, testDB.Close())
-	})
+	testDB := pebble.NewMemTest(t)
 
 	t.Run("Migration should happen on empty DB", func(t *testing.T) {
 		require.NoError(t, migration.MigrateIfNeeded(testDB, utils.MAINNET, utils.NewNopZapLogger()))

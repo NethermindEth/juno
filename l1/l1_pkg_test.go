@@ -15,9 +15,9 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type fakeSubscription struct {
@@ -337,7 +337,7 @@ func TestClient(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			nopLog := utils.NewNopZapLogger()
 			network := utils.MAINNET
-			chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
+			chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
 
 			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
@@ -398,7 +398,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.MAINNET
-	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
+	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
 	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	err := errors.New("test err")

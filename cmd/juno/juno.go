@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -60,7 +61,6 @@ const (
 	defaultHTTPPort            = 6060
 	defaultWS                  = false
 	defaultWSPort              = 6061
-	defaultDBPath              = ""
 	defaultEthNode             = ""
 	defaultPprof               = false
 	defaultPprofPort           = 6062
@@ -148,10 +148,17 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	}
 
 	var cfgFile string
+	var cwdErr error
 
 	// PreRunE populates the configuration struct from the Cobra flags and Viper configuration.
 	// This is called in step 3 of the process described above.
 	junoCmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
+		// If we couldn't find the current working directory and the database path is empty,
+		// return the error.
+		if cwdErr != nil && config.DatabasePath == "" {
+			return fmt.Errorf("find current working directory: %v", cwdErr)
+		}
+
 		v := viper.New()
 		if cfgFile != "" {
 			v.SetConfigType("yaml")
@@ -169,6 +176,15 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		// encoding.TextUnmarshaller interface (see the LogLevel type for an example).
 		return v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
 			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc())))
+	}
+
+	var defaultDBPath string
+	defaultDBPath, cwdErr = os.Getwd()
+	// Use empty string if we can't get the working directory.
+	// We don't want to return an error here since that would make `--help` fail.
+	// If the error is non-nil and a db path is not provided by the user, we'll return it in PreRunE.
+	if cwdErr == nil {
+		defaultDBPath = filepath.Join(defaultDBPath, "juno")
 	}
 
 	// For testing purposes, these variables cannot be declared outside the function because Cobra

@@ -44,6 +44,9 @@ func (p *PendingState) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 		return nonce, nil
 	}
 
+	if p.isDeployedInPending(addr) {
+		return &felt.Zero, nil
+	}
 	return p.head.ContractNonce(addr)
 }
 
@@ -56,6 +59,9 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 		}
 	}
 
+	if p.isDeployedInPending(addr) {
+		return &felt.Zero, nil
+	}
 	return p.head.ContractStorage(addr, key)
 }
 
@@ -68,4 +74,13 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	}
 
 	return p.head.Class(classHash)
+}
+
+func (p *PendingState) isDeployedInPending(addr *felt.Felt) bool {
+	for _, deployed := range p.pending.StateUpdate.StateDiff.DeployedContracts {
+		if deployed.Address.Equal(addr) {
+			return true
+		}
+	}
+	return false
 }

@@ -12,8 +12,8 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type fakeSubscription struct {
@@ -46,7 +46,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 	network := utils.MAINNET
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
+	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 
@@ -77,7 +77,7 @@ func TestMismatchedChainID(t *testing.T) {
 	network := utils.MAINNET
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(), network, nopLog)
+	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 

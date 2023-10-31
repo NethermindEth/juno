@@ -8,17 +8,18 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
 )
@@ -61,20 +62,54 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 	}
 }
 
-func makeRPCOverHTTP(host string, port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
-	httpHandler := jsonrpc.NewHTTP(jsonrpcServer, log)
-	mux := http.NewServeMux()
-	mux.Handle("/", httpHandler)
-	mux.Handle("/v0_4", httpHandler)
-	return makeHTTPService(host, port, mux)
+func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path {
+			http.NotFound(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}
 }
 
-func makeRPCOverWebsocket(host string, port uint16, jsonrpcServer *jsonrpc.Server, log utils.SimpleLogger) *httpService {
-	wsHandler := jsonrpc.NewWebsocket(jsonrpcServer, log)
+func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
+	log utils.SimpleLogger, metricsEnabled bool,
+) *httpService {
+	var listener jsonrpc.NewRequestListener
+	if metricsEnabled {
+		listener = makeHTTPMetrics()
+	}
+
 	mux := http.NewServeMux()
-	mux.Handle("/", wsHandler)
-	mux.Handle("/v0_4", wsHandler)
-	return makeHTTPService(host, port, mux)
+	for path, server := range servers {
+		httpHandler := jsonrpc.NewHTTP(server, log)
+		if listener != nil {
+			httpHandler = httpHandler.WithListener(listener)
+		}
+		mux.Handle(path, exactPathServer(path, httpHandler))
+	}
+	return makeHTTPService(host, port, cors.Default().Handler(mux))
+}
+
+func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
+	log utils.SimpleLogger, metricsEnabled bool,
+) *httpService {
+	var listener jsonrpc.NewRequestListener
+	if metricsEnabled {
+		listener = makeWSMetrics()
+	}
+
+	mux := http.NewServeMux()
+	for path, server := range servers {
+		wsHandler := jsonrpc.NewWebsocket(server, log)
+		if listener != nil {
+			wsHandler = wsHandler.WithListener(listener)
+		}
+		mux.Handle(path, exactPathServer(path, wsHandler))
+		wsPrefixedPath := strings.TrimSuffix("/ws"+path, "/")
+		mux.Handle(wsPrefixedPath, exactPathServer(wsPrefixedPath, wsHandler))
+	}
+	return makeHTTPService(host, port, cors.Default().Handler(mux))
 }
 
 func makeMetrics(host string, port uint16) *httpService {
@@ -134,148 +169,4 @@ func makePPROF(host string, port uint16) *httpService {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	return makeHTTPService(host, port, mux)
-}
-
-func methods(h *rpc.Handler) []jsonrpc.Method { //nolint: funlen
-	return []jsonrpc.Method{
-		{
-			Name:    "starknet_chainId",
-			Handler: h.ChainID,
-		},
-		{
-			Name:    "starknet_blockNumber",
-			Handler: h.BlockNumber,
-		},
-		{
-			Name:    "starknet_blockHashAndNumber",
-			Handler: h.BlockHashAndNumber,
-		},
-		{
-			Name:    "starknet_getBlockWithTxHashes",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxHashes,
-		},
-		{
-			Name:    "starknet_getBlockWithTxs",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxs,
-		},
-		{
-			Name:    "starknet_getTransactionByHash",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionByHash,
-		},
-		{
-			Name:    "starknet_getTransactionReceipt",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionReceiptByHash,
-		},
-		{
-			Name:    "starknet_getBlockTransactionCount",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockTransactionCount,
-		},
-		{
-			Name:    "starknet_getTransactionByBlockIdAndIndex",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			Handler: h.TransactionByBlockIDAndIndex,
-		},
-		{
-			Name:    "starknet_getStateUpdate",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.StateUpdate,
-		},
-		{
-			Name:    "starknet_syncing",
-			Handler: h.Syncing,
-		},
-		{
-			Name:    "starknet_getNonce",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.Nonce,
-		},
-		{
-			Name:    "starknet_getStorageAt",
-			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
-			Handler: h.StorageAt,
-		},
-		{
-			Name:    "starknet_getClassHashAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.ClassHashAt,
-		},
-		{
-			Name:    "starknet_getClass",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
-			Handler: h.Class,
-		},
-		{
-			Name:    "starknet_getClassAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.ClassAt,
-		},
-		{
-			Name:    "starknet_addInvokeTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: h.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeployAccountTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: h.AddTransaction,
-		},
-		{
-			Name:    "starknet_addDeclareTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: h.AddTransaction,
-		},
-		{
-			Name:    "starknet_getEvents",
-			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: h.Events,
-		},
-		{
-			Name:    "starknet_pendingTransactions",
-			Handler: h.PendingTransactions,
-		},
-		{
-			Name:    "juno_version",
-			Handler: h.Version,
-		},
-		{
-			Name:    "juno_getTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionStatus,
-		},
-		{
-			Name:    "starknet_call",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.Call,
-		},
-		{
-			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.EstimateFee,
-		},
-		{
-			Name:    "starknet_estimateMessageFee",
-			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.EstimateMessageFee,
-		},
-		{
-			Name:    "starknet_traceTransaction",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TraceTransaction,
-		},
-		{
-			Name:    "starknet_simulateTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.SimulateTransactions,
-		},
-		{
-			Name:    "starknet_traceBlockTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "block_hash"}},
-			Handler: h.TraceBlockTransactions,
-		},
-	}
 }

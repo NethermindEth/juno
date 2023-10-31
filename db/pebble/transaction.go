@@ -4,11 +4,11 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var ErrDiscardedTransaction = errors.New("discarded txn")
@@ -19,10 +19,7 @@ type Transaction struct {
 	batch    *pebble.Batch
 	snapshot *pebble.Snapshot
 	lock     *sync.Mutex
-
-	// metrics
-	readCounter  prometheus.Counter
-	writeCounter prometheus.Counter
+	listener db.EventListener
 }
 
 // Discard : see db.Transaction.Discard
@@ -57,6 +54,7 @@ func (t *Transaction) Commit() error {
 
 // Set : see db.Transaction.Set
 func (t *Transaction) Set(key, val []byte) error {
+	start := time.Now()
 	if t.batch == nil {
 		return errors.New("read only transaction")
 	}
@@ -64,26 +62,24 @@ func (t *Transaction) Set(key, val []byte) error {
 		return errors.New("empty key")
 	}
 
-	if t.writeCounter != nil {
-		t.writeCounter.Inc()
-	}
+	defer func() { t.listener.OnIO(true, time.Since(start)) }()
 	return t.batch.Set(key, val, pebble.Sync)
 }
 
 // Delete : see db.Transaction.Delete
 func (t *Transaction) Delete(key []byte) error {
+	start := time.Now()
 	if t.batch == nil {
 		return errors.New("read only transaction")
 	}
 
-	if t.writeCounter != nil {
-		t.writeCounter.Inc()
-	}
+	defer func() { t.listener.OnIO(true, time.Since(start)) }()
 	return t.batch.Delete(key, pebble.Sync)
 }
 
 // Get : see db.Transaction.Get
 func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
+	start := time.Now()
 	var val []byte
 	var closer io.Closer
 
@@ -96,9 +92,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 		return ErrDiscardedTransaction
 	}
 
-	if t.readCounter != nil {
-		t.readCounter.Inc()
-	}
+	defer func() { t.listener.OnIO(false, time.Since(start)) }()
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return db.ErrKeyNotFound

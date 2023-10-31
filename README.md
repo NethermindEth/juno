@@ -71,6 +71,7 @@ docker run -d \
   nethermind/juno \
   --http \
   --http-port 6060 \
+  --http-host 0.0.0.0 \
   --db-path /var/lib/juno \
   --eth-node <YOUR-ETH-NODE>
 ```
@@ -93,19 +94,19 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **49.2 GB** | **166353.tar** | [**juno_mainnet_166353.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar) |
+| **>=v0.6.0**  | **92 GB** | **313975** | [**juno_mainnet_313975.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.5_313975.tar) |
 
 #### Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
+| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
 
 #### Goerli2
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://pub-932514831f0f4245850f7a471132e564.r2.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
 
 ### Run Juno Using Snapshot
 
@@ -114,7 +115,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   curl -o juno_mainnet_166353.tar https://pub-932514831f0f4245850f7a471132e564.r2.dev/mainnet/juno_mainnet_v0.6.0_166353.tar
+   wget -O juno_mainnet_313975.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.5_313975.tar
    ```
 
 2. **Prepare Directory**
@@ -130,7 +131,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_166353.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet_313975.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**
@@ -154,7 +155,7 @@ After following these steps, Juno should be up and running on your machine, util
 ## ✔ Supported Features
 
 - Starknet [v0.12.2](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
-- JSON-RPC [v0.4.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.4.0):
+- JSON-RPC [v0.5.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.5.0)(Available under `/v0_5` endpoint)
   - `starknet_chainId`
   - `starknet_blockNumber`
   - `starknet_blockHashAndNumber`
@@ -167,6 +168,7 @@ After following these steps, Juno should be up and running on your machine, util
   - `starknet_getStateUpdate`
   - `starknet_getNonce`
   - `starknet_getStorageAt`
+  - `starknet_getTransactionStatus`
   - `starknet_getClassHashAt`
   - `starknet_getClass`
   - `starknet_getClassAt`
@@ -178,14 +180,14 @@ After following these steps, Juno should be up and running on your machine, util
   - `starknet_addDeclareTransaction`
   - `starknet_addDeployAccountTransaction`
   - `starkent_estimateMessageFee`
-  - `starknet_pendingTransactions`
   - `starknet_traceTransaction`
   - `starknet_traceBlockTransactions`
   - `starknet_simulateTransactions`
+  - `starknet_specVersion` 
   
 - Juno's JSON-RPC:
   - `juno_version`
-  - `juno_getTransactionStatus`
+- JSON-RPC [v0.4.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.4.0) (Available under `/v0_4` endpoint)
 - Integration of CairoVM. 
 - Verification of State from L1.
 - Handle L1 and L2 Reorgs.

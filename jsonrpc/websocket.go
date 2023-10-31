@@ -3,13 +3,12 @@ package jsonrpc
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"nhooyr.io/websocket"
 )
 
@@ -19,8 +18,7 @@ type Websocket struct {
 	rpc        *Server
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
-	// metrics
-	requests prometheus.Counter
+	listener   NewRequestListener
 }
 
 func NewWebsocket(rpc *Server, log utils.SimpleLogger) *Websocket {
@@ -28,20 +26,21 @@ func NewWebsocket(rpc *Server, log utils.SimpleLogger) *Websocket {
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
-		requests: prometheus.NewCounter(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "ws",
-			Name:      "requests",
-		}),
+		listener:   &SelectiveListener{},
 	}
 
-	metrics.MustRegister(ws.requests)
 	return ws
 }
 
 // WithConnParams sanity checks and applies the provided params.
 func (ws *Websocket) WithConnParams(p *WebsocketConnParams) *Websocket {
 	ws.connParams = p
+	return ws
+}
+
+// WithListener registers a NewRequestListener
+func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
+	ws.listener = listener
 	return ws
 }
 
@@ -56,9 +55,22 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO include connection information, such as the remote address, in the logs.
 
-	wsc := newWebsocketConn(conn, ws.rpc, ws.connParams, ws.requests)
+	wsc := newWebsocketConn(r.Context(), conn, ws.connParams)
 
-	err = wsc.ReadWriteLoop(r.Context())
+	for {
+		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
+		if err != nil {
+			break
+		}
+		ws.listener.OnNewRequest("any")
+		if err = ws.rpc.HandleReadWriter(wsc.ctx, wsc); err != nil {
+			break
+		}
+		// From websocket docs: "Read to EOF otherwise connection will hang."
+		if _, err = io.Copy(io.Discard, wsc.r); err != nil {
+			break
+		}
+	}
 
 	var errClose websocket.CloseError
 	if errors.As(err, &errClose) {
@@ -96,53 +108,35 @@ func DefaultWebsocketConnParams() *WebsocketConnParams {
 }
 
 type websocketConn struct {
-	conn     *websocket.Conn
-	rpc      *Server
-	params   *WebsocketConnParams
-	requests prometheus.Counter
+	r      io.Reader
+	conn   *websocket.Conn
+	ctx    context.Context
+	params *WebsocketConnParams
 }
 
-func newWebsocketConn(conn *websocket.Conn, rpc *Server, params *WebsocketConnParams, requests prometheus.Counter) *websocketConn {
+func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *WebsocketConnParams) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
-		conn:     conn,
-		rpc:      rpc,
-		params:   params,
-		requests: requests,
+		conn:   conn,
+		ctx:    ctx,
+		params: params,
 	}
 }
 
-func (wsc *websocketConn) ReadWriteLoop(ctx context.Context) error {
-	for {
-		// Read next message from the client.
-		_, r, err := wsc.conn.Read(ctx)
-		if err != nil {
-			return err
-		}
-
-		// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
-		// permits concurrent writes.
-
-		wsc.requests.Inc()
-		// Decode the message, call the handler, encode the response.
-		resp, err := wsc.rpc.Handle(ctx, r)
-		if err != nil {
-			// RPC handling issues should not affect the connection.
-			// Ignore the request and let the client close the connection.
-			// TODO: is there a better way to do this?
-			continue
-		}
-
-		// Send the message to the client.
-		if err := wsc.Write(ctx, resp); err != nil {
-			return err
-		}
-	}
+func (wsc *websocketConn) Read(p []byte) (int, error) {
+	return wsc.r.Read(p)
 }
 
-func (wsc *websocketConn) Write(ctx context.Context, msg []byte) error {
-	writeCtx, writeCancel := context.WithTimeout(ctx, wsc.params.WriteDuration)
+// Write returns the number of bytes of p sent, not including the header.
+func (wsc *websocketConn) Write(p []byte) (int, error) {
+	// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
+	// permits concurrent writes.
+
+	writeCtx, writeCancel := context.WithTimeout(wsc.ctx, wsc.params.WriteDuration)
 	defer writeCancel()
 	// Use MessageText since JSON is a text format.
-	return wsc.conn.Write(writeCtx, websocket.MessageText, msg)
+	if err := wsc.conn.Write(writeCtx, websocket.MessageText, p); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }

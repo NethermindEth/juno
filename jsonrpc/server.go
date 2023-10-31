@@ -7,14 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -29,10 +29,11 @@ const (
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
+	bufferSize       = 128
 	contextInterface = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
 
-type request struct {
+type Request struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Params  any    `json:"params,omitempty"`
@@ -67,7 +68,7 @@ func Err(code int, data any) *Error {
 	}
 }
 
-func (r *request) isSane() error {
+func (r *Request) isSane() error {
 	if r.Version != "2.0" {
 		return errors.New("unsupported RPC request version")
 	}
@@ -113,11 +114,7 @@ type Server struct {
 	validator Validator
 	pool      *pool.Pool
 	log       utils.SimpleLogger
-
-	// metrics
-	requests         *prometheus.CounterVec
-	failedRequests   *prometheus.CounterVec
-	requestLatencies *prometheus.HistogramVec
+	listener  EventListener
 }
 
 type Validator interface {
@@ -127,27 +124,12 @@ type Validator interface {
 // NewServer instantiates a JSONRPC server
 func NewServer(poolMaxGoroutines int, log utils.SimpleLogger) *Server {
 	s := &Server{
-		log:     log,
-		methods: make(map[string]Method),
-		pool:    pool.New().WithMaxGoroutines(poolMaxGoroutines),
-		requests: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "server",
-			Name:      "requests",
-		}, []string{"method"}),
-		failedRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "rpc",
-			Subsystem: "server",
-			Name:      "failed_requests",
-		}, []string{"method"}),
-		requestLatencies: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: "rpc",
-			Subsystem: "server",
-			Name:      "requests_latency",
-		}, []string{"method"}),
+		log:      log,
+		methods:  make(map[string]Method),
+		pool:     pool.New().WithMaxGoroutines(poolMaxGoroutines),
+		listener: &SelectiveListener{},
 	}
 
-	metrics.MustRegister(s.requests, s.failedRequests, s.requestLatencies)
 	return s
 }
 
@@ -157,14 +139,29 @@ func (s *Server) WithValidator(validator Validator) *Server {
 	return s
 }
 
-// RegisterMethod verifies and creates an endpoint that the server recognises.
+// WithListener registers an EventListener
+func (s *Server) WithListener(listener EventListener) *Server {
+	s.listener = listener
+	return s
+}
+
+// RegisterMethods verifies and creates an endpoint that the server recognises.
 //
 // - name is the method name
 // - handler is the function to be called when a request is received for the
 // associated method. It should have (any, *jsonrpc.Error) as its return type
 // - paramNames are the names of parameters in the order that they are expected
 // by the handler
-func (s *Server) RegisterMethod(method Method) error {
+func (s *Server) RegisterMethods(methods ...Method) error {
+	for idx := range methods {
+		if err := s.registerMethod(methods[idx]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) registerMethod(method Method) error {
 	handlerT := reflect.TypeOf(method.Handler)
 	if handlerT.Kind() != reflect.Func {
 		return errors.New("handler must be a function")
@@ -192,18 +189,84 @@ func (s *Server) RegisterMethod(method Method) error {
 	return nil
 }
 
-// Handle processes a request to the server
-// It returns the response in a byte array, only returns an
-// error if it can not create the response byte array
-func (s *Server) Handle(ctx context.Context, data []byte) ([]byte, error) {
-	return s.HandleReader(ctx, bytes.NewReader(data))
+type Conn interface {
+	io.Writer
+	Equal(Conn) bool
+}
+
+type connection struct {
+	w         io.Writer
+	activated <-chan struct{}
+
+	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
+	initialErr error
+}
+
+var _ Conn = (*connection)(nil)
+
+func (c *connection) Write(p []byte) (int, error) {
+	<-c.activated
+	if c.initialErr != nil {
+		return 0, fmt.Errorf("there was an error while writing the initial response: %w", c.initialErr)
+	}
+	return c.w.Write(p)
+}
+
+func (c *connection) Equal(other Conn) bool {
+	c2, ok := other.(*connection)
+	if !ok {
+		return false
+	}
+	return c.w == c2.w
+}
+
+// ConnKey the key used to retrieve the connection from the context passed to a handler.
+// It is exported to allow transports to set it manually if they decide not to use HandleReadWriter, which sets it automatically.
+// Manually setting the connection can be especially useful when testing handlers.
+type ConnKey struct{}
+
+// ConnFromContext returns a writable connection. The connection should
+// be written in a separate goroutine, since writes from handlers are
+// blocked until the initial response is sent.
+func ConnFromContext(ctx context.Context) (Conn, bool) {
+	conn := ctx.Value(ConnKey{})
+	if conn == nil {
+		return nil, false
+	}
+	w, ok := conn.(Conn)
+	return w, ok
+}
+
+// HandleReadWriter permits methods to send messages on the connection after the server sends the initial response.
+// rw must permit concurrent writes.
+// A non-nil error indicates the initial response could not be sent, and that no method will be able to write the connection.
+func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
+	activated := make(chan struct{})
+	defer close(activated)
+	conn := &connection{
+		w:         rw.(io.Writer),
+		activated: activated,
+	}
+	msgCtx := context.WithValue(ctx, ConnKey{}, conn)
+	resp, err := s.HandleReader(msgCtx, rw)
+	if err != nil {
+		conn.initialErr = err
+		return err
+	}
+	if resp != nil {
+		if _, err = rw.Write(resp); err != nil {
+			conn.initialErr = err
+			return err
+		}
+	}
+	return nil
 }
 
 // HandleReader processes a request to the server
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
 func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, error) {
-	bufferedReader := bufio.NewReader(reader)
+	bufferedReader := bufio.NewReaderSize(reader, bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
 		Version: "2.0",
@@ -213,7 +276,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 	dec.UseNumber()
 
 	if !requestIsBatch {
-		req := new(request)
+		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
 			res.Error = Err(InvalidJSON, jsonErr.Error())
 		} else if resObject, handleErr := s.handleRequest(ctx, req); handleErr != nil {
@@ -266,7 +329,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		reqDec := json.NewDecoder(bytes.NewBuffer(rawReq))
 		reqDec.UseNumber()
 
-		req := new(request)
+		req := new(Request)
 		if err := reqDec.Decode(req); err != nil {
 			addResponse(&response{
 				Version: "2.0",
@@ -326,7 +389,7 @@ func isNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
-func (s *Server) handleRequest(ctx context.Context, req *request) (*response, error) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
 	reqJSON, err := json.Marshal(req)
 	if err == nil {
 		s.log.Debugw("Serving RPC request", "request", string(reqJSON))
@@ -347,18 +410,20 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 		return res, nil
 	}
 
-	timer := prometheus.NewTimer(s.requestLatencies.WithLabelValues(req.Method))
+	handlerTimer := time.Now()
+	s.listener.OnNewRequest(req.Method)
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
+		s.listener.OnRequestFailed(req.Method, err)
 		return res, nil
 	}
 	defer func() {
-		took := timer.ObserveDuration()
-		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", took)
+		handlerTook := time.Since(handlerTimer)
+		s.listener.OnRequestHandled(req.Method, handlerTook)
+		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", handlerTook)
 	}()
 
-	s.requests.WithLabelValues(req.Method).Inc()
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
 		return nil, nil
@@ -366,7 +431,7 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
 		res.Error = errAny.(*Error)
-		s.failedRequests.WithLabelValues(req.Method).Inc()
+		s.listener.OnRequestFailed(req.Method, err)
 		return res, nil
 	}
 	res.Result = tuple[0].Interface()
@@ -374,18 +439,6 @@ func (s *Server) handleRequest(ctx context.Context, req *request) (*response, er
 }
 
 func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
-	if isNil(params) {
-		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
-			return p.Optional
-		})
-
-		if len(method.Params) > 0 && !allParamsAreOptional {
-			return nil, errors.New("missing non-optional param field")
-		}
-
-		return s.buildDefaultArguments(ctx, method)
-	}
-
 	handlerType := reflect.TypeOf(method.Handler)
 
 	numArgs := handlerType.NumIn()
@@ -395,6 +448,23 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 	if method.needsContext {
 		args = append(args, reflect.ValueOf(ctx))
 		addContext = 1
+	}
+
+	if isNil(params) {
+		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
+			return p.Optional
+		})
+
+		if len(method.Params) > 0 && !allParamsAreOptional {
+			return nil, errors.New("missing non-optional param field")
+		}
+
+		for i := addContext; i < numArgs; i++ {
+			arg := reflect.New(handlerType.In(i)).Elem()
+			args = append(args, arg)
+		}
+
+		return args, nil
 	}
 
 	switch reflect.TypeOf(params).Kind() {
@@ -436,20 +506,6 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		// Todo: consider returning InternalError
 		return nil, errors.New("impossible param type: check request.isSane")
 	}
-	return args, nil
-}
-
-func (s *Server) buildDefaultArguments(_ context.Context, method Method) ([]reflect.Value, error) {
-	handlerType := reflect.TypeOf(method.Handler)
-
-	numArgs := handlerType.NumIn()
-	args := make([]reflect.Value, 0, numArgs)
-
-	for i := 0; i < numArgs; i++ {
-		arg := reflect.New(handlerType.In(i)).Elem()
-		args = append(args, arg)
-	}
-
 	return args, nil
 }
 

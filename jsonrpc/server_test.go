@@ -3,11 +3,15 @@ package jsonrpc_test
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"net"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/go-playground/validator/v10"
+	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,7 +56,7 @@ func TestServer_RegisterMethod(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			err := server.RegisterMethod(jsonrpc.Method{
+			err := server.RegisterMethods(jsonrpc.Method{
 				Name:    "method",
 				Params:  test.paramNames,
 				Handler: test.handler,
@@ -62,7 +66,7 @@ func TestServer_RegisterMethod(t *testing.T) {
 	}
 
 	t.Run("should not fail", func(t *testing.T) {
-		err := server.RegisterMethod(jsonrpc.Method{
+		err := server.RegisterMethods(jsonrpc.Method{
 			Name:    "method",
 			Params:  []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
 			Handler: func(param1, param2 int) (int, *jsonrpc.Error) { return 0, nil },
@@ -138,26 +142,32 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
-			Name:    "acceptsContext",
-			Handler: func(_ context.Context) (int, *jsonrpc.Error) { return 0, nil },
+			Name: "acceptsContext",
+			Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+				require.NotNil(t, ctx)
+				return 0, nil
+			},
 		},
 		{
 			Name:   "acceptsContextAndTwoParams",
 			Params: []jsonrpc.Parameter{{Name: "a"}, {Name: "b"}},
-			Handler: func(_ context.Context, a, b int) (int, *jsonrpc.Error) {
+			Handler: func(ctx context.Context, a, b int) (int, *jsonrpc.Error) {
+				require.NotNil(t, ctx)
 				return b - a, nil
 			},
 		},
 	}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New())
-	for _, m := range methods {
-		require.NoError(t, server.RegisterMethod(m))
-	}
+
+	listener := CountingEventListener{}
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
+	require.NoError(t, server.RegisterMethods(methods...))
 
 	tests := map[string]struct {
-		isBatch bool
-		req     string
-		res     string
+		isBatch              bool
+		req                  string
+		res                  string
+		checkNewRequestEvent bool
+		checkFailedEvent     bool
 	}{
 		"invalid json": {
 			req: `{]`,
@@ -188,8 +198,9 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"too many params": {
-			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
+			req:              `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
+			checkFailedEvent: true,
 		},
 		"list params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message"] , "id" : 3}`,
@@ -272,7 +283,7 @@ func TestHandle(t *testing.T) {
 					"params" : { "num" : 5 }}],
 					[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 44 }}]]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal array into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 		"no method": {
 			req: `{
@@ -341,12 +352,14 @@ func TestHandle(t *testing.T) {
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		"invalid value in struct": {
-			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			req:              `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
+			checkFailedEvent: true,
 		},
 		"valid value in struct": {
-			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
-			res: `{"jsonrpc":"2.0","result":1,"id":1}`,
+			req:                  `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
+			res:                  `{"jsonrpc":"2.0","result":1,"id":1}`,
+			checkNewRequestEvent: true,
 		},
 		"invalid value in struct pointer": {
 			req: `{"jsonrpc" : "2.0", "method" : "validationPointer", "params" : [ {"A": 0} ], "id" : 1}`,
@@ -374,6 +387,10 @@ func TestHandle(t *testing.T) {
 		},
 		"handler accepts context with array params": {
 			req: `{"jsonrpc": "2.0", "method": "acceptsContext", "params": [], "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+		"handler accepts context without params": {
+			req: `{"jsonrpc": "2.0", "method": "acceptsContext","id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
 		"handler accepts context and two params with array params": {
@@ -430,24 +447,37 @@ func TestHandle(t *testing.T) {
 		},
 		"rpc call with an invalid Batch (but not empty)": {
 			req: `[1]`,
-			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 		"rpc call with invalid Batch": {
 			isBatch: true,
 			req:     `[1,2,3]`,
-			res:     `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.request"},"id":null}]`,
+			res:     `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 	}
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			res, err := server.Handle(context.Background(), []byte(test.req))
+			oldNewRequestEventCount := len(listener.OnNewRequestLogs)
+			oldRequestFailedEventCount := len(listener.OnRequestFailedCalls)
+			oldRequestHandledCalls := len(listener.OnRequestHandledCalls)
+
+			res, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
 			require.NoError(t, err)
 
 			if test.isBatch {
 				assertBatchResponse(t, test.res, string(res))
 			} else {
 				assert.Equal(t, test.res, string(res))
+			}
+			if test.checkNewRequestEvent {
+				assert.Greater(t, len(listener.OnNewRequestLogs), oldNewRequestEventCount)
+				if !test.checkFailedEvent {
+					assert.Greater(t, len(listener.OnRequestHandledCalls), oldRequestHandledCalls)
+				}
+			}
+			if test.checkFailedEvent {
+				assert.Greater(t, len(listener.OnRequestFailedCalls), oldRequestFailedEventCount)
 			}
 		})
 	}
@@ -463,4 +493,130 @@ func assertBatchResponse(t *testing.T, expectedStr, actualStr string) {
 	require.NoError(t, err)
 
 	assert.ElementsMatch(t, expected, actual)
+}
+
+func BenchmarkHandle(b *testing.B) {
+	listener := CountingEventListener{}
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
+	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
+		Name:    "bench",
+		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
+	}))
+
+	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
+	for i := 0; i < b.N; i++ {
+		_, err := server.HandleReader(context.Background(), strings.NewReader(request))
+		require.NoError(b, err)
+	}
+}
+
+func TestCannotWriteToConnInHandler(t *testing.T) {
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name: "test",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			w, ok := jsonrpc.ConnFromContext(ctx)
+			require.False(t, ok)
+			require.Nil(t, w)
+			return 0, nil
+		},
+	}))
+	res, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	require.NoError(t, err)
+	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
+}
+
+type fakeConn struct{}
+
+func (fc *fakeConn) Write(p []byte) (int, error) {
+	return 0, nil
+}
+
+func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
+	return false
+}
+
+func TestWriteToConnInHandler(t *testing.T) {
+	testBytes := "written from handler"
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	wg := conc.NewWaitGroup()
+	t.Cleanup(wg.Wait)
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name: "test",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			w, ok := jsonrpc.ConnFromContext(ctx)
+			require.True(t, ok)
+			wg.Go(func() {
+				n, err := w.Write([]byte(testBytes))
+				require.NoError(t, err)
+				require.Equal(t, len(testBytes), n)
+				require.True(t, w.Equal(w)) //nolint:gocritic
+				require.False(t, w.Equal(&fakeConn{}))
+			})
+			return 0, nil
+		},
+	}))
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	wg.Go(func() {
+		err := server.HandleReadWriter(context.Background(), serverConn)
+		require.NoError(t, err)
+	})
+
+	write(t, clientConn, `{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`)
+	initialResp := `{"jsonrpc":"2.0","result":0,"id":1}`
+	require.Equal(t, initialResp, read(t, clientConn, len(initialResp)))
+	require.Equal(t, testBytes, read(t, clientConn, len(testBytes)))
+}
+
+func TestWriteToClosedConnInHandler(t *testing.T) {
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	wg := conc.NewWaitGroup()
+	t.Cleanup(wg.Wait)
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name: "test",
+		Handler: func(ctx context.Context) (int, *jsonrpc.Error) {
+			w, ok := jsonrpc.ConnFromContext(ctx)
+			require.True(t, ok)
+			wg.Go(func() {
+				for i := 0; i < 3; i++ {
+					_, err := w.Write([]byte("test"))
+					require.ErrorIs(t, err, io.ErrClosedPipe)
+					require.ErrorContains(t, err, "there was an error while writing the initial response")
+				}
+			})
+			return 0, nil
+		},
+	}))
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		// We close clientConn early.
+	})
+
+	wg.Go(func() {
+		err := server.HandleReadWriter(context.Background(), serverConn)
+		require.ErrorIs(t, err, io.ErrClosedPipe)
+	})
+
+	write(t, clientConn, `{"jsonrpc":"2.0","id":1,"method":"test","params":[]}`)
+	require.NoError(t, clientConn.Close())
+}
+
+func read(t *testing.T, c io.Reader, length int) string {
+	got := make([]byte, length)
+	_, err := c.Read(got)
+	require.NoError(t, err)
+	return string(got)
+}
+
+func write(t *testing.T, c io.Writer, data string) {
+	_, err := c.Write([]byte(data))
+	require.NoError(t, err)
 }

@@ -17,13 +17,12 @@ import (
 )
 
 func TestV0Call(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	client := feeder.NewTestClient(t, utils.MAINNET)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
 	})
 
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
@@ -39,7 +38,7 @@ func TestV0Call(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.DeployedContract{
+			DeployedContracts: []core.AddressClassHashPair{
 				{
 					Address:   contractAddr,
 					ClassHash: classHash,
@@ -76,13 +75,12 @@ func TestV0Call(t *testing.T) {
 }
 
 func TestV1Call(t *testing.T) {
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(true)
 	client := feeder.NewTestClient(t, utils.GOERLI)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
 	})
 
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
@@ -98,7 +96,7 @@ func TestV1Call(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.DeployedContract{
+			DeployedContracts: []core.AddressClassHashPair{
 				{
 					Address:   contractAddr,
 					ClassHash: classHash,
@@ -143,11 +141,10 @@ func TestV1Call(t *testing.T) {
 func TestExecute(t *testing.T) {
 	const network = utils.GOERLI2
 
-	testDB := pebble.NewMemTest()
+	testDB := pebble.NewMemTest(t)
 	txn := testDB.NewTransaction(false)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
-		require.NoError(t, testDB.Close())
 	})
 
 	state := core.NewState(txn)
@@ -158,11 +155,11 @@ func TestExecute(t *testing.T) {
 			address   = utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 			timestamp = uint64(1666877926)
 		)
-		_, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, 0, timestamp, address, state, network, []*felt.Felt{}, false, &felt.Zero)
+		_, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, 0, timestamp, address, state, network, []*felt.Felt{}, false, &felt.Zero, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, _, err := New(nil).Execute(nil, nil, 0, 0, &felt.Zero, state, network, []*felt.Felt{}, false, &felt.Zero)
+		_, _, err := New(nil).Execute(nil, nil, 0, 0, &felt.Zero, state, network, []*felt.Felt{}, false, &felt.Zero, false)
 		require.NoError(t, err)
 	})
 }

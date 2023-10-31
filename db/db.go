@@ -26,6 +26,9 @@ type DB interface {
 
 	// Impl returns the underlying database object
 	Impl() any
+
+	// WithListener registers an EventListener
+	WithListener(listener EventListener) DB
 }
 
 // Iterator is an iterator over a DB's key/value pairs.

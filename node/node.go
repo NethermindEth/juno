@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"time"
@@ -19,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
-	"github.com/NethermindEth/juno/metrics"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
@@ -86,15 +83,6 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
-	metrics.Enabled = cfg.Metrics
-
-	if cfg.DatabasePath == "" {
-		dirPrefix, err := utils.DefaultDataDir()
-		if err != nil {
-			return nil, err
-		}
-		cfg.DatabasePath = filepath.Join(dirPrefix, cfg.Network.String())
-	}
 	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
@@ -121,21 +109,36 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(log), version, log)
+	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	for _, method := range methods(rpcHandler) {
-		if err = jsonrpcServer.RegisterMethod(method); err != nil {
-			return nil, err
-		}
+	methods, path := rpcHandler.Methods()
+	if err = jsonrpcServer.RegisterMethods(methods...); err != nil {
+		return nil, err
+	}
+	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	legacyMethods, legacyPath := rpcHandler.LegacyMethods()
+	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
+		return nil, err
+	}
+	rpcServers := map[string]*jsonrpc.Server{
+		"/":        jsonrpcServer,
+		path:       jsonrpcServer,
+		legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, jsonrpcServer, log))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
 	}
 	if cfg.Metrics {
+		database.WithListener(makeDBMetrics())
+		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
+		jsonrpcServer.WithListener(rpcMetrics)
+		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
+		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
@@ -175,10 +178,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	if cfg.P2P {
-		var privKeyStr string
-		privKeyStr, _ = os.LookupEnv("P2P_PRIVATE_KEY")
-		var p2pService *p2p.Service
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}

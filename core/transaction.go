@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
+	"golang.org/x/crypto/sha3"
 )
 
 type Event struct {
@@ -47,12 +48,14 @@ type ExecutionResources struct {
 }
 
 type BuiltinInstanceCounter struct {
-	Bitwise    uint64
-	EcOp       uint64
-	Ecsda      uint64
-	Output     uint64
 	Pedersen   uint64
 	RangeCheck uint64
+	Bitwise    uint64
+	Output     uint64
+	Ecsda      uint64
+	EcOp       uint64
+	Keccak     uint64
+	Poseidon   uint64
 }
 
 type TransactionReceipt struct {
@@ -265,6 +268,32 @@ func (l *L1HandlerTransaction) Hash() *felt.Felt {
 
 func (l *L1HandlerTransaction) Signature() []*felt.Felt {
 	return make([]*felt.Felt, 0)
+}
+
+func (l *L1HandlerTransaction) MessageHash() []byte {
+	fromAddress := l.CallData[0].Bytes()
+	toAddress := l.ContractAddress.Bytes()
+	selectorBytes := l.EntryPointSelector.Bytes()
+
+	digest := sha3.NewLegacyKeccak256()
+	digest.Write(fromAddress[:])
+	digest.Write(toAddress[:])
+	if l.Nonce != nil {
+		nonceBytes := l.Nonce.Bytes()
+		lenPayload := new(felt.Felt).SetUint64(uint64(len(l.CallData) - 1)).Bytes()
+		digest.Write(nonceBytes[:])
+		digest.Write(selectorBytes[:])
+		digest.Write(lenPayload[:])
+	} else {
+		lenCalldata := new(felt.Felt).SetUint64(uint64(len(l.CallData))).Bytes()
+		digest.Write(lenCalldata[:])
+		digest.Write(selectorBytes[:])
+	}
+	for idx := range l.CallData[1:] {
+		data := l.CallData[idx+1].Bytes()
+		digest.Write(data[:])
+	}
+	return digest.Sum(nil)
 }
 
 func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
