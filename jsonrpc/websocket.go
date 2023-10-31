@@ -2,7 +2,6 @@ package jsonrpc
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -72,13 +71,12 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var errClose websocket.CloseError
-	if errors.As(err, &errClose) {
-		ws.log.Infow("Client closed websocket connection", "status", websocket.CloseStatus(err))
+	if status := websocket.CloseStatus(err); status != -1 {
+		ws.log.Infow("Client closed websocket connection", "status", status)
 		return
 	}
 
-	ws.log.Warnw("Closing websocket connection due to internal error", "err", err)
+	ws.log.Warnw("Closing websocket connection", "err", err)
 	errString := err.Error()
 	if len(errString) > closeReasonMaxBytes {
 		errString = errString[:closeReasonMaxBytes]
