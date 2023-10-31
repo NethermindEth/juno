@@ -166,7 +166,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 ) stream.Callback {
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	if err == nil {
+		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	}
 	return func() {
 		select {
 		case <-ctx.Done():
