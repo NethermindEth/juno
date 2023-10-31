@@ -198,3 +198,17 @@ func makeJunoMetrics(version string) {
 		ConstLabels: prometheus.Labels{"version": version},
 	}))
 }
+
+func makeBlockchainMetrics() blockchain.EventListener {
+	reads := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "blockchain",
+		Name:      "reads",
+	}, []string{"method"})
+	prometheus.MustRegister(reads)
+
+	return &blockchain.SelectiveListener{
+		OnReadCb: func(method string) {
+			reads.WithLabelValues(method).Inc()
+		},
+	}
+}
