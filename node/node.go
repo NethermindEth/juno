@@ -137,6 +137,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
 	}
 	if cfg.Metrics {
+		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
 		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
