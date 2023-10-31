@@ -162,15 +162,183 @@ func TestClientHandler(t *testing.T) {
 	})
 
 	t.Run("get receipts", func(t *testing.T) {
-		res, cErr := client.RequestReceipts(testCtx, &spec.ReceiptsRequest{})
+		txH := randFelt(t)
+		// There are common receipt fields shared by all of different transactions.
+		commonReceipt := &core.TransactionReceipt{
+			TransactionHash: txH,
+			Fee:             randFelt(t),
+			L2ToL1Message:   []*core.L2ToL1Message{fillFelts(t, &core.L2ToL1Message{}), fillFelts(t, &core.L2ToL1Message{})},
+			ExecutionResources: &core.ExecutionResources{
+				BuiltinInstanceCounter: core.BuiltinInstanceCounter{
+					Pedersen:   1,
+					RangeCheck: 2,
+					Bitwise:    3,
+					Output:     4,
+					Ecsda:      5,
+					EcOp:       6,
+					Keccak:     7,
+					Poseidon:   8,
+				},
+				MemoryHoles: 9,
+				Steps:       10,
+			},
+			RevertReason:  "some revert reason",
+			Events:        []*core.Event{fillFelts(t, &core.Event{}), fillFelts(t, &core.Event{})},
+			L1ToL2Message: fillFelts(t, &core.L1ToL2Message{}),
+		}
+
+		specReceiptCommon := &spec.Receipt_Common{
+			TransactionHash:    core2p2p.AdaptHash(commonReceipt.TransactionHash),
+			ActualFee:          core2p2p.AdaptFelt(commonReceipt.Fee),
+			MessagesSent:       utils.Map(commonReceipt.L2ToL1Message, core2p2p.AdaptMessageToL1),
+			ExecutionResources: core2p2p.AdaptExecutionResources(commonReceipt.ExecutionResources),
+			RevertReason:       commonReceipt.RevertReason,
+		}
+
+		invokeTx := &core.InvokeTransaction{TransactionHash: txH}
+		expectedInvoke := &spec.Receipt{
+			Receipt: &spec.Receipt_Invoke_{
+				Invoke: &spec.Receipt_Invoke{
+					Common: specReceiptCommon,
+				},
+			},
+		}
+
+		declareTx := &core.DeclareTransaction{TransactionHash: txH}
+		expectedDeclare := &spec.Receipt{
+			Receipt: &spec.Receipt_Declare_{
+				Declare: &spec.Receipt_Declare{
+					Common: specReceiptCommon,
+				},
+			},
+		}
+
+		l1Txn := &core.L1HandlerTransaction{
+			TransactionHash:    txH,
+			CallData:           []*felt.Felt{new(felt.Felt).SetBytes([]byte("calldata 1")), new(felt.Felt).SetBytes([]byte("calldata 2"))},
+			ContractAddress:    new(felt.Felt).SetBytes([]byte("contract address")),
+			EntryPointSelector: new(felt.Felt).SetBytes([]byte("entry point selector")),
+			Nonce:              new(felt.Felt).SetBytes([]byte("nonce")),
+		}
+		expectedL1Handler := &spec.Receipt{
+			Receipt: &spec.Receipt_L1Handler_{
+				L1Handler: &spec.Receipt_L1Handler{
+					Common:  specReceiptCommon,
+					MsgHash: &spec.Hash{Elements: l1Txn.MessageHash()},
+				},
+			},
+		}
+
+		deployAccTxn := &core.DeployAccountTransaction{
+			DeployTransaction: core.DeployTransaction{
+				TransactionHash: txH,
+				ContractAddress: new(felt.Felt).SetBytes([]byte("contract address")),
+			},
+		}
+		expectedDeployAccount := &spec.Receipt{
+			Receipt: &spec.Receipt_DeployAccount_{
+				DeployAccount: &spec.Receipt_DeployAccount{
+					Common:          specReceiptCommon,
+					ContractAddress: core2p2p.AdaptFelt(deployAccTxn.ContractAddress),
+				},
+			},
+		}
+
+		deployTxn := &core.DeployTransaction{
+			TransactionHash: txH,
+			ContractAddress: new(felt.Felt).SetBytes([]byte("contract address")),
+		}
+		expectedDeploy := &spec.Receipt{
+			Receipt: &spec.Receipt_DeprecatedDeploy{
+				DeprecatedDeploy: &spec.Receipt_Deploy{
+					Common:          specReceiptCommon,
+					ContractAddress: core2p2p.AdaptFelt(deployTxn.ContractAddress),
+				},
+			},
+		}
+
+		tests := []struct {
+			b          *core.Block
+			expectedRs *spec.Receipts
+		}{
+			{
+				b: &core.Block{
+					Header:       &core.Header{Number: 0, Hash: randFelt(t)},
+					Transactions: []core.Transaction{invokeTx},
+					Receipts:     []*core.TransactionReceipt{commonReceipt},
+				},
+				expectedRs: &spec.Receipts{Items: []*spec.Receipt{expectedInvoke}},
+			},
+			{
+				b: &core.Block{
+					Header:       &core.Header{Number: 1, Hash: randFelt(t)},
+					Transactions: []core.Transaction{declareTx},
+					Receipts:     []*core.TransactionReceipt{commonReceipt},
+				},
+				expectedRs: &spec.Receipts{Items: []*spec.Receipt{expectedDeclare}},
+			},
+			{
+				b: &core.Block{
+					Header:       &core.Header{Number: 2, Hash: randFelt(t)},
+					Transactions: []core.Transaction{l1Txn},
+					Receipts:     []*core.TransactionReceipt{commonReceipt},
+				},
+				expectedRs: &spec.Receipts{Items: []*spec.Receipt{expectedL1Handler}},
+			},
+			{
+				b: &core.Block{
+					Header:       &core.Header{Number: 3, Hash: randFelt(t)},
+					Transactions: []core.Transaction{deployAccTxn},
+					Receipts:     []*core.TransactionReceipt{commonReceipt},
+				},
+				expectedRs: &spec.Receipts{Items: []*spec.Receipt{expectedDeployAccount}},
+			},
+			{
+				b: &core.Block{
+					Header:       &core.Header{Number: 4, Hash: randFelt(t)},
+					Transactions: []core.Transaction{deployTxn},
+					Receipts:     []*core.TransactionReceipt{commonReceipt},
+				},
+				expectedRs: &spec.Receipts{Items: []*spec.Receipt{expectedDeploy}},
+			},
+			{
+				// block with multiple txs receipts
+				b: &core.Block{
+					Header:       &core.Header{Number: 5, Hash: randFelt(t)},
+					Transactions: []core.Transaction{invokeTx, declareTx},
+					Receipts:     []*core.TransactionReceipt{commonReceipt, commonReceipt},
+				},
+				expectedRs: &spec.Receipts{Items: []*spec.Receipt{expectedInvoke, expectedDeclare}},
+			},
+		}
+
+		numOfBs := uint64(len(tests))
+		for _, test := range tests {
+			mockReader.EXPECT().BlockByNumber(test.b.Number).Return(test.b, nil)
+		}
+
+		res, cErr := client.RequestReceipts(testCtx, &spec.ReceiptsRequest{Iteration: &spec.Iteration{
+			Start:     &spec.Iteration_BlockNumber{BlockNumber: tests[0].b.Number},
+			Direction: spec.Iteration_Forward,
+			Limit:     numOfBs,
+			Step:      1,
+		}})
 		require.NoError(t, cErr)
 
-		count := uint64(0)
-		for receipt, valid := res(); valid; receipt, valid = res() {
-			assert.Equal(t, count, receipt.Id.Number)
+		var count uint64
+		for receipts, valid := res(); valid; receipts, valid = res() {
+			if count == numOfBs {
+				assert.NotNil(t, receipts.GetFin())
+				continue
+			}
+
+			assert.Equal(t, count, receipts.Id.Number)
+
+			expectedRs := tests[count].expectedRs
+			assert.True(t, proto.Equal(expectedRs, receipts.GetReceipts()))
 			count++
 		}
-		require.Equal(t, uint64(4), count)
+		require.Equal(t, numOfBs, count)
 	})
 
 	t.Run("get txns", func(t *testing.T) {

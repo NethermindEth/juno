@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -41,6 +42,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
+	defaultMaxVMs := uint(runtime.GOMAXPROCS(0))
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -72,6 +74,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MetricsPort:         defaultMetricsPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"config file path is empty string": {
@@ -97,6 +100,7 @@ func TestConfigPrecedence(t *testing.T) {
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"config file doesn't exist": {
@@ -127,6 +131,7 @@ func TestConfigPrecedence(t *testing.T) {
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
 				DatabasePath:        defaultDBPath,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -159,6 +164,7 @@ pprof: true
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -188,6 +194,7 @@ http-port: 4576
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"all flags without config file": {
@@ -215,6 +222,7 @@ http-port: 4576
 				PprofHost:     defaultHost,
 				PprofPort:     defaultPprofPort,
 				Colour:        defaultColour,
+				MaxVMs:        defaultMaxVMs,
 			},
 		},
 		"some flags without config file": {
@@ -243,6 +251,7 @@ http-port: 4576
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -293,6 +302,7 @@ pending-poll-interval: 5s
 				PprofPort:           6064,
 				Colour:              defaultColour,
 				PendingPollInterval: time.Millisecond,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -324,6 +334,7 @@ network: goerli
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -351,6 +362,7 @@ network: goerli
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
 			},
 		},
 	}
