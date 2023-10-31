@@ -12,3 +12,11 @@ func AdaptHash(h *spec.Hash) *felt.Felt {
 
 	return new(felt.Felt).SetBytes(h.Elements)
 }
+
+func AdaptAddress(h *spec.Address) *felt.Felt {
+	if h == nil {
+		return nil
+	}
+
+	return new(felt.Felt).SetBytes(h.Elements)
+}

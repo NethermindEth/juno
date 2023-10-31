@@ -1,9 +1,11 @@
 package starknet_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -244,7 +246,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 			stateHistory.EXPECT().ContractClassHash(deployedAddress).Return(deployedClassHash, nil).AnyTimes()
 			stateHistory.EXPECT().ContractClassHash(replacedAddress).Return(replacedClassHash, nil).AnyTimes()
 
-			mockReader.EXPECT().StateAtBlockNumber(block.number).Return(stateHistory, nopCloser, nil).Times(2)
+			mockReader.EXPECT().StateAtBlockNumber(block.number).Return(stateHistory, nopCloser, nil)
 		}
 
 		res, cErr := client.RequestBlockBodies(testCtx, &spec.BlockBodiesRequest{
@@ -338,6 +340,14 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 			if bodyProof, ok := body.BodyMessage.(*spec.BlockBodiesResponse_Proof); ok {
 				// client generates random slice of bytes in proofs for now
 				bodyProof.Proof = nil
+			}
+
+			if count == 0 {
+				diff := body.BodyMessage.(*spec.BlockBodiesResponse_Diff).Diff.ContractDiffs
+				sortContractDiff(diff)
+
+				expectedDiff := expectedMessages[count].BodyMessage.(*spec.BlockBodiesResponse_Diff).Diff.ContractDiffs
+				sortContractDiff(expectedDiff)
 			}
 
 			if !assert.True(t, proto.Equal(expectedMessages[count], body), "iteration %d, type %T", count, body.BodyMessage) {
@@ -860,4 +870,12 @@ func fillFelts[T any](t *testing.T, i T) T {
 	}
 
 	return i
+}
+
+func sortContractDiff(diff []*spec.StateDiff_ContractDiff) {
+	sort.Slice(diff, func(i, j int) bool {
+		iAddress := diff[i].Address
+		jAddress := diff[j].Address
+		return bytes.Compare(iAddress.Elements, jAddress.Elements) < 0
+	})
 }
