@@ -70,7 +70,8 @@ type Blockchain struct {
 	network  utils.Network
 	database db.DB
 
-	log utils.SimpleLogger
+	log      utils.SimpleLogger
+	listener EventListener
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
@@ -79,7 +80,13 @@ func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockch
 		database: database,
 		network:  network,
 		log:      log,
+		listener: &SelectiveListener{},
 	}
+}
+
+func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
+	b.listener = listener
+	return b
 }
 
 func (b *Blockchain) Network() utils.Network {
@@ -89,6 +96,7 @@ func (b *Blockchain) Network() utils.Network {
 // StateCommitment returns the latest block state commitment.
 // If blockchain is empty zero felt is returned.
 func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
+	b.listener.OnRead("StateCommitment")
 	var commitment *felt.Felt
 	return commitment, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -99,6 +107,7 @@ func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
+	b.listener.OnRead("Height")
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -116,6 +125,7 @@ func chainHeight(txn db.Transaction) (uint64, error) {
 }
 
 func (b *Blockchain) Head() (*core.Block, error) {
+	b.listener.OnRead("Head")
 	var h *core.Block
 	return h, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -125,6 +135,7 @@ func (b *Blockchain) Head() (*core.Block, error) {
 }
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
+	b.listener.OnRead("HeadsHeader")
 	var header *core.Header
 
 	return header, b.database.View(func(txn db.Transaction) error {
@@ -152,6 +163,7 @@ func headsHeader(txn db.Transaction) (*core.Header, error) {
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
+	b.listener.OnRead("BlockByNumber")
 	var block *core.Block
 	return block, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -161,6 +173,7 @@ func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 }
 
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
+	b.listener.OnRead("BlockHeaderByNumber")
 	var header *core.Header
 	return header, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -170,6 +183,7 @@ func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 }
 
 func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
+	b.listener.OnRead("BlockByHash")
 	var block *core.Block
 	return block, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -179,6 +193,7 @@ func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 }
 
 func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
+	b.listener.OnRead("BlockHeaderByHash")
 	var header *core.Header
 	return header, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -188,6 +203,7 @@ func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 }
 
 func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
+	b.listener.OnRead("StateUpdateByNumber")
 	var update *core.StateUpdate
 	return update, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -197,6 +213,7 @@ func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, erro
 }
 
 func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, error) {
+	b.listener.OnRead("StateUpdateByHash")
 	var update *core.StateUpdate
 	return update, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -207,6 +224,7 @@ func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, erro
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
+	b.listener.OnRead("TransactionByBlockNumberAndIndex")
 	var transaction core.Transaction
 	return transaction, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -217,6 +235,7 @@ func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64)
 
 // TransactionByHash gets the transaction for a given hash.
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
+	b.listener.OnRead("TransactionByHash")
 	var transaction core.Transaction
 	return transaction, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -245,6 +264,7 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 
 // Receipt gets the transaction receipt for a given transaction hash.
 func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
+	b.listener.OnRead("Receipt")
 	var (
 		receipt     *core.TransactionReceipt
 		blockHash   *felt.Felt
@@ -278,6 +298,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 }
 
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
+	b.listener.OnRead("L1Head")
 	var update *core.L1Head
 
 	return update, b.database.View(func(txn db.Transaction) error {
@@ -393,6 +414,7 @@ func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *
 }
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
+	b.listener.OnRead("BlockCommitmentsByNumber")
 	var commitments *core.BlockCommitments
 	return commitments, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -732,6 +754,7 @@ type StateCloser = func() error
 
 // HeadState returns a StateReader that provides a stable view to the latest state
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
+	b.listener.OnRead("HeadState")
 	txn := b.database.NewTransaction(false)
 	_, err := chainHeight(txn)
 	if err != nil {
@@ -743,6 +766,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
 func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
+	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewTransaction(false)
 	_, err := blockHeaderByNumber(txn, blockNumber)
 	if err != nil {
@@ -754,6 +778,7 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
 func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
+	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		txn := db.NewMemTransaction()
 		emptyState := core.NewState(txn)
@@ -771,6 +796,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
 func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error) {
+	b.listener.OnRead("EventFilter")
 	txn := b.database.NewTransaction(false)
 	latest, err := chainHeight(txn)
 	if err != nil {
@@ -954,6 +980,7 @@ func pendingBlock(txn db.Transaction) (Pending, error) {
 
 // Pending returns the pending block from the database
 func (b *Blockchain) Pending() (Pending, error) {
+	b.listener.OnRead("Pending")
 	var pending Pending
 	return pending, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -964,6 +991,7 @@ func (b *Blockchain) Pending() (Pending, error) {
 
 // PendingState returns the state resulting from execution of the pending block
 func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
+	b.listener.OnRead("PendingState")
 	txn := b.database.NewTransaction(false)
 	pending, err := pendingBlock(txn)
 	if err != nil {
