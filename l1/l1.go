@@ -76,13 +76,13 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 }
 
 func (c *Client) checkChainID(ctx context.Context) error {
+	backOffDuration := time.Duration(1) * time.Second
 	for {
-		backOffDuration := time.Duration(1) * time.Second
 		gotChainID, err := c.l1.ChainID(ctx)
 		if err != nil {
-			c.log.Warnw("Failed to retrieve Ethereum chain ID, retrying", err)
 			backOffDuration *= 2
 			time.Sleep(backOffDuration)
+			c.log.Warnw("Failed to retrieve Ethereum chain ID, retrying", err)
 			continue
 		}
 
