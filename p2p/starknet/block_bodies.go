@@ -22,7 +22,7 @@ const (
 	sendClasses
 	sendProof
 	sendBlockFin
-	terminal // final state
+	terminal // final step
 )
 
 type blockBodyIterator struct {
@@ -30,7 +30,7 @@ type blockBodyIterator struct {
 	stateReader core.StateReader
 	stateCloser func() error
 
-	state       blockBodyStep
+	step        blockBodyStep
 	header      *core.Header
 	stateUpdate *core.StateUpdate
 }
@@ -47,7 +47,7 @@ func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log u
 	}
 
 	return &blockBodyIterator{
-		state:       sendDiff,
+		step:        sendDiff,
 		header:      header,
 		log:         log,
 		stateReader: stateReader,
@@ -62,28 +62,28 @@ func (b *blockBodyIterator) hasNext() bool {
 		sendClasses,
 		sendProof,
 		sendBlockFin,
-	}, b.state)
+	}, b.step)
 }
 
 // Either BlockBodiesResponse_Diff, *_Classes, *_Proof, *_Fin
 func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
-	switch b.state {
+	switch b.step {
 	case sendDiff:
 		msg, valid = b.diff()
-		b.state = sendClasses
+		b.step = sendClasses
 	case sendClasses:
 		msg, valid = b.classes()
-		b.state = sendProof
+		b.step = sendProof
 	case sendProof:
 		msg, valid = b.proof()
-		b.state = sendBlockFin
+		b.step = sendBlockFin
 	case sendBlockFin:
-		// fin changes state to terminal internally
+		// fin changes step to terminal internally
 		msg, valid = b.fin()
 	case terminal:
-		panic("next called on terminal state")
+		panic("next called on terminal step")
 	default:
-		b.log.Errorw("Unknown state in blockBodyIterator", "state", b.state)
+		b.log.Errorw("Unknown step in blockBodyIterator", "step", b.step)
 	}
 
 	return
@@ -208,7 +208,7 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 }
 
 func (b *blockBodyIterator) fin() (proto.Message, bool) {
-	b.state = terminal
+	b.step = terminal
 	if err := b.stateCloser(); err != nil {
 		b.log.Errorw("Call to state closer failed", "err", err)
 	}
