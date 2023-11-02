@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
@@ -186,6 +185,31 @@ func (s *Service) Run(ctx context.Context) error {
 	for _, addr := range listenAddrs {
 		s.log.Infow("Listening on", "addr", addr)
 	}
+
+	// Start Synchronisation
+
+	// 1. First get all the peers from dht
+	p2pSync := newSync(s.host, s.network, s.log)
+	return p2pSync.start(ctx)
+
+	store := s.host.Peerstore()
+	peers := store.Peers()
+	// 2. Ask for missing blocks
+	proto := protocol.ID(fmt.Sprintf("/starknet/%s", s.network))
+	for _, peer := range peers {
+		stream, err := s.host.NewStream(ctx, peer, proto)
+		if err != nil {
+			return err
+		}
+
+		_, err = stream.Write([]byte(`simple_message`))
+		if err != nil {
+			return nil
+		}
+
+	}
+	// 3. Synchronisation handles peers connecting and disconnecting
+	// 4. Synchroniser has snapshot of peers to send requests to
 
 	<-s.runCtx.Done()
 	if err := s.dht.Close(); err != nil {
