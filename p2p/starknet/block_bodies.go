@@ -52,7 +52,7 @@ func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log u
 		log:         log,
 		stateReader: stateReader,
 		stateCloser: closer,
-		stateUpdate: stateUpdate, // to be filled during one of next states
+		stateUpdate: stateUpdate,
 	}, nil
 }
 
@@ -90,7 +90,7 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 }
 
 func (b *blockBodyIterator) classes() (proto.Message, bool) {
-	var classes []*spec.Class
+	classesM := make(map[felt.Felt]*spec.Class)
 
 	stateDiff := b.stateUpdate.StateDiff
 
@@ -100,7 +100,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classes = append(classes, core2p2p.AdaptClass(cls.Class, hash))
+		classesM[*hash] = core2p2p.AdaptClass(cls.Class, hash)
 	}
 	for _, class := range stateDiff.DeclaredV1Classes {
 		cls, err := b.stateReader.Class(class.ClassHash)
@@ -108,10 +108,13 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		cairo1Cls := cls.Class.(*core.Cairo1Class)
-		classes = append(classes, core2p2p.AdaptClass(cls.Class, cairo1Cls.Hash()))
+		classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, cls.Class.(*core.Cairo1Class).Hash())
 	}
 	for _, class := range stateDiff.DeployedContracts {
+		if _, ok := classesM[*class.ClassHash]; ok {
+			// Skip if the class was declared and deployed in the same block. Otherwise, there will be duplicate classes.
+			continue
+		}
 		cls, err := b.stateReader.Class(class.ClassHash)
 		if err != nil {
 			return b.fin()
@@ -128,7 +131,13 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classes = append(classes, core2p2p.AdaptClass(cls.Class, compiledHash))
+		classesM[*compiledHash] = core2p2p.AdaptClass(cls.Class, compiledHash)
+	}
+
+	var classes []*spec.Class
+	for _, c := range classesM {
+		c := c
+		classes = append(classes, c)
 	}
 
 	return &spec.BlockBodiesResponse{
