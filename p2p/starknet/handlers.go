@@ -150,18 +150,40 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 }
 
 func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
+	it, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	fin := h.newFin(&spec.BlockBodiesResponse{
+		BodyMessage: &spec.BlockBodiesResponse_Fin{},
+	})
+
+	var bodyIterator *blockBodyIterator
 	return func() (proto.Message, bool) {
-		if count > 3 {
-			return nil, false
+		// bodyIterator is nil only during the first iteration
+		if bodyIterator != nil && bodyIterator.hasNext() {
+			return bodyIterator.next()
 		}
-		count++
-		return &spec.BlockBodiesResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
-			},
-		}, true
+
+		if !it.Valid() {
+			return fin()
+		}
+
+		header, err := it.Header()
+		if err != nil {
+			h.log.Errorw("Failed to fetch block header", "err", err)
+			return fin()
+		}
+		it.Next()
+
+		bodyIterator, err = newBlockBodyIterator(h.bcReader, header, h.log)
+		if err != nil {
+			h.log.Errorw("Failed to create block body iterator", "err", err)
+			return fin()
+		}
+		// no need to call hasNext since it's first iteration over a block
+		return bodyIterator.next()
 	}, nil
 }
 
