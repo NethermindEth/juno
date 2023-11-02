@@ -123,7 +123,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMs))
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log).WithFilterLimit(cfg.RPCMaxBlockScan)
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
