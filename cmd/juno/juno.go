@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -79,7 +80,7 @@ const (
 	defaultGRPC                = false
 	defaultGRPCPort            = 6064
 	defaultRemoteDB            = ""
-	defaultRPCMaxBlockScan     = 512
+	defaultRPCMaxBlockScan     = math.MaxUint
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."

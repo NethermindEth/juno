@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"context"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -43,7 +44,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
 	defaultMaxVMs := uint(runtime.GOMAXPROCS(0))
-	defaultRPCMaxBlockScan := uint(512)
+	defaultRPCMaxBlockScan := uint(math.MaxUint)
 
 	tests := map[string]struct {
 		cfgFile         bool
