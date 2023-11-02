@@ -15,6 +15,7 @@ use blockifier::{
     execution::{
         contract_class::{ContractClass, ContractClassV1},
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
+        common_hints::ExecutionMode,
     },
     fee::fee_utils::calculate_tx_fee,
     state::cached_state::CachedState,
@@ -31,6 +32,7 @@ use cairo_vm::vm::runners::builtin_runner::{
     SEGMENT_ARENA_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
 };
 use juno_state_reader::{contract_class_from_json_str, felt_to_byte_array};
+use serde::Deserialize;
 use starknet_api::transaction::{Calldata, Transaction as StarknetApiTransaction};
 use starknet_api::{
     block::{BlockNumber, BlockTimestamp},
@@ -103,6 +105,7 @@ pub extern "C" fn cairoVMCall(
         ),
         AccountTransactionContext::default(),
         4_000_000,
+        ExecutionMode::Execute,
     );
     let call_info = entry_point.execute(&mut state, &mut resources, &mut context);
 
@@ -116,6 +119,12 @@ pub extern "C" fn cairoVMCall(
             }
         }
     }
+}
+
+#[derive(Deserialize)]
+pub struct TxnAndQueryBit {
+    pub txn: StarknetApiTransaction,
+    pub query_bit: bool,
 }
 
 #[no_mangle]
@@ -135,9 +144,9 @@ pub extern "C" fn cairoVMExecute(
     let reader = JunoStateReader::new(reader_handle);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
-    let sn_api_txns: Result<Vec<StarknetApiTransaction>, serde_json::Error> =
+    let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
-    if let Err(e) = sn_api_txns {
+    if let Err(e) = txns_and_query_bits {
         report_error(reader_handle, e.to_string().as_str());
         return;
     }
@@ -163,7 +172,7 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
-    let sn_api_txns = sn_api_txns.unwrap();
+    let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
 
     let sequencer_address_felt = ptr_to_felt(sequencer_address);
@@ -180,8 +189,8 @@ pub extern "C" fn cairoVMExecute(
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
-    for sn_api_txn in sn_api_txns {
-        let contract_class = match sn_api_txn.clone() {
+    for txn_and_query_bit in txns_and_query_bits {
+        let contract_class = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(declare) => {
                 if classes.is_empty() {
                     report_error(reader_handle, "missing declared class");
@@ -204,7 +213,7 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
-        let paid_fee_on_l1: Option<Fee> = match sn_api_txn.clone() {
+        let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {
                     report_error(reader_handle, "missing fee paid on l1b");
@@ -215,7 +224,7 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
-        let txn = transaction_from_api(sn_api_txn.clone(), contract_class, paid_fee_on_l1);
+        let txn = transaction_from_api(txn_and_query_bit.txn.clone(), contract_class, paid_fee_on_l1, txn_and_query_bit.query_bit);
         if let Err(e) = txn {
             report_error(reader_handle, e.to_string().as_str());
             return;
@@ -224,10 +233,10 @@ pub extern "C" fn cairoVMExecute(
         let mut txn_state = CachedState::create_transactional(&mut state);
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee)
+                t.execute(&mut txn_state, &block_context, charge_fee, txn_and_query_bit.query_bit)
             }
             Transaction::L1HandlerTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee)
+                t.execute(&mut txn_state, &block_context, charge_fee, txn_and_query_bit.query_bit)
             }
         };
 
@@ -237,7 +246,7 @@ pub extern "C" fn cairoVMExecute(
                     reader_handle,
                     format!(
                         "failed txn {:?} reason:{:?}",
-                        sn_api_txn.transaction_hash(),
+                        txn_and_query_bit.txn.transaction_hash(),
                         e
                     )
                     .as_str(),
@@ -251,7 +260,7 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 let actual_fee = t.actual_fee.0.into();
-                let mut trace = jsonrpc::new_transaction_trace(sn_api_txn, t, &mut txn_state);
+                let mut trace = jsonrpc::new_transaction_trace(txn_and_query_bit.txn, t, &mut txn_state);
                 if trace.is_err() {
                     report_error(
                         reader_handle,
@@ -290,6 +299,7 @@ fn transaction_from_api(
     tx: StarknetApiTransaction,
     contract_class: Option<ContractClass>,
     paid_fee_on_l1: Option<Fee>,
+    query_bit: bool,
 ) -> Result<Transaction, String> {
     match tx {
         StarknetApiTransaction::Deploy(deploy) => {
@@ -307,7 +317,7 @@ fn transaction_from_api(
         _ => {} // all ok
     };
 
-    Transaction::from_api(tx, contract_class, paid_fee_on_l1)
+    Transaction::from_api(tx, contract_class, paid_fee_on_l1, query_bit)
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
