@@ -158,6 +158,8 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
 func (s *Service) Run(ctx context.Context) error {
+	defer s.host.Close()
+
 	err := func() error {
 		defer s.runLock.Unlock()
 
@@ -177,6 +179,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer s.callAndLogErr(s.dht.Close, "Failed stopping DHT")
 
 	listenAddrs, err := s.ListenAddrs()
 	if err != nil {
@@ -216,6 +219,13 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
 	return s.host.Close()
+}
+
+func (s *Service) callAndLogErr(f func() error, msg string) {
+	err := f()
+	if err != nil {
+		s.log.Warnw(msg, "err", err.Error())
+	}
 }
 
 func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
