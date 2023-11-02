@@ -1,6 +1,6 @@
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
-    slice,
+    slice, sync::Mutex,
 };
 
 use blockifier::{
@@ -10,9 +10,10 @@ use blockifier::{
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-
+use cached::{SizedCache, Cached};
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
+use once_cell::sync::Lazy;
 
 extern "C" {
     fn JunoFree(ptr: *const c_void);
@@ -33,6 +34,11 @@ extern "C" {
     fn JunoStateGetCompiledClass(reader_handle: usize, class_hash: *const c_uchar)
         -> *const c_char;
 }
+
+static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, ContractClass>>> = Lazy::new(|| {
+    Mutex::new(SizedCache::with_size(128))
+});
+
 
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
@@ -108,6 +114,10 @@ impl StateReader for JunoStateReader {
         &mut self,
         class_hash: &ClassHash,
     ) -> StateResult<ContractClass> {
+        if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(class_hash) {
+            return Ok(cached_class.clone())
+        }
+
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
         let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
@@ -115,6 +125,10 @@ impl StateReader for JunoStateReader {
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
             let contract_class = contract_class_from_json_str(json_str);
+            if let Ok(class) = &contract_class {
+                CLASS_CACHE.lock().unwrap().cache_set(*class_hash, class.clone());
+            }
+
             unsafe { JunoFree(ptr as *const c_void) };
 
             contract_class.map_err(|_| {
