@@ -2,7 +2,13 @@ package p2p
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/NethermindEth/juno/adapters/p2p2core"
+
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+
+	"github.com/NethermindEth/juno/blockchain"
 
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -19,24 +25,28 @@ import (
 // 	a. Fetch boot peer header
 // 	b. Verify signature the header.
 
-type sync struct {
+type syncService struct {
 	height  uint64
 	host    host.Host
 	network utils.Network
 
-	log utils.Logger
+	blockchain blockchain.Blockchain
+	log        utils.SimpleLogger
 }
 
-func newSync(host host.Host, network utils.Network, log utils.Logger) *sync {
-	return &sync{
-		height:  0,
-		host:    host,
-		network: network,
-		log:     log,
+func newSyncService(blockchain blockchain.Blockchain, host host.Host, network utils.Network,
+	log utils.SimpleLogger,
+) *syncService {
+	return &syncService{
+		height:     0,
+		host:       host,
+		network:    network,
+		blockchain: blockchain,
+		log:        log,
 	}
 }
 
-func (s *sync) start(ctx context.Context) error {
+func (s *syncService) start(ctx context.Context) error {
 	store := s.host.Peerstore()
 	peers := store.Peers()
 
@@ -49,7 +59,7 @@ func (s *sync) start(ctx context.Context) error {
 	return nil
 }
 
-func (s *sync) requestBlockHeader(ctx context.Context, peerInfo peer.AddrInfo) {
+func (s *syncService) requestBlockHeader(ctx context.Context, peerInfo peer.AddrInfo) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, peerInfo.ID, pids...)
 	}, s.network, s.log)
@@ -65,6 +75,33 @@ func (s *sync) requestBlockHeader(ctx context.Context, peerInfo peer.AddrInfo) {
 	}
 
 	for res, valid := header(); valid; res, valid = header() {
-		fmt.Println(res.GetPart()[0].GetHeader().String())
+		h := res.GetPart()[0].GetHeader()
+
+		var (
+			block *core.Block
+			// todo ask for rest of data:
+			blockCommitments *core.BlockCommitments
+			stateUpdate      *core.StateUpdate
+			newClasses       map[felt.Felt]core.Class
+			receipts         []*core.TransactionReceipt
+		)
+
+		block.Header = &core.Header{
+			Hash:             nil, // how?
+			ParentHash:       p2p2core.AdaptHash(h.ParentHeader),
+			Number:           h.Number,
+			GlobalStateRoot:  p2p2core.AdaptHash(h.State.Root),
+			SequencerAddress: p2p2core.AdaptAddress(h.SequencerAddress),
+			TransactionCount: uint64(h.Transactions.NLeaves),
+			EventCount:       uint64(h.Events.NLeaves),
+			Timestamp:        uint64(h.Time.AsTime().Second()) + 1,
+			ProtocolVersion:  "",  // todo ?
+			ExtraData:        nil, // todo where?
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         nil,
+			Signatures:       nil,
+		}
+
+		s.blockchain.Store(block, blockCommitments, stateUpdate, newClasses)
 	}
 }

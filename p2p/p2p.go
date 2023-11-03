@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
@@ -192,7 +193,7 @@ func (s *Service) Run(ctx context.Context) error {
 	// Start Synchronisation
 
 	// 1. First get all the peers from dht
-	p2pSync := newSync(s.host, s.network, s.log)
+	p2pSync := newSyncService(s.host, s.network, s.log)
 	return p2pSync.start(ctx)
 
 	store := s.host.Peerstore()
