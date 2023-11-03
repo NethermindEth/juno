@@ -1374,7 +1374,7 @@ func (h *Handler) LegacyTraceBlockTransactions(ctx context.Context, hash felt.Fe
 	return h.traceBlockTransactions(ctx, block, true)
 }
 
-var traceFallbackVersion = semver.MustParse("0.12.0")
+var traceFallbackVersion = semver.MustParse("0.12.2")
 
 func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
 	legacyJSON bool,
@@ -1384,7 +1384,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
 		} else if blockVer.Compare(traceFallbackVersion) != 1 {
-			// version <= 0.12.0
+			// version <= 0.12.2
 			return h.fetchTraces(ctx, block.Hash, legacyJSON)
 		}
 
