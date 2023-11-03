@@ -34,11 +34,28 @@ type HeaderSubscription struct {
 	*feed.Subscription[*core.Header]
 }
 
+// todo: Since this is also going to be implemented by p2p package we should move this interface to node package
+//
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
+}
+
+// This is temporary and will be removed once the p2p synchronizer implements this interface.
+type NoopSynchronizer struct{}
+
+func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
+	return 0, nil
+}
+
+func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
+	return nil
+}
+
+func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
+	return HeaderSubscription{nil}
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates

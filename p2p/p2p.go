@@ -51,9 +51,8 @@ type Service struct {
 }
 
 func New(addr, userAgent, bootPeers, privKeyStr string, bootNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
-	log utils.SimpleLogger) (*Service,
-	error,
-) {
+	log utils.SimpleLogger,
+) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
 		addr = "/ip4/0.0.0.0/tcp/0"

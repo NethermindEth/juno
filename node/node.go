@@ -136,24 +136,37 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 
+	feederClientTimeout := 5 * time.Second
+	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
+
 	if cfg.P2P {
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", cfg.P2PBootNode, chain, cfg.Network, log)
+		if !cfg.P2PBootNode {
+			// Do not start the feeder synchronisation
+			synchronizer = nil
+		}
+		var p2pService *p2p.Service
+		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", cfg.P2PBootNode, chain, cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
 
 		services = append(services, p2pService)
 	}
-
-	feederClientTimeout := 5 * time.Second
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).
-		WithTimeout(feederClientTimeout).WithAPIKey(cfg.GatewayAPIKey)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
-	services = append(services, synchronizer)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+	if synchronizer != nil {
+		services = append(services, synchronizer)
+	}
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-	rpcHandler := rpc.New(chain, synchronizer, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
+
+	var syncReader sync.Reader
+	syncReader = &sync.NoopSynchronizer{}
+	if synchronizer != nil {
+		syncReader = synchronizer
+	}
+
+	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
@@ -192,6 +205,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
+		if synchronizer != nil {
+			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+		}
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
