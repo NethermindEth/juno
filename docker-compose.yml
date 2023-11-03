@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  boot-node:
+    build:
+      context: .
+      args: ["VM_DEBUG=true"]
+    command: ["juno", "--http"]
+    ports:
+      - "6060:6060"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+
+  node:
+    build:
+      context: .
+      args: [ "VM_DEBUG=true" ]
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
