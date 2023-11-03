@@ -1731,7 +1731,7 @@ func TestEvents(t *testing.T) {
 		args.Keys = append(args.Keys, []felt.Felt{*key})
 		events, err := handler.Events(args)
 		require.Nil(t, err)
-		require.NotEmpty(t, events.ContinuationToken)
+		require.Equal(t, "1-0", events.ContinuationToken)
 		require.Empty(t, events.Events)
 		handler = handler.WithFilterLimit(7)
 		events, err = handler.Events(args)
