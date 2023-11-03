@@ -52,6 +52,7 @@ const (
 	p2pF                 = "p2p"
 	p2pAddrF             = "p2p-addr"
 	p2pBootPeersF        = "p2p-boot-peers"
+	p2pBootNodeF         = "p2p-bootnode"
 	metricsF             = "metrics"
 	metricsHostF         = "metrics-host"
 	metricsPortF         = "metrics-port"
@@ -80,6 +81,7 @@ const (
 	defaultP2p                 = false
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
+	defaultP2pBootNode         = false
 	defaultMetrics             = false
 	defaultMetricsPort         = 9090
 	defaultGRPC                = false
@@ -108,8 +110,9 @@ const (
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"
-	p2PAddrUsage             = "specify p2p source address as multiaddr"
+	p2pAddrUsage             = "specify p2p source address as multiaddr"
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
+	p2pBootNodeUsage         = "run juno as a bootnode"
 	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
 	metricsHostUsage         = "The interface on which the prometheus endpoint will listen for requests."
 	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
@@ -238,8 +241,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
-	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
+	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
+	junoCmd.Flags().Bool(p2pBootNodeF, defaultP2pBootNode, p2pBootNodeUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
@@ -253,6 +257,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
+
+	junoCmd.MarkFlagsMutuallyExclusive(p2pBootNodeF, p2pBootPeersF)
 
 	return junoCmd
 }

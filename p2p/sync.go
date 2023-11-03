@@ -30,23 +30,23 @@ type syncService struct {
 	host    host.Host
 	network utils.Network
 
-	blockchain blockchain.Blockchain
+	blockchain *blockchain.Blockchain
 	log        utils.SimpleLogger
 }
 
-func newSyncService(blockchain blockchain.Blockchain, host host.Host, network utils.Network,
+func newSyncService(bc *blockchain.Blockchain, host host.Host, network utils.Network,
 	log utils.SimpleLogger,
 ) *syncService {
 	return &syncService{
 		height:     0,
 		host:       host,
 		network:    network,
-		blockchain: blockchain,
+		blockchain: bc,
 		log:        log,
 	}
 }
 
-func (s *syncService) start(ctx context.Context) error {
+func (s *syncService) start(ctx context.Context) {
 	store := s.host.Peerstore()
 	peers := store.Peers()
 
@@ -56,7 +56,6 @@ func (s *syncService) start(ctx context.Context) error {
 	}
 
 	// Open streams will all the peers and request block headers
-	return nil
 }
 
 func (s *syncService) requestBlockHeader(ctx context.Context, peerInfo peer.AddrInfo) {

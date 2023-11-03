@@ -72,6 +72,7 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+	P2PBootNode  bool   `mapstructure:"p2p-bootnode"`
 
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
@@ -133,6 +134,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if _, err = core.VerifyBlockHash(head, cfg.Network); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
 		}
+	}
+
+	if cfg.P2P {
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", cfg.P2PBootNode, chain, cfg.Network, log)
+		if err != nil {
+			return nil, fmt.Errorf("set up p2p service: %w", err)
+		}
+
+		services = append(services, p2pService)
 	}
 
 	feederClientTimeout := 5 * time.Second
@@ -209,15 +219,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 		n.services = append(n.services, l1Client)
-	}
-
-	if cfg.P2P {
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", cfg.Network, log)
-		if err != nil {
-			return nil, fmt.Errorf("set up p2p service: %w", err)
-		}
-
-		n.services = append(n.services, p2pService)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {

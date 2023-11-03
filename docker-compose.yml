@@ -4,7 +4,7 @@ services:
     build:
       context: .
       args: ["VM_DEBUG=true"]
-    command: ["juno", "--http"]
+    command: ["juno", "--http", "--p2p", "--p2p-bootnode", "--p2p-addr", "/ip4/0.0.0.0/tcp/7777"]
     ports:
       - "6060:6060"
     deploy:
@@ -15,7 +15,8 @@ services:
   node:
     build:
       context: .
-      args: [ "VM_DEBUG=true" ]
+      args: ["VM_DEBUG=true"]
+    command: ["juno", "--http", "--p2p", "--p2p-boot-peers", "/ip4/boot-node/tcp/7777"]
     deploy:
       replicas: 2
       resources:

@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
+
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -40,11 +42,18 @@ type Service struct {
 	topics     map[string]*pubsub.Topic
 	topicsLock sync.RWMutex
 
+	synchroniser *syncService
+
+	bootNode bool
+
 	runCtx  context.Context
 	runLock sync.RWMutex
 }
 
-func New(addr, userAgent, bootPeers, privKeyStr string, snNetwork utils.Network, log utils.SimpleLogger) (*Service, error) {
+func New(addr, userAgent, bootPeers, privKeyStr string, bootNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+	log utils.SimpleLogger) (*Service,
+	error,
+) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
 		addr = "/ip4/0.0.0.0/tcp/0"
@@ -63,22 +72,27 @@ func New(addr, userAgent, bootPeers, privKeyStr string, snNetwork utils.Network,
 	if err != nil {
 		return nil, err
 	}
-	return NewWithHost(p2pHost, bootPeers, snNetwork, log)
+	return NewWithHost(p2pHost, bootPeers, bootNode, bc, snNetwork, log)
 }
 
-func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, log utils.SimpleLogger) (*Service, error) {
+func NewWithHost(p2phost host.Host, bootPeers string, bootNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+	log utils.SimpleLogger,
+) (*Service, error) {
 	p2pdht, err := makeDHT(p2phost, snNetwork, bootPeers)
 	if err != nil {
 		return nil, err
 	}
 
+	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
 	s := &Service{
-		bootPeers: bootPeers,
-		log:       log,
-		host:      p2phost,
-		network:   snNetwork,
-		dht:       p2pdht,
-		topics:    make(map[string]*pubsub.Topic),
+		bootPeers:    bootPeers,
+		synchroniser: synchroniser,
+		log:          log,
+		host:         p2phost,
+		network:      snNetwork,
+		dht:          p2pdht,
+		bootNode:     bootNode,
+		topics:       make(map[string]*pubsub.Topic),
 	}
 	s.runLock.Lock()
 	return s, nil
@@ -190,30 +204,15 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Infow("Listening on", "addr", addr)
 	}
 
-	// Start Synchronisation
+	// Start Synchronisation only if bootnode is false
 
 	// 1. First get all the peers from dht
-	p2pSync := newSyncService(s.host, s.network, s.log)
-	return p2pSync.start(ctx)
-
-	store := s.host.Peerstore()
-	peers := store.Peers()
 	// 2. Ask for missing blocks
-	proto := protocol.ID(fmt.Sprintf("/starknet/%s", s.network))
-	for _, peer := range peers {
-		stream, err := s.host.NewStream(ctx, peer, proto)
-		if err != nil {
-			return err
-		}
-
-		_, err = stream.Write([]byte(`simple_message`))
-		if err != nil {
-			return nil
-		}
-
-	}
 	// 3. Synchronisation handles peers connecting and disconnecting
 	// 4. Synchroniser has snapshot of peers to send requests to
+	if !s.bootNode {
+		s.synchroniser.start(ctx)
+	}
 
 	<-s.runCtx.Done()
 	if err := s.dht.Close(); err != nil {
