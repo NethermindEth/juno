@@ -83,10 +83,11 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err = wsc.conn.Close(websocket.StatusInternalError, errString); err != nil {
 		// Don't log an error if the connection is already closed, which can happen
-		// in benign scenarios like timeouts. Unfortunately the error is not exported
-		// from the websocket package so we match the string instead.
-		if !strings.Contains(err.Error(), "already wrote close") {
-			ws.log.Errorw("Failed to close websocket connection", "err", err)
+		// in benign scenarios like timeouts or if the underlying TCP connection was ended before the client
+		// could initiate the close handshake.
+		errString = err.Error()
+		if !strings.Contains(errString, "already wrote close") && !strings.Contains(errString, "WebSocket closed") {
+			ws.log.Errorw("Failed to close websocket connection", "err", errString)
 		}
 	}
 }
