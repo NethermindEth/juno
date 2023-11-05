@@ -68,7 +68,7 @@ docker run -d \
   --name juno \
   -p 6060:6060 \
   -v $HOME/juno:/var/lib/juno \
-  nethermind/juno \
+  nethermindeth/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
