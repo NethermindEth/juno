@@ -1,7 +1,6 @@
 package starknet
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -126,7 +125,6 @@ func TestIterator(t *testing.T) {
 
 			var i int
 			for it.Valid() {
-				fmt.Println("Block")
 				block, err := it.Block()
 				if err != nil {
 					assert.Equal(t, err, db.ErrKeyNotFound)

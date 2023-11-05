@@ -15,6 +15,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	_ "go.uber.org/automaxprocs"
 )
 
 const greeting = `

@@ -1,8 +1,11 @@
 package starknet_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -13,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
@@ -23,7 +27,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestClientHandler(t *testing.T) {
+func nopCloser() error { return nil }
+
+func TestClientHandler(t *testing.T) { //nolint:gocyclo
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -150,15 +156,250 @@ func TestClientHandler(t *testing.T) {
 	})
 
 	t.Run("get block bodies", func(t *testing.T) {
-		res, cErr := client.RequestBlockBodies(testCtx, &spec.BlockBodiesRequest{})
+		deployedClassHash := utils.HexToFelt(t, "0XCAFEBABE")
+		deployedAddress := utils.HexToFelt(t, "0XDEADBEEF")
+		replacedClassHash := utils.HexToFelt(t, "0XABCD")
+		replacedAddress := utils.HexToFelt(t, "0XABCDE")
+		declaredV0Class := randFelt(t)
+		declaredV0ClassHash := randFelt(t)
+		storageDiff := core.StorageDiff{
+			Key:   randFelt(t),
+			Value: randFelt(t),
+		}
+		const (
+			cairo0Program = "cairo_0_program"
+			cairo1Program = "cairo_1_program"
+		)
+		cairo1Class := &core.Cairo1Class{
+			AbiHash:     randFelt(t),
+			ProgramHash: randFelt(t),
+			Compiled:    json.RawMessage(cairo1Program),
+		}
+
+		blocks := []struct {
+			number    uint64
+			stateDiff *core.StateDiff
+		}{
+			{
+				number: 0,
+				stateDiff: &core.StateDiff{
+					StorageDiffs: map[felt.Felt][]core.StorageDiff{
+						*deployedAddress: {
+							storageDiff,
+						},
+					},
+					Nonces: map[felt.Felt]*felt.Felt{
+						*deployedAddress: randFelt(t),
+						*replacedAddress: randFelt(t),
+					},
+					DeployedContracts: []core.AddressClassHashPair{
+						{
+							Address:   deployedAddress,
+							ClassHash: deployedClassHash,
+						},
+					},
+					DeclaredV0Classes: []*felt.Felt{declaredV0Class},
+					DeclaredV1Classes: []core.DeclaredV1Class{
+						{
+							ClassHash:         randFelt(t),
+							CompiledClassHash: randFelt(t),
+						},
+					},
+					ReplacedClasses: []core.AddressClassHashPair{
+						{
+							Address:   replacedAddress,
+							ClassHash: replacedClassHash,
+						},
+					},
+				},
+			},
+			{
+				number: 1,
+				stateDiff: &core.StateDiff{ // State Diff with a class declared and deployed in the same block
+					StorageDiffs: map[felt.Felt][]core.StorageDiff{
+						*deployedAddress: {
+							storageDiff,
+						},
+					},
+					Nonces: map[felt.Felt]*felt.Felt{
+						*deployedAddress: randFelt(t),
+						*replacedAddress: randFelt(t),
+					},
+					DeployedContracts: []core.AddressClassHashPair{
+						{
+							Address:   deployedAddress,
+							ClassHash: deployedClassHash,
+						},
+						{
+							Address:   declaredV0Class,
+							ClassHash: declaredV0ClassHash,
+						},
+					},
+					DeclaredV0Classes: []*felt.Felt{declaredV0ClassHash},
+					DeclaredV1Classes: []core.DeclaredV1Class{
+						{
+							ClassHash:         randFelt(t),
+							CompiledClassHash: randFelt(t),
+						},
+					},
+					ReplacedClasses: []core.AddressClassHashPair{
+						{
+							Address:   replacedAddress,
+							ClassHash: replacedClassHash,
+						},
+					},
+				},
+			},
+		}
+		limit := uint64(len(blocks))
+
+		for _, block := range blocks {
+			mockReader.EXPECT().BlockHeaderByNumber(block.number).Return(&core.Header{
+				Number: block.number,
+			}, nil)
+
+			mockReader.EXPECT().StateUpdateByNumber(block.number).Return(&core.StateUpdate{
+				StateDiff: block.stateDiff,
+			}, nil)
+
+			stateHistory := mocks.NewMockStateHistoryReader(mockCtrl)
+			v0Class := block.stateDiff.DeclaredV0Classes[0]
+			stateHistory.EXPECT().Class(v0Class).Return(&core.DeclaredClass{
+				At: block.number,
+				Class: &core.Cairo0Class{
+					Program: cairo0Program,
+				},
+			}, nil)
+			v1Class := block.stateDiff.DeclaredV1Classes[0]
+			stateHistory.EXPECT().Class(v1Class.ClassHash).Return(&core.DeclaredClass{
+				At:    block.number,
+				Class: cairo1Class,
+			}, nil)
+			deployedClass := block.stateDiff.DeployedContracts[0]
+			stateHistory.EXPECT().Class(deployedClass.ClassHash).Return(&core.DeclaredClass{
+				At:    block.number,
+				Class: cairo1Class,
+			}, nil)
+
+			stateHistory.EXPECT().ContractClassHash(deployedAddress).Return(deployedClassHash, nil).AnyTimes()
+			stateHistory.EXPECT().ContractClassHash(replacedAddress).Return(replacedClassHash, nil).AnyTimes()
+
+			mockReader.EXPECT().StateAtBlockNumber(block.number).Return(stateHistory, nopCloser, nil)
+		}
+
+		res, cErr := client.RequestBlockBodies(testCtx, &spec.BlockBodiesRequest{
+			Iteration: &spec.Iteration{
+				Start: &spec.Iteration_BlockNumber{
+					BlockNumber: blocks[0].number,
+				},
+				Direction: spec.Iteration_Forward,
+				Limit:     limit,
+				Step:      1,
+			},
+		})
 		require.NoError(t, cErr)
 
-		count := uint64(0)
+		var expectedMessages []*spec.BlockBodiesResponse
+
+		for _, b := range blocks {
+			expectedMessages = append(expectedMessages, []*spec.BlockBodiesResponse{
+				{
+					Id: &spec.BlockID{
+						Number: b.number,
+					},
+					BodyMessage: &spec.BlockBodiesResponse_Diff{
+						Diff: &spec.StateDiff{
+							ContractDiffs: []*spec.StateDiff_ContractDiff{
+								{
+									Address:   core2p2p.AdaptAddress(deployedAddress),
+									ClassHash: core2p2p.AdaptFelt(deployedClassHash),
+									Nonce:     core2p2p.AdaptFelt(b.stateDiff.Nonces[*deployedAddress]),
+									Values: []*spec.ContractStoredValue{
+										{
+											Key:   core2p2p.AdaptFelt(storageDiff.Key),
+											Value: core2p2p.AdaptFelt(storageDiff.Value),
+										},
+									},
+								},
+								{
+									Address:   core2p2p.AdaptAddress(replacedAddress),
+									ClassHash: core2p2p.AdaptFelt(replacedClassHash),
+									Nonce:     core2p2p.AdaptFelt(b.stateDiff.Nonces[*replacedAddress]),
+								},
+							},
+						},
+					},
+				},
+				{
+					Id: &spec.BlockID{
+						Number: b.number,
+					},
+					BodyMessage: &spec.BlockBodiesResponse_Classes{
+						Classes: &spec.Classes{
+							Domain: 0,
+							Classes: []*spec.Class{
+								{
+									CompiledHash: core2p2p.AdaptHash(b.stateDiff.DeclaredV0Classes[0]),
+									Definition:   []byte(cairo0Program),
+								},
+								{
+									CompiledHash: core2p2p.AdaptHash(cairo1Class.Hash()),
+									Definition:   []byte(cairo1Program),
+								},
+								{
+									CompiledHash: core2p2p.AdaptHash(cairo1Class.Hash()),
+									Definition:   []byte(cairo1Program),
+								},
+							},
+						},
+					},
+				},
+				{
+					Id: &spec.BlockID{
+						Number: b.number,
+					},
+					BodyMessage: &spec.BlockBodiesResponse_Proof{
+						Proof: &spec.BlockProof{
+							Proof: nil,
+						},
+					},
+				},
+				{
+					Id: &spec.BlockID{
+						Number: b.number,
+					},
+					BodyMessage: &spec.BlockBodiesResponse_Fin{},
+				},
+			}...)
+		}
+
+		expectedMessages = append(expectedMessages, &spec.BlockBodiesResponse{
+			Id:          nil,
+			BodyMessage: &spec.BlockBodiesResponse_Fin{},
+		})
+
+		var count int
 		for body, valid := res(); valid; body, valid = res() {
-			assert.Equal(t, count, body.Id.Number)
+			if bodyProof, ok := body.BodyMessage.(*spec.BlockBodiesResponse_Proof); ok {
+				// client generates random slice of bytes in proofs for now
+				bodyProof.Proof = nil
+			}
+
+			if count == 0 || count == 4 {
+				diff := body.BodyMessage.(*spec.BlockBodiesResponse_Diff).Diff.ContractDiffs
+				sortContractDiff(diff)
+
+				expectedDiff := expectedMessages[count].BodyMessage.(*spec.BlockBodiesResponse_Diff).Diff.ContractDiffs
+				sortContractDiff(expectedDiff)
+			}
+
+			if !assert.True(t, proto.Equal(expectedMessages[count], body), "iteration %d, type %T", count, body.BodyMessage) {
+				spew.Dump(body.BodyMessage)
+				spew.Dump(expectedMessages[count])
+			}
 			count++
 		}
-		require.Equal(t, uint64(4), count)
+		require.Equal(t, len(expectedMessages), count)
 	})
 
 	t.Run("get receipts", func(t *testing.T) {
@@ -673,4 +914,12 @@ func fillFelts[T any](t *testing.T, i T) T {
 	}
 
 	return i
+}
+
+func sortContractDiff(diff []*spec.StateDiff_ContractDiff) {
+	sort.Slice(diff, func(i, j int) bool {
+		iAddress := diff[i].Address
+		jAddress := diff[j].Address
+		return bytes.Compare(iAddress.Elements, jAddress.Elements) < 0
+	})
 }
