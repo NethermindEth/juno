@@ -80,6 +80,10 @@ func AdaptMessageToL1(mL1 *core.L2ToL1Message) *spec.MessageToL1 {
 }
 
 func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_ExecutionResources {
+	if er == nil {
+		return nil
+	}
+
 	return &spec.Receipt_ExecutionResources{
 		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{
 			Bitwise:    uint32(er.BuiltinInstanceCounter.Bitwise),

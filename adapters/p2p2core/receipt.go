@@ -35,6 +35,9 @@ func AdaptReceipt(r *spec.Receipt) *core.TransactionReceipt {
 }
 
 func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.ExecutionResources {
+	if er == nil {
+		return nil
+	}
 	return &core.ExecutionResources{
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
 			Pedersen:   uint64(er.GetBuiltins().GetPedersen()),

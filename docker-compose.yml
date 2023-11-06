@@ -14,7 +14,7 @@ services:
     image: juno:latest
     networks: [p2p-network]
     depends_on: [boot-node]
-    command: ["juno", "--http", "--p2p", "--p2p-boot-peers", "/ip4/192.168.10.10/tcp/7777"]
+    command: ["juno", "--http", "--p2p", "--p2p-boot-peers", "/ip4/192.168.10.10/tcp/7777/p2p/12D3KooWEbuaFLXa1NBR2k186YchYpo29pk1DPWxATiTXub7V2ad"]
     deploy:
       replicas: 2
 

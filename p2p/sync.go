@@ -39,7 +39,7 @@ type syncService struct {
 	log        utils.SimpleLogger
 }
 
-func newSyncService(bc *blockchain.Blockchain, h host.Host, network utils.Network,
+func newSyncService(bc *blockchain.Blockchain, h host.Host, bootNode peer.ID, network utils.Network,
 	log utils.SimpleLogger,
 ) *syncService {
 	return &syncService{
@@ -48,6 +48,7 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, network utils.Networ
 		network:    network,
 		blockchain: bc,
 		log:        log,
+		bootNode:   bootNode,
 	}
 }
 
@@ -60,9 +61,13 @@ func (s *syncService) start(ctx context.Context) {
 		s.log.Errorw("Failed to get boot node height", "err", err)
 		return
 	}
+	s.log.Infow("Boot node height", "height", bootNodeHeight)
 
 	// todo do not request same block from all peers
-	for _, peerInfo := range peers[:1] {
+	for _, peerInfo := range peers {
+		if peerInfo == s.host.ID() {
+			continue
+		}
 		s.requestBlockHeaders(ctx, s.height, bootNodeHeight, peerInfo)
 	}
 }
@@ -99,13 +104,14 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint6
 	it := &spec.Iteration{
 		Start:     &spec.Iteration_BlockNumber{start},
 		Direction: spec.Iteration_Forward,
-		Limit:     1,
-		Step:      stop,
+		Limit:     stop,
+		Step:      1,
 	}
 
 	header, err := s.requestBlockHeader(ctx, peerInfo, it)
 	if err != nil {
-		s.log.Errorw("Failed to request block header from peer %v", peerInfo)
+		s.log.Errorw("Failed to request block header from peer", "peerInfo", peerInfo, "err", err)
+		return
 	}
 
 	fmt.Printf("Received header %+v from peer %s\n", header, peerInfo)
@@ -123,7 +129,8 @@ func (s *syncService) requestBlockHeader(ctx context.Context, id peer.ID, it *sp
 
 	var header *core.Header
 	for res, valid := headersIt(); valid; res, valid = headersIt() {
-		for i, part := range res.GetPart() {
+		fmt.Println("Iteration header")
+		for _, part := range res.GetPart() {
 			switch part.HeaderMessage.(type) {
 			case *spec.BlockHeadersResponsePart_Header:
 				receipts, err := s.requestReceipts(ctx, id, it)
@@ -153,9 +160,9 @@ func (s *syncService) requestBlockHeader(ctx context.Context, id peer.ID, it *sp
 					return []*felt.Felt{p2p2core.AdaptFelt(sign.R), p2p2core.AdaptFelt(sign.S)}
 				})
 			case *spec.BlockHeadersResponsePart_Fin:
-				if i != 2 {
-					return nil, fmt.Errorf("fin message received as %d part (header,signatures are missing?)", i)
-				}
+				//if i != 2 {
+				//	return nil, fmt.Errorf("fin message received as %d part (header,signatures are missing?)", i)
+				//}
 			}
 		}
 	}

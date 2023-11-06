@@ -55,7 +55,7 @@ func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
 }
 
 func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
-	return HeaderSubscription{nil}
+	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates

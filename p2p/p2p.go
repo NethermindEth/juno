@@ -34,11 +34,11 @@ const (
 )
 
 type Service struct {
-	host      host.Host
-	bootPeers string
-	network   utils.Network
-	handler   *starknet.Handler
-	log       utils.SimpleLogger
+	host host.Host
+
+	network utils.Network
+	handler *starknet.Handler
+	log     utils.SimpleLogger
 
 	dht        *dht.IpfsDHT
 	pubsub     *pubsub.PubSub
@@ -77,17 +77,34 @@ func New(addr, userAgent, bootPeers, privKeyStr string, bootNode bool, bc *block
 	return NewWithHost(p2pHost, bootPeers, bootNode, bc, snNetwork, log)
 }
 
-func NewWithHost(p2phost host.Host, bootPeers string, bootNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+func NewWithHost(p2phost host.Host, bootNodes string, bootNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
+	bootPeers := []peer.AddrInfo{}
+	if bootNodes != "" {
+		splitted := strings.Split(bootNodes, ",")
+		for _, peerStr := range splitted {
+			bootAddr, err := peer.AddrInfoFromString(peerStr)
+			if err != nil {
+				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
+			}
+
+			bootPeers = append(bootPeers, *bootAddr)
+		}
+	}
+
 	p2pdht, err := makeDHT(p2phost, snNetwork, bootPeers)
 	if err != nil {
 		return nil, err
 	}
 
-	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
+	// todo: reconsider initialising synchroniser here because if node is a bootnode we shouldn't not create an instance of it.
+	var peerId peer.ID
+	if len(bootPeers) > 0 {
+		peerId = bootPeers[0].ID
+	}
+	synchroniser := newSyncService(bc, p2phost, peerId, snNetwork, log)
 	s := &Service{
-		bootPeers:    bootPeers,
 		synchroniser: synchroniser,
 		log:          log,
 		host:         p2phost,
@@ -101,20 +118,7 @@ func NewWithHost(p2phost host.Host, bootPeers string, bootNode bool, bc *blockch
 	return s, nil
 }
 
-func makeDHT(p2phost host.Host, snNetwork utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
-	bootPeers := []peer.AddrInfo{}
-	if cfgBootPeers != "" {
-		splitted := strings.Split(cfgBootPeers, ",")
-		for _, peerStr := range splitted {
-			bootAddr, err := peer.AddrInfoFromString(peerStr)
-			if err != nil {
-				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
-			}
-
-			bootPeers = append(bootPeers, *bootAddr)
-		}
-	}
-
+func makeDHT(p2phost host.Host, snNetwork utils.Network, bootPeers []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	protocolPrefix := protocol.ID(fmt.Sprintf("/starknet/%s", snNetwork))
 	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(protocolPrefix),
