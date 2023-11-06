@@ -26,7 +26,7 @@ const (
 )
 
 type blockBodyIterator struct {
-	log         utils.Logger
+	log         utils.SimpleLogger
 	stateReader core.StateReader
 	stateCloser func() error
 
@@ -35,7 +35,7 @@ type blockBodyIterator struct {
 	stateUpdate *core.StateUpdate
 }
 
-func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log utils.Logger) (*blockBodyIterator, error) {
+func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log utils.SimpleLogger) (*blockBodyIterator, error) {
 	stateUpdate, err := bcReader.StateUpdateByNumber(header.Number)
 	if err != nil {
 		return nil, err

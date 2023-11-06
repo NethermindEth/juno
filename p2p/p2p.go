@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/p2p/starknet"
+
 	"github.com/NethermindEth/juno/blockchain"
 
 	"github.com/NethermindEth/juno/utils"
@@ -35,6 +37,7 @@ type Service struct {
 	host      host.Host
 	bootPeers string
 	network   utils.Network
+	handler   *starknet.Handler
 	log       utils.SimpleLogger
 
 	dht        *dht.IpfsDHT
@@ -92,6 +95,7 @@ func NewWithHost(p2phost host.Host, bootPeers string, bootNode bool, bc *blockch
 		dht:          p2pdht,
 		bootNode:     bootNode,
 		topics:       make(map[string]*pubsub.Topic),
+		handler:      starknet.NewHandler(bc, log),
 	}
 	s.runLock.Lock()
 	return s, nil
@@ -212,12 +216,18 @@ func (s *Service) Run(ctx context.Context) error {
 	if !s.bootNode {
 		s.synchroniser.start(ctx)
 	}
+	s.setProtocolHandlers()
 
 	<-s.runCtx.Done()
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
 	return s.host.Close()
+}
+
+func (s *Service) setProtocolHandlers() {
+	s.SetProtocolHandler(starknet.BlockHeadersPID(s.network), s.handler.BlockHeadersHandler)
+	s.SetProtocolHandler(starknet.ReceiptsPID(s.network), s.handler.ReceiptsHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {

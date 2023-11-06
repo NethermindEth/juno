@@ -18,10 +18,10 @@ import (
 
 type Handler struct {
 	bcReader blockchain.Reader
-	log      utils.Logger
+	log      utils.SimpleLogger
 }
 
-func NewHandler(bcReader blockchain.Reader, log utils.Logger) *Handler {
+func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
 	return &Handler{
 		bcReader: bcReader,
 		log:      log,
@@ -302,6 +302,13 @@ func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
 		return newIteratorByNumber(h.bcReader, v.BlockNumber, it.Limit, it.Step, forward)
 	case *spec.Iteration_Header:
 		return newIteratorByHash(h.bcReader, p2p2core.AdaptHash(v.Header), it.Limit, it.Step, forward)
+	case *spec.Iteration_Latest:
+		blockNumber, err := h.bcReader.Height()
+		if err != nil {
+			return nil, err
+		}
+
+		return newIteratorByNumber(h.bcReader, blockNumber, 1, 1, true)
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)
 	}

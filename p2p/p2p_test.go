@@ -28,6 +28,8 @@ func TestService(t *testing.T) {
 	peerA, err := p2p.NewWithHost(
 		peerHosts[0],
 		"",
+		false,
+		nil,
 		utils.Integration,
 		utils.NewNopZapLogger(),
 	)
@@ -47,6 +49,8 @@ func TestService(t *testing.T) {
 	peerB, err := p2p.NewWithHost(
 		peerHosts[1],
 		strings.Join(bootAddrsString, ","),
+		true,
+		nil,
 		utils.Integration,
 		utils.NewNopZapLogger(),
 	)
@@ -131,6 +135,8 @@ func TestInvalidKey(t *testing.T) {
 		"peerA",
 		"",
 		"something",
+		false,
+		nil,
 		utils.Integration,
 		utils.NewNopZapLogger(),
 	)
@@ -144,6 +150,8 @@ func TestValidKey(t *testing.T) {
 		"peerA",
 		"",
 		"08011240333b4a433f16d7ca225c0e99d0d8c437b835cb74a98d9279c561977690c80f681b25ccf3fa45e2f2de260149c112fa516b69057dd3b0151a879416c0cb12d9b3",
+		false,
+		nil,
 		utils.Integration,
 		utils.NewNopZapLogger(),
 	)
