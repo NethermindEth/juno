@@ -233,19 +233,22 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		s.highestBlockHeader.Store(nil)
 	}()
 
-	fetchers, verifiers := s.setupWorkers()
-	streamCtx, streamCancel := context.WithCancel(syncCtx)
-
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
 
-	pendingSem := make(chan struct{}, 1)
-	if !s.readOnlyBlockchain {
-		go s.pollPending(syncCtx, pendingSem)
-	}
 	latestSem := make(chan struct{}, 1)
+	if s.readOnlyBlockchain {
+		s.pollLatest(syncCtx, latestSem)
+		return
+	}
+
+	fetchers, verifiers := s.setupWorkers()
+	streamCtx, streamCancel := context.WithCancel(syncCtx)
+
 	go s.pollLatest(syncCtx, latestSem)
+	pendingSem := make(chan struct{}, 1)
+	go s.pollPending(syncCtx, pendingSem)
 
 	for {
 		select {
@@ -266,9 +269,6 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
 		default:
-			if s.readOnlyBlockchain {
-				<-streamCtx.Done()
-			}
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
 				fetchTimer := time.Now()
