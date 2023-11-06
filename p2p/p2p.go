@@ -105,7 +105,7 @@ func makeDHT(p2phost host.Host, snNetwork utils.Network, cfgBootPeers string) (*
 		for _, peerStr := range splitted {
 			bootAddr, err := peer.AddrInfoFromString(peerStr)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
 			}
 
 			bootPeers = append(bootPeers, *bootAddr)

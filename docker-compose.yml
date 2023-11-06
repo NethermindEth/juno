@@ -1,24 +1,28 @@
 version: '3.8'
+# first, run "docker build -t juno:latest"
 services:
   boot-node:
-    build:
-      context: .
-      args: ["VM_DEBUG=true"]
+    image: juno:latest
+    networks:
+      p2p-network:
+        ipv4_address: 192.168.10.10
     command: ["juno", "--http", "--p2p", "--p2p-bootnode", "--p2p-addr", "/ip4/0.0.0.0/tcp/7777"]
     ports:
       - "6060:6060"
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
 
   node:
-    build:
-      context: .
-      args: ["VM_DEBUG=true"]
-    command: ["juno", "--http", "--p2p", "--p2p-boot-peers", "/ip4/boot-node/tcp/7777"]
+    image: juno:latest
+    networks: [p2p-network]
+    depends_on: [boot-node]
+    command: ["juno", "--http", "--p2p", "--p2p-boot-peers", "/ip4/192.168.10.10/tcp/7777"]
     deploy:
       replicas: 2
-      resources:
-        limits:
-          cpus: '0.5'
+
+networks:
+  p2p-network:
+    name: p2p-network
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.10.0/24

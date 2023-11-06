@@ -74,10 +74,11 @@ func (s *syncService) requestBlockHeader(ctx context.Context, peerInfo peer.Addr
 	}
 
 	for res, valid := header(); valid; res, valid = header() {
+		// processing one block after another
 		h := res.GetPart()[0].GetHeader()
 
 		var (
-			block *core.Block
+			block core.Block
 			// todo ask for rest of data:
 			blockCommitments *core.BlockCommitments
 			stateUpdate      *core.StateUpdate
@@ -85,20 +86,31 @@ func (s *syncService) requestBlockHeader(ctx context.Context, peerInfo peer.Addr
 			receipts         []*core.TransactionReceipt
 		)
 
-		block.Header = &core.Header{
-			Hash:             nil, // how?
-			ParentHash:       p2p2core.AdaptHash(h.ParentHeader),
-			Number:           h.Number,
-			GlobalStateRoot:  p2p2core.AdaptHash(h.State.Root),
-			SequencerAddress: p2p2core.AdaptAddress(h.SequencerAddress),
-			TransactionCount: uint64(h.Transactions.NLeaves),
-			EventCount:       uint64(h.Events.NLeaves),
-			Timestamp:        uint64(h.Time.AsTime().Second()) + 1,
-			ProtocolVersion:  "",  // todo ?
-			ExtraData:        nil, // todo where?
-			EventsBloom:      core.EventsBloom(receipts),
-			GasPrice:         nil,
-			Signatures:       nil,
+		for _, part := range res.GetPart() {
+			switch part.HeaderMessage.(type) {
+			case *spec.BlockHeadersResponsePart_Header:
+				block.Header = &core.Header{
+					Hash:             nil, // how?
+					ParentHash:       p2p2core.AdaptHash(h.ParentHeader),
+					Number:           h.Number,
+					GlobalStateRoot:  p2p2core.AdaptHash(h.State.Root),
+					SequencerAddress: p2p2core.AdaptAddress(h.SequencerAddress),
+					TransactionCount: uint64(h.Transactions.NLeaves),
+					EventCount:       uint64(h.Events.NLeaves),
+					Timestamp:        uint64(h.Time.AsTime().Second()) + 1,
+					ProtocolVersion:  "",  // todo ?
+					ExtraData:        nil, // todo where?
+					EventsBloom:      core.EventsBloom(receipts),
+					GasPrice:         nil,
+					Signatures:       nil,
+				}
+			case *spec.BlockHeadersResponsePart_Signatures:
+				// assumption that Signatures go immediately after Header struct
+				// todo check blockID
+				// todo block.Signatures = part.GetSignatures().Signatures ?
+			case *spec.BlockHeadersResponsePart_Fin:
+				// what should we do here?
+			}
 		}
 
 		s.blockchain.Store(block, blockCommitments, stateUpdate, newClasses)
