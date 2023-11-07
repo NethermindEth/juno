@@ -150,6 +150,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		} else {
 			receipts = pending.Block.Receipts
 		}
+
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.appendBlockEvents(matchedEvents, header, receipts, filterKeysMaps, cToken, chunkSize)
 		if err != nil {
