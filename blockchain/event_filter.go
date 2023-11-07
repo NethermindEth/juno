@@ -122,7 +122,6 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	}
 
 	var (
-		processedEvents        uint64
 		remainingScannedBlocks = e.maxScanned
 		rToken                 *ContinuationToken
 	)
@@ -151,7 +150,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		} else {
 			receipts = pending.Block.Receipts
 		}
-
+		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.appendBlockEvents(matchedEvents, header, receipts, filterKeysMaps, cToken, chunkSize)
 		if err != nil {
 			if errors.Is(err, errChunkSizeReached) {
@@ -162,8 +161,8 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		}
 	}
 
-	if remainingScannedBlocks == 0 && curBlock <= e.toBlock {
-		rToken = &ContinuationToken{fromBlock: curBlock, processedEvents: processedEvents}
+	if rToken == nil && remainingScannedBlocks == 0 && curBlock <= e.toBlock {
+		rToken = &ContinuationToken{fromBlock: curBlock, processedEvents: 0}
 	}
 	return matchedEvents, rToken, nil
 }
