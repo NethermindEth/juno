@@ -150,6 +150,8 @@ func main() {
 //  2. An Execute* function is called on the command returned from step 1.
 //  3. The config struct is populated.
 //  4. Cobra calls the run function.
+//
+//nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:     "juno [flags]",
