@@ -17,7 +17,6 @@ indexmap = "1.9.2"
 starknet = { rev = "starknet-core/v0.4.0", git = "https://github.com/xJonathanLEI/starknet-rs" }
 cached = "0.44.0"
 once_cell = "1.18.0"
-syn = "=2.0.38"
 
 [lib]
 crate-type = ["staticlib"]
