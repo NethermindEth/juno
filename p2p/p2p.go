@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/crypto/pb"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/NethermindEth/juno/p2p/starknet"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -128,6 +131,7 @@ func makeDHT(p2phost host.Host, snNetwork utils.Network, bootPeers []peer.AddrIn
 }
 
 func privateKey(privKeyStr string) (crypto.PrivKey, error) {
+	fmt.Println("Inside privateKey()", privKeyStr)
 	if privKeyStr == "" {
 		// Creates a new key pair for this host.
 		prvKey, _, _, err := GenKeyPair()
@@ -136,14 +140,23 @@ func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 		}
 		return prvKey, nil
 	}
+
 	privKeyBytes, err := hex.DecodeString(privKeyStr)
 	if err != nil {
 		return nil, err
 	}
 
-	prvKey, err := crypto.UnmarshalPrivateKey(privKeyBytes)
+	privKeyBytesPB, err := proto.Marshal(&pb.PrivateKey{
+		Type: utils.Ptr(pb.KeyType_Ed25519),
+		Data: privKeyBytes,
+	})
 	if err != nil {
 		return nil, err
+	}
+
+	prvKey, err := crypto.UnmarshalPrivateKey(privKeyBytesPB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarslah private key: %w", err)
 	}
 
 	return prvKey, nil

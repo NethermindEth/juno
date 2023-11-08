@@ -55,6 +55,7 @@ const (
 	p2pAddrF             = "p2p-addr"
 	p2pBootPeersF        = "p2p-boot-peers"
 	p2pBootNodeF         = "p2p-bootnode"
+	p2pPrivateKey        = "p2p-private-key"
 	metricsF             = "metrics"
 	metricsHostF         = "metrics-host"
 	metricsPortF         = "metrics-port"
@@ -84,6 +85,7 @@ const (
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
 	defaultP2pBootNode         = false
+	defaultP2pPrivateKey       = ""
 	defaultMetrics             = false
 	defaultMetricsPort         = 9090
 	defaultGRPC                = false
@@ -115,6 +117,7 @@ const (
 	p2pAddrUsage             = "specify p2p source address as multiaddr"
 	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
 	p2pBootNodeUsage         = "run juno as a bootnode"
+	p2pPrivateKeyUsage       = ""
 	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
 	metricsHostUsage         = "The interface on which the prometheus endpoint will listen for requests."
 	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
@@ -246,6 +249,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
 	junoCmd.Flags().Bool(p2pBootNodeF, defaultP2pBootNode, p2pBootNodeUsage)
+	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
