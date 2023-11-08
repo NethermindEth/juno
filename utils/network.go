@@ -60,13 +60,6 @@ var (
 )
 
 func (n Network) String() string {
-	if n.name == "custom" {
-		str := fmt.Sprintf("%s,%s,%s", n.name, n.baseURL, n.chainID)
-		if n.l1ChainID != nil {
-			str = fmt.Sprintf("%s,%s,%s", str, n.l1ChainID.String(), n.coreContractAddress.String())
-		}
-		return str
-	}
 	return n.name
 }
 
