@@ -91,7 +91,7 @@ func (n *Network) Set(s string) error {
 		n.name = elems[0]
 		n.baseURL = elems[1]
 		n.chainID = elems[2]
-		if len(elems) == 5 { //includes l1ChainID and coreContractAddress as well
+		if len(elems) == 5 { // includes l1ChainID and coreContractAddress as well
 			l1ChainID, success := new(big.Int).SetString(elems[3], 10)
 			if !success {
 				return errors.New("L1 Chain ID must be an integer (base 10)")
