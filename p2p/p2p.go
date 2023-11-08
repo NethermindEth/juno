@@ -121,9 +121,8 @@ func NewWithHost(p2phost host.Host, bootNodes string, bootNode bool, bc *blockch
 }
 
 func makeDHT(p2phost host.Host, snNetwork utils.Network, bootPeers []peer.AddrInfo) (*dht.IpfsDHT, error) {
-	protocolPrefix := protocol.ID(fmt.Sprintf("/starknet/%s", snNetwork))
 	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(protocolPrefix),
+		dht.ProtocolPrefix(snNetwork.ProtocolID()),
 		dht.BootstrapPeers(bootPeers...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
@@ -243,6 +242,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 func (s *Service) setProtocolHandlers() {
 	s.SetProtocolHandler(starknet.BlockHeadersPID(s.network), s.handler.BlockHeadersHandler)
+	s.SetProtocolHandler(starknet.CurrentBlockHeaderPID(s.network), s.handler.CurrentBlockHeaderHandler)
 	s.SetProtocolHandler(starknet.ReceiptsPID(s.network), s.handler.ReceiptsHandler)
 }
 

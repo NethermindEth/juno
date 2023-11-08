@@ -98,19 +98,32 @@ func (h *Handler) TransactionsHandler(stream network.Stream) {
 	streamHandler[*spec.TransactionsRequest](stream, h.onTransactionsRequest, h.log)
 }
 
+func (h *Handler) CurrentBlockHeaderHandler(stream network.Stream) {
+	streamHandler[*spec.CurrentBlockHeaderRequest](stream, h.onCurrentBlockHeaderRequest, h.log)
+}
+
+func (h *Handler) onCurrentBlockHeaderRequest(req *spec.CurrentBlockHeaderRequest) (Stream[proto.Message], error) {
+	curHeight, err := h.bcReader.Height()
+	if err != nil {
+		return nil, err
+	}
+
+	it, err := newIteratorByNumber(h.bcReader, curHeight, 1, 1, true)
+	if err != nil {
+		return nil, err
+	}
+	return h.blockHeaders(it, blockHeadersRequestFin()), nil
+}
+
 func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[proto.Message], error) {
 	it, err := h.newIterator(req.Iteration)
 	if err != nil {
 		return nil, err
 	}
+	return h.blockHeaders(it, blockHeadersRequestFin()), nil
+}
 
-	fin := h.newFin(&spec.BlockHeadersResponse{
-		Part: []*spec.BlockHeadersResponsePart{
-			{
-				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
-			},
-		},
-	})
+func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[proto.Message] {
 	return func() (proto.Message, bool) {
 		if !it.Valid() {
 			return fin()
@@ -146,7 +159,7 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 				},
 			},
 		}, true
-	}, nil
+	}
 }
 
 func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[proto.Message], error) {
@@ -155,7 +168,7 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 		return nil, err
 	}
 
-	fin := h.newFin(&spec.BlockBodiesResponse{
+	fin := newFin(&spec.BlockBodiesResponse{
 		BodyMessage: &spec.BlockBodiesResponse_Fin{},
 	})
 
@@ -193,7 +206,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		return nil, err
 	}
 
-	fin := h.newFin(&spec.EventsResponse{
+	fin := newFin(&spec.EventsResponse{
 		Responses: &spec.EventsResponse_Fin{},
 	})
 	return func() (proto.Message, bool) {
@@ -232,7 +245,7 @@ func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Mes
 		return nil, err
 	}
 
-	fin := h.newFin(&spec.ReceiptsResponse{Responses: &spec.ReceiptsResponse_Fin{}})
+	fin := newFin(&spec.ReceiptsResponse{Responses: &spec.ReceiptsResponse_Fin{}})
 
 	return func() (proto.Message, bool) {
 		if !blockchainIt.Valid() {
@@ -267,7 +280,7 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 		return nil, err
 	}
 
-	fin := h.newFin(&spec.TransactionsResponse{
+	fin := newFin(&spec.TransactionsResponse{
 		Responses: &spec.TransactionsResponse_Fin{},
 	})
 
@@ -302,19 +315,12 @@ func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
 		return newIteratorByNumber(h.bcReader, v.BlockNumber, it.Limit, it.Step, forward)
 	case *spec.Iteration_Header:
 		return newIteratorByHash(h.bcReader, p2p2core.AdaptHash(v.Header), it.Limit, it.Step, forward)
-	case *spec.Iteration_Latest:
-		blockNumber, err := h.bcReader.Height()
-		if err != nil {
-			return nil, err
-		}
-
-		return newIteratorByNumber(h.bcReader, blockNumber, 1, 1, true)
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)
 	}
 }
 
-func (h *Handler) newFin(finMsg proto.Message) func() (proto.Message, bool) {
+func newFin(finMsg proto.Message) Stream[proto.Message] {
 	var finSent bool
 
 	return func() (proto.Message, bool) {
@@ -325,4 +331,14 @@ func (h *Handler) newFin(finMsg proto.Message) func() (proto.Message, bool) {
 
 		return finMsg, true
 	}
+}
+
+func blockHeadersRequestFin() Stream[proto.Message] {
+	return newFin(&spec.BlockHeadersResponse{
+		Part: []*spec.BlockHeadersResponsePart{
+			{
+				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
+			},
+		},
+	})
 }

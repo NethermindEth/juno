@@ -50,6 +50,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 	handler := starknet.NewHandler(mockReader, log)
 
 	handlerHost := mockNet.Host(handlerID)
+	handlerHost.SetStreamHandler(starknet.CurrentBlockHeaderPID(testNetwork), handler.CurrentBlockHeaderHandler)
 	handlerHost.SetStreamHandler(starknet.BlockHeadersPID(testNetwork), handler.BlockHeadersHandler)
 	handlerHost.SetStreamHandler(starknet.BlockBodiesPID(testNetwork), handler.BlockBodiesHandler)
 	handlerHost.SetStreamHandler(starknet.EventsPID(testNetwork), handler.EventsHandler)
@@ -106,44 +107,8 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 				break
 			}
 
-			adaptHash := core2p2p.AdaptHash
 			expectedPair := pairsPerBlock[count]
-			header := expectedPair.header
-
-			expectedResponse := &spec.BlockHeadersResponse{
-				Part: []*spec.BlockHeadersResponsePart{
-					{
-						HeaderMessage: &spec.BlockHeadersResponsePart_Header{
-							Header: &spec.BlockHeader{
-								ParentHeader:     adaptHash(header.ParentHash),
-								Number:           header.Number,
-								Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
-								SequencerAddress: core2p2p.AdaptAddress(header.SequencerAddress),
-								State: &spec.Patricia{
-									Height: 251,
-									Root:   adaptHash(header.GlobalStateRoot),
-								},
-								Transactions: &spec.Merkle{
-									NLeaves: uint32(header.TransactionCount),
-									Root:    adaptHash(expectedPair.commitments.TransactionCommitment),
-								},
-								Events: &spec.Merkle{
-									NLeaves: uint32(header.EventCount),
-									Root:    adaptHash(expectedPair.commitments.EventCommitment),
-								},
-							},
-						},
-					},
-					{
-						HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
-							Signatures: &spec.Signatures{
-								Block:      core2p2p.AdaptBlockID(expectedPair.header),
-								Signatures: utils.Map(expectedPair.header.Signatures, core2p2p.AdaptSignature),
-							},
-						},
-					},
-				},
-			}
+			expectedResponse := expectedHeaderResponse(expectedPair.header, expectedPair.commitments)
 			assert.True(t, proto.Equal(expectedResponse, response))
 
 			assert.Equal(t, count, response.Part[0].GetHeader().Number)
@@ -152,6 +117,34 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 
 		expectedCount := numOfBlocks + 1 // plus fin
 		require.Equal(t, expectedCount, count)
+
+		t.Run("get current block header", func(t *testing.T) {
+			headerAndCommitments := pairsPerBlock[0]
+			mockReader.EXPECT().Height().Return(headerAndCommitments.header.Number, nil)
+			mockReader.EXPECT().BlockHeaderByNumber(headerAndCommitments.header.Number).Return(headerAndCommitments.header, nil)
+			mockReader.EXPECT().BlockCommitmentsByNumber(headerAndCommitments.header.Number).Return(headerAndCommitments.commitments, nil)
+
+			res, cErr := client.RequestCurrentBlockHeader(testCtx, &spec.CurrentBlockHeaderRequest{})
+			require.NoError(t, cErr)
+
+			count, numOfBlocks = 0, 1
+			for response, valid := res(); valid; response, valid = res() {
+				if count == numOfBlocks {
+					assert.True(t, proto.Equal(&spec.Fin{}, response.Part[0].GetFin()))
+					count++
+					break
+				}
+
+				expectedPair := headerAndCommitments
+				expectedResponse := expectedHeaderResponse(expectedPair.header, expectedPair.commitments)
+				assert.True(t, proto.Equal(expectedResponse, response))
+
+				assert.Equal(t, count, response.Part[0].GetHeader().Number)
+				count++
+			}
+			expectedCount := numOfBlocks + 1 // plus fin
+			require.Equal(t, expectedCount, count)
+		})
 	})
 
 	t.Run("get block bodies", func(t *testing.T) {
@@ -745,6 +738,44 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 		expectedCount := numOfBlocks + 1 // numOfBlocks messages with blocks + 1 fin message
 		require.Equal(t, expectedCount, count)
 	})
+}
+
+func expectedHeaderResponse(h *core.Header, c *core.BlockCommitments) *spec.BlockHeadersResponse {
+	adaptHash := core2p2p.AdaptHash
+	return &spec.BlockHeadersResponse{
+		Part: []*spec.BlockHeadersResponsePart{
+			{
+				HeaderMessage: &spec.BlockHeadersResponsePart_Header{
+					Header: &spec.BlockHeader{
+						ParentHeader:     adaptHash(h.ParentHash),
+						Number:           h.Number,
+						Time:             timestamppb.New(time.Unix(int64(h.Timestamp), 0)),
+						SequencerAddress: core2p2p.AdaptAddress(h.SequencerAddress),
+						State: &spec.Patricia{
+							Height: 251,
+							Root:   adaptHash(h.GlobalStateRoot),
+						},
+						Transactions: &spec.Merkle{
+							NLeaves: uint32(h.TransactionCount),
+							Root:    adaptHash(c.TransactionCommitment),
+						},
+						Events: &spec.Merkle{
+							NLeaves: uint32(h.EventCount),
+							Root:    adaptHash(c.EventCommitment),
+						},
+					},
+				},
+			},
+			{
+				HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
+					Signatures: &spec.Signatures{
+						Block:      core2p2p.AdaptBlockID(h),
+						Signatures: utils.Map(h.Signatures, core2p2p.AdaptSignature),
+					},
+				},
+			},
+		},
+	}
 }
 
 func mapToExpectedTransactions(block *core.Block) *spec.Transactions {

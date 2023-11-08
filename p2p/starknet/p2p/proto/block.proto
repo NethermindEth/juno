@@ -45,6 +45,8 @@ message NewBlock {
     }
 }
 
+// Requests a peer's CurrentBlockHeader
+message CurrentBlockHeaderRequest {}
 
 // result is (BlockHeader, Signature?)* in order of creation (incr/dec)
 message BlockHeadersRequest {

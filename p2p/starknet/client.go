@@ -65,6 +65,11 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	}, nil
 }
 
+func (c *Client) RequestCurrentBlockHeader(ctx context.Context, req *spec.CurrentBlockHeaderRequest) (Stream[*spec.BlockHeadersResponse], error) {
+	return requestAndReceiveStream[*spec.CurrentBlockHeaderRequest, *spec.BlockHeadersResponse](ctx, c.newStream,
+		CurrentBlockHeaderPID(c.network), req)
+}
+
 func (c *Client) RequestBlockHeaders(ctx context.Context, req *spec.BlockHeadersRequest) (Stream[*spec.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(c.network), req)
 }

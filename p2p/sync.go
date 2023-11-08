@@ -83,16 +83,7 @@ func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
 		return s.host.NewStream(ctx, s.bootNode, pids...)
 	}, s.network, s.log)
 
-	it := &spec.Iteration{
-		Start: &spec.Iteration_Latest{
-			Latest: true,
-		},
-		Direction: spec.Iteration_Forward,
-		Limit:     1,
-		Step:      1,
-	}
-
-	headersIt, err := c.RequestBlockHeaders(ctx, &spec.BlockHeadersRequest{Iteration: it})
+	headersIt, err := c.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
 	if err != nil {
 		s.log.Errorw("request block header from peer", "id", s.bootNode, "err", err)
 	}
