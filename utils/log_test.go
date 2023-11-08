@@ -51,6 +51,7 @@ func TestLogLevelSet(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestLogLevelUnmarshalText(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level "+str, func(t *testing.T) {

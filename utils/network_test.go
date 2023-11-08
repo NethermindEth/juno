@@ -110,6 +110,7 @@ func TestNetworkSet(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestNetworkUnmarshalText(t *testing.T) {
 	for network, str := range networkStrings {
 		t.Run("network "+str, func(t *testing.T) {

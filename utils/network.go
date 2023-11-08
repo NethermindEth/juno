@@ -39,16 +39,18 @@ var (
 		coreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
 	}
 	GOERLI = Network{
-		name:                "goerli",
-		baseURL:             "https://alpha4.starknet.io/",
-		chainID:             "SN_GOERLI",
+		name:    "goerli",
+		baseURL: "https://alpha4.starknet.io/",
+		chainID: "SN_GOERLI",
+		//nolint:gomnd
 		l1ChainID:           big.NewInt(5),
 		coreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 	}
 	GOERLI2 = Network{
-		name:                "goerli2",
-		baseURL:             "https://alpha4-2.starknet.io/",
-		chainID:             "SN_GOERLI2",
+		name:    "goerli2",
+		baseURL: "https://alpha4-2.starknet.io/",
+		chainID: "SN_GOERLI2",
+		//nolint:gomnd
 		l1ChainID:           big.NewInt(5),
 		coreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
 	}
@@ -91,7 +93,9 @@ func (n *Network) Set(s string) error {
 		n.name = elems[0]
 		n.baseURL = elems[1]
 		n.chainID = elems[2]
+		//nolint:gomnd
 		if len(elems) == 5 { // includes l1ChainID and coreContractAddress as well
+			//nolint:gomnd
 			l1ChainID, success := new(big.Int).SetString(elems[3], 10)
 			if !success {
 				return errors.New("L1 Chain ID must be an integer (base 10)")
