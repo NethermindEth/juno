@@ -203,7 +203,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 
 		block, err := it.Block()
 		if err != nil {
-			h.log.Errorw("Failed to fetch block", "err", err)
+			h.log.Errorw("Failed to fetch block", "err", err, "blockNumber", it.BlockNumber())
 			return fin()
 		}
 		it.Next()

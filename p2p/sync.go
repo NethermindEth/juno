@@ -62,8 +62,6 @@ func (s *syncService) start(ctx context.Context) {
 		s.log.Errorw("Failed to get boot node height", "err", err)
 		return
 	}
-	// todo remove hardcode sync
-	bootNodeHeight = max(bootNodeHeight, 1000)
 	s.log.Infow("Boot node height", "height", bootNodeHeight)
 
 	// todo do not request same block from all peers
