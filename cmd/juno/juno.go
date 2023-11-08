@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
@@ -259,6 +261,41 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 
 	junoCmd.MarkFlagsMutuallyExclusive(p2pBootNodeF, p2pBootPeersF)
+	junoCmd.AddCommand(NewCmdGenP2PKeyPair())
 
 	return junoCmd
+}
+
+func NewCmdGenP2PKeyPair() *cobra.Command {
+	return &cobra.Command{
+		Use:   "genp2pkeypair",
+		Short: "Generate private key pair for p2p.",
+		RunE: func(*cobra.Command, []string) error {
+			priv, pub, id, err := p2p.GenKeyPair()
+			if err != nil {
+				return err
+			}
+
+			rawPriv, err := priv.Raw()
+			if err != nil {
+				return err
+			}
+
+			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
+			hex.Encode(privHex, rawPriv)
+			fmt.Println("P2P Private Key:", string(privHex))
+
+			rawPub, err := pub.Raw()
+			if err != nil {
+				return err
+			}
+
+			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
+			hex.Encode(pubHex, rawPub)
+			fmt.Println("P2P Public Key:", string(pubHex))
+
+			fmt.Println("P2P PeerID:", id)
+			return nil
+		},
+	}
 }

@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -131,7 +130,7 @@ func makeDHT(p2phost host.Host, snNetwork utils.Network, bootPeers []peer.AddrIn
 func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 	if privKeyStr == "" {
 		// Creates a new key pair for this host.
-		prvKey, _, err := crypto.GenerateKeyPairWithReader(crypto.Ed25519, keyLength, cryptorand.Reader)
+		prvKey, _, _, err := GenKeyPair()
 		if err != nil {
 			return nil, err
 		}
