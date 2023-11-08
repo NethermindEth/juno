@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +34,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x1d", declareTx.Nonce.String())
 	assert.Equal(t, "0x2ed6bb4d57ad27a22972b81feb9d09798ff8c273684376ec72c154d90343453", declareTx.ClassHash.String())
 	assert.Equal(t, "0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23", declareTx.SenderAddress.String())
-	assert.Equal(t, feeder.TxnDeclare, declareTx.Type)
+	assert.Equal(t, starknet.TxnDeclare, declareTx.Type)
 	assert.Equal(t, 2, len(*declareTx.Signature))
 	assert.Equal(t, "0x516b5999b47509105675dd4c6ed9c373448038cfd00549fe868695916eee0ff", (*declareTx.Signature)[0].String())
 	assert.Equal(t, "0x6c0189aaa56bfcb2a3e97198d04bd7a9750a4354b88f4e5edf57cf4d966ddda", (*declareTx.Signature)[1].String())
@@ -56,7 +57,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, 2, len(*invokeTx.CallData))
 	assert.Equal(t, "0x346f2b6376b4b57f714ba187716fce9edff1361628cc54783ed0351538faa5e", (*invokeTx.CallData)[0].String())
 	assert.Equal(t, "0x2", (*invokeTx.CallData)[1].String())
-	assert.Equal(t, feeder.TxnInvoke, invokeTx.Type)
+	assert.Equal(t, starknet.TxnInvoke, invokeTx.Type)
 }
 
 //nolint:dupl
@@ -78,7 +79,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x2dd76e7ad84dbed81c314ffe5e7a7cacfb8f4836f01af4e913f275f89a3de1a", (*deployTx.ConstructorCallData)[1].String())
 	assert.Equal(t, "0x1", (*deployTx.ConstructorCallData)[2].String())
 	assert.Equal(t, "0x614b9e0c3cb7a8f4ed73b673eba239c41a172859bf129c4b269c4b8057e21d8", (*deployTx.ConstructorCallData)[3].String())
-	assert.Equal(t, feeder.TxnDeploy, deployTx.Type)
+	assert.Equal(t, starknet.TxnDeploy, deployTx.Type)
 }
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
@@ -106,7 +107,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x2", (*deployTx.ConstructorCallData)[2].String())
 	assert.Equal(t, "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", (*deployTx.ConstructorCallData)[3].String())
 	assert.Equal(t, "0x0", (*deployTx.ConstructorCallData)[4].String())
-	assert.Equal(t, feeder.TxnDeployAccount, deployTx.Type)
+	assert.Equal(t, starknet.TxnDeployAccount, deployTx.Type)
 }
 
 //nolint:dupl
@@ -128,7 +129,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x218559e75713ca564d6eaf043b73388e9ac7c2f459ef8905988052051d3ef5e", (*handlerTx.CallData)[1].String())
 	assert.Equal(t, "0x2386f26fc10000", (*handlerTx.CallData)[2].String())
 	assert.Equal(t, "0x0", (*handlerTx.CallData)[3].String())
-	assert.Equal(t, feeder.TxnL1Handler, handlerTx.Type)
+	assert.Equal(t, starknet.TxnL1Handler, handlerTx.Type)
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
@@ -291,7 +292,7 @@ func TestTransaction(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0xffff")
 		actualStatus, err := client.Transaction(context.Background(), transactionHash)
 		assert.NoError(t, err)
-		assert.Equal(t, actualStatus.FinalityStatus, feeder.NotReceived)
+		assert.Equal(t, actualStatus.FinalityStatus, starknet.NotReceived)
 	})
 }
 
@@ -458,5 +459,21 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), "latest")
 		assert.NoError(t, err)
 		assert.NotNil(t, actualStateUpdate)
+	})
+}
+
+func TestBlockTrace(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.INTEGRATION)
+
+	t.Run("old block", func(t *testing.T) {
+		trace, err := client.BlockTrace(context.Background(), "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279")
+		require.NoError(t, err)
+		require.Len(t, trace.Traces, 4)
+	})
+
+	t.Run("newer block", func(t *testing.T) {
+		trace, err := client.BlockTrace(context.Background(), "0xe3828bd9154ab385e2cbb95b3b650365fb3c6a4321660d98ce8b0a9194f9a3")
+		require.NoError(t, err)
+		require.Len(t, trace.Traces, 2)
 	})
 }

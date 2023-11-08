@@ -150,18 +150,40 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 }
 
 func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
+	it, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	fin := h.newFin(&spec.BlockBodiesResponse{
+		BodyMessage: &spec.BlockBodiesResponse_Fin{},
+	})
+
+	var bodyIterator *blockBodyIterator
 	return func() (proto.Message, bool) {
-		if count > 3 {
-			return nil, false
+		// bodyIterator is nil only during the first iteration
+		if bodyIterator != nil && bodyIterator.hasNext() {
+			return bodyIterator.next()
 		}
-		count++
-		return &spec.BlockBodiesResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
-			},
-		}, true
+
+		if !it.Valid() {
+			return fin()
+		}
+
+		header, err := it.Header()
+		if err != nil {
+			h.log.Errorw("Failed to fetch block header", "err", err)
+			return fin()
+		}
+		it.Next()
+
+		bodyIterator, err = newBlockBodyIterator(h.bcReader, header, h.log)
+		if err != nil {
+			h.log.Errorw("Failed to create block body iterator", "err", err)
+			return fin()
+		}
+		// no need to call hasNext since it's first iteration over a block
+		return bodyIterator.next()
 	}, nil
 }
 
@@ -205,32 +227,68 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 }
 
 func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
+	blockchainIt, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	fin := h.newFin(&spec.ReceiptsResponse{Responses: &spec.ReceiptsResponse_Fin{}})
+
 	return func() (proto.Message, bool) {
-		if count > 3 {
-			return nil, false
+		if !blockchainIt.Valid() {
+			return fin()
 		}
-		count++
-		return &spec.ReceiptsResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
-			},
-		}, true
+
+		b, err := blockchainIt.Block()
+		if err != nil {
+			h.log.Errorw("Failed to fetch block", "block number", b.Number, "err", err)
+			return fin()
+		}
+		blockchainIt.Next()
+
+		receipts := make([]*spec.Receipt, len(b.Receipts))
+		for i := 0; i < len(b.Receipts); i++ {
+			receipts[i] = core2p2p.AdaptReceipt(b.Receipts[i], b.Transactions[i])
+		}
+
+		rs := &spec.Receipts{Items: receipts}
+		res := &spec.ReceiptsResponse{
+			Id:        core2p2p.AdaptBlockID(b.Header),
+			Responses: &spec.ReceiptsResponse_Receipts{Receipts: rs},
+		}
+
+		return res, true
 	}, nil
 }
 
 func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[proto.Message], error) {
-	// todo: read from bcReader and adapt to p2p type
-	count := uint64(0)
+	it, err := h.newIterator(req.Iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	fin := h.newFin(&spec.TransactionsResponse{
+		Responses: &spec.TransactionsResponse_Fin{},
+	})
+
 	return func() (proto.Message, bool) {
-		if count > 3 {
-			return nil, false
+		if !it.Valid() {
+			return fin()
 		}
-		count++
+
+		block, err := it.Block()
+		if err != nil {
+			h.log.Errorw("Iterator failure", "err", err)
+			return fin()
+		}
+		it.Next()
+
 		return &spec.TransactionsResponse{
-			Id: &spec.BlockID{
-				Number: count - 1,
+			Id: core2p2p.AdaptBlockID(block.Header),
+			Responses: &spec.TransactionsResponse_Transactions{
+				Transactions: &spec.Transactions{
+					Items: utils.Map(block.Transactions, core2p2p.AdaptTransaction),
+				},
 			},
 		}, true
 	}, nil

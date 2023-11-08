@@ -25,7 +25,7 @@ pub enum TransactionType {
     L1Handler,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct TransactionTrace {
     #[serde(skip_serializing_if = "Option::is_none")]
     validate_invocation: Option<FunctionInvocation>,
@@ -96,11 +96,8 @@ impl TransactionTrace {
         if let Some(invocation) = &mut self.validate_invocation {
             invocation.make_legacy()
         }
-        if let Some(invocation) = &mut self.execute_invocation {
-            match invocation {
-                ExecuteInvocation::Ok(fn_invocation) => fn_invocation.make_legacy(),
-                _ => {}
-            }
+        if let Some(ExecuteInvocation::Ok(fn_invocation)) = &mut self.execute_invocation {
+            fn_invocation.make_legacy()
         }
         if let Some(invocation) = &mut self.fee_transfer_invocation {
             invocation.make_legacy()
@@ -110,20 +107,6 @@ impl TransactionTrace {
         }
         if let Some(invocation) = &mut self.function_invocation {
             invocation.make_legacy()
-        }
-    }
-}
-
-impl Default for TransactionTrace {
-    fn default() -> Self {
-        Self {
-            validate_invocation: None,
-            execute_invocation: None,
-            fee_transfer_invocation: None,
-            constructor_invocation: None,
-            function_invocation: None,
-            r#type: None,
-            state_diff: None,
         }
     }
 }
@@ -242,7 +225,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
             entry_point_type: val.call.entry_point_type,
             call_type: match val.call.call_type {
                 CallType::Call => "CALL",
-                CallType::Delegate => "LIBRARY_CALL",
+                CallType::Delegate => "DELEGATE",
             }
             .to_string(),
             caller_address: val.call.caller_address,
@@ -312,29 +295,29 @@ fn make_state_diff(
         if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
-                address: pair.0.0.key().clone(),
+                address: *pair.0.0.key(),
                 class_hash: pair.1.0,
             });
         } else {
             #[rustfmt::skip]
             replaced_classes.push(ReplacedClass {
-                contract_address: pair.0.0.key().clone(),
+                contract_address: *pair.0.0.key(),
                 class_hash: pair.1.0,
             });
         }
     }
 
     let mut deprecated_declared_classes = Vec::default();
-    if deprecated_declared_class.is_some() {
-        deprecated_declared_classes.push(deprecated_declared_class.unwrap().0)
+    if let Some(v) = deprecated_declared_class {
+        deprecated_declared_classes.push(v.0)
     }
     Ok(StateDiff {
         deployed_contracts,
         #[rustfmt::skip]
         storage_diffs: diff.storage_updates.into_iter().map(| v | StorageDiff {
-            address: v.0.0.key().clone(),
+            address: *v.0.0.key(),
             storage_entries: v.1.into_iter().map(| e | Entry {
-                key: e.0.0.key().clone(),
+                key: *e.0.0.key(),
                 value: e.1
             }).collect()
         }).collect(),
@@ -346,7 +329,7 @@ fn make_state_diff(
         deprecated_declared_classes,
         #[rustfmt::skip]
         nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
-          contract_address: v.0.0.key().clone(),
+          contract_address: *v.0.0.key(),
           nonce: v.1.0,
         }).collect(),
         replaced_classes,

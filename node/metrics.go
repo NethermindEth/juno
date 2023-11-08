@@ -1,6 +1,7 @@
 package node
 
 import (
+	"math"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -11,23 +12,63 @@ import (
 )
 
 func makeDBMetrics() db.EventListener {
-	readCounter := prometheus.NewCounter(prometheus.CounterOpts{
+	latencyBuckets := []float64{
+		25,
+		50,
+		75,
+		100,
+		250,
+		500,
+		1000, // 1ms
+		2000,
+		3000,
+		4000,
+		5000,
+		10000,
+		50000,
+		500000,
+		math.Inf(0),
+	}
+	readLatencyHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "db",
-		Name:      "read",
+		Name:      "read_latency",
+		Buckets:   latencyBuckets,
 	})
-	writeCounter := prometheus.NewCounter(prometheus.CounterOpts{
+	writeLatencyHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "db",
-		Name:      "write",
+		Name:      "write_latency",
+		Buckets:   latencyBuckets,
 	})
-	prometheus.MustRegister(readCounter, writeCounter)
+	commitLatency := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "db",
+		Name:      "commit_latency",
+		Buckets: []float64{
+			5000,
+			10000,
+			20000,
+			30000,
+			40000,
+			50000,
+			100000, // 100ms
+			200000,
+			300000,
+			500000,
+			1000000,
+			math.Inf(0),
+		},
+	})
 
+	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency)
 	return &db.SelectiveListener{
-		OnIOCb: func(write bool) {
+		OnIOCb: func(write bool, duration time.Duration) {
 			if write {
-				writeCounter.Inc()
+				writeLatencyHistogram.Observe(float64(duration.Microseconds()))
 			} else {
-				readCounter.Inc()
+				readLatencyHistogram.Observe(float64(duration.Microseconds()))
 			}
+		},
+		OnCommitCb: func(duration time.Duration) {
+			commitLatency.Observe(float64(duration.Microseconds()))
 		},
 	}
 }
@@ -145,6 +186,29 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		},
 		OnReorgCb: func(blockNum uint64) {
 			reorgCount.Inc()
+		},
+	}
+}
+
+func makeJunoMetrics(version string) {
+	prometheus.MustRegister(prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace:   "juno",
+		Name:        "info",
+		Help:        "Information about the Juno binary",
+		ConstLabels: prometheus.Labels{"version": version},
+	}))
+}
+
+func makeBlockchainMetrics() blockchain.EventListener {
+	reads := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "blockchain",
+		Name:      "reads",
+	}, []string{"method"})
+	prometheus.MustRegister(reads)
+
+	return &blockchain.SelectiveListener{
+		OnReadCb: func(method string) {
+			reads.WithLabelValues(method).Inc()
 		},
 	}
 }

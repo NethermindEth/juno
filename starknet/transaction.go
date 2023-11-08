@@ -1,4 +1,4 @@
-package feeder
+package starknet
 
 import (
 	"errors"

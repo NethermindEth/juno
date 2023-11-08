@@ -24,7 +24,8 @@ func TestUpdate(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -153,7 +154,8 @@ func TestContractClassHash(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -212,7 +214,8 @@ func TestContractClassHash(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -263,7 +266,8 @@ func TestNonce(t *testing.T) {
 
 func TestStateHistory(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -317,7 +321,8 @@ func TestContractIsDeployedAt(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -365,7 +370,8 @@ func TestContractIsDeployedAt(t *testing.T) {
 
 func TestClass(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -409,7 +415,8 @@ func TestClass(t *testing.T) {
 
 func TestRevert(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -565,7 +572,8 @@ func TestRevertNoClassContracts(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -603,7 +611,8 @@ func TestRevertNoClassContracts(t *testing.T) {
 
 func TestRevertDeclaredClasses(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})

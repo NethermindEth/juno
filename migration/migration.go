@@ -112,8 +112,11 @@ func MigrateIfNeeded(targetDB db.DB, network utils.Network, log utils.SimpleLogg
 
 func SchemaVersion(targetDB db.DB) (uint64, error) {
 	version := uint64(0)
-	txn := targetDB.NewTransaction(false)
-	err := txn.Get(db.SchemaVersion.Key(), func(bytes []byte) error {
+	txn, err := targetDB.NewTransaction(false)
+	if err != nil {
+		return 0, nil
+	}
+	err = txn.Get(db.SchemaVersion.Key(), func(bytes []byte) error {
 		version = binary.BigEndian.Uint64(bytes)
 		return nil
 	})

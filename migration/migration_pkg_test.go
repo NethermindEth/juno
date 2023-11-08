@@ -42,8 +42,8 @@ func TestMigration0000(t *testing.T) {
 func TestRelocateContractStorageRootKeys(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
-
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	numberOfContracts := 5
 
 	// Populate the database with entries in the old location.

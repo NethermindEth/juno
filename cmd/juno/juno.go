@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	_ "go.uber.org/automaxprocs"
 )
 
 const greeting = `
@@ -54,6 +56,8 @@ const (
 	grpcF                = "grpc"
 	grpcHostF            = "grpc-host"
 	grpcPortF            = "grpc-port"
+	maxVMsF              = "max-vms"
+	remoteDBF            = "remote-db"
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -73,6 +77,7 @@ const (
 	defaultMetricsPort         = 9090
 	defaultGRPC                = false
 	defaultGRPCPort            = 6064
+	defaultRemoteDB            = ""
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -100,6 +105,8 @@ const (
 	grpcUsage                = "Enable the HTTP GRPC server on the default port."
 	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
+	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
+	remoteDBUsage            = "gRPC URL of a remote Juno node"
 )
 
 var Version string
@@ -191,6 +198,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
 	defaultNetwork := utils.MAINNET
+	defaultMaxVMs := runtime.GOMAXPROCS(0)
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
@@ -217,6 +225,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
 	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
+	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
+	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
 
 	return junoCmd
 }

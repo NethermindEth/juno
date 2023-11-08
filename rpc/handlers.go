@@ -10,6 +10,7 @@ import (
 	"slices"
 	stdsync "sync"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -18,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -130,7 +132,7 @@ func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.bcReader.SubscribeNewHeads().Subscription
+	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
 	<-ctx.Done()
@@ -992,7 +994,7 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 	}
 
 	if txnType, typeFound := request["type"]; typeFound && txnType == TxnInvoke.String() {
-		request["type"] = feeder.TxnInvoke.String()
+		request["type"] = starknet.TxnInvoke.String()
 
 		updatedReq, errIn := json.Marshal(request)
 		if errIn != nil {
@@ -1132,19 +1134,20 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 
 	res, err := h.vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		}
 		return nil, makeContractError(err)
 	}
 	return res, nil
 }
 
 func makeContractError(err error) *jsonrpc.Error {
-	contractErr := *ErrContractError
-	contractErr.Data = struct {
+	return ErrContractError.CloneWithData(struct {
 		RevertError string `json:"revert_error"`
 	}{
 		RevertError: err.Error(),
-	}
-	return &contractErr
+	})
 }
 
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
@@ -1163,22 +1166,22 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 
 		var status TransactionStatus
 		switch txStatus.FinalityStatus {
-		case feeder.AcceptedOnL1:
+		case starknet.AcceptedOnL1:
 			status.Finality = TxnStatusAcceptedOnL1
-		case feeder.AcceptedOnL2:
+		case starknet.AcceptedOnL2:
 			status.Finality = TxnStatusAcceptedOnL2
-		case feeder.Received:
+		case starknet.Received:
 			status.Finality = TxnStatusReceived
 		default:
 			return nil, ErrTxnHashNotFound
 		}
 
 		switch txStatus.ExecutionStatus {
-		case feeder.Succeeded:
+		case starknet.Succeeded:
 			status.Execution = TxnSuccess
-		case feeder.Reverted:
+		case starknet.Reverted:
 			status.Execution = TxnFailure
-		case feeder.Rejected:
+		case starknet.Rejected:
 			status.Finality = TxnStatusRejected
 		default: // Omit the field on error. It's optional in the spec.
 		}
@@ -1230,15 +1233,15 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
-	return h.traceTransaction(&hash, false)
+func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
+	return h.traceTransaction(ctx, &hash, false)
 }
 
-func (h *Handler) LegacyTraceTransaction(hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
-	return h.traceTransaction(&hash, true)
+func (h *Handler) LegacyTraceTransaction(ctx context.Context, hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
+	return h.traceTransaction(ctx, &hash, true)
 }
 
-func (h *Handler) traceTransaction(hash *felt.Felt, legacyTraceJSON bool) (json.RawMessage, *jsonrpc.Error) {
+func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, legacyTraceJSON bool) (json.RawMessage, *jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(hash)
 	if err != nil {
 		return nil, ErrInvalidTxHash
@@ -1256,7 +1259,7 @@ func (h *Handler) traceTransaction(hash *felt.Felt, legacyTraceJSON bool) (json.
 		return nil, ErrTxnHashNotFound
 	}
 
-	traceResults, traceBlockErr := h.traceBlockTransactions(block, legacyTraceJSON)
+	traceResults, traceBlockErr := h.traceBlockTransactions(ctx, block, legacyTraceJSON)
 	if traceBlockErr != nil {
 		return nil, traceBlockErr
 	}
@@ -1331,6 +1334,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
 		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice, legacyTraceJSON)
 	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		}
 		return nil, makeContractError(err)
 	}
 
@@ -1350,28 +1356,38 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	return result, nil
 }
 
-func (h *Handler) TraceBlockTransactions(id BlockID) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	block, err := h.blockByID(&id)
 	if block == nil || err != nil {
 		return nil, ErrBlockNotFound
 	}
 
-	return h.traceBlockTransactions(block, false)
+	return h.traceBlockTransactions(ctx, block, false)
 }
 
-func (h *Handler) LegacyTraceBlockTransactions(hash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) LegacyTraceBlockTransactions(ctx context.Context, hash felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	block, err := h.bcReader.BlockByHash(&hash)
 	if err != nil {
 		return nil, ErrInvalidBlockHash
 	}
 
-	return h.traceBlockTransactions(block, true)
+	return h.traceBlockTransactions(ctx, block, true)
 }
 
-func (h *Handler) traceBlockTransactions(block *core.Block, legacyJSON bool) ([]TracedBlockTransaction, *jsonrpc.Error) { //nolint: gocyclo
-	isPending := block.Hash == nil
+var traceFallbackVersion = semver.MustParse("0.12.2")
 
+func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
+	legacyJSON bool,
+) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	isPending := block.Hash == nil
 	if !isPending {
+		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		} else if blockVer.Compare(traceFallbackVersion) != 1 {
+			// version <= 0.12.2
+			return h.fetchTraces(ctx, block.Hash, legacyJSON)
+		}
+
 		if trace, hit := h.blockTraceCache.Get(traceCacheKey{
 			blockHash: *block.Hash,
 			legacy:    legacyJSON,
@@ -1436,6 +1452,9 @@ func (h *Handler) traceBlockTransactions(block *core.Block, legacyJSON bool) ([]
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
 		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyJSON)
 	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		}
 		return nil, makeContractError(err)
 	}
 
@@ -1455,6 +1474,27 @@ func (h *Handler) traceBlockTransactions(block *core.Block, legacyJSON bool) ([]
 	}
 
 	return result, nil
+}
+
+func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt, legacyTrace bool) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	rpcBlock, err := h.BlockWithTxs(BlockID{
+		Hash: blockHash, // known non-nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	blockTrace, fErr := h.feederClient.BlockTrace(ctx, blockHash.String())
+	if fErr != nil {
+		return nil, ErrUnexpectedError.CloneWithData(fErr.Error())
+	}
+
+	traces, aErr := adaptBlockTrace(rpcBlock, blockTrace, legacyTrace)
+	if aErr != nil {
+		return nil, ErrUnexpectedError.CloneWithData(aErr.Error())
+	}
+
+	return traces, nil
 }
 
 func (h *Handler) callAndLogErr(f func() error, msg string) {
@@ -1482,8 +1522,8 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	h.mu.Lock()
 	h.subscriptions[id] = sub
 	h.mu.Unlock()
+	headerSub := h.newHeads.Subscribe()
 	sub.wg.Go(func() {
-		headerSub := h.newHeads.Subscribe()
 		defer func() {
 			headerSub.Unsubscribe()
 			h.unsubscribe(sub, id)

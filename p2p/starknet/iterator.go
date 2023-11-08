@@ -16,8 +16,8 @@ type iterator struct {
 	blockNumber uint64
 	step        uint64
 	limit       uint64
-	forward     bool
 
+	forward    bool
 	reachedEnd bool
 }
 

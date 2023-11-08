@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
@@ -28,18 +29,26 @@ const (
 	OpFetch  = "fetch"
 )
 
+// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
+type HeaderSubscription struct {
+	*feed.Subscription[*core.Header]
+}
+
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
+	SubscribeNewHeads() HeaderSubscription
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
+	readOnlyBlockchain  bool
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
+	newHeads            *feed.Feed[*core.Header]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -49,14 +58,16 @@ type Synchronizer struct {
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration,
+	log utils.SimpleLogger, pendingPollInterval time.Duration, readOnlyBlockchain bool,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
 		starknetData:        starkNetData,
 		log:                 log,
+		newHeads:            feed.New[*core.Header](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
+		readOnlyBlockchain:  readOnlyBlockchain,
 	}
 	return s
 }
@@ -157,7 +168,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 ) stream.Callback {
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	if err == nil {
+		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	}
 	return func() {
 		select {
 		case <-ctx.Done():
@@ -170,7 +183,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
@@ -185,6 +197,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+
 			highestBlockHeader := s.highestBlockHeader.Load()
 			if highestBlockHeader != nil {
 				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
@@ -198,6 +212,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
 			}
 
+			s.newHeads.Send(block.Header)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
@@ -218,17 +233,22 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		s.highestBlockHeader.Store(nil)
 	}()
 
-	fetchers, verifiers := s.setupWorkers()
-	streamCtx, streamCancel := context.WithCancel(syncCtx)
-
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
 
+	latestSem := make(chan struct{}, 1)
+	if s.readOnlyBlockchain {
+		s.pollLatest(syncCtx, latestSem)
+		return
+	}
+
+	fetchers, verifiers := s.setupWorkers()
+	streamCtx, streamCancel := context.WithCancel(syncCtx)
+
+	go s.pollLatest(syncCtx, latestSem)
 	pendingSem := make(chan struct{}, 1)
 	go s.pollPending(syncCtx, pendingSem)
-	latestSem := make(chan struct{}, 1)
-	go s.pollLatest(syncCtx, latestSem)
 
 	for {
 		select {
@@ -400,4 +420,10 @@ func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
 
 func (s *Synchronizer) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
+}
+
+func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
+	return HeaderSubscription{
+		Subscription: s.newHeads.Subscribe(),
+	}
 }
