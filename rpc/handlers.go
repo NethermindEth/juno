@@ -1329,7 +1329,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+		sequencerAddress = h.network.MetaInfo().FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
 		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice, legacyTraceJSON)
@@ -1446,7 +1446,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+		sequencerAddress = h.network.MetaInfo().FallBackSequencerAddress
 	}
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,

@@ -2150,7 +2150,7 @@ func TestSimulateTransactions(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
-		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+		sequencerAddress := network.MetaInfo().FallBackSequencerAddress
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
@@ -2212,7 +2212,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		const height uint64 = 8
 		mockReader.EXPECT().Height().Return(height, nil)
 
-		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+		sequencerAddress := network.MetaInfo().FallBackSequencerAddress
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
 		vmTrace := json.RawMessage(`{
 			"validate_invocation": {},

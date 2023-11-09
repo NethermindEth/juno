@@ -47,53 +47,6 @@ type Block struct {
 	Receipts     []*TransactionReceipt
 }
 
-type blockHashMetaInfo struct {
-	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
-	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
-	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
-}
-
-func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
-	fallBackSequencerAddress, err := new(felt.Felt).SetString(
-		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
-	if err != nil {
-		panic(fmt.Sprintf("Error while creating FallBackSequencerAddress %s", err))
-	}
-
-	switch network {
-	case utils.MAINNET:
-		fallBackSequencerAddress, err = new(felt.Felt).SetString(
-			"0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
-		if err != nil {
-			panic(fmt.Sprintf("Error while creating FallBackSequencerAddress %s", err))
-		}
-		return &blockHashMetaInfo{
-			First07Block:             833,
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		}
-	case utils.GOERLI:
-		return &blockHashMetaInfo{
-			First07Block:             47028,
-			UnverifiableRange:        []uint64{119802, 148428},
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		}
-	case utils.GOERLI2:
-		return &blockHashMetaInfo{
-			First07Block:             0,
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		}
-	case utils.INTEGRATION:
-		return &blockHashMetaInfo{
-			First07Block:             110511,
-			UnverifiableRange:        []uint64{0, 110511},
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		}
-	default:
-		// This should never happen
-		panic(fmt.Sprintf("unknown network: %s", network))
-	}
-}
-
 type BlockCommitments struct {
 	TransactionCommitment *felt.Felt
 	EventCommitment       *felt.Felt
@@ -119,7 +72,7 @@ func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error)
 		return nil, err
 	}
 
-	metaInfo := NetworkBlockHashMetaInfo(network)
+	metaInfo := network.MetaInfo()
 	unverifiableRange := metaInfo.UnverifiableRange
 	for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
 		var overrideSeq *felt.Felt
@@ -147,7 +100,7 @@ func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error)
 
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
-	metaInfo := NetworkBlockHashMetaInfo(network)
+	metaInfo := network.MetaInfo()
 
 	if b.Number < metaInfo.First07Block {
 		return pre07Hash(b, network.ChainID())
