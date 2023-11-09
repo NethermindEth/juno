@@ -93,13 +93,16 @@ func TestNetworkSet(t *testing.T) {
 		require.ErrorIs(t, n.Set("blah"), utils.ErrUnknownNetwork)
 	})
 
-	t.Run("custom network", func(t *testing.T) {
+	t.Run("custom network - success", func(t *testing.T) {
 		n := new(utils.Network)
 		//  name, baseURL, chainID, l1ChainID, coreContractAddress, fallBackSequencerAddress, first07Block, unverifiableRangeStart, unverifiableRangeEnd
 		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM,,,0x0,1,2,3"))
 		assert.Equal(t, "custom", n.String())
 		assert.Equal(t, "baseURL/feeder_gateway/", n.FeederURL())
 		assert.Equal(t, "SN_CUSTOM", n.ChainIDString())
+		assert.Equal(t, "0x0", n.MetaInfo().FallBackSequencerAddress.String())
+		assert.Equal(t, uint64(1), n.MetaInfo().First07Block)
+		assert.Equal(t, []uint64{2, 3}, n.MetaInfo().UnverifiableRange)
 
 		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,0x123,0xDEADBEEF,0x0,1,2,4"), "L1 Chain ID must be an integer (base 10)")
 		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xDEADBEEF,0x0,1,2,4"))
@@ -108,6 +111,21 @@ func TestNetworkSet(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "0x00000000000000000000000000000000DeaDBeef", cc.Hex())
 	})
+
+	t.Run("custom network - failure", func(t *testing.T) {
+		n := new(utils.Network)
+		//  name, baseURL, chainID, l1ChainID, coreContractAddress, fallBackSequencerAddress, first07Block, unverifiableRangeStart, unverifiableRangeEnd
+		require.EqualError(t, n.Set("custom"), utils.ErrNetworkParamsNotSet.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,,1,2,4"), utils.ErrNetworkNoFallbackAddr.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0xFakeFallBack,1,2,4"), utils.ErrNetworkSetFallbackAddr.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,-1,2,4"), utils.ErrNetworkSetFirst07Block.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,,2,4"), utils.ErrNetworkNoFirst07Block.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,1,,4"), utils.ErrNetworkNoUnverifRange.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,1,2,"), utils.ErrNetworkNoUnverifRange.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,1,-2,4"), utils.ErrNetworkSetUnverifRangeStart.Error())
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,1,2,-4"), utils.ErrNetworkSetUnverifRangeEnd.Error())
+	})
+
 }
 
 //nolint:dupl
