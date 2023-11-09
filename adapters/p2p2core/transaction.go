@@ -20,13 +20,13 @@ func AdaptTransaction(t *spec.Transaction) core.Transaction {
 		tx := t.GetDeclareV0()
 		return &core.DeclareTransaction{
 			TransactionHash:      nil, // todo where to get it?
+			Nonce:                nil, // for v0 nonce is not used for hash calculation
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
-			Nonce:                nil, // todo recheck
 			Version:              txVerion(0),
-			CompiledClassHash:    nil, // todo recheck
+			CompiledClassHash:    nil,
 		}
 	case *spec.Transaction_DeclareV1_:
 		tx := t.GetDeclareV1()
@@ -38,7 +38,7 @@ func AdaptTransaction(t *spec.Transaction) core.Transaction {
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
 			Version:              txVerion(1),
-			CompiledClassHash:    nil, // todo recheck
+			CompiledClassHash:    nil,
 		}
 	case *spec.Transaction_DeclareV2_:
 		tx := t.GetDeclareV2()
@@ -66,23 +66,31 @@ func AdaptTransaction(t *spec.Transaction) core.Transaction {
 		}
 	case *spec.Transaction_Deploy_:
 		tx := t.GetDeploy()
+
+		addressSalt := AdaptFelt(tx.AddressSalt)
+		classHash := AdaptHash(tx.ClassHash)
+		callData := utils.Map(tx.Calldata, AdaptFelt)
 		return &core.DeployTransaction{
 			TransactionHash:     nil, // todo compute?
-			ContractAddressSalt: AdaptFelt(tx.AddressSalt),
-			ContractAddress:     nil, // todo what to use?
-			ClassHash:           AdaptHash(tx.ClassHash),
-			ConstructorCallData: utils.Map(tx.Calldata, AdaptFelt),
-			Version:             txVerion(0), // todo right?
+			ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
+			ContractAddressSalt: addressSalt,
+			ClassHash:           classHash,
+			ConstructorCallData: callData,
+			Version:             txVerion(0),
 		}
 	case *spec.Transaction_DeployAccountV1_:
 		tx := t.GetDeployAccountV1()
+
+		addressSalt := AdaptFelt(tx.AddressSalt)
+		classHash := AdaptHash(tx.ClassHash)
+		callData := utils.Map(tx.Calldata, AdaptFelt)
 		return &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
 				TransactionHash:     nil, // todo compute?
-				ContractAddressSalt: AdaptFelt(tx.AddressSalt),
-				ContractAddress:     nil, // todo where to use it?
-				ClassHash:           AdaptHash(tx.ClassHash),
-				ConstructorCallData: utils.Map(tx.Calldata, AdaptFelt),
+				ContractAddressSalt: addressSalt,
+				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
+				ClassHash:           classHash,
+				ConstructorCallData: callData,
 				Version:             txVerion(1),
 			},
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -91,13 +99,17 @@ func AdaptTransaction(t *spec.Transaction) core.Transaction {
 		}
 	case *spec.Transaction_DeployAccountV3_:
 		tx := t.GetDeployAccountV3()
+
+		addressSalt := AdaptFelt(tx.AddressSalt)
+		classHash := AdaptHash(tx.ClassHash)
+		callData := utils.Map(tx.Calldata, AdaptFelt)
 		return &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
 				TransactionHash:     nil, // todo compute?
-				ContractAddressSalt: AdaptFelt(tx.AddressSalt),
-				ContractAddress:     nil, // todo where to use it?
-				ClassHash:           AdaptHash(tx.ClassHash),
-				ConstructorCallData: utils.Map(tx.Calldata, AdaptFelt),
+				ContractAddressSalt: addressSalt,
+				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
+				ClassHash:           classHash,
+				ConstructorCallData: callData,
 				Version:             txVerion(3),
 			},
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -107,41 +119,41 @@ func AdaptTransaction(t *spec.Transaction) core.Transaction {
 	case *spec.Transaction_InvokeV0_:
 		tx := t.GetInvokeV0()
 		return &core.InvokeTransaction{
-			TransactionHash:      nil,
+			TransactionHash:      nil, // todo compute
+			Nonce:                nil, // not used in v0
+			SenderAddress:        nil, // not used in v0
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			ContractAddress:      AdaptAddress(tx.Address),
 			Version:              txVerion(0),
 			EntryPointSelector:   AdaptFelt(tx.EntryPointSelector),
-			Nonce:                nil, // todo not set?
-			SenderAddress:        nil, // todo not set?
 		}
 	case *spec.Transaction_InvokeV1_:
 		tx := t.GetInvokeV1()
 		return &core.InvokeTransaction{
 			TransactionHash:      nil,
+			ContractAddress:      nil, // not used in v1
+			Nonce:                AdaptFelt(tx.Nonce),
+			SenderAddress:        AdaptAddress(tx.Sender),
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
-			ContractAddress:      nil, // todo what to use here?
 			Version:              txVerion(1),
-			EntryPointSelector:   nil,                     // what to use here?
-			Nonce:                nil,                     // todo not set?
-			SenderAddress:        AdaptAddress(tx.Sender), // todo not set?
+			EntryPointSelector:   nil,
 		}
 	case *spec.Transaction_InvokeV3_:
 		tx := t.GetInvokeV3()
 		return &core.InvokeTransaction{
 			TransactionHash:      nil,
+			ContractAddress:      nil, // is it ok?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
-			ContractAddress:      nil, // todo what to use here?
 			Version:              txVerion(3),
-			EntryPointSelector:   nil,                     // what to use here?
-			Nonce:                nil,                     // todo not set? (nonce domain?)
-			SenderAddress:        AdaptAddress(tx.Sender), // todo not set?
+			Nonce:                AdaptFelt(tx.Nonce),
+			SenderAddress:        AdaptAddress(tx.Sender),
+			EntryPointSelector:   nil,
 		}
 	case *spec.Transaction_L1Handler:
 		tx := t.GetL1Handler()
@@ -151,7 +163,7 @@ func AdaptTransaction(t *spec.Transaction) core.Transaction {
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
 			Nonce:              AdaptFelt(tx.Nonce),
 			CallData:           utils.Map(tx.Calldata, AdaptFelt),
-			Version:            txVerion(0), // ok?
+			Version:            txVerion(0),
 		}
 	default:
 		panic(fmt.Errorf("unsupported tx type %T", t.Txn))

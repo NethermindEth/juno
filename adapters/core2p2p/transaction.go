@@ -87,6 +87,7 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 					MaxFee:    AdaptFelt(tx.MaxFee),
 					Signature: AdaptAccountSignature(tx.Signature()),
 					Calldata:  AdaptFeltSlice(tx.CallData),
+					Nonce:     AdaptFelt(tx.Nonce),
 				},
 			}
 		default:

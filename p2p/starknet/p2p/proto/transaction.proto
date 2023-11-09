@@ -95,6 +95,7 @@ message Transaction
         AccountSignature signature        = 3;
         Hash             class_hash       = 4;
         repeated         Felt252 calldata = 5;
+        Felt252          nonce            = 6;
     }
 
     message InvokeV3 {
@@ -109,6 +110,7 @@ message Transaction
         Address          paymaster        = 9;
         string           nonce_domain     = 10;
         string           fee_domain       = 11;
+        Felt252          nonce            = 12;
     }
 
     message L1HandlerV1 {
