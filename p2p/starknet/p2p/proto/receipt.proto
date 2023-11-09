@@ -30,6 +30,7 @@ message Receipt {
       uint32 range_check = 5;
       uint32 poseidon    = 6;
       uint32 keccak      = 7;
+      uint32 output      = 8;
     }
 
     BuiltinCounter builtins     = 1;
