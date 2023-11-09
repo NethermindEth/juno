@@ -125,7 +125,6 @@ func TestNetworkSet(t *testing.T) {
 		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,1,-2,4"), utils.ErrNetworkSetUnverifRangeStart.Error())
 		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xcoffee,0x1,1,2,-4"), utils.ErrNetworkSetUnverifRangeEnd.Error())
 	})
-
 }
 
 //nolint:dupl

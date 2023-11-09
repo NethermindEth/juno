@@ -15,15 +15,17 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
-var ErrNetworkNoFallbackAddr = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
-var ErrNetworkNoFirst07Block = errors.New("the First07Block (uint64) parameter must be set")
-var ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be set")
-var ErrNetworkSetFallbackAddr = errors.New("failed to set FallBackSequencerAddress as a felt")
-var ErrNetworkSetFirst07Block = errors.New("failed to set First07Block as a uint64")
-var ErrNetworkSetUnverifRangeStart = errors.New("failed to set UnverifiableRangeStart as a uint64")
-var ErrNetworkSetUnverifRangeEnd = errors.New("failed to set UnverifiableRangeEnd as a uint64")
-var ErrNetworkParamsNotSet = errors.New("All 9 parameters must be specified for a custom network (eg name,baseURL,chainID,l1ChainID,coreContractAddress,fallBackSequencerAddress,first07Block,unverifiableRangeStart,unverifiableRangeEnd)")
+var (
+	ErrUnknownNetwork              = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
+	ErrNetworkNoFallbackAddr       = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
+	ErrNetworkNoFirst07Block       = errors.New("the First07Block (uint64) parameter must be set")
+	ErrNetworkNoUnverifRange       = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be set")
+	ErrNetworkSetFallbackAddr      = errors.New("failed to set FallBackSequencerAddress as a felt")
+	ErrNetworkSetFirst07Block      = errors.New("failed to set First07Block as a uint64")
+	ErrNetworkSetUnverifRangeStart = errors.New("failed to set UnverifiableRangeStart as a uint64")
+	ErrNetworkSetUnverifRangeEnd   = errors.New("failed to set UnverifiableRangeEnd as a uint64")
+	ErrNetworkParamsNotSet         = errors.New("all parameters must be specified for a custom network")
+)
 
 type Network struct {
 	name                string
@@ -43,9 +45,10 @@ type blockHashMetaInfo struct {
 // The following are necessary for Cobra and Viper, respectively, to unmarshal log level
 // CLI/config parameters properly.
 var (
+	//nolint:lll
+	fallBackSequencerAddress, _                          = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	_                           pflag.Value              = (*Network)(nil)
 	_                           encoding.TextUnmarshaler = (*Network)(nil)
-	fallBackSequencerAddress, _                          = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 
 	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
 	MAINNET = Network{
@@ -130,14 +133,13 @@ func (n *Network) Set(s string) error {
 			return ErrUnknownNetwork
 		}
 
-		if len(elems) == 9 { /* number of required fields in Network struct */
-
+		if len(elems) == 9 { /* number of required fields in Network struct */ //nolint:gomnd
 			n.name = elems[0]
 			n.baseURL = elems[1]
 			n.chainID = elems[2]
 
 			if elems[3] != "" {
-				l1ChainID, success := new(big.Int).SetString(elems[3], 10)
+				l1ChainID, success := new(big.Int).SetString(elems[3], 10) //nolint:gomnd
 				if !success {
 					return errors.New("L1 Chain ID must be an integer (base 10)")
 				}
@@ -149,7 +151,6 @@ func (n *Network) Set(s string) error {
 			n.blockHashMetaInfo = &blockHashMetaInfo{}
 			if elems[5] != "" {
 				fallBackSeqAddress, err := new(felt.Felt).SetString(elems[5])
-				fmt.Println("--", fallBackSeqAddress, err)
 				if err != nil {
 					return ErrNetworkSetFallbackAddr
 				}
@@ -227,6 +228,7 @@ func (n Network) ChainID() *felt.Felt {
 func (n Network) ProtocolID() protocol.ID {
 	return protocol.ID(fmt.Sprintf("/starknet/%s", n))
 }
+
 func (n Network) MetaInfo() *blockHashMetaInfo {
 	return n.blockHashMetaInfo
 }
