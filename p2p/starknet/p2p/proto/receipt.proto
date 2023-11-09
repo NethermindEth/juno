@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "p2p/proto/common.proto";
+import "p2p/proto/event.proto";
 
 message MessageToL1 {
   Felt252         from_address    = 1;
@@ -42,6 +43,7 @@ message Receipt {
     repeated           MessageToL1 messages_sent = 3;
     ExecutionResources execution_resources       = 4;
     string             revert_reason             = 5;
+    Events             events                    = 6;
   }
 
 
@@ -68,7 +70,7 @@ message Receipt {
     Felt252 contract_address = 2;
   }
 
-  oneof receipt {
+  oneof type {
     Invoke        invoke            = 1;
     L1Handler     l1_handler        = 2;
     Declare       declare           = 3;
