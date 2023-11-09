@@ -95,14 +95,14 @@ func TestNetworkSet(t *testing.T) {
 
 	t.Run("custom network", func(t *testing.T) {
 		n := new(utils.Network)
-
-		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM"))
+		//  name, baseURL, chainID, l1ChainID, coreContractAddress, fallBackSequencerAddress, first07Block, unverifiableRangeStart, unverifiableRangeEnd
+		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM,,,0x0,1,2,3"))
 		assert.Equal(t, "custom", n.String())
 		assert.Equal(t, "baseURL/feeder_gateway/", n.FeederURL())
 		assert.Equal(t, "SN_CUSTOM", n.ChainIDString())
 
-		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,0x123,0xDEADBEEF"), "L1 Chain ID must be an integer (base 10)")
-		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xDEADBEEF"))
+		require.EqualError(t, n.Set("custom,baseURL/,SN_CUSTOM,0x123,0xDEADBEEF,0x0,1,2,4"), "L1 Chain ID must be an integer (base 10)")
+		require.NoError(t, n.Set("custom,baseURL/,SN_CUSTOM,123,0xDEADBEEF,0x0,1,2,4"))
 		assert.Equal(t, uint64(123), n.DefaultL1ChainID().Uint64())
 		cc, err := n.CoreContractAddress()
 		require.NoError(t, err)

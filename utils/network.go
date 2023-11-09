@@ -15,11 +15,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 var ErrNetworkNoFallbackAddr = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
 var ErrNetworkNoFirst07Block = errors.New("the First07Block (uint64) parameter must be set")
 var ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be set")
-var ErrNetworkParamsNotSet = errors.New("All parameters must be specified for a custom network (eg name,baseURL,chainID,l1ChainID,coreContractAddress,fallBackSequencerAddress,first07Block,unverifiableRangeStart,unverifiableRangeEnd)")
+var ErrNetworkParamsNotSet = errors.New("All 9 parameters must be specified for a custom network (eg name,baseURL,chainID,l1ChainID,coreContractAddress,fallBackSequencerAddress,first07Block,unverifiableRangeStart,unverifiableRangeEnd)")
 
 type Network struct {
 	name                string
@@ -121,7 +121,8 @@ func (n *Network) Set(s string) error {
 	default:
 		*n = Network{}
 		elems := strings.Split(s, ",")
-		if len(elems) != 8 { /* number of required fields in Network struct */
+		fmt.Println(len(elems), elems, s)
+		if len(elems) == 9 { /* number of required fields in Network struct */
 
 			n.name = elems[0]
 			n.baseURL = elems[1]
@@ -137,43 +138,43 @@ func (n *Network) Set(s string) error {
 			if elems[4] != "" {
 				n.coreContractAddress = common.HexToAddress(elems[4])
 			}
+			n.blockHashMetaInfo = &blockHashMetaInfo{}
 			if elems[5] != "" {
 				fallBackSeqAddress, err := new(felt.Felt).SetString(elems[5])
 				if err != nil {
-					panic("Failed to set fallBackSequencerAddress as a Felt")
+					return errors.New(fmt.Sprintf("Failed to set fallBackSequencerAddress (%s) as a Felt", elems[5]))
 				}
 				n.blockHashMetaInfo.FallBackSequencerAddress = fallBackSeqAddress
 			} else {
-				panic(ErrNetworkNoFallbackAddr)
+				return ErrNetworkNoFallbackAddr
 			}
 			if elems[6] != "" {
-				first07Block, err := strconv.ParseUint(elems[5], 10, 64)
+				first07Block, err := strconv.ParseUint(elems[6], 10, 64)
 				if err != nil {
-					panic("First07Block must be an uint64")
+					return errors.New(fmt.Sprintf("First07Block must be an uint64, got %s instead", elems[6]))
 				}
 				n.blockHashMetaInfo.First07Block = first07Block
 			} else {
-				panic(ErrNetworkNoFirst07Block)
+				return ErrNetworkNoFirst07Block
 			}
 			if elems[7] != "" || elems[8] != "" {
 				start, err := strconv.ParseUint(elems[7], 10, 64)
 				if err != nil {
-					panic("Failed to set unverifiableRangeStart as uint64")
+					return errors.New("Failed to set unverifiableRangeStart as uint64")
 				}
 				end, err := strconv.ParseUint(elems[8], 10, 64)
 				if err != nil {
-					panic("Failed to set unverifiableRangeEnd as uint64")
+					return errors.New("Failed to set unverifiableRangeEnd as uint64")
 				}
 				n.blockHashMetaInfo.UnverifiableRange = []uint64{start, end}
 			} else {
-				panic(ErrNetworkNoUnverifRange)
+				return ErrNetworkNoUnverifRange
 			}
-
 		} else {
-			panic(ErrNetworkParamsNotSet)
+			return errors.New(fmt.Sprintf("All 9 parameters must be specified for a custom network (eg name,baseURL,chainID,l1ChainID,coreContractAddress,fallBackSequencerAddress,first07Block,unverifiableRangeStart,unverifiableRangeEnd). Only %d were set.", len(elems)))
 		}
-
 	}
+
 	return nil
 }
 
