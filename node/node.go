@@ -136,9 +136,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":        jsonrpcServer,
-		path:       jsonrpcServer,
-		legacyPath: jsonrpcServerLegacy,
+		"/":                 jsonrpcServer,
+		path:                jsonrpcServer,
+		legacyPath:          jsonrpcServerLegacy,
+		"/rpc":              jsonrpcServer,
+		"/rpc" + path:       jsonrpcServer,
+		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics))
