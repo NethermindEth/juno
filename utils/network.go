@@ -121,7 +121,11 @@ func (n *Network) Set(s string) error {
 	default:
 		*n = Network{}
 		elems := strings.Split(s, ",")
-		fmt.Println(len(elems), elems, s)
+
+		if !(elems[0] == "custom" || elems[0] == "CUSTOM") {
+			return ErrUnknownNetwork
+		}
+
 		if len(elems) == 9 { /* number of required fields in Network struct */
 
 			n.name = elems[0]
