@@ -116,75 +116,85 @@ func (n Network) MarshalJSON() ([]byte, error) {
 }
 
 func (n *Network) Set(s string) error {
-	switch s {
-	case "MAINNET", "mainnet":
-		*n = MAINNET
-	case "GOERLI", "goerli":
-		*n = GOERLI
-	case "GOERLI2", "goerli2":
-		*n = GOERLI2
-	case "INTEGRATION", "integration":
-		*n = INTEGRATION
-	default:
-		*n = Network{}
-		elems := strings.Split(s, ",")
+	predefinedNetworks := map[string]Network{
+		"MAINNET":     MAINNET,
+		"mainnet":     MAINNET,
+		"GOERLI":      GOERLI,
+		"goerli":      GOERLI,
+		"GOERLI2":     GOERLI2,
+		"goerli2":     GOERLI2,
+		"INTEGRATION": INTEGRATION,
+		"integration": INTEGRATION,
+	}
 
-		if !(elems[0] == "custom" || elems[0] == "CUSTOM") {
-			return ErrUnknownNetwork
+	if network, ok := predefinedNetworks[s]; ok {
+		*n = network
+		return nil
+	}
+
+	return n.setCustomNetwork(s)
+}
+
+func (n *Network) setCustomNetwork(s string) error {
+	*n = Network{}
+	elems := strings.Split(s, ",")
+
+	if !(elems[0] == "custom" || elems[0] == "CUSTOM") {
+		return ErrUnknownNetwork
+	}
+
+	if len(elems) != 9 { /* number of required fields in Network struct */ //nolint:gomnd
+		return ErrNetworkParamsNotSet
+	}
+
+	n.name = elems[0]
+	n.baseURL = elems[1]
+	n.chainID = elems[2]
+
+	if elems[3] != "" {
+		l1ChainID, success := new(big.Int).SetString(elems[3], 10) //nolint:gomnd
+		if !success {
+			return errors.New("L1 Chain ID must be an integer (base 10)")
 		}
+		n.l1ChainID = l1ChainID
+	}
 
-		if len(elems) == 9 { /* number of required fields in Network struct */ //nolint:gomnd
-			n.name = elems[0]
-			n.baseURL = elems[1]
-			n.chainID = elems[2]
+	if elems[4] != "" {
+		n.coreContractAddress = common.HexToAddress(elems[4])
+	}
+	requiredFields := []struct {
+		value string
+		err   error
+	}{
+		{elems[5], ErrNetworkNoFallbackAddr},
+		{elems[6], ErrNetworkNoFirst07Block},
+		{elems[7], ErrNetworkNoUnverifRange},
+		{elems[8], ErrNetworkNoUnverifRange},
+	}
 
-			if elems[3] != "" {
-				l1ChainID, success := new(big.Int).SetString(elems[3], 10) //nolint:gomnd
-				if !success {
-					return errors.New("L1 Chain ID must be an integer (base 10)")
-				}
-				n.l1ChainID = l1ChainID
-			}
-			if elems[4] != "" {
-				n.coreContractAddress = common.HexToAddress(elems[4])
-			}
-			n.blockHashMetaInfo = &blockHashMetaInfo{}
-			if elems[5] != "" {
-				fallBackSeqAddress, err := new(felt.Felt).SetString(elems[5])
-				if err != nil {
-					return ErrNetworkSetFallbackAddr
-				}
-				n.blockHashMetaInfo.FallBackSequencerAddress = fallBackSeqAddress
-			} else {
-				return ErrNetworkNoFallbackAddr
-			}
-			if elems[6] != "" {
-				first07Block, err := strconv.ParseUint(elems[6], 10, 64)
-				if err != nil {
-					return ErrNetworkSetFirst07Block
-				}
-				n.blockHashMetaInfo.First07Block = first07Block
-			} else {
-				return ErrNetworkNoFirst07Block
-			}
-			if elems[7] != "" && elems[8] != "" {
-				start, err := strconv.ParseUint(elems[7], 10, 64)
-				if err != nil {
-					return ErrNetworkSetUnverifRangeStart
-				}
-				end, err := strconv.ParseUint(elems[8], 10, 64)
-				if err != nil {
-					return ErrNetworkSetUnverifRangeEnd
-				}
-				n.blockHashMetaInfo.UnverifiableRange = []uint64{start, end}
-			} else {
-				return ErrNetworkNoUnverifRange
-			}
-		} else {
-			return ErrNetworkParamsNotSet
+	for _, field := range requiredFields {
+		if field.value == "" {
+			return field.err
 		}
 	}
 
+	n.blockHashMetaInfo = &blockHashMetaInfo{}
+
+	var err error
+	if n.blockHashMetaInfo.FallBackSequencerAddress, err = new(felt.Felt).SetString(elems[5]); err != nil {
+		return ErrNetworkSetFallbackAddr
+	}
+	if n.blockHashMetaInfo.First07Block, err = strconv.ParseUint(elems[6], 10, 64); err != nil {
+		return ErrNetworkSetFirst07Block
+	}
+	var start, end uint64
+	if start, err = strconv.ParseUint(elems[7], 10, 64); err != nil {
+		return ErrNetworkSetUnverifRangeStart
+	}
+	if end, err = strconv.ParseUint(elems[8], 10, 64); err != nil {
+		return ErrNetworkSetUnverifRangeEnd
+	}
+	n.blockHashMetaInfo.UnverifiableRange = []uint64{start, end}
 	return nil
 }
 
