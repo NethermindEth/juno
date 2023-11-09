@@ -27,9 +27,6 @@ import (
 // 	a. Fetch boot peer header
 // 	b. Verify signature the header.
 
-// Todo: how to get tha latest header of peer:
-// - Add latest tag or add latest header request.
-
 type syncService struct {
 	height   uint64 // todo: remove later, instead use blockchain
 	host     host.Host
