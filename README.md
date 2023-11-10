@@ -146,6 +146,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
      nethermind/juno \
      --http \
      --http-port 6060 \
+     --http-host 0.0.0.0 \
      --db-path /var/lib/juno \
      --eth-node <YOUR-ETH-NODE>
    ```
