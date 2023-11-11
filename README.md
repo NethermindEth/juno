@@ -198,7 +198,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## 🛣 Roadmap
 
-### Phase 1
+### Phase 1: Permissionless access to Starknet
 
 <details>
 <summary></summary>
@@ -232,7 +232,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 </details>
 
-### Phase 2
+### Phase 2: Full JSON RPC Support
 
 <details>
 <summary></summary>
@@ -261,6 +261,28 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
     * [X] `starknet_addDeployAccountTransaction`
 
 </details>
+
+### Phase 3: Starknet decentralization begins
+
+<details>
+<summary></summary>
+
+Juno can synchronize Starknet state from other full nodes with the aim of decentralizing Starknet by removing the dependency from the centralized sequencer.
+Snap sync is implemented, significantly reducing sync times and the implementation of JSON RPC’s Trace API will allow users to better understand its execution.
+  
+### Phase 4: Juno becomes a Starknet Sequencer
+
+<details>
+<summary></summary>
+
+The decentralization of Starknet is complete! Juno becomes a sequencer and participates in L2 consensus to secure the network. Juno has multiple modes of operation:
+‍
+•   Light client: provides fast permissionless access to Starknet with minimal verification.
+
+•   Full Node: complete verification of Starknet state along with transaction execution.
+
+•   Sequencer: secure the network by taking part in the L2 consensus mechanism.
+
 
 ## 👍 Contribute
 
