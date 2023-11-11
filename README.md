@@ -281,6 +281,7 @@ Snap sync is implemented, significantly reducing sync times and the implementati
 
 The decentralization of Starknet is complete! Juno becomes a sequencer and participates in L2 consensus to secure the network. Juno has multiple modes of operation:
 ‍
+
 •   Light client: provides fast permissionless access to Starknet with minimal verification.
 
 •   Full Node: complete verification of Starknet state along with transaction execution.
