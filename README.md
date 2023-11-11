@@ -269,6 +269,8 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
 
 Juno can synchronize Starknet state from other full nodes with the aim of decentralizing Starknet by removing the dependency from the centralized sequencer.
 Snap sync is implemented, significantly reducing sync times and the implementation of JSON RPC’s Trace API will allow users to better understand its execution.
+
+</details>
   
 ### Phase 4: Juno becomes a Starknet Sequencer
 
@@ -282,6 +284,8 @@ The decentralization of Starknet is complete! Juno becomes a sequencer and parti
 •   Full Node: complete verification of Starknet state along with transaction execution.
 
 •   Sequencer: secure the network by taking part in the L2 consensus mechanism.
+
+</details>
 
 
 ## 👍 Contribute
