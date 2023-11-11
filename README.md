@@ -198,7 +198,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## 🛣 Roadmap
 
-### Phase 1: Permissionless access to Starknet
+### Phase 1: Permissionless access to Starknet ✅
 
 <details>
 <summary></summary>
@@ -232,7 +232,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 </details>
 
-### Phase 2: Full JSON RPC Support
+### Phase 2: Full JSON RPC Support ✅
 
 <details>
 <summary></summary>
@@ -262,7 +262,7 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
 
 </details>
 
-### Phase 3: Starknet decentralization begins
+### Phase 3: Starknet decentralization begins 🚧
 
 <details>
 <summary></summary>
@@ -274,7 +274,7 @@ Snap sync is implemented, significantly reducing sync times and the implementati
 
 </details>
   
-### Phase 4: Juno becomes a Starknet Sequencer
+### Phase 4: Juno becomes a Starknet Sequencer 🔜
 
 <details>
 <summary></summary>
