@@ -17,6 +17,8 @@ type DB struct {
 	grpcClient *grpc.ClientConn
 	kvClient   gen.KVClient
 	log        utils.SimpleLogger
+
+	listener db.EventListener
 }
 
 func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
@@ -51,6 +53,7 @@ func (d *DB) Update(fn func(txn db.Transaction) error) error {
 }
 
 func (d *DB) WithListener(listener db.EventListener) db.DB {
+	d.listener=listener
 	return d
 }
 
