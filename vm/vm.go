@@ -16,15 +16,41 @@ package vm
 import "C"
 
 import (
+	goBytes "bytes"
 	"encoding/json"
 	"errors"
 	"runtime/cgo"
+	"sync"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
+
+var vmRevertPool = sync.Pool{
+	New: func() any {
+		return new(goBytes.Buffer)
+	},
+}
+
+type ErrVMRevert []*felt.Felt
+
+func (e ErrVMRevert) Error() string {
+	buffer := vmRevertPool.Get().(*goBytes.Buffer)
+	buffer.Reset()
+	defer vmRevertPool.Put(buffer)
+
+	buffer.WriteByte('[')
+	for i, f := range e {
+		buffer.WriteString(f.String())
+		if i != len(e)-1 {
+			buffer.WriteByte(',')
+		}
+	}
+	buffer.WriteByte(']')
+	return buffer.String()
+}
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
@@ -61,6 +87,8 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees []*felt.Felt
 	traces     []json.RawMessage
+	// reverted ids
+	reverted []*felt.Felt
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -96,6 +124,12 @@ func JunoAppendResponse(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
 	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
+}
+
+//export JunoAppendRevert
+func JunoAppendRevert(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+	context := unwrapContext(readerHandle)
+	context.reverted = append(context.reverted, makeFeltFromPtr(ptr))
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -240,7 +274,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, errors.New(context.err)
 	}
 
-	return context.actualFees, context.traces, nil
+	var revertError error
+	if len(context.reverted) > 0 {
+		revertError = ErrVMRevert(context.reverted)
+	}
+
+	return context.actualFees, context.traces, revertError
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

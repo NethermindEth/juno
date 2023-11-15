@@ -3230,6 +3230,20 @@ func TestSimulateTransactions(t *testing.T) {
 			ExecutionError:   "oops",
 		}), err)
 	})
+
+	t.Run("reverted tx", func(t *testing.T) {
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+
+		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, nil, false).
+			Return([]*felt.Felt{}, []json.RawMessage{}, vm.ErrVMRevert{utils.HexToFelt(t, "0X1"), utils.HexToFelt(t, "0X2")})
+
+		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		require.NotNil(t, err)
+	})
 }
 
 func TestTraceBlockTransactions(t *testing.T) {

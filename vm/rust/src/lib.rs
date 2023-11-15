@@ -51,6 +51,7 @@ extern "C" {
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
+    fn JunoAppendRevert(reader_handle: usize,  ptr: *const c_uchar);
 }
 
 const N_STEPS_FEE_WEIGHT: f64 = 0.01;
@@ -287,6 +288,18 @@ pub extern "C" fn cairoVMExecute(
                 if !charge_fee {
                     t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context, &fee_type).unwrap();
                 }
+                if t.is_reverted() {
+                    append_revert(
+                        reader_handle,
+                        txn_and_query_bit.txn.transaction_hash().0,
+                    );
+                }
+                if t.is_reverted() {
+                    append_revert(
+                        reader_handle,
+                        txn_and_query_bit.txn.transaction_hash().0,
+                    );
+                }
 
                 let actual_fee = t.actual_fee.0.into();
                 let mut trace =
@@ -366,6 +379,20 @@ fn append_trace(
 
     unsafe {
         JunoAppendTrace(reader_handle, ptr as *const c_void, len);
+    };
+}
+
+fn append_revert(reader_handle: usize, hash: StarkFelt) {
+    let ptr = hash.bytes().as_ptr();
+    unsafe {
+        JunoAppendRevert(reader_handle, ptr);
+    };
+}
+
+fn append_revert(reader_handle: usize, hash: StarkFelt) {
+    let ptr = hash.bytes().as_ptr();
+    unsafe {
+        JunoAppendRevert(reader_handle, ptr);
     };
 }
 
