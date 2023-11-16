@@ -31,17 +31,15 @@ func AdaptClass(class core.Class) *spec.Class {
 		return &spec.Class{
 			Class: &spec.Class_Cairo1{
 				Cairo1: &spec.Cairo1Class{
-					Abi:     []byte(v.Abi),
-					AbiHash: AdaptFelt(v.AbiHash),
+					Abi: []byte(v.Abi),
 					EntryPoints: &spec.Cairo1EntryPoints{
 						Externals:    utils.Map(v.EntryPoints.External, adaptSierra),
 						L1Handlers:   utils.Map(v.EntryPoints.L1Handler, adaptSierra),
 						Constructors: utils.Map(v.EntryPoints.Constructor, adaptSierra),
 					},
-					Program:         utils.Map(v.Program, AdaptFelt),
-					ProgramHash:     AdaptFelt(v.ProgramHash),
-					SemanticVersion: []byte(v.SemanticVersion),
-					Compiled:        v.Compiled,
+					Program:              utils.Map(v.Program, AdaptFelt),
+					ContractClassVersion: v.SemanticVersion,
+					Compiled:             v.Compiled,
 				},
 			},
 		}

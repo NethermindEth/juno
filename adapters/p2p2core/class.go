@@ -3,6 +3,8 @@ package p2p2core
 import (
 	"fmt"
 
+	"github.com/NethermindEth/juno/core/crypto"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -25,9 +27,14 @@ func AdaptClass(class *spec.Class) core.Class {
 		}
 	case *spec.Class_Cairo1:
 		cairo1 := cls.Cairo1
+		abiHash, err := crypto.StarknetKeccak(cairo1.Abi)
+		if err != nil {
+			panic(err)
+		}
+		program := utils.Map(cairo1.Program, AdaptFelt)
 		return &core.Cairo1Class{
 			Abi:     string(cairo1.Abi),
-			AbiHash: AdaptFelt(cairo1.AbiHash),
+			AbiHash: abiHash,
 			EntryPoints: struct {
 				Constructor []core.SierraEntryPoint
 				External    []core.SierraEntryPoint
@@ -37,9 +44,9 @@ func AdaptClass(class *spec.Class) core.Class {
 				External:    utils.Map(cairo1.EntryPoints.Externals, adaptSierra),
 				L1Handler:   utils.Map(cairo1.EntryPoints.L1Handlers, adaptSierra),
 			},
-			Program:         utils.Map(cairo1.Program, AdaptFelt),
-			ProgramHash:     AdaptFelt(cairo1.ProgramHash),
-			SemanticVersion: string(cairo1.SemanticVersion),
+			Program:         program,
+			ProgramHash:     crypto.PoseidonArray(program...),
+			SemanticVersion: cairo1.ContractClassVersion,
 			Compiled:        cairo1.Compiled,
 		}
 	default:

@@ -48,12 +48,10 @@ message Cairo1EntryPoints {
 
 message Cairo1Class {
     bytes abi = 1;
-    Felt252 abi_hash = 2;
-    Cairo1EntryPoints entry_points = 3;
-    repeated Felt252 program = 4;
-    Felt252 program_hash = 5;
-    bytes semantic_version = 6;
-    bytes compiled = 7;
+    Cairo1EntryPoints entry_points = 2;
+    repeated Felt252 program = 3;
+    string contract_class_version = 4;
+    bytes compiled = 5;
 }
 
 // is it better to separate the definition from the hashes? (will need to repeate the hashes
