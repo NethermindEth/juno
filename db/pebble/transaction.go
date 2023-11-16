@@ -94,7 +94,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 		return ErrDiscardedTransaction
 	}
 
-	defer func() { t.listener.OnIO(false, time.Since(start)) }()
+	defer t.listener.OnIO(false, time.Since(start))
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return db.ErrKeyNotFound
