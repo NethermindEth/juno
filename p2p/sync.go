@@ -139,7 +139,7 @@ func (s *syncService) requestBlockHeader(ctx context.Context, id peer.ID, it *sp
 				h := part.GetHeader()
 				header = core.Header{
 					Hash:             nil, // todo SPEC
-					ParentHash:       p2p2core.AdaptHash(h.ParentHeader),
+					ParentHash:       p2p2core.AdaptHash(h.ParentHash),
 					Number:           h.Number,
 					GlobalStateRoot:  p2p2core.AdaptHash(h.State.Root),
 					SequencerAddress: p2p2core.AdaptAddress(h.SequencerAddress),
@@ -214,7 +214,7 @@ func (s *syncService) requestTransactions(ctx context.Context, id peer.ID, it *s
 		case *spec.TransactionsResponse_Transactions:
 			items := res.GetTransactions().Items
 			for _, item := range items {
-				transactions = append(transactions, p2p2core.AdaptTransaction(item))
+				transactions = append(transactions, p2p2core.AdaptTransaction(item, s.network))
 			}
 		case *spec.TransactionsResponse_Fin:
 			// todo what should we do here?

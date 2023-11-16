@@ -30,7 +30,7 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.BlockHeader {
 	return &spec.BlockHeader{
-		ParentHeader:     AdaptHash(header.ParentHash),
+		ParentHash:       AdaptHash(header.ParentHash),
 		Number:           header.Number,
 		Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
 		SequencerAddress: AdaptAddress(header.SequencerAddress),

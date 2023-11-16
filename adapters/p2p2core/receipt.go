@@ -9,7 +9,7 @@ import (
 func AdaptReceipt(r *spec.Receipt) *core.TransactionReceipt {
 	var common *spec.Receipt_Common
 
-	switch r.Receipt.(type) {
+	switch r.Type.(type) {
 	case *spec.Receipt_Invoke_:
 		common = r.GetInvoke().GetCommon()
 	case *spec.Receipt_Declare_:

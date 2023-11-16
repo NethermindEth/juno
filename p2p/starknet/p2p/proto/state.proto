@@ -22,20 +22,52 @@ message StateDiff
     repeated ContractDiff contract_diffs = 2;
 }
 
+message EntryPoint {
+    Felt252 selector = 1;
+    Felt252 offset = 2;
+}
+
+message Cairo0Class {
+    bytes abi = 1;
+    repeated EntryPoint externals = 2;
+    repeated EntryPoint l1_handlers = 3;
+    repeated EntryPoint constructors = 4;
+    bytes program = 5;
+}
+
+message SierraEntryPoint {
+    uint64 index = 1;
+    Felt252 selector = 2;
+}
+
+message Cairo1EntryPoints {
+    repeated SierraEntryPoint externals = 1;
+    repeated SierraEntryPoint l1_handlers = 2;
+    repeated SierraEntryPoint constructors = 3;
+}
+
+message Cairo1Class {
+    bytes abi = 1;
+    Felt252 abi_hash = 2;
+    Cairo1EntryPoints entry_points = 3;
+    repeated Felt252 program = 4;
+    Felt252 program_hash = 5;
+    bytes semantic_version = 6;
+    bytes compiled = 7;
+}
+
 // is it better to separate the definition from the hashes? (will need to repeate the hashes
 // for the definitions stream)
 // or, make the definitions optional? maybe it is enough to know only that a class exists, not its definition
 // which may be fetched lazily later.
 message Class {
-    Hash     compiled_hash      = 2;  // TBD: add also/instead CASM definition (instead of every node compiling)?
-    bytes    definition         = 3;  // compressed? size limit or split to chunks.
-    optional uint32 total_parts = 4;  // if a class is too large to be sent in one message
-    optional uint32 part_num    = 5;  // 0 based
+    oneof class {
+        Cairo0Class cairo0 = 1;
+        Cairo1Class cairo1 = 2;
+    }
 }
 
 message Classes {
     uint32   domain        = 1;
     repeated Class classes = 2;
 }
-
-

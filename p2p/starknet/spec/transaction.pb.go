@@ -7,11 +7,10 @@
 package spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -1828,34 +1827,32 @@ func file_p2p_proto_transaction_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_transaction_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_transaction_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
-	file_p2p_proto_transaction_proto_goTypes  = []interface{}{
-		(*ResourceLimits)(nil),              // 0: ResourceLimits
-		(*AccountSignature)(nil),            // 1: AccountSignature
-		(*Transaction)(nil),                 // 2: Transaction
-		(*TransactionsRequest)(nil),         // 3: TransactionsRequest
-		(*Transactions)(nil),                // 4: Transactions
-		(*TransactionsResponse)(nil),        // 5: TransactionsResponse
-		(*Transaction_DeclareV0)(nil),       // 6: Transaction.DeclareV0
-		(*Transaction_DeclareV1)(nil),       // 7: Transaction.DeclareV1
-		(*Transaction_DeclareV2)(nil),       // 8: Transaction.DeclareV2
-		(*Transaction_DeclareV3)(nil),       // 9: Transaction.DeclareV3
-		(*Transaction_Deploy)(nil),          // 10: Transaction.Deploy
-		(*Transaction_DeployAccountV1)(nil), // 11: Transaction.DeployAccountV1
-		(*Transaction_DeployAccountV3)(nil), // 12: Transaction.DeployAccountV3
-		(*Transaction_InvokeV0)(nil),        // 13: Transaction.InvokeV0
-		(*Transaction_InvokeV1)(nil),        // 14: Transaction.InvokeV1
-		(*Transaction_InvokeV3)(nil),        // 15: Transaction.InvokeV3
-		(*Transaction_L1HandlerV1)(nil),     // 16: Transaction.L1HandlerV1
-		(*Felt252)(nil),                     // 17: Felt252
-		(*Iteration)(nil),                   // 18: Iteration
-		(*BlockID)(nil),                     // 19: BlockID
-		(*Fin)(nil),                         // 20: Fin
-		(*Address)(nil),                     // 21: Address
-		(*Hash)(nil),                        // 22: Hash
-	}
-)
+var file_p2p_proto_transaction_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_p2p_proto_transaction_proto_goTypes = []interface{}{
+	(*ResourceLimits)(nil),              // 0: ResourceLimits
+	(*AccountSignature)(nil),            // 1: AccountSignature
+	(*Transaction)(nil),                 // 2: Transaction
+	(*TransactionsRequest)(nil),         // 3: TransactionsRequest
+	(*Transactions)(nil),                // 4: Transactions
+	(*TransactionsResponse)(nil),        // 5: TransactionsResponse
+	(*Transaction_DeclareV0)(nil),       // 6: Transaction.DeclareV0
+	(*Transaction_DeclareV1)(nil),       // 7: Transaction.DeclareV1
+	(*Transaction_DeclareV2)(nil),       // 8: Transaction.DeclareV2
+	(*Transaction_DeclareV3)(nil),       // 9: Transaction.DeclareV3
+	(*Transaction_Deploy)(nil),          // 10: Transaction.Deploy
+	(*Transaction_DeployAccountV1)(nil), // 11: Transaction.DeployAccountV1
+	(*Transaction_DeployAccountV3)(nil), // 12: Transaction.DeployAccountV3
+	(*Transaction_InvokeV0)(nil),        // 13: Transaction.InvokeV0
+	(*Transaction_InvokeV1)(nil),        // 14: Transaction.InvokeV1
+	(*Transaction_InvokeV3)(nil),        // 15: Transaction.InvokeV3
+	(*Transaction_L1HandlerV1)(nil),     // 16: Transaction.L1HandlerV1
+	(*Felt252)(nil),                     // 17: Felt252
+	(*Iteration)(nil),                   // 18: Iteration
+	(*BlockID)(nil),                     // 19: BlockID
+	(*Fin)(nil),                         // 20: Fin
+	(*Address)(nil),                     // 21: Address
+	(*Hash)(nil),                        // 22: Hash
+}
 var file_p2p_proto_transaction_proto_depIdxs = []int32{
 	17, // 0: ResourceLimits.max_amount:type_name -> Felt252
 	17, // 1: ResourceLimits.max_price_per_unit:type_name -> Felt252

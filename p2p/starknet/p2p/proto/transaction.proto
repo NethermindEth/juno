@@ -154,5 +154,3 @@ message TransactionsResponse {
         Fin          fin          = 3;
     }
 }
-
-

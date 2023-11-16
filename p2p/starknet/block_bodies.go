@@ -100,7 +100,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classesM[*hash] = core2p2p.AdaptClass(cls.Class, hash)
+		classesM[*hash] = core2p2p.AdaptClass(cls.Class)
 	}
 	for classHash := range stateDiff.DeclaredV1Classes {
 		cls, err := b.stateReader.Class(&classHash)
@@ -112,7 +112,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 		if err != nil {
 			return b.fin()
 		}
-		classesM[classHash] = core2p2p.AdaptClass(cls.Class, hash)
+		classesM[classHash] = core2p2p.AdaptClass(cls.Class)
 	}
 	for _, classHash := range stateDiff.DeployedContracts {
 		if _, ok := classesM[*classHash]; ok {
@@ -138,7 +138,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classesM[*compiledHash] = core2p2p.AdaptClass(cls.Class, compiledHash)
+		classesM[*compiledHash] = core2p2p.AdaptClass(cls.Class)
 	}
 
 	var classes []*spec.Class

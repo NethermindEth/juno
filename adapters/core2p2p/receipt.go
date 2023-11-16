@@ -15,7 +15,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 	switch t := txn.(type) {
 	case *core.InvokeTransaction:
 		return &spec.Receipt{
-			Receipt: &spec.Receipt_Invoke_{
+			Type: &spec.Receipt_Invoke_{
 				Invoke: &spec.Receipt_Invoke{
 					Common: receiptCommon(r),
 				},
@@ -23,7 +23,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 		}
 	case *core.L1HandlerTransaction:
 		return &spec.Receipt{
-			Receipt: &spec.Receipt_L1Handler_{
+			Type: &spec.Receipt_L1Handler_{
 				L1Handler: &spec.Receipt_L1Handler{
 					Common:  receiptCommon(r),
 					MsgHash: &spec.Hash{Elements: t.MessageHash()},
@@ -32,7 +32,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 		}
 	case *core.DeclareTransaction:
 		return &spec.Receipt{
-			Receipt: &spec.Receipt_Declare_{
+			Type: &spec.Receipt_Declare_{
 				Declare: &spec.Receipt_Declare{
 					Common: receiptCommon(r),
 				},
@@ -40,7 +40,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 		}
 	case *core.DeployTransaction:
 		return &spec.Receipt{
-			Receipt: &spec.Receipt_DeprecatedDeploy{
+			Type: &spec.Receipt_DeprecatedDeploy{
 				DeprecatedDeploy: &spec.Receipt_Deploy{
 					Common:          receiptCommon(r),
 					ContractAddress: AdaptFelt(t.ContractAddress),
@@ -49,7 +49,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 		}
 	case *core.DeployAccountTransaction:
 		return &spec.Receipt{
-			Receipt: &spec.Receipt_DeployAccount_{
+			Type: &spec.Receipt_DeployAccount_{
 				DeployAccount: &spec.Receipt_DeployAccount{
 					Common:          receiptCommon(r),
 					ContractAddress: AdaptFelt(t.ContractAddress),
