@@ -16,23 +16,23 @@ message Signatures {
 // Note: commitments may change to be for the previous blocks like comet/tendermint
 // hash of block header sent to L1
 message BlockHeader {
-    Hash                      parent_hash       = 2;
-    uint64                    number            = 3;
-    google.protobuf.Timestamp time              = 4;   // TODO: see if this needs to be Felt252 or can be converted
-    Address                   sequencer_address = 5;
-    Merkle                    state_diffs       = 6;   //  By order of (contract, key), taking last in case of duplicates.
+    Hash                      parent_hash       = 1;
+    uint64                    number            = 2;
+    google.protobuf.Timestamp time              = 3;   // TODO: see if this needs to be Felt252 or can be converted
+    Address                   sequencer_address = 4;
+    Merkle                    state_diffs       = 5;   //  By order of (contract, key), taking last in case of duplicates.
                                                        // This means the proposer needs to sort after finishing the block (TBD: patricia? )
                                                        // State is optional and appears every X blocks for the last block. This is to support
                                                        // snapshot sync and also so that light nodes can sync on state without state diffs.
-    Patricia                  state             = 7;   // hash of contract and class patricia tries. Same as in L1. Later more trees will be included
-    Hash                      proof_fact        = 8;   // for Kth block behind. A hash of the output of the proof
+    Patricia                  state             = 6;   // hash of contract and class patricia tries. Same as in L1. Later more trees will be included
+    Hash                      proof_fact        = 7;   // for Kth block behind. A hash of the output of the proof
 
     // The following merkles can be built on the fly while sequencing/validating txs.
-    Merkle                    transactions      = 9;   // By order of execution. TBD: required? the client can execute (powerful machine) and match state diff
-    Merkle                    events            = 10;   // By order of issuance. TBD: in receipts?
-    Merkle                    receipts          = 11;  // By order of issuance.
-    string                    protocol_version  = 12; // Starknet version
-    Felt252                   gas_price         = 14;
+    Merkle                    transactions      = 8;   // By order of execution. TBD: required? the client can execute (powerful machine) and match state diff
+    Merkle                    events            = 9;   // By order of issuance. TBD: in receipts?
+    Merkle                    receipts          = 10;  // By order of issuance.
+    string                    protocol_version  = 11; // Starknet version
+    Felt252                   gas_price         = 12;
 }
 
 message BlockProof {
