@@ -58,6 +58,7 @@ const (
 	grpcHostF            = "grpc-host"
 	grpcPortF            = "grpc-port"
 	maxVMsF              = "max-vms"
+	maxVMQueueF          = "max-vm-queue"
 	remoteDBF            = "remote-db"
 	rpcMaxBlockScanF     = "rpc-max-block-scan"
 
@@ -109,6 +110,7 @@ const (
 	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
 	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
+	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
 	remoteDBUsage            = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
 )
@@ -232,6 +234,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
+	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
 	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
 
