@@ -72,8 +72,8 @@ type Config struct {
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
 
-	MaxVMs uint `mapstructure:"max-vms"`
-
+	MaxVMs          uint `mapstructure:"max-vms"`
+	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
 }
 
@@ -122,7 +122,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
-	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMs))
+	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
