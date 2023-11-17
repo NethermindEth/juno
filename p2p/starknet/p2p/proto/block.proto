@@ -16,7 +16,6 @@ message Signatures {
 // Note: commitments may change to be for the previous blocks like comet/tendermint
 // hash of block header sent to L1
 message BlockHeader {
-    Hash                      hash              = 1;
     Hash                      parent_hash       = 2;
     uint64                    number            = 3;
     google.protobuf.Timestamp time              = 4;   // TODO: see if this needs to be Felt252 or can be converted
@@ -29,12 +28,10 @@ message BlockHeader {
     Hash                      proof_fact        = 8;   // for Kth block behind. A hash of the output of the proof
 
     // The following merkles can be built on the fly while sequencing/validating txs.
-    Merkle                    transactions      = 9;   // By order of execution. TBD: required? the client can execute (powerful machine)
-    // and match state diff
+    Merkle                    transactions      = 9;   // By order of execution. TBD: required? the client can execute (powerful machine) and match state diff
     Merkle                    events            = 10;   // By order of issuance. TBD: in receipts?
     Merkle                    receipts          = 11;  // By order of issuance.
     string                    protocol_version  = 12; // Starknet version
-    Felt252                   extra_data        = 13;
     Felt252                   gas_price         = 14;
 }
 
@@ -84,9 +81,9 @@ message BlockBodiesResponse {
         StateDiff    diff         = 2;
         Classes      classes      = 3;
         BlockProof   proof        = 4;
-        Transactions transactions = 6;
-        Receipts     receipts     = 7;
-        Fin          fin          = 8;
+        Transactions transactions = 5;
+        Receipts     receipts     = 6;
+        Fin          fin          = 7;
     }
 }
 
