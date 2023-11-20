@@ -41,7 +41,7 @@ use starknet_api::{
     transaction::Fee,
 };
 use starknet_api::{
-    core::{ChainId, ContractAddress, EntryPointSelector},
+    core::{ChainId, ContractAddress, EntryPointSelector, ClassHash},
     hash::StarkHash,
     transaction::TransactionVersion,
 };
@@ -58,6 +58,7 @@ const N_STEPS_FEE_WEIGHT: f64 = 0.01;
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
     contract_address: *const c_uchar,
+    class_hash: *const c_uchar,
     entry_point_selector: *const c_uchar,
     calldata: *const *const c_uchar,
     len_calldata: usize,
@@ -68,6 +69,11 @@ pub extern "C" fn cairoVMCall(
 ) {
     let reader = JunoStateReader::new(reader_handle);
     let contract_addr_felt = ptr_to_felt(contract_address);
+    let class_hash = if class_hash.is_null() {
+        None
+    } else {
+        Some(ClassHash(ptr_to_felt(class_hash)))
+    };
     let entry_point_selector_felt = ptr_to_felt(entry_point_selector);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
@@ -86,7 +92,7 @@ pub extern "C" fn cairoVMCall(
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
         call_type: CallType::Call,
-        class_hash: None,
+        class_hash: class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
         initial_gas: INITIAL_GAS_COST,
