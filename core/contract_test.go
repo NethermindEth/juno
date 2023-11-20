@@ -63,7 +63,7 @@ func TestNewContract(t *testing.T) {
 	classHash := new(felt.Felt).SetBytes([]byte("class hash"))
 
 	t.Run("cannot create Contract instance if un-deployed", func(t *testing.T) {
-		_, err = core.NewContract(addr, txn)
+		_, err = core.NewContractUpdater(addr, txn)
 		require.EqualError(t, err, core.ErrContractNotDeployed.Error())
 	})
 
@@ -192,6 +192,6 @@ func TestPurge(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, contract.Purge())
-	_, err = core.NewContract(addr, txn)
+	_, err = core.NewContractUpdater(addr, txn)
 	assert.ErrorIs(t, err, core.ErrContractNotDeployed)
 }
