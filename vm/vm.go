@@ -9,7 +9,7 @@ package vm
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
 //					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
-//					unsigned char skip_charge_fee, char* gas_price, unsigned char legacy_json);
+//					unsigned char skip_charge_fee, unsigned char skip_validate, char* gas_price, unsigned char legacy_json);
 //
 // #cgo vm_debug  LDFLAGS: -L./rust/target/debug -ljuno_starknet_rs -lm -ldl
 // #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
@@ -33,7 +33,7 @@ type VM interface {
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-		skipChargeFee bool, gasPrice *felt.Felt, legacyTraceJSON bool,
+		skipChargeFee, skipValidate bool, gasPrice *felt.Felt, legacyTraceJSON bool,
 	) ([]*felt.Felt, []json.RawMessage, error)
 }
 
@@ -159,7 +159,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-	skipChargeFee bool, gasPrice *felt.Felt, legacyTraceJSON bool,
+	skipChargeFee, skipValidate bool, gasPrice *felt.Felt, legacyTraceJSON bool,
 ) ([]*felt.Felt, []json.RawMessage, error) {
 	context := &callContext{
 		state: state,
@@ -190,6 +190,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		skipChargeFeeByte = 1
 	}
 
+	var skipValidateByte byte
+	if skipValidate {
+		skipValidateByte = 1
+	}
+
 	var legacyTraceJSONByte byte
 	if legacyTraceJSON {
 		legacyTraceJSONByte = 1
@@ -205,6 +210,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])),
 		paidFeesOnL1CStr,
 		C.uchar(skipChargeFeeByte),
+		C.uchar(skipValidateByte),
 		(*C.char)(unsafe.Pointer(&gasPriceBytes[0])),
 		C.uchar(legacyTraceJSONByte),
 	)
