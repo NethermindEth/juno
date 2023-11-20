@@ -72,30 +72,17 @@ func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt,
 
 // ContractClassHash returns class hash of a contract at a given address.
 func (s *State) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
-	contract, err := NewContract(addr, s.txn)
-	if err != nil {
-		return nil, err
-	}
-	return contract.ClassHash()
+	return ContractClassHash(addr, s.txn)
 }
 
 // ContractNonce returns nonce of a contract at a given address.
 func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
-	contract, err := NewContract(addr, s.txn)
-	if err != nil {
-		return nil, err
-	}
-	return contract.Nonce()
+	return ContractNonce(addr, s.txn)
 }
 
 // ContractStorage returns value of a key in the storage of the contract at the given address.
 func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
-	contract, err := NewContract(addr, s.txn)
-	if err != nil {
-		return nil, err
-	}
-
-	return contract.Storage(key)
+	return ContractStorage(addr, key, s.txn)
 }
 
 // Root returns the state commitment.
@@ -297,7 +284,7 @@ func (s *State) replaceContract(stateTrie *trie.Trie, addr, classHash *felt.Felt
 		return nil, err
 	}
 
-	oldClassHash, err := contract.ClassHash()
+	oldClassHash, err := ContractClassHash(addr, s.txn)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +441,7 @@ func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt
 		return nil, err
 	}
 
-	oldNonce, err := contract.Nonce()
+	oldNonce, err := ContractNonce(addr, s.txn)
 	if err != nil {
 		return nil, err
 	}
@@ -472,17 +459,17 @@ func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
 func (s *State) updateContractCommitment(stateTrie *trie.Trie, contract *Contract) error {
-	root, err := contract.Root()
+	root, err := ContractRoot(contract.Address, s.txn)
 	if err != nil {
 		return err
 	}
 
-	cHash, err := contract.ClassHash()
+	cHash, err := ContractClassHash(contract.Address, s.txn)
 	if err != nil {
 		return err
 	}
 
-	nonce, err := contract.Nonce()
+	nonce, err := ContractNonce(contract.Address, s.txn)
 	if err != nil {
 		return err
 	}
@@ -584,7 +571,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 			continue
 		}
 
-		r, err := noClassC.Root()
+		r, err := ContractRoot(noClassC.Address, s.txn)
 		if err != nil {
 			return err
 		}
