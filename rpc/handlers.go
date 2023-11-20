@@ -1129,7 +1129,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		return nil, ErrBlockNotFound
 	}
 
-	_, err = state.ContractClassHash(&call.ContractAddress)
+	classHash, err := state.ContractClassHash(&call.ContractAddress)
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -1143,7 +1143,8 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		blockNumber = height + 1
 	}
 
-	res, err := h.vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
+	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
+		call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
