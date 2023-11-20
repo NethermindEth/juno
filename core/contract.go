@@ -79,7 +79,7 @@ func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallD
 }
 
 func deployed(addr *felt.Felt, txn db.Transaction) (bool, error) {
-	_, err := classHash(addr, txn)
+	_, err := ContractClassHash(addr, txn)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return false, nil
 	}
@@ -112,12 +112,12 @@ func (c *Contract) Purge() error {
 	return nil
 }
 
-// Nonce returns the amount transactions sent from this contract.
+// ContractNonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
-func (c *Contract) Nonce() (*felt.Felt, error) {
-	key := db.ContractNonce.Key(c.Address.Marshal())
+func ContractNonce(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+	key := db.ContractNonce.Key(addr.Marshal())
 	var nonce *felt.Felt
-	if err := c.txn.Get(key, func(val []byte) error {
+	if err := txn.Get(key, func(val []byte) error {
 		nonce = new(felt.Felt)
 		nonce.SetBytes(val)
 		return nil
@@ -133,14 +133,9 @@ func (c *Contract) UpdateNonce(nonce *felt.Felt) error {
 	return c.txn.Set(nonceKey, nonce.Marshal())
 }
 
-// ClassHash returns hash of the class that this contract instantiates.
-func (c *Contract) ClassHash() (*felt.Felt, error) {
-	return classHash(c.Address, c.txn)
-}
-
-// Root returns the root of the contract storage.
-func (c *Contract) Root() (*felt.Felt, error) {
-	cStorage, err := storage(c.Address, c.txn)
+// ContractRoot returns the root of the contract storage.
+func ContractRoot(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+	cStorage, err := storage(addr, txn)
 	if err != nil {
 		return nil, err
 	}
@@ -176,16 +171,16 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 	return nil
 }
 
-func (c *Contract) Storage(key *felt.Felt) (*felt.Felt, error) {
-	cStorage, err := storage(c.Address, c.txn)
+func ContractStorage(addr, key *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+	cStorage, err := storage(addr, txn)
 	if err != nil {
 		return nil, err
 	}
 	return cStorage.Get(key)
 }
 
-// ClassHash returns hash of the class that the contract at the given address instantiates.
-func classHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+// ContractClassHash returns hash of the class that the contract at the given address instantiates.
+func ContractClassHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 	key := db.ContractClassHash.Key(addr.Marshal())
 	var classHash *felt.Felt
 	if err := txn.Get(key, func(val []byte) error {
