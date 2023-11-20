@@ -144,6 +144,7 @@ pub extern "C" fn cairoVMExecute(
     sequencer_address: *const c_uchar,
     paid_fees_on_l1_json: *const c_char,
     skip_charge_fee: c_uchar,
+    skip_validate: c_uchar,
     gas_price: *const c_uchar,
     legacy_json: c_uchar,
 ) {
@@ -192,6 +193,7 @@ pub extern "C" fn cairoVMExecute(
     );
     let mut state = CachedState::new(reader);
     let charge_fee = skip_charge_fee == 0;
+    let validate = skip_validate == 0;
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
@@ -239,10 +241,10 @@ pub extern "C" fn cairoVMExecute(
         let mut txn_state = CachedState::create_transactional(&mut state);
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee, txn_and_query_bit.query_bit)
+                t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee, txn_and_query_bit.query_bit)
+                t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
 
