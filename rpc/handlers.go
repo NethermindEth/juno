@@ -1294,10 +1294,8 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, legacyTraceJSON bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	if slices.Contains(simulationFlags, SkipValidateFlag) {
-		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Skip validate is not supported")
-	}
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
 	state, closer, err := h.stateByBlockID(&id)
 	if err != nil {
@@ -1344,7 +1342,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice, legacyTraceJSON)
+		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, header.GasPrice, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
@@ -1462,7 +1460,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyJSON)
+		sequencerAddress, state, h.network, paidFeesOnL1, false, false, header.GasPrice, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
