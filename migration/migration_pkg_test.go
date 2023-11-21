@@ -25,7 +25,7 @@ func TestMigration0000(t *testing.T) {
 
 	t.Run("empty DB", func(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
-			return migration0000(txn, utils.MAINNET)
+			return migration0000(txn, utils.Mainnet)
 		}))
 	})
 
@@ -34,7 +34,7 @@ func TestMigration0000(t *testing.T) {
 			return txn.Set([]byte("asd"), []byte("123"))
 		}))
 		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
-			return migration0000(txn, utils.MAINNET)
+			return migration0000(txn, utils.Mainnet)
 		}), "initial DB should be empty")
 	})
 }
@@ -54,7 +54,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, relocateContractStorageRootKeys(txn, utils.MAINNET))
+	require.NoError(t, relocateContractStorageRootKeys(txn, utils.Mainnet))
 
 	// Each root-key entry should have been moved to its new location
 	// and the old entry should not exist.
@@ -76,8 +76,8 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 func TestRecalculateBloomFilters(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	chain := blockchain.New(testdb, utils.Mainnet, utils.NewNopZapLogger())
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {
@@ -91,7 +91,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	}
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return recalculateBloomFilters(txn, utils.MAINNET)
+		return recalculateBloomFilters(txn, utils.Mainnet)
 	}))
 
 	for i := uint64(0); i < 3; i++ {
@@ -139,7 +139,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 	m := new(changeTrieNodeEncoding)
 	m.Before()
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return m.Migrate(txn, utils.MAINNET)
+		return m.Migrate(txn, utils.Mainnet)
 	}))
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
@@ -159,8 +159,8 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 func TestCalculateBlockCommitments(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, utils.MAINNET, utils.NewNopZapLogger())
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	chain := blockchain.New(testdb, utils.Mainnet, utils.NewNopZapLogger())
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	for i := uint64(0); i < 3; i++ {
@@ -172,7 +172,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	}
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return calculateBlockCommitments(txn, utils.MAINNET)
+		return calculateBlockCommitments(txn, utils.Mainnet)
 	}))
 
 	for i := uint64(0); i < 3; i++ {
@@ -193,7 +193,7 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	err = memTxn.Set(key, bsBytes)
 	require.NoError(t, err)
 
-	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, utils.MAINNET))
+	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, utils.Mainnet))
 
 	var trieKey trie.Key
 	err = memTxn.Get(key, trieKey.UnmarshalBinary)
@@ -225,7 +225,7 @@ func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {
 	err = memTxn.Set(nodeKey, nodeBytes.Bytes())
 	require.NoError(t, err)
 
-	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), utils.MAINNET))
+	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), utils.Mainnet))
 
 	err = memTxn.Get(db.ClassesTrie.Key(bsBytes), func(b []byte) error {
 		return nil
