@@ -6,6 +6,11 @@ message ResourceLimits {
     Felt252 max_price_per_unit = 2;
 }
 
+message ResourceBounds {
+    ResourceLimits l1_gas = 1;
+    ResourceLimits l2_gas = 2;
+}
+
 message AccountSignature {
     repeated Felt252 parts = 1;
 }
@@ -36,25 +41,26 @@ message Transaction
         Felt252          compiled_class_hash = 6;
     }
 
+    // see https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3
     message DeclareV3 {
-        Address          sender              = 1;
-        Felt252          max_fee             = 2;
-        AccountSignature signature           = 3;
-        Hash             class_hash          = 4;
-        Felt252          nonce               = 5;
-        Felt252          compiled_class_hash = 6;
-        ResourceLimits   l1_gas              = 7;
-        ResourceLimits   l2_gas              = 8;
-        Felt252          tip                 = 9;
-        Address          paymaster           = 10;
-        string           nonce_domain        = 11;
-        string           fee_domain          = 12;
+        Address          sender                  = 1;
+        AccountSignature signature               = 2;
+        Hash             class_hash              = 3;
+        Felt252          nonce                   = 4;
+        Felt252          compiled_class_hash     = 5;
+        ResourceBounds   resource_bounds         = 6;
+        Felt252          tip                     = 7;
+        Address          paymaster_data          = 8;
+        Address          account_deployment_data = 9;
+        string           nonce_domain            = 10; // rename to nonce_data_availability_mode ?
+        string           fee_domain              = 11; // rename to fee_data_availability_mode ?
     }
 
     message Deploy {
         Hash     class_hash       = 1;
         Felt252  address_salt     = 2;
         repeated Felt252 calldata = 3;
+        uint32   version          = 4;
     }
 
     message DeployAccountV1 {
@@ -66,19 +72,18 @@ message Transaction
         repeated         Felt252 calldata = 6;
     }
 
+    // see https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0
     message DeployAccountV3 {
-        Felt252          max_fee          = 1;
-        AccountSignature signature        = 2;
-        Hash             class_hash       = 3;
-        Felt252          nonce            = 4;
-        Felt252          address_salt     = 5;
-        repeated         Felt252 calldata = 6;
-        ResourceLimits   l1_gas           = 7;
-        ResourceLimits   l2_gas           = 8;
-        Felt252          tip              = 9;
-        Address          paymaster        = 10;
-        string           nonce_domain     = 11;
-        string           fee_domain       = 12;
+        AccountSignature signature        = 1;
+        Hash             class_hash       = 2;
+        Felt252          nonce            = 3;
+        Felt252          address_salt     = 4;
+        repeated         Felt252 calldata = 5;
+        ResourceBounds   resource_bounds  = 6;
+        Felt252          tip              = 7;
+        Address          paymaster_data   = 8;
+        string           nonce_domain     = 9;  // rename to nonce_data_availability_mode ?
+        string           fee_domain       = 10; // rename to fee_data_availability_mode ?
     }
 
     message InvokeV0 {
@@ -97,21 +102,21 @@ message Transaction
         Felt252          nonce            = 5;
     }
 
+    // see https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41906f1c314cca5f43170ea75d3b1904196a10101190d2b12a41cc61cfd17c
     message InvokeV3 {
-        Address          sender           = 1;
-        Felt252          max_fee          = 2;
-        AccountSignature signature        = 3;
-        repeated         Felt252 calldata = 4;
-        ResourceLimits   l1_gas           = 5;
-        ResourceLimits   l2_gas           = 6;
-        Felt252          tip              = 7;
-        Address          paymaster        = 8;
-        string           nonce_domain     = 9;
-        string           fee_domain       = 10;
-        Felt252          nonce            = 11;
+        Address          sender                  = 1;
+        AccountSignature signature               = 2;
+        repeated         Felt252 calldata        = 3;
+        ResourceBounds   resource_bounds         = 4;
+        Felt252          tip                     = 5;
+        Address          paymaster_data          = 6;
+        Address          account_deployment_data = 7;
+        string           nonce_domain            = 8;  // rename to nonce_data_availability_mode ?
+        string           fee_domain              = 9;  // rename to fee_data_availability_mode ?
+        Felt252          nonce                   = 10;
     }
 
-    message L1HandlerV1 {
+    message L1HandlerV0 {
         Felt252  nonce                = 1;
         Address  address              = 2;
         Felt252  entry_point_selector = 3;
@@ -129,7 +134,7 @@ message Transaction
         InvokeV0        invoke_v0         = 8;
         InvokeV1        invoke_v1         = 9;
         InvokeV3        invoke_v3         = 10;
-        L1HandlerV1     l1_handler        = 11;
+        L1HandlerV0     l1_handler        = 11;
     }
 }
 
@@ -141,7 +146,7 @@ message TransactionsRequest {
 
 // can be several in a single reply
 message Transactions {
-    repeated Transaction items = 2;
+    repeated Transaction items = 1;
 }
 
 message TransactionsResponse {
