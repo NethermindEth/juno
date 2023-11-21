@@ -11,10 +11,12 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 var emptyCommitments = core.BlockCommitments{}
@@ -756,5 +758,33 @@ func TestPending(t *testing.T) {
 			require.NoError(t, pendingStateCloser())
 		})
 		require.NoError(t, pErr)
+	})
+}
+
+func TestMakeStateDiffForEmptyBlock(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	t.Run("earlier blocks shouldnt have block hash in state", func(t *testing.T) {
+		for i := uint64(0); i < 10; i++ {
+			sd, err := blockchain.MakeStateDiffForEmptyBlock(mockReader, i)
+			require.NoError(t, err)
+			assert.Equal(t, core.EmptyStateDiff(), sd)
+		}
+	})
+
+	t.Run("should have block hash in state", func(t *testing.T) {
+		blockHash := utils.HexToFelt(t, "0xDEADBEEF")
+		storageContractAddr := utils.HexToFelt(t, "0x1")
+
+		mockReader.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{
+			Number: 0,
+			Hash:   blockHash,
+		}, nil)
+		sd, err := blockchain.MakeStateDiffForEmptyBlock(mockReader, 10)
+		require.NoError(t, err)
+		assert.Equal(t, &felt.Zero, sd.StorageDiffs[*storageContractAddr][0].Key)
+		assert.Equal(t, blockHash, sd.StorageDiffs[*storageContractAddr][0].Value)
 	})
 }
