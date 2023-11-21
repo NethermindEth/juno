@@ -939,11 +939,16 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 		Receipts:     receipts,
 	}
 
+	stateDiff, err := MakeStateDiffForEmptyBlock(b, latestHeader.Number+1)
+	if err != nil {
+		return err
+	}
+
 	emptyPending := &Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   latestHeader.GlobalStateRoot,
-			StateDiff: core.EmptyStateDiff(),
+			StateDiff: stateDiff,
 		},
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
@@ -1043,4 +1048,27 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 		pending.NewClasses,
 		core.NewState(txn),
 	), txn.Discard, nil
+}
+
+func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff, error) {
+	stateDiff := core.EmptyStateDiff()
+
+	const blockHashLag = 10
+	if blockNumber < blockHashLag {
+		return stateDiff, nil
+	}
+
+	header, err := bc.BlockHeaderByNumber(blockNumber - blockHashLag)
+	if err != nil {
+		return nil, err
+	}
+
+	blockHashStorageContract := new(felt.Felt).SetUint64(1)
+	stateDiff.StorageDiffs[*blockHashStorageContract] = []core.StorageDiff{
+		{
+			Key:   new(felt.Felt).SetUint64(header.Number),
+			Value: header.Hash,
+		},
+	}
+	return stateDiff, nil
 }
