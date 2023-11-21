@@ -1046,13 +1046,20 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 		return nil, makeJSONErrorFromGatewayError(err)
 	}
 
-	var response AddTxResponse
-	err = json.Unmarshal(resp, &response)
-	if err != nil {
+	var gatewayResponse struct {
+		TransactionHash *felt.Felt `json:"transaction_hash"`
+		ContractAddress *felt.Felt `json:"address"`
+		ClassHash       *felt.Felt `json:"class_hash"`
+	}
+	if err = json.Unmarshal(resp, &gatewayResponse); err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-	return &response, nil
+	return &AddTxResponse{
+		TransactionHash: gatewayResponse.TransactionHash,
+		ContractAddress: gatewayResponse.ContractAddress,
+		ClassHash:       gatewayResponse.ClassHash,
+	}, nil
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
