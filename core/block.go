@@ -88,6 +88,11 @@ func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 			UnverifiableRange:        []uint64{0, 110511},
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		}
+	case utils.SEPOLIA, utils.SEPOLIA_INTEGRATION:
+		return &blockHashMetaInfo{
+			First07Block:             0,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		}
 	default:
 		// This should never happen
 		panic(fmt.Sprintf("unknown network: %d", network))
