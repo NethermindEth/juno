@@ -29,6 +29,8 @@ const (
 	GOERLI
 	GOERLI2
 	INTEGRATION
+	SEPOLIA
+	SEPOLIA_INTEGRATION
 )
 
 func (n Network) String() string {
@@ -41,6 +43,10 @@ func (n Network) String() string {
 		return "goerli2"
 	case INTEGRATION:
 		return "integration"
+	case SEPOLIA:
+		return "sepolia"
+	case SEPOLIA_INTEGRATION:
+		return "sepolia-integration"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -65,6 +71,10 @@ func (n *Network) Set(s string) error {
 		*n = GOERLI2
 	case "INTEGRATION", "integration":
 		*n = INTEGRATION
+	case "SEPOLIA", "sepolia":
+		*n = SEPOLIA
+	case "SEPOLIA_INTEGRATION", "sepolia-integration":
+		*n = SEPOLIA_INTEGRATION
 	default:
 		return ErrUnknownNetwork
 	}
@@ -90,6 +100,10 @@ func (n Network) baseURL() string {
 		return "https://alpha4-2.starknet.io/"
 	case INTEGRATION:
 		return "https://external.integration.starknet.io/"
+	case SEPOLIA:
+		return "https://alpha-sepolia.starknet.io/"
+	case SEPOLIA_INTEGRATION:
+		return "https://integration-sepolia.starknet.io/"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -114,6 +128,10 @@ func (n Network) ChainIDString() string {
 		return "SN_MAIN"
 	case GOERLI2:
 		return "SN_GOERLI2"
+	case SEPOLIA:
+		return "SN_SEPOLIA"
+	case SEPOLIA_INTEGRATION:
+		return "SN_INTEGRATION_SEPOLIA"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -127,6 +145,8 @@ func (n Network) DefaultL1ChainID() *big.Int {
 		chainID = 1
 	case GOERLI, GOERLI2, INTEGRATION:
 		chainID = 5
+	case SEPOLIA, SEPOLIA_INTEGRATION:
+		chainID = 11155111
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -146,6 +166,10 @@ func (n Network) CoreContractAddress() (common.Address, error) {
 		address = common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c")
 	case INTEGRATION:
 		return common.Address{}, errors.New("l1 contract is not available on the integration network")
+	case SEPOLIA:
+		return common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"), nil
+	case SEPOLIA_INTEGRATION:
+		return common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"), nil
 	default:
 		// Should not happen.
 		return common.Address{}, ErrUnknownNetwork

@@ -92,7 +92,7 @@ const (
 	wsHostUsage       = "The interface on which the Websocket RPC server will listen for requests."
 	wsPortUsage       = "The port on which the websocket server will listen for requests."
 	dbPathUsage       = "Location of the database files."
-	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
+	networkUsage      = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
 	pprofUsage        = "Enables the pprof endpoint on the default port."
 	pprofHostUsage    = "The interface on which the pprof HTTP server will listen for requests."
 	pprofPortUsage    = "The port on which the pprof HTTP server will listen for requests."
