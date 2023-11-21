@@ -214,7 +214,13 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint6
 			header     core.Header
 			signatures [][]*felt.Felt
 		)
-		for _, part := range res.GetPart() {
+		parts := res.GetPart()
+		if len(parts) == 1 {
+			// assumption that parts contain only Fin element
+			continue
+		}
+
+		for i, part := range parts {
 			switch part.HeaderMessage.(type) {
 			case *spec.BlockHeadersResponsePart_Header:
 				h := part.GetHeader()
@@ -253,9 +259,9 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint6
 				// todo check blockID
 				signatures = utils.Map(part.GetSignatures().Signatures, p2p2core.AdaptSignature)
 			case *spec.BlockHeadersResponsePart_Fin:
-				//if i != 2 {
-				//	return nil, fmt.Errorf("fin message received as %d part (header,signatures are missing?)", i)
-				//}
+				if i != 2 {
+					return nil, fmt.Errorf("fin message received as %d part (header,signatures are missing?)", i)
+				}
 			}
 		}
 
