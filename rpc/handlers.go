@@ -1393,6 +1393,19 @@ func (h *Handler) LegacyTraceBlockTransactions(ctx context.Context, hash felt.Fe
 
 var traceFallbackVersion = semver.MustParse("0.12.2")
 
+func prependBlockHashToState(bc blockchain.Reader, blockNumber uint64, state core.StateReader) (core.StateReader, error) {
+	stateDiffWithBlockHash, err := blockchain.MakeStateDiffForEmptyBlock(bc, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return blockchain.NewPendingState(
+		stateDiffWithBlockHash,
+		make(map[felt.Felt]core.Class, 0),
+		state,
+	), nil
+}
+
 func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
 	legacyJSON bool,
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
@@ -1418,6 +1431,19 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		return nil, ErrBlockNotFound
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
+
+	blockNumber := block.Number
+	if isPending {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+
+	if state, err = prependBlockHashToState(h.bcReader, blockNumber, state); err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
 
 	var (
 		headState       core.StateReader
@@ -1450,24 +1476,13 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 	}
 
-	blockNumber := block.Number
-	if isPending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
-	header := block.Header
-
-	sequencerAddress := header.SequencerAddress
+	sequencerAddress := block.Header.SequencerAddress
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 
-	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false, false, header.GasPrice, legacyJSON)
+	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
+		sequencerAddress, state, h.network, paidFeesOnL1, false, false, block.Header.GasPrice, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
