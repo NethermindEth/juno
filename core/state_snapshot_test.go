@@ -70,7 +70,7 @@ func TestStateSnapshot(t *testing.T) {
 		"contract is not deployed": {
 			snapshot: snapshotBeforeDeployment,
 			checker: func(t *testing.T, _ *felt.Felt, err error) {
-				require.ErrorIs(t, err, core.ErrContractNotDeployed)
+				require.ErrorIs(t, err, db.ErrKeyNotFound)
 			},
 		},
 		"correct value is in history": {
