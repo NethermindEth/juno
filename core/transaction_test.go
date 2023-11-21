@@ -143,7 +143,7 @@ func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 }
 
 func TestVerifyTransactionHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	txnHash0 := utils.HexToFelt(t, "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
@@ -199,7 +199,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, utils.MAINNET, "99.99.99")
+				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, utils.Mainnet, "99.99.99")
 				require.Equal(t, test.wantErr, tErr)
 			})
 		}
@@ -207,7 +207,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 	t.Run("does not contain bad transaction(s)", func(t *testing.T) {
 		txns := []core.Transaction{txn0, txn1, txn2, txn3, txn4}
-		assert.NoError(t, core.VerifyTransactions(txns, utils.MAINNET, "99.99.99"))
+		assert.NoError(t, core.VerifyTransactions(txns, utils.Mainnet, "99.99.99"))
 	})
 }
 

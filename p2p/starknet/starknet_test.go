@@ -33,7 +33,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	testNetwork := utils.INTEGRATION
+	testNetwork := utils.Integration
 	testCtx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 

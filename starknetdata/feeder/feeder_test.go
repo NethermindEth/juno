@@ -17,7 +17,7 @@ import (
 func TestBlockByNumber(t *testing.T) {
 	numbers := []uint64{147, 11817}
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -37,7 +37,7 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestBlockLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -55,7 +55,7 @@ func TestBlockLatest(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -81,7 +81,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	client := feeder.NewTestClient(t, utils.GOERLI)
+	client := feeder.NewTestClient(t, utils.Goerli)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -101,10 +101,10 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, utils.GOERLI)
+	clientGoerli := feeder.NewTestClient(t, utils.Goerli)
 	adapterGoerli := adaptfeeder.New(clientGoerli)
 
-	clientMainnet := feeder.NewTestClient(t, utils.MAINNET)
+	clientMainnet := feeder.NewTestClient(t, utils.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
 	ctx := context.Background()
@@ -176,7 +176,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 	adapter := adaptfeeder.New(client)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
@@ -196,7 +196,7 @@ func TestClassV1(t *testing.T) {
 func TestStateUpdateWithBlock(t *testing.T) {
 	numbers := []uint64{0, 78541}
 
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -219,7 +219,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 

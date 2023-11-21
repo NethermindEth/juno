@@ -13,10 +13,10 @@ import (
 )
 
 var networkStrings = map[utils.Network]string{
-	utils.MAINNET:     "mainnet",
-	utils.GOERLI:      "goerli",
-	utils.GOERLI2:     "goerli2",
-	utils.INTEGRATION: "integration",
+	utils.Mainnet:     "mainnet",
+	utils.Goerli:      "goerli",
+	utils.Goerli2:     "goerli2",
+	utils.Integration: "integration",
 }
 
 func TestNetwork(t *testing.T) {
@@ -28,13 +28,13 @@ func TestNetwork(t *testing.T) {
 	t.Run("url", func(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
-			case utils.GOERLI:
+			case utils.Goerli:
 				assert.Equal(t, "https://alpha4.starknet.io/feeder_gateway/", n.FeederURL())
-			case utils.MAINNET:
+			case utils.Mainnet:
 				assert.Equal(t, "https://alpha-mainnet.starknet.io/feeder_gateway/", n.FeederURL())
-			case utils.GOERLI2:
+			case utils.Goerli2:
 				assert.Equal(t, "https://alpha4-2.starknet.io/feeder_gateway/", n.FeederURL())
-			case utils.INTEGRATION:
+			case utils.Integration:
 				assert.Equal(t, "https://external.integration.starknet.io/feeder_gateway/", n.FeederURL())
 			default:
 				assert.Fail(t, "unexpected network")
@@ -44,11 +44,11 @@ func TestNetwork(t *testing.T) {
 	t.Run("chainId", func(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
-			case utils.GOERLI, utils.INTEGRATION:
+			case utils.Goerli, utils.Integration:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.ChainID())
-			case utils.MAINNET:
+			case utils.Mainnet:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.ChainID())
-			case utils.GOERLI2:
+			case utils.Goerli2:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainID())
 			default:
 				assert.Fail(t, "unexpected network")
@@ -59,9 +59,9 @@ func TestNetwork(t *testing.T) {
 		for n := range networkStrings {
 			got := n.DefaultL1ChainID()
 			switch n {
-			case utils.MAINNET:
+			case utils.Mainnet:
 				assert.Equal(t, big.NewInt(1), got)
-			case utils.GOERLI, utils.GOERLI2, utils.INTEGRATION:
+			case utils.Goerli, utils.Goerli2, utils.Integration:
 				assert.Equal(t, big.NewInt(5), got)
 			default:
 				assert.Fail(t, "unexpected network")
@@ -131,15 +131,15 @@ func TestNetworkType(t *testing.T) {
 
 func TestCoreContractAddress(t *testing.T) {
 	addresses := map[utils.Network]common.Address{
-		utils.MAINNET: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		utils.GOERLI:  common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		utils.GOERLI2: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		utils.Mainnet: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+		utils.Goerli:  common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+		utils.Goerli2: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
 	}
 
 	for n := range networkStrings {
 		t.Run("core contract for "+n.String(), func(t *testing.T) {
 			switch n {
-			case utils.INTEGRATION:
+			case utils.Integration:
 				_, err := n.CoreContractAddress()
 				require.Error(t, err)
 			default:
