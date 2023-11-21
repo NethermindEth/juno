@@ -194,7 +194,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
-
+		if cfg.Metrics {
+			l1Client.WithEventListener(makeL1Metrics())
+		}
 		n.services = append(n.services, l1Client)
 	}
 

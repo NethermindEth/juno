@@ -32,6 +32,7 @@ type Client struct {
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
+	listener              EventListener
 }
 
 var _ service.Service = (*Client)(nil)
@@ -45,7 +46,13 @@ func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogg
 		resubscribeDelay:      10 * time.Second,
 		pollFinalisedInterval: time.Minute,
 		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate, 0),
+		listener:              SelectiveListener{},
 	}
+}
+
+func (c *Client) WithEventListener(l EventListener) *Client {
+	c.listener = l
+	return c
 }
 
 func (c *Client) WithResubscribeDelay(delay time.Duration) *Client {
@@ -204,6 +211,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 	if err := c.l2Chain.SetL1Head(head); err != nil {
 		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
 	}
+	c.listener.OnNewL1Head(head)
 	c.log.Infow("Updated l1 head",
 		"blockNumber", head.BlockNumber,
 		"blockHash", head.BlockHash.ShortString(),
