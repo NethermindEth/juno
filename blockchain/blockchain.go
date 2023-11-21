@@ -1046,7 +1046,8 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 	}
 
 	return NewPendingState(
-		pending,
+		pending.StateUpdate.StateDiff,
+		pending.NewClasses,
 		core.NewState(txn),
 	), txn.Discard, nil
 }
