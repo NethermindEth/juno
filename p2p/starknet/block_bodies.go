@@ -21,6 +21,8 @@ const (
 	sendDiff // initial
 	sendClasses
 	sendProof
+	sendTxs
+	sendReceipts
 	sendBlockFin
 	terminal // final step
 )
@@ -30,25 +32,26 @@ type blockBodyIterator struct {
 	stateReader core.StateReader
 	stateCloser func() error
 
-	step        blockBodyStep
-	header      *core.Header
+	step  blockBodyStep
+	block *core.Block
+
 	stateUpdate *core.StateUpdate
 }
 
-func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log utils.SimpleLogger) (*blockBodyIterator, error) {
-	stateUpdate, err := bcReader.StateUpdateByNumber(header.Number)
+func newBlockBodyIterator(bcReader blockchain.Reader, block *core.Block, log utils.SimpleLogger) (*blockBodyIterator, error) {
+	stateUpdate, err := bcReader.StateUpdateByNumber(block.Number)
 	if err != nil {
 		return nil, err
 	}
 
-	stateReader, closer, err := bcReader.StateAtBlockNumber(header.Number)
+	stateReader, closer, err := bcReader.StateAtBlockNumber(block.Number)
 	if err != nil {
 		return nil, err
 	}
 
 	return &blockBodyIterator{
 		step:        sendDiff,
-		header:      header,
+		block:       block,
 		log:         log,
 		stateReader: stateReader,
 		stateCloser: closer,
@@ -62,6 +65,8 @@ func (b *blockBodyIterator) hasNext() bool {
 		sendClasses,
 		sendProof,
 		sendBlockFin,
+		sendTxs,
+		sendReceipts,
 	}, b.step)
 }
 
@@ -76,6 +81,12 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 		b.step = sendProof
 	case sendProof:
 		msg, valid = b.proof()
+		b.step = sendTxs
+	case sendTxs:
+		msg, valid = b.transactions()
+		b.step = sendReceipts
+	case sendReceipts:
+		msg, valid = b.receipts()
 		b.step = sendBlockFin
 	case sendBlockFin:
 		// fin changes step to terminal internally
@@ -87,6 +98,33 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 	}
 
 	return
+}
+
+func (b *blockBodyIterator) transactions() (proto.Message, bool) {
+	return &spec.BlockBodiesResponse{
+		Id: b.blockID(),
+		BodyMessage: &spec.BlockBodiesResponse_Transactions{
+			Transactions: &spec.Transactions{
+				Items: utils.Map(b.block.Transactions, core2p2p.AdaptTransaction),
+			},
+		},
+	}, true
+}
+
+func (b *blockBodyIterator) receipts() (proto.Message, bool) {
+	var receipts []*spec.Receipt
+	for i, receipt := range b.block.Receipts {
+		receipts = append(receipts, core2p2p.AdaptReceipt(receipt, b.block.Transactions[i]))
+	}
+
+	return &spec.BlockBodiesResponse{
+		Id: b.blockID(),
+		BodyMessage: &spec.BlockBodiesResponse_Receipts{
+			Receipts: &spec.Receipts{
+				Items: receipts,
+			},
+		},
+	}, true
 }
 
 func (b *blockBodyIterator) classes() (proto.Message, bool) {
@@ -148,7 +186,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 	}
 
 	return &spec.BlockBodiesResponse{
-		Id: core2p2p.AdaptBlockID(b.header),
+		Id: b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Classes{
 			Classes: &spec.Classes{
 				Domain:  0,
@@ -213,7 +251,7 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 	}
 
 	return &spec.BlockBodiesResponse{
-		Id: core2p2p.AdaptBlockID(b.header),
+		Id: b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Diff{
 			Diff: &spec.StateDiff{
 				Domain:        0,
@@ -229,7 +267,7 @@ func (b *blockBodyIterator) fin() (proto.Message, bool) {
 		b.log.Errorw("Call to state closer failed", "err", err)
 	}
 	return &spec.BlockBodiesResponse{
-		Id:          core2p2p.AdaptBlockID(b.header),
+		Id:          b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Fin{},
 	}, true
 }
@@ -244,11 +282,15 @@ func (b *blockBodyIterator) proof() (proto.Message, bool) {
 	}
 
 	return &spec.BlockBodiesResponse{
-		Id: core2p2p.AdaptBlockID(b.header),
+		Id: b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Proof{
 			Proof: &spec.BlockProof{
 				Proof: proof,
 			},
 		},
 	}, true
+}
+
+func (b *blockBodyIterator) blockID() *spec.BlockID {
+	return core2p2p.AdaptBlockID(b.block.Header)
 }

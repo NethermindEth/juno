@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 
@@ -72,7 +73,25 @@ func (s *syncService) start(ctx context.Context) {
 	idx := rand.Intn(len(peers))
 	randomPeer := peers[idx]
 
-	s.requestBlockHeaders(ctx, s.height, bootNodeHeight, randomPeer)
+	fmt.Println("header's start", s.height, "header's stop", bootNodeHeight)
+	headers, err := s.requestBlockHeaders(ctx, s.height, bootNodeHeight, randomPeer)
+	if err != nil {
+		s.log.Errorw("Failed to get headers", "err", err)
+		return
+	}
+
+	fmt.Println("body's start", s.height, "body's stop", bootNodeHeight)
+	blockBodies, err := s.requestBlockBodies(ctx, s.height, bootNodeHeight, randomPeer)
+	if err != nil {
+		s.log.Errorw("Failed to get block bodies", "err", err)
+		return
+	}
+
+	s.log.Debugw("Merging block bodies with headers", "bodiesLen", len(blockBodies), "headerLen", len(headers))
+	for i, body := range blockBodies {
+		body.block.Header = &headers[i]
+		fmt.Printf("Received block body %d %+v\n", i, body)
+	}
 }
 
 func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
@@ -94,7 +113,15 @@ func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
 	return header.Number, nil
 }
 
-func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint64, id peer.ID) {
+// blockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
+type blockBody struct {
+	block       *core.Block
+	commitments *core.BlockCommitments
+	stateUpdate *core.StateUpdate
+	newClasses  map[felt.Felt]core.Class
+}
+
+func (s *syncService) requestBlockBodies(ctx context.Context, start, stop uint64, id peer.ID) ([]blockBody, error) {
 	it := &spec.Iteration{
 		Start:     &spec.Iteration_BlockNumber{start},
 		Direction: spec.Iteration_Forward,
@@ -102,17 +129,68 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint6
 		Step:      1,
 	}
 
-	headers, err := s.requestBlockHeader(ctx, id, it)
+	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
+		return s.host.NewStream(ctx, id, pids...)
+	}, s.network, s.log)
+
+	blockIt, err := c.RequestBlockBodies(ctx, &spec.BlockBodiesRequest{
+		Iteration: it,
+	})
 	if err != nil {
-		s.log.Errorw("Failed to request block headers from peer", "peerID", id, "err", err)
-		return
+		s.log.Errorw("request block bodies from peer", "id", id, "err", err)
 	}
 
-	fmt.Printf("Total number of headers is %d, here is last one %+v", len(headers), headers[0])
+	blockBodies := make(map[uint64]blockBody)
+	for res, valid := blockIt(); valid; res, valid = blockIt() {
+		switch res.BodyMessage.(type) {
+		case *spec.BlockBodiesResponse_Classes:
+		case *spec.BlockBodiesResponse_Diff:
+			// res.GetDiff()
+		case *spec.BlockBodiesResponse_Transactions:
+			blockNumber := res.GetId().Number
+			b, ok := blockBodies[blockNumber]
+			if !ok {
+				b = blockBody{
+					block: &core.Block{},
+				}
+			}
+			for _, item := range res.GetTransactions().GetItems() {
+				b.block.Transactions = append(b.block.Transactions, p2p2core.AdaptTransaction(item, s.network))
+			}
+
+			blockBodies[blockNumber] = b
+		case *spec.BlockBodiesResponse_Receipts:
+			blockNumber := res.GetId().Number
+			b, ok := blockBodies[blockNumber]
+			if !ok {
+				b = blockBody{
+					block: &core.Block{},
+				}
+			}
+			b.block.Receipts = utils.Map(res.GetReceipts().GetItems(), p2p2core.AdaptReceipt)
+
+			blockBodies[blockNumber] = b
+		case *spec.BlockBodiesResponse_Fin:
+			// do nothing
+		case *spec.BlockBodiesResponse_Proof:
+			// do nothing
+		default:
+			fmt.Printf("Unknown BlockBody type %T\n", res.BodyMessage)
+		}
+	}
+
+	return utils.MapValues(blockBodies), nil
 }
 
 // todo rename method
-func (s *syncService) requestBlockHeader(ctx context.Context, id peer.ID, it *spec.Iteration) ([]core.Header, error) {
+func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint64, id peer.ID) ([]core.Header, error) {
+	it := &spec.Iteration{
+		Start:     &spec.Iteration_BlockNumber{start},
+		Direction: spec.Iteration_Forward,
+		Limit:     stop + 1,
+		Step:      1,
+	}
+
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -123,7 +201,15 @@ func (s *syncService) requestBlockHeader(ctx context.Context, id peer.ID, it *sp
 	}
 
 	var headers []core.Header
+	var count int32
+	prevTime := time.Now()
 	for res, valid := headersIt(); valid; res, valid = headersIt() {
+		fmt.Printf("fetching header number=%d, timeSpent=%v\n", count, time.Since(prevTime))
+		prevTime = time.Now()
+		count++
+
+		fmt.Println("count is", count)
+
 		var (
 			header     core.Header
 			signatures [][]*felt.Felt
@@ -131,12 +217,24 @@ func (s *syncService) requestBlockHeader(ctx context.Context, id peer.ID, it *sp
 		for _, part := range res.GetPart() {
 			switch part.HeaderMessage.(type) {
 			case *spec.BlockHeadersResponsePart_Header:
-				receipts, err := s.requestReceipts(ctx, id, it)
+				h := part.GetHeader()
+
+				receiptsStart := time.Now()
+				receipts, err := s.requestReceipts(ctx, id, &spec.Iteration{
+					Start: &spec.Iteration_BlockNumber{
+						BlockNumber: h.Number,
+					},
+					Direction: spec.Iteration_Forward,
+					Limit:     1,
+					Step:      1,
+				})
 				if err != nil {
 					return nil, err
 				}
+				delta := time.Since(receiptsStart)
+				fmt.Printf("time spent in receipts %v\n", delta)
+				// s.log.Infow("time spend in receipts", "timeSpend", delta)
 
-				h := part.GetHeader()
 				header = core.Header{
 					Hash:             nil, // todo SPEC
 					ParentHash:       p2p2core.AdaptHash(h.ParentHash),
@@ -224,32 +322,32 @@ func (s *syncService) requestTransactions(ctx context.Context, id peer.ID, it *s
 	return transactions, nil
 }
 
-//func (s *syncService) requestEvents(ctx context.Context, peerInfo peer.AddrInfo, it *spec.Iteration) ([]*core.Event, error) {
-//	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
-//		return s.host.NewStream(ctx, peerInfo.ID, pids...)
-//	}, s.network, s.log)
-//
-//	eventsIt, err := c.RequestEvents(ctx, &spec.EventsRequest{Iteration: it})
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	var events []*core.Event
-//	count := 0
-//	for res, valid := eventsIt(); valid; res, valid = eventsIt() {
-//		switch res.Responses.(type) {
-//		case *spec.EventsResponse_Events:
-//			items := res.GetEvents().GetItems()
-//			for _, item := range items {
-//				events = append(events, p2p2core.AdaptEvent(item))
-//			}
-//		case *spec.EventsResponse_Fin:
-//			if count < 1 {
-//				return nil, fmt.Errorf("fin received before events: %d", count)
-//			}
-//		}
-//		count++
-//	}
-//
-//	return events, nil
-//}
+func (s *syncService) requestEvents(ctx context.Context, id peer.ID, it *spec.Iteration) ([]*core.Event, error) {
+	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
+		return s.host.NewStream(ctx, id, pids...)
+	}, s.network, s.log)
+
+	eventsIt, err := c.RequestEvents(ctx, &spec.EventsRequest{Iteration: it})
+	if err != nil {
+		return nil, err
+	}
+
+	var events []*core.Event
+	count := 0
+	for res, valid := eventsIt(); valid; res, valid = eventsIt() {
+		switch res.Responses.(type) {
+		case *spec.EventsResponse_Events:
+			items := res.GetEvents().GetItems()
+			for _, item := range items {
+				events = append(events, p2p2core.AdaptEvent(item))
+			}
+		case *spec.EventsResponse_Fin:
+			if count < 1 {
+				return nil, fmt.Errorf("fin received before events: %d", count)
+			}
+		}
+		count++
+	}
+
+	return events, nil
+}

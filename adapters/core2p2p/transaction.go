@@ -111,12 +111,8 @@ func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy
 }
 
 func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *spec.Transaction_L1Handler {
-	if !tx.Version.Is(1) {
-		panic(fmt.Errorf("unsupported L1Handler tx version %s", tx.Version))
-	}
-
 	return &spec.Transaction_L1Handler{
-		L1Handler: &spec.Transaction_L1HandlerV1{
+		L1Handler: &spec.Transaction_L1HandlerV0{
 			Nonce:              AdaptFelt(tx.Nonce),
 			Address:            AdaptAddress(tx.ContractAddress),
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),

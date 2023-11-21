@@ -244,6 +244,9 @@ func (s *Service) setProtocolHandlers() {
 	s.SetProtocolHandler(starknet.BlockHeadersPID(s.network), s.handler.BlockHeadersHandler)
 	s.SetProtocolHandler(starknet.CurrentBlockHeaderPID(s.network), s.handler.CurrentBlockHeaderHandler)
 	s.SetProtocolHandler(starknet.ReceiptsPID(s.network), s.handler.ReceiptsHandler)
+	// todo discuss protocol id (should it be included in BlockHeadersPID)
+	s.SetProtocolHandler(starknet.BlockBodiesPID(s.network), s.handler.BlockBodiesHandler)
+	s.SetProtocolHandler(starknet.EventsPID(s.network), s.handler.EventsHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {

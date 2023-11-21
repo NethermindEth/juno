@@ -73,7 +73,6 @@ func AdaptTransaction(t *spec.Transaction, network utils.Network) core.Transacti
 		declareTx := &core.DeclareTransaction{
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
-			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
 			Version:              txVerion(2),
@@ -133,7 +132,6 @@ func AdaptTransaction(t *spec.Transaction, network utils.Network) core.Transacti
 				ConstructorCallData: callData,
 				Version:             txVerion(3),
 			},
-			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
 		}
@@ -176,7 +174,6 @@ func AdaptTransaction(t *spec.Transaction, network utils.Network) core.Transacti
 			ContractAddress:      nil, // is it ok?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
-			MaxFee:               AdaptFelt(tx.MaxFee),
 			Version:              txVerion(3),
 			Nonce:                AdaptFelt(tx.Nonce),
 			SenderAddress:        AdaptAddress(tx.Sender),
