@@ -7,12 +7,11 @@
 package spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -769,11 +768,6 @@ type BlockBodiesResponse_Receipts struct {
 	Receipts *Receipts `protobuf:"bytes,6,opt,name=receipts,proto3,oneof"`
 }
 
-func (r *BlockBodiesResponse_Receipts) ProtoReflect() protoreflect.Message {
-	// TODO implement me
-	panic("implement me")
-}
-
 type BlockBodiesResponse_Fin struct {
 	Fin *Fin `protobuf:"bytes,7,opt,name=fin,proto3,oneof"`
 }
@@ -910,35 +904,33 @@ func file_p2p_proto_block_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_block_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_block_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
-	file_p2p_proto_block_proto_goTypes  = []interface{}{
-		(*Signatures)(nil),                // 0: Signatures
-		(*BlockHeader)(nil),               // 1: BlockHeader
-		(*BlockProof)(nil),                // 2: BlockProof
-		(*NewBlock)(nil),                  // 3: NewBlock
-		(*CurrentBlockHeaderRequest)(nil), // 4: CurrentBlockHeaderRequest
-		(*BlockHeadersRequest)(nil),       // 5: BlockHeadersRequest
-		(*BlockHeadersResponsePart)(nil),  // 6: BlockHeadersResponsePart
-		(*BlockHeadersResponse)(nil),      // 7: BlockHeadersResponse
-		(*BlockBodiesRequest)(nil),        // 8: BlockBodiesRequest
-		(*BlockBodiesResponse)(nil),       // 9: BlockBodiesResponse
-		(*BlockID)(nil),                   // 10: BlockID
-		(*ConsensusSignature)(nil),        // 11: ConsensusSignature
-		(*Hash)(nil),                      // 12: Hash
-		(*timestamppb.Timestamp)(nil),     // 13: google.protobuf.Timestamp
-		(*Address)(nil),                   // 14: Address
-		(*Merkle)(nil),                    // 15: Merkle
-		(*Patricia)(nil),                  // 16: Patricia
-		(*Felt252)(nil),                   // 17: Felt252
-		(*Iteration)(nil),                 // 18: Iteration
-		(*Fin)(nil),                       // 19: Fin
-		(*StateDiff)(nil),                 // 20: StateDiff
-		(*Classes)(nil),                   // 21: Classes
-		(*Transactions)(nil),              // 22: Transactions
-		(*Receipts)(nil),                  // 23: Receipts
-	}
-)
+var file_p2p_proto_block_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_p2p_proto_block_proto_goTypes = []interface{}{
+	(*Signatures)(nil),                // 0: Signatures
+	(*BlockHeader)(nil),               // 1: BlockHeader
+	(*BlockProof)(nil),                // 2: BlockProof
+	(*NewBlock)(nil),                  // 3: NewBlock
+	(*CurrentBlockHeaderRequest)(nil), // 4: CurrentBlockHeaderRequest
+	(*BlockHeadersRequest)(nil),       // 5: BlockHeadersRequest
+	(*BlockHeadersResponsePart)(nil),  // 6: BlockHeadersResponsePart
+	(*BlockHeadersResponse)(nil),      // 7: BlockHeadersResponse
+	(*BlockBodiesRequest)(nil),        // 8: BlockBodiesRequest
+	(*BlockBodiesResponse)(nil),       // 9: BlockBodiesResponse
+	(*BlockID)(nil),                   // 10: BlockID
+	(*ConsensusSignature)(nil),        // 11: ConsensusSignature
+	(*Hash)(nil),                      // 12: Hash
+	(*timestamppb.Timestamp)(nil),     // 13: google.protobuf.Timestamp
+	(*Address)(nil),                   // 14: Address
+	(*Merkle)(nil),                    // 15: Merkle
+	(*Patricia)(nil),                  // 16: Patricia
+	(*Felt252)(nil),                   // 17: Felt252
+	(*Iteration)(nil),                 // 18: Iteration
+	(*Fin)(nil),                       // 19: Fin
+	(*StateDiff)(nil),                 // 20: StateDiff
+	(*Classes)(nil),                   // 21: Classes
+	(*Transactions)(nil),              // 22: Transactions
+	(*Receipts)(nil),                  // 23: Receipts
+}
 var file_p2p_proto_block_proto_depIdxs = []int32{
 	10, // 0: Signatures.block:type_name -> BlockID
 	11, // 1: Signatures.signatures:type_name -> ConsensusSignature

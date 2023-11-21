@@ -138,45 +138,36 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classesM[*hash] = core2p2p.AdaptClass(cls.Class)
+		classesM[*hash] = core2p2p.AdaptClass(cls.Class, hash)
 	}
-	for classHash := range stateDiff.DeclaredV1Classes {
-		cls, err := b.stateReader.Class(&classHash)
+	for _, class := range stateDiff.DeclaredV1Classes {
+		cls, err := b.stateReader.Class(class.ClassHash)
 		if err != nil {
 			return b.fin()
 		}
 
-		hash, err := cls.Class.Hash()
-		if err != nil {
-			return b.fin()
-		}
-		classesM[classHash] = core2p2p.AdaptClass(cls.Class)
+		classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, nil)
 	}
-	for _, classHash := range stateDiff.DeployedContracts {
-		if _, ok := classesM[*classHash]; ok {
+	for _, class := range stateDiff.DeployedContracts {
+		if _, ok := classesM[*class.ClassHash]; ok {
 			// Skip if the class was declared and deployed in the same block. Otherwise, there will be duplicate classes.
 			continue
 		}
-		cls, err := b.stateReader.Class(classHash)
+		cls, err := b.stateReader.Class(class.ClassHash)
 		if err != nil {
 			return b.fin()
 		}
 
-		var compiledHash *felt.Felt
 		switch cairoClass := cls.Class.(type) {
 		case *core.Cairo0Class:
-			compiledHash = classHash
+			classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, class.ClassHash)
 		case *core.Cairo1Class:
-			compiledHash, err = cairoClass.Hash()
-			if err != nil {
-				return b.fin()
-			}
+			classesM[*cairoClass.Hash()] = core2p2p.AdaptClass(cls.Class, nil)
 		default:
 			b.log.Errorw("Unknown cairo class", "cairoClass", cairoClass)
 			return b.fin()
 		}
 
-		classesM[*compiledHash] = core2p2p.AdaptClass(cls.Class)
 	}
 
 	var classes []*spec.Class
@@ -199,7 +190,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 type contractDiff struct {
 	address      *felt.Felt
 	classHash    *felt.Felt
-	storageDiffs map[felt.Felt]*felt.Felt
+	storageDiffs []core.StorageDiff
 	nonce        *felt.Felt
 }
 
@@ -208,6 +199,8 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 	diff := b.stateUpdate.StateDiff
 
 	modifiedContracts := make(map[felt.Felt]*contractDiff)
+
+	updateModifiedContracts := func(contractAddr *felt.Felt, f func(*contractDiff))
 	initContractDiff := func(addr *felt.Felt) (*contractDiff, error) {
 		var cHash *felt.Felt
 		cHash, err = b.stateReader.ContractClassHash(addr)
@@ -254,8 +247,14 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 		Id: b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Diff{
 			Diff: &spec.StateDiff{
-				Domain:        0,
-				ContractDiffs: contractDiffs,
+				Domain:            0,
+				ContractDiffs:     contractDiffs,
+				ReplacedClasses:   []*spec.StateDiff_ContractAddrToClassHash{},
+				DeployedContracts: []*spec.StateDiff_ContractAddrToClassHash{},
+				OldState: &spec.Patricia{
+					Height: 251,
+					Root:   core2p2p.AdaptHash(b.stateUpdate.OldRoot),
+				},
 			},
 		},
 	}, true

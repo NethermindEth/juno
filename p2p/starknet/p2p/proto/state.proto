@@ -18,8 +18,16 @@ message StateDiff
         repeated ContractStoredValue values = 4;
     }
 
-    uint32   domain                      = 1;  // volition state domain
-    repeated ContractDiff contract_diffs = 2;
+    message ContractAddrToClassHash {
+        Address contract_addr = 1;
+        Hash    class_hash    = 2;
+    }
+
+    uint32   domain                                     = 1;  // volition state domain
+    repeated ContractDiff contract_diffs                = 2;
+    repeated ContractAddrToClassHash replaced_classes   = 3;
+    repeated ContractAddrToClassHash deployed_contracts = 4;
+    Patricia old_state                                  = 5;
 }
 
 message EntryPoint {
@@ -33,6 +41,7 @@ message Cairo0Class {
     repeated EntryPoint l1_handlers = 3;
     repeated EntryPoint constructors = 4;
     bytes program = 5;
+    Hash  hash    = 6;
 }
 
 message SierraEntryPoint {

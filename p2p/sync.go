@@ -116,9 +116,16 @@ func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
 // blockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
 type blockBody struct {
 	block       *core.Block
-	commitments *core.BlockCommitments
 	stateUpdate *core.StateUpdate
 	newClasses  map[felt.Felt]core.Class
+}
+
+func newBlockBody() blockBody {
+	return blockBody{
+		block:       new(core.Block),
+		stateUpdate: new(core.StateUpdate),
+		newClasses:  make(map[felt.Felt]core.Class),
+	}
 }
 
 func (s *syncService) requestBlockBodies(ctx context.Context, start, stop uint64, id peer.ID) ([]blockBody, error) {
@@ -141,35 +148,48 @@ func (s *syncService) requestBlockBodies(ctx context.Context, start, stop uint64
 	}
 
 	blockBodies := make(map[uint64]blockBody)
+	updateBlockBody := func(blockNumber uint64, f func(*blockBody)) {
+		b, ok := blockBodies[blockNumber]
+		if !ok {
+			b = newBlockBody()
+		}
+
+		f(&b)
+
+		blockBodies[blockNumber] = b
+	}
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
 		switch res.BodyMessage.(type) {
 		case *spec.BlockBodiesResponse_Classes:
+			updateBlockBody(res.GetId().Number, func(b *blockBody) {
+				classes := res.GetClasses().GetClasses()
+
+				b.newClasses = utils.ToMap(classes, func(cls *spec.Class) (felt.Felt, core.Class) {
+					coreCls := p2p2core.AdaptClass(cls)
+
+					var hash *felt.Felt
+					switch v := coreCls.(type) {
+					case *core.Cairo0Class:
+						hash = p2p2core.AdaptFelt(cls.GetCairo0().Hash)
+					case *core.Cairo1Class:
+						hash = v.Hash()
+					}
+
+					return *hash, coreCls
+				})
+			})
 		case *spec.BlockBodiesResponse_Diff:
 			// res.GetDiff()
 		case *spec.BlockBodiesResponse_Transactions:
-			blockNumber := res.GetId().Number
-			b, ok := blockBodies[blockNumber]
-			if !ok {
-				b = blockBody{
-					block: &core.Block{},
+			updateBlockBody(res.GetId().Number, func(b *blockBody) {
+				for _, item := range res.GetTransactions().GetItems() {
+					b.block.Transactions = append(b.block.Transactions, p2p2core.AdaptTransaction(item, s.network))
 				}
-			}
-			for _, item := range res.GetTransactions().GetItems() {
-				b.block.Transactions = append(b.block.Transactions, p2p2core.AdaptTransaction(item, s.network))
-			}
-
-			blockBodies[blockNumber] = b
+			})
 		case *spec.BlockBodiesResponse_Receipts:
-			blockNumber := res.GetId().Number
-			b, ok := blockBodies[blockNumber]
-			if !ok {
-				b = blockBody{
-					block: &core.Block{},
-				}
-			}
-			b.block.Receipts = utils.Map(res.GetReceipts().GetItems(), p2p2core.AdaptReceipt)
-
-			blockBodies[blockNumber] = b
+			updateBlockBody(res.GetId().Number, func(b *blockBody) {
+				b.block.Receipts = utils.Map(res.GetReceipts().GetItems(), p2p2core.AdaptReceipt)
+			})
 		case *spec.BlockBodiesResponse_Fin:
 			// do nothing
 		case *spec.BlockBodiesResponse_Proof:

@@ -3,13 +3,15 @@ package core2p2p
 import (
 	"fmt"
 
+	"github.com/NethermindEth/juno/core/felt"
+
 	"github.com/NethermindEth/juno/utils"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 )
 
-func AdaptClass(class core.Class) *spec.Class {
+func AdaptClass(class core.Class, cairo0ClassHash *felt.Felt) *spec.Class {
 	if class == nil {
 		return nil
 	}
@@ -24,6 +26,7 @@ func AdaptClass(class core.Class) *spec.Class {
 					L1Handlers:   utils.Map(v.L1Handlers, adaptEntryPoint),
 					Constructors: utils.Map(v.Constructors, adaptEntryPoint),
 					Program:      []byte(v.Program),
+					Hash:         AdaptHash(cairo0ClassHash),
 				},
 			},
 		}
@@ -39,7 +42,7 @@ func AdaptClass(class core.Class) *spec.Class {
 					},
 					Program:              utils.Map(v.Program, AdaptFelt),
 					ContractClassVersion: v.SemanticVersion,
-					Compiled:             v.Compiled,
+					Compiled:             nil,
 				},
 			},
 		}
