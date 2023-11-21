@@ -1780,7 +1780,7 @@ func TestAddTransaction(t *testing.T) {
 		mockGateway.EXPECT().AddTransaction(gomock.Any()).Return(json.RawMessage(`
 		{
 			"transaction_hash" : "0x1",
-			"contract_address" : "0x2",
+			"address" : "0x2",
 			"class_hash" : "0x3"
 		}
 		`), nil)
