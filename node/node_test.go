@@ -20,7 +20,7 @@ func TestNewNode(t *testing.T) {
 		GRPC:                true,
 		GRPCPort:            0,
 		DatabasePath:        t.TempDir(),
-		Network:             utils.MAINNET,
+		Network:             utils.Mainnet,
 		EthNode:             "",
 		Pprof:               true,
 		PprofPort:           0,

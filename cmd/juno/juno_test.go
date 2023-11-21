@@ -34,7 +34,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWS := false
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
-	defaultNetwork := utils.MAINNET
+	defaultNetwork := utils.Mainnet
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
 	defaultMetrics := false
@@ -166,7 +166,7 @@ pprof: true
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.GOERLI2,
+				Network:             utils.Goerli2,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -229,7 +229,7 @@ http-port: 4576
 				MetricsHost:     defaultHost,
 				MetricsPort:     defaultMetricsPort,
 				DatabasePath:    "/home/.juno",
-				Network:         utils.GOERLI,
+				Network:         utils.Goerli,
 				Pprof:           true,
 				PprofHost:       defaultHost,
 				PprofPort:       defaultPprofPort,
@@ -259,7 +259,7 @@ http-port: 4576
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.INTEGRATION,
+				Network:             utils.Integration,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -312,7 +312,7 @@ pending-poll-interval: 5s
 				GRPCHost:            "127.0.0.1",
 				GRPCPort:            4577,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.INTEGRATION,
+				Network:             utils.Integration,
 				Pprof:               true,
 				PprofHost:           "0.0.0.0",
 				PprofPort:           6064,
@@ -346,7 +346,7 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.GOERLI,
+				Network:             utils.Goerli,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -376,7 +376,7 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.GOERLI2,
+				Network:             utils.Goerli2,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,

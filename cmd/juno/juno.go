@@ -205,7 +205,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
-	defaultNetwork := utils.MAINNET
+	defaultNetwork := utils.Mainnet
 	defaultMaxVMs := runtime.GOMAXPROCS(0)
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)

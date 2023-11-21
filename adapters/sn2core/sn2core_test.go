@@ -24,17 +24,17 @@ func TestAdaptBlock(t *testing.T) {
 	}{
 		{
 			number:  147,
-			network: utils.MAINNET,
+			network: utils.Mainnet,
 		},
 		{
 			number:          11817,
 			protocolVersion: "0.10.1",
-			network:         utils.MAINNET,
+			network:         utils.Mainnet,
 		},
 		{
 			number:          304740,
 			protocolVersion: "0.12.1",
-			network:         utils.INTEGRATION,
+			network:         utils.Integration,
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{utils.HexToFelt(t, "0x44"), utils.HexToFelt(t, "0x37")},
 			},
@@ -88,7 +88,7 @@ func TestAdaptBlock(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	ctx := context.Background()
 
 	for _, number := range numbers {
@@ -139,7 +139,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		integClient := feeder.NewTestClient(t, utils.INTEGRATION)
+		integClient := feeder.NewTestClient(t, utils.Integration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
@@ -181,7 +181,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	client := feeder.NewTestClient(t, utils.GOERLI)
+	client := feeder.NewTestClient(t, utils.Goerli)
 	ctx := context.Background()
 
 	for _, hashString := range classHashes {
@@ -218,8 +218,8 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, utils.GOERLI)
-	clientMainnet := feeder.NewTestClient(t, utils.MAINNET)
+	clientGoerli := feeder.NewTestClient(t, utils.Goerli)
+	clientMainnet := feeder.NewTestClient(t, utils.Mainnet)
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
@@ -330,7 +330,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 
