@@ -942,15 +942,8 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 	emptyPending := &Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
-			OldRoot: latestHeader.GlobalStateRoot,
-			StateDiff: &core.StateDiff{
-				StorageDiffs:      make(map[felt.Felt][]core.StorageDiff, 0),
-				Nonces:            make(map[felt.Felt]*felt.Felt, 0),
-				DeployedContracts: make([]core.AddressClassHashPair, 0),
-				DeclaredV0Classes: make([]*felt.Felt, 0),
-				DeclaredV1Classes: make([]core.DeclaredV1Class, 0),
-				ReplacedClasses:   make([]core.AddressClassHashPair, 0),
-			},
+			OldRoot:   latestHeader.GlobalStateRoot,
+			StateDiff: core.EmptyStateDiff(),
 		},
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
