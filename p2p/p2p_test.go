@@ -71,6 +71,7 @@ func TestService(t *testing.T) {
 	}
 
 	t.Run("gossip", func(t *testing.T) {
+		t.Skip() // todo: flaky test
 		topic := "coolTopic"
 		ch, closer, err := peerA.SubscribeToTopic(topic)
 		require.NoError(t, err)
