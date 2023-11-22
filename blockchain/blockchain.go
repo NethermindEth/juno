@@ -48,7 +48,7 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	supportedStarknetVersion  = semver.MustParse("0.12.3")
+	supportedStarknetVersion  = semver.MustParse("0.13.0")
 )
 
 func checkBlockVersion(protocolVersion string) error {
