@@ -35,10 +35,12 @@ type Header struct {
 	ExtraData *felt.Felt
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
-	// Amount of ETH charged per Gas spent
+	// Amount of WEI charged per Gas spent
 	GasPrice *felt.Felt
 	// Sequencer signatures
 	Signatures [][]*felt.Felt
+	// Amount of STRK charged per Gas spent
+	GasPriceSTRK *felt.Felt
 }
 
 type Block struct {

@@ -21,15 +21,19 @@ func TestAdaptBlock(t *testing.T) {
 		protocolVersion string
 		network         utils.Network
 		sig             *starknet.Signature
+		gasPriceWEI     *felt.Felt
+		gasPriceSTRK    *felt.Felt
 	}{
 		{
-			number:  147,
-			network: utils.Mainnet,
+			number:      147,
+			network:     utils.Mainnet,
+			gasPriceWEI: &felt.Zero,
 		},
 		{
 			number:          11817,
 			protocolVersion: "0.10.1",
 			network:         utils.Mainnet,
+			gasPriceWEI:     utils.HexToFelt(t, "0x27ad16775"),
 		},
 		{
 			number:          304740,
@@ -38,6 +42,20 @@ func TestAdaptBlock(t *testing.T) {
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{utils.HexToFelt(t, "0x44"), utils.HexToFelt(t, "0x37")},
 			},
+			gasPriceWEI: utils.HexToFelt(t, "0x3bb2acbc"),
+		},
+		{
+			number:          319132,
+			network:         utils.Integration,
+			protocolVersion: "0.13.0",
+			sig: &starknet.Signature{
+				Signature: []*felt.Felt{
+					utils.HexToFelt(t, "0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16"),
+					utils.HexToFelt(t, "0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5"),
+				},
+			},
+			gasPriceWEI:  utils.HexToFelt(t, "0x3b9aca08"),
+			gasPriceSTRK: utils.HexToFelt(t, "0x2540be400"),
 		},
 	}
 
@@ -81,6 +99,9 @@ func TestAdaptBlock(t *testing.T) {
 			} else {
 				assert.Empty(t, block.Signatures)
 			}
+
+			assert.Equal(t, test.gasPriceSTRK, block.GasPriceSTRK)
+			assert.Equal(t, test.gasPriceWEI, block.GasPrice)
 		})
 	}
 }
