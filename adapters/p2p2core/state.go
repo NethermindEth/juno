@@ -14,9 +14,9 @@ func AdaptStateDiff(s *spec.StateDiff, classes []spec.Class) *core.StateDiff {
 	)
 
 	for _, class := range classes {
-		switch v := class.Class.(type) {
-		case *spec.Cairo0Class:
-		case *spec.Cairo1Class:
+		switch class.Class.(type) {
+		case *spec.Class_Cairo0:
+		case *spec.Class_Cairo1:
 		}
 	}
 
@@ -48,7 +48,7 @@ func adaptStoredValue(v *spec.ContractStoredValue) core.StorageDiff {
 
 func adaptAddrToClassHash(addrToClassHash *spec.StateDiff_ContractAddrToClassHash) core.AddressClassHashPair {
 	return core.AddressClassHashPair{
-		Address:   AdaptFelt(addrToClassHash.ContractAddr),
-		ClassHash: AdaptFelt(addrToClassHash.ClassHash),
+		Address:   AdaptAddress(addrToClassHash.ContractAddr),
+		ClassHash: AdaptHash(addrToClassHash.ClassHash),
 	}
 }

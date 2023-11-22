@@ -170,7 +170,7 @@ func (s *syncService) requestBlockBodies(ctx context.Context, start, stop uint64
 					var hash *felt.Felt
 					switch v := coreCls.(type) {
 					case *core.Cairo0Class:
-						hash = p2p2core.AdaptFelt(cls.GetCairo0().Hash)
+						hash = p2p2core.AdaptHash(cls.GetCairo0().Hash)
 					case *core.Cairo1Class:
 						hash = v.Hash()
 					}

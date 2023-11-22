@@ -200,7 +200,6 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 
 	modifiedContracts := make(map[felt.Felt]*contractDiff)
 
-	updateModifiedContracts := func(contractAddr *felt.Felt, f func(*contractDiff))
 	initContractDiff := func(addr *felt.Felt) (*contractDiff, error) {
 		var cHash *felt.Felt
 		cHash, err = b.stateReader.ContractClassHash(addr)
@@ -209,33 +208,38 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 		}
 		return &contractDiff{address: addr, classHash: cHash}, nil
 	}
-
-	for addr, n := range diff.Nonces {
-		addr := addr // copy
+	updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
 		cDiff, ok := modifiedContracts[addr]
 		if !ok {
 			cDiff, err = initContractDiff(&addr)
 			if err != nil {
-				b.log.Errorw("Failed to get class hash", "err", err)
-				return b.fin()
+				return err
 			}
 			modifiedContracts[addr] = cDiff
 		}
-		cDiff.nonce = n
+
+		f(cDiff)
+		return nil
+	}
+
+	for addr, n := range diff.Nonces {
+		err := updateModifiedContracts(addr, func(diff *contractDiff) {
+			diff.nonce = n
+		})
+		if err != nil {
+			b.log.Errorw("Failed to get class hash", "err", err)
+			return b.fin()
+		}
 	}
 
 	for addr, sDiff := range diff.StorageDiffs {
-		addr := addr // copy
-		cDiff, ok := modifiedContracts[addr]
-		if !ok {
-			cDiff, err = initContractDiff(&addr)
-			if err != nil {
-				b.log.Errorw("Failed to get class hash", "err", err)
-				return b.fin()
-			}
-			modifiedContracts[addr] = cDiff
+		err := updateModifiedContracts(addr, func(diff *contractDiff) {
+			diff.storageDiffs = sDiff
+		})
+		if err != nil {
+			b.log.Errorw("Failed to get class hash", "err", err)
+			return b.fin()
 		}
-		cDiff.storageDiffs = sDiff
 	}
 
 	var contractDiffs []*spec.StateDiff_ContractDiff

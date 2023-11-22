@@ -7,11 +7,11 @@ import (
 )
 
 func AdaptHash(h *spec.Hash) *felt.Felt {
-	return Adapt(h)
+	return adapt(h)
 }
 
 func AdaptAddress(h *spec.Address) *felt.Felt {
-	return Adapt(h)
+	return adapt(h)
 }
 
 func AdaptEthAddress(h *spec.EthereumAddress) common.Address {
@@ -19,17 +19,13 @@ func AdaptEthAddress(h *spec.EthereumAddress) common.Address {
 }
 
 func AdaptFelt(f *spec.Felt252) *felt.Felt {
-	return Adapt(f)
+	return adapt(f)
 }
 
-type feltElements interface {
-	GetElements() []byte
-}
-
-func Adapt(f feltElements) *felt.Felt {
-	if f == nil {
+func adapt(v interface{ GetElements() []byte }) *felt.Felt {
+	if v == nil {
 		return nil
 	}
 
-	return new(felt.Felt).SetBytes(f.GetElements())
+	return new(felt.Felt).SetBytes(v.GetElements())
 }
