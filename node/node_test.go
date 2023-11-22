@@ -1,6 +1,7 @@
 package node_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -33,6 +34,10 @@ func TestNewNode(t *testing.T) {
 		P2PBootPeers:        "",
 	}
 
-	_, err := node.New(config, "v0.3")
+	n, err := node.New(config, "v0.3")
 	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	n.Run(ctx)
 }

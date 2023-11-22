@@ -3,6 +3,8 @@ package migration
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -137,9 +139,10 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 	}))
 
 	m := new(changeTrieNodeEncoding)
-	m.Before()
+	require.NoError(t, m.Before(nil))
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return m.Migrate(txn, utils.Mainnet)
+		_, err := m.Migrate(context.Background(), txn, utils.Mainnet)
+		return err
 	}))
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
@@ -247,4 +250,145 @@ func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {
 	require.Equal(t, n.Right.Len(), uint(trieNode.Right.Len()))
 	require.Equal(t, felt.Zero, trieNode.Left.Felt())
 	require.Equal(t, felt.Zero, trieNode.Right.Felt())
+}
+
+func TestSchemaMetadata(t *testing.T) {
+	t.Run("conversion", func(t *testing.T) {
+		t.Run("version not set", func(t *testing.T) {
+			testDB := pebble.NewMemTest(t)
+			metadata, err := SchemaMetadata(testDB)
+			require.NoError(t, err)
+			require.Equal(t, uint64(0), metadata.Version)
+			require.Nil(t, metadata.IntermediateState)
+		})
+
+		t.Run("version set", func(t *testing.T) {
+			testDB := pebble.NewMemTest(t)
+			var version [8]byte
+			binary.BigEndian.PutUint64(version[:], 1)
+			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+				return txn.Set(db.SchemaVersion.Key(), version[:])
+			}))
+
+			metadata, err := SchemaMetadata(testDB)
+			require.NoError(t, err)
+			require.Equal(t, uint64(1), metadata.Version)
+			require.Nil(t, metadata.IntermediateState)
+		})
+	})
+	t.Run("update", func(t *testing.T) {
+		t.Run("Intermediate nil", func(t *testing.T) {
+			testDB := pebble.NewMemTest(t)
+			version := uint64(5)
+			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+				return updateSchemaMetadata(txn, schemaMetadata{
+					Version:           version,
+					IntermediateState: nil,
+				})
+			}))
+			metadata, err := SchemaMetadata(testDB)
+			require.NoError(t, err)
+			require.Equal(t, version, metadata.Version)
+			require.Nil(t, metadata.IntermediateState)
+		})
+
+		t.Run("Intermediate not nil", func(t *testing.T) {
+			testDB := pebble.NewMemTest(t)
+			var (
+				intermediateState = []byte{1, 2, 3, 4}
+				version           = uint64(5)
+			)
+			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+				return updateSchemaMetadata(txn, schemaMetadata{
+					Version:           version,
+					IntermediateState: intermediateState,
+				})
+			}))
+			metadata, err := SchemaMetadata(testDB)
+			require.NoError(t, err)
+			require.Equal(t, version, metadata.Version)
+			require.Equal(t, intermediateState, metadata.IntermediateState)
+		})
+
+		t.Run("Intermediate empty", func(t *testing.T) {
+			testDB := pebble.NewMemTest(t)
+			var (
+				intermediateState = make([]byte, 0)
+				version           = uint64(5)
+			)
+			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+				return updateSchemaMetadata(txn, schemaMetadata{
+					Version:           version,
+					IntermediateState: intermediateState,
+				})
+			}))
+			metadata, err := SchemaMetadata(testDB)
+			require.NoError(t, err)
+			require.Equal(t, version, metadata.Version)
+			require.Equal(t, intermediateState, metadata.IntermediateState)
+		})
+	})
+}
+
+type testMigration struct {
+	exec   func(context.Context, db.Transaction, utils.Network) ([]byte, error)
+	before func([]byte) error
+}
+
+func (f testMigration) Migrate(ctx context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
+	return f.exec(ctx, txn, network)
+}
+
+func (f testMigration) Before(state []byte) error { return f.before(state) }
+
+func TestMigrateIfNeededInternal(t *testing.T) {
+	t.Run("failure at schema", func(t *testing.T) {
+		testDB := pebble.NewMemTest(t)
+		migrations := []Migration{
+			testMigration{
+				exec: func(context.Context, db.Transaction, utils.Network) ([]byte, error) {
+					return nil, errors.New("foo")
+				},
+				before: func([]byte) error {
+					return errors.New("bar")
+				},
+			},
+		}
+		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations), "bar")
+	})
+
+	t.Run("call with new tx", func(t *testing.T) {
+		testDB := pebble.NewMemTest(t)
+		var counter int
+		migrations := []Migration{
+			testMigration{
+				exec: func(context.Context, db.Transaction, utils.Network) ([]byte, error) {
+					if counter == 0 {
+						counter++
+						return nil, ErrCallWithNewTransaction
+					}
+					return nil, nil
+				},
+				before: func([]byte) error {
+					return nil
+				},
+			},
+		}
+		require.NoError(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations))
+	})
+
+	t.Run("error during migration", func(t *testing.T) {
+		testDB := pebble.NewMemTest(t)
+		migrations := []Migration{
+			testMigration{
+				exec: func(context.Context, db.Transaction, utils.Network) ([]byte, error) {
+					return nil, errors.New("foo")
+				},
+				before: func([]byte) error {
+					return nil
+				},
+			},
+		}
+		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
+	})
 }
