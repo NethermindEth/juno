@@ -257,7 +257,11 @@ func (n *Node) Run(ctx context.Context) {
 	}
 	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
-	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
+	if err := migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
+		if errors.Is(err, context.Canceled) {
+			n.log.Infow("DB Migration cancelled")
+			return
+		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}

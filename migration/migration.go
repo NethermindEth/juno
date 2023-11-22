@@ -2,6 +2,7 @@ package migration
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -16,27 +17,34 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
 )
 
+type schemaMetadata struct {
+	Version           uint64
+	IntermediateState []byte
+}
+
 type Migration interface {
-	Before()
-	Migrate(db.Transaction, utils.Network) error
+	Before(intermediateState []byte) error
+	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
+	Migrate(context.Context, db.Transaction, utils.Network) ([]byte, error)
 }
 
 type MigrationFunc func(db.Transaction, utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(txn db.Transaction, network utils.Network) error {
-	return f(txn, network)
+func (f MigrationFunc) Migrate(_ context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
+	return nil, f(txn, network)
 }
 
 // Before is a no-op.
-func (f MigrationFunc) Before() {}
+func (f MigrationFunc) Before(_ []byte) error { return nil }
 
-// migrations contains a set of migrations that can be applied to a database.
+// defaultMigrations contains a set of migrations that can be applied to a database.
 // After making breaking changes to the DB layout, add new migrations to this list.
-var migrations = []Migration{
+var defaultMigrations = []Migration{
 	MigrationFunc(migration0000),
 	MigrationFunc(relocateContractStorageRootKeys),
 	MigrationFunc(recalculateBloomFilters),
@@ -56,9 +64,13 @@ var migrations = []Migration{
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
-func MigrateIfNeeded(targetDB db.DB, network utils.Network, log utils.SimpleLogger) error {
+func MigrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network, log utils.SimpleLogger) error {
+	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
+}
+
+func migrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network, log utils.SimpleLogger, migrations []Migration) error {
 	/*
-		Schema version of the targetDB determines which set of migrations need to be applied to the database.
+		Schema metadata of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
 		by 1 by this loop.
 
@@ -73,36 +85,39 @@ func MigrateIfNeeded(targetDB db.DB, network utils.Network, log utils.SimpleLogg
 		new ones. It will be able to do this since the schema version it reads from the database will be
 		non-zero and that is what we use to initialise the i loop variable.
 	*/
-	version, err := SchemaVersion(targetDB)
+	metadata, err := SchemaMetadata(targetDB)
 	if err != nil {
 		return err
 	}
 
-	for i := version; i < uint64(len(migrations)); i++ {
+	for i := metadata.Version; i < uint64(len(migrations)); i++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		log.Infow("Applying database migration", "stage", fmt.Sprintf("%d/%d", i+1, len(migrations)))
 		migration := migrations[i]
-		migration.Before()
+		if err := migration.Before(metadata.IntermediateState); err != nil {
+			return err
+		}
 		for {
 			var migrationErr error
 			if dbErr := targetDB.Update(func(txn db.Transaction) error {
-				migrationErr = migration.Migrate(txn, network)
-				if migrationErr != nil {
-					if errors.Is(migrationErr, ErrCallWithNewTransaction) {
-						return nil // Run the migration again with a new transaction.
+				metadata.IntermediateState, migrationErr = migration.Migrate(ctx, txn, network)
+				switch {
+				case migrationErr == nil || errors.Is(migrationErr, ctx.Err()):
+					if metadata.IntermediateState == nil {
+						metadata.Version++
 					}
+					return updateSchemaMetadata(txn, metadata)
+				case errors.Is(migrationErr, ErrCallWithNewTransaction):
+					return nil // Run migration again with new transaction.
+				default:
 					return migrationErr
 				}
-
-				// Migration successful. Bump the version.
-				var versionBytes [8]byte
-				binary.BigEndian.PutUint64(versionBytes[:], i+1)
-				return txn.Set(db.SchemaVersion.Key(), versionBytes[:])
 			}); dbErr != nil {
 				return dbErr
 			} else if migrationErr == nil {
 				break
-			} else if !errors.Is(migrationErr, ErrCallWithNewTransaction) {
-				return migrationErr
 			}
 		}
 	}
@@ -110,21 +125,46 @@ func MigrateIfNeeded(targetDB db.DB, network utils.Network, log utils.SimpleLogg
 	return nil
 }
 
-func SchemaVersion(targetDB db.DB) (uint64, error) {
-	version := uint64(0)
+// SchemaMetadata retrieves metadata about a database schema from the given database.
+func SchemaMetadata(targetDB db.DB) (schemaMetadata, error) {
+	metadata := schemaMetadata{}
 	txn, err := targetDB.NewTransaction(false)
 	if err != nil {
-		return 0, nil
+		return metadata, err
 	}
-	err = txn.Get(db.SchemaVersion.Key(), func(bytes []byte) error {
-		version = binary.BigEndian.Uint64(bytes)
+	if err := txn.Get(db.SchemaVersion.Key(), func(b []byte) error {
+		metadata.Version = binary.BigEndian.Uint64(b)
 		return nil
-	})
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return 0, utils.RunAndWrapOnError(txn.Discard, err)
+	}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return metadata, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return version, txn.Discard()
+	if err := txn.Get(db.SchemaIntermediateState.Key(), func(b []byte) error {
+		return cbor.Unmarshal(b, &metadata.IntermediateState)
+	}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return metadata, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return metadata, txn.Discard()
+}
+
+// updateSchemaMetadata updates the schema in given database.
+func updateSchemaMetadata(txn db.Transaction, schema schemaMetadata) error {
+	var (
+		version [8]byte
+		state   []byte
+		err     error
+	)
+	binary.BigEndian.PutUint64(version[:], schema.Version)
+	state, err = cbor.Marshal(schema.IntermediateState)
+	if err != nil {
+		return err
+	}
+
+	if err := txn.Set(db.SchemaVersion.Key(), version[:]); err != nil {
+		return err
+	}
+	return txn.Set(db.SchemaIntermediateState.Key(), state)
 }
 
 // migration0000 makes sure the targetDB is empty
@@ -227,7 +267,7 @@ type changeTrieNodeEncoding struct {
 	}
 }
 
-func (m *changeTrieNodeEncoding) Before() {
+func (m *changeTrieNodeEncoding) Before(_ []byte) error {
 	m.trieNodeBuckets = map[db.Bucket]*struct {
 		seekTo  []byte
 		skipLen int
@@ -245,6 +285,7 @@ func (m *changeTrieNodeEncoding) Before() {
 			skipLen: 1 + felt.Bytes,
 		},
 	}
+	return nil
 }
 
 type node struct {
@@ -314,7 +355,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 	return err
 }
 
-func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) error {
+func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, _ utils.Network) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a cutom struct to force the encoder to use the default encoding.
 	var n node
@@ -371,15 +412,15 @@ func (m *changeTrieNodeEncoding) Migrate(txn db.Transaction, _ utils.Network) er
 
 	iterator, err := txn.NewIterator()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for bucket, info := range m.trieNodeBuckets {
 		if err := migrateF(iterator, bucket, info.seekTo, info.skipLen); err != nil {
-			return utils.RunAndWrapOnError(iterator.Close, err)
+			return nil, utils.RunAndWrapOnError(iterator.Close, err)
 		}
 	}
-	return iterator.Close()
+	return nil, iterator.Close()
 }
 
 // calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
