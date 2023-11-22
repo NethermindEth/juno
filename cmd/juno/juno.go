@@ -206,7 +206,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
 	defaultNetwork := utils.Mainnet
-	defaultMaxVMs := runtime.GOMAXPROCS(0)
+	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)

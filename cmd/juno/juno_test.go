@@ -43,7 +43,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
-	defaultMaxVMs := uint(runtime.GOMAXPROCS(0))
+	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 
 	tests := map[string]struct {
