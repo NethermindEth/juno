@@ -223,7 +223,7 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 	}
 
 	for addr, n := range diff.Nonces {
-		err := updateModifiedContracts(addr, func(diff *contractDiff) {
+		err = updateModifiedContracts(addr, func(diff *contractDiff) {
 			diff.nonce = n
 		})
 		if err != nil {

@@ -73,6 +73,105 @@ func (s *syncService) start(ctx context.Context) {
 	idx := rand.Intn(len(peers))
 	randomPeer := peers[idx]
 
+	/*
+
+
+		sync reads store with more checks <- blocks in order <---- adapt p2p to core <---- Sanitycheck block <---- peer1
+															 <---- adapt p2p to core <---- Sanitycheck block <---- peer2
+															 <---- adapt p2p to core <---- Sanitycheck block <---- peer3
+		Retry mechanism if peer fails to provide a block
+		Iterator object options:
+			1. Only it to fetch one block at a time. We don't have to do any error handling if there are missing blocks.
+			2. Use it to fetch multiple blocks from a peer at the same time.
+				If peer doesn't have all the block requested we need to ask other peers
+
+
+
+
+	*/
+
+	// represents range of blocks to request [start; end)
+	type BlockRange struct {
+		Start, End uint64
+	}
+
+	fetchBlocks := func(ranges <-chan BlockRange) <-chan core.Block {
+		coreBlocks := make(chan core.Block)
+
+		go func() {
+			defer close(coreBlocks)
+
+			for r := range ranges {
+				var blocks []core.Block
+				// do some stuff
+				for _, block := range blocks {
+					coreBlocks <- block
+				}
+			}
+		}()
+
+		return coreBlocks
+	}
+
+	santiyChecks := func(blocks <-chan core.Block, fetchBlocks chan<- BlockRange) <-chan core.Block {
+		// check structural integrity of the block and signatures
+
+		checkedBlocks := make(chan core.Block)
+		go func() {
+			defer close(checkedBlocks)
+
+			for block := range blocks {
+				// do santify check
+				var checkFailed bool
+
+				checkedBlocks <- block
+				if checkFailed {
+					fetchBlocks <- BlockRange{
+						Start: block.Number,
+						End:   block.Number + 1,
+					}
+				}
+			}
+		}()
+
+		return checkedBlocks
+	}
+
+	orderCheckedBlocks := func(checkedBlocks <-chan core.Block) <-chan core.Block {
+		outOfOrderBlocks := make(map[uint64]core.Block)
+
+		orderBlocks := make(chan core.Block)
+		go func() {
+			defer close(orderBlocks)
+			for block := range checkedBlocks {
+				curH, err := s.blockchain.Height()
+				if block.Number == curH+1 {
+					orderBlocks <- block
+				} else {
+					outOfOrderBlocks[block.Number] = block
+
+					// check if there is a block already in the map
+					if b, ok := outOfOrderBlocks[curH+1]; ok {
+						orderBlocks <- b
+
+						delete(outOfOrderBlocks, curH+1)
+					}
+				}
+			}
+		}()
+		return orderBlocks
+	}
+
+	blockRangeStream := make(chan BlockRange, 1)
+	blockRangeStream <- BlockRange{
+		Start: s.height,
+		End:   bootNodeHeight,
+	}
+	fetchedBlocks := fetchBlocks(blockRangeStream)
+	checkedBlocks := santiyChecks(fetchedBlocks, blockRangeStream)
+	orderedBlocks := orderCheckedBlocks(checkedBlocks)
+	// todo storeBlocks
+
 	fmt.Println("header's start", s.height, "header's stop", bootNodeHeight)
 	headers, err := s.requestBlockHeaders(ctx, s.height, bootNodeHeight, randomPeer)
 	if err != nil {

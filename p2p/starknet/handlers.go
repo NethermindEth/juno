@@ -135,6 +135,7 @@ func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[p
 			return fin()
 		}
 		it.Next()
+		fmt.Printf("Created iterator for header at blockNumber %d\n", header.Number)
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
