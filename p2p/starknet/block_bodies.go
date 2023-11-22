@@ -227,17 +227,17 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 			diff.nonce = n
 		})
 		if err != nil {
-			b.log.Errorw("Failed to get class hash", "err", err)
+			b.log.Errorw("Failed to update modified contract", "err", err)
 			return b.fin()
 		}
 	}
 
 	for addr, sDiff := range diff.StorageDiffs {
-		err := updateModifiedContracts(addr, func(diff *contractDiff) {
+		err = updateModifiedContracts(addr, func(diff *contractDiff) {
 			diff.storageDiffs = sDiff
 		})
 		if err != nil {
-			b.log.Errorw("Failed to get class hash", "err", err)
+			b.log.Errorw("Failed to update modified contract", "err", err)
 			return b.fin()
 		}
 	}
