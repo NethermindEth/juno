@@ -3,6 +3,7 @@ package feeder
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -62,7 +63,7 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 	if blockID != pendingID {
 		sig, err = f.client.Signature(ctx, blockID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)
 		}
 	}
 
