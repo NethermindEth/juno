@@ -67,7 +67,7 @@ pub extern "C" fn cairoVMCall(
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
 ) {
-    let reader = JunoStateReader::new(reader_handle);
+    let reader = JunoStateReader::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
     let class_hash = if class_hash.is_null() {
         None
@@ -148,7 +148,7 @@ pub extern "C" fn cairoVMExecute(
     gas_price: *const c_uchar,
     legacy_json: c_uchar,
 ) {
-    let reader = JunoStateReader::new(reader_handle);
+    let reader = JunoStateReader::new(reader_handle, block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =

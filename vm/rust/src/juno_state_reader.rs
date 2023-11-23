@@ -35,18 +35,22 @@ extern "C" {
         -> *const c_char;
 }
 
-static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, ContractClass>>> = Lazy::new(|| {
-    Mutex::new(SizedCache::with_size(128))
-});
+struct CachedContractClass {
+    pub definition: ContractClass,
+    pub cached_on_height: u64,
+}
 
+static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
+    Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
 
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
+    pub height: u64,
 }
 
 impl JunoStateReader {
-    pub fn new(handle: usize) -> Self {
-        Self { handle }
+    pub fn new(handle: usize, height: u64) -> Self {
+        Self { handle, height }
     }
 }
 
@@ -115,7 +119,11 @@ impl StateReader for JunoStateReader {
         class_hash: &ClassHash,
     ) -> StateResult<ContractClass> {
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(class_hash) {
-            return Ok(cached_class.clone())
+            // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
+            // that we are reading from right now.
+            if cached_class.cached_on_height <= self.height {
+                return Ok(cached_class.definition.clone());
+            }
         }
 
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
@@ -126,7 +134,13 @@ impl StateReader for JunoStateReader {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
             let contract_class = contract_class_from_json_str(json_str);
             if let Ok(class) = &contract_class {
-                CLASS_CACHE.lock().unwrap().cache_set(*class_hash, class.clone());
+                CLASS_CACHE.lock().unwrap().cache_set(
+                    *class_hash,
+                    CachedContractClass {
+                        definition: class.clone(),
+                        cached_on_height: self.height,
+                    },
+                );
             }
 
             unsafe { JunoFree(ptr as *const c_void) };
