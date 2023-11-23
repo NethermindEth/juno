@@ -1,6 +1,6 @@
 ---
-slug: /
-sidebar_position: 1
+slug: /intro
+sidebar_position: 2
 title: Quick Start
 ---
 
