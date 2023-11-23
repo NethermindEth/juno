@@ -1,19 +1,20 @@
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
-    slice, sync::Mutex,
+    slice,
+    sync::Mutex,
 };
 
+use blockifier::execution::contract_class::ContractClass;
+use blockifier::state::errors::StateError;
 use blockifier::{
     execution::contract_class::{ContractClassV0, ContractClassV1},
     state::state_api::{StateReader, StateResult},
 };
+use cached::{Cached, SizedCache};
+use once_cell::sync::Lazy;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
-use cached::{SizedCache, Cached};
-use blockifier::execution::contract_class::ContractClass;
-use blockifier::state::errors::StateError;
-use once_cell::sync::Lazy;
 
 extern "C" {
     fn JunoFree(ptr: *const c_void);

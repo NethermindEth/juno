@@ -13,9 +13,9 @@ use blockifier::{
     abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
     block_context::BlockContext,
     execution::{
+        common_hints::ExecutionMode,
         contract_class::{ContractClass, ContractClassV1},
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
-        common_hints::ExecutionMode,
     },
     fee::fee_utils::calculate_tx_fee,
     state::cached_state::CachedState,
@@ -41,7 +41,7 @@ use starknet_api::{
     transaction::Fee,
 };
 use starknet_api::{
-    core::{ChainId, ContractAddress, EntryPointSelector, ClassHash},
+    core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
     transaction::TransactionVersion,
 };
@@ -232,7 +232,12 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
-        let txn = transaction_from_api(txn_and_query_bit.txn.clone(), contract_class, paid_fee_on_l1, txn_and_query_bit.query_bit);
+        let txn = transaction_from_api(
+            txn_and_query_bit.txn.clone(),
+            contract_class,
+            paid_fee_on_l1,
+            txn_and_query_bit.query_bit,
+        );
         if let Err(e) = txn {
             report_error(reader_handle, e.to_string().as_str());
             return;
@@ -268,7 +273,8 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 let actual_fee = t.actual_fee.0.into();
-                let mut trace = jsonrpc::new_transaction_trace(txn_and_query_bit.txn, t, &mut txn_state);
+                let mut trace =
+                    jsonrpc::new_transaction_trace(txn_and_query_bit.txn, t, &mut txn_state);
                 if trace.is_err() {
                     report_error(
                         reader_handle,
