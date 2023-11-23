@@ -155,6 +155,8 @@ const (
 	DAModeL2
 )
 
+var uint128 = core.NewUint128(0, 0)
+
 type ResourceBounds struct {
 	MaxAmount       *felt.Felt    `json:"max_amount"`
 	MaxPricePerUnit *core.Uint128 `json:"max_price_per_unit"`
