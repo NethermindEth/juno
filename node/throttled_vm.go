@@ -17,21 +17,21 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 	return (*ThrottledVM)(utils.NewThrottler[vm.VM](concurrenyBudget, &res).WithMaxQueueLen(maxQueueLen))
 }
 
-func (tvm *ThrottledVM) Call(contractAddr, selector *felt.Felt, calldata []felt.Felt, blockNumber,
+func (tvm *ThrottledVM) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 	blockTimestamp uint64, state core.StateReader, network utils.Network,
 ) ([]*felt.Felt, error) {
 	var ret []*felt.Felt
 	throttler := (*utils.Throttler[vm.VM])(tvm)
 	return ret, throttler.Do(func(vm *vm.VM) error {
 		var err error
-		ret, err = (*vm).Call(contractAddr, selector, calldata, blockNumber, blockTimestamp, state, network)
+		ret, err = (*vm).Call(contractAddr, classHash, selector, calldata, blockNumber, blockTimestamp, state, network)
 		return err
 	})
 }
 
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
-	skipChargeFee bool, gasPrice *felt.Felt, legacyTraceJSON bool,
+	skipChargeFee, skipValidate bool, gasPrice *felt.Felt, legacyTraceJSON bool,
 ) ([]*felt.Felt, []json.RawMessage, error) {
 	var ret []*felt.Felt
 	var traces []json.RawMessage
@@ -39,7 +39,7 @@ func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.
 	return ret, traces, throttler.Do(func(vm *vm.VM) error {
 		var err error
 		ret, traces, err = (*vm).Execute(txns, declaredClasses, blockNumber, blockTimestamp, sequencerAddress,
-			state, network, paidFeesOnL1, skipChargeFee, gasPrice, legacyTraceJSON)
+			state, network, paidFeesOnL1, skipChargeFee, skipValidate, gasPrice, legacyTraceJSON)
 		return err
 	})
 }

@@ -71,7 +71,7 @@ func (s *stateSnapshot) checkDeployed(addr *felt.Felt) error {
 	}
 
 	if !isDeployed {
-		return ErrContractNotDeployed
+		return db.ErrKeyNotFound
 	}
 	return nil
 }

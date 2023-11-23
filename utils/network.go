@@ -25,22 +25,28 @@ var (
 )
 
 const (
-	MAINNET Network = iota + 1
-	GOERLI
-	GOERLI2
-	INTEGRATION
+	Mainnet Network = iota + 1
+	Goerli
+	Goerli2
+	Integration
+	Sepolia
+	SepoliaIntegration
 )
 
 func (n Network) String() string {
 	switch n {
-	case MAINNET:
+	case Mainnet:
 		return "mainnet"
-	case GOERLI:
+	case Goerli:
 		return "goerli"
-	case GOERLI2:
+	case Goerli2:
 		return "goerli2"
-	case INTEGRATION:
+	case Integration:
 		return "integration"
+	case Sepolia:
+		return "sepolia"
+	case SepoliaIntegration:
+		return "sepolia-integration"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -58,13 +64,17 @@ func (n *Network) MarshalJSON() ([]byte, error) {
 func (n *Network) Set(s string) error {
 	switch s {
 	case "MAINNET", "mainnet":
-		*n = MAINNET
+		*n = Mainnet
 	case "GOERLI", "goerli":
-		*n = GOERLI
+		*n = Goerli
 	case "GOERLI2", "goerli2":
-		*n = GOERLI2
+		*n = Goerli2
 	case "INTEGRATION", "integration":
-		*n = INTEGRATION
+		*n = Integration
+	case "SEPOLIA", "sepolia":
+		*n = Sepolia
+	case "SEPOLIA_INTEGRATION", "sepolia-integration":
+		*n = SepoliaIntegration
 	default:
 		return ErrUnknownNetwork
 	}
@@ -82,14 +92,18 @@ func (n *Network) UnmarshalText(text []byte) error {
 // baseURL returns the base URL without endpoint
 func (n Network) baseURL() string {
 	switch n {
-	case GOERLI:
+	case Goerli:
 		return "https://alpha4.starknet.io/"
-	case MAINNET:
+	case Mainnet:
 		return "https://alpha-mainnet.starknet.io/"
-	case GOERLI2:
+	case Goerli2:
 		return "https://alpha4-2.starknet.io/"
-	case INTEGRATION:
+	case Integration:
 		return "https://external.integration.starknet.io/"
+	case Sepolia:
+		return "https://alpha-sepolia.starknet.io/"
+	case SepoliaIntegration:
+		return "https://integration-sepolia.starknet.io/"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -108,12 +122,16 @@ func (n Network) GatewayURL() string {
 
 func (n Network) ChainIDString() string {
 	switch n {
-	case GOERLI, INTEGRATION:
+	case Goerli, Integration:
 		return "SN_GOERLI"
-	case MAINNET:
+	case Mainnet:
 		return "SN_MAIN"
-	case GOERLI2:
+	case Goerli2:
 		return "SN_GOERLI2"
+	case Sepolia:
+		return "SN_SEPOLIA"
+	case SepoliaIntegration:
+		return "SN_INTEGRATION_SEPOLIA"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -123,10 +141,12 @@ func (n Network) ChainIDString() string {
 func (n Network) DefaultL1ChainID() *big.Int {
 	var chainID int64
 	switch n {
-	case MAINNET:
+	case Mainnet:
 		chainID = 1
-	case GOERLI, GOERLI2, INTEGRATION:
+	case Goerli, Goerli2, Integration:
 		chainID = 5
+	case Sepolia, SepoliaIntegration:
+		chainID = 11155111
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -138,14 +158,18 @@ func (n Network) CoreContractAddress() (common.Address, error) {
 	var address common.Address
 	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
 	switch n {
-	case MAINNET:
+	case Mainnet:
 		address = common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
-	case GOERLI:
+	case Goerli:
 		address = common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e")
-	case GOERLI2:
+	case Goerli2:
 		address = common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c")
-	case INTEGRATION:
+	case Integration:
 		return common.Address{}, errors.New("l1 contract is not available on the integration network")
+	case Sepolia:
+		return common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"), nil
+	case SepoliaIntegration:
+		return common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"), nil
 	default:
 		// Should not happen.
 		return common.Address{}, ErrUnknownNetwork

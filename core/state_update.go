@@ -23,6 +23,17 @@ type StateDiff struct {
 	ReplacedClasses   []AddressClassHashPair
 }
 
+func EmptyStateDiff() *StateDiff {
+	return &StateDiff{
+		StorageDiffs:      make(map[felt.Felt][]StorageDiff, 0),
+		Nonces:            make(map[felt.Felt]*felt.Felt, 0),
+		DeployedContracts: make([]AddressClassHashPair, 0),
+		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV1Classes: make([]DeclaredV1Class, 0),
+		ReplacedClasses:   make([]AddressClassHashPair, 0),
+	}
+}
+
 type StorageDiff struct {
 	Key   *felt.Felt
 	Value *felt.Felt

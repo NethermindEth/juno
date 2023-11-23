@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"slices"
 	stdsync "sync"
 
@@ -93,6 +94,8 @@ type Handler struct {
 	subscriptions map[uint64]*subscription
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+
+	filterLimit uint
 }
 
 type subscription struct {
@@ -123,7 +126,14 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
+		filterLimit:     math.MaxUint,
 	}
+}
+
+// WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
+func (h *Handler) WithFilterLimit(limit uint) *Handler {
+	h.filterLimit = limit
+	return h
 }
 
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
@@ -918,6 +928,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if err != nil {
 		return nil, ErrInternal
 	}
+	filter = filter.WithLimit(h.filterLimit)
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events")
 
 	var cToken *blockchain.ContinuationToken
@@ -1035,13 +1046,20 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 		return nil, makeJSONErrorFromGatewayError(err)
 	}
 
-	var response AddTxResponse
-	err = json.Unmarshal(resp, &response)
-	if err != nil {
+	var gatewayResponse struct {
+		TransactionHash *felt.Felt `json:"transaction_hash"`
+		ContractAddress *felt.Felt `json:"address"`
+		ClassHash       *felt.Felt `json:"class_hash"`
+	}
+	if err = json.Unmarshal(resp, &gatewayResponse); err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-	return &response, nil
+	return &AddTxResponse{
+		TransactionHash: gatewayResponse.TransactionHash,
+		ContractAddress: gatewayResponse.ContractAddress,
+		ClassHash:       gatewayResponse.ClassHash,
+	}, nil
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
@@ -1118,7 +1136,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		return nil, ErrBlockNotFound
 	}
 
-	_, err = state.ContractClassHash(&call.ContractAddress)
+	classHash, err := state.ContractClassHash(&call.ContractAddress)
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -1132,7 +1150,8 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		blockNumber = height + 1
 	}
 
-	res, err := h.vm.Call(&call.ContractAddress, &call.EntryPointSelector, call.Calldata, blockNumber, header.Timestamp, state, h.network)
+	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
+		call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
@@ -1282,10 +1301,8 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, legacyTraceJSON bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	if slices.Contains(simulationFlags, SkipValidateFlag) {
-		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "Skip validate is not supported")
-	}
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
 	state, closer, err := h.stateByBlockID(&id)
 	if err != nil {
@@ -1332,7 +1349,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.network, paidFeesOnL1, skipFeeCharge, header.GasPrice, legacyTraceJSON)
+		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, header.GasPrice, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
@@ -1376,6 +1393,19 @@ func (h *Handler) LegacyTraceBlockTransactions(ctx context.Context, hash felt.Fe
 
 var traceFallbackVersion = semver.MustParse("0.12.2")
 
+func prependBlockHashToState(bc blockchain.Reader, blockNumber uint64, state core.StateReader) (core.StateReader, error) {
+	stateDiffWithBlockHash, err := blockchain.MakeStateDiffForEmptyBlock(bc, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return blockchain.NewPendingState(
+		stateDiffWithBlockHash,
+		make(map[felt.Felt]core.Class, 0),
+		state,
+	), nil
+}
+
 func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
 	legacyJSON bool,
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
@@ -1401,6 +1431,19 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		return nil, ErrBlockNotFound
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
+
+	blockNumber := block.Number
+	if isPending {
+		height, hErr := h.bcReader.Height()
+		if hErr != nil {
+			return nil, ErrBlockNotFound
+		}
+		blockNumber = height + 1
+	}
+
+	if state, err = prependBlockHashToState(h.bcReader, blockNumber, state); err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
 
 	var (
 		headState       core.StateReader
@@ -1433,24 +1476,13 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 	}
 
-	blockNumber := block.Number
-	if isPending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
-	header := block.Header
-
-	sequencerAddress := header.SequencerAddress
+	sequencerAddress := block.Header.SequencerAddress
 	if sequencerAddress == nil {
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 
-	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false, header.GasPrice, legacyJSON)
+	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
+		sequencerAddress, state, h.network, paidFeesOnL1, false, false, block.Header.GasPrice, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())

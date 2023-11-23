@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -209,6 +211,20 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	return &blockchain.SelectiveListener{
 		OnReadCb: func(method string) {
 			reads.WithLabelValues(method).Inc()
+		},
+	}
+}
+
+func makeL1Metrics() l1.EventListener {
+	l1Height := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "height",
+	})
+	prometheus.MustRegister(l1Height)
+
+	return l1.SelectiveListener{
+		OnNewL1HeadCb: func(head *core.L1Head) {
+			l1Height.Set(float64(head.BlockNumber))
 		},
 	}
 }

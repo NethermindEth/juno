@@ -20,7 +20,7 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
@@ -150,7 +150,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
@@ -272,7 +272,7 @@ func TestStateHistory(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
@@ -317,7 +317,7 @@ func TestStateHistory(t *testing.T) {
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
@@ -376,7 +376,7 @@ func TestClass(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
 
 	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
@@ -421,7 +421,7 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
@@ -568,7 +568,7 @@ func TestRevert(t *testing.T) {
 }
 
 func TestRevertNoClassContracts(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)

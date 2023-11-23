@@ -13,9 +13,9 @@ use blockifier::{
     abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
     block_context::BlockContext,
     execution::{
+        common_hints::ExecutionMode,
         contract_class::{ContractClass, ContractClassV1},
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
-        common_hints::ExecutionMode,
     },
     fee::fee_utils::calculate_tx_fee,
     state::cached_state::CachedState,
@@ -41,7 +41,7 @@ use starknet_api::{
     transaction::Fee,
 };
 use starknet_api::{
-    core::{ChainId, ContractAddress, EntryPointSelector},
+    core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
     transaction::TransactionVersion,
 };
@@ -58,6 +58,7 @@ const N_STEPS_FEE_WEIGHT: f64 = 0.01;
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
     contract_address: *const c_uchar,
+    class_hash: *const c_uchar,
     entry_point_selector: *const c_uchar,
     calldata: *const *const c_uchar,
     len_calldata: usize,
@@ -66,8 +67,13 @@ pub extern "C" fn cairoVMCall(
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
 ) {
-    let reader = JunoStateReader::new(reader_handle);
+    let reader = JunoStateReader::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
+    let class_hash = if class_hash.is_null() {
+        None
+    } else {
+        Some(ClassHash(ptr_to_felt(class_hash)))
+    };
     let entry_point_selector_felt = ptr_to_felt(entry_point_selector);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
@@ -86,7 +92,7 @@ pub extern "C" fn cairoVMCall(
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
         call_type: CallType::Call,
-        class_hash: None,
+        class_hash: class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
         initial_gas: INITIAL_GAS_COST,
@@ -138,10 +144,11 @@ pub extern "C" fn cairoVMExecute(
     sequencer_address: *const c_uchar,
     paid_fees_on_l1_json: *const c_char,
     skip_charge_fee: c_uchar,
+    skip_validate: c_uchar,
     gas_price: *const c_uchar,
     legacy_json: c_uchar,
 ) {
-    let reader = JunoStateReader::new(reader_handle);
+    let reader = JunoStateReader::new(reader_handle, block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
@@ -186,6 +193,7 @@ pub extern "C" fn cairoVMExecute(
     );
     let mut state = CachedState::new(reader);
     let charge_fee = skip_charge_fee == 0;
+    let validate = skip_validate == 0;
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
@@ -224,7 +232,12 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
-        let txn = transaction_from_api(txn_and_query_bit.txn.clone(), contract_class, paid_fee_on_l1, txn_and_query_bit.query_bit);
+        let txn = transaction_from_api(
+            txn_and_query_bit.txn.clone(),
+            contract_class,
+            paid_fee_on_l1,
+            txn_and_query_bit.query_bit,
+        );
         if let Err(e) = txn {
             report_error(reader_handle, e.to_string().as_str());
             return;
@@ -233,10 +246,10 @@ pub extern "C" fn cairoVMExecute(
         let mut txn_state = CachedState::create_transactional(&mut state);
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee, txn_and_query_bit.query_bit)
+                t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
-                t.execute(&mut txn_state, &block_context, charge_fee, txn_and_query_bit.query_bit)
+                t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
 
@@ -260,7 +273,8 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 let actual_fee = t.actual_fee.0.into();
-                let mut trace = jsonrpc::new_transaction_trace(txn_and_query_bit.txn, t, &mut txn_state);
+                let mut trace =
+                    jsonrpc::new_transaction_trace(txn_and_query_bit.txn, t, &mut txn_state);
                 if trace.is_err() {
                     report_error(
                         reader_handle,

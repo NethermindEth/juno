@@ -20,7 +20,7 @@ func TestV0Call(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -51,7 +51,7 @@ func TestV0Call(t *testing.T) {
 	}))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
-	ret, err := New(nil).Call(contractAddr, entryPoint, nil, 0, 0, testState, utils.MAINNET)
+	ret, err := New(nil).Call(contractAddr, classHash, entryPoint, nil, 0, 0, testState, utils.Mainnet)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -70,7 +70,7 @@ func TestV0Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = New(nil).Call(contractAddr, entryPoint, nil, 1, 0, testState, utils.MAINNET)
+	ret, err = New(nil).Call(contractAddr, classHash, entryPoint, nil, 1, 0, testState, utils.Mainnet)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
 }
@@ -79,7 +79,7 @@ func TestV1Call(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
-	client := feeder.NewTestClient(t, utils.GOERLI)
+	client := feeder.NewTestClient(t, utils.Goerli)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
@@ -112,9 +112,9 @@ func TestV1Call(t *testing.T) {
 	// test_storage_read
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
-	ret, err := New(nil).Call(contractAddr, entryPoint, []felt.Felt{
+	ret, err := New(nil).Call(contractAddr, nil, entryPoint, []felt.Felt{
 		*storageLocation,
-	}, 0, 0, testState, utils.GOERLI)
+	}, 0, 0, testState, utils.Goerli)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -133,15 +133,15 @@ func TestV1Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = New(nil).Call(contractAddr, entryPoint, []felt.Felt{
+	ret, err = New(nil).Call(contractAddr, nil, entryPoint, []felt.Felt{
 		*storageLocation,
-	}, 1, 0, testState, utils.GOERLI)
+	}, 1, 0, testState, utils.Goerli)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
 }
 
 func TestExecute(t *testing.T) {
-	const network = utils.GOERLI2
+	const network = utils.Goerli2
 
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(false)
@@ -158,11 +158,11 @@ func TestExecute(t *testing.T) {
 			address   = utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 			timestamp = uint64(1666877926)
 		)
-		_, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, 0, timestamp, address, state, network, []*felt.Felt{}, false, &felt.Zero, false)
+		_, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, 0, timestamp, address, state, network, []*felt.Felt{}, false, false, &felt.Zero, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, _, err := New(nil).Execute(nil, nil, 0, 0, &felt.Zero, state, network, []*felt.Felt{}, false, &felt.Zero, false)
+		_, _, err := New(nil).Execute(nil, nil, 0, 0, &felt.Zero, state, network, []*felt.Felt{}, false, false, &felt.Zero, false)
 		require.NoError(t, err)
 	})
 }

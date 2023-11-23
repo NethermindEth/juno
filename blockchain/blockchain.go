@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -47,7 +48,7 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	supportedStarknetVersion  = semver.MustParse("0.12.3")
+	supportedStarknetVersion  = semver.MustParse("0.13.0")
 )
 
 func checkBlockVersion(protocolVersion string) error {
@@ -72,6 +73,8 @@ type Blockchain struct {
 
 	log      utils.SimpleLogger
 	listener EventListener
+
+	cachedPending atomic.Pointer[Pending]
 }
 
 func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
@@ -244,7 +247,7 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 		// not found in the canonical blocks, try pending
 		if errors.Is(err, db.ErrKeyNotFound) {
 			var pending Pending
-			pending, err = pendingBlock(txn)
+			pending, err = b.pendingBlock(txn)
 			if err != nil {
 				return err
 			}
@@ -277,7 +280,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 		// not found in the canonical blocks, try pending
 		if errors.Is(err, db.ErrKeyNotFound) {
 			var pending Pending
-			pending, err = pendingBlock(txn)
+			pending, err = b.pendingBlock(txn)
 			if err != nil {
 				return err
 			}
@@ -358,7 +361,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := storeEmptyPending(txn, block.Header); err != nil {
+		if err := b.storeEmptyPending(txn, block.Header); err != nil {
 			return err
 		}
 
@@ -886,7 +889,7 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	if err != nil {
 		return err
 	}
-	if err := storeEmptyPending(txn, newHeader); err != nil {
+	if err := b.storeEmptyPending(txn, newHeader); err != nil {
 		return err
 	}
 
@@ -921,7 +924,7 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 	return nil
 }
 
-func storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
+func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
 		Header: &core.Header{
@@ -936,22 +939,20 @@ func storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
 		Receipts:     receipts,
 	}
 
+	stateDiff, err := MakeStateDiffForEmptyBlock(b, latestHeader.Number+1)
+	if err != nil {
+		return err
+	}
+
 	emptyPending := &Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
-			OldRoot: latestHeader.GlobalStateRoot,
-			StateDiff: &core.StateDiff{
-				StorageDiffs:      make(map[felt.Felt][]core.StorageDiff, 0),
-				Nonces:            make(map[felt.Felt]*felt.Felt, 0),
-				DeployedContracts: make([]core.AddressClassHashPair, 0),
-				DeclaredV0Classes: make([]*felt.Felt, 0),
-				DeclaredV1Classes: make([]core.DeclaredV1Class, 0),
-				ReplacedClasses:   make([]core.AddressClassHashPair, 0),
-			},
+			OldRoot:   latestHeader.GlobalStateRoot,
+			StateDiff: stateDiff,
 		},
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
-	return storePending(txn, emptyPending)
+	return b.storePending(txn, emptyPending)
 }
 
 // StorePending stores a pending block given that it is for the next height
@@ -969,13 +970,21 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 			return ErrParentDoesNotMatchHead
 		}
 
-		existingPending, err := pendingBlock(txn)
+		existingPending, err := b.pendingBlock(txn)
 		if err == nil && existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
 			return nil // ignore the incoming pending if it has fewer transactions than the one we already have
 		}
 
-		return storePending(txn, pending)
+		return b.storePending(txn, pending)
 	})
+}
+
+func (b *Blockchain) storePending(txn db.Transaction, pending *Pending) error {
+	if err := storePending(txn, pending); err != nil {
+		return err
+	}
+	b.cachedPending.Store(pending)
+	return nil
 }
 
 func storePending(txn db.Transaction, pending *Pending) error {
@@ -984,6 +993,22 @@ func storePending(txn db.Transaction, pending *Pending) error {
 		return err
 	}
 	return txn.Set(db.Pending.Key(), pendingBytes)
+}
+
+func (b *Blockchain) pendingBlock(txn db.Transaction) (Pending, error) {
+	if cachedPending := b.cachedPending.Load(); cachedPending != nil {
+		expectedParentHash := &felt.Zero
+		if head, err := headsHeader(txn); err == nil {
+			expectedParentHash = head.Hash
+		}
+		if cachedPending.Block.ParentHash.Equal(expectedParentHash) {
+			return *cachedPending, nil
+		}
+	}
+
+	// Either cachedPending was nil or wasn't consistent with the HEAD we have
+	// in the database, so read it directly from the database
+	return pendingBlock(txn)
 }
 
 func pendingBlock(txn db.Transaction) (Pending, error) {
@@ -1000,7 +1025,7 @@ func (b *Blockchain) Pending() (Pending, error) {
 	var pending Pending
 	return pending, b.database.View(func(txn db.Transaction) error {
 		var err error
-		pending, err = pendingBlock(txn)
+		pending, err = b.pendingBlock(txn)
 		return err
 	})
 }
@@ -1013,13 +1038,37 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	pending, err := pendingBlock(txn)
+	pending, err := b.pendingBlock(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
 	return NewPendingState(
-		pending,
+		pending.StateUpdate.StateDiff,
+		pending.NewClasses,
 		core.NewState(txn),
 	), txn.Discard, nil
+}
+
+func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff, error) {
+	stateDiff := core.EmptyStateDiff()
+
+	const blockHashLag = 10
+	if blockNumber < blockHashLag {
+		return stateDiff, nil
+	}
+
+	header, err := bc.BlockHeaderByNumber(blockNumber - blockHashLag)
+	if err != nil {
+		return nil, err
+	}
+
+	blockHashStorageContract := new(felt.Felt).SetUint64(1)
+	stateDiff.StorageDiffs[*blockHashStorageContract] = []core.StorageDiff{
+		{
+			Key:   new(felt.Felt).SetUint64(header.Number),
+			Value: header.Hash,
+		},
+	}
+	return stateDiff, nil
 }

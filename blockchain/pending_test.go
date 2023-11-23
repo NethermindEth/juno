@@ -69,7 +69,7 @@ func TestPendingState(t *testing.T) {
 			*deployedClassHash: &core.Cairo0Class{},
 		},
 	}
-	state := blockchain.NewPendingState(pending, mockState)
+	state := blockchain.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
