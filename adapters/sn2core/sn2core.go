@@ -189,7 +189,7 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 	for resource, bounds := range *rb {
 		coreBounds[core.Resource(resource)] = core.ResourceBounds{
 			MaxAmount:       bounds.MaxAmount.Uint64(),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+			MaxPricePerUnit: *bounds.MaxPricePerUnit,
 		}
 	}
 	return coreBounds

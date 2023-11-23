@@ -57,9 +57,8 @@ const (
 
 // From the RPC spec: The max amount and max price per unit of gas used in this transaction.
 type ResourceBounds struct {
-	MaxAmount uint64
-	// MaxPricePerUnit is technically a uint128
-	MaxPricePerUnit *felt.Felt
+	MaxAmount       uint64
+	MaxPricePerUnit Uint128
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
