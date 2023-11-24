@@ -60,6 +60,7 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
+	MigrationFunc(addNetworkBucket),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -541,4 +542,66 @@ func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc 
 		orgKeyPrefix[0] = byte(db.Temporary) // move the node to temporary bucket
 		return txn.Set(append(orgKeyPrefix, keyBuffer.Bytes()...), tempBuf.Bytes())
 	}
+}
+
+func addNetworkBucket(txn db.Transaction, network utils.Network) error { //nolint:gocyclo
+	mainnetGenesisBlockHash, err := new(felt.Felt).SetString("47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943")
+	if err != nil {
+		return fmt.Errorf("mainnet block hash: %v", err)
+	}
+	goerliGenesisBlockHash, err := new(felt.Felt).SetString("7d328a71faf48c5c3857e99f20a77b18522480956d1cd5bff1ff2df3c8b427b")
+	if err != nil {
+		return fmt.Errorf("integration block hash: %v", err)
+	}
+	goerli2GenesisBlockHash, err := new(felt.Felt).SetString("0x4163f64ea0258f21fd05b478e2306ab2daeb541bdbd3bf29a9874dc5cd4b64e")
+	if err != nil {
+		return fmt.Errorf("integration block hash: %v", err)
+	}
+	integrationGenesisBlockHash, err := new(felt.Felt).SetString("3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279")
+	if err != nil {
+		return fmt.Errorf("integration block hash: %v", err)
+	}
+	sepoliaGenesisBlockHash, err := new(felt.Felt).SetString("0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c")
+	if err != nil {
+		return fmt.Errorf("sepolia block hash: %v", err)
+	}
+	sepoliaIntegrationGenesisBlockHash, err := new(felt.Felt).SetString("0x19f675d3fb226821493a6ab9a1955e384bba80f130de625621a418e9a7c0ca3")
+	if err != nil {
+		return fmt.Errorf("sepolia block hash: %v", err)
+	}
+
+	block, err := blockchain.BlockByNumber(txn, 0)
+	if err != nil {
+		if errors.Is(db.ErrKeyNotFound, err) {
+			// Empty DB.
+			if err = txn.Set(db.Network.Key(), []byte(network.String())); err != nil {
+				return fmt.Errorf("set the db's network: %v", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("genesis block by number: %v", err)
+	}
+
+	var n utils.Network
+	switch *block.Hash {
+	case *integrationGenesisBlockHash:
+		n = utils.Integration
+	case *mainnetGenesisBlockHash:
+		n = utils.Mainnet
+	case *goerliGenesisBlockHash:
+		n = utils.Goerli
+	case *goerli2GenesisBlockHash:
+		n = utils.Goerli2
+	case *sepoliaGenesisBlockHash:
+		n = utils.Sepolia
+	case *sepoliaIntegrationGenesisBlockHash:
+		n = utils.SepoliaIntegration
+	default:
+		return fmt.Errorf("genesis block hash does not match that of any known networks: %v", err)
+	}
+
+	if err := txn.Set(db.Network.Key(), []byte(n.String())); err != nil {
+		return fmt.Errorf("set the db's network: %v", err)
+	}
+	return nil
 }

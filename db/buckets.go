@@ -32,6 +32,7 @@ const (
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
+	Network
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

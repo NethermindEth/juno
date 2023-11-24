@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -391,4 +392,50 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 		}
 		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
 	})
+}
+
+func TestAddNetworkBucketEmptyDB(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	n := utils.Mainnet
+	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+		return addNetworkBucket(txn, n)
+	}))
+	require.NoError(t, testDB.View(func(txn db.Transaction) error {
+		return txn.Get(db.Network.Key(), func(val []byte) error {
+			assert.Equal(t, n.String(), string(val))
+			return nil
+		})
+	}))
+}
+
+func TestAddNetworkBucketNonEmptyDB(t *testing.T) {
+	for _, n := range []utils.Network{utils.Mainnet, utils.Goerli, utils.Goerli2, utils.Integration, utils.Sepolia, utils.SepoliaIntegration} {
+		t.Run(fmt.Sprintf("non-empty %s db", n), func(t *testing.T) {
+			testDB := pebble.NewMemTest(t)
+			chain := blockchain.New(testDB, n, utils.NewNopZapLogger())
+			ctx := context.Background()
+
+			// Sync genesis block.
+			gw := adaptfeeder.New(feeder.NewTestClient(t, n))
+			block, err := gw.BlockByNumber(ctx, 0)
+			require.NoError(t, err)
+			su, err := gw.StateUpdate(ctx, 0)
+			require.NoError(t, err)
+			require.NoError(t, chain.Store(block, nil, su, nil))
+
+			// Migrate.
+			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+				return addNetworkBucket(txn, n)
+			}))
+
+			require.NoError(t, testDB.View(func(txn db.Transaction) error {
+				return txn.Get(db.Network.Key(), func(val []byte) error {
+					var got utils.Network
+					require.NoError(t, got.Set(string(val)))
+					require.Equal(t, n, got)
+					return nil
+				})
+			}))
+		})
+	}
 }

@@ -268,6 +268,25 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
+	// Ensure the database and provided network are compatible.
+	// The network is set in a migration applied above.
+	var dbNetwork utils.Network
+	if err := n.db.View(func(txn db.Transaction) error {
+		if err := txn.Get(db.Network.Key(), func(val []byte) error {
+			return dbNetwork.Set(string(val))
+		}); err != nil {
+			return fmt.Errorf("get network from db: %v", err)
+		}
+		return nil
+	}); err != nil {
+		n.log.Errorw("Error viewing DB", "err", err)
+		return
+	}
+	if dbNetwork != n.cfg.Network {
+		n.log.Warnw("Incompatible network and database", "network", n.cfg.Network, "dbNetwork", dbNetwork)
+		return
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	wg := conc.NewWaitGroup()
 	for _, s := range n.services {
