@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/uint128"
 )
 
 type ExecutionStatus uint8
@@ -155,11 +155,9 @@ const (
 	DAModeL2
 )
 
-var uint128 = core.NewUint128(0, 0)
-
 type ResourceBounds struct {
-	MaxAmount       *felt.Felt    `json:"max_amount"`
-	MaxPricePerUnit *core.Uint128 `json:"max_price_per_unit"`
+	MaxAmount       *felt.Felt   `json:"max_amount"`
+	MaxPricePerUnit *uint128.Int `json:"max_price_per_unit"`
 }
 
 // Transaction object returned by the feeder in JSON format for multiple endpoints

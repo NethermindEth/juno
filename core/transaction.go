@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/uint128"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -58,7 +59,7 @@ const (
 // From the RPC spec: The max amount and max price per unit of gas used in this transaction.
 type ResourceBounds struct {
 	MaxAmount       uint64
-	MaxPricePerUnit Uint128
+	MaxPricePerUnit *uint128.Int
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
