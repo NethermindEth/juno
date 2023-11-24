@@ -43,12 +43,13 @@ jobs:
           platforms: 'linux/amd64'
           push: true
           tags: nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }}
+      
     
   deploy_to_dev:
     needs: [docker_build_and_publish]
-    uses: ./.github/workflows/deployToDev.yaml
+    uses: NethermindEh/srgo/.github/workflows/dispatch_render_juno.yaml@main
     with:
-      EVENT_NAME: juno-dev
+      environment: Development
       IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
       GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
       INTEGRATION: apps/juno-dev/overlays/dev-integration/config.yaml
@@ -70,9 +71,9 @@ jobs:
             
   deploy_to_staging:
     needs: [docker_build_and_publish, deploy_to_dev]
-    uses: ./.github/workflows/deployToDev.yaml
+    uses: NethermindEh/srgo/.github/workflows/dispatch_render_juno.yaml@main
     with:
-      EVENT_NAME: juno-staging
+      environment: Staging
       IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
       GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
       INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
@@ -94,9 +95,9 @@ jobs:
 
   deploy_to_production:
     needs: [docker_build_and_publish, deploy_to_staging]
-    uses: ./.github/workflows/deployToProd.yaml
+    uses: NethermindEh/srgo/.github/workflows/dispatch_render_juno.yaml@main
     with: 
-      EVENT_NAME: juno-prod
+      environment: Production
       IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
       GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
       INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
