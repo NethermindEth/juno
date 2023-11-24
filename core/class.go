@@ -62,9 +62,9 @@ type Cairo1Class struct {
 
 type CompiledClass struct {
 	Bytecode        []*felt.Felt
-	PythonicHints   json.RawMessage
+	PythonicHints   any
 	CompilerVersion string
-	Hints           json.RawMessage
+	Hints           any
 	Prime           *big.Int
 	External        []CompiledEntryPoint
 	L1Handler       []CompiledEntryPoint

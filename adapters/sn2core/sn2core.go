@@ -1,7 +1,6 @@
 package sn2core
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -286,22 +285,15 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {
 	compiled := new(core.CompiledClass)
 	compiled.Bytecode = compiledClass.Bytecode
-	pyHints, err := json.Marshal(compiledClass.PythonicHints)
-	if err != nil {
-		return nil, err
-	}
-	compiled.PythonicHints = pyHints
+	compiled.PythonicHints = compiledClass.PythonicHints
 	compiled.CompilerVersion = compiledClass.CompilerVersion
-	var success bool
-	compiled.Prime, success = new(big.Int).SetString(compiledClass.Prime, 0)
-	if !success {
+	compiled.Hints = compiledClass.Hints
+
+	var ok bool
+	compiled.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
+	if !ok {
 		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
 	}
-	hints, err := json.Marshal(compiledClass.Hints)
-	if err != nil {
-		return nil, err
-	}
-	compiled.Hints = hints
 
 	compiled.External = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.External))
 	for i, v := range compiledClass.EntryPoints.External {
