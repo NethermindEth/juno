@@ -127,6 +127,7 @@ type TransactionReceipt struct {
 type Transaction interface {
 	Hash() *felt.Felt
 	Signature() []*felt.Felt
+	TxVersion() *TransactionVersion
 }
 
 var (
@@ -210,6 +211,10 @@ type DeployTransaction struct {
 	Version *TransactionVersion
 }
 
+func (d *DeployTransaction) TxVersion() *TransactionVersion {
+	return d.Version
+}
+
 func (d *DeployTransaction) Hash() *felt.Felt {
 	return d.TransactionHash
 }
@@ -282,6 +287,10 @@ type InvokeTransaction struct {
 	FeeDAMode DataAvailabilityMode
 }
 
+func (i *InvokeTransaction) TxVersion() *TransactionVersion {
+	return i.Version
+}
+
 func (i *InvokeTransaction) Hash() *felt.Felt {
 	return i.TransactionHash
 }
@@ -322,6 +331,10 @@ type DeclareTransaction struct {
 	FeeDAMode             DataAvailabilityMode
 }
 
+func (d *DeclareTransaction) TxVersion() *TransactionVersion {
+	return d.Version
+}
+
 func (d *DeclareTransaction) Hash() *felt.Felt {
 	return d.TransactionHash
 }
@@ -344,6 +357,10 @@ type L1HandlerTransaction struct {
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	Version *TransactionVersion
+}
+
+func (l *L1HandlerTransaction) TxVersion() *TransactionVersion {
+	return l.Version
 }
 
 func (l *L1HandlerTransaction) Hash() *felt.Felt {
