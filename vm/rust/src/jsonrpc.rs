@@ -1,13 +1,14 @@
 use blockifier;
-use blockifier::execution::entry_point::{CallType, OrderedL2ToL1Message};
+use blockifier::execution::entry_point::CallType;
+use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::state::cached_state::TransactionalState;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{State, StateReader};
 use serde::Serialize;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey, EthAddress};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 
 use crate::juno_state_reader::JunoStateReader;
@@ -156,7 +157,7 @@ pub fn new_transaction_trace(
                 match declare_txn {
                     DeclareTransaction::V0(_) => Some(declare_txn.class_hash()),
                     DeclareTransaction::V1(_) => Some(declare_txn.class_hash()),
-                    DeclareTransaction::V2(_) => None,
+                    _ => None,
                 }
             } else {
                 None
@@ -180,7 +181,7 @@ pub struct OrderedEvent {
     pub event: EventContent,
 }
 
-type BlockifierOrderedEvent = blockifier::execution::entry_point::OrderedEvent;
+use blockifier::execution::call_info::OrderedEvent as BlockifierOrderedEvent;
 impl From<BlockifierOrderedEvent> for OrderedEvent {
     fn from(val: BlockifierOrderedEvent) -> Self {
         OrderedEvent {
@@ -218,7 +219,7 @@ impl FunctionInvocation {
     }
 }
 
-type BlockifierCallInfo = blockifier::execution::entry_point::CallInfo;
+use blockifier::execution::call_info::CallInfo as BlockifierCallInfo;
 impl From<BlockifierCallInfo> for FunctionInvocation {
     fn from(val: BlockifierCallInfo) -> Self {
         FunctionInvocation {

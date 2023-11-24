@@ -22,7 +22,8 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	txnAndQueryBit := struct {
 		QueryBit bool           `json:"query_bit"`
 		Txn      map[string]any `json:"txn"`
-	}{Txn: make(map[string]any), QueryBit: version.HasQueryBit()}
+		TxnHash  *felt.Felt     `json:"txn_hash"`
+	}{Txn: make(map[string]any), QueryBit: version.HasQueryBit(), TxnHash: t.Hash}
 
 	versionWithoutQueryBit := version.WithoutQueryBit()
 	t.Version = versionWithoutQueryBit.AsFelt()
@@ -37,7 +38,9 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 			"V" + t.Version.Text(felt.Base10): t,
 		}
 	case *core.DeployAccountTransaction:
-		txnAndQueryBit.Txn["DeployAccount"] = t
+		txnAndQueryBit.Txn["DeployAccount"] = map[string]any{
+			"V" + t.Version.Text(felt.Base10): t,
+		}
 	case *core.DeclareTransaction:
 		txnAndQueryBit.Txn["Declare"] = map[string]any{
 			"V" + t.Version.Text(felt.Base10): t,
