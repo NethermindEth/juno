@@ -10,20 +10,20 @@ import (
 
 type Int [2]uint64
 
-func NewInt64(lo uint64) *Int {
+func SetUint64(lo uint64) *Int {
 	// i[1] = high bits
 	// i[0] = low bits
 	z := &Int{}
 	z.setUint128(0, lo)
 	return z
 }
-func NewInt128(hi, lo uint64) *Int {
+func SetUint128(hi, lo uint64) *Int {
 	z := &Int{}
 	z.setUint128(hi, lo)
 	return z
 }
 
-func NewUint128(hex_str string) *Int {
+func SetInt128(hex_str string) *Int {
 	z := &Int{}
 
 	z.parseHexString(hex_str)
