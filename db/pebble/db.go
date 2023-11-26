@@ -9,6 +9,13 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 )
 
+const (
+	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
+	minCache = 8
+
+	megabyte = 1 << 20
+)
+
 var _ db.DB = (*DB)(nil)
 
 type DB struct {
@@ -18,9 +25,14 @@ type DB struct {
 }
 
 // New opens a new database at the given path
-func New(path string, logger pebble.Logger) (db.DB, error) {
+func New(path string, cache uint, logger pebble.Logger) (db.DB, error) {
+	// Ensure that the specified cache size meets a minimum threshold.
+	if cache < minCache {
+		cache = minCache
+	}
 	pDB, err := newPebble(path, &pebble.Options{
 		Logger: logger,
+		Cache:  pebble.NewCache(int64(cache * megabyte)),
 	})
 	if err != nil {
 		return nil, err

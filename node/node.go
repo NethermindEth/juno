@@ -75,6 +75,8 @@ type Config struct {
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
+
+	CacheSizeMb uint `mapstructure:"cache-size-mb"`
 }
 
 type Node struct {
@@ -106,7 +108,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(cfg.DatabasePath, dbLog)
+		database, err = pebble.New(cfg.DatabasePath, cfg.CacheSizeMb, dbLog)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
