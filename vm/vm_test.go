@@ -109,10 +109,13 @@ func TestV1Call(t *testing.T) {
 		*classHash: simpleClass,
 	}))
 
+	log, err := utils.NewZapLogger(utils.ERROR, false)
+	require.NoError(t, err)
+
 	// test_storage_read
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
-	ret, err := New(nil).Call(contractAddr, nil, entryPoint, []felt.Felt{
+	ret, err := New(log).Call(contractAddr, nil, entryPoint, []felt.Felt{
 		*storageLocation,
 	}, 0, 0, testState, utils.Goerli)
 	require.NoError(t, err)
@@ -133,7 +136,7 @@ func TestV1Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = New(nil).Call(contractAddr, nil, entryPoint, []felt.Felt{
+	ret, err = New(log).Call(contractAddr, nil, entryPoint, []felt.Felt{
 		*storageLocation,
 	}, 1, 0, testState, utils.Goerli)
 	require.NoError(t, err)
