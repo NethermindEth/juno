@@ -41,7 +41,7 @@ func TestClassV1Hash(t *testing.T) {
 }
 
 func TestCompiledClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
 
 	hash := utils.HexToFelt(t, "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc")

@@ -32,11 +32,7 @@ func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 	case *core.Cairo1Class:
 		compiledCairo1Class := makeCairo1CompiledClass(&c.Compiled)
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
-		jsonData, err := json.Marshal(compiledCairo1Class)
-		if err != nil {
-			return nil, err
-		}
-		return json.RawMessage(jsonData), nil
+		return json.Marshal(compiledCairo1Class)
 	default:
 		return nil, errors.New("not a valid class")
 	}
@@ -138,35 +134,35 @@ func makeSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
 	}
 }
 
-func makeCairo1CompiledClass(coreCompiledClass *core.CompiledClass) feeder.CompiledClass {
-	feederCompiledClass := new(feeder.CompiledClass)
+func makeCairo1CompiledClass(coreCompiledClass *core.CompiledClass) starknet.CompiledClass {
+	feederCompiledClass := new(starknet.CompiledClass)
 	feederCompiledClass.Bytecode = coreCompiledClass.Bytecode
 	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
 	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
 	feederCompiledClass.Hints = coreCompiledClass.Hints
 	feederCompiledClass.Prime = "0x" + coreCompiledClass.Prime.Text(16) //nolint:gomnd
 
-	feederCompiledClass.EntryPoints.External = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.External))
+	feederCompiledClass.EntryPoints.External = make([]starknet.CompiledEntryPoint, len(coreCompiledClass.External))
 	for i, external := range coreCompiledClass.External {
-		feederCompiledClass.EntryPoints.External[i] = feeder.CompiledEntryPoint{
+		feederCompiledClass.EntryPoints.External[i] = starknet.CompiledEntryPoint{
 			Selector: external.Selector,
 			Builtins: external.Builtins,
 			Offset:   external.Offset,
 		}
 	}
 
-	feederCompiledClass.EntryPoints.L1Handler = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.L1Handler))
+	feederCompiledClass.EntryPoints.L1Handler = make([]starknet.CompiledEntryPoint, len(coreCompiledClass.L1Handler))
 	for i, external := range coreCompiledClass.L1Handler {
-		feederCompiledClass.EntryPoints.L1Handler[i] = feeder.CompiledEntryPoint{
+		feederCompiledClass.EntryPoints.L1Handler[i] = starknet.CompiledEntryPoint{
 			Selector: external.Selector,
 			Builtins: external.Builtins,
 			Offset:   external.Offset,
 		}
 	}
 
-	feederCompiledClass.EntryPoints.Constructor = make([]feeder.CompiledEntryPoint, len(coreCompiledClass.Constructor))
+	feederCompiledClass.EntryPoints.Constructor = make([]starknet.CompiledEntryPoint, len(coreCompiledClass.Constructor))
 	for i, external := range coreCompiledClass.Constructor {
-		feederCompiledClass.EntryPoints.Constructor[i] = feeder.CompiledEntryPoint{
+		feederCompiledClass.EntryPoints.Constructor[i] = starknet.CompiledEntryPoint{
 			Selector: external.Selector,
 			Builtins: external.Builtins,
 			Offset:   external.Offset,

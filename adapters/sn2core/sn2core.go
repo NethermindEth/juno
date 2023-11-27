@@ -295,28 +295,11 @@ func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledCl
 		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
 	}
 
-	compiled.External = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.External))
-	for i, v := range compiledClass.EntryPoints.External {
-		compiled.External[i] = core.CompiledEntryPoint{Offset: v.Offset, Selector: v.Selector, Builtins: v.Builtins}
-	}
+	entryPoints := compiledClass.EntryPoints
+	compiled.External = utils.Map(entryPoints.External, adaptCompiledEntryPoint)
+	compiled.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
+	compiled.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
 
-	compiled.L1Handler = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.L1Handler))
-	for i, v := range compiledClass.EntryPoints.L1Handler {
-		compiled.L1Handler[i] = core.CompiledEntryPoint{
-			Offset:   v.Offset,
-			Selector: v.Selector,
-			Builtins: v.Builtins,
-		}
-	}
-
-	compiled.Constructor = make([]core.CompiledEntryPoint, len(compiledClass.EntryPoints.Constructor))
-	for i, v := range compiledClass.EntryPoints.Constructor {
-		compiled.Constructor[i] = core.CompiledEntryPoint{
-			Offset:   v.Offset,
-			Selector: v.Selector,
-			Builtins: v.Builtins,
-		}
-	}
 	return compiled, nil
 }
 
@@ -324,17 +307,17 @@ func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
 	class := new(core.Cairo0Class)
 	class.Abi = response.Abi
 
-	class.Externals = []core.EntryPoint{}
+	class.Externals = make([]core.EntryPoint, 0, len(response.EntryPoints.External))
 	for _, v := range response.EntryPoints.External {
 		class.Externals = append(class.Externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	class.L1Handlers = []core.EntryPoint{}
+	class.L1Handlers = make([]core.EntryPoint, 0, len(response.EntryPoints.L1Handler))
 	for _, v := range response.EntryPoints.L1Handler {
 		class.L1Handlers = append(class.L1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	class.Constructors = []core.EntryPoint{}
+	class.Constructors = make([]core.EntryPoint, 0, len(response.EntryPoints.Constructor))
 	for _, v := range response.EntryPoints.Constructor {
 		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
@@ -376,7 +359,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		}
 	}
 
-	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt)
+	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.Nonces))
 	for addrStr, nonce := range response.StateDiff.Nonces {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
@@ -385,7 +368,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt][]core.StorageDiff)
+	stateDiff.StorageDiffs = make(map[felt.Felt][]core.StorageDiff, len(response.StateDiff.StorageDiffs))
 	for addrStr, diffs := range response.StateDiff.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
@@ -414,4 +397,12 @@ func safeFeltToUint64(f *felt.Felt) uint64 {
 		return f.Uint64()
 	}
 	return 0
+}
+
+func adaptCompiledEntryPoint(entryPoint starknet.CompiledEntryPoint) core.CompiledEntryPoint {
+	return core.CompiledEntryPoint{
+		Offset:   entryPoint.Offset,
+		Selector: entryPoint.Selector,
+		Builtins: entryPoint.Builtins,
+	}
 }

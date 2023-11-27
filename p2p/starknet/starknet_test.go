@@ -3,7 +3,6 @@ package starknet_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"reflect"
 	"sort"
 	"testing"
@@ -174,7 +173,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 		cairo1Class := &core.Cairo1Class{
 			AbiHash:     randFelt(t),
 			ProgramHash: randFelt(t),
-			Compiled:    json.RawMessage(cairo1Program),
+			// Compiled:    json.RawMessage(cairo1Program),
 		}
 
 		blocks := []struct {
