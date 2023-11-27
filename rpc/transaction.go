@@ -215,21 +215,15 @@ type Transaction struct {
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
 }
 
-var (
-	felt3 = new(felt.Felt).SetUint64(3)
-	felt1 = new(felt.Felt).SetUint64(1)
-	felt2 = new(felt.Felt).SetUint64(2)
-)
-
 func (tx *Transaction) ToPreV3() error {
-	if !tx.Version.Equal(felt3) {
+	if tx.Version.Uint64() != 3 {
 		return nil
 	}
 	switch tx.Type {
 	case TxnDeclare:
-		tx.Version.Set(felt2)
+		tx.Version.SetUint64(2)
 	case TxnInvoke, TxnDeployAccount:
-		tx.Version.Set(felt1)
+		tx.Version.SetUint64(1)
 	default:
 		return fmt.Errorf("unexpected transaction type %s", tx.Type)
 	}
