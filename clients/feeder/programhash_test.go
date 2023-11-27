@@ -7,14 +7,14 @@ import (
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestProgramHash(t *testing.T) {
-	client, closeFn := feeder.NewTestClient(utils.GOERLI)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.Goerli)
 
 	tests := []struct {
 		classHash string
@@ -46,7 +46,7 @@ func TestProgramHash(t *testing.T) {
 			classDefinition, err := client.ClassDefinition(context.Background(), utils.HexToFelt(t, tt.classHash))
 			require.NoError(t, err)
 
-			var program feeder.Program
+			var program starknet.Program
 			require.NoError(t, json.Unmarshal(classDefinition.V0.Program, &program))
 
 			programHash, err := feeder.ProgramHash(&program, classDefinition.V0.Abi)

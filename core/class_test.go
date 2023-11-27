@@ -18,8 +18,7 @@ import (
 )
 
 func TestClassV0Hash(t *testing.T) {
-	client, closeFn := feeder.NewTestClient(utils.GOERLI)
-	t.Cleanup(closeFn)
+	client := feeder.NewTestClient(t, utils.Goerli)
 
 	gw := adaptfeeder.New(client)
 	tests := []struct {

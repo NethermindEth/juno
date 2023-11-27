@@ -9,14 +9,15 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 )
 
 type ContractCode struct {
-	Abi     json.RawMessage `json:"abi"`
-	Program *Program        `json:"program"`
+	Abi     json.RawMessage   `json:"abi"`
+	Program *starknet.Program `json:"program"`
 }
 
-func ProgramHash(program *Program, abi json.RawMessage) (*felt.Felt, error) {
+func ProgramHash(program *starknet.Program, abi json.RawMessage) (*felt.Felt, error) {
 	// make debug info None
 	program.DebugInfo = nil
 
@@ -93,7 +94,7 @@ func (c ContractCode) Marshal() ([]byte, error) {
 
 // json marshals map with keys sorted alphabetically. This function
 // reformats hints to be sorted numerically.
-func reformatHint(hints Hints) string {
+func reformatHint(hints starknet.Hints) string {
 	buf := &bytes.Buffer{}
 	encoder := json.NewEncoder(buf)
 	encoder.SetEscapeHTML(false)
