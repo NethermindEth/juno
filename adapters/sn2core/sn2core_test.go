@@ -487,7 +487,7 @@ func TestClassV1(t *testing.T) {
 	assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
 	assert.Equal(t, feederClass.V1.Program, v1Class.Program)
 	assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
-	assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(16))
+	assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
 	assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
 	assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
 	assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)

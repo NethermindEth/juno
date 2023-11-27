@@ -2,6 +2,7 @@ package core2sn
 
 import (
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -12,7 +13,7 @@ func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.Compiled
 	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
 	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
 	feederCompiledClass.Hints = coreCompiledClass.Hints
-	feederCompiledClass.Prime = "0x" + coreCompiledClass.Prime.Text(16) //nolint:gomnd
+	feederCompiledClass.Prime = "0x" + coreCompiledClass.Prime.Text(felt.Base16)
 
 	feederCompiledClass.EntryPoints.External = make([]starknet.CompiledEntryPoint, len(coreCompiledClass.External))
 	for i, external := range coreCompiledClass.External {
