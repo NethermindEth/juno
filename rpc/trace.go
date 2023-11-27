@@ -50,7 +50,7 @@ type OrderedL2toL1Message struct {
 	MsgToL1
 }
 
-func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, _ bool) ([]TracedBlockTransaction, error) {
+func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legacyJSON bool) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
@@ -63,10 +63,10 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, _ boo
 		trace := TransactionTrace{}
 		trace.Type = block.Transactions[index].Type
 
-		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation)
-		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation)
+		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation, legacyJSON)
+		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation, legacyJSON)
 
-		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation)
+		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation, legacyJSON)
 		switch block.Transactions[index].Type {
 		case TxnDeploy:
 			trace.ConstructorInvocation = fnInvocation
@@ -96,7 +96,7 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, _ boo
 	return traces, nil
 }
 
-func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
+func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacyJSON bool) *FunctionInvocation {
 	if snFnInvocation == nil {
 		return nil
 	}
@@ -115,8 +115,13 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *Funct
 		Messages:           make([]OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
 		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
 	}
+
+	if legacyJSON {
+		fnInvocation.ExecutionResources = nil
+	}
+
 	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index]))
+		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index], legacyJSON))
 	}
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
@@ -143,16 +148,17 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *Funct
 }
 
 func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *ExecutionResources {
-	builtins := resources.BuiltinInstanceCounter
+	builtins := &resources.BuiltinInstanceCounter
 	return &ExecutionResources{
-		Steps:       NumAsHex(resources.Steps),
-		MemoryHoles: NumAsHex(resources.MemoryHoles),
-		Pedersen:    NumAsHex(builtins.Pedersen),
-		RangeCheck:  NumAsHex(builtins.RangeCheck),
-		Bitwise:     NumAsHex(builtins.Bitwise),
-		Ecsda:       NumAsHex(builtins.Ecsda),
-		EcOp:        NumAsHex(builtins.EcOp),
-		Keccak:      NumAsHex(builtins.Keccak),
-		Poseidon:    NumAsHex(builtins.Poseidon),
+		Steps:        resources.Steps,
+		MemoryHoles:  resources.MemoryHoles,
+		Pedersen:     builtins.Pedersen,
+		RangeCheck:   builtins.RangeCheck,
+		Bitwise:      builtins.Bitwise,
+		Ecsda:        builtins.Ecsda,
+		EcOp:         builtins.EcOp,
+		Keccak:       builtins.Keccak,
+		Poseidon:     builtins.Poseidon,
+		SegmentArena: builtins.SegmentArena,
 	}
 }
