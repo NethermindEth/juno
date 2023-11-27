@@ -649,6 +649,7 @@ func (h *Handler) LegacyTransactionReceiptByHash(hash felt.Felt) (*TransactionRe
 		return nil, rpcErr
 	}
 	receipt.ActualFee.isLegacy = true
+	receipt.ExecutionResources.isLegacy = true
 	return receipt, nil
 }
 
@@ -656,22 +657,17 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 	if resources == nil {
 		return &ExecutionResources{}
 	}
-	zeroPtr := func(x uint64) *uint64 {
-		if x == 0 {
-			return nil
-		}
-		return &x
-	}
 	return &ExecutionResources{
-		Steps:       resources.Steps,
-		MemoryHoles: zeroPtr(resources.MemoryHoles),
-		Pedersen:    zeroPtr(resources.BuiltinInstanceCounter.Pedersen),
-		RangeCheck:  zeroPtr(resources.BuiltinInstanceCounter.RangeCheck),
-		Bitwise:     zeroPtr(resources.BuiltinInstanceCounter.Bitwise),
-		Ecsda:       zeroPtr(resources.BuiltinInstanceCounter.Ecsda),
-		EcOp:        zeroPtr(resources.BuiltinInstanceCounter.EcOp),
-		Keccak:      zeroPtr(resources.BuiltinInstanceCounter.Keccak),
-		Poseidon:    zeroPtr(resources.BuiltinInstanceCounter.Poseidon),
+		Steps:        resources.Steps,
+		MemoryHoles:  resources.MemoryHoles,
+		Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
+		RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
+		Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
+		Ecsda:        resources.BuiltinInstanceCounter.Ecsda,
+		EcOp:         resources.BuiltinInstanceCounter.EcOp,
+		Keccak:       resources.BuiltinInstanceCounter.Keccak,
+		Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
+		SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
 	}
 }
 

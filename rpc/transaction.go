@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
@@ -271,17 +272,38 @@ type Event struct {
 	Data []*felt.Felt `json:"data"`
 }
 
+type NumAsHex uint64
+
+func (n NumAsHex) MarshalJSON() ([]byte, error) {
+	return []byte(`"0x` + strconv.FormatUint(uint64(n), 16) + `"`), nil
+}
+
 type ExecutionResources struct {
-	Steps        uint64  `json:"steps"`
-	MemoryHoles  *uint64 `json:"memory_holes,omitempty"`
-	Pedersen     *uint64 `json:"pedersen_builtin_applications,omitempty"`
-	RangeCheck   *uint64 `json:"range_check_builtin_applications,omitempty"`
-	Bitwise      *uint64 `json:"bitwise_builtin_applications,omitempty"`
-	Ecsda        *uint64 `json:"ecdsa_builtin_applications,omitempty"`
-	EcOp         *uint64 `json:"ec_op_builtin_applications,omitempty"`
-	Keccak       *uint64 `json:"keccak_builtin_applications,omitempty"`
-	Poseidon     *uint64 `json:"poseidon_builtin_applications,omitempty"`
-	SegmentArena *uint64 `json:"segment_arena_builtin,omitempty"`
+	Steps        uint64 `json:"steps"`
+	MemoryHoles  uint64 `json:"memory_holes,omitempty"`
+	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
+	RangeCheck   uint64 `json:"range_check_builtin_applications,omitempty"`
+	Bitwise      uint64 `json:"bitwise_builtin_applications,omitempty"`
+	Ecsda        uint64 `json:"ecdsa_builtin_applications,omitempty"`
+	EcOp         uint64 `json:"ec_op_builtin_applications,omitempty"`
+	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
+	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`
+	SegmentArena uint64 `json:"segment_arena_builtin,omitempty"`
+	isLegacy     bool
+}
+
+func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
+	type resources ExecutionResources // Avoid infinite recursion with MarshalJSON.
+	rawJSON, err := json.Marshal(resources(*r))
+	if !r.isLegacy {
+		return rawJSON, err
+	}
+
+	hexMap := make(map[string]NumAsHex)
+	if err = json.Unmarshal(rawJSON, &hexMap); err != nil {
+		return nil, err
+	}
+	return json.Marshal(hexMap)
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
