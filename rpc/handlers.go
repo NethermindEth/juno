@@ -1165,23 +1165,6 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	}
 }
 
-// PendingTransactions gets the transactions in the pending block
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/aaea417f193bbec87b59455128d4b09a06876c28/api/starknet_api_openrpc.json#L602-L616
-func (h *Handler) PendingTransactions() ([]*Transaction, *jsonrpc.Error) {
-	var pendingTxns []*Transaction
-
-	pending, err := h.bcReader.Pending()
-	if err == nil {
-		pendingTxns = make([]*Transaction, 0, len(pending.Block.Transactions))
-		for _, txn := range pending.Block.Transactions {
-			pendingTxns = append(pendingTxns, adaptTransaction(txn))
-		}
-	}
-	return pendingTxns, nil
-}
-
 func (h *Handler) Version() (string, *jsonrpc.Error) {
 	return h.version, nil
 }

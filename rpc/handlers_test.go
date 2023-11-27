@@ -2568,41 +2568,6 @@ func TestAddTransaction(t *testing.T) {
 	})
 }
 
-func TestPendingTransactions(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", log)
-
-	t.Run("no pending", func(t *testing.T) {
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{}, errors.New("no pending"))
-
-		txns, err := handler.PendingTransactions()
-		require.Nil(t, err)
-		require.Empty(t, txns)
-	})
-
-	t.Run("with pending", func(t *testing.T) {
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
-			Block: &core.Block{
-				Transactions: []core.Transaction{
-					&core.InvokeTransaction{
-						TransactionHash: utils.HexToFelt(t, "0xdeadbeef"),
-						Version:         &core.TransactionVersion{},
-					},
-				},
-			},
-		}, nil)
-
-		txns, err := handler.PendingTransactions()
-		require.Nil(t, err)
-		require.Len(t, txns, 1)
-		require.Equal(t, "deadbeef", txns[0].Hash.Text(16))
-	})
-}
-
 func TestVersion(t *testing.T) {
 	const version = "1.2.3-rc1"
 
