@@ -45,6 +45,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultPendingPollInterval := time.Duration(0)
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
+	defaultMaxCacheSize := uint(8)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -79,6 +80,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file path is empty string": {
@@ -107,6 +109,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file doesn't exist": {
@@ -140,6 +143,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -175,6 +179,7 @@ pprof: true
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -207,12 +212,13 @@ http-port: 4576
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"all flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--network", "goerli", "--pprof",
+				"--db-path", "/home/.juno", "--network", "goerli", "--pprof", "--db-cache-size", "8",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:        utils.DEBUG,
@@ -237,6 +243,7 @@ http-port: 4576
 				MaxVMs:          defaultMaxVMs,
 				MaxVMQueue:      2 * defaultMaxVMs,
 				RPCMaxBlockScan: defaultRPCMaxBlockScan,
+				DBCacheSize:     defaultMaxCacheSize,
 			},
 		},
 		"some flags without config file": {
@@ -268,6 +275,7 @@ http-port: 4576
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -291,11 +299,13 @@ pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
 pending-poll-interval: 5s
+db-cache-size: 8
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
 				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
+				"--db-cache-size", "9",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.ERROR,
@@ -321,6 +331,7 @@ pending-poll-interval: 5s
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         9,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -355,6 +366,7 @@ network: goerli
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -385,6 +397,7 @@ network: goerli
 				MaxVMs:              defaultMaxVMs,
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 	}

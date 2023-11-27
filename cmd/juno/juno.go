@@ -61,6 +61,7 @@ const (
 	maxVMQueueF          = "max-vm-queue"
 	remoteDBF            = "remote-db"
 	rpcMaxBlockScanF     = "rpc-max-block-scan"
+	dbCacheSizeF         = "db-cache-size"
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -82,6 +83,7 @@ const (
 	defaultGRPCPort            = 6064
 	defaultRemoteDB            = ""
 	defaultRPCMaxBlockScan     = math.MaxUint
+	defaultCacheSizeMb         = 8
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -113,6 +115,7 @@ const (
 	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
 	remoteDBUsage            = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
+	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 )
 
 var Version string
@@ -237,6 +240,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
 	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
+	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 
 	return junoCmd
 }
