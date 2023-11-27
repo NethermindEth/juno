@@ -47,13 +47,12 @@ func (i *Int) setUint128(hi, lo uint64) error {
 }
 
 func (i *Int) Bytes() []byte {
-	hiBytes := make([]byte, 8)
-	loBytes := make([]byte, 8)
+	res := make([]byte, 16)
 
-	binary.BigEndian.PutUint64(hiBytes, i[1])
-	binary.BigEndian.PutUint64(loBytes, i[0])
+	binary.BigEndian.PutUint64(res[:8], i[1])
+	binary.BigEndian.PutUint64(res[8:], i[0])
 
-	return append(hiBytes, loBytes...)
+	return res
 }
 
 func (i *Int) setBytes(buf []byte) error {

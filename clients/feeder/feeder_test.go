@@ -60,7 +60,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
-					MaxPricePerUnit: uint128.NewUint128("0x2540be400"),
+					MaxPricePerUnit: uint128.SetInt128("0x2540be400"),
 				},
 				starknet.ResourceL2Gas: {
 					MaxAmount:       new(felt.Felt),
@@ -118,7 +118,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
-					MaxPricePerUnit: uint128.NewUint128("0x5af3107a4000"),
+					MaxPricePerUnit: uint128.SetInt128("0x5af3107a4000"),
 				},
 				starknet.ResourceL2Gas: {
 					MaxAmount:       new(felt.Felt),
@@ -222,7 +222,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
-					MaxPricePerUnit: uint128.NewUint128("0x5af3107a4000"),
+					MaxPricePerUnit: uint128.SetInt128("0x5af3107a4000"),
 				},
 				starknet.ResourceL2Gas: {
 					MaxAmount:       new(felt.Felt),

@@ -71,7 +71,7 @@ func (rb ResourceBounds) Bytes(resource Resource) []byte {
 		[]byte{0},
 		[]byte(resource.String()),
 		maxAmountBytes,
-		maxPriceBytes[16:], // Last 128 bits.
+		maxPriceBytes, // Last 128 bits.
 	)
 }
 
