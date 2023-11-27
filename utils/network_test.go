@@ -131,23 +131,18 @@ func TestNetworkType(t *testing.T) {
 
 func TestCoreContractAddress(t *testing.T) {
 	addresses := map[utils.Network]common.Address{
-		utils.Mainnet: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		utils.Goerli:  common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		utils.Goerli2: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		utils.Mainnet:     common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+		utils.Goerli:      common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+		utils.Goerli2:     common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		utils.Integration: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
 	}
 
 	for n := range networkStrings {
 		t.Run("core contract for "+n.String(), func(t *testing.T) {
-			switch n {
-			case utils.Integration:
-				_, err := n.CoreContractAddress()
-				require.Error(t, err)
-			default:
-				got, err := n.CoreContractAddress()
-				require.NoError(t, err)
-				want := addresses[n]
-				assert.Equal(t, want, got)
-			}
+			got, err := n.CoreContractAddress()
+			require.NoError(t, err)
+			want := addresses[n]
+			assert.Equal(t, want, got)
 		})
 	}
 }
