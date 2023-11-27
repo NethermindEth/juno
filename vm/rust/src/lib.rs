@@ -20,7 +20,7 @@ use blockifier::{
     fee::fee_utils::calculate_tx_fee,
     state::cached_state::{CachedState, GlobalContractCache},
     transaction::{
-        objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, FeeType, HasRelatedFeeType},
+        objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType},
         transaction_execution::Transaction,
         transactions::ExecutableTransaction,
     },
@@ -257,7 +257,7 @@ pub extern "C" fn cairoVMExecute(
         }
 
         let mut txn_state = CachedState::create_transactional(&mut state);
-        let mut fee_type = FeeType::Eth;
+        let fee_type;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();

@@ -10,6 +10,9 @@ check:
 lint:
 	cargo clippy
 
+fix:
+	cargo fix --lib -p juno-starknet-rs --allow-dirty --allow-staged
+
 clean:
 	cargo clean
 

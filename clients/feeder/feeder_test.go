@@ -553,7 +553,7 @@ func TestTransactionStatusRevertError(t *testing.T) {
 func TestPublicKey(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.Integration)
 
-	actualPublicKey, err := client.PublickKey(context.Background())
+	actualPublicKey, err := client.PublicKey(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, "0x507b38d81561baa02f718dae46c371ba9f72fc5f0e9535ca94559dfb776115b", actualPublicKey.String())
 }
