@@ -13,6 +13,7 @@ import "C"
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core"
@@ -34,7 +35,7 @@ func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
 		return json.Marshal(compiledCairo1Class)
 	default:
-		return nil, errors.New("not a valid class")
+		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
 }
 
@@ -51,7 +52,7 @@ func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
 	case *core.Cairo1Class:
 		declaredClass = makeSierraClass(c)
 	default:
-		return nil, errors.New("not a valid class")
+		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
 
 	return json.Marshal(declaredClass)

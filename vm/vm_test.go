@@ -109,7 +109,7 @@ func TestV1Call(t *testing.T) {
 		*classHash: simpleClass,
 	}))
 
-	log, err := utils.NewZapLogger(utils.DEBUG, false)
+	log, err := utils.NewZapLogger(utils.ERROR, false)
 	require.NoError(t, err)
 
 	// test_storage_read

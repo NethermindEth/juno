@@ -47,11 +47,11 @@ type ClassDefinition struct {
 }
 
 type CompiledClass struct {
-	Prime           string       `json:"prime"`
-	Bytecode        []*felt.Felt `json:"bytecode"`
-	Hints           any          `json:"hints"`
-	PythonicHints   any          `json:"pythonic_hints"`
-	CompilerVersion string       `json:"compiler_version"`
+	Prime           string          `json:"prime"`
+	Bytecode        []*felt.Felt    `json:"bytecode"`
+	Hints           json.RawMessage `json:"hints"`
+	PythonicHints   json.RawMessage `json:"pythonic_hints"`
+	CompilerVersion string          `json:"compiler_version"`
 	EntryPoints     struct {
 		External    []CompiledEntryPoint `json:"EXTERNAL"`
 		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
