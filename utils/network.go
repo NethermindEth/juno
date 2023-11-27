@@ -165,7 +165,7 @@ func (n Network) CoreContractAddress() (common.Address, error) {
 	case Goerli2:
 		address = common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c")
 	case Integration:
-		return common.Address{}, errors.New("l1 contract is not available on the integration network")
+		address = common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020")
 	case Sepolia:
 		return common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"), nil
 	case SepoliaIntegration:
