@@ -30,8 +30,8 @@ func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 		}
 		return json.Marshal(compiledCairo0Class)
 	case *core.Cairo1Class:
-		compiledCairo1Class := core2sn.AdaptCompiledClass(&c.Compiled)
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
+		compiledCairo1Class := core2sn.AdaptCompiledClass(&c.Compiled)
 		return json.Marshal(compiledCairo1Class)
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)

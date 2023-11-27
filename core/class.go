@@ -97,9 +97,11 @@ func (c *Cairo1Class) Hash() *felt.Felt {
 	)
 }
 
+var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
+
 func (c *CompiledClass) Hash() *felt.Felt {
 	return crypto.PoseidonArray(
-		new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1")),
+		compiledClassV1Prefix,
 		crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...),
 		crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...),
 		crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...),
