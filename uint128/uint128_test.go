@@ -287,7 +287,7 @@ func TestUint128ToFelt(t *testing.T) {
 				1: 0x1,
 			},
 			element: &fp.Element{
-				0: 0x43e0
+				0: 0x43e0,
 				1: 0xffffffffffffffe0,
 				2: 0xffffffffffffffff,
 				3: 0x481df,
