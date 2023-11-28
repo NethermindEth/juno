@@ -1256,8 +1256,10 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	}
 }
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.SimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
+func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, id BlockID,
+) ([]FeeEstimate, *jsonrpc.Error) {
+	result, err := h.SimulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag))
 	if err != nil {
 		return nil, err
 	}
@@ -1287,7 +1289,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
-	estimates, rpcErr := h.EstimateFee([]BroadcastedTransaction{tx}, id)
+	estimates, rpcErr := h.EstimateFee([]BroadcastedTransaction{tx}, nil, id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -1780,7 +1782,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags", Optional: true}, {Name: "block_id"}},
 			Handler: h.EstimateFee,
 		},
 		{
@@ -1934,7 +1936,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags", Optional: true}, {Name: "block_id"}},
 			Handler: h.EstimateFee,
 		},
 		{
