@@ -47,6 +47,7 @@ var (
 	ErrInvalidContinuationToken        = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
 	ErrTooManyKeysInFilter             = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
 	ErrContractError                   = &jsonrpc.Error{Code: 40, Message: "Contract error"}
+	ErrTransactionExecutionError       = &jsonrpc.Error{Code: 41, Message: "Transaction execution error"}
 	ErrInvalidContractClass            = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
 	ErrClassAlreadyDeclared            = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
 	ErrInternal                        = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
@@ -1221,11 +1222,25 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	return res, nil
 }
 
+type ContractErrorData struct {
+	RevertError string `json:"revert_error"`
+}
+
 func makeContractError(err error) *jsonrpc.Error {
-	return ErrContractError.CloneWithData(struct {
-		RevertError string `json:"revert_error"`
-	}{
+	return ErrContractError.CloneWithData(ContractErrorData{
 		RevertError: err.Error(),
+	})
+}
+
+type TransactionExecutionErrorData struct {
+	TransactionIndex uint64 `json:"transaction_index"`
+	ExecutionError   string `json:"execution_error"`
+}
+
+func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
+	return ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
+		TransactionIndex: err.Index,
+		ExecutionError:   err.Cause.Error(),
 	})
 }
 
@@ -1318,6 +1333,10 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 	}
 	estimates, rpcErr := h.EstimateFee([]BroadcastedTransaction{tx}, nil, id)
 	if rpcErr != nil {
+		if rpcErr.Code == ErrTransactionExecutionError.Code {
+			data := rpcErr.Data.(TransactionExecutionErrorData)
+			return nil, makeContractError(errors.New(data.ExecutionError))
+		}
 		return nil, rpcErr
 	}
 	return &estimates[0], nil
@@ -1437,7 +1456,11 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
 		}
-		return nil, makeContractError(err)
+		var txnExecutionError vm.TransactionExecutionError
+		if errors.As(err, &txnExecutionError) {
+			return nil, makeTransactionExecutionError(&txnExecutionError)
+		}
+		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	var result []SimulatedTransaction
@@ -1574,7 +1597,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
 		}
-		return nil, makeContractError(err)
+		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
+		// report them as unexpected errors
+		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	var result []TracedBlockTransaction

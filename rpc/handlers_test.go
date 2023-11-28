@@ -26,6 +26,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2937,14 +2938,12 @@ func TestSimulateTransactions(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
-	//nolint:dupl
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
+	mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil).AnyTimes()
+	sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
-		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-
-		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, nil, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
@@ -2952,19 +2951,26 @@ func TestSimulateTransactions(t *testing.T) {
 		require.Nil(t, err)
 	})
 
-	//nolint:dupl
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-
-		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, false, true, nil, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Nil(t, err)
+	})
+
+	t.Run("transaction execution error", func(t *testing.T) {
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, false, true, nil, nil, false).
+			Return(nil, nil, vm.TransactionExecutionError{
+				Index: 44,
+				Cause: errors.New("oops"),
+			})
+
+		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+			TransactionIndex: 44,
+			ExecutionError:   "oops",
+		}), err)
 	})
 }
 
