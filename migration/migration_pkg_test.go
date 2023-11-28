@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
+	"math/rand"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -203,6 +205,80 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, bs.Len(), uint(trieKey.Len()))
 	require.Equal(t, felt.Zero, trieKey.Felt())
+}
+
+func TestMigrateCairo1CompiledClass(t *testing.T) {
+	blockchain.RegisterCoreTypesToEncoder()
+	txn := db.NewMemTransaction()
+
+	compiledValues := map[string]any{
+		"prime": "123",
+	}
+	compiledJSON, err := json.Marshal(compiledValues)
+	require.NoError(t, err)
+
+	key := []byte("key")
+	class := oldCairo1Class{
+		Abi:     "some cairo abi",
+		AbiHash: randFelt(t),
+		EntryPoints: struct {
+			Constructor []core.SierraEntryPoint
+			External    []core.SierraEntryPoint
+			L1Handler   []core.SierraEntryPoint
+		}{
+			Constructor: []core.SierraEntryPoint{
+				{
+					Index:    0,
+					Selector: randFelt(t),
+				},
+			},
+			External: []core.SierraEntryPoint{
+				{
+					Index:    0,
+					Selector: randFelt(t),
+				},
+			},
+			L1Handler: []core.SierraEntryPoint{
+				{
+					Index:    0,
+					Selector: randFelt(t),
+				},
+			},
+		},
+		Program:         randSlice(t),
+		ProgramHash:     randFelt(t),
+		SemanticVersion: "0.1.0",
+		Compiled:        json.RawMessage(compiledJSON),
+	}
+	expectedDeclared := declaredClass{
+		At:    777,
+		Class: class,
+	}
+
+	classBytes, err := encoder.Marshal(expectedDeclared)
+	require.NoError(t, err)
+	err = txn.Set(key, classBytes)
+	require.NoError(t, err)
+
+	require.NoError(t, migrateCairo1CompiledClass(txn, key, classBytes, utils.Mainnet))
+
+	var actualDeclared core.DeclaredClass
+	err = txn.Get(key, func(bytes []byte) error {
+		return encoder.Unmarshal(bytes, &actualDeclared)
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, actualDeclared.At, expectedDeclared.At)
+
+	actualClass := actualDeclared.Class.(*core.Cairo1Class)
+	expectedClass := expectedDeclared.Class
+	assert.Equal(t, expectedClass.Abi, actualClass.Abi)
+	assert.Equal(t, expectedClass.AbiHash, actualClass.AbiHash)
+	assert.Equal(t, expectedClass.EntryPoints, actualClass.EntryPoints)
+	assert.Equal(t, expectedClass.Program, actualClass.Program)
+	assert.Equal(t, expectedClass.ProgramHash, actualClass.ProgramHash)
+	assert.Equal(t, expectedClass.SemanticVersion, actualClass.SemanticVersion)
+	assert.Equal(t, compiledValues["prime"], actualClass.Compiled.Prime.String())
 }
 
 func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {
@@ -567,4 +643,24 @@ func TestChangeStateDiffStruct(t *testing.T) {
 		require.False(t, iter.Next())
 		return nil
 	}))
+}
+
+func randSlice(t *testing.T) []*felt.Felt {
+	n := rand.Intn(10)
+	sl := make([]*felt.Felt, n)
+
+	for i := range sl {
+		sl[i] = randFelt(t)
+	}
+
+	return sl
+}
+
+func randFelt(t *testing.T) *felt.Felt {
+	t.Helper()
+
+	f, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
+
+	return f
 }

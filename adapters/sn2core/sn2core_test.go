@@ -478,16 +478,17 @@ func TestClassV1(t *testing.T) {
 	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
-	class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+	v1Class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
 	require.NoError(t, err)
-
-	v1Class, ok := class.(*core.Cairo1Class)
-	require.True(t, ok)
 
 	assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
 	assert.Equal(t, feederClass.V1.Program, v1Class.Program)
 	assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
-	assert.Equal(t, compiled, v1Class.Compiled)
+	assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
+	assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
+	assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
+	assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
+	assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
 
 	assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
 	for i, v := range feederClass.V1.EntryPoints.External {
