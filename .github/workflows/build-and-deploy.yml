@@ -47,7 +47,7 @@ jobs:
     
   deploy_to_dev:
     needs: [docker_build_and_publish]
-    uses: NethermindEh/srgo/.github/workflows/TagAndDeploy.yml@juno_main
+    uses: NethermindEth/argo/.github/workflows/TagAndDeploy.yml@juno_main
     with:
       environment: Development
       IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
@@ -71,7 +71,7 @@ jobs:
             
   deploy_to_staging:
     needs: [docker_build_and_publish, deploy_to_dev]
-    uses: NethermindEh/srgo/.github/workflows/TagAndDeploy.yml@juno_main
+    uses: NethermindEth/argo/.github/workflows/TagAndDeploy.yml@juno_main
     with:
       environment: Staging
       IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
@@ -95,7 +95,7 @@ jobs:
 
   deploy_to_production:
     needs: [docker_build_and_publish, deploy_to_staging]
-    uses: NethermindEh/srgo/.github/workflows/TagAndDeploy.yml@juno_main
+    uses: NethermindEth/argo/.github/workflows/TagAndDeploy.yml@juno_main
     with: 
       environment: Production
       IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
