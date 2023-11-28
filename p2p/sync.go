@@ -91,85 +91,85 @@ func (s *syncService) start(ctx context.Context) {
 	*/
 
 	// represents range of blocks to request [start; end)
-	type BlockRange struct {
-		Start, End uint64
-	}
-
-	fetchBlocks := func(ranges <-chan BlockRange) <-chan core.Block {
-		coreBlocks := make(chan core.Block)
-
-		go func() {
-			defer close(coreBlocks)
-
-			for r := range ranges {
-				var blocks []core.Block
-				// do some stuff
-				for _, block := range blocks {
-					coreBlocks <- block
-				}
-			}
-		}()
-
-		return coreBlocks
-	}
-
-	santiyChecks := func(blocks <-chan core.Block, fetchBlocks chan<- BlockRange) <-chan core.Block {
-		// check structural integrity of the block and signatures
-
-		checkedBlocks := make(chan core.Block)
-		go func() {
-			defer close(checkedBlocks)
-
-			for block := range blocks {
-				// do santify check
-				var checkFailed bool
-
-				checkedBlocks <- block
-				if checkFailed {
-					fetchBlocks <- BlockRange{
-						Start: block.Number,
-						End:   block.Number + 1,
-					}
-				}
-			}
-		}()
-
-		return checkedBlocks
-	}
-
-	orderCheckedBlocks := func(checkedBlocks <-chan core.Block) <-chan core.Block {
-		outOfOrderBlocks := make(map[uint64]core.Block)
-
-		orderBlocks := make(chan core.Block)
-		go func() {
-			defer close(orderBlocks)
-			for block := range checkedBlocks {
-				curH, err := s.blockchain.Height()
-				if block.Number == curH+1 {
-					orderBlocks <- block
-				} else {
-					outOfOrderBlocks[block.Number] = block
-
-					// check if there is a block already in the map
-					if b, ok := outOfOrderBlocks[curH+1]; ok {
-						orderBlocks <- b
-
-						delete(outOfOrderBlocks, curH+1)
-					}
-				}
-			}
-		}()
-		return orderBlocks
-	}
-
-	blockRangeStream := make(chan BlockRange, 1)
-	blockRangeStream <- BlockRange{
-		Start: s.height,
-		End:   bootNodeHeight,
-	}
-	fetchedBlocks := fetchBlocks(blockRangeStream)
-	checkedBlocks := santiyChecks(fetchedBlocks, blockRangeStream)
-	orderedBlocks := orderCheckedBlocks(checkedBlocks)
+	//type BlockRange struct {
+	//	Start, End uint64
+	//}
+	//
+	//fetchBlocks := func(ranges <-chan BlockRange) <-chan core.Block {
+	//	coreBlocks := make(chan core.Block)
+	//
+	//	go func() {
+	//		defer close(coreBlocks)
+	//
+	//		for r := range ranges {
+	//			var blocks []core.Block
+	//			// do some stuff
+	//			for _, block := range blocks {
+	//				coreBlocks <- block
+	//			}
+	//		}
+	//	}()
+	//
+	//	return coreBlocks
+	//}
+	//
+	//santiyChecks := func(blocks <-chan core.Block, fetchBlocks chan<- BlockRange) <-chan core.Block {
+	//	// check structural integrity of the block and signatures
+	//
+	//	checkedBlocks := make(chan core.Block)
+	//	go func() {
+	//		defer close(checkedBlocks)
+	//
+	//		for block := range blocks {
+	//			// do santify check
+	//			var checkFailed bool
+	//
+	//			checkedBlocks <- block
+	//			if checkFailed {
+	//				fetchBlocks <- BlockRange{
+	//					Start: block.Number,
+	//					End:   block.Number + 1,
+	//				}
+	//			}
+	//		}
+	//	}()
+	//
+	//	return checkedBlocks
+	//}
+	//
+	//orderCheckedBlocks := func(checkedBlocks <-chan core.Block) <-chan core.Block {
+	//	outOfOrderBlocks := make(map[uint64]core.Block)
+	//
+	//	orderBlocks := make(chan core.Block)
+	//	go func() {
+	//		defer close(orderBlocks)
+	//		for block := range checkedBlocks {
+	//			curH, err := s.blockchain.Height()
+	//			if block.Number == curH+1 {
+	//				orderBlocks <- block
+	//			} else {
+	//				outOfOrderBlocks[block.Number] = block
+	//
+	//				// check if there is a block already in the map
+	//				if b, ok := outOfOrderBlocks[curH+1]; ok {
+	//					orderBlocks <- b
+	//
+	//					delete(outOfOrderBlocks, curH+1)
+	//				}
+	//			}
+	//		}
+	//	}()
+	//	return orderBlocks
+	//}
+	//
+	//blockRangeStream := make(chan BlockRange, 1)
+	//blockRangeStream <- BlockRange{
+	//	Start: s.height,
+	//	End:   bootNodeHeight,
+	//}
+	//fetchedBlocks := fetchBlocks(blockRangeStream)
+	//checkedBlocks := santiyChecks(fetchedBlocks, blockRangeStream)
+	//orderedBlocks := orderCheckedBlocks(checkedBlocks)
 	// todo storeBlocks
 
 	fmt.Println("header's start", s.height, "header's stop", bootNodeHeight)
@@ -189,7 +189,7 @@ func (s *syncService) start(ctx context.Context) {
 	s.log.Debugw("Merging block bodies with headers", "bodiesLen", len(blockBodies), "headerLen", len(headers))
 	for i, body := range blockBodies {
 		body.block.Header = &headers[i]
-		fmt.Printf("Received block body %d %+v\n", i, body)
+		// fmt.Printf("Received block body %d %+v\n", i, body)
 	}
 }
 
@@ -257,7 +257,16 @@ func (s *syncService) requestBlockBodies(ctx context.Context, start, stop uint64
 
 		blockBodies[blockNumber] = b
 	}
+
+	var count int
+	prevTime := time.Now()
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
+		if count%6 == 0 {
+			fmt.Printf("fetching header body=%d, timeSpent=%v\n", count, time.Since(prevTime))
+		}
+		prevTime = time.Now()
+		count++
+
 		switch res.BodyMessage.(type) {
 		case *spec.BlockBodiesResponse_Classes:
 			updateBlockBody(res.GetId().Number, func(b *blockBody) {
@@ -327,8 +336,6 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint6
 		prevTime = time.Now()
 		count++
 
-		fmt.Println("count is", count)
-
 		var (
 			header     core.Header
 			signatures [][]*felt.Felt
@@ -344,7 +351,6 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint6
 			case *spec.BlockHeadersResponsePart_Header:
 				h := part.GetHeader()
 
-				receiptsStart := time.Now()
 				receipts, err := s.requestReceipts(ctx, id, &spec.Iteration{
 					Start: &spec.Iteration_BlockNumber{
 						BlockNumber: h.Number,
@@ -356,8 +362,6 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint6
 				if err != nil {
 					return nil, err
 				}
-				delta := time.Since(receiptsStart)
-				fmt.Printf("time spent in receipts %v\n", delta)
 				// s.log.Infow("time spend in receipts", "timeSpend", delta)
 
 				header = core.Header{

@@ -72,6 +72,7 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 	}
 
 	for msg, valid := response(); valid; msg, valid = response() {
+		fmt.Printf("Writing data to network, size=%v\n", proto.Size(msg))
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
 			log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		}
