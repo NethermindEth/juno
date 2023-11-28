@@ -1,3 +1,4 @@
+//go:generate protoc --go_out=gen --go_opt=paths=source_relative --go-grpc_out=gen --go-grpc_opt=paths=source_relative kv.proto
 package grpc
 
 import (
@@ -14,6 +15,7 @@ import (
 )
 
 type Handler struct {
+	gen.UnimplementedKVServer
 	db      db.DB
 	version string
 }
@@ -39,46 +41,55 @@ func (h Handler) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionRep
 }
 
 func (h Handler) Tx(server gen.KV_TxServer) error {
-	dbTx := h.db.NewTransaction(false)
+	dbTx, err := h.db.NewTransaction(false)
+	if err != nil {
+		return err
+	}
+
 	tx := newTx(dbTx)
-
 	for {
-		cursor, err := server.Recv()
-		if err != nil {
-			return utils.RunAndWrapOnError(tx.cleanup, err)
+		var cursor *gen.Cursor
+		if cursor, err = server.Recv(); err == nil {
+			if err = h.handleTxCursor(cursor, tx, server); err == nil {
+				continue
+			}
 		}
-
-		err = h.handleTxCursor(cursor, tx, server)
-		if err != nil {
-			return utils.RunAndWrapOnError(tx.cleanup, err)
-		}
+		return utils.RunAndWrapOnError(dbTx.Discard, utils.RunAndWrapOnError(tx.cleanup, err))
 	}
 }
 
+//nolint:gocyclo
 func (h Handler) handleTxCursor(
 	cur *gen.Cursor,
 	tx *tx,
 	server gen.KV_TxServer,
 ) error {
+	responsePair := &gen.Pair{}
+
 	// open is special case: it's the only way to receive cursor id
 	if cur.Op == gen.Op_OPEN {
 		cursorID, err := tx.newCursor()
 		if err != nil {
 			return err
 		}
-
-		return server.Send(&gen.Pair{
-			CursorId: cursorID,
-		})
+		responsePair.CursorId = cursorID
+		return server.Send(responsePair)
+	} else if cur.Op == gen.Op_GET {
+		if err := tx.dbTx.Get(cur.K, func(b []byte) error {
+			responsePair.V = append(responsePair.V, b...)
+			responsePair.K = cur.K
+			return nil
+		}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+			return err
+		}
+		return server.Send(responsePair)
 	}
 
 	it, err := tx.iterator(cur.Cursor)
 	if err != nil {
 		return err
 	}
-	responsePair := &gen.Pair{
-		CursorId: cur.Cursor,
-	}
+	responsePair.CursorId = cur.Cursor
 
 	switch cur.Op {
 	case gen.Op_SEEK:
@@ -103,6 +114,8 @@ func (h Handler) handleTxCursor(
 			responsePair.K = it.Key()
 			responsePair.V, err = it.Value()
 		}
+	case gen.Op_CLOSE:
+		err = tx.closeCursor(cur.Cursor)
 	default:
 		err = fmt.Errorf("unknown operation %q", cur.Op)
 	}

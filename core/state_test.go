@@ -20,11 +20,12 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -149,11 +150,12 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -192,7 +194,7 @@ func TestContractClassHash(t *testing.T) {
 			BlockHash: utils.HexToFelt(t, "0xDEADBEEF"),
 			NewRoot:   utils.HexToFelt(t, "0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b"),
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   su1.StateDiff.DeployedContracts[0].Address,
 						ClassHash: utils.HexToFelt(t, "0x1337"),
@@ -212,7 +214,8 @@ func TestContractClassHash(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -226,7 +229,7 @@ func TestNonce(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.DeployedContract{
+			DeployedContracts: []core.AddressClassHashPair{
 				{
 					Address:   addr,
 					ClassHash: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
@@ -263,12 +266,13 @@ func TestNonce(t *testing.T) {
 
 func TestStateHistory(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
@@ -313,11 +317,12 @@ func TestStateHistory(t *testing.T) {
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -365,12 +370,13 @@ func TestContractIsDeployedAt(t *testing.T) {
 
 func TestClass(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
 
 	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
@@ -409,12 +415,13 @@ func TestClass(t *testing.T) {
 
 func TestRevert(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
@@ -431,7 +438,7 @@ func TestRevert(t *testing.T) {
 			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.ReplacedClass{
+				ReplacedClasses: []core.AddressClassHashPair{
 					{
 						Address:   addr,
 						ClassHash: utils.HexToFelt(t, "0xDEADBEEF"),
@@ -561,11 +568,12 @@ func TestRevert(t *testing.T) {
 }
 
 func TestRevertNoClassContracts(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -603,7 +611,8 @@ func TestRevertNoClassContracts(t *testing.T) {
 
 func TestRevertDeclaredClasses(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})

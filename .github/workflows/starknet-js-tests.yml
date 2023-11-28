@@ -1,0 +1,36 @@
+name: starknet-js tests
+
+on:
+  workflow_call:
+    secrets:
+      TEST_RPC_URL:
+        required: false
+      TEST_ACCOUNT_ADDRESS:
+        required: false
+      TEST_ACCOUNT_PRIVATE_KEY:
+          required: false
+          
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          repository: starknet-io/starknet.js
+          ref: v5.24.3
+  
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+  
+      - name: Install dependencies
+        run: npm ci
+  
+      - name: Run tests
+        run: npm test
+        env:
+          TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
+          TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+          TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}

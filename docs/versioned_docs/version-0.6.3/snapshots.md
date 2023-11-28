@@ -57,12 +57,14 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 
    ```bash
    docker run -d \
-     --name juno \
-     -p 6060:6060 \
-     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
-     nethermind/juno \
-	 --http \
-     --db-path /var/lib/juno
+      --name juno \
+      -p 6060:6060 \
+      -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
+      nethermind/juno \
+      --http \
+      --http-port 6060 \
+      --http-host 0.0.0.0 \
+      --db-path /var/lib/juno
    ```
 
 After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.

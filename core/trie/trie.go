@@ -6,22 +6,12 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 )
-
-// Storage is the Persistent storage for the [Trie]
-type Storage interface {
-	Put(key *Key, value *Node) error
-	Get(key *Key) (*Node, error)
-	Delete(key *Key) error
-
-	PutRootKey(newRootKey *Key) error
-	RootKey() (*Key, error)
-	DeleteRootKey() error
-}
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
@@ -46,24 +36,24 @@ type Trie struct {
 	height  uint8
 	rootKey *Key
 	maxKey  *felt.Felt
-	storage Storage
+	storage *TransactionStorage
 	hash    hashFunc
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
 }
 
-type NewTrieFunc func(Storage, uint8) (*Trie, error)
+type NewTrieFunc func(*TransactionStorage, uint8) (*Trie, error)
 
-func NewTriePedersen(storage Storage, height uint8) (*Trie, error) {
+func NewTriePedersen(storage *TransactionStorage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Pedersen)
 }
 
-func NewTriePoseidon(storage Storage, height uint8) (*Trie, error) {
+func NewTriePoseidon(storage *TransactionStorage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage Storage, height uint8, hash hashFunc) (*Trie, error) {
+func newTrie(storage *TransactionStorage, height uint8, hash hashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -332,15 +322,19 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 		return node, nil
 	}
 
-	leftChild, err := t.updateValueIfDirty(node.Left)
+	// To avoid over-extending, only use concurrent updates when we are not too
+	// deep in to traversing the trie.
+	const concurrencyMaxDepth = 8 // heuristically selected value
+	var leftChild, rightChild *Node
+	if key.len <= concurrencyMaxDepth {
+		leftChild, rightChild, err = t.updateChildTriesConcurrently(node)
+	} else {
+		leftChild, rightChild, err = t.updateChildTriesSerially(node)
+	}
 	if err != nil {
 		return nil, err
 	}
 	defer nodePool.Put(leftChild)
-	rightChild, err := t.updateValueIfDirty(node.Right)
-	if err != nil {
-		return nil, err
-	}
 	defer nodePool.Put(rightChild)
 
 	leftPath := path(node.Left, key)
@@ -352,6 +346,40 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 		return nil, err
 	}
 	return node, nil
+}
+
+func (t *Trie) updateChildTriesSerially(root *Node) (*Node, *Node, error) {
+	leftChild, err := t.updateValueIfDirty(root.Left)
+	if err != nil {
+		return nil, nil, err
+	}
+	rightChild, err := t.updateValueIfDirty(root.Right)
+	if err != nil {
+		return nil, nil, err
+	}
+	return leftChild, rightChild, nil
+}
+
+func (t *Trie) updateChildTriesConcurrently(root *Node) (*Node, *Node, error) {
+	var leftChild, rightChild *Node
+	var lErr, rErr error
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		leftChild, lErr = t.updateValueIfDirty(root.Left)
+	}()
+	rightChild, rErr = t.updateValueIfDirty(root.Right)
+	wg.Wait()
+
+	if lErr != nil {
+		return nil, nil, lErr
+	}
+	if rErr != nil {
+		return nil, nil, rErr
+	}
+	return leftChild, rightChild, nil
 }
 
 // deleteLast deletes the last node in the given list
@@ -418,6 +446,9 @@ func (t *Trie) Root() (*felt.Felt, error) {
 		return new(felt.Felt), nil
 	}
 
+	storage := t.storage
+	t.storage = storage.SyncedStorage()
+	defer func() { t.storage = storage }()
 	root, err := t.updateValueIfDirty(t.rootKey)
 	if err != nil {
 		return nil, err

@@ -8,8 +8,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestStateSnapshot(t *testing.T) {
@@ -70,7 +70,7 @@ func TestStateSnapshot(t *testing.T) {
 		"contract is not deployed": {
 			snapshot: snapshotBeforeDeployment,
 			checker: func(t *testing.T, _ *felt.Felt, err error) {
-				require.ErrorIs(t, err, core.ErrContractNotDeployed)
+				require.ErrorIs(t, err, db.ErrKeyNotFound)
 			},
 		},
 		"correct value is in history": {

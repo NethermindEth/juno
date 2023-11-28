@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"reflect"
 	"runtime"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
@@ -31,6 +31,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 )
 
@@ -60,6 +62,7 @@ type Config struct {
 	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
+	RemoteDB            string         `mapstructure:"remote-db"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -68,6 +71,12 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+
+	MaxVMs          uint `mapstructure:"max-vms"`
+	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
+
+	DBCacheSize uint `mapstructure:"db-cache-size"`
 }
 
 type Node struct {
@@ -94,7 +103,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("create DB logger: %w", err)
 	}
 
-	database, err := pebble.New(cfg.DatabasePath, dbLog)
+	dbIsRemote := cfg.RemoteDB != ""
+	var database db.DB
+	if dbIsRemote {
+		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, dbLog)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
@@ -105,11 +120,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	chain := blockchain.New(database, cfg.Network, log)
 	feederClientTimeout := 5 * time.Second
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(log), version, log)
+	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
+	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
@@ -123,9 +141,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":        jsonrpcServer,
-		path:       jsonrpcServer,
-		legacyPath: jsonrpcServerLegacy,
+		"/":                 jsonrpcServer,
+		path:                jsonrpcServer,
+		legacyPath:          jsonrpcServerLegacy,
+		"/rpc":              jsonrpcServer,
+		"/rpc" + path:       jsonrpcServer,
+		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics))
@@ -134,6 +155,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
 	}
 	if cfg.Metrics {
+		chain.WithListener(makeBlockchainMetrics())
+		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
 		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
 		jsonrpcServer.WithListener(rpcMetrics)
@@ -173,15 +196,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
-
+		if cfg.Metrics {
+			l1Client.WithEventListener(makeL1Metrics())
+		}
 		n.services = append(n.services, l1Client)
 	}
 
 	if cfg.P2P {
-		var privKeyStr string
-		privKeyStr, _ = os.LookupEnv("P2P_PRIVATE_KEY")
-		var p2pService *p2p.Service
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, privKeyStr, cfg.Network, log)
+		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
@@ -237,7 +259,11 @@ func (n *Node) Run(ctx context.Context) {
 	}
 	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
-	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
+	if err := migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
+		if errors.Is(err, context.Canceled) {
+			n.log.Infow("DB Migration cancelled")
+			return
+		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}

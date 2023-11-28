@@ -47,7 +47,7 @@ install-gofumpt:
 	go install mvdan.cc/gofumpt@latest
 
 install-mockgen:
-	go install github.com/golang/mock/mockgen@latest
+	go install go.uber.org/mock/mockgen@latest
 
 install-golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
