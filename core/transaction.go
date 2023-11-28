@@ -500,7 +500,7 @@ func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) (uint64, 
 	if err != nil {
 		return 0, err
 	}
-	return uint64(feeDAModeUint) + uint64(nonceDAModeUint)<<dataAvailabilityModeBits, nil
+	return feeDAModeUint + nonceDAModeUint<<dataAvailabilityModeBits, nil
 }
 
 func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {

@@ -128,11 +128,11 @@ func (r *Resource) UnmarshalText(text []byte) error {
 	return nil
 }
 
-type DataAvailabilityMode uint32
+type DataAvailabilityMode string
 
 const (
-	DAModeL1 DataAvailabilityMode = iota
-	DAModeL2
+	DAModeL1 DataAvailabilityMode = "L1"
+	DAModeL2 DataAvailabilityMode = "L2"
 )
 
 type ResourceBounds struct {
