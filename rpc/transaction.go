@@ -70,15 +70,15 @@ type FeeUnit byte
 
 const (
 	WEI FeeUnit = iota
-	STRK
+	FRI
 )
 
 func (u FeeUnit) MarshalJSON() ([]byte, error) {
 	switch u {
 	case WEI:
 		return []byte(`"WEI"`), nil
-	case STRK:
-		return []byte(`"STRK"`), nil
+	case FRI:
+		return []byte(`"FRI"`), nil
 	default:
 		return nil, errors.New("unknown FeeUnit")
 	}
