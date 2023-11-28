@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 // *Int[1] = high bits, more significant bits, upper 64 bits of a 128-bit value - ie [64:128]
@@ -148,10 +147,11 @@ func (i Int) String() string {
 }
 
 func (i Int) ToFelt() *felt.Felt {
-	fp := &fp.Element{
-		0: i[0],
-		1: i[1],
-	}
+	b := make([]byte, ByteLength)
 
-	return felt.NewFelt(fp)
+	binary.BigEndian.PutUint64(b[:8], i[0])
+	binary.BigEndian.PutUint64(b[8:], i[1])
+
+	f := new(felt.Felt)
+	return f.SetBytes(b)
 }

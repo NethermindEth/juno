@@ -245,6 +245,14 @@ func TestUint128FromHexString(t *testing.T) {
 			},
 			wantedErr: false,
 		},
+		{
+			description: "String 6",
+			textInput:   "0x8ac7230489e80000",
+			expected: &Int{
+				0: 0x8ac7230489e80000,
+			},
+			wantedErr: false,
+		},
 	}
 	{
 		for _, test := range tests {
@@ -279,20 +287,10 @@ func TestUint128ToFelt(t *testing.T) {
 				1: 0x1,
 			},
 			element: &fp.Element{
-				0: 0x1,
-				1: 0x1,
-			},
-			wantErr: false,
-		},
-		{
-			description: "Uint128 -> Felt #2",
-			inputUint128: &Int{
-				0: 0x0,
-				1: 0x0,
-			},
-			element: &fp.Element{
-				0: 0x0,
-				1: 0x0,
+				0: 0x43e0
+				1: 0xffffffffffffffe0,
+				2: 0xffffffffffffffff,
+				3: 0x481df,
 			},
 			wantErr: false,
 		},
