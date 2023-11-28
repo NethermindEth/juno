@@ -167,16 +167,26 @@ func AdaptDeclareTransaction(t *starknet.Transaction) *core.DeclareTransaction {
 		CompiledClassHash:     t.CompiledClassHash,
 		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
 		Tip:                   safeFeltToUint64(t.Tip),
-		PaymasterData:         t.PaymasterData,
-		AccountDeploymentData: t.AccountDeploymentData,
-		NonceDAMode:           core.DataAvailabilityMode(t.NonceDAMode),
-		FeeDAMode:             core.DataAvailabilityMode(t.FeeDAMode),
+		PaymasterData:         utils.DerefSlice(t.PaymasterData),
+		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
+		NonceDAMode:           adaptDataAvailabilityMode(t.NonceDAMode),
+		FeeDAMode:             adaptDataAvailabilityMode(t.FeeDAMode),
 	}
 }
 
-func adaptResourceBounds(rb map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds {
-	coreBounds := make(map[core.Resource]core.ResourceBounds, len(rb))
-	for resource, bounds := range rb {
+func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAvailabilityMode {
+	if mode == nil {
+		return core.DAModeL1
+	}
+	return core.DataAvailabilityMode(*mode)
+}
+
+func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds { //nolint:gocritic
+	if rb == nil {
+		return nil
+	}
+	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
+	for resource, bounds := range *rb {
 		coreBounds[core.Resource(resource)] = core.ResourceBounds{
 			MaxAmount:       bounds.MaxAmount.Uint64(),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
@@ -212,10 +222,10 @@ func AdaptInvokeTransaction(t *starknet.Transaction) *core.InvokeTransaction {
 		SenderAddress:         t.SenderAddress,
 		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
 		Tip:                   safeFeltToUint64(t.Tip),
-		PaymasterData:         t.PaymasterData,
-		AccountDeploymentData: t.AccountDeploymentData,
-		NonceDAMode:           core.DataAvailabilityMode(t.NonceDAMode),
-		FeeDAMode:             core.DataAvailabilityMode(t.FeeDAMode),
+		PaymasterData:         utils.DerefSlice(t.PaymasterData),
+		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
+		NonceDAMode:           adaptDataAvailabilityMode(t.NonceDAMode),
+		FeeDAMode:             adaptDataAvailabilityMode(t.FeeDAMode),
 	}
 }
 
@@ -238,9 +248,9 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 		Nonce:                t.Nonce,
 		ResourceBounds:       adaptResourceBounds(t.ResourceBounds),
 		Tip:                  safeFeltToUint64(t.Tip),
-		PaymasterData:        t.PaymasterData,
-		NonceDAMode:          core.DataAvailabilityMode(t.NonceDAMode),
-		FeeDAMode:            core.DataAvailabilityMode(t.FeeDAMode),
+		PaymasterData:        utils.DerefSlice(t.PaymasterData),
+		NonceDAMode:          adaptDataAvailabilityMode(t.NonceDAMode),
+		FeeDAMode:            adaptDataAvailabilityMode(t.FeeDAMode),
 	}
 }
 

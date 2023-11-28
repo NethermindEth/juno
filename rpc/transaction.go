@@ -423,3 +423,49 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	}
 	return rpcResourceBounds
 }
+
+func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+	if rb == nil {
+		return nil
+	}
+	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
+	for resource, bounds := range *rb {
+		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
+			MaxAmount:       bounds.MaxAmount,
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+	}
+	return feederResourceBounds
+}
+
+func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
+	if mode == nil {
+		return nil
+	}
+	return utils.Ptr(starknet.DataAvailabilityMode(*mode))
+}
+
+func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
+	return &starknet.Transaction{
+		Hash:                  rpcTx.Hash,
+		Version:               rpcTx.Version,
+		ContractAddress:       rpcTx.ContractAddress,
+		ContractAddressSalt:   rpcTx.ContractAddressSalt,
+		ClassHash:             rpcTx.ClassHash,
+		ConstructorCallData:   rpcTx.ConstructorCallData,
+		Type:                  starknet.TransactionType(rpcTx.Type),
+		SenderAddress:         rpcTx.SenderAddress,
+		MaxFee:                rpcTx.MaxFee,
+		Signature:             rpcTx.Signature,
+		CallData:              rpcTx.CallData,
+		EntryPointSelector:    rpcTx.EntryPointSelector,
+		Nonce:                 rpcTx.Nonce,
+		CompiledClassHash:     rpcTx.CompiledClassHash,
+		ResourceBounds:        utils.Ptr(adaptToFeederResourceBounds(rpcTx.ResourceBounds)),
+		Tip:                   rpcTx.Tip,
+		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
+		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		AccountDeploymentData: rpcTx.AccountDeploymentData,
+		PaymasterData:         rpcTx.PaymasterData,
+	}
+}
