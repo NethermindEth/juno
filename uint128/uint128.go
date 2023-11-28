@@ -54,7 +54,6 @@ func NewInt(x []uint64) (*Int, error) {
 	i := &Int{}
 
 	return i.SetBigInt(res), nil
-
 }
 
 func (i *Int) SetBigInt(v *big.Int) *Int {
@@ -66,7 +65,6 @@ func (i *Int) SetBigInt(v *big.Int) *Int {
 	}
 
 	return i
-
 }
 
 func (i *Int) SetString(s string) (*Int, error) {
@@ -88,7 +86,6 @@ func (i *Int) SetString(s string) (*Int, error) {
 	vv.FillBytes(bytes[:])
 
 	return i.SetBigInt(vv), nil
-
 }
 
 func (i *Int) Bytes() []byte {
