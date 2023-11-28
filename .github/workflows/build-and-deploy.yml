@@ -78,7 +78,9 @@ jobs:
       GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
       INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
       MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
-
+      SEPOLIA: apps/juno-staging/overlays/staging-sepolia/config.yaml
+      SEPOLIA-INTEGRATION: apps/juno-staging/overlays/staging-sepolia-integration/config.yaml
+      
   staging-starknet-rs-tests:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
@@ -102,7 +104,9 @@ jobs:
       GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
       INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
       MAINNET: apps/juno-prod/overlays/prod-mainnet/config.yaml
-  
+      SEPOLIA: apps/juno-staging/overlays/prod-sepolia/config.yaml
+      SEPOLIA-INTEGRATION: apps/juno-staging/overlays/prod-sepolia-integration/config.yaml
+      
   prod-starknet-rs-tests:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
