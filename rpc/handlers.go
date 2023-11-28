@@ -1067,7 +1067,7 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 		return nil, jsonrpc.Err(jsonrpc.InvalidJSON, err.Error())
 	}
 
-	if txnType, typeFound := request["type"]; typeFound && txnType == TxnInvoke.String() {
+	if txnType := request["type"]; txnType == TxnInvoke.String() {
 		request["type"] = starknet.TxnInvoke.String()
 
 		updatedReq, errIn := json.Marshal(request)
@@ -1075,7 +1075,7 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
 		txnJSON = updatedReq
-	} else if version, ok := request["version"]; ok && (version == "0x2" || version == "0x3") {
+	} else if version := request["version"]; txnType == TxnDeclare.String() && (version == "0x2" || version == "0x3") {
 		contractClass, ok := request["contract_class"].(map[string]interface{})
 		if !ok {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'contract_class': ['Missing data for required field.']}")
