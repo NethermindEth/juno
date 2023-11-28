@@ -162,6 +162,18 @@ func (m DataAvailabilityMode) MarshalJSON() ([]byte, error) {
 	}
 }
 
+func (m *DataAvailabilityMode) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"L1"`:
+		*m = DAModeL1
+	case `"L2"`:
+		*m = DAModeL2
+	default:
+		return fmt.Errorf("unknown DataAvailabilityMode: %q", string(data))
+	}
+	return nil
+}
+
 type Resource uint32
 
 const (
@@ -182,6 +194,22 @@ func (r Resource) MarshalJSON() ([]byte, error) {
 
 func (r Resource) MarshalText() ([]byte, error) {
 	return r.MarshalJSON()
+}
+
+func (r *Resource) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"l1_gas"`:
+		*r = ResourceL1Gas
+	case `"l2_gas"`:
+		*r = ResourceL2Gas
+	default:
+		return fmt.Errorf("unknown Resource: %q", string(data))
+	}
+	return nil
+}
+
+func (r *Resource) UnmarshalText(data []byte) error {
+	return r.UnmarshalJSON(data)
 }
 
 type ResourceBounds struct {

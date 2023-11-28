@@ -2517,6 +2517,50 @@ func TestEvents(t *testing.T) {
 	})
 }
 
+func TestAddTransactionUnmarshal(t *testing.T) {
+	tests := map[string]string{
+		"deploy account v3": `{
+			"type": "DEPLOY_ACCOUNT",
+			"version": "0x3",
+			"signature": [
+				"0x73c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa",
+				"0x6119aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"
+			],
+			"nonce": "0x0",
+			"contract_address_salt": "0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+			"constructor_calldata": [
+				"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+				"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				"0x2",
+				"0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+				"0x0"
+			],
+			"class_hash": "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+			"resource_bounds": {
+				"l1_gas": {
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				},
+				"l2_gas": {
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				}
+			},
+			"tip": "0x0",
+			"paymaster_data": [],
+			"nonce_data_availability_mode": "L1",
+			"fee_data_availability_mode": "L2"
+		}`,
+	}
+
+	for description, txJSON := range tests {
+		t.Run(description, func(t *testing.T) {
+			tx := rpc.BroadcastedTransaction{}
+			require.NoError(t, json.Unmarshal([]byte(txJSON), &tx))
+		})
+	}
+}
+
 func TestAddTransaction(t *testing.T) {
 	network := utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
