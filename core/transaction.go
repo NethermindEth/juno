@@ -31,20 +31,31 @@ const (
 func (r Resource) String() string {
 	switch r {
 	case ResourceL1Gas:
-		return "L1_GAS"
+		return "l1_gas"
 	case ResourceL2Gas:
-		return "L2_GAS"
+		return "l2_gas"
 	default:
 		return ""
 	}
 }
 
-type DataAvailabilityMode uint32
+type DataAvailabilityMode string
 
 const (
-	DAModeL1 DataAvailabilityMode = iota
-	DAModeL2
+	DAModeL1 DataAvailabilityMode = "L1"
+	DAModeL2 DataAvailabilityMode = "L2"
 )
+
+func (da *DataAvailabilityMode) Uint64() (uint64, error) {
+	switch *da {
+	case DAModeL1:
+		return 0, nil
+	case DAModeL2:
+		return 1, nil
+	default:
+		return 0, errors.New("unknown DataAvailabilityMode")
+	}
+}
 
 type FeeUnit byte
 
@@ -452,6 +463,10 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.Nonce,
 		), nil
 	case i.Version.Is(3):
+		DAMode, err := dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode)
+		if err != nil {
+			return nil, err
+		}
 		return crypto.PoseidonArray(
 			invokeFelt,
 			i.Version.AsFelt(),
@@ -460,7 +475,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			crypto.PoseidonArray(i.PaymasterData...),
 			n.ChainID(),
 			i.Nonce,
-			new(felt.Felt).SetUint64(dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode)),
+			new(felt.Felt).SetUint64(DAMode),
 			crypto.PoseidonArray(i.AccountDeploymentData...),
 			crypto.PoseidonArray(i.CallData...),
 		), nil
@@ -475,9 +490,17 @@ func tipAndResourcesHash(tip uint64, resourceBounds map[Resource]ResourceBounds)
 	return crypto.PoseidonArray(new(felt.Felt).SetUint64(tip), l1Bounds, l2Bounds)
 }
 
-func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) uint64 {
+func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) (uint64, error) {
 	const dataAvailabilityModeBits = 32
-	return uint64(feeDAMode) + uint64(nonceDAMode)<<dataAvailabilityModeBits
+	feeDAModeUint, err := feeDAMode.Uint64()
+	if err != nil {
+		return 0, err
+	}
+	nonceDAModeUint, _ := nonceDAMode.Uint64()
+	if err != nil {
+		return 0, err
+	}
+	return uint64(feeDAModeUint) + uint64(nonceDAModeUint)<<dataAvailabilityModeBits, nil
 }
 
 func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
@@ -509,6 +532,10 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.CompiledClassHash,
 		), nil
 	case d.Version.Is(3):
+		DAMode, err := dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)
+		if err != nil {
+			return nil, err
+		}
 		return crypto.PoseidonArray(
 			declareFelt,
 			d.Version.AsFelt(),
@@ -517,7 +544,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			crypto.PoseidonArray(d.PaymasterData...),
 			n.ChainID(),
 			d.Nonce,
-			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
+			new(felt.Felt).SetUint64(DAMode),
 			crypto.PoseidonArray(d.AccountDeploymentData...),
 			d.ClassHash,
 			d.CompiledClassHash,
@@ -567,6 +594,10 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			d.Nonce,
 		), nil
 	case d.Version.Is(3):
+		DAMode, err := dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)
+		if err != nil {
+			return nil, err
+		}
 		return crypto.PoseidonArray(
 			deployAccountFelt,
 			d.Version.AsFelt(),
@@ -575,7 +606,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			crypto.PoseidonArray(d.PaymasterData...),
 			n.ChainID(),
 			d.Nonce,
-			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
+			new(felt.Felt).SetUint64(DAMode),
 			crypto.PoseidonArray(d.ConstructorCallData...),
 			d.ClassHash,
 			d.ContractAddressSalt,

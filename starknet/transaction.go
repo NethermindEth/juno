@@ -118,9 +118,9 @@ func (r *Resource) UnmarshalJSON(data []byte) error {
 
 func (r *Resource) UnmarshalText(text []byte) error {
 	switch string(text) {
-	case "L1_GAS":
+	case "l1_gas":
 		*r = ResourceL1Gas
-	case "L2_GAS":
+	case "l2_gas":
 		*r = ResourceL2Gas
 	default:
 		return fmt.Errorf("unknown resource: %q", string(text))
