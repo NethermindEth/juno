@@ -1435,7 +1435,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(err.Error())
 		}
 		return nil, makeContractError(err)
 	}
@@ -1572,7 +1572,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		sequencerAddress, state, h.network, paidFeesOnL1, false, false, block.Header.GasPrice, block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(err.Error())
 		}
 		return nil, makeContractError(err)
 	}
