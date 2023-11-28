@@ -348,6 +348,7 @@ type FeeEstimate struct {
 	GasConsumed *felt.Felt `json:"gas_consumed"`
 	GasPrice    *felt.Felt `json:"gas_price"`
 	OverallFee  *felt.Felt `json:"overall_fee"`
+	Unit        *FeeUnit   `json:"unit,omitempty"`
 }
 
 //nolint:gocyclo
