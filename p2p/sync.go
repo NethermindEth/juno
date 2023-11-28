@@ -28,6 +28,11 @@ import (
 // 	a. Fetch boot peer header
 // 	b. Verify signature the header.
 
+// represents range of blocks to request [start; end)
+type BlockRange struct {
+	Start, End uint64
+}
+
 type syncService struct {
 	height   uint64 // todo: remove later, instead use blockchain
 	host     host.Host
@@ -52,26 +57,12 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, bootNode peer.ID, ne
 }
 
 func (s *syncService) start(ctx context.Context) {
-	store := s.host.Peerstore()
-	peers := store.Peers()
-
 	bootNodeHeight, err := s.bootNodeHeight(ctx)
 	if err != nil {
 		s.log.Errorw("Failed to get boot node height", "err", err)
 		return
 	}
 	s.log.Infow("Boot node height", "height", bootNodeHeight)
-
-	// todo do not request same block from all peers
-	peers = utils.Filter(peers, func(peerID peer.ID) bool {
-		return peerID != s.host.ID()
-	})
-	if len(peers) == 0 {
-		s.log.Errorw("No peers available")
-		return
-	}
-	idx := rand.Intn(len(peers))
-	randomPeer := peers[idx]
 
 	/*
 
@@ -85,112 +76,115 @@ func (s *syncService) start(ctx context.Context) {
 			2. Use it to fetch multiple blocks from a peer at the same time.
 				If peer doesn't have all the block requested we need to ask other peers
 
-
-
-
 	*/
 
-	// represents range of blocks to request [start; end)
-	//type BlockRange struct {
-	//	Start, End uint64
-	//}
-	//
-	//fetchBlocks := func(ranges <-chan BlockRange) <-chan core.Block {
-	//	coreBlocks := make(chan core.Block)
-	//
-	//	go func() {
-	//		defer close(coreBlocks)
-	//
-	//		for r := range ranges {
-	//			var blocks []core.Block
-	//			// do some stuff
-	//			for _, block := range blocks {
-	//				coreBlocks <- block
-	//			}
-	//		}
-	//	}()
-	//
-	//	return coreBlocks
-	//}
-	//
-	//santiyChecks := func(blocks <-chan core.Block, fetchBlocks chan<- BlockRange) <-chan core.Block {
-	//	// check structural integrity of the block and signatures
-	//
-	//	checkedBlocks := make(chan core.Block)
-	//	go func() {
-	//		defer close(checkedBlocks)
-	//
-	//		for block := range blocks {
-	//			// do santify check
-	//			var checkFailed bool
-	//
-	//			checkedBlocks <- block
-	//			if checkFailed {
-	//				fetchBlocks <- BlockRange{
-	//					Start: block.Number,
-	//					End:   block.Number + 1,
-	//				}
-	//			}
-	//		}
-	//	}()
-	//
-	//	return checkedBlocks
-	//}
-	//
-	//orderCheckedBlocks := func(checkedBlocks <-chan core.Block) <-chan core.Block {
-	//	outOfOrderBlocks := make(map[uint64]core.Block)
-	//
-	//	orderBlocks := make(chan core.Block)
-	//	go func() {
-	//		defer close(orderBlocks)
-	//		for block := range checkedBlocks {
-	//			curH, err := s.blockchain.Height()
-	//			if block.Number == curH+1 {
-	//				orderBlocks <- block
-	//			} else {
-	//				outOfOrderBlocks[block.Number] = block
-	//
-	//				// check if there is a block already in the map
-	//				if b, ok := outOfOrderBlocks[curH+1]; ok {
-	//					orderBlocks <- b
-	//
-	//					delete(outOfOrderBlocks, curH+1)
-	//				}
-	//			}
-	//		}
-	//	}()
-	//	return orderBlocks
-	//}
-	//
-	//blockRangeStream := make(chan BlockRange, 1)
-	//blockRangeStream <- BlockRange{
-	//	Start: s.height,
-	//	End:   bootNodeHeight,
-	//}
-	//fetchedBlocks := fetchBlocks(blockRangeStream)
-	//checkedBlocks := santiyChecks(fetchedBlocks, blockRangeStream)
-	//orderedBlocks := orderCheckedBlocks(checkedBlocks)
-	// todo storeBlocks
+	fetchBlocks := func(ranges <-chan BlockRange) <-chan core.Block {
+		coreBlocks := make(chan core.Block)
 
-	fmt.Println("header's start", s.height, "header's stop", bootNodeHeight)
-	headers, err := s.requestBlockHeaders(ctx, s.height, bootNodeHeight, randomPeer)
-	if err != nil {
-		s.log.Errorw("Failed to get headers", "err", err)
-		return
+		go func() {
+			defer close(coreBlocks)
+
+			for r := range ranges {
+				go s.requestBlocks(ctx, r, coreBlocks)
+			}
+		}()
+
+		return coreBlocks
 	}
 
-	fmt.Println("body's start", s.height, "body's stop", bootNodeHeight)
-	blockBodies, err := s.requestBlockBodies(ctx, s.height, bootNodeHeight, randomPeer)
-	if err != nil {
-		s.log.Errorw("Failed to get block bodies", "err", err)
-		return
+	santiyChecks := func(blocks <-chan core.Block, fetchBlocks chan<- BlockRange) <-chan core.Block {
+		// check structural integrity of the block and signatures
+
+		checkedBlocks := make(chan core.Block)
+		go func() {
+			defer close(checkedBlocks)
+
+			for block := range blocks {
+				// do santify check
+				var checkFailed bool
+
+				checkedBlocks <- block
+				if checkFailed {
+					fetchBlocks <- BlockRange{
+						Start: block.Number,
+						End:   block.Number + 1,
+					}
+				}
+			}
+		}()
+
+		return checkedBlocks
 	}
 
-	s.log.Debugw("Merging block bodies with headers", "bodiesLen", len(blockBodies), "headerLen", len(headers))
-	for i, body := range blockBodies {
-		body.block.Header = &headers[i]
-		// fmt.Printf("Received block body %d %+v\n", i, body)
+	orderCheckedBlocks := func(checkedBlocks <-chan core.Block) <-chan core.Block {
+		outOfOrderBlocks := make(map[uint64]core.Block)
+
+		orderBlocks := make(chan core.Block)
+		go func() {
+			defer close(orderBlocks)
+			for block := range checkedBlocks {
+				curH, err := s.blockchain.Height()
+				if block.Number == curH+1 {
+					orderBlocks <- block
+				} else {
+					outOfOrderBlocks[block.Number] = block
+
+					// check if there is a block already in the map
+					if b, ok := outOfOrderBlocks[curH+1]; ok {
+						orderBlocks <- b
+
+						delete(outOfOrderBlocks, curH+1)
+					}
+				}
+			}
+		}()
+		return orderBlocks
 	}
+	storeBlocks := func(blocks <-chan core.Block) <-chan struct{} {
+		stopped := make(chan struct{})
+		go func() {
+			defer close(stopped)
+
+			for block := range blocks {
+				_ = block
+				// todo store block
+			}
+		}()
+
+		return stopped
+	}
+
+	blockRangeStream := make(chan BlockRange, 1)
+	blockRangeStream <- BlockRange{
+		Start: 0,
+		End:   bootNodeHeight,
+	}
+	fetchedBlocks := fetchBlocks(blockRangeStream)
+	checkedBlocks := santiyChecks(fetchedBlocks, blockRangeStream)
+	orderedBlocks := orderCheckedBlocks(checkedBlocks)
+	stopped := storeBlocks(orderedBlocks)
+
+	<-stopped
+
+	//fmt.Println("header's start", s.height, "header's stop", bootNodeHeight)
+	//headers, err := s.requestBlockHeaders(ctx, s.height, bootNodeHeight, randomPeer)
+	//if err != nil {
+	//	s.log.Errorw("Failed to get headers", "err", err)
+	//	return
+	//}
+	//
+	//fmt.Println("body's start", s.height, "body's stop", bootNodeHeight)
+	//blockBodies, err := s.requestBlockBodies(ctx, s.height, bootNodeHeight, randomPeer)
+	//if err != nil {
+	//	s.log.Errorw("Failed to get block bodies", "err", err)
+	//	return
+	//}
+	//
+	//s.log.Debugw("Merging block bodies with headers", "bodiesLen", len(blockBodies), "headerLen", len(headers))
+	//for i, body := range blockBodies {
+	//	body.block.Header = &headers[i]
+	//	// fmt.Printf("Received block body %d %+v\n", i, body)
+	//}
 }
 
 func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
@@ -227,14 +221,7 @@ func newBlockBody() blockBody {
 	}
 }
 
-func (s *syncService) requestBlockBodies(ctx context.Context, start, stop uint64, id peer.ID) ([]blockBody, error) {
-	it := &spec.Iteration{
-		Start:     &spec.Iteration_BlockNumber{start},
-		Direction: spec.Iteration_Forward,
-		Limit:     stop + 1,
-		Step:      1,
-	}
-
+func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration, id peer.ID) ([]blockBody, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -311,14 +298,7 @@ func (s *syncService) requestBlockBodies(ctx context.Context, start, stop uint64
 }
 
 // todo rename method
-func (s *syncService) requestBlockHeaders(ctx context.Context, start, stop uint64, id peer.ID) ([]core.Header, error) {
-	it := &spec.Iteration{
-		Start:     &spec.Iteration_BlockNumber{start},
-		Direction: spec.Iteration_Forward,
-		Limit:     stop + 1,
-		Step:      1,
-	}
-
+func (s *syncService) requestBlockHeaders(ctx context.Context, it *spec.Iteration, id peer.ID) ([]core.Header, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -479,4 +459,48 @@ func (s *syncService) requestEvents(ctx context.Context, id peer.ID, it *spec.It
 	}
 
 	return events, nil
+}
+
+func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks chan<- core.Block) {
+	const limit = 10
+
+	for i := r.Start; i < r.End; i += limit {
+		it := s.createIterator(BlockRange{
+			Start: i,
+			End:   i + limit,
+		})
+
+		id := s.randomPeer()
+		headersFromPeer, err := s.requestBlockHeaders(ctx, it, id)
+		if err != nil {
+		}
+
+		blocksFromPeer, err := s.requestBlockBodies(ctx, it, id)
+		if err != nil {
+		}
+	}
+}
+
+func (s *syncService) randomPeer() peer.ID {
+	peers := s.host.Peerstore().Peers()
+
+	// todo do not request same block from all peers
+	peers = utils.Filter(peers, func(peerID peer.ID) bool {
+		return peerID != s.host.ID()
+	})
+	if len(peers) == 0 {
+		panic("No peers available")
+	}
+
+	idx := rand.Intn(len(peers))
+	return peers[idx]
+}
+
+func (s *syncService) createIterator(r BlockRange) *spec.Iteration {
+	return &spec.Iteration{
+		Start:     &spec.Iteration_BlockNumber{r.Start},
+		Direction: spec.Iteration_Forward,
+		Limit:     r.End,
+		Step:      1,
+	}
 }
