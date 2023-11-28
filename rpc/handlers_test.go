@@ -1458,7 +1458,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			},
 			"actual_fee": { 
 				"amount": "0x16d8b4ad4000",
-				"unit": "STRK"
+				"unit": "FRI"
 			},
 			"type": "INVOKE"
 		}`

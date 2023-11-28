@@ -634,7 +634,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	feeUnit := WEI
 	version := txn.TxVersion()
 	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = STRK
+		feeUnit = FRI
 	}
 
 	return &TransactionReceipt{
