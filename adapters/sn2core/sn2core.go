@@ -1,9 +1,9 @@
 package sn2core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -244,7 +244,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
-func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
+func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass json.RawMessage) (core.Class, error) {
 	var err error
 
 	class := new(core.Cairo1Class)
@@ -272,52 +272,28 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 	}
 
 	if compiledClass != nil {
-		adaptedCompiledClass, err := AdaptCompiledClass(compiledClass)
-		if err != nil {
+		if err = json.Unmarshal(compiledClass, &class.Compiled); err != nil {
 			return nil, err
 		}
-		class.Compiled = *adaptedCompiledClass
 	}
-
 	return class, nil
-}
-
-func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {
-	compiled := new(core.CompiledClass)
-	compiled.Bytecode = compiledClass.Bytecode
-	compiled.PythonicHints = compiledClass.PythonicHints
-	compiled.CompilerVersion = compiledClass.CompilerVersion
-	compiled.Hints = compiledClass.Hints
-
-	var ok bool
-	compiled.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
-	if !ok {
-		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
-	}
-
-	entryPoints := compiledClass.EntryPoints
-	compiled.External = utils.Map(entryPoints.External, adaptCompiledEntryPoint)
-	compiled.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
-	compiled.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
-
-	return compiled, nil
 }
 
 func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
 	class := new(core.Cairo0Class)
 	class.Abi = response.Abi
 
-	class.Externals = make([]core.EntryPoint, 0, len(response.EntryPoints.External))
+	class.Externals = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.External {
 		class.Externals = append(class.Externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	class.L1Handlers = make([]core.EntryPoint, 0, len(response.EntryPoints.L1Handler))
+	class.L1Handlers = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.L1Handler {
 		class.L1Handlers = append(class.L1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	class.Constructors = make([]core.EntryPoint, 0, len(response.EntryPoints.Constructor))
+	class.Constructors = []core.EntryPoint{}
 	for _, v := range response.EntryPoints.Constructor {
 		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
@@ -359,7 +335,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		}
 	}
 
-	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.Nonces))
+	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt)
 	for addrStr, nonce := range response.StateDiff.Nonces {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
@@ -368,7 +344,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt][]core.StorageDiff, len(response.StateDiff.StorageDiffs))
+	stateDiff.StorageDiffs = make(map[felt.Felt][]core.StorageDiff)
 	for addrStr, diffs := range response.StateDiff.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
@@ -397,12 +373,4 @@ func safeFeltToUint64(f *felt.Felt) uint64 {
 		return f.Uint64()
 	}
 	return 0
-}
-
-func adaptCompiledEntryPoint(entryPoint starknet.CompiledEntryPoint) core.CompiledEntryPoint {
-	return core.CompiledEntryPoint{
-		Offset:   entryPoint.Offset,
-		Selector: entryPoint.Selector,
-		Builtins: entryPoint.Builtins,
-	}
 }
