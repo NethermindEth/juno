@@ -118,9 +118,9 @@ func (r *Resource) UnmarshalJSON(data []byte) error {
 
 func (r *Resource) UnmarshalText(text []byte) error {
 	switch string(text) {
-	case "l1_gas":
+	case "L1_GAS":
 		*r = ResourceL1Gas
-	case "l2_gas":
+	case "L2_GAS":
 		*r = ResourceL2Gas
 	default:
 		return fmt.Errorf("unknown resource: %q", string(text))
@@ -128,11 +128,11 @@ func (r *Resource) UnmarshalText(text []byte) error {
 	return nil
 }
 
-type DataAvailabilityMode string
+type DataAvailabilityMode uint32
 
 const (
-	DAModeL1 DataAvailabilityMode = "L1"
-	DAModeL2 DataAvailabilityMode = "L2"
+	DAModeL1 DataAvailabilityMode = iota
+	DAModeL2
 )
 
 type ResourceBounds struct {
