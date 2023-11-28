@@ -1340,13 +1340,17 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (json.Ra
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) LegacyTraceTransaction(ctx context.Context, hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash, true)
+	trace, err := h.traceTransaction(ctx, &hash, true)
+	if err.Code == ErrTxnHashNotFound.Code {
+		err = ErrInvalidTxHash
+	}
+	return trace, err
 }
 
 func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, legacyTraceJSON bool) (json.RawMessage, *jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(hash)
 	if err != nil {
-		return nil, ErrInvalidTxHash
+		return nil, ErrTxnHashNotFound
 	}
 
 	block, err := h.bcReader.BlockByNumber(blockNumber)

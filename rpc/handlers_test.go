@@ -2821,7 +2821,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		assert.Nil(t, trace)
-		assert.Equal(t, rpc.ErrInvalidTxHash, err)
+		assert.Equal(t, rpc.ErrTxnHashNotFound, err)
 	})
 	t.Run("ok", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
