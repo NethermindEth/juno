@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -78,36 +81,60 @@ func (s *syncService) start(ctx context.Context) {
 
 	*/
 
-	fetchBlocks := func(ranges <-chan BlockRange) <-chan core.Block {
-		coreBlocks := make(chan core.Block)
+	var curHeight int32 = -1
+
+	logBlocks := func(prefix string, input <-chan blockBody) <-chan blockBody {
+		out := make(chan blockBody)
+
+		go func() {
+			defer close(out)
+
+			for item := range input {
+				fmt.Println(prefix, item.block.Number)
+				out <- item
+			}
+		}()
+
+		return out
+	}
+
+	fetchBlocks := func(ranges <-chan BlockRange) <-chan blockBody {
+		coreBlocks := make(chan blockBody)
 
 		go func() {
 			defer close(coreBlocks)
 
-			for r := range ranges {
-				go s.requestBlocks(ctx, r, coreBlocks)
+			for {
+				select {
+				case r := <-ranges:
+					go s.requestBlocks(ctx, r, coreBlocks)
+				case <-ctx.Done():
+					s.log.Infow("Context done in p2p sync. Exiting", "err", ctx.Err())
+					return
+				}
 			}
 		}()
 
 		return coreBlocks
 	}
 
-	santiyChecks := func(blocks <-chan core.Block, fetchBlocks chan<- BlockRange) <-chan core.Block {
+	santiyChecks := func(blockBodies <-chan blockBody, fetchBlocks chan<- BlockRange) <-chan blockBody {
 		// check structural integrity of the block and signatures
 
-		checkedBlocks := make(chan core.Block)
+		checkedBlocks := make(chan blockBody)
 		go func() {
 			defer close(checkedBlocks)
 
-			for block := range blocks {
+			for blockBody := range blockBodies {
 				// do santify check
 				var checkFailed bool
 
-				checkedBlocks <- block
+				checkedBlocks <- blockBody
 				if checkFailed {
+					s.log.Debugw("Check failed, refetching block range", "blockBody", blockBody)
 					fetchBlocks <- BlockRange{
-						Start: block.Number,
-						End:   block.Number + 1,
+						Start: blockBody.block.Number,
+						End:   blockBody.block.Number + 1,
 					}
 				}
 			}
@@ -116,38 +143,68 @@ func (s *syncService) start(ctx context.Context) {
 		return checkedBlocks
 	}
 
-	orderCheckedBlocks := func(checkedBlocks <-chan core.Block) <-chan core.Block {
-		outOfOrderBlocks := make(map[uint64]core.Block)
+	unorderStream := func(items <-chan blockBody) <-chan blockBody {
+		out := make(chan blockBody)
 
-		orderBlocks := make(chan core.Block)
+		go func() {
+			defer close(out)
+
+			receivedItems := make(map[uint64]blockBody, 10)
+			for item := range items {
+				receivedItems[item.block.Number] = item
+
+				if len(receivedItems) == 10 {
+					for key, value := range receivedItems {
+						out <- value
+						delete(receivedItems, key)
+					}
+				}
+			}
+		}()
+
+		return out
+	}
+
+	orderCheckedBlocks := func(checkedBlockBodies <-chan blockBody) <-chan blockBody {
+		outOfOrderBlocks := make(map[uint64]blockBody)
+
+		orderBlocks := make(chan blockBody)
 		go func() {
 			defer close(orderBlocks)
-			for block := range checkedBlocks {
-				curH, err := s.blockchain.Height()
-				if block.Number == curH+1 {
-					orderBlocks <- block
+			for checkedBlockBody := range checkedBlockBodies {
+				h := uint64(atomic.LoadInt32(&curHeight))
+				if err != nil {
+					s.log.Warnw("Failed to get blockchain height", "err", err)
+				}
+				if checkedBlockBody.block.Number == h+1 {
+					orderBlocks <- checkedBlockBody
 				} else {
-					outOfOrderBlocks[block.Number] = block
+					outOfOrderBlocks[checkedBlockBody.block.Number] = checkedBlockBody
 
-					// check if there is a block already in the map
-					if b, ok := outOfOrderBlocks[curH+1]; ok {
+					// check if there is a blockBody already in the map
+					if b, ok := outOfOrderBlocks[h+1]; ok {
 						orderBlocks <- b
 
-						delete(outOfOrderBlocks, curH+1)
+						delete(outOfOrderBlocks, h+1)
 					}
 				}
 			}
 		}()
 		return orderBlocks
 	}
-	storeBlocks := func(blocks <-chan core.Block) <-chan struct{} {
+	storeBlocks := func(blockBodies <-chan blockBody) <-chan struct{} {
 		stopped := make(chan struct{})
 		go func() {
 			defer close(stopped)
 
-			for block := range blocks {
-				_ = block
-				// todo store block
+			for blockBody := range blockBodies {
+				fmt.Println("Storing block Number", blockBody.block.Number)
+				atomic.AddInt32(&curHeight, 1)
+
+				if blockBody.block.Number != uint64(curHeight) {
+					s.log.Warnw("Current height != block.Number", "curHeight", curHeight, "blockNumber", blockBody.block.Number)
+				}
+
 			}
 		}()
 
@@ -160,31 +217,21 @@ func (s *syncService) start(ctx context.Context) {
 		End:   bootNodeHeight,
 	}
 	fetchedBlocks := fetchBlocks(blockRangeStream)
+	// fetchedBlocks -> ch1 ^
+	fetchedBlocks = logBlocks("Fetched", fetchedBlocks)
+	// fetchedBlocks -> fetchedBlocks ^
+
 	checkedBlocks := santiyChecks(fetchedBlocks, blockRangeStream)
-	orderedBlocks := orderCheckedBlocks(checkedBlocks)
+	checkedBlocks = logBlocks("SanityCheck", checkedBlocks)
+
+	unorderedBlocks := unorderStream(checkedBlocks)
+	unorderedBlocks = logBlocks("Unorder fix", unorderedBlocks)
+
+	orderedBlocks := orderCheckedBlocks(unorderedBlocks)
+	orderedBlocks = logBlocks("Order blocks", orderedBlocks)
+
 	stopped := storeBlocks(orderedBlocks)
-
 	<-stopped
-
-	//fmt.Println("header's start", s.height, "header's stop", bootNodeHeight)
-	//headers, err := s.requestBlockHeaders(ctx, s.height, bootNodeHeight, randomPeer)
-	//if err != nil {
-	//	s.log.Errorw("Failed to get headers", "err", err)
-	//	return
-	//}
-	//
-	//fmt.Println("body's start", s.height, "body's stop", bootNodeHeight)
-	//blockBodies, err := s.requestBlockBodies(ctx, s.height, bootNodeHeight, randomPeer)
-	//if err != nil {
-	//	s.log.Errorw("Failed to get block bodies", "err", err)
-	//	return
-	//}
-	//
-	//s.log.Debugw("Merging block bodies with headers", "bodiesLen", len(blockBodies), "headerLen", len(headers))
-	//for i, body := range blockBodies {
-	//	body.block.Header = &headers[i]
-	//	// fmt.Printf("Received block body %d %+v\n", i, body)
-	//}
 }
 
 func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
@@ -247,9 +294,10 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 
 	var count int
 	prevTime := time.Now()
+	_ = prevTime
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
 		if count%6 == 0 {
-			fmt.Printf("fetching header body=%d, timeSpent=%v\n", count, time.Since(prevTime))
+			// fmt.Printf("fetching header body=%d, timeSpent=%v\n", count, time.Since(prevTime))
 		}
 		prevTime = time.Now()
 		count++
@@ -311,8 +359,11 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, it *spec.Iteratio
 	var headers []core.Header
 	var count int32
 	prevTime := time.Now()
+	_ = prevTime
+
+iteratorLoop:
 	for res, valid := headersIt(); valid; res, valid = headersIt() {
-		fmt.Printf("fetching header number=%d, timeSpent=%v\n", count, time.Since(prevTime))
+		/// fmt.Printf("fetching header number=%d, timeSpent=%v\n", count, time.Since(prevTime))
 		prevTime = time.Now()
 		count++
 
@@ -371,6 +422,11 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, it *spec.Iteratio
 		header.Signatures = signatures
 		headers = append(headers, header)
 	}
+
+	blockNumbers := utils.Map(headers, func(h core.Header) string {
+		return strconv.Itoa(int(h.Number))
+	})
+	fmt.Printf("Fetched block numbers: %v\n", strings.Join(blockNumbers, ","))
 
 	return headers, nil
 }
@@ -461,7 +517,8 @@ func (s *syncService) requestEvents(ctx context.Context, id peer.ID, it *spec.It
 	return events, nil
 }
 
-func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks chan<- core.Block) {
+func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks chan<- blockBody) {
+	fmt.Println("requestBlocks called for range", r)
 	const limit = 10
 
 	for i := r.Start; i < r.End; i += limit {
@@ -469,14 +526,35 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 			Start: i,
 			End:   i + limit,
 		})
+		fmt.Println("Iterator ", it.Start, it.Limit)
 
 		id := s.randomPeer()
+
+		// todo: Ensure the header matches the body. Matching on the index is not enough as headers and bodies will come in different
+		// order. Therefore, requestBlockHeaders should return *spec.Blockheader and *spec.BlockBody and match on BlockID
 		headersFromPeer, err := s.requestBlockHeaders(ctx, it, id)
 		if err != nil {
+			s.log.Errorw("Failed to request blockHeaders", "err", err)
+			return
 		}
 
 		blocksFromPeer, err := s.requestBlockBodies(ctx, it, id)
 		if err != nil {
+			s.log.Errorw("Failed to request blockBodies", "err", err)
+			return
+		}
+
+		if len(headersFromPeer) != len(blocksFromPeer) {
+			s.log.Errorw("Number of headers doesn't match number of bodies",
+				"headersNum", len(headersFromPeer),
+				"bodiesNum", len(blocksFromPeer))
+			return
+		}
+
+		for i, blockBody := range blocksFromPeer {
+			blockBody.block.Header = &headersFromPeer[i]
+
+			blocks <- blockBody
 		}
 	}
 }
@@ -497,10 +575,11 @@ func (s *syncService) randomPeer() peer.ID {
 }
 
 func (s *syncService) createIterator(r BlockRange) *spec.Iteration {
+	limit := r.End - r.Start
 	return &spec.Iteration{
 		Start:     &spec.Iteration_BlockNumber{r.Start},
 		Direction: spec.Iteration_Forward,
-		Limit:     r.End,
+		Limit:     limit,
 		Step:      1,
 	}
 }
