@@ -2796,10 +2796,12 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	estimateFee, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
 	require.Nil(t, err)
+	feeUnit := rpc.WEI
 	require.Equal(t, rpc.FeeEstimate{
 		GasConsumed: expectedGasConsumed,
 		GasPrice:    latestHeader.GasPrice,
 		OverallFee:  new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice),
+		Unit:        &feeUnit,
 	}, *estimateFee)
 }
 

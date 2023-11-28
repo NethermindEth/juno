@@ -565,6 +565,16 @@ func (h *Handler) LegacyTransactionByBlockIDAndIndex(id BlockID, txIndex int) (*
 	return txn, nil
 }
 
+func feeUnit(txn core.Transaction) FeeUnit {
+	feeUnit := WEI
+	version := txn.TxVersion()
+	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
+		feeUnit = FRI
+	}
+
+	return feeUnit
+}
+
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
@@ -631,12 +641,6 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		es = TxnSuccess
 	}
 
-	feeUnit := WEI
-	version := txn.TxVersion()
-	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = FRI
-	}
-
 	return &TransactionReceipt{
 		FinalityStatus:  status,
 		ExecutionStatus: es,
@@ -644,7 +648,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
-			Unit:   feeUnit,
+			Unit:   feeUnit(txn),
 		},
 		BlockHash:          blockHash,
 		BlockNumber:        receiptBlockNumber,
@@ -1283,6 +1287,19 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), nil
 }
 
+func (h *Handler) LegacyEstimateFee(broadcastedTxns []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, id BlockID,
+) ([]FeeEstimate, *jsonrpc.Error) {
+	result, err := h.LegacySimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
+	if err != nil {
+		return nil, err
+	}
+
+	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
+		return tx.FeeEstimation
+	}), nil
+}
+
 func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
@@ -1429,6 +1446,10 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			GasConsumed: new(felt.Felt).Div(overallFee, header.GasPrice),
 			GasPrice:    header.GasPrice,
 			OverallFee:  overallFee,
+		}
+
+		if !legacyTraceJSON {
+			estimate.Unit = utils.Ptr(feeUnit(txns[i]))
 		}
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: traces[i],
@@ -1951,7 +1972,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags", Optional: true}, {Name: "block_id"}},
-			Handler: h.EstimateFee,
+			Handler: h.LegacyEstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
