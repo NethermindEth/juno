@@ -53,11 +53,11 @@ func NewInt(x []uint64) (*Int, error) {
 
 	i := &Int{}
 
-	return i.setBigInt(res), nil
+	return i.SetBigInt(res), nil
 
 }
 
-func (i *Int) setBigInt(v *big.Int) *Int {
+func (i *Int) SetBigInt(v *big.Int) *Int {
 	// we're expecting words to have a length of 2, which represents 2x uint64s in a slice
 	words := v.Bits()
 
@@ -87,7 +87,7 @@ func (i *Int) SetString(s string) (*Int, error) {
 
 	vv.FillBytes(bytes[:])
 
-	return i.setBigInt(vv), nil
+	return i.SetBigInt(vv), nil
 
 }
 
