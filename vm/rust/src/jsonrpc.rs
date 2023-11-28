@@ -122,7 +122,7 @@ pub enum ExecuteInvocation {
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
 pub fn new_transaction_trace(
-    tx: StarknetApiTransaction,
+    tx: &StarknetApiTransaction,
     info: BlockifierTxInfo,
     state: &mut TransactionalState<JunoStateReader>,
 ) -> Result<TransactionTrace, StateError> {
