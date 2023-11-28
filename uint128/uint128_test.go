@@ -2,7 +2,11 @@ package uint128
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
+
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 func TestUint128Bytes(t *testing.T) {
@@ -60,6 +64,14 @@ func TestUint128Bytes(t *testing.T) {
 			hiBits:       0x1A4B7E9C2D3F5A6E,
 			expected_arr: []byte{26, 75, 126, 156, 45, 63, 90, 110, 0, 0, 0, 0, 0, 0, 0, 0},
 			expected_str: "1a4b7e9c2d3f5a6e0000000000000000",
+			wantedErr:    false,
+		},
+		{
+			description:  "128-bit #7",
+			loBits:       0x1,
+			hiBits:       0x1,
+			expected_arr: []byte{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
+			expected_str: "00000000000000010000000000000001",
 			wantedErr:    false,
 		},
 	}
@@ -224,6 +236,15 @@ func TestUint128FromHexString(t *testing.T) {
 			expected:    &Int{},
 			wantedErr:   true,
 		},
+		{
+			description: "String 5",
+			textInput:   "0x6e58133b38301a6cdfa34ca991c4ba39",
+			expected: &Int{
+				0: 0xdfa34ca991c4ba39,
+				1: 0x6e58133b38301a6c,
+			},
+			wantedErr: false,
+		},
 	}
 	{
 		for _, test := range tests {
@@ -240,6 +261,52 @@ func TestUint128FromHexString(t *testing.T) {
 					t.Errorf("got %v, expected=%v", actual, test.expected)
 				}
 			})
+		}
+	}
+}
+
+func TestUint128ToFelt(t *testing.T) {
+	tests := []struct {
+		description  string
+		inputUint128 *Int
+		element      *fp.Element
+		wantErr      bool
+	}{
+		{
+			description: "Uint128 -> Felt #1",
+			inputUint128: &Int{
+				0: 0x1,
+				1: 0x1,
+			},
+			element: &fp.Element{
+				0: 0x1,
+				1: 0x1,
+			},
+			wantErr: false,
+		},
+		{
+			description: "Uint128 -> Felt #2",
+			inputUint128: &Int{
+				0: 0x0,
+				1: 0x0,
+			},
+			element: &fp.Element{
+				0: 0x0,
+				1: 0x0,
+			},
+			wantErr: false,
+		},
+	}
+	{
+		for _, test := range tests {
+			actual := test.inputUint128.ToFelt()
+			expected := felt.NewFelt(test.element)
+			if !reflect.DeepEqual(actual.Bytes(), expected.Bytes()) {
+				if test.wantErr {
+					return
+				}
+				t.Errorf("Test case '%s' failed. Got: %v, Expected: %v", test.description, actual.Bytes(), expected.Bytes())
+			}
 		}
 	}
 }

@@ -370,7 +370,7 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: uint128.SetInt128("0x5af3107a4000"),
+					MaxPricePerUnit: utils.HexToUint128(t, "0x5af3107a4000"),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
@@ -413,7 +413,7 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: uint128.SetInt128("0x2540be400"),
+					MaxPricePerUnit: utils.HexToUint128(t, "0x2540be400"),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
@@ -445,7 +445,7 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: uint128.SetInt128("0x5af3107a4000"),
+					MaxPricePerUnit: utils.HexToUint128(t, "0x5af3107a4000"),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,

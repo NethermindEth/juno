@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/uint128"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
@@ -213,8 +214,8 @@ func (r *Resource) UnmarshalText(data []byte) error {
 }
 
 type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
+	MaxAmount       *felt.Felt   `json:"max_amount"`
+	MaxPricePerUnit *uint128.Int `json:"max_price_per_unit"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
@@ -256,7 +257,7 @@ func (tx *Transaction) ToPreV3() error {
 		return fmt.Errorf("unexpected transaction type %s", tx.Type)
 	}
 	l1Resources := (*tx.ResourceBounds)[ResourceL1Gas]
-	tx.MaxFee = new(felt.Felt).Mul(l1Resources.MaxAmount, l1Resources.MaxPricePerUnit)
+	tx.MaxFee = new(felt.Felt).Mul(l1Resources.MaxAmount, l1Resources.MaxPricePerUnit.ToFelt())
 
 	tx.ResourceBounds = nil
 	tx.Tip = nil

@@ -8,6 +8,9 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 // *Int[1] = high bits, more significant bits, upper 64 bits of a 128-bit value - ie [64:128]
@@ -142,4 +145,13 @@ func (i Int) Equal(o *Int) bool {
 
 func (i Int) String() string {
 	return fmt.Sprintf("%016x%016x", i[1], i[0])
+}
+
+func (i Int) ToFelt() *felt.Felt {
+	fp := &fp.Element{
+		0: i[0],
+		1: i[1],
+	}
+
+	return felt.NewFelt(fp)
 }
