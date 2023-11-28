@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -57,24 +56,7 @@ type Cairo1Class struct {
 	Program         []*felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string
-	Compiled        CompiledClass
-}
-
-type CompiledClass struct {
-	Bytecode        []*felt.Felt
-	PythonicHints   json.RawMessage
-	CompilerVersion string
-	Hints           json.RawMessage
-	Prime           *big.Int
-	External        []CompiledEntryPoint
-	L1Handler       []CompiledEntryPoint
-	Constructor     []CompiledEntryPoint
-}
-
-type CompiledEntryPoint struct {
-	Offset   uint64
-	Builtins []string
-	Selector *felt.Felt
+	Compiled        json.RawMessage
 }
 
 type SierraEntryPoint struct {
@@ -97,18 +79,6 @@ func (c *Cairo1Class) Hash() *felt.Felt {
 	)
 }
 
-var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
-
-func (c *CompiledClass) Hash() *felt.Felt {
-	return crypto.PoseidonArray(
-		compiledClassV1Prefix,
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...),
-		crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...),
-		crypto.PoseidonArray(c.Bytecode...),
-	)
-}
-
 func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 	result := make([]*felt.Felt, len(entryPoints)*2)
 	for i, entryPoint := range entryPoints {
@@ -117,23 +87,6 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 		result[2*i] = entryPoint.Selector
 		result[2*i+1] = new(felt.Felt).SetUint64(entryPoint.Index)
 	}
-	return result
-}
-
-func flattenCompiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
-	result := make([]*felt.Felt, len(entryPoints)*3)
-	for i, entryPoint := range entryPoints {
-		// It is important that Selector is first, then Offset is second because the order
-		// influences the class hash.
-		result[3*i] = entryPoint.Selector
-		result[3*i+1] = new(felt.Felt).SetUint64(entryPoint.Offset)
-		builtins := make([]*felt.Felt, len(entryPoint.Builtins))
-		for idx, buil := range entryPoint.Builtins {
-			builtins[idx] = new(felt.Felt).SetBytes([]byte(buil))
-		}
-		result[3*i+2] = crypto.PoseidonArray(builtins...)
-	}
-
 	return result
 }
 
