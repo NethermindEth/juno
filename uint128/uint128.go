@@ -139,8 +139,23 @@ func (i Int) Equal(o *Int) bool {
 	return i[0] == o[0] && i[1] == o[1]
 }
 
+func (i *Int) Text(base int) string {
+	if base < 2 || base > 36 {
+		panic("invalid base")
+	}
+
+	vv := bigIntPool.Get().(*big.Int)
+	defer bigIntPool.Put(vv)
+
+	ii := *i
+	b := ii.Bytes()
+	vv.SetBytes(b[:])
+
+	return vv.Text(base)
+}
+
 func (i Int) String() string {
-	return fmt.Sprintf("%016x%016x", i[1], i[0])
+	return "0x" + i.Text(Base16)
 }
 
 func (i Int) ToFelt() *felt.Felt {
@@ -151,4 +166,9 @@ func (i Int) ToFelt() *felt.Felt {
 
 	f := new(felt.Felt)
 	return f.SetBytes(b)
+}
+
+// MarshalJSON forwards the call to underlying field element implementation
+func (i *Int) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + i.String() + "\""), nil
 }
