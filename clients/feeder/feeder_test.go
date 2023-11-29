@@ -54,9 +54,9 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 				utils.HexToFelt(t, "0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"),
 			},
 			Nonce:       new(felt.Felt).SetUint64(1),
-			NonceDAMode: starknet.DAModeL1,
-			FeeDAMode:   starknet.DAModeL1,
-			ResourceBounds: map[starknet.Resource]starknet.ResourceBounds{
+			NonceDAMode: utils.Ptr(starknet.DAModeL1),
+			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
+			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
@@ -67,11 +67,11 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 				},
 			},
 			Tip:                   new(felt.Felt),
-			PaymasterData:         []*felt.Felt{},
+			PaymasterData:         &[]*felt.Felt{},
 			SenderAddress:         utils.HexToFelt(t, "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50"),
 			ClassHash:             utils.HexToFelt(t, "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7"),
 			CompiledClassHash:     utils.HexToFelt(t, "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8"),
-			AccountDeploymentData: []*felt.Felt{},
+			AccountDeploymentData: &[]*felt.Felt{},
 			Type:                  starknet.TxnDeclare,
 		}, status.Transaction)
 	})
@@ -112,9 +112,9 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 				utils.HexToFelt(t, "0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5"),
 			},
 			Nonce:       utils.HexToFelt(t, "0xe97"),
-			NonceDAMode: starknet.DAModeL1,
-			FeeDAMode:   starknet.DAModeL1,
-			ResourceBounds: map[starknet.Resource]starknet.ResourceBounds{
+			NonceDAMode: utils.Ptr(starknet.DAModeL1),
+			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
+			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
@@ -125,7 +125,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 				},
 			},
 			Tip:           new(felt.Felt),
-			PaymasterData: []*felt.Felt{},
+			PaymasterData: &[]*felt.Felt{},
 			SenderAddress: utils.HexToFelt(t, "0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41"),
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x2"),
@@ -144,7 +144,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 				utils.HexToFelt(t, "0x7fe4fd616c7fece1244b3616bb516562e230be8c9f29668b46ce0369d5ca829"),
 				utils.HexToFelt(t, "0x287acddb27a2f9ba7f2612d72788dc96a5b30e401fc1e8072250940e024a587"),
 			},
-			AccountDeploymentData: []*felt.Felt{},
+			AccountDeploymentData: &[]*felt.Felt{},
 			Type:                  starknet.TxnInvoke,
 		}, status.Transaction)
 	})
@@ -216,9 +216,9 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 				utils.HexToFelt(t, "0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3"),
 			},
 			Nonce:       new(felt.Felt),
-			NonceDAMode: starknet.DAModeL1,
-			FeeDAMode:   starknet.DAModeL1,
-			ResourceBounds: map[starknet.Resource]starknet.ResourceBounds{
+			NonceDAMode: utils.Ptr(starknet.DAModeL1),
+			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
+			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
@@ -229,7 +229,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 				},
 			},
 			Tip:                 new(felt.Felt),
-			PaymasterData:       []*felt.Felt{},
+			PaymasterData:       &[]*felt.Felt{},
 			SenderAddress:       utils.HexToFelt(t, "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50"),
 			ContractAddressSalt: new(felt.Felt),
 			ConstructorCallData: &[]*felt.Felt{

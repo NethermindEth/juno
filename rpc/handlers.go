@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"slices"
 	stdsync "sync"
@@ -292,7 +293,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = adaptTransaction(txn)
+		txs[index] = AdaptTransaction(txn)
 	}
 
 	l1H, jsonErr := h.l1Head()
@@ -330,7 +331,7 @@ func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	return block, nil
 }
 
-func adaptTransaction(t core.Transaction) *Transaction {
+func AdaptTransaction(t core.Transaction) *Transaction {
 	var txn *Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
@@ -491,7 +492,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
-	return adaptTransaction(txn), nil
+	return AdaptTransaction(txn), nil
 }
 
 func (h *Handler) LegacyTransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
@@ -538,7 +539,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 			return nil, ErrInvalidTxIndex
 		}
 
-		return adaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
 	header, err := h.blockHeaderByID(&id)
@@ -551,7 +552,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return nil, ErrInvalidTxIndex
 	}
 
-	return adaptTransaction(txn), nil
+	return AdaptTransaction(txn), nil
 }
 
 func (h *Handler) LegacyTransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
@@ -644,7 +645,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	return &TransactionReceipt{
 		FinalityStatus:  status,
 		ExecutionStatus: es,
-		Type:            adaptTransaction(txn).Type,
+		Type:            AdaptTransaction(txn).Type,
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
@@ -1078,25 +1079,11 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 }
 
 // AddTransaction relays a transaction to the gateway.
-func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *jsonrpc.Error) {
-	var request map[string]any
-	err := json.Unmarshal(txnJSON, &request)
-	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InvalidJSON, err.Error())
-	}
-
-	if txnType := request["type"]; txnType == TxnInvoke.String() {
-		request["type"] = starknet.TxnInvoke.String()
-
-		updatedReq, errIn := json.Marshal(request)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-		txnJSON = updatedReq
-	} else if version := request["version"]; txnType == TxnDeclare.String() && (version == "0x2" || version == "0x3") {
-		contractClass, ok := request["contract_class"].(map[string]interface{})
-		if !ok {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'contract_class': ['Missing data for required field.']}")
+func (h *Handler) AddTransaction(tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
+		contractClass := make(map[string]any)
+		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
+			return nil, ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
 		}
 		sierraProg, ok := contractClass["sierra_program"]
 		if !ok {
@@ -1114,15 +1101,24 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 		}
 
 		contractClass["sierra_program"] = gwSierraProg
-
-		updatedReq, errIn := json.Marshal(request)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		newContractClass, err := json.Marshal(contractClass)
+		if err != nil {
+			return nil, ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
 		}
-		txnJSON = updatedReq
+		tx.ContractClass = newContractClass
 	}
 
-	resp, err := h.gatewayClient.AddTransaction(txnJSON)
+	txJSON, err := json.Marshal(&struct {
+		*starknet.Transaction
+		ContractClass json.RawMessage `json:"contract_class,omitempty"`
+	}{
+		Transaction:   adaptRPCTxToFeederTx(&tx.Transaction),
+		ContractClass: tx.ContractClass,
+	})
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
+	}
+	respJSON, err := h.gatewayClient.AddTransaction(txJSON)
 	if err != nil {
 		return nil, makeJSONErrorFromGatewayError(err)
 	}
@@ -1132,8 +1128,8 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 		ContractAddress *felt.Felt `json:"address"`
 		ClassHash       *felt.Felt `json:"class_hash"`
 	}
-	if err = json.Unmarshal(resp, &gatewayResponse); err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
 	}
 
 	return &AddTxResponse{
