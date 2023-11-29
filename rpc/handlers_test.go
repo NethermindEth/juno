@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -2600,6 +2601,12 @@ func TestAddTransaction(t *testing.T) {
 			mockGateway.
 				EXPECT().
 				AddTransaction(gomock.Any()).
+				Do(func(txnJSON json.RawMessage) error {
+					gatewayTx := starknet.Transaction{}
+					// Ensure the Starknet transaction can be unmarshaled properly.
+					require.NoError(t, json.Unmarshal(txnJSON, &gatewayTx))
+					return nil
+				}).
 				Return(json.RawMessage(`{
 					"transaction_hash": "0x1",
 					"address": "0x2",

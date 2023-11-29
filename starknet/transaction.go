@@ -128,6 +128,25 @@ func (r *Resource) UnmarshalText(text []byte) error {
 	return nil
 }
 
+func (r Resource) MarshalText() ([]byte, error) {
+	switch r {
+	case ResourceL1Gas:
+		return []byte("L1_GAS"), nil
+	case ResourceL2Gas:
+		return []byte("L2_GAS"), nil
+	default:
+		return nil, errors.New("unknown resource")
+	}
+}
+
+func (r Resource) MarshalJSON() ([]byte, error) {
+	result, err := r.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(`"` + string(result) + `"`), nil
+}
+
 type DataAvailabilityMode uint32
 
 const (

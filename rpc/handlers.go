@@ -1109,7 +1109,7 @@ func (h *Handler) AddTransaction(tx BroadcastedTransaction) (*AddTxResponse, *js
 	}
 
 	txJSON, err := json.Marshal(&struct {
-		Transaction   *starknet.Transaction
+		*starknet.Transaction
 		ContractClass json.RawMessage `json:"contract_class,omitempty"`
 	}{
 		Transaction:   adaptRPCTxToFeederTx(&tx.Transaction),
