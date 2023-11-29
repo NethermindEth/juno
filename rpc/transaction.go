@@ -452,7 +452,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
 	if rb == nil {
 		return nil
 	}
@@ -463,7 +463,7 @@ func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) map[starknet.R
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
-	return feederResourceBounds
+	return &feederResourceBounds
 }
 
 func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
@@ -489,7 +489,7 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        utils.Ptr(adaptToFeederResourceBounds(rpcTx.ResourceBounds)),
+		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
 		Tip:                   rpcTx.Tip,
 		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
 		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
