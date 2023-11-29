@@ -23,7 +23,7 @@ func TestUint128Bytes(t *testing.T) {
 			loBits:       0x0,
 			hiBits:       0x0,
 			expected_arr: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-			expected_str: "00000000000000000000000000000000",
+			expected_str: "0x0",
 			wantedErr:    false,
 		},
 		{
@@ -31,7 +31,7 @@ func TestUint128Bytes(t *testing.T) {
 			loBits:       0x1,
 			hiBits:       0x0,
 			expected_arr: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-			expected_str: "00000000000000000000000000000001",
+			expected_str: "0x1",
 			wantedErr:    false,
 		},
 		{
@@ -39,7 +39,7 @@ func TestUint128Bytes(t *testing.T) {
 			loBits:       0xFFFFFFFFFFFFFFFF,
 			hiBits:       0xFFFFFFFFFFFFFFFF,
 			expected_arr: []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
-			expected_str: "ffffffffffffffffffffffffffffffff",
+			expected_str: "0xffffffffffffffffffffffffffffffff",
 			wantedErr:    false,
 		},
 		{
@@ -47,7 +47,7 @@ func TestUint128Bytes(t *testing.T) {
 			loBits:       0x0123456789ABCDEF,
 			hiBits:       0x123456789ABCDEF0,
 			expected_arr: []byte{18, 52, 86, 120, 154, 188, 222, 240, 1, 35, 69, 103, 137, 171, 205, 239},
-			expected_str: "123456789abcdef00123456789abcdef",
+			expected_str: "0x123456789abcdef00123456789abcdef",
 			wantedErr:    false,
 		},
 		{
@@ -55,7 +55,7 @@ func TestUint128Bytes(t *testing.T) {
 			loBits:       0xF0D3B8A289C7E5B3,
 			hiBits:       0x1A4B7E9C2D3F5A6E,
 			expected_arr: []byte{26, 75, 126, 156, 45, 63, 90, 110, 240, 211, 184, 162, 137, 199, 229, 179},
-			expected_str: "1a4b7e9c2d3f5a6ef0d3b8a289c7e5b3",
+			expected_str: "0x1a4b7e9c2d3f5a6ef0d3b8a289c7e5b3",
 			wantedErr:    false,
 		},
 		{
@@ -63,7 +63,7 @@ func TestUint128Bytes(t *testing.T) {
 			loBits:       0x0,
 			hiBits:       0x1A4B7E9C2D3F5A6E,
 			expected_arr: []byte{26, 75, 126, 156, 45, 63, 90, 110, 0, 0, 0, 0, 0, 0, 0, 0},
-			expected_str: "1a4b7e9c2d3f5a6e0000000000000000",
+			expected_str: "0x1a4b7e9c2d3f5a6e0000000000000000",
 			wantedErr:    false,
 		},
 		{
@@ -71,7 +71,7 @@ func TestUint128Bytes(t *testing.T) {
 			loBits:       0x1,
 			hiBits:       0x1,
 			expected_arr: []byte{0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1},
-			expected_str: "00000000000000010000000000000001",
+			expected_str: "0x10000000000000001",
 			wantedErr:    false,
 		},
 	}
