@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"strconv"
-	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 
@@ -84,18 +81,10 @@ func (s *syncService) start(ctx context.Context) {
 	var curHeight int32 = -1
 
 	logBlocks := func(prefix string, input <-chan blockBody) <-chan blockBody {
-		out := make(chan blockBody)
-
-		go func() {
-			defer close(out)
-
-			for item := range input {
-				fmt.Println(prefix, item.block.Number)
-				out <- item
-			}
-		}()
-
-		return out
+		return utils.Pipeline(input, func(item blockBody) blockBody {
+			fmt.Println(prefix, item.block.Number)
+			return item
+		})
 	}
 
 	fetchBlocks := func(ranges <-chan BlockRange) <-chan blockBody {
@@ -118,7 +107,7 @@ func (s *syncService) start(ctx context.Context) {
 		return coreBlocks
 	}
 
-	santiyChecks := func(blockBodies <-chan blockBody, fetchBlocks chan<- BlockRange) <-chan blockBody {
+	sanityChecks := func(blockBodies <-chan blockBody, fetchBlocks chan<- BlockRange) <-chan blockBody {
 		// check structural integrity of the block and signatures
 
 		checkedBlocks := make(chan blockBody)
@@ -166,16 +155,13 @@ func (s *syncService) start(ctx context.Context) {
 	}
 
 	orderCheckedBlocks := func(checkedBlockBodies <-chan blockBody) <-chan blockBody {
-		outOfOrderBlocks := make(map[uint64]blockBody)
-
 		orderBlocks := make(chan blockBody)
+
+		outOfOrderBlocks := make(map[uint64]blockBody)
 		go func() {
 			defer close(orderBlocks)
 			for checkedBlockBody := range checkedBlockBodies {
 				h := uint64(atomic.LoadInt32(&curHeight))
-				if err != nil {
-					s.log.Warnw("Failed to get blockchain height", "err", err)
-				}
 				if checkedBlockBody.block.Number == h+1 {
 					orderBlocks <- checkedBlockBody
 				} else {
@@ -190,25 +176,32 @@ func (s *syncService) start(ctx context.Context) {
 				}
 			}
 		}()
+
 		return orderBlocks
 	}
-	storeBlocks := func(blockBodies <-chan blockBody) <-chan struct{} {
-		stopped := make(chan struct{})
-		go func() {
-			defer close(stopped)
 
-			for blockBody := range blockBodies {
-				fmt.Println("Storing block Number", blockBody.block.Number)
-				atomic.AddInt32(&curHeight, 1)
+	storeBlock := func(blockBody blockBody) {
+		fmt.Println("Storing block Number", blockBody.block.Number)
+		atomic.AddInt32(&curHeight, 1)
 
-				if blockBody.block.Number != uint64(curHeight) {
-					s.log.Warnw("Current height != block.Number", "curHeight", curHeight, "blockNumber", blockBody.block.Number)
-				}
+		if blockBody.block.Number != uint64(curHeight) {
+			s.log.Warnw("Current height != block.Number", "curHeight", curHeight, "blockNumber", blockBody.block.Number)
+		}
 
-			}
-		}()
+		return // skip storing for now
+		blockCommitments, err := s.blockchain.SanityCheckNewHeight(blockBody.block, blockBody.stateUpdate, blockBody.newClasses)
+		if err != nil {
+			s.log.Errorw("Failed to sanity check new height", "err", err)
+			panic(err)
+			// todo pass back to pipeline
+		}
 
-		return stopped
+		err = s.blockchain.Store(blockBody.block, blockCommitments, blockBody.stateUpdate, blockBody.newClasses)
+		if err != nil {
+			s.log.Errorw("Failed to store block", "err", err)
+			panic(err)
+			// todo pass back to pipeline
+		}
 	}
 
 	blockRangeStream := make(chan BlockRange, 1)
@@ -217,20 +210,18 @@ func (s *syncService) start(ctx context.Context) {
 		End:   bootNodeHeight,
 	}
 	fetchedBlocks := fetchBlocks(blockRangeStream)
-	// fetchedBlocks -> ch1 ^
 	fetchedBlocks = logBlocks("Fetched", fetchedBlocks)
-	// fetchedBlocks -> fetchedBlocks ^
 
-	checkedBlocks := santiyChecks(fetchedBlocks, blockRangeStream)
-	checkedBlocks = logBlocks("SanityCheck", checkedBlocks)
+	checkedBlocks := sanityChecks(fetchedBlocks, blockRangeStream)
+	checkedBlocks = logBlocks("SanityChecked", checkedBlocks)
 
 	unorderedBlocks := unorderStream(checkedBlocks)
-	unorderedBlocks = logBlocks("Unorder fix", unorderedBlocks)
+	unorderedBlocks = logBlocks("Unordered", unorderedBlocks)
 
 	orderedBlocks := orderCheckedBlocks(unorderedBlocks)
-	orderedBlocks = logBlocks("Order blocks", orderedBlocks)
+	orderedBlocks = logBlocks("Ordered", orderedBlocks)
 
-	stopped := storeBlocks(orderedBlocks)
+	stopped := utils.PipelineEnd(orderedBlocks, storeBlock)
 	<-stopped
 }
 
@@ -292,21 +283,13 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 		blockBodies[blockNumber] = b
 	}
 
-	var count int
-	prevTime := time.Now()
-	_ = prevTime
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
-		if count%6 == 0 {
-			// fmt.Printf("fetching header body=%d, timeSpent=%v\n", count, time.Since(prevTime))
-		}
-		prevTime = time.Now()
-		count++
-
 		switch res.BodyMessage.(type) {
 		case *spec.BlockBodiesResponse_Classes:
 			updateBlockBody(res.GetId().Number, func(b *blockBody) {
 				classes := res.GetClasses().GetClasses()
 
+				// todo unsure about that
 				b.newClasses = utils.ToMap(classes, func(cls *spec.Class) (felt.Felt, core.Class) {
 					coreCls := p2p2core.AdaptClass(cls)
 
@@ -357,16 +340,9 @@ func (s *syncService) requestBlockHeaders(ctx context.Context, it *spec.Iteratio
 	}
 
 	var headers []core.Header
-	var count int32
-	prevTime := time.Now()
-	_ = prevTime
 
 iteratorLoop:
 	for res, valid := headersIt(); valid; res, valid = headersIt() {
-		/// fmt.Printf("fetching header number=%d, timeSpent=%v\n", count, time.Since(prevTime))
-		prevTime = time.Now()
-		count++
-
 		var (
 			header     core.Header
 			signatures [][]*felt.Felt
@@ -404,10 +380,10 @@ iteratorLoop:
 					TransactionCount: uint64(h.Transactions.NLeaves),
 					EventCount:       uint64(h.Events.NLeaves),
 					Timestamp:        uint64(h.Time.AsTime().Second()) + 1,
-					ProtocolVersion:  "",  // todo SPEC
+					ProtocolVersion:  h.ProtocolVersion,
 					ExtraData:        nil, // todo SPEC
 					EventsBloom:      core.EventsBloom(receipts),
-					GasPrice:         nil, // todo SPEC
+					GasPrice:         p2p2core.AdaptFelt(h.GasPrice),
 				}
 			case *spec.BlockHeadersResponsePart_Signatures:
 				// todo check blockID
@@ -423,10 +399,10 @@ iteratorLoop:
 		headers = append(headers, header)
 	}
 
-	blockNumbers := utils.Map(headers, func(h core.Header) string {
-		return strconv.Itoa(int(h.Number))
-	})
-	fmt.Printf("Fetched block numbers: %v\n", strings.Join(blockNumbers, ","))
+	//blockNumbers := utils.Map(headers, func(h core.Header) string {
+	//	return strconv.Itoa(int(h.Number))
+	//})
+	//fmt.Printf("Fetched block numbers: %v\n", strings.Join(blockNumbers, ","))
 
 	return headers, nil
 }
