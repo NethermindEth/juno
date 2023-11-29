@@ -1298,9 +1298,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), nil
 }
 
-func (h *Handler) LegacyEstimateFee(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, id BlockID,
-) ([]FeeEstimate, *jsonrpc.Error) {
+func (h *Handler) LegacyEstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
 	result, err := h.LegacySimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
 	if err != nil {
 		return nil, err
@@ -1727,7 +1725,6 @@ func (h *Handler) unsubscribe(sub *subscription, id uint64) {
 	h.mu.Unlock()
 }
 
-//nolint:dupl
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -1842,7 +1839,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags", Optional: true}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
 			Handler: h.EstimateFee,
 		},
 		{
@@ -1881,7 +1878,6 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_6"
 }
 
-//nolint:dupl
 func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -1996,7 +1992,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags", Optional: true}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
 			Handler: h.LegacyEstimateFee,
 		},
 		{
