@@ -1398,7 +1398,7 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 	return h.simulateTransactions(id, transactions, simulationFlags, true)
 }
 
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo
 	simulationFlags []SimulationFlag, legacyTraceJSON bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
@@ -1463,14 +1463,23 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	var result []SimulatedTransaction
 	for i, overallFee := range overallFees {
+		feeUnit := feeUnit(txns[i])
+
+		gasPrice := header.GasPrice
+		if feeUnit == FRI {
+			if gasPrice = header.GasPriceSTRK; gasPrice == nil {
+				gasPrice = &felt.Zero
+			}
+		}
+
 		estimate := FeeEstimate{
-			GasConsumed: new(felt.Felt).Div(overallFee, header.GasPrice),
-			GasPrice:    header.GasPrice,
+			GasConsumed: new(felt.Felt).Div(overallFee, gasPrice),
+			GasPrice:    gasPrice,
 			OverallFee:  overallFee,
 		}
 
 		if !legacyTraceJSON {
-			estimate.Unit = utils.Ptr(feeUnit(txns[i]))
+			estimate.Unit = utils.Ptr(feeUnit)
 		}
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: traces[i],
