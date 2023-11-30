@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
@@ -60,7 +61,7 @@ func TestBucketMover(t *testing.T) {
 			return nil
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("get sourcebucket key's value: %v", err)
 		}
 
 		for i := byte(0); i < 3; i++ {
@@ -71,7 +72,7 @@ func TestBucketMover(t *testing.T) {
 				return nil
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("get destbucket %d value: %v", i, err)
 			}
 
 			err = txn.Get(sourceBucket.Key([]byte{i}), func(b []byte) error { return nil })
