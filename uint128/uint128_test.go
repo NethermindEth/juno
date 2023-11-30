@@ -2,7 +2,7 @@ package uint128
 
 import (
 	"encoding/json"
-	"reflect"
+	"math/big"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -273,37 +273,111 @@ func TestUint128FromHexString(t *testing.T) {
 	}
 }
 
-func TestUint128ToFelt(t *testing.T) {
+func TestUint128MultiplyWithFelt(t *testing.T) {
 	tests := []struct {
 		description  string
-		inputUint128 *Int
-		element      *fp.Element
-		wantErr      bool
+		multiplier   *fp.Element
+		multiplicand *Int
+		product      *fp.Element
+		wantedErr    bool
 	}{
 		{
-			description: "Uint128 -> Felt #1",
-			inputUint128: &Int{
-				0: 0x1,
-				1: 0x1,
-			},
-			element: &fp.Element{
-				0: 0x43e0,
-				1: 0xffffffffffffffe0,
+			description: "Multiplication Test #1",
+			multiplier: &fp.Element{
+				0: 0xffffffffffcf2c01,
+				1: 0xffffffffffffffff,
 				2: 0xffffffffffffffff,
-				3: 0x481df,
+				3: 0x7fffffffcc1ec10,
 			},
-			wantErr: false,
+			multiplicand: &Int{
+				0: 0x2540be400,
+				1: 0x0,
+			},
+			product: &fp.Element{
+				0: 0xff8e502b67300001,
+				1: 0xffffffffffffffff,
+				2: 0xffffffffffffffff,
+				3: 0x7352e1da300010,
+			},
+		},
+		{
+			description: "Multiplication Test #1",
+			multiplier: &fp.Element{
+				0: 0x0,
+				1: 0x0,
+				2: 0x0,
+				3: 0x0,
+			},
+			multiplicand: &Int{
+				0: 0xffffffffffffffff,
+				1: 0xffffffffffffffff,
+			},
+			product: &fp.Element{
+				0: 0x0,
+				1: 0x0,
+				2: 0x0,
+				3: 0x0,
+			},
+		},
+		{
+			description: "Multiplication Test #1",
+			multiplier: &fp.Element{
+				0: 0xffffffffffffffff,
+				1: 0xffffffffffffffff,
+				2: 0xffffffffffffffff,
+				3: 0xffffffffffffffff,
+			},
+			multiplicand: &Int{
+				0: 0x0,
+				1: 0x0,
+			},
+			product: &fp.Element{
+				0: 0x0,
+				1: 0x0,
+				2: 0x0,
+				3: 0x0,
+			},
+		},
+		{
+			description: "Multiplication Test #1",
+			multiplier: &fp.Element{
+				0: 0xffffffffffffffff,
+				1: 0xffffffffffffffff,
+				2: 0xffffffffffffffff,
+				3: 0xffffffffffffffff,
+			},
+			multiplicand: &Int{
+				0: 0xffffffffffffffff,
+				1: 0xffffffffffffffff,
+			},
+			product: &fp.Element{
+				0: 0xffffffffff6f8022,
+				1: 0x43ff,
+				2: 0xffffffffffffffdf,
+				3: 0x7fffffff6678230,
+			},
+			wantedErr: true,
 		},
 	}
 	{
 		for _, test := range tests {
-			actual := test.inputUint128.ToFelt()
-			expected := felt.NewFelt(test.element)
-			if !reflect.DeepEqual(actual.Bytes(), expected.Bytes()) {
-				if test.wantErr {
-					return
+			f := felt.NewFelt(test.multiplier)
+			actual := new(Int).MulWithFelt(f, test.multiplicand)
+			e := felt.NewFelt(test.product)
+
+			expected := new(big.Int)
+			expected = e.BigInt(expected)
+
+			if test.wantedErr {
+				return
+			}
+
+			if (actual.Cmp(e.BigInt(expected))) != 0 {
+				if len(actual.Bytes()) != len(expected.Bytes()) {
+					// probably an integer overflow that big.Int can interpret but not a felt.Felt
+					t.Errorf("actual Bytes() length=%d differs from expected Bytes() length=%d", len(actual.Bytes()), len(expected.Bytes()))
 				}
-				t.Errorf("Test case '%s' failed. Got: %v, Expected: %v", test.description, actual.Bytes(), expected.Bytes())
+				t.Errorf("multiplication not equal")
 			}
 		}
 	}

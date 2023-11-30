@@ -158,17 +158,16 @@ func (i Int) String() string {
 	return "0x" + i.Text(Base16)
 }
 
-func (i Int) ToFelt() *felt.Felt {
-	b := make([]byte, ByteLength)
-
-	binary.BigEndian.PutUint64(b[:8], i[0])
-	binary.BigEndian.PutUint64(b[8:], i[1])
-
-	f := new(felt.Felt)
-	return f.SetBytes(b)
-}
-
 // MarshalJSON forwards the call to underlying field element implementation
 func (i *Int) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + i.String() + "\""), nil
+}
+
+func (i *Int) MulWithFelt(x *felt.Felt, y *Int) *big.Int {
+	bInt1 := bigIntPool.Get().(*big.Int)
+	bInt2 := bigIntPool.Get().(*big.Int)
+	bInt1 = x.BigInt(bInt1)
+	bInt2.SetBytes(y.Bytes())
+
+	return new(big.Int).Mul(bInt1, bInt2)
 }
