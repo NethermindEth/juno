@@ -39,7 +39,7 @@
 
 > **📌 Looking for a Starknet RPC Provider?**
 >
-> If you are searching for a Starknet RPC provider, Nethermind is introducing a Starknet RPC service ahead of the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+> Access Nethermind's Starknet RPC service for free at https://data.voyager.online.
 
 ## ⚙️ Installation
 
