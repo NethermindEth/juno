@@ -57,12 +57,7 @@ func ProgramHash(program *starknet.Program, abi json.RawMessage) (*felt.Felt, er
 		return nil, err
 	}
 
-	programKeccak, err := crypto.StarknetKeccak(programBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	return programKeccak, nil
+	return crypto.StarknetKeccak(programBytes)
 }
 
 // Marshal is a custom json marshaler for ContractCode

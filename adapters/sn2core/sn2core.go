@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/clients/feeder"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"

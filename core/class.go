@@ -122,16 +122,11 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 
 func VerifyClassHashes(classes map[felt.Felt]Class) error {
 	for hash, class := range classes {
-		cairo1Class, ok := class.(*Cairo1Class)
-		// cairo0 classes are deprecated and hard to verify their hash, just ignore them
-		if !ok {
-			return nil
-		}
-
-		cHash := cairo1Class.Hash()
+		cHash := class.Hash()
 		if !cHash.Equal(&hash) {
 			return fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cHash.String(), hash.String())
 		}
 	}
+
 	return nil
 }
