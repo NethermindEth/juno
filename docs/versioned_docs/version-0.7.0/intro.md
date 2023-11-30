@@ -43,7 +43,7 @@ curl -X POST http://localhost:6060/v0_5 -H "Content-Type: application/json" --da
 
 # Looking for a Starknet RPC Provider? 
 
-If you are looking for a Starknet RPC provider, Nethermind will offer a Starknet RPC service before the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+Access Nethermind's Starknet RPC service for free at [data.voyager.online](https://data.voyager.online).
 
 # Questions, Discussions, Community
 
