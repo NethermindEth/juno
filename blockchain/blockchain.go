@@ -934,6 +934,7 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 			ProtocolVersion:  latestHeader.ProtocolVersion,
 			EventsBloom:      core.EventsBloom(receipts),
 			GasPrice:         latestHeader.GasPrice,
+			GasPriceSTRK:     latestHeader.GasPriceSTRK,
 		},
 		Transactions: make([]core.Transaction, 0),
 		Receipts:     receipts,

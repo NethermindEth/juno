@@ -662,6 +662,7 @@ func TestPending(t *testing.T) {
 		assert.Equal(t, pendingGenesis, gotPending)
 	})
 
+	b.GasPriceSTRK = utils.HexToFelt(t, "0xDEADBEEF")
 	require.NoError(t, chain.Store(b, &emptyCommitments, su, nil))
 
 	t.Run("no pending block means pending state matches head state", func(t *testing.T) {
@@ -670,6 +671,7 @@ func TestPending(t *testing.T) {
 		require.Equal(t, b.Timestamp+1, pending.Block.Timestamp)
 		require.Equal(t, b.SequencerAddress, pending.Block.SequencerAddress)
 		require.Equal(t, b.GasPrice, pending.Block.GasPrice)
+		require.Equal(t, b.GasPriceSTRK, pending.Block.GasPriceSTRK)
 		require.Equal(t, b.ProtocolVersion, pending.Block.ProtocolVersion)
 		require.Equal(t, su.NewRoot, pending.StateUpdate.OldRoot)
 		require.Empty(t, pending.StateUpdate.StateDiff.Nonces)
