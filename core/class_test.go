@@ -7,19 +7,18 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/NethermindEth/juno/vm"
-
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func init() {
+func init() { //nolint:gochecknoinits
 	core.Cairo0ClassHashFunc = vm.Cairo0ClassHash
 }
 

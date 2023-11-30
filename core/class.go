@@ -56,22 +56,10 @@ var Cairo0ClassHashFunc func(*Cairo0Class) (*felt.Felt, error)
 func (c *Cairo0Class) Hash() *felt.Felt {
 	classHash, err := Cairo0ClassHashFunc(c)
 	if err != nil {
-		fmt.Println("Error: ", err)
-		return nil
+		panic(err)
 	}
 
 	return classHash
-}
-
-func flatten(entryPoints []EntryPoint) []*felt.Felt {
-	result := make([]*felt.Felt, len(entryPoints)*2)
-	for i, entryPoint := range entryPoints {
-		// It is important that Selector is first because the order
-		// influences the class hash.
-		result[2*i] = entryPoint.Selector
-		result[2*i+1] = entryPoint.Offset
-	}
-	return result
 }
 
 // Cairo1Class unambiguously defines a [Contract]'s semantics.

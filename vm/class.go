@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/adapters/core2sn"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"

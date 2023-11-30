@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -309,30 +308,7 @@ func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
 		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
 	}
 
-	var program starknet.Program
-	err := json.Unmarshal(response.Program, &program)
-	if err != nil {
-		return nil, err
-	}
-
-	builtins := utils.Map(program.Builtins, func(str string) *felt.Felt {
-		return new(felt.Felt).SetBytes([]byte(str))
-	})
-	class.BuiltinsHash = crypto.PedersenArray(builtins...)
-
-	class.ProgramHash, err = feeder.ProgramHash(&program, response.Abi)
-	if err != nil {
-		return nil, err
-	}
-
-	bytecode, err := utils.MapWithErr(program.Data, func(str string) (*felt.Felt, error) {
-		return new(felt.Felt).SetString(str)
-	})
-	if err != nil {
-		return nil, err
-	}
-	class.BytecodeHash = crypto.PedersenArray(bytecode...)
-
+	var err error
 	class.Program, err = utils.Gzip64Encode(response.Program)
 	if err != nil {
 		return nil, err
