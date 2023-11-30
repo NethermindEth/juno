@@ -1,8 +1,6 @@
 syntax = "proto3";
 import "p2p/proto/common.proto";
 import "p2p/proto/state.proto";
-import "p2p/proto/transaction.proto";
-import "p2p/proto/receipt.proto";
 import "google/protobuf/timestamp.proto";
 
 // for now, we assume a small consensus, so this fits in 1M. Else, these will be repeated
@@ -78,12 +76,10 @@ message BlockBodiesResponse {
     optional BlockID id = 1; // may not appear if Fin is sent to end the whole response
 
     oneof body_message {
-        StateDiff    diff         = 2;
-        Classes      classes      = 3;
-        BlockProof   proof        = 4;
-        Transactions transactions = 5;
-        Receipts     receipts     = 6;
-        Fin          fin          = 7;
+        StateDiff  diff    = 2;
+        Classes    classes = 3;
+        BlockProof proof   = 4;
+        Fin        fin     = 5;
     }
 }
 
