@@ -504,7 +504,7 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 				// optional parameter
 				v = reflect.New(handlerType.In(i + addContext)).Elem()
 			} else {
-				return nil, errors.New("missing non-optional param")
+				return nil, errors.New("missing non-optional param: " + configuredParam.Name)
 			}
 
 			args = append(args, v)
