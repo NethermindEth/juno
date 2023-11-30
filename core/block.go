@@ -31,8 +31,6 @@ type Header struct {
 	Timestamp uint64
 	// The version of the Starknet protocol used when creating this block
 	ProtocolVersion string
-	// Extraneous data that might be useful for running transactions
-	ExtraData *felt.Felt
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
 	// Amount of WEI charged per Gas spent
