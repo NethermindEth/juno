@@ -3,6 +3,7 @@ package migration_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"testing"
@@ -82,4 +83,28 @@ func TestBucketMover(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Nil(t, intermediateState)
+}
+
+func BenchmarkBucketMigratorMemDB(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		b.StopTimer()
+		testDB := pebble.NewMemTest(b)
+		sourceBucket := db.Bucket(0)
+		destinationBucket := db.Bucket(1)
+		require.NoError(b, testDB.Update(func(txn db.Transaction) error {
+			for i := uint64(0); i < 100_000; i++ {
+				suffix := make([]byte, 8)
+				binary.BigEndian.PutUint64(suffix, i)
+				require.NoError(b, txn.Set(sourceBucket.Key(suffix), suffix))
+			}
+			return nil
+		}))
+		mover := migration.NewBucketMover(sourceBucket, destinationBucket)
+		require.NoError(b, mover.Before(nil))
+		b.StartTimer()
+		require.NoError(b, testDB.Update(func(txn db.Transaction) error {
+			_, err := mover.Migrate(context.Background(), txn, utils.Mainnet)
+			return err
+		}))
+	}
 }
