@@ -176,13 +176,13 @@ pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
 
 pub fn contract_class_from_json_str(raw_json: &str) -> Result<ContractClass, String> {
     let v0_class = ContractClassV0::try_from_json_string(raw_json);
-    let v1_class = ContractClassV1::try_from_json_string(raw_json);
-
     if let Ok(class) = v0_class {
-        Ok(class.into())
-    } else if let Ok(class) = v1_class {
+        return Ok(class.into());
+    }
+    let v1_class = ContractClassV1::try_from_json_string(raw_json);
+    if let Ok(class) = v1_class {
         Ok(class.into())
     } else {
-        Err("not a valid contract class".to_string())
+        Err(format!("{}: {}", "not a valid contract class".to_string(), v1_class.err().unwrap()))
     }
 }
