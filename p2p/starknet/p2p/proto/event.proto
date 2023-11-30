@@ -12,7 +12,8 @@ message EventsRequest {
 }
 
 message Events {
-    repeated Event items = 1;
+    Hash transaction_hash = 1;
+    repeated Event items  = 2;
 }
 
 // can be several in a single reply
