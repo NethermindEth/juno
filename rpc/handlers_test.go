@@ -22,9 +22,11 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -479,8 +481,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
 			L1GasPrice: &rpc.ResourcePrice{
-				InStark: utils.HexToFelt(t, "0x2540be400"),
-				InWei:   utils.HexToFelt(t, "0x3b9aca08"),
+				InFri: utils.HexToFelt(t, "0x2540be400"),
+				InWei: utils.HexToFelt(t, "0x3b9aca08"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
@@ -1456,9 +1458,9 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"range_check_builtin_applications": 19,
 				"memory_holes": 4
 			},
-			"actual_fee": { 
+			"actual_fee": {
 				"amount": "0x16d8b4ad4000",
-				"unit": "STRK"
+				"unit": "FRI"
 			},
 			"type": "INVOKE"
 		}`
@@ -2517,55 +2519,112 @@ func TestEvents(t *testing.T) {
 	})
 }
 
+func TestAddTransactionUnmarshal(t *testing.T) {
+	tests := map[string]string{
+		"deploy account v3": `{
+			"type": "DEPLOY_ACCOUNT",
+			"version": "0x3",
+			"signature": [
+				"0x73c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa",
+				"0x6119aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"
+			],
+			"nonce": "0x0",
+			"contract_address_salt": "0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+			"constructor_calldata": [
+				"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+				"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				"0x2",
+				"0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+				"0x0"
+			],
+			"class_hash": "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+			"resource_bounds": {
+				"l1_gas": {
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				},
+				"l2_gas": {
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				}
+			},
+			"tip": "0x0",
+			"paymaster_data": [],
+			"nonce_data_availability_mode": "L1",
+			"fee_data_availability_mode": "L2"
+		}`,
+	}
+
+	for description, txJSON := range tests {
+		t.Run(description, func(t *testing.T) {
+			tx := rpc.BroadcastedTransaction{}
+			require.NoError(t, json.Unmarshal([]byte(txJSON), &tx))
+		})
+	}
+}
+
 func TestAddTransaction(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockGateway := mocks.NewMockGateway(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(nil, nil, utils.Mainnet, mockGateway, nil, nil, "", log)
-
-	t.Run("invalid json", func(t *testing.T) {
-		_, err := handler.AddTransaction(json.RawMessage(`{]`))
-		require.NotNil(t, err)
-		assert.Equal(t, jsonrpc.InvalidJSON, err.Code)
-	})
-
-	t.Run("ok response", func(t *testing.T) {
-		mockGateway.EXPECT().AddTransaction(gomock.Any()).Return(json.RawMessage(`
-		{
-			"transaction_hash" : "0x1",
-			"address" : "0x2",
-			"class_hash" : "0x3"
+	network := utils.Integration
+	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
+	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
+		tx, err := gw.Transaction(context.Background(), utils.HexToFelt(t, hash))
+		require.NoError(t, err)
+		return rpc.BroadcastedTransaction{
+			Transaction: *rpc.AdaptTransaction(tx),
 		}
-		`), nil)
+	}
+	tests := map[string]rpc.BroadcastedTransaction{
+		"invoke v0":  txWithoutClass("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
+		"invoke v1":  txWithoutClass("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
+		"invoke v3":  txWithoutClass("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+		"declare v0": txWithoutClass("0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"),
+		"declare v1": txWithoutClass("0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4"),
+		"declare v2": func() rpc.BroadcastedTransaction {
+			tx := txWithoutClass("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4")
+			tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
+			return tx
+		}(),
+		"declare v3": func() rpc.BroadcastedTransaction {
+			tx := txWithoutClass("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
+			tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
+			return tx
+		}(),
+		"deploy account v1": txWithoutClass("0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a"),
+		"deploy account v3": txWithoutClass("0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+	}
 
-		response, err := handler.AddTransaction(json.RawMessage(`{}`))
-		require.Nil(t, err)
-		assert.Equal(t, "0x1", response.TransactionHash.String())
-		assert.Equal(t, "0x2", response.ContractAddress.String())
-		assert.Equal(t, "0x3", response.ClassHash.String())
-	})
+	for description, tx := range tests {
+		t.Run(description, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
 
-	t.Run("compresses sierra program", func(t *testing.T) {
-		declareTxV2 := `{"contract_class":{"sierra_program":["0x0","0x0"]},"type":"DECLARE","version":"0x2"}`
-		gwDeclareTxV2 := `{"contract_class":{"sierra_program":"H4sIAAAAAAAA/4pWMqgwUNIBk7GAAAAA//9n6XuWDQAAAA=="},"type":"DECLARE","version":"0x2"}`
+			mockGateway := mocks.NewMockGateway(mockCtrl)
+			mockGateway.
+				EXPECT().
+				AddTransaction(gomock.Any()).
+				Do(func(txnJSON json.RawMessage) error {
+					gatewayTx := starknet.Transaction{}
+					// Ensure the Starknet transaction can be unmarshaled properly.
+					require.NoError(t, json.Unmarshal(txnJSON, &gatewayTx))
+					return nil
+				}).
+				Return(json.RawMessage(`{
+					"transaction_hash": "0x1",
+					"address": "0x2",
+					"class_hash": "0x3"
+				}`), nil).
+				Times(1)
 
-		mockGateway.EXPECT().AddTransaction(json.RawMessage(gwDeclareTxV2)).Return(json.RawMessage(`{}`), nil)
-
-		_, err := handler.AddTransaction(json.RawMessage(declareTxV2))
-		require.Nil(t, err)
-	})
-
-	t.Run("changes invoke type", func(t *testing.T) {
-		invokeTxn := `{"type":"INVOKE"}`
-		gwInvokeTxn := `{"type":"INVOKE_FUNCTION"}`
-
-		mockGateway.EXPECT().AddTransaction(json.RawMessage(gwInvokeTxn)).Return(json.RawMessage(`{}`), nil)
-
-		_, err := handler.AddTransaction(json.RawMessage(invokeTxn))
-		require.Nil(t, err)
-	})
+			handler := rpc.New(nil, nil, network, mockGateway, nil, nil, "", utils.NewNopZapLogger())
+			got, rpcErr := handler.AddTransaction(tx)
+			require.Nil(t, rpcErr)
+			require.Equal(t, &rpc.AddTxResponse{
+				TransactionHash: utils.HexToFelt(t, "0x1"),
+				ContractAddress: utils.HexToFelt(t, "0x2"),
+				ClassHash:       utils.HexToFelt(t, "0x3"),
+			}, got)
+		})
+	}
 }
 
 func TestVersion(t *testing.T) {
@@ -2796,10 +2855,12 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	estimateFee, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
 	require.Nil(t, err)
+	feeUnit := rpc.WEI
 	require.Equal(t, rpc.FeeEstimate{
 		GasConsumed: expectedGasConsumed,
 		GasPrice:    latestHeader.GasPrice,
 		OverallFee:  new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice),
+		Unit:        &feeUnit,
 	}, *estimateFee)
 }
 
@@ -2819,7 +2880,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		assert.Nil(t, trace)
-		assert.Equal(t, rpc.ErrInvalidTxHash, err)
+		assert.Equal(t, rpc.ErrTxnHashNotFound, err)
 	})
 	t.Run("ok", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
@@ -2877,14 +2938,12 @@ func TestSimulateTransactions(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
-	//nolint:dupl
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
+	mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil).AnyTimes()
+	sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
-		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-
-		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, nil, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
@@ -2892,19 +2951,26 @@ func TestSimulateTransactions(t *testing.T) {
 		require.Nil(t, err)
 	})
 
-	//nolint:dupl
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-
-		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, false, true, nil, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Nil(t, err)
+	})
+
+	t.Run("transaction execution error", func(t *testing.T) {
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, false, true, nil, nil, false).
+			Return(nil, nil, vm.TransactionExecutionError{
+				Index: 44,
+				Cause: errors.New("oops"),
+			})
+
+		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+			TransactionIndex: 44,
+			ExecutionError:   "oops",
+		}), err)
 	})
 }
 
@@ -3120,7 +3186,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncCancel()
 
 	// Receive a block header.
-	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_strk":"0x0","price_in_wei":"0x0"}},"subscription":%d}}`
+	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription":%d}}`
 	want = fmt.Sprintf(want, id)
 	got := make([]byte, len(want))
 	_, err := clientConn.Read(got)
@@ -3219,7 +3285,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncCancel()
 
 	// Receive a block header.
-	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_strk":"0x0","price_in_wei":"0x0"}},"subscription":%d}}`
+	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription":%d}}`
 	firstWant = fmt.Sprintf(want, firstID)
 	_, firstGot, err = conn1.Read(ctx)
 	require.NoError(t, err)

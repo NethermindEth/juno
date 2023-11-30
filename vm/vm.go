@@ -54,6 +54,8 @@ type callContext struct {
 	log   utils.SimpleLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
+	// index of the transaction that generated err
+	errTxnIndex int64
 	// response from the executed Cairo function
 	response []*felt.Felt
 	// fee amount taken per transaction during VM execution
@@ -71,8 +73,9 @@ func unwrapContext(readerHandle C.uintptr_t) *callContext {
 }
 
 //export JunoReportError
-func JunoReportError(readerHandle C.uintptr_t, str *C.char) {
+func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char) {
 	context := unwrapContext(readerHandle)
+	context.errTxnIndex = int64(txnIndex)
 	context.err = C.GoString(str)
 }
 
@@ -228,6 +231,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	C.free(unsafe.Pointer(chainID))
 
 	if len(context.err) > 0 {
+		if context.errTxnIndex >= 0 {
+			return nil, nil, TransactionExecutionError{
+				Index: uint64(context.errTxnIndex),
+				Cause: errors.New(context.err),
+			}
+		}
 		return nil, nil, errors.New(context.err)
 	}
 

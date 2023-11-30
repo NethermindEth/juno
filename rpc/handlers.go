@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"slices"
 	stdsync "sync"
@@ -46,6 +47,7 @@ var (
 	ErrInvalidContinuationToken        = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
 	ErrTooManyKeysInFilter             = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
 	ErrContractError                   = &jsonrpc.Error{Code: 40, Message: "Contract error"}
+	ErrTransactionExecutionError       = &jsonrpc.Error{Code: 41, Message: "Transaction execution error"}
 	ErrInvalidContractClass            = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
 	ErrClassAlreadyDeclared            = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
 	ErrInternal                        = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
@@ -219,6 +221,17 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
+func (h *Handler) LegacyBlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	block, rpcErr := h.BlockWithTxHashes(id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	block.L1GasPrice.InStark = block.L1GasPrice.InFri
+	block.L1GasPrice.InFri = nil
+	return block, nil
+}
+
 func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
 	l1Head, err := h.bcReader.L1Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -255,8 +268,8 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
 		L1GasPrice: &ResourcePrice{
-			InWei:   header.GasPrice,
-			InStark: nilToZero(header.GasPriceSTRK), // Old block headers will be nil.
+			InWei: header.GasPrice,
+			InFri: nilToZero(header.GasPriceSTRK), // Old block headers will be nil.
 		},
 		StarknetVersion: header.ProtocolVersion,
 	}
@@ -281,7 +294,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = adaptTransaction(txn)
+		txs[index] = AdaptTransaction(txn)
 	}
 
 	l1H, jsonErr := h.l1Head()
@@ -308,6 +321,9 @@ func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
+	block.L1GasPrice.InStark = block.L1GasPrice.InFri
+	block.L1GasPrice.InFri = nil
 	for _, tx := range block.Transactions {
 		if err := tx.ToPreV3(); err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err)
@@ -316,7 +332,7 @@ func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	return block, nil
 }
 
-func adaptTransaction(t core.Transaction) *Transaction {
+func AdaptTransaction(t core.Transaction) *Transaction {
 	var txn *Transaction
 	switch v := t.(type) {
 	case *core.DeployTransaction:
@@ -477,7 +493,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
-	return adaptTransaction(txn), nil
+	return AdaptTransaction(txn), nil
 }
 
 func (h *Handler) LegacyTransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
@@ -524,7 +540,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 			return nil, ErrInvalidTxIndex
 		}
 
-		return adaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
 	header, err := h.blockHeaderByID(&id)
@@ -537,7 +553,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return nil, ErrInvalidTxIndex
 	}
 
-	return adaptTransaction(txn), nil
+	return AdaptTransaction(txn), nil
 }
 
 func (h *Handler) LegacyTransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
@@ -549,6 +565,16 @@ func (h *Handler) LegacyTransactionByBlockIDAndIndex(id BlockID, txIndex int) (*
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err)
 	}
 	return txn, nil
+}
+
+func feeUnit(txn core.Transaction) FeeUnit {
+	feeUnit := WEI
+	version := txn.TxVersion()
+	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
+		feeUnit = FRI
+	}
+
+	return feeUnit
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -617,20 +643,14 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		es = TxnSuccess
 	}
 
-	feeUnit := WEI
-	version := txn.TxVersion()
-	if !version.Is(0) && !version.Is(1) && !version.Is(2) {
-		feeUnit = STRK
-	}
-
 	return &TransactionReceipt{
 		FinalityStatus:  status,
 		ExecutionStatus: es,
-		Type:            adaptTransaction(txn).Type,
+		Type:            AdaptTransaction(txn).Type,
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
-			Unit:   feeUnit,
+			Unit:   feeUnit(txn),
 		},
 		BlockHash:          blockHash,
 		BlockNumber:        receiptBlockNumber,
@@ -1060,25 +1080,11 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 }
 
 // AddTransaction relays a transaction to the gateway.
-func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *jsonrpc.Error) {
-	var request map[string]any
-	err := json.Unmarshal(txnJSON, &request)
-	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InvalidJSON, err.Error())
-	}
-
-	if txnType, typeFound := request["type"]; typeFound && txnType == TxnInvoke.String() {
-		request["type"] = starknet.TxnInvoke.String()
-
-		updatedReq, errIn := json.Marshal(request)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-		txnJSON = updatedReq
-	} else if version, ok := request["version"]; ok && (version == "0x2" || version == "0x3") {
-		contractClass, ok := request["contract_class"].(map[string]interface{})
-		if !ok {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'contract_class': ['Missing data for required field.']}")
+func (h *Handler) AddTransaction(tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
+		contractClass := make(map[string]any)
+		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
+			return nil, ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
 		}
 		sierraProg, ok := contractClass["sierra_program"]
 		if !ok {
@@ -1096,15 +1102,24 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 		}
 
 		contractClass["sierra_program"] = gwSierraProg
-
-		updatedReq, errIn := json.Marshal(request)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+		newContractClass, err := json.Marshal(contractClass)
+		if err != nil {
+			return nil, ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
 		}
-		txnJSON = updatedReq
+		tx.ContractClass = newContractClass
 	}
 
-	resp, err := h.gatewayClient.AddTransaction(txnJSON)
+	txJSON, err := json.Marshal(&struct {
+		*starknet.Transaction
+		ContractClass json.RawMessage `json:"contract_class,omitempty"`
+	}{
+		Transaction:   adaptRPCTxToFeederTx(&tx.Transaction),
+		ContractClass: tx.ContractClass,
+	})
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
+	}
+	respJSON, err := h.gatewayClient.AddTransaction(txJSON)
 	if err != nil {
 		return nil, makeJSONErrorFromGatewayError(err)
 	}
@@ -1114,8 +1129,8 @@ func (h *Handler) AddTransaction(txnJSON json.RawMessage) (*AddTxResponse, *json
 		ContractAddress *felt.Felt `json:"address"`
 		ClassHash       *felt.Felt `json:"class_hash"`
 	}
-	if err = json.Unmarshal(resp, &gatewayResponse); err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
 	}
 
 	return &AddTxResponse{
@@ -1207,11 +1222,25 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	return res, nil
 }
 
+type ContractErrorData struct {
+	RevertError string `json:"revert_error"`
+}
+
 func makeContractError(err error) *jsonrpc.Error {
-	return ErrContractError.CloneWithData(struct {
-		RevertError string `json:"revert_error"`
-	}{
+	return ErrContractError.CloneWithData(ContractErrorData{
 		RevertError: err.Error(),
+	})
+}
+
+type TransactionExecutionErrorData struct {
+	TransactionIndex uint64 `json:"transaction_index"`
+	ExecutionError   string `json:"execution_error"`
+}
+
+func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
+	return ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
+		TransactionIndex: err.Index,
+		ExecutionError:   err.Cause.Error(),
 	})
 }
 
@@ -1256,8 +1285,21 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	}
 }
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.SimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
+func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, id BlockID,
+) ([]FeeEstimate, *jsonrpc.Error) {
+	result, err := h.SimulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag))
+	if err != nil {
+		return nil, err
+	}
+
+	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
+		return tx.FeeEstimation
+	}), nil
+}
+
+func (h *Handler) LegacyEstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
+	result, err := h.LegacySimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
 	if err != nil {
 		return nil, err
 	}
@@ -1287,8 +1329,12 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
-	estimates, rpcErr := h.EstimateFee([]BroadcastedTransaction{tx}, id)
+	estimates, rpcErr := h.EstimateFee([]BroadcastedTransaction{tx}, nil, id)
 	if rpcErr != nil {
+		if rpcErr.Code == ErrTransactionExecutionError.Code {
+			data := rpcErr.Data.(TransactionExecutionErrorData)
+			return nil, makeContractError(errors.New(data.ExecutionError))
+		}
 		return nil, rpcErr
 	}
 	return &estimates[0], nil
@@ -1307,13 +1353,17 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (json.Ra
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) LegacyTraceTransaction(ctx context.Context, hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash, true)
+	trace, err := h.traceTransaction(ctx, &hash, true)
+	if err.Code == ErrTxnHashNotFound.Code {
+		err = ErrInvalidTxHash
+	}
+	return trace, err
 }
 
 func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, legacyTraceJSON bool) (json.RawMessage, *jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(hash)
 	if err != nil {
-		return nil, ErrInvalidTxHash
+		return nil, ErrTxnHashNotFound
 	}
 
 	block, err := h.bcReader.BlockByNumber(blockNumber)
@@ -1402,9 +1452,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(err.Error())
 		}
-		return nil, makeContractError(err)
+		var txnExecutionError vm.TransactionExecutionError
+		if errors.As(err, &txnExecutionError) {
+			return nil, makeTransactionExecutionError(&txnExecutionError)
+		}
+		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	var result []SimulatedTransaction
@@ -1413,6 +1467,10 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			GasConsumed: new(felt.Felt).Div(overallFee, header.GasPrice),
 			GasPrice:    header.GasPrice,
 			OverallFee:  overallFee,
+		}
+
+		if !legacyTraceJSON {
+			estimate.Unit = utils.Ptr(feeUnit(txns[i]))
 		}
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: traces[i],
@@ -1535,9 +1593,11 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		sequencerAddress, state, h.network, paidFeesOnL1, false, false, block.Header.GasPrice, block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(err.Error())
 		}
-		return nil, makeContractError(err)
+		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
+		// report them as unexpected errors
+		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	var result []TracedBlockTransaction
@@ -1665,7 +1725,6 @@ func (h *Handler) unsubscribe(sub *subscription, id uint64) {
 	h.mu.Unlock()
 }
 
-//nolint:dupl
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -1780,7 +1839,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
 			Handler: h.EstimateFee,
 		},
 		{
@@ -1819,7 +1878,6 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_6"
 }
 
-//nolint:dupl
 func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -1837,7 +1895,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxHashes,
+			Handler: h.LegacyBlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
@@ -1935,7 +1993,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.EstimateFee,
+			Handler: h.LegacyEstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
