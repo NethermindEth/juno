@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/NethermindEth/juno/vm"
+
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -16,6 +18,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	core.Cairo0ClassHashFunc = vm.Cairo0ClassHash
+}
 
 func TestClassV0Hash(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.Goerli)

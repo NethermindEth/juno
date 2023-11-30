@@ -51,16 +51,16 @@ func (c *Cairo0Class) Version() uint64 {
 	return 0
 }
 
+var Cairo0ClassHashFunc func(*Cairo0Class) (*felt.Felt, error)
+
 func (c *Cairo0Class) Hash() *felt.Felt {
-	return crypto.PedersenArray(
-		&felt.Zero,
-		crypto.PedersenArray(flatten(c.Externals)...),
-		crypto.PedersenArray(flatten(c.L1Handlers)...),
-		crypto.PedersenArray(flatten(c.Constructors)...),
-		c.BuiltinsHash,
-		c.ProgramHash,
-		c.BytecodeHash,
-	)
+	classHash, err := Cairo0ClassHashFunc(c)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return nil
+	}
+
+	return classHash
 }
 
 func flatten(entryPoints []EntryPoint) []*felt.Felt {
