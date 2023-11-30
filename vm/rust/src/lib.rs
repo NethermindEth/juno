@@ -219,7 +219,7 @@ pub extern "C" fn cairoVMExecute(
                 let class_json_str = classes.remove(0);
 
                 let mut maybe_cc = contract_class_from_json_str(class_json_str.get());
-                if declare.version() == TransactionVersion(2u32.into()) && maybe_cc.is_err() {
+                if declare.version() >= TransactionVersion(2u32.into()) && maybe_cc.is_err() {
                     // class json could be sierra
                     maybe_cc = contract_class_from_sierra_json(class_json_str.get())
                 };
