@@ -194,7 +194,8 @@ impl From<BlockifierOrderedEvent> for OrderedEvent {
 #[derive(Serialize)]
 pub struct ExecutionResources {
     pub steps: usize,
-    pub memory_holes: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_holes: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub range_check_builtin_applications: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -219,7 +220,11 @@ impl From<VmExecutionResources> for ExecutionResources {
     fn from(val: VmExecutionResources) -> Self {
         ExecutionResources {
             steps: val.n_steps,
-            memory_holes: val.n_memory_holes,
+            memory_holes: if val.n_memory_holes > 0 {
+                Some(val.n_memory_holes)
+            } else {
+                None
+            },
             range_check_builtin_applications: val.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).cloned(),
             pedersen_builtin_applications: val.builtin_instance_counter.get(HASH_BUILTIN_NAME).cloned(),
             poseidon_builtin_applications: val.builtin_instance_counter.get(POSEIDON_BUILTIN_NAME).cloned(),
