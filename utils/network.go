@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
-	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,30 +14,27 @@ import (
 )
 
 var (
-	ErrUnknownNetwork              = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
-	ErrNetworkNoFallbackAddr       = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
-	ErrNetworkNoFirst07Block       = errors.New("the First07Block (uint64) parameter must be set")
-	ErrNetworkNoUnverifRange       = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be set")
-	ErrNetworkSetFallbackAddr      = errors.New("failed to set FallBackSequencerAddress as a felt")
-	ErrNetworkSetFirst07Block      = errors.New("failed to set First07Block as a uint64")
-	ErrNetworkSetUnverifRangeStart = errors.New("failed to set UnverifiableRangeStart as a uint64")
-	ErrNetworkSetUnverifRangeEnd   = errors.New("failed to set UnverifiableRangeEnd as a uint64")
-	ErrNetworkParamsNotSet         = errors.New("all parameters must be specified for a custom network")
+	ErrUnknownNetwork        = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
+	ErrNetworkNoFallbackAddr = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
+	ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be set")
 )
 
 type Network struct {
-	name                string
-	baseURL             string
-	chainID             string
-	l1ChainID           *big.Int
-	coreContractAddress common.Address
-	blockHashMetaInfo   *blockHashMetaInfo
+	Name                string             `json:"name"`
+	BaseURL             string             `json:"base_url"`
+	ChainID             string             `json:"chain_id"`
+	L1ChainID           *big.Int           `json:"l1_chain_id,omitempty"`
+	CoreContractAddress common.Address     `json:"core_contract_address,omitempty"`
+	BlockHashMetaInfo   *blockHashMetaInfo `json:"block_hash_meta_info,omitempty"`
 }
 
 type blockHashMetaInfo struct {
-	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
-	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
-	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
+	// The sequencer address to use for blocks that do not have one
+	FallBackSequencerAddress *felt.Felt `json:"fallback_sequencer_address"`
+	// First block that uses the post-0.7.0 block hash algorithm
+	First07Block uint64 `json:"first_07_block"`
+	// Range of blocks that are not verifiable
+	UnverifiableRange []uint64 `json:"unverifiable_range"`
 }
 
 var (
@@ -51,46 +46,46 @@ var (
 
 	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
 	MAINNET = Network{
-		name:                "mainnet",
-		baseURL:             "https://alpha-mainnet.starknet.io/",
-		chainID:             "SN_MAIN",
-		l1ChainID:           big.NewInt(1),
-		coreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		blockHashMetaInfo: &blockHashMetaInfo{
+		Name:                "mainnet",
+		BaseURL:             "https://alpha-mainnet.starknet.io/",
+		ChainID:             "SN_MAIN",
+		L1ChainID:           big.NewInt(1),
+		CoreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             833,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
 	GOERLI = Network{
-		name:    "goerli",
-		baseURL: "https://alpha4.starknet.io/",
-		chainID: "SN_GOERLI",
+		Name:    "goerli",
+		BaseURL: "https://alpha4.starknet.io/",
+		ChainID: "SN_GOERLI",
 		//nolint:gomnd
-		l1ChainID:           big.NewInt(5),
-		coreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		blockHashMetaInfo: &blockHashMetaInfo{
+		L1ChainID:           big.NewInt(5),
+		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             47028,
 			UnverifiableRange:        []uint64{119802, 148428},
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
 	GOERLI2 = Network{
-		name:    "goerli2",
-		baseURL: "https://alpha4-2.starknet.io/",
-		chainID: "SN_GOERLI2",
+		Name:    "goerli2",
+		BaseURL: "https://alpha4-2.starknet.io/",
+		ChainID: "SN_GOERLI2",
 		//nolint:gomnd
-		l1ChainID:           big.NewInt(5),
-		coreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		blockHashMetaInfo: &blockHashMetaInfo{
+		L1ChainID:           big.NewInt(5),
+		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
 	INTEGRATION = Network{
-		name:    "integration",
-		baseURL: "https://external.integration.starknet.io/",
-		chainID: "SN_GOERLI",
-		blockHashMetaInfo: &blockHashMetaInfo{
+		Name:    "integration",
+		BaseURL: "https://external.integration.starknet.io/",
+		ChainID: "SN_GOERLI",
+		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
 			FallBackSequencerAddress: fallBackSequencerAddress,
@@ -99,7 +94,7 @@ var (
 )
 
 func (n Network) String() string {
-	return n.name
+	return n.Name
 }
 
 func (n Network) MarshalYAML() (interface{}, error) {
@@ -121,75 +116,37 @@ func (n *Network) Set(s string) error {
 		"INTEGRATION": INTEGRATION,
 		"integration": INTEGRATION,
 	}
-
 	if network, ok := predefinedNetworks[s]; ok {
 		*n = network
 		return nil
 	}
-
 	return n.setCustomNetwork(s)
 }
 
+// setCustomNetwork takes a json string representing the Network struct and sets the Network to it.
 func (n *Network) setCustomNetwork(s string) error {
 	*n = Network{}
-	elems := strings.Split(s, ",")
+	var customNetwork Network
+	if err := json.Unmarshal([]byte(s), &customNetwork); err != nil {
+		return err
+	}
 
-	if !(elems[0] == "custom" || elems[0] == "CUSTOM") {
+	if !(customNetwork.Name == "custom" || customNetwork.Name == "CUSTOM") {
 		return ErrUnknownNetwork
 	}
 
-	if len(elems) != 9 { /* number of required fields in Network struct */ //nolint:gomnd
-		return ErrNetworkParamsNotSet
+	if n.BlockHashMetaInfo == nil {
+		return fmt.Errorf("custom network must have a BlockHashMetaInfo")
 	}
 
-	n.name = elems[0]
-	n.baseURL = elems[1]
-	n.chainID = elems[2]
-
-	if elems[3] != "" {
-		l1ChainID, success := new(big.Int).SetString(elems[3], 10) //nolint:gomnd
-		if !success {
-			return errors.New("L1 Chain ID must be an integer (base 10)")
-		}
-		n.l1ChainID = l1ChainID
+	if customNetwork.BlockHashMetaInfo.FallBackSequencerAddress == nil {
+		return ErrNetworkNoFallbackAddr
 	}
 
-	if elems[4] != "" {
-		n.coreContractAddress = common.HexToAddress(elems[4])
-	}
-	requiredFields := []struct {
-		value string
-		err   error
-	}{
-		{elems[5], ErrNetworkNoFallbackAddr},
-		{elems[6], ErrNetworkNoFirst07Block},
-		{elems[7], ErrNetworkNoUnverifRange},
-		{elems[8], ErrNetworkNoUnverifRange},
+	if len(customNetwork.BlockHashMetaInfo.UnverifiableRange) != 2 {
+		return ErrNetworkNoUnverifRange
 	}
 
-	for _, field := range requiredFields {
-		if field.value == "" {
-			return field.err
-		}
-	}
-
-	n.blockHashMetaInfo = &blockHashMetaInfo{}
-
-	var err error
-	if n.blockHashMetaInfo.FallBackSequencerAddress, err = new(felt.Felt).SetString(elems[5]); err != nil {
-		return ErrNetworkSetFallbackAddr
-	}
-	if n.blockHashMetaInfo.First07Block, err = strconv.ParseUint(elems[6], 10, 64); err != nil {
-		return ErrNetworkSetFirst07Block
-	}
-	var start, end uint64
-	if start, err = strconv.ParseUint(elems[7], 10, 64); err != nil {
-		return ErrNetworkSetUnverifRangeStart
-	}
-	if end, err = strconv.ParseUint(elems[8], 10, 64); err != nil {
-		return ErrNetworkSetUnverifRangeEnd
-	}
-	n.blockHashMetaInfo.UnverifiableRange = []uint64{start, end}
 	return nil
 }
 
@@ -203,31 +160,20 @@ func (n *Network) UnmarshalText(text []byte) error {
 
 // FeederURL returns URL for read commands
 func (n Network) FeederURL() string {
-	return n.baseURL + "feeder_gateway/"
+	return n.BaseURL + "feeder_gateway/"
 }
 
 // GatewayURL returns URL for write commands
 func (n Network) GatewayURL() string {
-	return n.baseURL + "gateway/"
-}
-
-func (n Network) ChainIDString() string {
-	return n.chainID
+	return n.BaseURL + "gateway/"
 }
 
 func (n Network) DefaultL1ChainID() *big.Int {
-	return n.l1ChainID
+	return n.L1ChainID
 }
 
-func (n Network) CoreContractAddress() (common.Address, error) {
-	if n.l1ChainID == nil {
-		return common.Address{}, fmt.Errorf("l1 contract is not available on this network %s", n.name)
-	}
-	return n.coreContractAddress, nil
-}
-
-func (n Network) ChainID() *felt.Felt {
-	return new(felt.Felt).SetBytes([]byte(n.ChainIDString()))
+func (n Network) ChainIDFelt() *felt.Felt {
+	return new(felt.Felt).SetBytes([]byte(n.ChainID))
 }
 
 func (n Network) ProtocolID() protocol.ID {
@@ -235,5 +181,5 @@ func (n Network) ProtocolID() protocol.ID {
 }
 
 func (n Network) MetaInfo() *blockHashMetaInfo {
-	return n.blockHashMetaInfo
+	return n.BlockHashMetaInfo
 }

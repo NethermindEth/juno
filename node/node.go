@@ -212,14 +212,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 }
 
 func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
-	var coreContractAddress common.Address
-	coreContractAddress, err := chain.Network().CoreContractAddress()
-	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", chain.Network(), err)
+	coreContractAddress := chain.Network().CoreContractAddress
+	if coreContractAddress == (common.Address{}) {
+		return nil, fmt.Errorf("find core contract address for network %s: l1 contract is not available on this network ", chain.Network())
 	}
 
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
+	ethSubscriber, err := l1.NewEthSubscriber(ethNode, coreContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}

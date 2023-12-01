@@ -45,7 +45,7 @@ func TestChainId(t *testing.T) {
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
-			assert.Equal(t, n.ChainID(), cID)
+			assert.Equal(t, n.ChainIDFelt(), cID)
 		})
 	}
 }

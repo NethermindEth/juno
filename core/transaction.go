@@ -336,7 +336,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.EntryPointSelector,
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			n.ChainID(),
+			n.ChainIDFelt(),
 		), nil
 	case i.Version.Is(1):
 		return crypto.PedersenArray(
@@ -346,7 +346,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			n.ChainID(),
+			n.ChainIDFelt(),
 			i.Nonce,
 		), nil
 	default:
@@ -367,7 +367,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			new(felt.Felt),
 			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
-			n.ChainID(),
+			n.ChainIDFelt(),
 			d.Nonce,
 		), nil
 	case d.Version.Is(2):
@@ -378,7 +378,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			&felt.Zero,
 			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
-			n.ChainID(),
+			n.ChainIDFelt(),
 			d.Nonce,
 			d.CompiledClassHash,
 		), nil
@@ -403,7 +403,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 			l.EntryPointSelector,
 			crypto.PedersenArray(l.CallData...),
 			&felt.Zero,
-			n.ChainID(),
+			n.ChainIDFelt(),
 			l.Nonce,
 		), nil
 	default:
@@ -423,7 +423,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			&felt.Zero,
 			crypto.PedersenArray(callData...),
 			d.MaxFee,
-			n.ChainID(),
+			n.ChainIDFelt(),
 			d.Nonce,
 		), nil
 	}
