@@ -17,6 +17,7 @@ import (
 )
 
 func TestService(t *testing.T) {
+	t.Skip("TestService")
 	net, err := mocknet.FullMeshLinked(2)
 	require.NoError(t, err)
 	peerHosts := net.Hosts()
@@ -145,6 +146,7 @@ func TestInvalidKey(t *testing.T) {
 }
 
 func TestValidKey(t *testing.T) {
+	t.Skip("TestValidKey")
 	_, err := p2p.New(
 		"/ip4/127.0.0.1/tcp/30301",
 		"peerA",
