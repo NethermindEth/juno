@@ -52,14 +52,15 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.
 	}
 }
 
-func AdaptEvent(e *core.Event) *spec.Event {
+func AdaptEvent(e *core.Event, txH *felt.Felt) *spec.Event {
 	if e == nil {
 		return nil
 	}
 
 	return &spec.Event{
-		FromAddress: AdaptFelt(e.From),
-		Keys:        utils.Map(e.Keys, AdaptFelt),
-		Data:        utils.Map(e.Data, AdaptFelt),
+		TransactionHash: AdaptHash(txH),
+		FromAddress:     AdaptFelt(e.From),
+		Keys:            utils.Map(e.Keys, AdaptFelt),
+		Data:            utils.Map(e.Data, AdaptFelt),
 	}
 }

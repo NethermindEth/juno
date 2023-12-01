@@ -227,7 +227,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 		events := make([]*spec.Event, 0, len(block.Receipts))
 		for _, receipt := range block.Receipts {
 			for _, event := range receipt.Events {
-				events = append(events, core2p2p.AdaptEvent(event))
+				events = append(events, core2p2p.AdaptEvent(event, receipt.TransactionHash))
 			}
 		}
 
