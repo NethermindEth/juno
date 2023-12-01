@@ -100,7 +100,7 @@ func TestNetworkSet(t *testing.T) {
 				"base_url": "baseURL/",
 				"chain_id": "SN_CUSTOM",
 				"l1_chain_id": "123",
-				"core_contract_address": "0x123",
+				"core_contract_address": "0x0",
 				"block_hash_meta_info": {
 					"first_07_block": 1,
 					"unverifiable_range": [2, 3],

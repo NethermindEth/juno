@@ -16,16 +16,16 @@ import (
 var (
 	ErrUnknownNetwork        = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 	ErrNetworkNoFallbackAddr = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
-	ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be set")
+	ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be correctly set")
 )
 
 type Network struct {
 	Name                string             `json:"name"`
 	BaseURL             string             `json:"base_url"`
 	ChainID             string             `json:"chain_id"`
-	L1ChainID           *big.Int           `json:"l1_chain_id,omitempty"`
-	CoreContractAddress common.Address     `json:"core_contract_address,omitempty"`
-	BlockHashMetaInfo   *blockHashMetaInfo `json:"block_hash_meta_info,omitempty"`
+	L1ChainID           *big.Int           `json:"l1_chain_id"`
+	CoreContractAddress common.Address     `json:"core_contract_address"`
+	BlockHashMetaInfo   *blockHashMetaInfo `json:"block_hash_meta_info"`
 }
 
 type blockHashMetaInfo struct {
@@ -105,6 +105,60 @@ func (n Network) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + n.String() + `"`), nil
 }
 
+// Unmarshals a json string into a Network struct, and requires all fields to be present
+func (n *Network) UnmarshalJSON(data []byte) error {
+	jsonMap := make(map[string]any)
+	if err := json.Unmarshal(data, &jsonMap); err != nil {
+		return err
+	}
+	name, ok := jsonMap["name"].(string)
+	if !ok {
+		return errors.New("no name field")
+	}
+	baseURL, ok := jsonMap["base_url"].(string)
+	if !ok {
+		return errors.New("no base_url field")
+	}
+	chainID, ok := jsonMap["chain_id"].(string)
+	if !ok {
+		return errors.New("no chain_id field")
+	}
+	l1ChainID, ok := jsonMap["l1_chain_id"].(string)
+	if !ok {
+		return errors.New("no l1_chain_id field")
+	}
+	l1ChainIDBigInt, ok := new(big.Int).SetString(l1ChainID, 0)
+	if !ok {
+		return fmt.Errorf("failed to parse l1_chain_id into big.Int")
+	}
+	coreContractAddressStr, ok := jsonMap["core_contract_address"].(string)
+	if !ok {
+		return errors.New("no core_contract_address field")
+	}
+
+	blockHashMetaInfoData, ok := jsonMap["block_hash_meta_info"]
+	if !ok {
+		return errors.New("no block_hash_meta_info field")
+	}
+
+	var blockHashMetaInfo blockHashMetaInfo
+	blockHashMetaInfoJSON, err := json.Marshal(blockHashMetaInfoData)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(blockHashMetaInfoJSON, &blockHashMetaInfo); err != nil {
+		return err
+	}
+
+	n.Name = name
+	n.BaseURL = baseURL
+	n.ChainID = chainID
+	n.L1ChainID = l1ChainIDBigInt
+	n.CoreContractAddress = common.HexToAddress(coreContractAddressStr)
+	n.BlockHashMetaInfo = &blockHashMetaInfo
+	return nil
+}
+
 func (n *Network) Set(s string) error {
 	predefinedNetworks := map[string]Network{
 		"MAINNET":     MAINNET,
@@ -123,27 +177,18 @@ func (n *Network) Set(s string) error {
 	return n.setCustomNetwork(s)
 }
 
-// setCustomNetwork takes a json string representing the Network struct and sets the Network to it.
+// setCustomNetwork tries to unmarshal the json string and performs some basic validation checks
 func (n *Network) setCustomNetwork(s string) error {
 	*n = Network{}
-	var customNetwork Network
-	if err := json.Unmarshal([]byte(s), &customNetwork); err != nil {
-		return err
+	if err := n.UnmarshalJSON([]byte(s)); err != nil {
+		return errors.New("failed to unmarhsal the json string to a Network struct - " + err.Error())
 	}
 
-	if !(customNetwork.Name == "custom" || customNetwork.Name == "CUSTOM") {
+	if !(n.Name == "custom" || n.Name == "CUSTOM") {
 		return ErrUnknownNetwork
 	}
 
-	if n.BlockHashMetaInfo == nil {
-		return fmt.Errorf("custom network must have a BlockHashMetaInfo")
-	}
-
-	if customNetwork.BlockHashMetaInfo.FallBackSequencerAddress == nil {
-		return ErrNetworkNoFallbackAddr
-	}
-
-	if len(customNetwork.BlockHashMetaInfo.UnverifiableRange) != 2 {
+	if len(n.BlockHashMetaInfo.UnverifiableRange) != 2 {
 		return ErrNetworkNoUnverifRange
 	}
 
