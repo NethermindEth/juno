@@ -42,13 +42,12 @@ type blockHashMetaInfo struct {
 	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
 }
 
-// The following are necessary for Cobra and Viper, respectively, to unmarshal log level
-// CLI/config parameters properly.
 var (
 	//nolint:lll
-	fallBackSequencerAddress, _                          = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
-	_                           pflag.Value              = (*Network)(nil)
-	_                           encoding.TextUnmarshaler = (*Network)(nil)
+	fallBackSequencerAddress, _ = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+	// The following are necessary for Cobra and Viper, respectively, to unmarshal log level CLI/config parameters properly.
+	_ pflag.Value              = (*Network)(nil)
+	_ encoding.TextUnmarshaler = (*Network)(nil)
 
 	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
 	MAINNET = Network{
@@ -57,7 +56,10 @@ var (
 		chainID:             "SN_MAIN",
 		l1ChainID:           big.NewInt(1),
 		coreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		blockHashMetaInfo:   &MetaInfoMAINNET,
+		blockHashMetaInfo: &blockHashMetaInfo{
+			First07Block:             833,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		},
 	}
 	GOERLI = Network{
 		name:    "goerli",
@@ -66,7 +68,11 @@ var (
 		//nolint:gomnd
 		l1ChainID:           big.NewInt(5),
 		coreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		blockHashMetaInfo:   &MetaInfoGOERLI,
+		blockHashMetaInfo: &blockHashMetaInfo{
+			First07Block:             47028,
+			UnverifiableRange:        []uint64{119802, 148428},
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		},
 	}
 	GOERLI2 = Network{
 		name:    "goerli2",
@@ -75,31 +81,20 @@ var (
 		//nolint:gomnd
 		l1ChainID:           big.NewInt(5),
 		coreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		blockHashMetaInfo:   &MetaInfoGOERLI2,
+		blockHashMetaInfo: &blockHashMetaInfo{
+			First07Block:             0,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		},
 	}
 	INTEGRATION = Network{
-		name:              "integration",
-		baseURL:           "https://external.integration.starknet.io/",
-		chainID:           "SN_GOERLI",
-		blockHashMetaInfo: &MetaInfoINTEGRATION,
-	}
-	MetaInfoMAINNET = blockHashMetaInfo{
-		First07Block:             833,
-		FallBackSequencerAddress: fallBackSequencerAddress,
-	}
-	MetaInfoGOERLI = blockHashMetaInfo{
-		First07Block:             47028,
-		UnverifiableRange:        []uint64{119802, 148428},
-		FallBackSequencerAddress: fallBackSequencerAddress,
-	}
-	MetaInfoGOERLI2 = blockHashMetaInfo{
-		First07Block:             0,
-		FallBackSequencerAddress: fallBackSequencerAddress,
-	}
-	MetaInfoINTEGRATION = blockHashMetaInfo{
-		First07Block:             110511,
-		UnverifiableRange:        []uint64{0, 110511},
-		FallBackSequencerAddress: fallBackSequencerAddress,
+		name:    "integration",
+		baseURL: "https://external.integration.starknet.io/",
+		chainID: "SN_GOERLI",
+		blockHashMetaInfo: &blockHashMetaInfo{
+			First07Block:             110511,
+			UnverifiableRange:        []uint64{0, 110511},
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		},
 	}
 )
 
@@ -226,7 +221,7 @@ func (n Network) DefaultL1ChainID() *big.Int {
 
 func (n Network) CoreContractAddress() (common.Address, error) {
 	if n.l1ChainID == nil {
-		return common.Address{}, errors.New("l1 contract is not available on this network")
+		return common.Address{}, fmt.Errorf("l1 contract is not available on this network %s", n.name)
 	}
 	return n.coreContractAddress, nil
 }
