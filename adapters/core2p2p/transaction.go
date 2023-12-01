@@ -112,7 +112,7 @@ func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy
 
 func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *spec.Transaction_L1Handler {
 	return &spec.Transaction_L1Handler{
-		L1Handler: &spec.Transaction_L1HandlerV0{
+		L1Handler: &spec.Transaction_L1HandlerV1{
 			Nonce:              AdaptFelt(tx.Nonce),
 			Address:            AdaptAddress(tx.ContractAddress),
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),

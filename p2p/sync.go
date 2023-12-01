@@ -296,7 +296,8 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 					var hash *felt.Felt
 					switch v := coreCls.(type) {
 					case *core.Cairo0Class:
-						hash = p2p2core.AdaptHash(cls.GetCairo0().Hash)
+						// todo: compute cairo0 class hash
+
 					case *core.Cairo1Class:
 						hash = v.Hash()
 					}
@@ -306,16 +307,6 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 			})
 		case *spec.BlockBodiesResponse_Diff:
 			// res.GetDiff()
-		case *spec.BlockBodiesResponse_Transactions:
-			updateBlockBody(res.GetId().Number, func(b *blockBody) {
-				for _, item := range res.GetTransactions().GetItems() {
-					b.block.Transactions = append(b.block.Transactions, p2p2core.AdaptTransaction(item, s.network))
-				}
-			})
-		case *spec.BlockBodiesResponse_Receipts:
-			updateBlockBody(res.GetId().Number, func(b *blockBody) {
-				b.block.Receipts = utils.Map(res.GetReceipts().GetItems(), p2p2core.AdaptReceipt)
-			})
 		case *spec.BlockBodiesResponse_Fin:
 			// do nothing
 		case *spec.BlockBodiesResponse_Proof:

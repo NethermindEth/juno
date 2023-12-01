@@ -26,7 +26,6 @@ func AdaptClass(class core.Class, cairo0ClassHash *felt.Felt) *spec.Class {
 					L1Handlers:   utils.Map(v.L1Handlers, adaptEntryPoint),
 					Constructors: utils.Map(v.Constructors, adaptEntryPoint),
 					Program:      []byte(v.Program),
-					Hash:         AdaptHash(cairo0ClassHash),
 				},
 			},
 		}

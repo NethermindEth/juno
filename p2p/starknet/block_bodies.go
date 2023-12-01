@@ -21,8 +21,6 @@ const (
 	sendDiff // initial
 	sendClasses
 	sendProof
-	sendTxs
-	sendReceipts
 	sendBlockFin
 	terminal // final step
 )
@@ -65,8 +63,6 @@ func (b *blockBodyIterator) hasNext() bool {
 		sendClasses,
 		sendProof,
 		sendBlockFin,
-		sendTxs,
-		sendReceipts,
 	}, b.step)
 }
 
@@ -81,12 +77,6 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 		b.step = sendProof
 	case sendProof:
 		msg, valid = b.proof()
-		b.step = sendTxs
-	case sendTxs:
-		msg, valid = b.transactions()
-		b.step = sendReceipts
-	case sendReceipts:
-		msg, valid = b.receipts()
 		b.step = sendBlockFin
 	case sendBlockFin:
 		// fin changes step to terminal internally
@@ -98,33 +88,6 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 	}
 
 	return
-}
-
-func (b *blockBodyIterator) transactions() (proto.Message, bool) {
-	return &spec.BlockBodiesResponse{
-		Id: b.blockID(),
-		BodyMessage: &spec.BlockBodiesResponse_Transactions{
-			Transactions: &spec.Transactions{
-				Items: utils.Map(b.block.Transactions, core2p2p.AdaptTransaction),
-			},
-		},
-	}, true
-}
-
-func (b *blockBodyIterator) receipts() (proto.Message, bool) {
-	var receipts []*spec.Receipt
-	for i, receipt := range b.block.Receipts {
-		receipts = append(receipts, core2p2p.AdaptReceipt(receipt, b.block.Transactions[i]))
-	}
-
-	return &spec.BlockBodiesResponse{
-		Id: b.blockID(),
-		BodyMessage: &spec.BlockBodiesResponse_Receipts{
-			Receipts: &spec.Receipts{
-				Items: receipts,
-			},
-		},
-	}, true
 }
 
 func (b *blockBodyIterator) classes() (proto.Message, bool) {
@@ -255,10 +218,6 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 				ContractDiffs:     contractDiffs,
 				ReplacedClasses:   []*spec.StateDiff_ContractAddrToClassHash{},
 				DeployedContracts: []*spec.StateDiff_ContractAddrToClassHash{},
-				OldState: &spec.Patricia{
-					Height: 251,
-					Root:   core2p2p.AdaptHash(b.stateUpdate.OldRoot),
-				},
 			},
 		},
 	}, true
