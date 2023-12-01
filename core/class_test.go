@@ -13,14 +13,9 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func init() { //nolint:gochecknoinits
-	core.Cairo0ClassHashFunc = vm.Cairo0ClassHash
-}
 
 func TestClassV0Hash(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.Goerli)
