@@ -87,7 +87,7 @@ type BlockHeader struct {
 	Timestamp        uint64         `json:"timestamp"`
 	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
 	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
-	StarknetVersion  string         `json:"starknet_version,omitempty"`
+	StarknetVersion  string         `json:"starknet_version"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
