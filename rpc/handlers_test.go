@@ -3629,7 +3629,7 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpc.New(nil, nil, 0, nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.6.0-rc2", version)
+	require.Equal(t, "0.6.0-rc4", version)
 
 	legacyVersion, rpcErr := handler.LegacySpecVersion()
 	require.Nil(t, rpcErr)
