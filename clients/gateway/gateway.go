@@ -87,7 +87,7 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
 	return &Client{
 		url:     gatewayURL,
-		timeout: 10 * time.Second,
+		timeout: time.Minute,
 		client:  http.DefaultClient,
 		log:     log,
 	}
