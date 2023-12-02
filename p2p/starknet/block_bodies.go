@@ -102,8 +102,9 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 
 		classesM[*hash] = core2p2p.AdaptClass(cls.Class, hash)
 	}
-	for _, class := range stateDiff.DeclaredV1Classes {
-		cls, err := b.stateReader.Class(class.ClassHash)
+	for classHash := range stateDiff.DeclaredV1Classes {
+		classHashCopy := classHash
+		cls, err := b.stateReader.Class(&classHashCopy)
 		if err != nil {
 			return b.fin()
 		}
@@ -112,14 +113,14 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 		if err != nil {
 			return b.fin()
 		}
-		classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, hash)
+		classesM[classHashCopy] = core2p2p.AdaptClass(cls.Class, hash)
 	}
-	for _, class := range stateDiff.DeployedContracts {
-		if _, ok := classesM[*class.ClassHash]; ok {
+	for _, classHash := range stateDiff.DeployedContracts {
+		if _, ok := classesM[*classHash]; ok {
 			// Skip if the class was declared and deployed in the same block. Otherwise, there will be duplicate classes.
 			continue
 		}
-		cls, err := b.stateReader.Class(class.ClassHash)
+		cls, err := b.stateReader.Class(classHash)
 		if err != nil {
 			return b.fin()
 		}
@@ -127,7 +128,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 		var compiledHash *felt.Felt
 		switch cairoClass := cls.Class.(type) {
 		case *core.Cairo0Class:
-			compiledHash = class.ClassHash
+			compiledHash = classHash
 		case *core.Cairo1Class:
 			compiledHash, err = cairoClass.Hash()
 			if err != nil {
@@ -161,7 +162,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 type contractDiff struct {
 	address      *felt.Felt
 	classHash    *felt.Felt
-	storageDiffs []core.StorageDiff
+	storageDiffs map[felt.Felt]*felt.Felt
 	nonce        *felt.Felt
 }
 

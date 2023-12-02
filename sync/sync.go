@@ -144,8 +144,8 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 		return stateErr
 	}
 
-	for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
-		if err = fetchIfNotFound(deployedContract.ClassHash); err != nil {
+	for _, classHash := range stateUpdate.StateDiff.DeployedContracts {
+		if err = fetchIfNotFound(classHash); err != nil {
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
@@ -154,8 +154,8 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
-	for _, declaredV1 := range stateUpdate.StateDiff.DeclaredV1Classes {
-		if err = fetchIfNotFound(declaredV1.ClassHash); err != nil {
+	for _, classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		if err = fetchIfNotFound(classHash); err != nil {
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}

@@ -163,9 +163,10 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 		replacedAddress := utils.HexToFelt(t, "0XABCDE")
 		declaredV0Class := randFelt(t)
 		declaredV0ClassHash := randFelt(t)
-		storageDiff := core.StorageDiff{
-			Key:   randFelt(t),
-			Value: randFelt(t),
+		storageDiffKey := randFelt(t)
+		storageDiffValue := randFelt(t)
+		storageDiff := map[felt.Felt]*felt.Felt{
+			*storageDiffKey: storageDiffValue,
 		}
 		const (
 			cairo0Program = "cairo_0_program"
@@ -184,70 +185,45 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 			{
 				number: 0,
 				stateDiff: &core.StateDiff{
-					StorageDiffs: map[felt.Felt][]core.StorageDiff{
-						*deployedAddress: {
-							storageDiff,
-						},
+					StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+						*deployedAddress: storageDiff,
 					},
 					Nonces: map[felt.Felt]*felt.Felt{
 						*deployedAddress: randFelt(t),
 						*replacedAddress: randFelt(t),
 					},
-					DeployedContracts: []core.AddressClassHashPair{
-						{
-							Address:   deployedAddress,
-							ClassHash: deployedClassHash,
-						},
+					DeployedContracts: map[felt.Felt]*felt.Felt{
+						*deployedAddress: deployedClassHash,
 					},
 					DeclaredV0Classes: []*felt.Felt{declaredV0Class},
-					DeclaredV1Classes: []core.DeclaredV1Class{
-						{
-							ClassHash:         randFelt(t),
-							CompiledClassHash: randFelt(t),
-						},
+					DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+						*randFelt(t): randFelt(t),
 					},
-					ReplacedClasses: []core.AddressClassHashPair{
-						{
-							Address:   replacedAddress,
-							ClassHash: replacedClassHash,
-						},
+					ReplacedClasses: map[felt.Felt]*felt.Felt{
+						*replacedAddress: replacedClassHash,
 					},
 				},
 			},
 			{
 				number: 1,
 				stateDiff: &core.StateDiff{ // State Diff with a class declared and deployed in the same block
-					StorageDiffs: map[felt.Felt][]core.StorageDiff{
-						*deployedAddress: {
-							storageDiff,
-						},
+					StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+						*deployedAddress: storageDiff,
 					},
 					Nonces: map[felt.Felt]*felt.Felt{
 						*deployedAddress: randFelt(t),
 						*replacedAddress: randFelt(t),
 					},
-					DeployedContracts: []core.AddressClassHashPair{
-						{
-							Address:   deployedAddress,
-							ClassHash: deployedClassHash,
-						},
-						{
-							Address:   declaredV0Class,
-							ClassHash: declaredV0ClassHash,
-						},
+					DeployedContracts: map[felt.Felt]*felt.Felt{
+						*deployedAddress: deployedClassHash,
+						*declaredV0Class: declaredV0ClassHash,
 					},
 					DeclaredV0Classes: []*felt.Felt{declaredV0ClassHash},
-					DeclaredV1Classes: []core.DeclaredV1Class{
-						{
-							ClassHash:         randFelt(t),
-							CompiledClassHash: randFelt(t),
-						},
+					DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+						*randFelt(t): randFelt(t),
 					},
-					ReplacedClasses: []core.AddressClassHashPair{
-						{
-							Address:   replacedAddress,
-							ClassHash: replacedClassHash,
-						},
+					ReplacedClasses: map[felt.Felt]*felt.Felt{
+						*replacedAddress: replacedClassHash,
 					},
 				},
 			},
@@ -271,13 +247,21 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 					Program: cairo0Program,
 				},
 			}, nil)
-			v1Class := block.stateDiff.DeclaredV1Classes[0]
-			stateHistory.EXPECT().Class(v1Class.ClassHash).Return(&core.DeclaredClass{
+			var v1ClassHash felt.Felt
+			for classHash := range block.stateDiff.DeclaredV1Classes {
+				v1ClassHash = classHash
+				break
+			}
+			stateHistory.EXPECT().Class(&v1ClassHash).Return(&core.DeclaredClass{
 				At:    block.number,
 				Class: cairo1Class,
 			}, nil)
-			deployedClass := block.stateDiff.DeployedContracts[0]
-			stateHistory.EXPECT().Class(deployedClass.ClassHash).Return(&core.DeclaredClass{
+			var deployedContractClassHash felt.Felt
+			for _, classHash := range block.stateDiff.DeployedContracts {
+				deployedContractClassHash = *classHash
+				break
+			}
+			stateHistory.EXPECT().Class(deployedContractClassHash).Return(&core.DeclaredClass{
 				At:    block.number,
 				Class: cairo1Class,
 			}, nil)
@@ -317,8 +301,8 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 									Nonce:     core2p2p.AdaptFelt(b.stateDiff.Nonces[*deployedAddress]),
 									Values: []*spec.ContractStoredValue{
 										{
-											Key:   core2p2p.AdaptFelt(storageDiff.Key),
-											Value: core2p2p.AdaptFelt(storageDiff.Value),
+											Key:   core2p2p.AdaptFelt(storageDiffKey),
+											Value: core2p2p.AdaptFelt(storageDiffValue),
 										},
 									},
 								},

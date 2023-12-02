@@ -1,13 +1,11 @@
 package core2p2p
 
 import (
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
-	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(addr, classHash, nonce *felt.Felt, diff []core.StorageDiff) *spec.StateDiff_ContractDiff {
+func AdaptStateDiff(addr, classHash, nonce *felt.Felt, diff map[felt.Felt]*felt.Felt) *spec.StateDiff_ContractDiff {
 	return &spec.StateDiff_ContractDiff{
 		Address:   AdaptAddress(addr),
 		Nonce:     AdaptFelt(nonce),
@@ -16,11 +14,14 @@ func AdaptStateDiff(addr, classHash, nonce *felt.Felt, diff []core.StorageDiff) 
 	}
 }
 
-func AdaptStorageDiff(diff []core.StorageDiff) []*spec.ContractStoredValue {
-	return utils.Map(diff, func(item core.StorageDiff) *spec.ContractStoredValue {
-		return &spec.ContractStoredValue{
-			Key:   AdaptFelt(item.Key),
-			Value: AdaptFelt(item.Value),
-		}
-	})
+func AdaptStorageDiff(diff map[felt.Felt]*felt.Felt) []*spec.ContractStoredValue {
+	result := make([]*spec.ContractStoredValue, len(diff))
+	for key, value := range diff {
+		keyCopy := key
+		result = append(result, &spec.ContractStoredValue{
+			Key:   AdaptFelt(&keyCopy),
+			Value: AdaptFelt(value),
+		})
+	}
+	return result
 }
