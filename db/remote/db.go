@@ -34,7 +34,12 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 }
 
 func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
-	txClient, err := d.kvClient.Tx(d.ctx)
+	const (
+		megabyte = 1 << 20
+		// Some classes are larger than the default of 4MB.
+		maxCallMsgSize = 10 * megabyte
+	)
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(maxCallMsgSize), grpc.MaxCallRecvMsgSize(maxCallMsgSize))
 	if err != nil {
 		return nil, err
 	}
