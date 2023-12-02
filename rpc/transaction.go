@@ -316,17 +316,31 @@ type ExecutionResources struct {
 }
 
 func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
+	if r.isLegacy {
+		return json.Marshal(struct {
+			Steps       NumAsHex `json:"steps"`
+			MemoryHoles NumAsHex `json:"memory_holes"`
+			Pedersen    NumAsHex `json:"pedersen_builtin_applications"`
+			RangeCheck  NumAsHex `json:"range_check_builtin_applications"`
+			Bitwise     NumAsHex `json:"bitwise_builtin_applications"`
+			Ecsda       NumAsHex `json:"ecdsa_builtin_applications"`
+			EcOp        NumAsHex `json:"ec_op_builtin_applications"`
+			Keccak      NumAsHex `json:"keccak_builtin_applications"`
+			Poseidon    NumAsHex `json:"poseidon_builtin_applications"`
+		}{
+			Steps:       NumAsHex(r.Steps),
+			MemoryHoles: NumAsHex(r.MemoryHoles),
+			Pedersen:    NumAsHex(r.Pedersen),
+			RangeCheck:  NumAsHex(r.RangeCheck),
+			Bitwise:     NumAsHex(r.Bitwise),
+			Ecsda:       NumAsHex(r.Ecsda),
+			EcOp:        NumAsHex(r.EcOp),
+			Keccak:      NumAsHex(r.Keccak),
+			Poseidon:    NumAsHex(r.Poseidon),
+		})
+	}
 	type resources ExecutionResources // Avoid infinite recursion with MarshalJSON.
-	rawJSON, err := json.Marshal(resources(*r))
-	if !r.isLegacy {
-		return rawJSON, err
-	}
-
-	hexMap := make(map[string]NumAsHex)
-	if err = json.Unmarshal(rawJSON, &hexMap); err != nil {
-		return nil, err
-	}
-	return json.Marshal(hexMap)
+	return json.Marshal(resources(*r))
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871

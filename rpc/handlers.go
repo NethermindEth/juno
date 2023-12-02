@@ -1354,7 +1354,7 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (json.Ra
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) LegacyTraceTransaction(ctx context.Context, hash felt.Felt) (json.RawMessage, *jsonrpc.Error) {
 	trace, err := h.traceTransaction(ctx, &hash, true)
-	if err.Code == ErrTxnHashNotFound.Code {
+	if err != nil && err.Code == ErrTxnHashNotFound.Code {
 		err = ErrInvalidTxHash
 	}
 	return trace, err
@@ -1655,7 +1655,7 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.6.0-rc2", nil
+	return "0.6.0-rc4", nil
 }
 
 func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {
