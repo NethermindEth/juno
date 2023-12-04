@@ -1,22 +1,10 @@
 package core
 
-import "C"
-import (
-	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/utils"
-	"unsafe"
-)
-
 //#include <stdint.h>
 //#include <stdlib.h>
 //#include <stddef.h>
 //
 // extern void Cairo0ClassHash(char* class_json_str, char* hash);
-<<<<<<< HEAD
-//
-=======
->>>>>>> 0fb88294 (Move some rust logic to core folder)
 // #cgo vm_debug LDFLAGS:  -L./rust/target/debug -ljuno_starknet_core_rs -lm -ldl
 // #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs -lm -ldl
 import "C"
@@ -31,7 +19,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func Cairo0ClassHash(class *Cairo0Class) (*felt.Felt, error) {
+func cairo0ClassHash(class *Cairo0Class) (*felt.Felt, error) {
 	definition, err := makeDeprecatedVMClass(class)
 	if err != nil {
 		return nil, err
