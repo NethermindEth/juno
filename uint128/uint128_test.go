@@ -14,8 +14,8 @@ func TestUint128Bytes(t *testing.T) {
 		description  string
 		loBits       uint64
 		hiBits       uint64
-		expected_arr []byte
-		expected_str string
+		expectedBytes []byte
+		expectedString string
 		wantedErr    bool
 	}{
 		{
