@@ -156,6 +156,7 @@ pub extern "C" fn cairoVMExecute(
     paid_fees_on_l1_json: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
+    err_on_revert: c_uchar,
     gas_price_wei: *const c_uchar,
     gas_price_strk: *const c_uchar,
     legacy_json: c_uchar,
@@ -294,6 +295,16 @@ pub extern "C" fn cairoVMExecute(
                 return;
             }
             Ok(mut t) => {
+                if t.is_reverted() && err_on_revert != 0 {
+                    report_error(
+                        reader_handle,
+                        format!("reverted: {}", t.revert_error.unwrap())
+                        .as_str(),
+                        txn_index as i64
+                    );
+                    return;
+                }
+
                 // we are estimating fee, override actual fee calculation
                 if !charge_fee {
                     t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context, &fee_type).unwrap();

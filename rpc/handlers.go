@@ -1286,7 +1286,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.SimulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag))
+	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1297,7 +1297,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 }
 
 func (h *Handler) LegacyEstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.LegacySimulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag})
+	result, err := h.simulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag}, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1396,17 +1396,17 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, legacyT
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false)
+	return h.simulateTransactions(id, transactions, simulationFlags, false, false)
 }
 
 func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true)
+	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo
-	simulationFlags []SimulationFlag, legacyTraceJSON bool,
+	simulationFlags []SimulationFlag, legacyTraceJSON, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -1456,7 +1456,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON)
+		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1606,7 +1606,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false, false, block.Header.GasPrice, block.Header.GasPriceSTRK, legacyJSON)
+		sequencerAddress, state, h.network, paidFeesOnL1, false, false, false, block.Header.GasPrice, block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
