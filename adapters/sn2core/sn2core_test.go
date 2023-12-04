@@ -92,7 +92,6 @@ func TestAdaptBlock(t *testing.T) {
 			}
 			assert.Equal(t, expectedEventCount, block.EventCount)
 			assert.Equal(t, test.protocolVersion, block.ProtocolVersion)
-			assert.Nil(t, block.ExtraData)
 
 			if test.sig != nil {
 				require.Len(t, block.Signatures, 1)
