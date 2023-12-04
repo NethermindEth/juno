@@ -162,7 +162,7 @@ func TestUnmarshalJsonToUint128(t *testing.T) {
 		},
 		{
 			description: "Invalid JSON 4",
-			jsonInput:   `{"max_price_per_unit": "0xc4c53de93c6f98fa8a91d4f6683b06d2"}`,
+			jsonInput:   `{"max_price_per_unit": "0xc4c53de93c6fffffffff98fa8a91d4f6683b06d2"}`,
 			expected:    &Int{},
 			wantedErr:   true,
 		},

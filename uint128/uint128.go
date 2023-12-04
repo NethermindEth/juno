@@ -2,11 +2,9 @@ package uint128
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"strings"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -33,10 +31,12 @@ var bigIntPool = sync.Pool{
 }
 
 func (i *Int) SetBigInt(v *big.Int) *Int {
-	// we're expecting words to have a length of 2, which represents 2x uint64s in a slice
 	words := v.Bits()
-        i[0] = words[0]
-        i[1] = words[1]
+
+	for idx, word := range words {
+		i[idx] = uint64(word)
+	}
+
 	return i
 }
 
@@ -50,13 +50,9 @@ func (i *Int) SetString(s string) (*Int, error) {
 		}
 	}
 
-	bytes, err := parseHexString(s)
-
-	if err != nil || len(bytes) > Bytes {
-		return nil, fmt.Errorf("can't fit string=%s into 128-bit uint; %s", s, err)
+	if vv.BitLen() > Bits {
+		return nil, fmt.Errorf("can't fit string=%s into 128-bit uint", s)
 	}
-
-	vv.FillBytes(bytes[:])
 
 	return i.SetBigInt(vv), nil
 }
@@ -80,32 +76,6 @@ func (i *Int) UnmarshalJSON(data []byte) error {
 	_, err := i.SetString(v)
 
 	return err
-}
-
-func parseHexString(v string) ([]byte, error) {
-	if v == "0x0" {
-		return make([]byte, Bytes), nil
-	}
-
-	v = strings.TrimPrefix(v, "0x")
-
-	// might need a leading zero
-	if len(v)%2 != 0 {
-		v = "0" + v
-	}
-
-	bytes, err := hex.DecodeString(v)
-	if err != nil {
-		return nil, err
-	}
-
-	padSize := Bytes - len(bytes)
-	if padSize > 0 {
-		padBytes := make([]byte, padSize)
-		bytes = append(padBytes, bytes...)
-	}
-
-	return bytes, nil
 }
 
 func (i Int) Equal(o *Int) bool {
