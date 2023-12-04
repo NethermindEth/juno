@@ -1340,6 +1340,15 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 	return &estimates[0], nil
 }
 
+func (h *Handler) LegacyEstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+	estimate, rpcErr := h.EstimateMessageFee(msg, id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	estimate.Unit = nil
+	return estimate, nil
+}
+
 // TraceTransaction returns the trace for a given executed transaction, including internal calls
 //
 // It follows the specification defined here:
@@ -2007,7 +2016,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.EstimateMessageFee,
+			Handler: h.LegacyEstimateMessageFee,
 		},
 		{
 			Name:    "starknet_traceTransaction",

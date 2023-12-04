@@ -3075,6 +3075,53 @@ func TestEstimateMessageFee(t *testing.T) {
 	}, *estimateFee)
 }
 
+func TestLegacyEstimateMessageFee(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	log := utils.NewNopZapLogger()
+
+	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, mockVM, "", log)
+	msg := rpc.MsgFromL1{
+		From:     common.HexToAddress("0xDEADBEEF"),
+		To:       *new(felt.Felt).SetUint64(1337),
+		Payload:  []felt.Felt{*new(felt.Felt).SetUint64(1), *new(felt.Felt).SetUint64(2)},
+		Selector: *new(felt.Felt).SetUint64(44),
+	}
+
+	latestHeader := &core.Header{
+		Number:    123,
+		Timestamp: 456,
+		GasPrice:  new(felt.Felt).SetUint64(42),
+	}
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
+
+	expectedGasConsumed := new(felt.Felt).SetUint64(37)
+	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), utils.Mainnet, gomock.Any(), gomock.Any(), gomock.Any(), latestHeader.GasPrice, latestHeader.GasPriceSTRK, false).DoAndReturn(
+		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
+			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+			skipChargeFee, skipValidate bool, gasPriceWei, gasPriceSTRK *felt.Felt, legacyTraceJson bool,
+		) ([]*felt.Felt, []json.RawMessage, error) {
+			actualFee := new(felt.Felt).Mul(expectedGasConsumed, gasPriceWei)
+			return []*felt.Felt{actualFee}, []json.RawMessage{{}}, nil
+		},
+	)
+
+	estimateFee, err := handler.LegacyEstimateMessageFee(msg, rpc.BlockID{Latest: true})
+	require.Nil(t, err)
+	require.Equal(t, rpc.FeeEstimate{
+		GasConsumed: expectedGasConsumed,
+		GasPrice:    latestHeader.GasPrice,
+		OverallFee:  new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice),
+	}, *estimateFee)
+}
+
 func TestTraceTransaction(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
