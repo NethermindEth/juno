@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -704,7 +705,10 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 					Number: blockNumber,
 				},
 				Receipts: []*core.TransactionReceipt{
-					{Events: events},
+					{
+						TransactionHash: new(felt.Felt).SetUint64(blockNumber),
+						Events:          events,
+					},
 				},
 			}, nil)
 		}
@@ -736,12 +740,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 			expectedEventsResponse := &spec.EventsResponse_Events{
 				Events: &spec.Events{
 					Items: utils.Map(passedEvents, func(e *core.Event) *spec.Event {
-						adaptFelt := core2p2p.AdaptFelt
-						return &spec.Event{
-							FromAddress: adaptFelt(e.From),
-							Keys:        utils.Map(e.Keys, adaptFelt),
-							Data:        utils.Map(e.Data, adaptFelt),
-						}
+						return core2p2p.AdaptEvent(e, new(felt.Felt).SetUint64(count))
 					}),
 				},
 			}
@@ -751,6 +750,65 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 		}
 		expectedCount := numOfBlocks + 1 // numOfBlocks messages with blocks + 1 fin message
 		require.Equal(t, expectedCount, count)
+
+		t.Run("block with multiple tx", func(t *testing.T) {
+			blockNumber := uint64(0)
+			mockReader.EXPECT().BlockByNumber(blockNumber).Return(&core.Block{
+				Header: &core.Header{
+					Number: blockNumber,
+				},
+				Receipts: []*core.TransactionReceipt{
+					{
+						TransactionHash: new(felt.Felt).SetUint64(0),
+						Events:          eventsPerBlock[0],
+					},
+					{
+						TransactionHash: new(felt.Felt).SetUint64(1),
+						Events:          eventsPerBlock[1],
+					},
+					{
+						TransactionHash: new(felt.Felt).SetUint64(2),
+						Events:          eventsPerBlock[2],
+					},
+				},
+			}, nil)
+
+			res, cErr = client.RequestEvents(testCtx, &spec.EventsRequest{
+				Iteration: &spec.Iteration{
+					Start: &spec.Iteration_BlockNumber{
+						BlockNumber: blockNumber,
+					},
+					Direction: spec.Iteration_Forward,
+					Limit:     1,
+					Step:      1,
+				},
+			})
+
+			count = 0
+			for evnt, valid := res(); valid; evnt, valid = res() {
+				if count == 1 {
+					assert.True(t, proto.Equal(&spec.Fin{}, evnt.GetFin()))
+					break
+				}
+
+				assert.Equal(t, count, evnt.Id.Number)
+
+				expectedEventsResponse := &spec.EventsResponse_Events{
+					Events: &spec.Events{
+						Items: []*spec.Event{
+							core2p2p.AdaptEvent(eventsPerBlock[1][0], new(felt.Felt).SetUint64(0)),
+							core2p2p.AdaptEvent(eventsPerBlock[2][0], new(felt.Felt).SetUint64(1)),
+							core2p2p.AdaptEvent(eventsPerBlock[2][1], new(felt.Felt).SetUint64(2)),
+						},
+					},
+				}
+
+				fmt.Println("len of Events", evnt.GetEvents())
+				assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.GetEvents()))
+				count++
+			}
+			require.NoError(t, cErr)
+		})
 	})
 }
 
