@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -47,33 +48,20 @@ func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
 }
 
 func makeDeprecatedVMClass(class *core.Cairo0Class) (*starknet.Cairo0Definition, error) {
+	adaptEntryPoint := func(ep core.EntryPoint) starknet.EntryPoint {
+		return starknet.EntryPoint{
+			Selector: ep.Selector,
+			Offset:   ep.Offset,
+		}
+	}
+
+	constructors := utils.Map(utils.NonNilSlice(class.Constructors), adaptEntryPoint)
+	external := utils.Map(utils.NonNilSlice(class.Externals), adaptEntryPoint)
+	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), adaptEntryPoint)
+
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {
 		return nil, err
-	}
-
-	constructors := make([]starknet.EntryPoint, 0, len(class.Constructors))
-	for _, entryPoint := range class.Constructors {
-		constructors = append(constructors, starknet.EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	external := make([]starknet.EntryPoint, 0, len(class.Externals))
-	for _, entryPoint := range class.Externals {
-		external = append(external, starknet.EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
-	}
-
-	handlers := make([]starknet.EntryPoint, 0, len(class.L1Handlers))
-	for _, entryPoint := range class.L1Handlers {
-		handlers = append(handlers, starknet.EntryPoint{
-			Selector: entryPoint.Selector,
-			Offset:   entryPoint.Offset,
-		})
 	}
 
 	return &starknet.Cairo0Definition{
@@ -88,29 +76,9 @@ func makeDeprecatedVMClass(class *core.Cairo0Class) (*starknet.Cairo0Definition,
 }
 
 func makeSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
-	constructors := make([]starknet.SierraEntryPoint, 0, len(class.EntryPoints.Constructor))
-	for _, entryPoint := range class.EntryPoints.Constructor {
-		constructors = append(constructors, starknet.SierraEntryPoint{
-			Selector: entryPoint.Selector,
-			Index:    entryPoint.Index,
-		})
-	}
-
-	external := make([]starknet.SierraEntryPoint, 0, len(class.EntryPoints.External))
-	for _, entryPoint := range class.EntryPoints.External {
-		external = append(external, starknet.SierraEntryPoint{
-			Selector: entryPoint.Selector,
-			Index:    entryPoint.Index,
-		})
-	}
-
-	handlers := make([]starknet.SierraEntryPoint, 0, len(class.EntryPoints.L1Handler))
-	for _, entryPoint := range class.EntryPoints.L1Handler {
-		handlers = append(handlers, starknet.SierraEntryPoint{
-			Selector: entryPoint.Selector,
-			Index:    entryPoint.Index,
-		})
-	}
+	constructors := utils.Map(utils.NonNilSlice(class.EntryPoints.Constructor), core2sn.AdaptSierraEntryPoint)
+	external := utils.Map(utils.NonNilSlice(class.EntryPoints.External), core2sn.AdaptSierraEntryPoint)
+	handlers := utils.Map(utils.NonNilSlice(class.EntryPoints.L1Handler), core2sn.AdaptSierraEntryPoint)
 
 	return &starknet.SierraDefinition{
 		Version: class.SemanticVersion,
