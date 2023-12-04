@@ -43,7 +43,9 @@ func TestClassV0Hash(t *testing.T) {
 			hash := utils.HexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
 			require.NoError(t, err)
-			got := class.Hash()
+
+			got, err := class.Hash()
+			require.NoError(t, err)
 			assert.Equal(t, hash, got)
 		})
 	}
@@ -66,7 +68,9 @@ func TestClassV1Hash(t *testing.T) {
 			hash := utils.HexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
 			require.NoError(t, err)
-			got := class.Hash()
+
+			got, err := class.Hash()
+			require.NoError(t, err)
 			assert.Equal(t, hash, got)
 		})
 	}

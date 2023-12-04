@@ -48,9 +48,16 @@ func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
 }
 
 func makeDeprecatedVMClass(class *core.Cairo0Class) (*starknet.Cairo0Definition, error) {
-	constructors := utils.Map(utils.NonNilSlice(class.Constructors), core2sn.AdaptEntryPoint)
-	external := utils.Map(utils.NonNilSlice(class.Externals), core2sn.AdaptEntryPoint)
-	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), core2sn.AdaptEntryPoint)
+	adaptEntryPoint := func(ep core.EntryPoint) starknet.EntryPoint {
+		return starknet.EntryPoint{
+			Selector: ep.Selector,
+			Offset:   ep.Offset,
+		}
+	}
+
+	constructors := utils.Map(utils.NonNilSlice(class.Constructors), adaptEntryPoint)
+	external := utils.Map(utils.NonNilSlice(class.Externals), adaptEntryPoint)
+	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), adaptEntryPoint)
 
 	decompressedProgram, err := utils.Gzip64Decode(class.Program)
 	if err != nil {

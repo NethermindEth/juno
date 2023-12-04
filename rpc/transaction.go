@@ -392,7 +392,6 @@ type FeeEstimate struct {
 	Unit        *FeeUnit   `json:"unit,omitempty"`
 }
 
-//nolint:gocyclo
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
@@ -417,14 +416,9 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
-		switch c := declaredClass.(type) {
-		case *core.Cairo0Class:
-			t.ClassHash, err = core.Cairo0ClassHash(c)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-		case *core.Cairo1Class:
-			t.ClassHash = c.Hash()
+		t.ClassHash, err = declaredClass.Hash()
+		if err != nil {
+			return nil, nil, nil, err
 		}
 	}
 
