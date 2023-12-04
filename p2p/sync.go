@@ -293,14 +293,7 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 				b.newClasses = utils.ToMap(classes, func(cls *spec.Class) (felt.Felt, core.Class) {
 					coreCls := p2p2core.AdaptClass(cls)
 
-					var hash *felt.Felt
-					switch v := coreCls.(type) {
-					case *core.Cairo0Class:
-						// todo: compute cairo0 class hash
-
-					case *core.Cairo1Class:
-						hash = v.Hash()
-					}
+					hash, _ := coreCls.Hash()
 
 					return *hash, coreCls
 				})
@@ -544,6 +537,7 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 			blockBody.block.Receipts = blockReceipts
 			header.EventsBloom = core.EventsBloom(blockReceipts)
 			blockBody.block.Header = header
+			// todo fill hash
 
 			blocks <- blockBody
 		}

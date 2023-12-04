@@ -109,7 +109,11 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, nil)
+		hash, err := cls.Class.Hash()
+		if err != nil {
+			return b.fin()
+		}
+		classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, hash)
 	}
 	for _, class := range stateDiff.DeployedContracts {
 		if _, ok := classesM[*class.ClassHash]; ok {
@@ -125,7 +129,10 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 		case *core.Cairo0Class:
 			classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, class.ClassHash)
 		case *core.Cairo1Class:
-			classesM[*cairoClass.Hash()] = core2p2p.AdaptClass(cls.Class, nil)
+			//compiledHash, err = cairoClass.Hash()
+			//if err != nil {
+			//	return b.fin()
+			//}
 		default:
 			b.log.Errorw("Unknown cairo class", "cairoClass", cairoClass)
 			return b.fin()

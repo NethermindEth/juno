@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -17,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
@@ -339,12 +340,16 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 								//	Definition:   []byte(cairo0Program),
 								//},
 								//{
-								//	CompiledHash: core2p2p.AdaptHash(cairo1Class.Hash()),
-								//	Definition:   []byte(cairo1Program),
+								//	CompiledHash: core2p2p.AdaptHash(noError(t, func() (*felt.Felt, error) {
+								//		return cairo1Class.Hash()
+								//})),
+								//	Definition: []byte(cairo1Program),
 								//},
 								//{
-								//	CompiledHash: core2p2p.AdaptHash(cairo1Class.Hash()),
-								//	Definition:   []byte(cairo1Program),
+								//	CompiledHash: core2p2p.AdaptHash(noError(t, func() (*felt.Felt, error) {
+								//		return cairo1Class.Hash()
+								//	})),
+								//	Definition: []byte(cairo1Program),
 								//},
 							},
 						},
@@ -1013,4 +1018,13 @@ func sortContractDiff(diff []*spec.StateDiff_ContractDiff) {
 		jAddress := diff[j].Address
 		return bytes.Compare(iAddress.Elements, jAddress.Elements) < 0
 	})
+}
+
+func noError[T any](t *testing.T, f func() (T, error)) T {
+	t.Helper()
+
+	v, err := f()
+	require.NoError(t, err)
+
+	return v
 }
