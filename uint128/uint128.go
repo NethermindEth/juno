@@ -21,39 +21,15 @@ import (
 type Int [2]uint64
 
 const (
-	Base16     = 16
-	ByteLength = 16
-	BitLength  = 128
+	Base16 = 16
+	Bytes  = 16
+	Bits   = 128
 )
 
 var bigIntPool = sync.Pool{
 	New: func() interface{} {
 		return new(big.Int)
 	},
-}
-
-func NewInt(x []uint64) (*Int, error) {
-	if len(x) > 2 {
-		return nil, fmt.Errorf("trying to add more than 128 bits to a 128-bit object")
-	}
-
-	res := bigIntPool.Get().(*big.Int)
-	defer bigIntPool.Put(res)
-
-	loBytes := make([]byte, 8)
-	hiBytes := make([]byte, 8)
-
-	binary.BigEndian.PutUint64(loBytes, x[0])
-	binary.BigEndian.PutUint64(hiBytes, x[1])
-
-	bytes := append(hiBytes, loBytes...)
-
-	res.SetBytes(bytes)
-	res.FillBytes(bytes[:])
-
-	i := &Int{}
-
-	return i.SetBigInt(res), nil
 }
 
 func (i *Int) SetBigInt(v *big.Int) *Int {
@@ -76,7 +52,7 @@ func (i *Int) SetString(s string) (*Int, error) {
 
 	bytes, err := parseHexString(s)
 
-	if err != nil || len(bytes) > ByteLength {
+	if err != nil || len(bytes) > Bytes {
 		return nil, fmt.Errorf("can't fit string=%s into 128-bit uint; %s", s, err)
 	}
 
@@ -86,7 +62,7 @@ func (i *Int) SetString(s string) (*Int, error) {
 }
 
 func (i *Int) Bytes() []byte {
-	res := make([]byte, ByteLength)
+	res := make([]byte, Bytes)
 
 	binary.BigEndian.PutUint64(res[8:], i[0])
 	binary.BigEndian.PutUint64(res[:8], i[1])
@@ -108,7 +84,7 @@ func (i *Int) UnmarshalJSON(data []byte) error {
 
 func parseHexString(v string) ([]byte, error) {
 	if v == "0x0" {
-		return make([]byte, ByteLength), nil
+		return make([]byte, Bytes), nil
 	}
 
 	v = strings.TrimPrefix(v, "0x")
@@ -123,7 +99,7 @@ func parseHexString(v string) ([]byte, error) {
 		return nil, err
 	}
 
-	padSize := ByteLength - len(bytes)
+	padSize := Bytes - len(bytes)
 	if padSize > 0 {
 		padBytes := make([]byte, padSize)
 		bytes = append(padBytes, bytes...)
@@ -155,7 +131,6 @@ func (i Int) String() string {
 	return "0x" + i.Text(Base16)
 }
 
-// MarshalJSON forwards the call to underlying field element implementation
 func (i *Int) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + i.String() + "\""), nil
 }
