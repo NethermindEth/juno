@@ -22,6 +22,11 @@ use blockifier::{
         objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType},
         transaction_execution::Transaction,
         transactions::ExecutableTransaction,
+        errors::TransactionExecutionError::{
+            ContractConstructorExecutionFailed,
+            ExecutionError,
+            ValidateTransactionError,
+        },
     },
 };
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
@@ -269,13 +274,19 @@ pub extern "C" fn cairoVMExecute(
         };
 
         match res {
-            Err(e) => {
+            Err(error) => {
+                let err_string = match &error {
+                    ContractConstructorExecutionFailed(e)
+                        | ExecutionError(e)
+                        | ValidateTransactionError(e) => format!("{error} {e}"),
+                    other => other.to_string()
+                };
                 report_error(
                     reader_handle,
                     format!(
-                        "failed txn {:?} reason:{:?}",
+                        "failed txn {} reason: {}",
                         txn_and_query_bit.txn_hash,
-                        e
+                        err_string,
                     )
                     .as_str(),
                     txn_index as i64
