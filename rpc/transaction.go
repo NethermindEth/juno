@@ -257,8 +257,8 @@ func (tx *Transaction) ToPreV3() error {
 		return fmt.Errorf("unexpected transaction type %s", tx.Type)
 	}
 	l1Resources := (*tx.ResourceBounds)[ResourceL1Gas]
-	mul := new(uint128.Int).MulWithFelt(l1Resources.MaxAmount, l1Resources.MaxPricePerUnit)
-	tx.MaxFee = new(felt.Felt).SetBigInt(mul)
+	maxPricePerUnitAsFelt := new(felt.Felt).SetBytes(l1Resources.MaxPricePerUnit.Bytes())
+	tx.MaxFee = new(felt.Felt).Mul(l1Resources.MaxAmount, maxPricePerUnitAsFelt)
 	tx.ResourceBounds = nil
 	tx.Tip = nil
 	tx.PaymasterData = nil

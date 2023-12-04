@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-
-	"github.com/NethermindEth/juno/core/felt"
 )
 
 // *Int[1] = high bits, more significant bits, upper 64 bits of a 128-bit value - ie [64:128]
@@ -33,8 +31,14 @@ var bigIntPool = sync.Pool{
 func (i *Int) SetBigInt(v *big.Int) *Int {
 	words := v.Bits()
 
-	for idx, word := range words {
-		i[idx] = uint64(word)
+	if len(words) > 0 {
+		switch {
+		case len(words)%2 == 0:
+			i[0] = uint64(words[0])
+			i[1] = uint64(words[1])
+		case len(words)%2 == 1:
+			i[0] = uint64(words[0])
+		}
 	}
 
 	return i
@@ -103,13 +107,4 @@ func (i Int) String() string {
 
 func (i *Int) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + i.String() + "\""), nil
-}
-
-func (i *Int) MulWithFelt(x *felt.Felt, y *Int) *big.Int {
-	bInt1 := bigIntPool.Get().(*big.Int)
-	bInt2 := bigIntPool.Get().(*big.Int)
-	bInt1 = x.BigInt(bInt1)
-	bInt2.SetBytes(y.Bytes())
-
-	return new(big.Int).Mul(bInt1, bInt2)
 }
