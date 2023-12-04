@@ -1158,7 +1158,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InsufficientAccountBalance:
 		return ErrInsufficientAccountBalance
 	case gateway.ValidateFailure:
-		return ErrValidationFailure
+		return ErrValidationFailure.CloneWithData(gatewayErr.Message)
 	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
 		return ErrContractClassSizeTooLarge
 	case gateway.DuplicatedTransaction:
@@ -1174,9 +1174,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InvalidContractClassVersion:
 		return ErrUnsupportedContractClassVersion
 	default:
-		unexpectedErr := *ErrUnexpectedError
-		unexpectedErr.Data = gatewayErr.Message
-		return &unexpectedErr
+		return ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}
 }
 
@@ -1664,7 +1662,7 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.6.0-rc4", nil
+	return "0.6.0-rc5", nil
 }
 
 func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {
