@@ -81,13 +81,7 @@ func TestUint128Bytes(t *testing.T) {
 			arr := make([]uint64, 2)
 			arr[0] = test.loBits
 			arr[1] = test.hiBits
-			actual, err := NewInt(arr)
-			if err != nil {
-				if test.wantedErr {
-					return
-				}
-				t.Errorf("couldn't marshal []uint64={%v, %v} into *Int", test.loBits, test.hiBits)
-			}
+			actual := Int(arr)
 			if test.expected_str != actual.String() {
 				t.Errorf("Expected string=%s, got string=%s", test.expected_str, actual.String())
 			}
