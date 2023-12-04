@@ -90,9 +90,6 @@ func TestClassEncoding(t *testing.T) {
 				},
 				L1Handlers:   []core.EntryPoint{},
 				Constructors: []core.EntryPoint{},
-				BuiltinsHash: utils.HexToFelt(t, "0xDEADBEEF"),
-				ProgramHash:  utils.HexToFelt(t, "0xBEEFDEAD"),
-				BytecodeHash: utils.HexToFelt(t, "0xDEAD"),
 			},
 		},
 		{

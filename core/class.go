@@ -29,12 +29,6 @@ type Cairo0Class struct {
 	L1Handlers []EntryPoint
 	// Constructors for the class. Currently, only one is allowed.
 	Constructors []EntryPoint
-	// Hash of the ascii-encoded array of builtin names imported by the class.
-	BuiltinsHash *felt.Felt
-	// The starknet_keccak hash of the ".json" file compiler output.
-	ProgramHash *felt.Felt
-	// Hash of the class bytecode
-	BytecodeHash *felt.Felt
 	// Base64 encoding of compressed Program
 	Program string
 }
