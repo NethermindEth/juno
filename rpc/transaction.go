@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/copier"
 )
@@ -420,7 +419,7 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	if t, ok := txn.(*core.DeclareTransaction); ok {
 		switch c := declaredClass.(type) {
 		case *core.Cairo0Class:
-			t.ClassHash, err = vm.Cairo0ClassHash(c)
+			t.ClassHash, err = core.Cairo0ClassHash(c)
 			if err != nil {
 				return nil, nil, nil, err
 			}
