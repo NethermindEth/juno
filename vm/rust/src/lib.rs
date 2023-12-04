@@ -1,4 +1,3 @@
-pub mod class;
 pub mod jsonrpc;
 mod juno_state_reader;
 

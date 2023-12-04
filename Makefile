@@ -10,12 +10,15 @@ else
     VM_TARGET = all
 endif
 
-juno: vm ## compile
+juno: vm core-rust ## compile
 	@mkdir -p build
 	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
 vm:
 	$(MAKE) -C vm/rust $(VM_TARGET)
+
+core-rust:
+	$(MAKE) -C core/rust $(VM_TARGET)
 
 generate: ## generate
 	mkdir -p mocks
@@ -64,6 +67,7 @@ format: ## run go formatter
 
 clean: ## clean project builds
 	$(MAKE) -C vm/rust clean
+	$(MAKE) -C core/rust clean
 	@rm -rf ./build
 
 help: ## show this help
