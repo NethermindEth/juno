@@ -16,6 +16,7 @@ var (
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64
+	Hash() (*felt.Felt, error)
 }
 
 // Cairo0Class unambiguously defines a [Contract]'s semantics.
@@ -44,6 +45,10 @@ func (c *Cairo0Class) Version() uint64 {
 	return 0
 }
 
+func (c *Cairo0Class) Hash() (*felt.Felt, error) {
+	return cairo0ClassHash(c)
+}
+
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
 type Cairo1Class struct {
 	Abi         string
@@ -68,7 +73,7 @@ func (c *Cairo1Class) Version() uint64 {
 	return 1
 }
 
-func (c *Cairo1Class) Hash() *felt.Felt {
+func (c *Cairo1Class) Hash() (*felt.Felt, error) {
 	return crypto.PoseidonArray(
 		new(felt.Felt).SetBytes([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
 		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.External)...),
@@ -76,7 +81,7 @@ func (c *Cairo1Class) Hash() *felt.Felt {
 		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.Constructor)...),
 		c.AbiHash,
 		c.ProgramHash,
-	)
+	), nil
 }
 
 func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
@@ -92,16 +97,20 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 
 func VerifyClassHashes(classes map[felt.Felt]Class) error {
 	for hash, class := range classes {
-		cairo1Class, ok := class.(*Cairo1Class)
-		// cairo0 classes are deprecated and hard to verify their hash, just ignore them
-		if !ok {
-			return nil
+		if _, ok := class.(*Cairo0Class); ok {
+			// skip validation of cairo0 class hash
+			continue
 		}
 
-		cHash := cairo1Class.Hash()
+		cHash, err := class.Hash()
+		if err != nil {
+			return err
+		}
+
 		if !cHash.Equal(&hash) {
 			return fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cHash.String(), hash.String())
 		}
 	}
+
 	return nil
 }
