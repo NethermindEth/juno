@@ -59,11 +59,8 @@ func NewInt(x []uint64) (*Int, error) {
 func (i *Int) SetBigInt(v *big.Int) *Int {
 	// we're expecting words to have a length of 2, which represents 2x uint64s in a slice
 	words := v.Bits()
-
-	for idx, word := range words {
-		i[idx] = uint64(word)
-	}
-
+        i[0] = words[0]
+        i[1] = words[1]
 	return i
 }
 
