@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -789,6 +788,15 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 				},
 			})
 
+			expectedEventsResponse := &spec.EventsResponse_Events{
+				Events: &spec.Events{
+					Items: []*spec.Event{
+						core2p2p.AdaptEvent(eventsPerBlock[1][0], new(felt.Felt).SetUint64(1)),
+						core2p2p.AdaptEvent(eventsPerBlock[2][0], new(felt.Felt).SetUint64(2)),
+						core2p2p.AdaptEvent(eventsPerBlock[2][1], new(felt.Felt).SetUint64(2)),
+					},
+				},
+			}
 			count = 0
 			for evnt, valid := res(); valid; evnt, valid = res() {
 				if count == 1 {
@@ -798,17 +806,6 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 
 				assert.Equal(t, count, evnt.Id.Number)
 
-				expectedEventsResponse := &spec.EventsResponse_Events{
-					Events: &spec.Events{
-						Items: []*spec.Event{
-							core2p2p.AdaptEvent(eventsPerBlock[1][0], new(felt.Felt).SetUint64(0)),
-							core2p2p.AdaptEvent(eventsPerBlock[2][0], new(felt.Felt).SetUint64(1)),
-							core2p2p.AdaptEvent(eventsPerBlock[2][1], new(felt.Felt).SetUint64(2)),
-						},
-					},
-				}
-
-				fmt.Println("len of Events", evnt.GetEvents())
 				assert.True(t, proto.Equal(expectedEventsResponse.Events, evnt.GetEvents()))
 				count++
 			}
