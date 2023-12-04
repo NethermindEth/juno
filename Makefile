@@ -27,19 +27,19 @@ generate: ## generate
 clean-testcache:
 	go clean -testcache
 
-test: clean-testcache vm ## tests
+test: clean-testcache vm core-rust ## tests
 	go test $(GO_TAGS) ./...
 
-test-cached: vm ## tests with existing cache
+test-cached: vm core-rust ## tests with existing cache
 	go test $(GO_TAGS) ./...
 
-test-race: clean-testcache vm
+test-race: clean-testcache vm core-rust
 	go test $(GO_TAGS) ./... -race
 
-benchmarks: vm ## benchmarking
+benchmarks: vm core-rust ## benchmarking
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
-test-cover: vm ## tests with coverage
+test-cover: vm core-rust ## tests with coverage
 	mkdir -p coverage
 	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
