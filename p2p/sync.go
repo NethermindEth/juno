@@ -349,21 +349,8 @@ iteratorLoop:
 			case *spec.BlockHeadersResponsePart_Header:
 				h := part.GetHeader()
 
-				receipts, err := s.requestReceipts(ctx, id, &spec.Iteration{
-					Start: &spec.Iteration_BlockNumber{
-						BlockNumber: h.Number,
-					},
-					Direction: spec.Iteration_Forward,
-					Limit:     1,
-					Step:      1,
-				})
-				if err != nil {
-					return nil, err
-				}
-				// s.log.Infow("time spend in receipts", "timeSpend", delta)
-
 				header = core.Header{
-					Hash:             nil, // todo SPEC
+					Hash:             nil, // todo: add this when building the block
 					ParentHash:       p2p2core.AdaptHash(h.ParentHash),
 					Number:           h.Number,
 					GlobalStateRoot:  p2p2core.AdaptHash(h.State.Root),
@@ -372,8 +359,7 @@ iteratorLoop:
 					EventCount:       uint64(h.Events.NLeaves),
 					Timestamp:        uint64(h.Time.AsTime().Second()) + 1,
 					ProtocolVersion:  h.ProtocolVersion,
-					ExtraData:        nil, // todo SPEC
-					EventsBloom:      core.EventsBloom(receipts),
+					EventsBloom:      nil, // Todo: add this in when building the block
 					GasPrice:         p2p2core.AdaptFelt(h.GasPrice),
 				}
 			case *spec.BlockHeadersResponsePart_Signatures:
@@ -398,7 +384,7 @@ iteratorLoop:
 	return headers, nil
 }
 
-func (s *syncService) requestReceipts(ctx context.Context, id peer.ID, it *spec.Iteration) ([]*core.TransactionReceipt, error) {
+func (s *syncService) requestReceipts(ctx context.Context, it *spec.Iteration, id peer.ID) (map[uint64][]*core.TransactionReceipt, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -408,14 +394,15 @@ func (s *syncService) requestReceipts(ctx context.Context, id peer.ID, it *spec.
 		return nil, err
 	}
 
-	var receipts []*core.TransactionReceipt
+	receipts := make(map[uint64][]*core.TransactionReceipt, 0)
 	count := 0
 	for res, valid := receiptsIt(); valid; res, valid = receiptsIt() {
 		switch res.Responses.(type) {
 		case *spec.ReceiptsResponse_Receipts:
+			blockNumber := res.GetId().Number
 			items := res.GetReceipts().GetItems()
 			for _, item := range items {
-				receipts = append(receipts, p2p2core.AdaptReceipt(item))
+				receipts[blockNumber] = append(receipts[blockNumber], p2p2core.AdaptReceipt(item))
 			}
 		case *spec.ReceiptsResponse_Fin:
 			if count < 1 {
@@ -428,7 +415,7 @@ func (s *syncService) requestReceipts(ctx context.Context, id peer.ID, it *spec.
 	return receipts, nil
 }
 
-func (s *syncService) requestTransactions(ctx context.Context, id peer.ID, it *spec.Iteration) ([]core.Transaction, error) {
+func (s *syncService) requestTransactions(ctx context.Context, it *spec.Iteration, id peer.ID) (map[uint64][]core.Transaction, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -438,13 +425,14 @@ func (s *syncService) requestTransactions(ctx context.Context, id peer.ID, it *s
 		return nil, err
 	}
 
-	var transactions []core.Transaction
+	transactions := make(map[uint64][]core.Transaction, 0)
 	for res, valid := transactionsIt(); valid; res, valid = transactionsIt() {
 		switch res.Responses.(type) {
 		case *spec.TransactionsResponse_Transactions:
+			blockNumber := res.GetId().Number
 			items := res.GetTransactions().Items
 			for _, item := range items {
-				transactions = append(transactions, p2p2core.AdaptTransaction(item, s.network))
+				transactions[blockNumber] = append(transactions[blockNumber], p2p2core.AdaptTransaction(item, s.network))
 			}
 		case *spec.TransactionsResponse_Fin:
 			// todo what should we do here?
@@ -454,7 +442,7 @@ func (s *syncService) requestTransactions(ctx context.Context, id peer.ID, it *s
 	return transactions, nil
 }
 
-func (s *syncService) requestEvents(ctx context.Context, id peer.ID, it *spec.Iteration) ([]*core.Event, error) {
+func (s *syncService) requestEvents(ctx context.Context, it *spec.Iteration, id peer.ID) (map[uint64]map[felt.Felt][]*core.Event, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -464,14 +452,22 @@ func (s *syncService) requestEvents(ctx context.Context, id peer.ID, it *spec.It
 		return nil, err
 	}
 
-	var events []*core.Event
+	events := make(map[uint64]map[felt.Felt][]*core.Event)
 	count := 0
 	for res, valid := eventsIt(); valid; res, valid = eventsIt() {
 		switch res.Responses.(type) {
 		case *spec.EventsResponse_Events:
+			blockNumber := res.GetId().Number
+			txHashM, ok := events[blockNumber]
+			if !ok {
+				events[blockNumber] = make(map[felt.Felt][]*core.Event)
+				txHashM = events[blockNumber]
+			}
+
 			items := res.GetEvents().GetItems()
 			for _, item := range items {
-				events = append(events, p2p2core.AdaptEvent(item))
+				txH := p2p2core.AdaptHash(item.TransactionHash)
+				txHashM[*txH] = append(txHashM[*txH], p2p2core.AdaptEvent(item))
 			}
 		case *spec.EventsResponse_Fin:
 			if count < 1 {
@@ -511,6 +507,24 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 			return
 		}
 
+		transactions, err := s.requestTransactions(ctx, it, id)
+		if err != nil {
+			s.log.Errorw("Failed to request transactions", "err", err)
+			return
+		}
+
+		receipts, err := s.requestReceipts(ctx, it, id)
+		if err != nil {
+			s.log.Errorw("Failed to request receipts", "err", err)
+			return
+		}
+
+		events, err := s.requestEvents(ctx, it, id)
+		if err != nil {
+			s.log.Errorw("Failed to request events", "err", err)
+			return
+		}
+
 		if len(headersFromPeer) != len(blocksFromPeer) {
 			s.log.Errorw("Number of headers doesn't match number of bodies",
 				"headersNum", len(headersFromPeer),
@@ -519,7 +533,17 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 		}
 
 		for i, blockBody := range blocksFromPeer {
-			blockBody.block.Header = &headersFromPeer[i]
+			header := &headersFromPeer[i]
+			blockEvents := events[header.Number]
+
+			blockBody.block.Transactions = transactions[header.Number]
+			blockReceipts := utils.Map(receipts[header.Number], func(r *core.TransactionReceipt) *core.TransactionReceipt {
+				r.Events = blockEvents[*r.TransactionHash]
+				return r
+			})
+			blockBody.block.Receipts = blockReceipts
+			header.EventsBloom = core.EventsBloom(blockReceipts)
+			blockBody.block.Header = header
 
 			blocks <- blockBody
 		}
