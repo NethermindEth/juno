@@ -279,36 +279,32 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 	}
 
 	blockBodies := make(map[uint64]specBlockBody)
-	updateBlockBody := func(id *spec.BlockID, f func(body *specBlockBody)) {
-		b, ok := blockBodies[id.Number]
-		if !ok {
-			b = specBlockBody{id: id}
-		}
-
-		f(&b)
-
-		blockBodies[id.Number] = b
-	}
-
 	curBlockBody := new(specBlockBody)
+	// Assumes that all parts of the same block will arrive before the next block parts
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
 		switch res.BodyMessage.(type) {
 		case *spec.BlockBodiesResponse_Classes:
 			if curBlockBody.id == nil {
 				curBlockBody.id = res.GetId()
 			}
-			updateBlockBody(res.GetId(), func(b *specBlockBody) { b.classes = res.GetClasses() })
+			curBlockBody.classes = res.GetClasses()
 		case *spec.BlockBodiesResponse_Diff:
-			updateBlockBody(res.GetId(), func(b *specBlockBody) { b.stateDiff = res.GetDiff() })
-		case *spec.BlockBodiesResponse_Fin:
-			// do nothing
+			if curBlockBody.id == nil {
+				curBlockBody.id = res.GetId()
+			}
+			curBlockBody.stateDiff = res.GetDiff()
 		case *spec.BlockBodiesResponse_Proof:
-			updateBlockBody(res.GetId(), func(b *specBlockBody) { b.proof = res.GetProof() })
+			if curBlockBody.id == nil {
+				curBlockBody.id = res.GetId()
+			}
+			curBlockBody.proof = res.GetProof()
+		case *spec.BlockBodiesResponse_Fin:
+			blockBodies[curBlockBody.id.Number] = *curBlockBody
+			curBlockBody = new(specBlockBody)
 		default:
 			fmt.Printf("Unknown BlockBody type %T\n", res.BodyMessage)
 		}
 	}
-
 	return blockBodies, nil
 }
 
@@ -354,10 +350,8 @@ iteratorLoop:
 					ProtocolVersion:  h.ProtocolVersion,
 					EventsBloom:      nil, // Todo: add this in when building the block
 					GasPrice:         p2p2core.AdaptFelt(h.GasPrice),
-					Signatures:
 				}
 			case *spec.BlockHeadersResponsePart_Signatures:
-				// todo check blockID
 				signatures = utils.Map(part.GetSignatures().Signatures, p2p2core.AdaptSignature)
 			case *spec.BlockHeadersResponsePart_Fin:
 				if i != 2 {
@@ -369,12 +363,6 @@ iteratorLoop:
 		header.Signatures = signatures
 		headers = append(headers, header)
 	}
-
-	//blockNumbers := utils.Map(headers, func(h core.Header) string {
-	//	return strconv.Itoa(int(h.Number))
-	//})
-	//fmt.Printf("Fetched block numbers: %v\n", strings.Join(blockNumbers, ","))
-
 	return headers, nil
 }
 
@@ -526,21 +514,29 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 			return
 		}
 
-		for i, blockBody := range blocksFromPeer {
-			header := &headersFromPeer[i]
-			blockEvents := events[header.Number]
+		for _, body := range blocksFromPeer {
+			blockB := newBlockBody()
+			curBlockID := body.id
 
-			blockBody.block.Transactions = transactions[header.Number]
-			blockReceipts := utils.Map(receipts[header.Number], func(r *core.TransactionReceipt) *core.TransactionReceipt {
+			blockB.block.Transactions = transactions[curBlockID.Number]
+
+			// Add events to relevant transaction receipt
+			blockEvents := events[curBlockID.Number]
+			blockReceipts := utils.Map(receipts[curBlockID.Number], func(r *core.TransactionReceipt) *core.TransactionReceipt {
 				r.Events = blockEvents[*r.TransactionHash]
 				return r
 			})
-			blockBody.block.Receipts = blockReceipts
-			header.EventsBloom = core.EventsBloom(blockReceipts)
-			blockBody.block.Header = header
-			// todo fill hash
+			blockB.block.Receipts = blockReceipts
 
-			blocks <- blockBody
+			// Add EventsBloom and Hash
+			header := &headersFromPeer[curBlockID.Number]
+			blockB.block.Header = header
+			blockB.block.EventsBloom = core.EventsBloom(blockReceipts)
+			blockB.block.Hash, err = core.BlockHash(blockB.block)
+
+			// Build State update
+
+			blocks <- blockB
 		}
 	}
 }
