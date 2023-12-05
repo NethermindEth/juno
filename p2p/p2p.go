@@ -229,7 +229,8 @@ func (s *Service) Run(ctx context.Context) error {
 	// 3. Synchronisation handles peers connecting and disconnecting
 	// 4. Synchroniser has snapshot of peers to send requests to
 	if !s.bootNode {
-		s.synchroniser.start(ctx)
+		// s.synchroniser.start(ctx)
+		s.synchroniser.startSerial(ctx)
 	}
 	s.setProtocolHandlers()
 

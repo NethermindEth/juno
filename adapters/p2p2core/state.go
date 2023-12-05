@@ -26,7 +26,7 @@ func AdaptStateDiff(s *spec.StateDiff, classes []*spec.Class) *core.StateDiff {
 		case *core.Cairo1Class:
 			declaredV1Classes = append(declaredV1Classes, core.DeclaredV1Class{
 				ClassHash:         h,
-				CompiledClassHash: c.AbiHash, // Todo: this is incorrect will replace with casm compiled class hash later
+				CompiledClassHash: c.Compiled.Hash(),
 			})
 		}
 	}

@@ -56,6 +56,33 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, bootNode peer.ID, ne
 	}
 }
 
+func (s *syncService) startSerial(ctx context.Context) {
+	bootNodeHeight, err := s.bootNodeHeight(ctx)
+	if err != nil {
+		s.log.Errorw("Failed to get boot node height", "err", err)
+		return
+	}
+	s.log.Infow("Boot node height", "height", bootNodeHeight)
+
+	coreBlocks := make(chan blockBody)
+
+	// Just get one block for now
+	go s.requestBlocks(ctx, BlockRange{0, 1}, coreBlocks)
+
+	for bBody := range coreBlocks {
+		commitmments, err := s.blockchain.SanityCheckNewHeight(bBody.block, bBody.stateUpdate, bBody.newClasses)
+		if err != nil {
+			s.log.Errorw("Failed to sanity check block", "number", bBody.block.Number, "err", err)
+		}
+
+		err = s.blockchain.Store(bBody.block, commitmments, bBody.stateUpdate, bBody.newClasses)
+		if err != nil {
+			s.log.Errorw("Failed to Store Block", "number", bBody.block.Number, "err", err)
+		}
+		fmt.Println("Stored Block Number: ", bBody.block.Number)
+	}
+}
+
 func (s *syncService) start(ctx context.Context) {
 	bootNodeHeight, err := s.bootNodeHeight(ctx)
 	if err != nil {
@@ -282,6 +309,7 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 	curBlockBody := new(specBlockBody)
 	// Assumes that all parts of the same block will arrive before the next block parts
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
+		fmt.Println("Current Spec Body", curBlockBody)
 		switch res.BodyMessage.(type) {
 		case *spec.BlockBodiesResponse_Classes:
 			if curBlockBody.id == nil {
@@ -299,8 +327,11 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 			}
 			curBlockBody.proof = res.GetProof()
 		case *spec.BlockBodiesResponse_Fin:
-			blockBodies[curBlockBody.id.Number] = *curBlockBody
-			curBlockBody = new(specBlockBody)
+			if curBlockBody.id != nil {
+				fmt.Println("Current body number", curBlockBody.id.Number)
+				blockBodies[curBlockBody.id.Number] = *curBlockBody
+				curBlockBody = new(specBlockBody)
+			}
 		default:
 			fmt.Printf("Unknown BlockBody type %T\n", res.BodyMessage)
 		}
@@ -464,9 +495,15 @@ func (s *syncService) requestEvents(ctx context.Context, it *spec.Iteration, id 
 
 func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks chan<- blockBody) {
 	fmt.Println("requestBlocks called for range", r)
-	const limit = 10
+	limit := uint64(10)
 
+	if r.End <= limit {
+		limit = 0
+	}
+
+	fmt.Println("range end", r.End)
 	for i := r.Start; i < r.End; i += limit {
+		fmt.Println("i =========", i)
 		it := s.createIterator(BlockRange{
 			Start: i,
 			End:   i + limit,
