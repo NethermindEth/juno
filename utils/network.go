@@ -16,7 +16,7 @@ import (
 var (
 	ErrUnknownNetwork        = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 	ErrNetworkNoFallbackAddr = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
-	ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be correctly 	set")
+	ErrNetworkUnverifRange   = errors.New("unverifiable_range must be a list of two uint64s")
 )
 
 type Network struct {
@@ -105,6 +105,37 @@ func (n Network) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + n.String() + `"`), nil
 }
 
+func (n *Network) Set(s string) error {
+	predefinedNetworks := map[string]Network{
+		"MAINNET":     MAINNET,
+		"mainnet":     MAINNET,
+		"GOERLI":      GOERLI,
+		"goerli":      GOERLI,
+		"GOERLI2":     GOERLI2,
+		"goerli2":     GOERLI2,
+		"INTEGRATION": INTEGRATION,
+		"integration": INTEGRATION,
+	}
+	if network, ok := predefinedNetworks[s]; ok {
+		*n = network
+		return nil
+	}
+	return n.setCustomNetwork(s)
+}
+
+// setCustomNetwork tries to unmarshal the json string and performs some basic validation checks
+func (n *Network) setCustomNetwork(s string) error {
+	*n = Network{}
+	if err := n.UnmarshalJSON([]byte(s)); err != nil {
+		return err
+	}
+
+	if len(n.BlockHashMetaInfo.UnverifiableRange) != 2 {
+		return ErrNetworkUnverifRange
+	}
+	return nil
+}
+
 // Unmarshals a json string into a Network struct, and requires all fields to be present
 func (n *Network) UnmarshalJSON(data []byte) error {
 	jsonMap := make(map[string]any)
@@ -114,6 +145,9 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	name, ok := jsonMap["name"].(string)
 	if !ok {
 		return errors.New("no name field")
+	}
+	if !(name == "custom" || name == "CUSTOM") {
+		return ErrUnknownNetwork
 	}
 	baseURL, ok := jsonMap["base_url"].(string)
 	if !ok {
@@ -156,42 +190,6 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	n.L1ChainID = l1ChainIDBigInt
 	n.CoreContractAddress = common.HexToAddress(coreContractAddressStr)
 	n.BlockHashMetaInfo = &blockHashMetaInfo
-	return nil
-}
-
-func (n *Network) Set(s string) error {
-	predefinedNetworks := map[string]Network{
-		"MAINNET":     MAINNET,
-		"mainnet":     MAINNET,
-		"GOERLI":      GOERLI,
-		"goerli":      GOERLI,
-		"GOERLI2":     GOERLI2,
-		"goerli2":     GOERLI2,
-		"INTEGRATION": INTEGRATION,
-		"integration": INTEGRATION,
-	}
-	if network, ok := predefinedNetworks[s]; ok {
-		*n = network
-		return nil
-	}
-	return n.setCustomNetwork(s)
-}
-
-// setCustomNetwork tries to unmarshal the json string and performs some basic validation checks
-func (n *Network) setCustomNetwork(s string) error {
-	*n = Network{}
-	if err := n.UnmarshalJSON([]byte(s)); err != nil {
-		return errors.New("failed to unmarhsal the json string to a custom Network struct - " + err.Error())
-	}
-
-	if !(n.Name == "custom" || n.Name == "CUSTOM") {
-		return ErrUnknownNetwork
-	}
-
-	if len(n.BlockHashMetaInfo.UnverifiableRange) != 2 {
-		return ErrNetworkNoUnverifRange
-	}
-
 	return nil
 }
 
