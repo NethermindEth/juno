@@ -1183,7 +1183,7 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) {
+func (h *Handler) Call(call *FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) {
 	state, closer, err := h.stateByBlockID(&id)
 	if err != nil {
 		return nil, ErrBlockNotFound

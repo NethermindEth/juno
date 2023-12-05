@@ -2977,7 +2977,7 @@ func TestCall(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		res, rpcErr := handler.Call(nil, rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -2985,7 +2985,7 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, errors.New("non-existent block hash"))
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Hash: &felt.Zero})
+		res, rpcErr := handler.Call(nil, rpc.BlockID{Hash: &felt.Zero})
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -2993,7 +2993,7 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, errors.New("non-existent block number"))
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Number: 0})
+		res, rpcErr := handler.Call(nil, rpc.BlockID{Number: 0})
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
@@ -3005,7 +3005,7 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		res, rpcErr := handler.Call(nil, rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
@@ -3620,7 +3620,7 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		_, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		_, rpcErr := handler.Call(nil, rpc.BlockID{Latest: true})
 		assert.Equal(t, utils.ErrResourceBusy.Error(), rpcErr.Data)
 	})
 
