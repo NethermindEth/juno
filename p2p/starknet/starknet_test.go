@@ -327,6 +327,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 									Nonce:     core2p2p.AdaptFelt(b.stateDiff.Nonces[*replacedAddress]),
 								},
 							},
+							// todo check for replaced and deployed contracts
 						},
 					},
 				},
