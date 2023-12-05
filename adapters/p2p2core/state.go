@@ -1,22 +1,33 @@
 package p2p2core
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(s *spec.StateDiff, classes []spec.Class) *core.StateDiff {
+func AdaptStateDiff(s *spec.StateDiff, classes []*spec.Class) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes []core.DeclaredV1Class
 	)
 
-	for _, class := range classes {
-		switch class.Class.(type) {
-		case *spec.Class_Cairo0:
-		case *spec.Class_Cairo1:
+	for _, class := range utils.Map(classes, AdaptClass) {
+		h, err := class.Hash()
+		if err != nil {
+			panic(fmt.Errorf("unexpected error: %v when calculating class hash", err))
+		}
+		switch c := class.(type) {
+		case *core.Cairo0Class:
+			declaredV0Classes = append(declaredV0Classes, h)
+		case *core.Cairo1Class:
+			declaredV1Classes = append(declaredV1Classes, core.DeclaredV1Class{
+				ClassHash:         h,
+				CompiledClassHash: c.AbiHash, // Todo: this is incorrect will replace with casm compiled class hash later
+			})
 		}
 	}
 

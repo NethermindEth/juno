@@ -516,25 +516,51 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 
 		for _, body := range blocksFromPeer {
 			blockB := newBlockBody()
-			curBlockID := body.id
+			curBlockNum := body.id.Number
 
-			blockB.block.Transactions = transactions[curBlockID.Number]
+			blockB.block.Transactions = transactions[curBlockNum]
 
 			// Add events to relevant transaction receipt
-			blockEvents := events[curBlockID.Number]
-			blockReceipts := utils.Map(receipts[curBlockID.Number], func(r *core.TransactionReceipt) *core.TransactionReceipt {
+			blockEvents := events[curBlockNum]
+			blockReceipts := utils.Map(receipts[curBlockNum], func(r *core.TransactionReceipt) *core.TransactionReceipt {
 				r.Events = blockEvents[*r.TransactionHash]
 				return r
 			})
 			blockB.block.Receipts = blockReceipts
 
 			// Add EventsBloom and Hash
-			header := &headersFromPeer[curBlockID.Number]
+			header := &headersFromPeer[curBlockNum]
 			blockB.block.Header = header
 			blockB.block.EventsBloom = core.EventsBloom(blockReceipts)
 			blockB.block.Hash, err = core.BlockHash(blockB.block)
+			if err != nil {
+				s.log.Errorw("Failed to calculate block hash", "err", err)
+			}
 
 			// Build State update
+			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
+			// Update but there is no such message in P2P.
+
+			blockB.stateUpdate.OldRoot = &felt.Zero
+			if curBlockNum > 0 {
+				oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum)
+				if err != nil {
+					s.log.Errorw("Failed to get Header", "number", curBlockNum, "err", err)
+				}
+				blockB.stateUpdate.OldRoot = oldHeader.GlobalStateRoot
+			}
+			blockB.stateUpdate.NewRoot = blockB.block.GlobalStateRoot
+			blockB.stateUpdate.BlockHash = blockB.block.Hash
+			blockB.stateUpdate.StateDiff = p2p2core.AdaptStateDiff(body.stateDiff, body.classes.GetClasses())
+
+			blockB.newClasses = utils.ToMap(body.classes.GetClasses(), func(class *spec.Class) (felt.Felt, core.Class) {
+				coreC := p2p2core.AdaptClass(class)
+				h, err := coreC.Hash()
+				if err != nil {
+					s.log.Errorw("Failed to calculated class hash", "err", err)
+				}
+				return *h, coreC
+			})
 
 			blocks <- blockB
 		}
