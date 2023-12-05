@@ -150,12 +150,11 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 	})
 
 	t.Run("get block bodies", func(t *testing.T) {
-		t.Skip() // todo: flaky test
 		deployedClassHash := utils.HexToFelt(t, "0XCAFEBABE")
 		deployedAddress := utils.HexToFelt(t, "0XDEADBEEF")
 		replacedClassHash := utils.HexToFelt(t, "0XABCD")
 		replacedAddress := utils.HexToFelt(t, "0XABCDE")
-		declaredV0Class := randFelt(t)
+		declaredV0ClassAddr := randFelt(t)
 		declaredV0ClassHash := randFelt(t)
 		storageDiff := core.StorageDiff{
 			Key:   randFelt(t),
@@ -166,9 +165,22 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 			cairo1Program = "cairo_1_program"
 		)
 		cairo1Class := &core.Cairo1Class{
-			AbiHash:     randFelt(t),
-			ProgramHash: randFelt(t),
-			Compiled:    json.RawMessage(cairo1Program),
+			Abi:     "cairo1 class abi",
+			AbiHash: randFelt(t),
+			EntryPoints: struct {
+				Constructor []core.SierraEntryPoint
+				External    []core.SierraEntryPoint
+				L1Handler   []core.SierraEntryPoint
+			}{},
+			Program:         feltSlice(2),
+			ProgramHash:     randFelt(t),
+			SemanticVersion: "1",
+			Compiled:        json.RawMessage(cairo1Program),
+		}
+
+		cairo0Class := &core.Cairo0Class{
+			Abi:     json.RawMessage("cairo0 class abi"),
+			Program: cairo1Program,
 		}
 
 		blocks := []struct {
@@ -193,7 +205,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 							ClassHash: deployedClassHash,
 						},
 					},
-					DeclaredV0Classes: []*felt.Felt{declaredV0Class},
+					DeclaredV0Classes: []*felt.Felt{declaredV0ClassAddr},
 					DeclaredV1Classes: []core.DeclaredV1Class{
 						{
 							ClassHash:         randFelt(t),
@@ -226,7 +238,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 							ClassHash: deployedClassHash,
 						},
 						{
-							Address:   declaredV0Class,
+							Address:   declaredV0ClassAddr,
 							ClassHash: declaredV0ClassHash,
 						},
 					},
@@ -260,18 +272,11 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 			stateHistory := mocks.NewMockStateHistoryReader(mockCtrl)
 			v0Class := block.stateDiff.DeclaredV0Classes[0]
 			stateHistory.EXPECT().Class(v0Class).Return(&core.DeclaredClass{
-				At: block.number,
-				Class: &core.Cairo0Class{
-					Program: cairo0Program,
-				},
+				At:    block.number,
+				Class: cairo0Class,
 			}, nil)
 			v1Class := block.stateDiff.DeclaredV1Classes[0]
 			stateHistory.EXPECT().Class(v1Class.ClassHash).Return(&core.DeclaredClass{
-				At:    block.number,
-				Class: cairo1Class,
-			}, nil)
-			deployedClass := block.stateDiff.DeployedContracts[0]
-			stateHistory.EXPECT().Class(deployedClass.ClassHash).Return(&core.DeclaredClass{
 				At:    block.number,
 				Class: cairo1Class,
 			}, nil)
@@ -332,25 +337,7 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 					BodyMessage: &spec.BlockBodiesResponse_Classes{
 						Classes: &spec.Classes{
 							Domain:  0,
-							Classes: []*spec.Class{
-								// todo: correctly add Cairo0 and Cairo1 classes
-								//{
-								//	CompiledHash: core2p2p.AdaptHash(b.stateDiff.DeclaredV0Classes[0]),
-								//	Definition:   []byte(cairo0Program),
-								//},
-								//{
-								//	CompiledHash: core2p2p.AdaptHash(noError(t, func() (*felt.Felt, error) {
-								//		return cairo1Class.Hash()
-								//})),
-								//	Definition: []byte(cairo1Program),
-								//},
-								//{
-								//	CompiledHash: core2p2p.AdaptHash(noError(t, func() (*felt.Felt, error) {
-								//		return cairo1Class.Hash()
-								//	})),
-								//	Definition: []byte(cairo1Program),
-								//},
-							},
+							Classes: []*spec.Class{core2p2p.AdaptClass(cairo0Class), core2p2p.AdaptClass(cairo1Class)},
 						},
 					},
 				},

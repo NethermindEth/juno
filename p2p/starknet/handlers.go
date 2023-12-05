@@ -185,15 +185,15 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 			return fin()
 		}
 
-		block, err := it.Block()
+		header, err := it.Header()
 		if err != nil {
-			h.log.Errorw("Failed to fetch block", "err", err)
+			h.log.Errorw("Failed to fetch header", "err", err)
 			return fin()
 		}
 		it.Next()
 
-		fmt.Printf("Creating blockBodyIterator for blockNumber %d\n", block.Number)
-		bodyIterator, err = newBlockBodyIterator(h.bcReader, block, h.log)
+		fmt.Printf("Creating blockBodyIterator for blockNumber %d\n", header.Number)
+		bodyIterator, err = newBlockBodyIterator(h.bcReader, header, h.log)
 		if err != nil {
 			h.log.Errorw("Failed to create block body iterator", "err", err)
 			return fin()

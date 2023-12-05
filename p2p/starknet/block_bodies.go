@@ -30,26 +30,26 @@ type blockBodyIterator struct {
 	stateReader core.StateReader
 	stateCloser func() error
 
-	step  blockBodyStep
-	block *core.Block
+	step   blockBodyStep
+	header *core.Header
 
 	stateUpdate *core.StateUpdate
 }
 
-func newBlockBodyIterator(bcReader blockchain.Reader, block *core.Block, log utils.SimpleLogger) (*blockBodyIterator, error) {
-	stateUpdate, err := bcReader.StateUpdateByNumber(block.Number)
+func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log utils.SimpleLogger) (*blockBodyIterator, error) {
+	stateUpdate, err := bcReader.StateUpdateByNumber(header.Number)
 	if err != nil {
 		return nil, err
 	}
 
-	stateReader, closer, err := bcReader.StateAtBlockNumber(block.Number)
+	stateReader, closer, err := bcReader.StateAtBlockNumber(header.Number)
 	if err != nil {
 		return nil, err
 	}
 
 	return &blockBodyIterator{
 		step:        sendDiff,
-		block:       block,
+		header:      header,
 		log:         log,
 		stateReader: stateReader,
 		stateCloser: closer,
@@ -91,7 +91,7 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 }
 
 func (b *blockBodyIterator) classes() (proto.Message, bool) {
-	classesM := make(map[felt.Felt]*spec.Class)
+	var classes []*spec.Class
 
 	stateDiff := b.stateUpdate.StateDiff
 
@@ -101,49 +101,14 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classesM[*hash] = core2p2p.AdaptClass(cls.Class, hash)
+		classes = append(classes, core2p2p.AdaptClass(cls.Class))
 	}
 	for _, class := range stateDiff.DeclaredV1Classes {
 		cls, err := b.stateReader.Class(class.ClassHash)
 		if err != nil {
 			return b.fin()
 		}
-
-		hash, err := cls.Class.Hash()
-		if err != nil {
-			return b.fin()
-		}
-		classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, hash)
-	}
-	for _, class := range stateDiff.DeployedContracts {
-		if _, ok := classesM[*class.ClassHash]; ok {
-			// Skip if the class was declared and deployed in the same block. Otherwise, there will be duplicate classes.
-			continue
-		}
-		cls, err := b.stateReader.Class(class.ClassHash)
-		if err != nil {
-			return b.fin()
-		}
-
-		switch cairoClass := cls.Class.(type) {
-		case *core.Cairo0Class:
-			classesM[*class.ClassHash] = core2p2p.AdaptClass(cls.Class, class.ClassHash)
-		case *core.Cairo1Class:
-			//compiledHash, err = cairoClass.Hash()
-			//if err != nil {
-			//	return b.fin()
-			//}
-		default:
-			b.log.Errorw("Unknown cairo class", "cairoClass", cairoClass)
-			return b.fin()
-		}
-
-	}
-
-	var classes []*spec.Class
-	for _, c := range classesM {
-		c := c
-		classes = append(classes, c)
+		classes = append(classes, core2p2p.AdaptClass(cls.Class))
 	}
 
 	return &spec.BlockBodiesResponse{
@@ -261,5 +226,5 @@ func (b *blockBodyIterator) proof() (proto.Message, bool) {
 }
 
 func (b *blockBodyIterator) blockID() *spec.BlockID {
-	return core2p2p.AdaptBlockID(b.block.Header)
+	return core2p2p.AdaptBlockID(b.header)
 }
