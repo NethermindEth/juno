@@ -103,13 +103,21 @@ var (
 		GatewayURL:          "https://alpha-sepolia.starknet.io/gateway",
 		ChainID:             "SN_SEPOLIA",
 		CoreContractAddress: common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
+		BlockHashMetaInfo: &blockHashMetaInfo{
+			First07Block:             0,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		},
 	}
-	Sepolia_integration = Network{
+	SepoliaIntegration = Network{
 		Name:                "sepolia-integration",
 		FeederURL:           "https://integration-sepolia.starknet.io/feed_gateway",
 		GatewayURL:          "https://integration-sepolia.starknet.io/gateway",
 		ChainID:             "SN_INTEGRATION_SEPOLIA",
 		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
+		BlockHashMetaInfo: &blockHashMetaInfo{
+			First07Block:             0,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		},
 	}
 )
 
@@ -137,8 +145,8 @@ func (n *Network) Set(s string) error {
 		"integration":         Integration,
 		"SEPOLIA":             Sepolia,
 		"sepolia":             Sepolia,
-		"SEPOLIA_INTEGRATION": Sepolia_integration,
-		"sepolia-integration": Sepolia_integration,
+		"SepoliaIntegration":  SepoliaIntegration,
+		"sepolia-integration": SepoliaIntegration,
 	}
 
 	if network, ok := predefinedNetworks[s]; ok {
@@ -235,7 +243,7 @@ func (n Network) DefaultL1ChainID() *big.Int {
 		chainID = 1
 	case Goerli, Goerli2, Integration:
 		chainID = 5
-	case Sepolia, Sepolia_integration:
+	case Sepolia, SepoliaIntegration:
 		chainID = 11155111
 	default:
 		// Should not happen.

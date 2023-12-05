@@ -47,8 +47,6 @@ type Block struct {
 	Receipts     []*TransactionReceipt
 }
 
-<<<<<<< HEAD
-=======
 type blockHashMetaInfo struct {
 	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
 	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
@@ -101,7 +99,6 @@ func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	}
 }
 
->>>>>>> main
 type BlockCommitments struct {
 	TransactionCommitment *felt.Felt
 	EventCommitment       *felt.Felt

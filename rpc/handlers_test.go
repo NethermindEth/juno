@@ -3190,7 +3190,7 @@ func TestSimulateTransactions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	var network = utils.Mainnet
+	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
@@ -3241,7 +3241,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
-	var network = utils.Mainnet
+	network := utils.Mainnet
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
 	t.Run("block not found", func(t *testing.T) {

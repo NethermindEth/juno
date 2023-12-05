@@ -141,11 +141,7 @@ func TestV1Call(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-<<<<<<< HEAD
-	network := utils.GOERLI2
-=======
-	const network = utils.Goerli2
->>>>>>> main
+	network := utils.Goerli2
 
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(false)
