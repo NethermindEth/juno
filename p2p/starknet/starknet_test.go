@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -18,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
@@ -327,7 +326,8 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 									Nonce:     core2p2p.AdaptFelt(b.stateDiff.Nonces[*replacedAddress]),
 								},
 							},
-							// todo check for replaced and deployed contracts
+							ReplacedClasses:   utils.Map(b.stateDiff.ReplacedClasses, core2p2p.AdaptAddressClassHashPair),
+							DeployedContracts: utils.Map(b.stateDiff.DeployedContracts, core2p2p.AdaptAddressClassHashPair),
 						},
 					},
 				},

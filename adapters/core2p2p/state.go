@@ -24,3 +24,10 @@ func AdaptStorageDiff(diff map[felt.Felt]*felt.Felt) []*spec.ContractStoredValue
 	}
 	return result
 }
+
+func AdaptAddressClassHashPair(c core.AddressClassHashPair) *spec.StateDiff_ContractAddrToClassHash {
+	return &spec.StateDiff_ContractAddrToClassHash{
+		ContractAddr: AdaptAddress(c.Address),
+		ClassHash:    AdaptHash(c.ClassHash),
+	}
+}

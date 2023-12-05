@@ -188,8 +188,8 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 			Diff: &spec.StateDiff{
 				Domain:            0,
 				ContractDiffs:     contractDiffs,
-				ReplacedClasses:   []*spec.StateDiff_ContractAddrToClassHash{},
-				DeployedContracts: []*spec.StateDiff_ContractAddrToClassHash{},
+				ReplacedClasses:   utils.Map(diff.ReplacedClasses, core2p2p.AdaptAddressClassHashPair),
+				DeployedContracts: utils.Map(diff.DeployedContracts, core2p2p.AdaptAddressClassHashPair),
 			},
 		},
 	}, true
