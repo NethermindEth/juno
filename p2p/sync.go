@@ -259,7 +259,14 @@ func newBlockBody() blockBody {
 	}
 }
 
-func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration, id peer.ID) ([]blockBody, error) {
+type specBlockBody struct {
+	id        *spec.BlockID
+	proof     *spec.BlockProof
+	classes   *spec.Classes
+	stateDiff *spec.StateDiff
+}
+
+func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration, id peer.ID) (map[uint64]specBlockBody, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -271,48 +278,41 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 		s.log.Errorw("request block bodies from peer", "id", id, "err", err)
 	}
 
-	blockBodies := make(map[uint64]blockBody)
-	updateBlockBody := func(blockNumber uint64, f func(*blockBody)) {
-		b, ok := blockBodies[blockNumber]
+	blockBodies := make(map[uint64]specBlockBody)
+	updateBlockBody := func(id *spec.BlockID, f func(body *specBlockBody)) {
+		b, ok := blockBodies[id.Number]
 		if !ok {
-			b = newBlockBody()
+			b = specBlockBody{id: id}
 		}
 
 		f(&b)
 
-		blockBodies[blockNumber] = b
+		blockBodies[id.Number] = b
 	}
 
+	curBlockBody := new(specBlockBody)
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
 		switch res.BodyMessage.(type) {
 		case *spec.BlockBodiesResponse_Classes:
-			updateBlockBody(res.GetId().Number, func(b *blockBody) {
-				classes := res.GetClasses().GetClasses()
-
-				// todo unsure about that
-				b.newClasses = utils.ToMap(classes, func(cls *spec.Class) (felt.Felt, core.Class) {
-					coreCls := p2p2core.AdaptClass(cls)
-
-					hash, _ := coreCls.Hash()
-
-					return *hash, coreCls
-				})
-			})
+			if curBlockBody.id == nil {
+				curBlockBody.id = res.GetId()
+			}
+			updateBlockBody(res.GetId(), func(b *specBlockBody) { b.classes = res.GetClasses() })
 		case *spec.BlockBodiesResponse_Diff:
-			// res.GetDiff()
+			updateBlockBody(res.GetId(), func(b *specBlockBody) { b.stateDiff = res.GetDiff() })
 		case *spec.BlockBodiesResponse_Fin:
 			// do nothing
 		case *spec.BlockBodiesResponse_Proof:
-			// do nothing
+			updateBlockBody(res.GetId(), func(b *specBlockBody) { b.proof = res.GetProof() })
 		default:
 			fmt.Printf("Unknown BlockBody type %T\n", res.BodyMessage)
 		}
 	}
 
-	return utils.MapValues(blockBodies), nil
+	return blockBodies, nil
 }
 
-// todo rename method
+// todo
 func (s *syncService) requestBlockHeaders(ctx context.Context, it *spec.Iteration, id peer.ID) ([]core.Header, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
@@ -354,6 +354,7 @@ iteratorLoop:
 					ProtocolVersion:  h.ProtocolVersion,
 					EventsBloom:      nil, // Todo: add this in when building the block
 					GasPrice:         p2p2core.AdaptFelt(h.GasPrice),
+					Signatures:
 				}
 			case *spec.BlockHeadersResponsePart_Signatures:
 				// todo check blockID
