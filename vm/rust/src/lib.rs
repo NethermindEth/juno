@@ -22,6 +22,11 @@ use blockifier::{
         objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType},
         transaction_execution::Transaction,
         transactions::ExecutableTransaction,
+        errors::TransactionExecutionError::{
+            ContractConstructorExecutionFailed,
+            ExecutionError,
+            ValidateTransactionError,
+        },
     },
 };
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
@@ -151,6 +156,7 @@ pub extern "C" fn cairoVMExecute(
     paid_fees_on_l1_json: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
+    err_on_revert: c_uchar,
     gas_price_wei: *const c_uchar,
     gas_price_strk: *const c_uchar,
     legacy_json: c_uchar,
@@ -269,13 +275,19 @@ pub extern "C" fn cairoVMExecute(
         };
 
         match res {
-            Err(e) => {
+            Err(error) => {
+                let err_string = match &error {
+                    ContractConstructorExecutionFailed(e)
+                        | ExecutionError(e)
+                        | ValidateTransactionError(e) => format!("{error} {e}"),
+                    other => other.to_string()
+                };
                 report_error(
                     reader_handle,
                     format!(
-                        "failed txn {:?} reason:{:?}",
+                        "failed txn {} reason: {}",
                         txn_and_query_bit.txn_hash,
-                        e
+                        err_string,
                     )
                     .as_str(),
                     txn_index as i64
@@ -283,6 +295,16 @@ pub extern "C" fn cairoVMExecute(
                 return;
             }
             Ok(mut t) => {
+                if t.is_reverted() && err_on_revert != 0 {
+                    report_error(
+                        reader_handle,
+                        format!("reverted: {}", t.revert_error.unwrap())
+                        .as_str(),
+                        txn_index as i64
+                    );
+                    return;
+                }
+
                 // we are estimating fee, override actual fee calculation
                 if !charge_fee {
                     t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context, &fee_type).unwrap();

@@ -94,19 +94,13 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **92 GB** | **313975** | [**juno_mainnet_313975.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.5_313975.tar) |
+| **>=v0.6.0**  | **121 GB** | **449406** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.7.5_449406.tar) |
 
 #### Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
-
-#### Goerli2
-
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| **>=v0.6.0** | **41.4 GB** | **911580** | [**juno_goerli.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.7.5_911580.tar) |
 
 ### Run Juno Using Snapshot
 
@@ -115,7 +109,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   wget -O juno_mainnet_313975.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.5_313975.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.7.5_449406.tar
    ```
 
 2. **Prepare Directory**
@@ -131,7 +125,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_313975.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**

@@ -1,0 +1,78 @@
+---
+slug: /config
+sidebar_position: 3
+title: Example Configuration
+---
+
+The Juno binary uses reasonable defaults and can be used without configuration.
+For basic fine-tuning, the `--db-path` and `--http-port` options are usually sufficient.
+
+All available options are in the YAML file below with their default values.
+Provide the config using the `--config <filename>` option (Juno looks in `$XDG_CONFIG_HOME` by default).
+
+Juno can also be configured using command line params by prepending `--` to the option name (e.g., `--log-level info`).
+Command line params override values in the configuration file. 
+
+```yaml
+# Enable colored logs
+colour: true
+
+# Path to the database.
+# Juno uses `$XDG_DATA_HOME/juno` by default, which is usually something like the value below on Linux.
+db-path: /home/<user>/.local/share/juno
+
+# Websocket endpoint of the Ethereum node used to verify the L2 chain.
+# If using Infura, it looks something like `wss://mainnet.infura.io/ws/v3/your-infura-project-id`
+eth-node: ""
+
+# Enables the HTTP RPC server.
+http: false
+# Interface on which the HTTP RPC server will listen for requests.
+http-host: localhost
+# Port on which the HTTP RPC server will listen for requests.
+http-port: 6060
+
+# The options below are similar to the HTTP RPC options above.
+ws: false # Websocket RPC server
+ws-host: localhost
+ws-port: 6061
+pprof: false
+pprof-host: localhost
+pprof-port: 6062
+metrics: false
+metrics-host: localhost
+metrics-port: 9090
+grpc: false
+grpc-host: localhost
+grpc-port: 6064
+
+# Options: debug, info, warn, error
+log-level: info
+
+# Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration
+network: mainnet
+
+# How often to fetch the pending block when synced to the head of the chain.
+# Provide a duration like 5s (five seconds) or 10m (10 minutes).
+# Disabled by default.
+pending-poll-interval: 0s
+
+# Experimental p2p options; there is currently no standardized Starknet p2p testnet.
+p2p: false # Enable the p2p server
+p2p-addr: "" # Source address
+p2p-boot-peers: "" # Boot nodes
+
+# Determines the memory allocated for database caching (in MB).
+db-cache-size: 8
+
+# The maximum number of VM instances for concurrent RPC calls.
+max-vms: 48
+
+# Maximum number of requests to queue for RPC calls.
+max-vm-queue: 96
+
+# GRPC URL of a remote Juno node.
+remote-db: ""
+
+# Maximum number of blocks to scan in a single starknet_getEvents call.
+rpc-max-block-scan: 18446744073709551615
