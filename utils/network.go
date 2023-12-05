@@ -21,7 +21,8 @@ var (
 
 type Network struct {
 	Name                string             `json:"name"`
-	BaseURL             string             `json:"base_url"`
+	FeederURL           string             `json:"feeder_url"`
+	GatewayURL          string             `json:"gateway_url"`
 	ChainID             string             `json:"chain_id"`
 	L1ChainID           *big.Int           `json:"l1_chain_id"`
 	CoreContractAddress common.Address     `json:"core_contract_address"`
@@ -47,7 +48,8 @@ var (
 	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
 	MAINNET = Network{
 		Name:                "mainnet",
-		BaseURL:             "https://alpha-mainnet.starknet.io/",
+		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway",
+		GatewayURL:          "https://alpha-mainnet.starknet.io/gateway",
 		ChainID:             "SN_MAIN",
 		L1ChainID:           big.NewInt(1),
 		CoreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
@@ -57,9 +59,10 @@ var (
 		},
 	}
 	GOERLI = Network{
-		Name:    "goerli",
-		BaseURL: "https://alpha4.starknet.io/",
-		ChainID: "SN_GOERLI",
+		Name:       "goerli",
+		FeederURL:  "https://alpha4.starknet.io/feeder_gateway",
+		GatewayURL: "https://alpha4.starknet.io/gateway",
+		ChainID:    "SN_GOERLI",
 		//nolint:gomnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
@@ -70,9 +73,10 @@ var (
 		},
 	}
 	GOERLI2 = Network{
-		Name:    "goerli2",
-		BaseURL: "https://alpha4-2.starknet.io/",
-		ChainID: "SN_GOERLI2",
+		Name:       "goerli2",
+		FeederURL:  "https://alpha4-2.starknet.io/feeder_gateway",
+		GatewayURL: "https://alpha4-2.starknet.io/gateway",
+		ChainID:    "SN_GOERLI2",
 		//nolint:gomnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
@@ -82,9 +86,10 @@ var (
 		},
 	}
 	INTEGRATION = Network{
-		Name:    "integration",
-		BaseURL: "https://external.integration.starknet.io/",
-		ChainID: "SN_GOERLI",
+		Name:       "integration",
+		FeederURL:  "https://external.integration.starknet.io/feeder_gateway",
+		GatewayURL: "https://external.integration.starknet.io/gateway",
+		ChainID:    "SN_GOERLI",
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
@@ -140,7 +145,7 @@ func (n *Network) setCustomNetwork(s string) error {
 func (n *Network) UnmarshalJSON(data []byte) error {
 	jsonMap := make(map[string]any)
 	if err := json.Unmarshal(data, &jsonMap); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal the network json string: %w", err)
 	}
 	name, ok := jsonMap["name"].(string)
 	if !ok {
@@ -149,9 +154,13 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	if !(name == "custom" || name == "CUSTOM") {
 		return ErrUnknownNetwork
 	}
-	baseURL, ok := jsonMap["base_url"].(string)
+	feederURL, ok := jsonMap["feeder_url"].(string)
 	if !ok {
-		return errors.New("no base_url field")
+		return errors.New("no feeder_url field")
+	}
+	gatewayURL, ok := jsonMap["gateway_url"].(string)
+	if !ok {
+		return errors.New("no gateway_url field")
 	}
 	chainID, ok := jsonMap["chain_id"].(string)
 	if !ok {
@@ -163,7 +172,7 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	}
 	l1ChainIDBigInt, ok := new(big.Int).SetString(l1ChainID, 0)
 	if !ok {
-		return fmt.Errorf("failed to parse l1_chain_id into big.Int")
+		return errors.New("failed to parse l1_chain_id into big.Int")
 	}
 	coreContractAddressStr, ok := jsonMap["core_contract_address"].(string)
 	if !ok {
@@ -185,7 +194,8 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	}
 
 	n.Name = name
-	n.BaseURL = baseURL
+	n.FeederURL = feederURL
+	n.GatewayURL = gatewayURL
 	n.ChainID = chainID
 	n.L1ChainID = l1ChainIDBigInt
 	n.CoreContractAddress = common.HexToAddress(coreContractAddressStr)
@@ -199,16 +209,6 @@ func (n Network) Type() string {
 
 func (n *Network) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
-}
-
-// FeederURL returns URL for read commands
-func (n Network) FeederURL() string {
-	return n.BaseURL + "feeder_gateway/"
-}
-
-// GatewayURL returns URL for write commands
-func (n Network) GatewayURL() string {
-	return n.BaseURL + "gateway/"
 }
 
 func (n Network) DefaultL1ChainID() *big.Int {

@@ -29,13 +29,13 @@ func TestNetwork(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
 			case utils.GOERLI:
-				assert.Equal(t, "https://alpha4.starknet.io/feeder_gateway/", n.FeederURL())
+				assert.Equal(t, "https://alpha4.starknet.io/feeder_gateway/", n.FeederURL)
 			case utils.MAINNET:
-				assert.Equal(t, "https://alpha-mainnet.starknet.io/feeder_gateway/", n.FeederURL())
+				assert.Equal(t, "https://alpha-mainnet.starknet.io/feeder_gateway/", n.FeederURL)
 			case utils.GOERLI2:
-				assert.Equal(t, "https://alpha4-2.starknet.io/feeder_gateway/", n.FeederURL())
+				assert.Equal(t, "https://alpha4-2.starknet.io/feeder_gateway/", n.FeederURL)
 			case utils.INTEGRATION:
-				assert.Equal(t, "https://external.integration.starknet.io/feeder_gateway/", n.FeederURL())
+				assert.Equal(t, "https://external.integration.starknet.io/feeder_gateway/", n.FeederURL)
 			default:
 				assert.Fail(t, "unexpected network")
 			}
@@ -92,7 +92,8 @@ func TestNetworkSet(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
 				"name": "custom",
-				"base_url": "baseURL/",
+				"feeder_url": "baseURL/feeder_gateway/",
+				"gateway_url": "baseURL/gateway",
 				"chain_id": "SN_CUSTOM",
 				"l1_chain_id": "123",
 				"core_contract_address": "0x0",
@@ -105,13 +106,17 @@ func TestNetworkSet(t *testing.T) {
 
 		require.NoError(t, n.Set(networkJSON))
 		assert.Equal(t, "custom", n.String())
-		assert.Equal(t, "baseURL/feeder_gateway/", n.FeederURL())
+		assert.Equal(t, "baseURL/feeder_gateway/", n.FeederURL)
 		assert.Equal(t, "SN_CUSTOM", n.ChainID)
 		assert.Equal(t, "0x0", n.MetaInfo().FallBackSequencerAddress.String())
 		assert.Equal(t, uint64(1), n.MetaInfo().First07Block)
 		assert.Equal(t, []uint64{2, 3}, n.MetaInfo().UnverifiableRange)
 	})
-
+	t.Run("custom network - fail - invalid json input", func(t *testing.T) {
+		n := new(utils.Network)
+		networkJSON := `some invalid json`
+		require.Equal(t, n.Set(networkJSON).Error(), "failed to unmarshal the network json string: invalid character 's' looking for beginning of value")
+	})
 	t.Run("custom network - fail - name error", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
@@ -119,18 +124,20 @@ func TestNetworkSet(t *testing.T) {
 		}`
 		require.ErrorIs(t, n.Set(networkJSON), utils.ErrUnknownNetwork)
 	})
-	t.Run("custom network - fail - base_url not set", func(t *testing.T) {
+	t.Run("custom network - fail - feeder_url not set", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
-				"name": "custom"
+				"name": "custom",
+				"feeder_url": "baseURL/feeder_gateway/"
 		}`
-		require.Equal(t, n.Set(networkJSON).Error(), "no base_url field")
+		require.Equal(t, n.Set(networkJSON).Error(), "no gateway_url field")
 	})
 	t.Run("custom network - fail - unverifRange", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
 				"name": "custom",
-				"base_url": "baseURL/",
+				"feeder_url": "baseURL/feeder_gateway/",
+				"gateway_url": "baseURL/gateway",
 				"chain_id": "SN_CUSTOM",
 				"l1_chain_id": "123",
 				"core_contract_address": "0x0",
