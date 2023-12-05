@@ -63,7 +63,7 @@ func TestAdaptBlock(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.network.String()+" block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
-			client := feeder.NewTestClient(t, test.network)
+			client := feeder.NewTestClient(t, &test.network)
 
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestAdaptBlock(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	ctx := context.Background()
 
 	for _, number := range numbers {
@@ -159,7 +159,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		integClient := feeder.NewTestClient(t, utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.Integration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
@@ -201,7 +201,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	client := feeder.NewTestClient(t, utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Goerli)
 	ctx := context.Background()
 
 	for _, hashString := range classHashes {
@@ -238,8 +238,8 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, utils.Goerli)
-	clientMainnet := feeder.NewTestClient(t, utils.Mainnet)
+	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
+	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
@@ -350,7 +350,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionV3(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	ctx := context.Background()
 
 	tests := map[string]core.Transaction{
@@ -471,7 +471,7 @@ func TestTransactionV3(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 

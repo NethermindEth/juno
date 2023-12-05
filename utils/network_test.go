@@ -63,8 +63,6 @@ func TestNetwork(t *testing.T) {
 				assert.Equal(t, big.NewInt(1), got)
 			case utils.Goerli, utils.Goerli2, utils.Integration:
 				assert.Equal(t, big.NewInt(5), got)
-			case utils.Integration:
-				assert.Nil(t, got)
 			default:
 				assert.Fail(t, "unexpected network")
 			}

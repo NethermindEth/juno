@@ -169,13 +169,13 @@ func TestBlockHash(t *testing.T) {
 		tc := testcase
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			client := feeder.NewTestClient(t, tc.chain)
+			client := feeder.NewTestClient(t, &tc.chain)
 			gw := adaptfeeder.New(client)
 
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
 			require.NoError(t, err)
 
-			commitments, err := core.VerifyBlockHash(block, tc.chain)
+			commitments, err := core.VerifyBlockHash(block, &tc.chain)
 			assert.NoError(t, err)
 			assert.NotNil(t, commitments)
 		})
@@ -184,7 +184,7 @@ func TestBlockHash(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	mainnetGW := adaptfeeder.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
 		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
@@ -193,18 +193,18 @@ func TestBlockHash(t *testing.T) {
 		mainnetBlock1.Hash = h1
 
 		expectedErr := "can not verify hash in block header"
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, utils.Mainnet)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Goerli)
+		client := feeder.NewTestClient(t, &utils.Goerli)
 		goerliGW := adaptfeeder.New(client)
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 
-		commitments, err := core.VerifyBlockHash(block119802, utils.Goerli)
+		commitments, err := core.VerifyBlockHash(block119802, &utils.Goerli)
 		assert.NoError(t, err)
 		assert.NotNil(t, commitments)
 	})
@@ -218,7 +218,7 @@ func TestBlockHash(t *testing.T) {
 		expectedErr := fmt.Sprintf("len of transactions: %v do not match len of receipts: %v",
 			len(mainnetBlock1.Transactions), len(mainnetBlock1.Receipts))
 
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, utils.Mainnet)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
@@ -233,7 +233,7 @@ func TestBlockHash(t *testing.T) {
 				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
 				mainnetBlock1.Transactions[1].Hash().String(), 1,
 				mainnetBlock1.Receipts[1].TransactionHash)
-			commitments, err := core.VerifyBlockHash(mainnetBlock1, utils.Mainnet)
+			commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
 			assert.EqualError(t, err, expectedErr)
 			assert.Nil(t, commitments)
 		})

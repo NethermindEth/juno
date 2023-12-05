@@ -39,7 +39,6 @@ type blockHashMetaInfo struct {
 }
 
 var (
-	//nolint:lll
 	fallBackSequencerAddress, _ = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	// The following are necessary for Cobra and Viper, respectively, to unmarshal log level CLI/config parameters properly.
 	_ pflag.Value              = (*Network)(nil)
@@ -121,15 +120,15 @@ var (
 	}
 )
 
-func (n Network) String() string {
+func (n *Network) String() string {
 	return n.Name
 }
 
-func (n Network) MarshalYAML() (interface{}, error) {
+func (n *Network) MarshalYAML() (interface{}, error) {
 	return n.String(), nil
 }
 
-func (n Network) MarshalJSON() ([]byte, error) {
+func (n *Network) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + n.String() + `"`), nil
 }
 
@@ -210,12 +209,12 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	if !ok {
 		return errors.New("no block_hash_meta_info field")
 	}
-	var blockHashMetaInfo blockHashMetaInfo
+	var nBlockHashMetaInfo blockHashMetaInfo
 	blockHashMetaInfoJSON, err := json.Marshal(blockHashMetaInfoData)
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(blockHashMetaInfoJSON, &blockHashMetaInfo); err != nil {
+	if err := json.Unmarshal(blockHashMetaInfoJSON, &nBlockHashMetaInfo); err != nil {
 		return err
 	}
 	n.Name = name
@@ -224,11 +223,11 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	n.ChainID = chainID
 	n.L1ChainID = l1ChainIDBigInt
 	n.CoreContractAddress = common.HexToAddress(coreContractAddressStr)
-	n.BlockHashMetaInfo = &blockHashMetaInfo
+	n.BlockHashMetaInfo = &nBlockHashMetaInfo
 	return nil
 }
 
-func (n Network) Type() string {
+func (n *Network) Type() string {
 	return "Network"
 }
 
@@ -236,14 +235,14 @@ func (n *Network) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
 }
 
-func (n Network) DefaultL1ChainID() *big.Int {
+func (n *Network) DefaultL1ChainID() *big.Int {
 	var chainID int64
 	switch n {
-	case Mainnet:
+	case &Mainnet:
 		chainID = 1
-	case Goerli, Goerli2, Integration:
+	case &Goerli, &Goerli2, &Integration:
 		chainID = 5
-	case Sepolia, SepoliaIntegration:
+	case &Sepolia, &SepoliaIntegration:
 		chainID = 11155111
 	default:
 		// Should not happen.
@@ -252,14 +251,14 @@ func (n Network) DefaultL1ChainID() *big.Int {
 	return big.NewInt(chainID)
 }
 
-func (n Network) ChainIDFelt() *felt.Felt {
+func (n *Network) ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.ChainID))
 }
 
-func (n Network) ProtocolID() protocol.ID {
+func (n *Network) ProtocolID() protocol.ID {
 	return protocol.ID(fmt.Sprintf("/starknet/%s", n))
 }
 
-func (n Network) MetaInfo() *blockHashMetaInfo {
+func (n *Network) MetaInfo() *blockHashMetaInfo {
 	return n.BlockHashMetaInfo
 }

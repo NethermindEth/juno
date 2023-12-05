@@ -42,7 +42,7 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(arg0, arg1, arg2 *felt.Felt, arg3 []felt.Felt, arg4, arg5 uint64, arg6 core.StateReader, arg7 utils.Network) ([]*felt.Felt, error) {
+func (m *MockVM) Call(arg0, arg1, arg2 *felt.Felt, arg3 []felt.Felt, arg4, arg5 uint64, arg6 core.StateReader, arg7 *utils.Network) ([]*felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].([]*felt.Felt)
@@ -57,7 +57,7 @@ func (mr *MockVMMockRecorder) Call(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2, arg3 uint64, arg4 *felt.Felt, arg5 core.StateReader, arg6 utils.Network, arg7 []*felt.Felt, arg8, arg9, arg10 bool, arg11, arg12 *felt.Felt, arg13 bool) ([]*felt.Felt, []json.RawMessage, error) {
+func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2, arg3 uint64, arg4 *felt.Felt, arg5 core.StateReader, arg6 *utils.Network, arg7 []*felt.Felt, arg8, arg9, arg10 bool, arg11, arg12 *felt.Felt, arg13 bool) ([]*felt.Felt, []json.RawMessage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13)
 	ret0, _ := ret[0].([]*felt.Felt)

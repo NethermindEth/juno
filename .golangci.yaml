@@ -27,9 +27,6 @@ linters-settings:
       - octalLiteral
       - whyNoLint
       - unnamedResult
-    settings:
-      hugeParam:
-        sizeThreshold: 89
   gocyclo:
     min-complexity: 15
   goimports:
