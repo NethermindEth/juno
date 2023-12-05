@@ -16,7 +16,7 @@ import (
 var (
 	ErrUnknownNetwork        = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 	ErrNetworkNoFallbackAddr = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
-	ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be correctly set")
+	ErrNetworkNoUnverifRange = errors.New("the unverifiableRangeStart,unverifiableRangeEnd (unint64,uint64) parameters must be correctly 	set")
 )
 
 type Network struct {
@@ -181,7 +181,7 @@ func (n *Network) Set(s string) error {
 func (n *Network) setCustomNetwork(s string) error {
 	*n = Network{}
 	if err := n.UnmarshalJSON([]byte(s)); err != nil {
-		return errors.New("failed to unmarhsal the json string to a Network struct - " + err.Error())
+		return errors.New("failed to unmarhsal the json string to a custom Network struct - " + err.Error())
 	}
 
 	if !(n.Name == "custom" || n.Name == "CUSTOM") {

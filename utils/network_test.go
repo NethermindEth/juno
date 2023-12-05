@@ -88,11 +88,6 @@ func TestNetworkSet(t *testing.T) {
 		})
 	}
 
-	t.Run("unknown network", func(t *testing.T) {
-		n := new(utils.Network)
-		require.ErrorIs(t, n.Set("blah"), utils.ErrUnknownNetwork)
-	})
-
 	t.Run("custom network - success", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
@@ -117,9 +112,30 @@ func TestNetworkSet(t *testing.T) {
 		assert.Equal(t, []uint64{2, 3}, n.MetaInfo().UnverifiableRange)
 	})
 
-	//	t.Run("custom network - failure", func(t *testing.T) {
-	//		n := new(utils.Network)
-	//	})
+	t.Run("custom network - fail - name error", func(t *testing.T) {
+		n := new(utils.Network)
+		networkJSON := `{
+				"name": "ccstom",
+				"base_url": "baseURL/",
+				"chain_id": "SN_CUSTOM",
+				"l1_chain_id": "123",
+				"core_contract_address": "0x0",
+				"block_hash_meta_info": {
+					"first_07_block": 1,
+					"unverifiable_range": [2, 3],
+					"fallback_sequencer_address": "0x0"
+				}
+		}`
+		require.ErrorIs(t, n.Set(networkJSON), utils.ErrUnknownNetwork)
+	})
+
+	t.Run("custom network - fail - base_url not set", func(t *testing.T) {
+		n := new(utils.Network)
+		networkJSON := `{
+				"name": "custom"
+		}`
+		require.Equal(t, n.Set(networkJSON).Error(), "failed to unmarhsal the json string to a custom Network struct - no base_url field")
+	})
 }
 
 //nolint:dupl
