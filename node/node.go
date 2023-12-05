@@ -118,8 +118,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services := make([]service.Service, 0)
 
 	chain := blockchain.New(database, cfg.Network, log)
-	feederClientTimeout := 5 * time.Second
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
+	const (
+		feederClientTimeout = 5 * time.Second
+		feederMaxBackoff    = 4 * time.Second
+	)
+	feederBackoff := utils.NewBackoff("feeder", log, feederMaxBackoff)
+	client := feeder.NewClient(cfg.Network.FeederURL()).
+		WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout).WithBackoff(feederBackoff)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
