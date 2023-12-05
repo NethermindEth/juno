@@ -1,6 +1,7 @@
 package p2p2core
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -31,6 +32,13 @@ func AdaptClass(class *spec.Class) core.Class {
 		if err != nil {
 			panic(err)
 		}
+
+		// Todo: remove once compiled class hash is added to p2p spec.
+		compiledC := new(core.CompiledClass)
+		if err := json.Unmarshal(cairo1.Compiled, compiledC); err != nil {
+			panic(fmt.Errorf("unable to unmarshal json compiled class: %v", err))
+		}
+
 		program := utils.Map(cairo1.Program, AdaptFelt)
 		return &core.Cairo1Class{
 			Abi:     string(cairo1.Abi),
@@ -47,7 +55,7 @@ func AdaptClass(class *spec.Class) core.Class {
 			Program:         program,
 			ProgramHash:     crypto.PoseidonArray(program...),
 			SemanticVersion: cairo1.ContractClassVersion,
-			Compiled:        cairo1.Compiled,
+			Compiled:        *compiledC,
 		}
 	default:
 		panic(fmt.Errorf("unsupported class %T", cls))
