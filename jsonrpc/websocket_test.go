@@ -16,11 +16,11 @@ import (
 
 // The caller is responsible for closing the connection.
 func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, listener jsonrpc.EventListener) *websocket.Conn {
-	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithListener(listener)
+	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
 	require.NoError(t, rpc.RegisterMethods(method))
 
 	// Server
-	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, utils.NewNopZapLogger()))
+	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, utils.NewNopZapLogger()).WithListener(listener))
 
 	// Client
 	conn, resp, err := websocket.Dial(ctx, srv.URL, nil) //nolint:bodyclose // websocket package closes resp.Body for us.
@@ -41,8 +41,8 @@ func TestHandler(t *testing.T) {
 			return msg, nil
 		},
 	}
-	listener := CountingEventListener{}
-	conn := testConnection(t, ctx, method, &listener)
+	listener := NewCountingEventListener()
+	conn := testConnection(t, ctx, method, listener)
 
 	msg := `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
 	err := conn.Write(context.Background(), websocket.MessageText, []byte(msg))
@@ -53,8 +53,16 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, string(got))
 	assert.Len(t, listener.OnNewRequestLogs, 1)
+	assert.Len(t, listener.OnConnectionCalls, 1)
+	for _, v := range listener.OnConnectionCalls {
+		assert.Equal(t, 1, v)
+	}
 
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+	assert.Len(t, listener.OnConnectionCalls, 1)
+	for _, v := range listener.OnConnectionCalls {
+		assert.Equal(t, 0, v)
+	}
 }
 
 func TestSendFromHandler(t *testing.T) {
@@ -76,7 +84,7 @@ func TestSendFromHandler(t *testing.T) {
 			return 0, nil
 		},
 	}
-	conn := testConnection(t, ctx, method, &CountingEventListener{})
+	conn := testConnection(t, ctx, method, NewCountingEventListener())
 
 	req := `{"jsonrpc" : "2.0", "method" : "test", "params":[], "id" : 1}`
 	err := conn.Write(context.Background(), websocket.MessageText, []byte(req))

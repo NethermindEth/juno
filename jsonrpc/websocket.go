@@ -3,6 +3,8 @@ package jsonrpc
 import (
 	"context"
 	"io"
+	"math"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -51,10 +53,11 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ws.log.Errorw("Failed to upgrade connection", "err", err)
 		return
 	}
-
 	// TODO include connection information, such as the remote address, in the logs.
 
-	wsc := newWebsocketConn(r.Context(), conn, ws.connParams)
+	wsc := newWebsocketConn(r.Context(), conn, ws.connParams, r.RemoteAddr)
+	ws.listener.OnNewConnection(wsc)
+	defer ws.listener.OnDisconnect(wsc)
 
 	for {
 		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
@@ -106,20 +109,70 @@ func DefaultWebsocketConnParams() *WebsocketConnParams {
 	}
 }
 
+type websocketAddr string
+
+func (addr websocketAddr) Network() string { return "websocket" }
+
+func (addr websocketAddr) String() string { return addr.Network() + "/" + string(addr) }
+
 type websocketConn struct {
 	r      io.Reader
 	conn   *websocket.Conn
 	ctx    context.Context
 	params *WebsocketConnParams
+
+	// write specific fields
+	writeTimer  *time.Timer
+	writeCancel func()
+	writeCtx    context.Context
+
+	// read specific fields
+	readTimer  *time.Timer
+	readCancel func()
+	readCtx    context.Context
+
+	remoteAddr string
 }
 
-func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *WebsocketConnParams) *websocketConn {
+func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *WebsocketConnParams, remote string) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
-	return &websocketConn{
-		conn:   conn,
-		ctx:    ctx,
-		params: params,
+	wc := &websocketConn{
+		conn:       conn,
+		ctx:        ctx,
+		params:     params,
+		remoteAddr: remote,
 	}
+
+	wc.readCtx, wc.readCancel = context.WithCancel(ctx)
+	wc.readTimer = time.AfterFunc(math.MaxInt64, wc.readCancel)
+	if !wc.readTimer.Stop() {
+		<-wc.readTimer.C
+	}
+
+	wc.writeCtx, wc.writeCancel = context.WithCancel(ctx)
+	wc.writeTimer = time.AfterFunc(math.MaxInt64, wc.writeCancel)
+	if !wc.writeTimer.Stop() {
+		<-wc.writeTimer.C
+	}
+
+	return wc
+}
+
+// Close stops both reading and writing, sends a StatusNormalClosure code and releases associated resources.
+func (wsc *websocketConn) Close() error {
+	wsc.readTimer.Stop()
+	wsc.readCancel()
+	wsc.writeTimer.Stop()
+	wsc.writeCancel()
+	return wsc.conn.Close(websocket.StatusNormalClosure, "")
+}
+
+func (wsc *websocketConn) RemoteAddr() net.Addr {
+	return websocketAddr(wsc.remoteAddr)
+}
+
+func (wsc *websocketConn) LocalAddr() net.Addr {
+	return websocketAddr("unknown")
 }
 
 func (wsc *websocketConn) Read(p []byte) (int, error) {
@@ -131,11 +184,45 @@ func (wsc *websocketConn) Write(p []byte) (int, error) {
 	// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
 	// permits concurrent writes.
 
-	writeCtx, writeCancel := context.WithTimeout(wsc.ctx, wsc.params.WriteDuration)
-	defer writeCancel()
+	if err := wsc.SetWriteDeadline(time.Now().Add(wsc.params.WriteDuration)); err != nil {
+		return 0, err
+	}
 	// Use MessageText since JSON is a text format.
-	if err := wsc.conn.Write(writeCtx, websocket.MessageText, p); err != nil {
+	if err := wsc.conn.Write(wsc.writeCtx, websocket.MessageText, p); err != nil {
+		return 0, err
+	}
+	// Don't let the timer fire once written successfully.
+	if err := wsc.SetWriteDeadline(time.Time{}); err != nil {
 		return 0, err
 	}
 	return len(p), nil
+}
+
+func (wsc *websocketConn) SetDeadline(t time.Time) error {
+	wsc.SetReadDeadline(t)  //nolint:errcheck
+	wsc.SetWriteDeadline(t) //nolint:errcheck
+	return nil
+}
+
+func (wsc *websocketConn) SetReadDeadline(t time.Time) error {
+	return wsc.setDeadline(t, wsc.readTimer)
+}
+
+func (wsc *websocketConn) SetWriteDeadline(t time.Time) error {
+	return wsc.setDeadline(t, wsc.writeTimer)
+}
+
+func (wsc *websocketConn) setDeadline(t time.Time, timer *time.Timer) error {
+	// Support net.Conn non-timeout: "A zero value for t means I/O operations will not time out."
+	if t.IsZero() {
+		timer.Stop()
+	} else {
+		// Don't panic on non-positive timer
+		dur := time.Until(t)
+		if dur <= 0 {
+			dur = 1
+		}
+		timer.Reset(dur)
+	}
+	return nil
 }

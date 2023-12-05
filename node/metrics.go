@@ -2,6 +2,7 @@ package node
 
 import (
 	"math"
+	"net"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -96,11 +97,25 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 		Subsystem: "ws",
 		Name:      "requests",
 	})
-	prometheus.MustRegister(reqCounter)
+	connGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "connections",
+	})
+	prometheus.MustRegister(
+		reqCounter,
+		connGauge,
+	)
 
 	return &jsonrpc.SelectiveListener{
 		OnNewRequestCb: func(method string) {
 			reqCounter.Inc()
+		},
+		OnNewConnectionCb: func(conn net.Conn) {
+			connGauge.Inc()
+		},
+		OnDisconnectCb: func(conn net.Conn) {
+			connGauge.Dec()
 		},
 	}
 }
