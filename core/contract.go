@@ -16,9 +16,9 @@ var (
 	ErrContractAlreadyDeployed = errors.New("contract already deployed")
 )
 
-// NewContract creates a contract instance at the given address.
+// NewContractUpdater creates an updater for the contract instance at the given address.
 // Deploy should be called for contracts that were just deployed to the network.
-func NewContract(addr *felt.Felt, txn db.Transaction) (*Contract, error) {
+func NewContractUpdater(addr *felt.Felt, txn db.Transaction) (*ContractUpdater, error) {
 	contractDeployed, err := deployed(addr, txn)
 	if err != nil {
 		return nil, err
@@ -28,14 +28,14 @@ func NewContract(addr *felt.Felt, txn db.Transaction) (*Contract, error) {
 		return nil, ErrContractNotDeployed
 	}
 
-	return &Contract{
+	return &ContractUpdater{
 		Address: addr,
 		txn:     txn,
 	}, nil
 }
 
 // DeployContract sets up the database for a new contract.
-func DeployContract(addr, classHash *felt.Felt, txn db.Transaction) (*Contract, error) {
+func DeployContract(addr, classHash *felt.Felt, txn db.Transaction) (*ContractUpdater, error) {
 	contractDeployed, err := deployed(addr, txn)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func DeployContract(addr, classHash *felt.Felt, txn db.Transaction) (*Contract, 
 		return nil, err
 	}
 
-	c, err := NewContract(addr, txn)
+	c, err := NewContractUpdater(addr, txn)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallD
 }
 
 func deployed(addr *felt.Felt, txn db.Transaction) (bool, error) {
-	_, err := classHash(addr, txn)
+	_, err := ContractClassHash(addr, txn)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return false, nil
 	}
@@ -89,8 +89,8 @@ func deployed(addr *felt.Felt, txn db.Transaction) (bool, error) {
 	return true, nil
 }
 
-// Contract is an instance of a [Class].
-type Contract struct {
+// ContractUpdater is a helper to update an existing contract instance.
+type ContractUpdater struct {
 	// Address that this contract instance is deployed to
 	Address *felt.Felt
 	// txn to access the database
@@ -99,7 +99,7 @@ type Contract struct {
 
 // Purge eliminates the contract instance, deleting all associated data from storage
 // assumes storage is cleared in revert process
-func (c *Contract) Purge() error {
+func (c *ContractUpdater) Purge() error {
 	addrBytes := c.Address.Marshal()
 	buckets := []db.Bucket{db.ContractNonce, db.ContractClassHash}
 
@@ -112,12 +112,12 @@ func (c *Contract) Purge() error {
 	return nil
 }
 
-// Nonce returns the amount transactions sent from this contract.
+// ContractNonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
-func (c *Contract) Nonce() (*felt.Felt, error) {
-	key := db.ContractNonce.Key(c.Address.Marshal())
+func ContractNonce(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+	key := db.ContractNonce.Key(addr.Marshal())
 	var nonce *felt.Felt
-	if err := c.txn.Get(key, func(val []byte) error {
+	if err := txn.Get(key, func(val []byte) error {
 		nonce = new(felt.Felt)
 		nonce.SetBytes(val)
 		return nil
@@ -128,19 +128,14 @@ func (c *Contract) Nonce() (*felt.Felt, error) {
 }
 
 // UpdateNonce updates the nonce value in the database.
-func (c *Contract) UpdateNonce(nonce *felt.Felt) error {
+func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
 	nonceKey := db.ContractNonce.Key(c.Address.Marshal())
 	return c.txn.Set(nonceKey, nonce.Marshal())
 }
 
-// ClassHash returns hash of the class that this contract instantiates.
-func (c *Contract) ClassHash() (*felt.Felt, error) {
-	return classHash(c.Address, c.txn)
-}
-
-// Root returns the root of the contract storage.
-func (c *Contract) Root() (*felt.Felt, error) {
-	cStorage, err := storage(c.Address, c.txn)
+// ContractRoot returns the root of the contract storage.
+func ContractRoot(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+	cStorage, err := storage(addr, txn)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +145,7 @@ func (c *Contract) Root() (*felt.Felt, error) {
 type OnValueChanged = func(location, oldValue *felt.Felt) error
 
 // UpdateStorage applies a change-set to the contract storage.
-func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
+func (c *ContractUpdater) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 	cStorage, err := storage(c.Address, c.txn)
 	if err != nil {
 		return err
@@ -176,16 +171,16 @@ func (c *Contract) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
 	return nil
 }
 
-func (c *Contract) Storage(key *felt.Felt) (*felt.Felt, error) {
-	cStorage, err := storage(c.Address, c.txn)
+func ContractStorage(addr, key *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+	cStorage, err := storage(addr, txn)
 	if err != nil {
 		return nil, err
 	}
 	return cStorage.Get(key)
 }
 
-// ClassHash returns hash of the class that the contract at the given address instantiates.
-func classHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
+// ContractClassHash returns hash of the class that the contract at the given address instantiates.
+func ContractClassHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 	key := db.ContractClassHash.Key(addr.Marshal())
 	var classHash *felt.Felt
 	if err := txn.Get(key, func(val []byte) error {
@@ -204,7 +199,7 @@ func setClassHash(txn db.Transaction, addr, classHash *felt.Felt) error {
 }
 
 // Replace replaces the class that the contract instantiates
-func (c *Contract) Replace(classHash *felt.Felt) error {
+func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 	return setClassHash(c.txn, c.Address, classHash)
 }
 

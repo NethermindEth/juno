@@ -228,7 +228,7 @@ func TestHandle(t *testing.T) {
 		"missing nonoptional param": {
 			req: " \r\t\n" + `{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "shouldError" : true } , "id" : 22}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param"},"id":22}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param: num"},"id":22}`,
 		},
 		"empty batch": {
 			req: `[]`,

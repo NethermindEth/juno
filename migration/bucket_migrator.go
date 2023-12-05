@@ -2,6 +2,7 @@ package migration
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
@@ -66,15 +67,16 @@ func (m *BucketMigrator) WithKeyFilter(keyFilter BucketMigratorKeyFilter) *Bucke
 	return m
 }
 
-func (m *BucketMigrator) Before() {
+func (m *BucketMigrator) Before(_ []byte) error {
 	m.before()
+	return nil
 }
 
-func (m *BucketMigrator) Migrate(txn db.Transaction, network utils.Network) error {
+func (m *BucketMigrator) Migrate(_ context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
 	remainingInBatch := m.batchSize
 	iterator, err := txn.NewIterator()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for iterator.Seek(m.startFrom); iterator.Valid(); iterator.Next() {
@@ -84,24 +86,24 @@ func (m *BucketMigrator) Migrate(txn db.Transaction, network utils.Network) erro
 		}
 
 		if pass, err := m.keyFilter(key); err != nil {
-			return utils.RunAndWrapOnError(iterator.Close, err)
+			return nil, utils.RunAndWrapOnError(iterator.Close, err)
 		} else if pass {
 			if remainingInBatch == 0 {
 				m.startFrom = key
-				return utils.RunAndWrapOnError(iterator.Close, ErrCallWithNewTransaction)
+				return nil, utils.RunAndWrapOnError(iterator.Close, ErrCallWithNewTransaction)
 			}
 
 			remainingInBatch--
 			value, err := iterator.Value()
 			if err != nil {
-				return utils.RunAndWrapOnError(iterator.Close, err)
+				return nil, utils.RunAndWrapOnError(iterator.Close, err)
 			}
 
 			if err = m.do(txn, key, value, network); err != nil {
-				return utils.RunAndWrapOnError(iterator.Close, err)
+				return nil, utils.RunAndWrapOnError(iterator.Close, err)
 			}
 		}
 	}
 
-	return iterator.Close()
+	return nil, iterator.Close()
 }

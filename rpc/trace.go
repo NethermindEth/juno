@@ -32,6 +32,7 @@ type FunctionInvocation struct {
 	Calls              []FunctionInvocation   `json:"calls"`
 	Events             []OrderedEvent         `json:"events"`
 	Messages           []OrderedL2toL1Message `json:"messages"`
+	ExecutionResources *ExecutionResources    `json:"execution_resources,omitempty"`
 }
 
 type ExecuteInvocation struct {
@@ -40,16 +41,16 @@ type ExecuteInvocation struct {
 }
 
 type OrderedEvent struct {
-	Order *uint64 `json:"order,omitempty"`
+	Order uint64 `json:"order"`
 	Event
 }
 
 type OrderedL2toL1Message struct {
-	Order *uint64 `json:"order,omitempty"`
+	Order uint64 `json:"order"`
 	MsgToL1
 }
 
-func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legacyTrace bool) ([]TracedBlockTransaction, error) {
+func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legacyJSON bool) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
@@ -60,14 +61,12 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legac
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 		trace := TransactionTrace{}
-		if !legacyTrace {
-			trace.Type = block.Transactions[index].Type
-		}
+		trace.Type = block.Transactions[index].Type
 
-		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation, legacyTrace)
-		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation, legacyTrace)
+		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation, legacyJSON)
+		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation, legacyJSON)
 
-		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation, legacyTrace)
+		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation, legacyJSON)
 		switch block.Transactions[index].Type {
 		case TxnDeploy:
 			trace.ConstructorInvocation = fnInvocation
@@ -97,16 +96,9 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legac
 	return traces, nil
 }
 
-func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacyTrace bool) *FunctionInvocation {
+func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacyJSON bool) *FunctionInvocation {
 	if snFnInvocation == nil {
 		return nil
-	}
-
-	orderPtr := func(o uint64) *uint64 {
-		if legacyTrace {
-			return nil
-		}
-		return &o
 	}
 
 	fnInvocation := FunctionInvocation{
@@ -121,14 +113,20 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacy
 		Calls:              make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
 		Events:             make([]OrderedEvent, 0, len(snFnInvocation.Events)),
 		Messages:           make([]OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
+		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
 	}
+
+	if legacyJSON {
+		fnInvocation.ExecutionResources = nil
+	}
+
 	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index], legacyTrace))
+		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index], legacyJSON))
 	}
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
 		fnInvocation.Events = append(fnInvocation.Events, OrderedEvent{
-			Order: orderPtr(snEvent.Order),
+			Order: snEvent.Order,
 			Event: Event{
 				Keys: utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
 				Data: utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
@@ -138,7 +136,7 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacy
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 		fnInvocation.Messages = append(fnInvocation.Messages, OrderedL2toL1Message{
-			Order: orderPtr(snMessage.Order),
+			Order: snMessage.Order,
 			MsgToL1: MsgToL1{
 				Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
 				To:      common.HexToAddress(snMessage.ToAddr),
@@ -147,4 +145,20 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacy
 	}
 
 	return &fnInvocation
+}
+
+func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *ExecutionResources {
+	builtins := &resources.BuiltinInstanceCounter
+	return &ExecutionResources{
+		Steps:        resources.Steps,
+		MemoryHoles:  resources.MemoryHoles,
+		Pedersen:     builtins.Pedersen,
+		RangeCheck:   builtins.RangeCheck,
+		Bitwise:      builtins.Bitwise,
+		Ecsda:        builtins.Ecsda,
+		EcOp:         builtins.EcOp,
+		Keccak:       builtins.Keccak,
+		Poseidon:     builtins.Poseidon,
+		SegmentArena: builtins.SegmentArena,
+	}
 }

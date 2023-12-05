@@ -177,7 +177,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			return
 		default:
 			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
+				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
 				resetStreams()
 				return
 			}

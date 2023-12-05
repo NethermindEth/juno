@@ -46,7 +46,7 @@ var (
 	_ encoding.TextUnmarshaler = (*Network)(nil)
 
 	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
-	MAINNET = Network{
+	Mainnet = Network{
 		Name:                "mainnet",
 		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway",
 		GatewayURL:          "https://alpha-mainnet.starknet.io/gateway",
@@ -58,7 +58,7 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
-	GOERLI = Network{
+	Goerli = Network{
 		Name:       "goerli",
 		FeederURL:  "https://alpha4.starknet.io/feeder_gateway",
 		GatewayURL: "https://alpha4.starknet.io/gateway",
@@ -72,7 +72,7 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
-	GOERLI2 = Network{
+	Goerli2 = Network{
 		Name:       "goerli2",
 		FeederURL:  "https://alpha4-2.starknet.io/feeder_gateway",
 		GatewayURL: "https://alpha4-2.starknet.io/gateway",
@@ -85,16 +85,31 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
-	INTEGRATION = Network{
-		Name:       "integration",
-		FeederURL:  "https://external.integration.starknet.io/feeder_gateway",
-		GatewayURL: "https://external.integration.starknet.io/gateway",
-		ChainID:    "SN_GOERLI",
+	Integration = Network{
+		Name:                "integration",
+		FeederURL:           "https://external.integration.starknet.io/feeder_gateway",
+		GatewayURL:          "https://external.integration.starknet.io/gateway",
+		ChainID:             "SN_GOERLI",
+		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
+	}
+	Sepolia = Network{
+		Name:                "sepolia",
+		FeederURL:           "https://alpha-sepolia.starknet.io/feeder_gateway",
+		GatewayURL:          "https://alpha-sepolia.starknet.io/gateway",
+		ChainID:             "SN_SEPOLIA",
+		CoreContractAddress: common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
+	}
+	Sepolia_integration = Network{
+		Name:                "sepolia-integration",
+		FeederURL:           "https://integration-sepolia.starknet.io/feed_gateway",
+		GatewayURL:          "https://integration-sepolia.starknet.io/gateway",
+		ChainID:             "SN_INTEGRATION_SEPOLIA",
+		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 	}
 )
 
@@ -112,15 +127,20 @@ func (n Network) MarshalJSON() ([]byte, error) {
 
 func (n *Network) Set(s string) error {
 	predefinedNetworks := map[string]Network{
-		"MAINNET":     MAINNET,
-		"mainnet":     MAINNET,
-		"GOERLI":      GOERLI,
-		"goerli":      GOERLI,
-		"GOERLI2":     GOERLI2,
-		"goerli2":     GOERLI2,
-		"INTEGRATION": INTEGRATION,
-		"integration": INTEGRATION,
+		"MAINNET":             Mainnet,
+		"mainnet":             Mainnet,
+		"GOERLI":              Goerli,
+		"goerli":              Goerli,
+		"GOERLI2":             Goerli2,
+		"goerli2":             Goerli2,
+		"INTEGRATION":         Integration,
+		"integration":         Integration,
+		"SEPOLIA":             Sepolia,
+		"sepolia":             Sepolia,
+		"SEPOLIA_INTEGRATION": Sepolia_integration,
+		"sepolia-integration": Sepolia_integration,
 	}
+
 	if network, ok := predefinedNetworks[s]; ok {
 		*n = network
 		return nil
@@ -178,12 +198,10 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	if !ok {
 		return errors.New("no core_contract_address field")
 	}
-
 	blockHashMetaInfoData, ok := jsonMap["block_hash_meta_info"]
 	if !ok {
 		return errors.New("no block_hash_meta_info field")
 	}
-
 	var blockHashMetaInfo blockHashMetaInfo
 	blockHashMetaInfoJSON, err := json.Marshal(blockHashMetaInfoData)
 	if err != nil {
@@ -192,7 +210,6 @@ func (n *Network) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(blockHashMetaInfoJSON, &blockHashMetaInfo); err != nil {
 		return err
 	}
-
 	n.Name = name
 	n.FeederURL = feederURL
 	n.GatewayURL = gatewayURL
@@ -212,7 +229,19 @@ func (n *Network) UnmarshalText(text []byte) error {
 }
 
 func (n Network) DefaultL1ChainID() *big.Int {
-	return n.L1ChainID
+	var chainID int64
+	switch n {
+	case Mainnet:
+		chainID = 1
+	case Goerli, Goerli2, Integration:
+		chainID = 5
+	case Sepolia, Sepolia_integration:
+		chainID = 11155111
+	default:
+		// Should not happen.
+		panic(ErrUnknownNetwork)
+	}
+	return big.NewInt(chainID)
 }
 
 func (n Network) ChainIDFelt() *felt.Felt {

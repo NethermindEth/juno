@@ -31,14 +31,14 @@ type Header struct {
 	Timestamp uint64
 	// The version of the Starknet protocol used when creating this block
 	ProtocolVersion string
-	// Extraneous data that might be useful for running transactions
-	ExtraData *felt.Felt
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
-	// Amount of ETH charged per Gas spent
+	// Amount of WEI charged per Gas spent
 	GasPrice *felt.Felt
 	// Sequencer signatures
 	Signatures [][]*felt.Felt
+	// Amount of STRK charged per Gas spent
+	GasPriceSTRK *felt.Felt
 }
 
 type Block struct {
@@ -47,6 +47,61 @@ type Block struct {
 	Receipts     []*TransactionReceipt
 }
 
+<<<<<<< HEAD
+=======
+type blockHashMetaInfo struct {
+	First07Block             uint64     // First block that uses the post-0.7.0 block hash algorithm
+	UnverifiableRange        []uint64   // Range of blocks that are not verifiable
+	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
+}
+
+func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
+	fallBackSequencerAddress, err := new(felt.Felt).SetString(
+		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+	if err != nil {
+		panic(fmt.Sprintf("Error while creating FallBackSequencerAddress %s", err))
+	}
+
+	switch network {
+	case utils.Mainnet:
+		fallBackSequencerAddress, err = new(felt.Felt).SetString(
+			"0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
+		if err != nil {
+			panic(fmt.Sprintf("Error while creating FallBackSequencerAddress %s", err))
+		}
+		return &blockHashMetaInfo{
+			First07Block:             833,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		}
+	case utils.Goerli:
+		return &blockHashMetaInfo{
+			First07Block:             47028,
+			UnverifiableRange:        []uint64{119802, 148428},
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		}
+	case utils.Goerli2:
+		return &blockHashMetaInfo{
+			First07Block:             0,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		}
+	case utils.Integration:
+		return &blockHashMetaInfo{
+			First07Block:             110511,
+			UnverifiableRange:        []uint64{0, 110511},
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		}
+	case utils.Sepolia, utils.SepoliaIntegration:
+		return &blockHashMetaInfo{
+			First07Block:             0,
+			FallBackSequencerAddress: fallBackSequencerAddress,
+		}
+	default:
+		// This should never happen
+		panic(fmt.Sprintf("unknown network: %d", network))
+	}
+}
+
+>>>>>>> main
 type BlockCommitments struct {
 	TransactionCommitment *felt.Felt
 	EventCommitment       *felt.Felt

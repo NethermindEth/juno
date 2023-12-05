@@ -72,7 +72,11 @@ type Config struct {
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
 
-	MaxVMs uint `mapstructure:"max-vms"`
+	MaxVMs          uint `mapstructure:"max-vms"`
+	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
+
+	DBCacheSize uint `mapstructure:"db-cache-size"`
 }
 
 type Node struct {
@@ -104,7 +108,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(cfg.DatabasePath, dbLog)
+		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, dbLog)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
@@ -120,8 +124,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua)
 
-	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMs))
+	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
@@ -136,9 +141,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":        jsonrpcServer,
-		path:       jsonrpcServer,
-		legacyPath: jsonrpcServerLegacy,
+		"/":                 jsonrpcServer,
+		path:                jsonrpcServer,
+		legacyPath:          jsonrpcServerLegacy,
+		"/rpc":              jsonrpcServer,
+		"/rpc" + path:       jsonrpcServer,
+		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics))
@@ -188,7 +196,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
-
+		if cfg.Metrics {
+			l1Client.WithEventListener(makeL1Metrics())
+		}
 		n.services = append(n.services, l1Client)
 	}
 
@@ -248,7 +258,11 @@ func (n *Node) Run(ctx context.Context) {
 	}
 	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
-	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
+	if err := migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
+		if errors.Is(err, context.Canceled) {
+			n.log.Infow("DB Migration cancelled")
+			return
+		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}

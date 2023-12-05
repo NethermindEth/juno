@@ -7,7 +7,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.7.0
 	github.com/bits-and-blooms/bloom/v3 v3.4.0
 	github.com/cockroachdb/pebble v0.0.0-20230906160148-46873a6a7a06
-	github.com/consensys/gnark-crypto v0.12.0
+	github.com/consensys/gnark-crypto v0.12.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fxamacker/cbor/v2 v2.4.0

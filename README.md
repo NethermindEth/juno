@@ -39,7 +39,7 @@
 
 > **📌 Looking for a Starknet RPC Provider?**
 >
-> If you are searching for a Starknet RPC provider, Nethermind is introducing a Starknet RPC service ahead of the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+> Access Nethermind's Starknet RPC service for free at https://data.voyager.online.
 
 ## ⚙️ Installation
 
@@ -94,19 +94,13 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **92 GB** | **313975** | [**juno_mainnet_313975.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.5_313975.tar) |
+| **>=v0.6.0**  | **121 GB** | **449406** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.7.5_449406.tar) |
 
 #### Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
-
-#### Goerli2
-
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| **>=v0.6.0** | **41.4 GB** | **911580** | [**juno_goerli.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.7.5_911580.tar) |
 
 ### Run Juno Using Snapshot
 
@@ -115,7 +109,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   wget -O juno_mainnet_313975.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.5_313975.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.7.5_449406.tar
    ```
 
 2. **Prepare Directory**
@@ -131,7 +125,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_313975.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**
@@ -146,6 +140,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
      nethermind/juno \
      --http \
      --http-port 6060 \
+     --http-host 0.0.0.0 \
      --db-path /var/lib/juno \
      --eth-node <YOUR-ETH-NODE>
    ```
@@ -197,7 +192,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## 🛣 Roadmap
 
-### Phase 1
+### Phase 1: Permissionless access to Starknet ✅
 
 <details>
 <summary></summary>
@@ -231,7 +226,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 </details>
 
-### Phase 2
+### Phase 2: Full JSON RPC Support ✅
 
 <details>
 <summary></summary>
@@ -260,6 +255,35 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
     * [X] `starknet_addDeployAccountTransaction`
 
 </details>
+
+### Phase 3: Starknet decentralization begins 🚧
+
+<details>
+<summary></summary>
+
+Juno can synchronize Starknet state from other full nodes with the aim of decentralizing Starknet by removing the dependency from the centralized sequencer.
+
+
+Snap sync is implemented, significantly reducing sync times.
+
+</details>
+  
+### Phase 4: Juno becomes a Starknet Sequencer 🔜
+
+<details>
+<summary></summary>
+
+The decentralization of Starknet is complete! Juno becomes a sequencer and participates in L2 consensus to secure the network. Juno has multiple modes of operation:
+‍
+
+•   Light client: provides fast permissionless access to Starknet with minimal verification.
+
+•   Full Node: complete verification of Starknet state along with transaction execution.
+
+•   Sequencer: secure the network by taking part in the L2 consensus mechanism.
+
+</details>
+
 
 ## 👍 Contribute
 
