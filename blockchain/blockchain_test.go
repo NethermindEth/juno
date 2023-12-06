@@ -27,7 +27,7 @@ func TestNew(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet, log)
-		assert.Equal(t, &utils.Mainnet, chain.Network())
+		assert.Equal(t, utils.Mainnet, chain.Network())
 		b, err := chain.Head()
 		assert.Nil(t, b)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())

@@ -2997,15 +2997,14 @@ func TestCall(t *testing.T) {
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
-
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
 	t.Run("call - unknown contract", func(t *testing.T) {
+		fmt.Println(mockState)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
 
-		res, rpcErr := handler.Call(nil, rpc.BlockID{Latest: true})
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})

@@ -17,6 +17,7 @@ var (
 	ErrUnknownNetwork        = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 	ErrNetworkNoFallbackAddr = errors.New("the FallBackSequencerAddress (felt) parameter must be set")
 	ErrNetworkUnverifRange   = errors.New("unverifiable_range must be a list of two uint64s")
+	ErrInvalidNetworkJsonStr = errors.New("invalid network json string")
 )
 
 type Network struct {
@@ -109,7 +110,7 @@ var (
 	}
 	SepoliaIntegration = Network{
 		Name:                "sepolia-integration",
-		FeederURL:           "https://integration-sepolia.starknet.io/feed_gateway",
+		FeederURL:           "https://integration-sepolia.starknet.io/feeder_gateway",
 		GatewayURL:          "https://integration-sepolia.starknet.io/gateway",
 		ChainID:             "SN_INTEGRATION_SEPOLIA",
 		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
@@ -144,7 +145,7 @@ func (n *Network) Set(s string) error {
 		"integration":         Integration,
 		"SEPOLIA":             Sepolia,
 		"sepolia":             Sepolia,
-		"SepoliaIntegration":  SepoliaIntegration,
+		"SEPOLIA-INTEGRATION": SepoliaIntegration,
 		"sepolia-integration": SepoliaIntegration,
 	}
 
@@ -159,7 +160,7 @@ func (n *Network) Set(s string) error {
 func (n *Network) setCustomNetwork(s string) error {
 	*n = Network{}
 	if err := n.UnmarshalJSON([]byte(s)); err != nil {
-		return err
+		return fmt.Errorf("%w: %s", ErrInvalidNetworkJsonStr, err)
 	}
 
 	if len(n.BlockHashMetaInfo.UnverifiableRange) != 2 {
@@ -237,12 +238,12 @@ func (n *Network) UnmarshalText(text []byte) error {
 
 func (n *Network) DefaultL1ChainID() *big.Int {
 	var chainID int64
-	switch n {
-	case &Mainnet:
+	switch *n {
+	case Mainnet:
 		chainID = 1
-	case &Goerli, &Goerli2, &Integration:
+	case Goerli, Goerli2, Integration:
 		chainID = 5
-	case &Sepolia, &SepoliaIntegration:
+	case Sepolia, SepoliaIntegration:
 		chainID = 11155111
 	default:
 		// Should not happen.
