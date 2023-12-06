@@ -75,7 +75,6 @@ func (s *syncService) startSerial(ctx context.Context) {
 	go s.requestBlocks(ctx, BlockRange{curHeight, bootNodeHeight}, coreBlocks)
 
 	for bBody := range coreBlocks {
-		fmt.Println("Got Block Body Number", bBody.block.Number)
 		commitmments, err := s.blockchain.SanityCheckNewHeight(bBody.block, bBody.stateUpdate, bBody.newClasses)
 		if err != nil {
 			s.log.Errorw("Failed to sanity check block", "number", bBody.block.Number, "err", err)
@@ -85,10 +84,19 @@ func (s *syncService) startSerial(ctx context.Context) {
 		if err != nil {
 			s.log.Errorw("Failed to Store Block", "number", bBody.block.Number, "err", err)
 		}
-		fmt.Println("Stored Block Number: ", bBody.block.Number)
-		storedCh <- struct{}{}
+		s.log.Infow("Stored Block", "number", bBody.block.Number, "hash", bBody.block.Hash.ShortString(), "root",
+			bBody.block.GlobalStateRoot.ShortString())
+
+		select {
+		case <-ctx.Done():
+			break
+		default:
+			fmt.Println("sending to storedCh")
+			storedCh <- struct{}{}
+		}
 	}
 	close(storedCh)
+	fmt.Println("closed storedCh")
 }
 
 func (s *syncService) start(ctx context.Context) {
@@ -486,6 +494,7 @@ func (s *syncService) requestEvents(ctx context.Context, it *spec.Iteration, id 
 }
 
 func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks chan<- blockBody) {
+	defer close(blocks)
 	it := s.createIterator(r)
 	fmt.Println("Iterator ", it.Start, it.Limit)
 
@@ -578,8 +587,14 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 			return *h, coreC
 		})
 
-		blocks <- blockB
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			blocks <- blockB
+		}
 		<-storedCh
+		fmt.Println("Reading from storedCh")
 	}
 }
 
