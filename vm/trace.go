@@ -108,6 +108,9 @@ type TransactionTrace struct {
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
+func (t *TransactionTrace) IsReverted() bool {
+	return t.ExecuteInvocation != nil && t.ExecuteInvocation.FunctionInvocation == nil
+}
 func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	var executeInvocation *FunctionInvocation
 	if t.ExecuteInvocation != nil {

@@ -343,7 +343,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 
 			coreBlock.Header = &coreHeader
 			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)
-			h, err := core.BlockHash(coreBlock)
+			h, _, err := core.BlockHash(coreBlock, s.network)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
 				return

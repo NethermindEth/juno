@@ -253,7 +253,7 @@ func TestBlockHashP2P(t *testing.T) {
 
 		mainnetBlock1.SequencerAddress = nil
 
-		_, err = core.BlockHash(mainnetBlock1)
+		_, _, err = core.BlockHash(mainnetBlock1, &utils.Mainnet)
 		assert.EqualError(t, err, "block.SequencerAddress is nil")
 	})
 }

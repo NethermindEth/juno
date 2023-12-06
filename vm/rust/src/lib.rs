@@ -1,10 +1,10 @@
 pub mod jsonrpc;
-mod juno_state_reader;
+mod juno_state;
 
 #[macro_use]
 extern crate lazy_static;
 
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use crate::juno_state::{ptr_to_felt, JunoState};
 use std::{
     collections::HashMap, ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
 };
@@ -22,7 +22,7 @@ use blockifier::{
     }, versioned_constants::VersionedConstants
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
+use juno_state::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::{block::BlockHash, core::PatriciaKey, transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash}};
 use starknet_api::{
@@ -80,7 +80,7 @@ pub extern "C" fn cairoVMCall(
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let reader = JunoState::new(reader_handle, block_info.block_number);
     let contract_addr_felt = StarkFelt::new(call_info.contract_address).unwrap();
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -156,7 +156,7 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar
 ) {
     let block_info = unsafe { *block_info_ptr };
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let reader = JunoState::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =

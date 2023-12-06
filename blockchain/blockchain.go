@@ -1072,3 +1072,112 @@ func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff,
 	}
 	return stateDiff, nil
 }
+
+type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
+
+// Finalise will calculate the state commitment and block hash for the given pending block and append it to the
+// blockchain
+func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		var err error
+
+		state := core.NewState(txn)
+		pending.StateUpdate.OldRoot, err = state.Root()
+		if err != nil {
+			return err
+		}
+
+		if h, hErr := chainHeight(txn); hErr == nil {
+			pending.Block.Number = h + 1
+		}
+
+		if err = state.Update(pending.Block.Number, pending.StateUpdate, pending.NewClasses); err != nil {
+			return err
+		}
+
+		pending.Block.GlobalStateRoot, err = state.Root()
+		if err != nil {
+			return err
+		}
+		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
+
+		var commitments *core.BlockCommitments
+		pending.Block.Hash, commitments, err = core.BlockHash(pending.Block, b.network)
+		if err != nil {
+			return err
+		}
+		pending.StateUpdate.BlockHash = pending.Block.Hash
+
+		pending.Block.Signatures = [][]*felt.Felt{}
+		var sig []*felt.Felt
+		sig, err = sign(pending.Block.Hash, pending.StateUpdate.StateDiff.Commitment())
+		if err != nil {
+			return err
+		}
+		if sig != nil {
+			pending.Block.Signatures = append(pending.Block.Signatures, sig)
+		}
+
+		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {
+			return err
+		}
+
+		return storeStateUpdate(txn, pending.Block.Number, pending.StateUpdate)
+	})
+}
+
+func (b *Blockchain) storeBlock(txn db.Transaction, block *core.Block, blockCommitments *core.BlockCommitments) error {
+	if err := verifyBlock(txn, block); err != nil {
+		return err
+	}
+
+	if err := StoreBlockHeader(txn, block.Header); err != nil {
+		return err
+	}
+
+	for i, tx := range block.Transactions {
+		if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
+			block.Receipts[i]); err != nil {
+			return err
+		}
+	}
+
+	if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
+		return err
+	}
+
+	if err := b.storeEmptyPending(txn, block.Header); err != nil {
+		return err
+	}
+
+	// Head of the blockchain is maintained as follows:
+	// [db.ChainHeight]() -> (BlockNumber)
+	heightBin := core.MarshalBlockNumber(block.Number)
+	return txn.Set(db.ChainHeight.Key(), heightBin)
+}
+
+func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingGenesis := Pending{
+		Block: &core.Block{
+			Header: &core.Header{
+				ParentHash:       &felt.Zero,
+				Number:           0,
+				SequencerAddress: &felt.Zero,
+				EventsBloom:      core.EventsBloom(receipts),
+				GasPrice:         &felt.Zero,
+				GasPriceSTRK:     &felt.Zero,
+			},
+			Transactions: make([]core.Transaction, 0),
+			Receipts:     receipts,
+		},
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   &felt.Zero,
+			StateDiff: diff,
+		},
+		NewClasses: classes,
+	}
+	return b.Finalise(&pendingGenesis, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+		return nil, nil
+	})
+}
