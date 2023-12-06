@@ -392,3 +392,175 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
 	})
 }
+
+func TestChangeStateDiffStructEmptyDB(t *testing.T) {
+	testdb := pebble.NewMemTest(t)
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
+		require.NoError(t, migrator.Before(nil))
+		intermediateState, err := migrator.Migrate(context.Background(), txn, utils.Mainnet)
+		require.NoError(t, err)
+		require.Nil(t, intermediateState)
+
+		// DB is still empty.
+		iter, err := txn.NewIterator()
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
+		require.NoError(t, err)
+		require.False(t, iter.Valid())
+
+		return nil
+	}))
+}
+
+func TestChangeStateDiffStruct(t *testing.T) {
+	testdb := pebble.NewMemTest(t)
+
+	// Initialise DB with two state diffs.
+	zero := make([]byte, 8)
+	binary.BigEndian.PutUint64(zero, 0)
+	su0Key := db.StateUpdatesByBlockNumber.Key(zero)
+	one := make([]byte, 8)
+	binary.BigEndian.PutUint64(one, 1)
+	su1Key := db.StateUpdatesByBlockNumber.Key(one)
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		su0 := oldStateUpdate{
+			BlockHash: new(felt.Felt),
+			NewRoot:   new(felt.Felt),
+			OldRoot:   new(felt.Felt),
+			StateDiff: &oldStateDiff{
+				StorageDiffs: map[felt.Felt][]oldStorageDiff{
+					{}: {{Key: new(felt.Felt), Value: new(felt.Felt)}},
+				},
+				Nonces: map[felt.Felt]*felt.Felt{
+					{}: new(felt.Felt),
+				},
+				DeployedContracts: []oldAddressClassHashPair{{Address: new(felt.Felt), ClassHash: new(felt.Felt)}},
+				DeclaredV0Classes: []*felt.Felt{new(felt.Felt)},
+				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: new(felt.Felt), CompiledClassHash: new(felt.Felt)}},
+				ReplacedClasses:   []oldAddressClassHashPair{{Address: new(felt.Felt), ClassHash: new(felt.Felt)}},
+			},
+		}
+		su0Bytes, err := encoder.Marshal(su0)
+		require.NoError(t, err)
+		require.NoError(t, txn.Set(su0Key, su0Bytes))
+
+		su1 := oldStateUpdate{
+			BlockHash: new(felt.Felt).SetUint64(1),
+			NewRoot:   new(felt.Felt).SetUint64(1),
+			OldRoot:   new(felt.Felt).SetUint64(1),
+			StateDiff: &oldStateDiff{
+				StorageDiffs: map[felt.Felt][]oldStorageDiff{
+					*new(felt.Felt).SetUint64(1): {{Key: new(felt.Felt).SetUint64(1), Value: new(felt.Felt).SetUint64(1)}},
+				},
+				Nonces: map[felt.Felt]*felt.Felt{
+					*new(felt.Felt).SetUint64(1): new(felt.Felt).SetUint64(1),
+				},
+				DeployedContracts: []oldAddressClassHashPair{{Address: new(felt.Felt).SetUint64(1), ClassHash: new(felt.Felt).SetUint64(1)}},
+				DeclaredV0Classes: []*felt.Felt{new(felt.Felt).SetUint64(1)},
+				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: new(felt.Felt).SetUint64(1), CompiledClassHash: new(felt.Felt).SetUint64(1)}},
+				ReplacedClasses:   []oldAddressClassHashPair{{Address: new(felt.Felt).SetUint64(1), ClassHash: new(felt.Felt).SetUint64(1)}},
+			},
+		}
+		su1Bytes, err := encoder.Marshal(su1)
+		require.NoError(t, err)
+		require.NoError(t, txn.Set(su1Key, su1Bytes))
+		return nil
+	}))
+
+	// Migrate.
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
+		require.NoError(t, migrator.Before(nil))
+		intermediateState, err := migrator.Migrate(context.Background(), txn, utils.Mainnet)
+		require.NoError(t, err)
+		require.Nil(t, intermediateState)
+		return nil
+	}))
+
+	// Assert:
+	// - Both state diffs have been updated.
+	// - There are no extraneous entries in the DB.
+	require.NoError(t, testdb.View(func(txn db.Transaction) error {
+		iter, err := txn.NewIterator()
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
+
+		updates := []struct {
+			key  []byte
+			want *core.StateUpdate
+		}{
+			{
+				key: su0Key,
+				want: &core.StateUpdate{
+					BlockHash: new(felt.Felt),
+					NewRoot:   new(felt.Felt),
+					OldRoot:   new(felt.Felt),
+					StateDiff: &core.StateDiff{
+						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+							{}: {
+								{}: new(felt.Felt),
+							},
+						},
+						Nonces: map[felt.Felt]*felt.Felt{
+							{}: new(felt.Felt),
+						},
+						DeployedContracts: map[felt.Felt]*felt.Felt{
+							{}: new(felt.Felt),
+						},
+						DeclaredV0Classes: []*felt.Felt{new(felt.Felt)},
+						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+							{}: new(felt.Felt),
+						},
+						ReplacedClasses: map[felt.Felt]*felt.Felt{
+							{}: new(felt.Felt),
+						},
+					},
+				},
+			},
+			{
+				key: su1Key,
+				want: &core.StateUpdate{
+					BlockHash: new(felt.Felt).SetUint64(1),
+					NewRoot:   new(felt.Felt).SetUint64(1),
+					OldRoot:   new(felt.Felt).SetUint64(1),
+					StateDiff: &core.StateDiff{
+						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+							*new(felt.Felt).SetUint64(1): {
+								*new(felt.Felt).SetUint64(1): new(felt.Felt).SetUint64(1),
+							},
+						},
+						Nonces: map[felt.Felt]*felt.Felt{
+							*new(felt.Felt).SetUint64(1): new(felt.Felt).SetUint64(1),
+						},
+						DeployedContracts: map[felt.Felt]*felt.Felt{
+							*new(felt.Felt).SetUint64(1): new(felt.Felt).SetUint64(1),
+						},
+						DeclaredV0Classes: []*felt.Felt{new(felt.Felt).SetUint64(1)},
+						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+							*new(felt.Felt).SetUint64(1): new(felt.Felt).SetUint64(1),
+						},
+						ReplacedClasses: map[felt.Felt]*felt.Felt{
+							*new(felt.Felt).SetUint64(1): new(felt.Felt).SetUint64(1),
+						},
+					},
+				},
+			},
+		}
+		for _, update := range updates {
+			require.True(t, iter.Next())
+			key := iter.Key()
+			require.Equal(t, update.key, key)
+			value, err := iter.Value()
+			require.NoError(t, err)
+			got := new(core.StateUpdate)
+			require.NoError(t, encoder.Unmarshal(value, got))
+			require.Equal(t, update.want, got)
+		}
+		require.False(t, iter.Next())
+		return nil
+	}))
+}
