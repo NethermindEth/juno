@@ -3202,6 +3202,7 @@ func TestSimulateTransactions(t *testing.T) {
 	sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
 
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
+
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, false, nil, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
