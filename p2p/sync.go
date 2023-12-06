@@ -56,6 +56,9 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, bootNode peer.ID, ne
 	}
 }
 
+// Todo: remove later as this is temporary
+var storedCh = make(chan struct{})
+
 func (s *syncService) startSerial(ctx context.Context) {
 	bootNodeHeight, err := s.bootNodeHeight(ctx)
 	if err != nil {
@@ -67,9 +70,10 @@ func (s *syncService) startSerial(ctx context.Context) {
 	coreBlocks := make(chan blockBody)
 
 	// Just get one block for now
-	go s.requestBlocks(ctx, BlockRange{0, 1}, coreBlocks)
+	go s.requestBlocks(ctx, BlockRange{0, bootNodeHeight}, coreBlocks)
 
 	for bBody := range coreBlocks {
+		fmt.Println("Got Block Body Number", bBody.block.Number)
 		commitmments, err := s.blockchain.SanityCheckNewHeight(bBody.block, bBody.stateUpdate, bBody.newClasses)
 		if err != nil {
 			s.log.Errorw("Failed to sanity check block", "number", bBody.block.Number, "err", err)
@@ -80,7 +84,9 @@ func (s *syncService) startSerial(ctx context.Context) {
 			s.log.Errorw("Failed to Store Block", "number", bBody.block.Number, "err", err)
 		}
 		fmt.Println("Stored Block Number: ", bBody.block.Number)
+		storedCh <- struct{}{}
 	}
+	close(storedCh)
 }
 
 func (s *syncService) start(ctx context.Context) {
@@ -293,7 +299,7 @@ type specBlockBody struct {
 	stateDiff *spec.StateDiff
 }
 
-func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration, id peer.ID) (map[uint64]specBlockBody, error) {
+func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration, id peer.ID) ([]specBlockBody, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)
 	}, s.network, s.log)
@@ -305,11 +311,10 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 		s.log.Errorw("request block bodies from peer", "id", id, "err", err)
 	}
 
-	blockBodies := make(map[uint64]specBlockBody)
+	var blockBodies []specBlockBody
 	curBlockBody := new(specBlockBody)
 	// Assumes that all parts of the same block will arrive before the next block parts
 	for res, valid := blockIt(); valid; res, valid = blockIt() {
-		fmt.Println("Current Spec Body", curBlockBody)
 		switch res.BodyMessage.(type) {
 		case *spec.BlockBodiesResponse_Classes:
 			if curBlockBody.id == nil {
@@ -328,8 +333,7 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 			curBlockBody.proof = res.GetProof()
 		case *spec.BlockBodiesResponse_Fin:
 			if curBlockBody.id != nil {
-				fmt.Println("Current body number", curBlockBody.id.Number)
-				blockBodies[curBlockBody.id.Number] = *curBlockBody
+				blockBodies = append(blockBodies, *curBlockBody)
 				curBlockBody = new(specBlockBody)
 			}
 		default:
@@ -494,113 +498,102 @@ func (s *syncService) requestEvents(ctx context.Context, it *spec.Iteration, id 
 }
 
 func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks chan<- blockBody) {
-	fmt.Println("requestBlocks called for range", r)
-	limit := uint64(10)
+	it := s.createIterator(r)
+	fmt.Println("Iterator ", it.Start, it.Limit)
 
-	if r.End <= limit {
-		limit = 1
+	id := s.randomPeer()
+
+	// todo: Ensure the header matches the body. Matching on the index is not enough as headers and bodies will come in different
+	// order. Therefore, requestBlockHeaders should return *spec.Blockheader and *spec.BlockBody and match on BlockID
+	headersFromPeer, err := s.requestBlockHeaders(ctx, it, id)
+	if err != nil {
+		s.log.Errorw("Failed to request blockHeaders", "err", err)
+		return
 	}
 
-	fmt.Println("range end", r.End)
-	for i := r.Start; i < r.End; i = +limit {
-		fmt.Println("i =========", i, "limit", limit)
-		it := s.createIterator(BlockRange{
-			Start: i,
-			End:   i + limit,
+	blocksFromPeer, err := s.requestBlockBodies(ctx, it, id)
+	if err != nil {
+		s.log.Errorw("Failed to request blockBodies", "err", err)
+		return
+	}
+
+	transactions, err := s.requestTransactions(ctx, it, id)
+	if err != nil {
+		s.log.Errorw("Failed to request transactions", "err", err)
+		return
+	}
+
+	receipts, err := s.requestReceipts(ctx, it, id)
+	if err != nil {
+		s.log.Errorw("Failed to request receipts", "err", err)
+		return
+	}
+
+	events, err := s.requestEvents(ctx, it, id)
+	if err != nil {
+		s.log.Errorw("Failed to request events", "err", err)
+		return
+	}
+
+	if len(headersFromPeer) != len(blocksFromPeer) {
+		s.log.Errorw("Number of headers doesn't match number of bodies",
+			"headersNum", len(headersFromPeer),
+			"bodiesNum", len(blocksFromPeer))
+		return
+	}
+
+	for _, body := range blocksFromPeer {
+		blockB := newBlockBody()
+		curBlockNum := body.id.Number
+
+		fmt.Println("curBlockNum", body.id.Number)
+
+		blockB.block.Transactions = transactions[curBlockNum]
+
+		// Add events to relevant transaction receipt
+		blockEvents := events[curBlockNum]
+		blockReceipts := utils.Map(receipts[curBlockNum], func(r *core.TransactionReceipt) *core.TransactionReceipt {
+			r.Events = blockEvents[*r.TransactionHash]
+			return r
 		})
-		fmt.Println("Iterator ", it.Start, it.Limit)
+		blockB.block.Receipts = blockReceipts
 
-		id := s.randomPeer()
-
-		// todo: Ensure the header matches the body. Matching on the index is not enough as headers and bodies will come in different
-		// order. Therefore, requestBlockHeaders should return *spec.Blockheader and *spec.BlockBody and match on BlockID
-		headersFromPeer, err := s.requestBlockHeaders(ctx, it, id)
+		// Add EventsBloom and Hash
+		header := headersFromPeer[curBlockNum]
+		blockB.block.Header = &header
+		blockB.block.EventsBloom = core.EventsBloom(blockReceipts)
+		blockB.block.Hash, err = core.BlockHash(blockB.block)
 		if err != nil {
-			s.log.Errorw("Failed to request blockHeaders", "err", err)
-			return
+			s.log.Errorw("Failed to calculate block hash", "err", err)
 		}
 
-		blocksFromPeer, err := s.requestBlockBodies(ctx, it, id)
-		if err != nil {
-			s.log.Errorw("Failed to request blockBodies", "err", err)
-			return
-		}
+		// Build State update
+		// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
+		// Update but there is no such message in P2P.
 
-		transactions, err := s.requestTransactions(ctx, it, id)
-		if err != nil {
-			s.log.Errorw("Failed to request transactions", "err", err)
-			return
-		}
-
-		receipts, err := s.requestReceipts(ctx, it, id)
-		if err != nil {
-			s.log.Errorw("Failed to request receipts", "err", err)
-			return
-		}
-
-		events, err := s.requestEvents(ctx, it, id)
-		if err != nil {
-			s.log.Errorw("Failed to request events", "err", err)
-			return
-		}
-
-		if len(headersFromPeer) != len(blocksFromPeer) {
-			s.log.Errorw("Number of headers doesn't match number of bodies",
-				"headersNum", len(headersFromPeer),
-				"bodiesNum", len(blocksFromPeer))
-			return
-		}
-
-		for _, body := range blocksFromPeer {
-			blockB := newBlockBody()
-			curBlockNum := body.id.Number
-
-			blockB.block.Transactions = transactions[curBlockNum]
-
-			// Add events to relevant transaction receipt
-			blockEvents := events[curBlockNum]
-			blockReceipts := utils.Map(receipts[curBlockNum], func(r *core.TransactionReceipt) *core.TransactionReceipt {
-				r.Events = blockEvents[*r.TransactionHash]
-				return r
-			})
-			blockB.block.Receipts = blockReceipts
-
-			// Add EventsBloom and Hash
-			header := &headersFromPeer[curBlockNum]
-			blockB.block.Header = header
-			blockB.block.EventsBloom = core.EventsBloom(blockReceipts)
-			blockB.block.Hash, err = core.BlockHash(blockB.block)
+		blockB.stateUpdate.OldRoot = &felt.Zero
+		if curBlockNum > 0 {
+			oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
 			if err != nil {
-				s.log.Errorw("Failed to calculate block hash", "err", err)
+				s.log.Errorw("Failed to get Header", "number", curBlockNum, "err", err)
 			}
-
-			// Build State update
-			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
-			// Update but there is no such message in P2P.
-
-			blockB.stateUpdate.OldRoot = &felt.Zero
-			if curBlockNum > 0 {
-				oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum)
-				if err != nil {
-					s.log.Errorw("Failed to get Header", "number", curBlockNum, "err", err)
-				}
-				blockB.stateUpdate.OldRoot = oldHeader.GlobalStateRoot
-			}
-			blockB.stateUpdate.NewRoot = blockB.block.GlobalStateRoot
-			blockB.stateUpdate.BlockHash = blockB.block.Hash
-			blockB.stateUpdate.StateDiff = p2p2core.AdaptStateDiff(body.stateDiff, body.classes.GetClasses())
-
-			blockB.newClasses = utils.ToMap(body.classes.GetClasses(), func(class *spec.Class) (felt.Felt, core.Class) {
-				coreC := p2p2core.AdaptClass(class)
-				h, err := coreC.Hash()
-				if err != nil {
-					s.log.Errorw("Failed to calculated class hash", "err", err)
-				}
-				return *h, coreC
-			})
-
-			blocks <- blockB
+			blockB.stateUpdate.OldRoot = oldHeader.GlobalStateRoot
 		}
+		blockB.stateUpdate.NewRoot = blockB.block.GlobalStateRoot
+		blockB.stateUpdate.BlockHash = blockB.block.Hash
+		blockB.stateUpdate.StateDiff = p2p2core.AdaptStateDiff(body.stateDiff, body.classes.GetClasses())
+
+		blockB.newClasses = utils.ToMap(body.classes.GetClasses(), func(class *spec.Class) (felt.Felt, core.Class) {
+			coreC := p2p2core.AdaptClass(class)
+			h, err := coreC.Hash()
+			if err != nil {
+				s.log.Errorw("Failed to calculated class hash", "err", err)
+			}
+			return *h, coreC
+		})
+
+		blocks <- blockB
+		<-storedCh
 	}
 }
 
