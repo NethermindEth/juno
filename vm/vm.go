@@ -5,20 +5,21 @@ package vm
 //#include <stddef.h>
 // extern void cairoVMCall(char* contract_address, char* class_hash, char* entry_point_selector, char** calldata,
 //					 size_t len_calldata, uintptr_t readerHandle, unsigned long long block_number,
-//					 unsigned long long block_timestamp, char* chain_id);
+//					 unsigned long long block_timestamp, char* chain_id, unsigned char mutable_state);
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
 //					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
 //					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert, char* gas_price_wei,
-//					char* gas_price_strk, unsigned char legacy_json);
+//					char* gas_price_strk, unsigned char legacy_json, unsigned char mutable_state);
 //
-// #cgo vm_debug  LDFLAGS: -L./rust/target/debug -ljuno_starknet_rs -lm -ldl
-// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
+// #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
+// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
 import "C"
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime/cgo"
 	"unsafe"
 
@@ -35,7 +36,7 @@ type VM interface {
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 		skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-	) ([]*felt.Felt, []json.RawMessage, error)
+	) ([]*felt.Felt, []TransactionTrace, error)
 }
 
 type vm struct {
@@ -46,6 +47,15 @@ func New(log utils.SimpleLogger) VM {
 	return &vm{
 		log: log,
 	}
+}
+
+type StateReadWriter interface {
+	core.StateReader
+	SetStorage(contractAddress, storageKey, value *felt.Felt) error
+	IncrementNonce(contractAddress *felt.Felt) error
+	SetClassHash(contractAddress, classHash *felt.Felt) error
+	SetContractClass(classHash *felt.Felt, contractClass core.Class) error
+	SetCompiledClassHash(classHash *felt.Felt, compiledClassHash *felt.Felt) error
 }
 
 // callContext manages the context that a Call instance executes on
@@ -62,6 +72,26 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees []*felt.Felt
 	traces     []json.RawMessage
+
+	declaredClasses map[felt.Felt]core.Class
+}
+
+func newContext(state core.StateReader, log utils.SimpleLogger, declaredClasses []core.Class) (*callContext, error) {
+	declaredClassesMap := make(map[felt.Felt]core.Class)
+	for _, declaredClass := range declaredClasses {
+		classHash, err := declaredClass.Hash()
+		if err != nil {
+			return nil, fmt.Errorf("calculate declared class hash: %v", err)
+		}
+		declaredClassesMap[*classHash] = declaredClass
+	}
+
+	return &callContext{
+		state:           state,
+		response:        []*felt.Felt{},
+		log:             log,
+		declaredClasses: declaredClassesMap,
+	}, nil
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -109,14 +139,22 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 	return C.CBytes(feltBytes[:])
 }
 
+func makeByteFromBool(b bool) byte {
+	var boolByte byte
+	if b {
+		boolByte = 1
+	}
+	return boolByte
+}
+
 func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 	blockTimestamp uint64, state core.StateReader, network utils.Network,
 ) ([]*felt.Felt, error) {
-	context := &callContext{
-		state:    state,
-		response: []*felt.Felt{},
-		log:      v.log,
+	context, err := newContext(state, v.log, nil)
+	if err != nil {
+		return nil, err
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -139,6 +177,10 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 		classHashPtr = &classHashBytes[0]
 	}
 	chainID := C.CString(network.ChainIDString())
+
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
+
 	C.cairoVMCall((*C.char)(unsafe.Pointer(&addrBytes[0])),
 		(*C.char)(unsafe.Pointer(classHashPtr)),
 		(*C.char)(unsafe.Pointer(&selectorBytes[0])),
@@ -148,6 +190,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 		C.ulonglong(blockNumber),
 		C.ulonglong(blockTimestamp),
 		chainID,
+		C.uchar(mutableStateByte),
 	)
 
 	for _, ptr := range calldataPtrs {
@@ -165,11 +208,12 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-) ([]*felt.Felt, []json.RawMessage, error) {
-	context := &callContext{
-		state: state,
-		log:   v.log,
+) ([]*felt.Felt, []TransactionTrace, error) {
+	context, err := newContext(state, v.log, declaredClasses)
+	if err != nil {
+		return nil, nil, err
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -195,24 +239,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	}
 	gasPriceSTRKBytes := gasPriceSTRK.Bytes()
 
-	var skipChargeFeeByte byte
-	if skipChargeFee {
-		skipChargeFeeByte = 1
-	}
-
-	var skipValidateByte byte
-	if skipValidate {
-		skipValidateByte = 1
-	}
-
-	var errOnRevertByte byte
-	if errOnRevert {
-		errOnRevertByte = 1
-	}
-	var legacyTraceJSONByte byte
-	if legacyTraceJSON {
-		legacyTraceJSONByte = 1
-	}
+	skipChargeFeeByte := makeByteFromBool(skipChargeFee)
+	skipValidateByte := makeByteFromBool(skipValidate)
+	errOnRevertByte := makeByteFromBool(errOnRevert)
+	legacyTraceJSONByte := makeByteFromBool(legacyTraceJSON)
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 
 	chainID := C.CString(network.ChainIDString())
 	C.cairoVMExecute(txnsJSONCstr,
@@ -229,6 +261,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		(*C.char)(unsafe.Pointer(&gasPriceWEIBytes[0])),
 		(*C.char)(unsafe.Pointer(&gasPriceSTRKBytes[0])),
 		C.uchar(legacyTraceJSONByte),
+		C.uchar(mutableStateByte),
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -246,7 +279,14 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, errors.New(context.err)
 	}
 
-	return context.actualFees, context.traces, nil
+	traces := make([]TransactionTrace, len(context.traces))
+	for index, traceJSON := range context.traces {
+		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
+			return nil, nil, fmt.Errorf("unmarshal trace: %v", err)
+		}
+	}
+
+	return context.actualFees, traces, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

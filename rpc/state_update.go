@@ -20,31 +20,31 @@ type StateDiff struct {
 }
 
 type Nonce struct {
-	ContractAddress *felt.Felt `json:"contract_address"`
-	Nonce           *felt.Felt `json:"nonce"`
+	ContractAddress felt.Felt `json:"contract_address"`
+	Nonce           felt.Felt `json:"nonce"`
 }
 
 type StorageDiff struct {
-	Address        *felt.Felt `json:"address"`
-	StorageEntries []Entry    `json:"storage_entries"`
+	Address        felt.Felt `json:"address"`
+	StorageEntries []Entry   `json:"storage_entries"`
 }
 
 type Entry struct {
-	Key   *felt.Felt `json:"key"`
-	Value *felt.Felt `json:"value"`
+	Key   felt.Felt `json:"key"`
+	Value felt.Felt `json:"value"`
 }
 
 type DeployedContract struct {
-	Address   *felt.Felt `json:"address"`
-	ClassHash *felt.Felt `json:"class_hash"`
+	Address   felt.Felt `json:"address"`
+	ClassHash felt.Felt `json:"class_hash"`
 }
 
 type ReplacedClass struct {
-	ContractAddress *felt.Felt `json:"contract_address"`
-	ClassHash       *felt.Felt `json:"class_hash"`
+	ContractAddress felt.Felt `json:"contract_address"`
+	ClassHash       felt.Felt `json:"class_hash"`
 }
 
 type DeclaredClass struct {
-	ClassHash         *felt.Felt `json:"class_hash"`
-	CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
+	ClassHash         felt.Felt `json:"class_hash"`
+	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
 }

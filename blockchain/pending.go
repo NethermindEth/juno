@@ -1,8 +1,12 @@
 package blockchain
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 )
 
 type Pending struct {
@@ -26,43 +30,31 @@ func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Cl
 }
 
 func (p *PendingState) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
-	for _, replaced := range p.stateDiff.ReplacedClasses {
-		if replaced.Address.Equal(addr) {
-			return replaced.ClassHash, nil
-		}
+	if classHash, ok := p.stateDiff.ReplacedClasses[*addr]; ok {
+		return classHash, nil
+	} else if classHash, ok = p.stateDiff.DeployedContracts[*addr]; ok {
+		return classHash, nil
 	}
-
-	for _, deployed := range p.stateDiff.DeployedContracts {
-		if deployed.Address.Equal(addr) {
-			return deployed.ClassHash, nil
-		}
-	}
-
 	return p.head.ContractClassHash(addr)
 }
 
 func (p *PendingState) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 	if nonce, found := p.stateDiff.Nonces[*addr]; found {
 		return nonce, nil
-	}
-
-	if p.isDeployedInPending(addr) {
-		return &felt.Zero, nil
+	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
+		return &felt.Felt{}, nil
 	}
 	return p.head.ContractNonce(addr)
 }
 
 func (p *PendingState) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 	if diffs, found := p.stateDiff.StorageDiffs[*addr]; found {
-		for _, diff := range diffs {
-			if diff.Key.Equal(key) {
-				return diff.Value, nil
-			}
+		if value, found := diffs[*key]; found {
+			return value, nil
 		}
 	}
-
-	if p.isDeployedInPending(addr) {
-		return &felt.Zero, nil
+	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
+		return &felt.Felt{}, nil
 	}
 	return p.head.ContractStorage(addr, key)
 }
@@ -78,11 +70,58 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	return p.head.Class(classHash)
 }
 
-func (p *PendingState) isDeployedInPending(addr *felt.Felt) bool {
-	for _, deployed := range p.stateDiff.DeployedContracts {
-		if deployed.Address.Equal(addr) {
-			return true
-		}
+func (p *PendingState) SetStorage(contractAddress, key, value *felt.Felt) error {
+	if _, found := p.stateDiff.StorageDiffs[*contractAddress]; !found {
+		p.stateDiff.StorageDiffs[*contractAddress] = make(map[felt.Felt]*felt.Felt)
 	}
-	return false
+	p.stateDiff.StorageDiffs[*contractAddress][*key] = value.Clone()
+	return nil
+}
+
+func (p *PendingState) IncrementNonce(contractAddress *felt.Felt) error {
+	currentNonce, err := p.ContractNonce(contractAddress)
+	if err != nil {
+		return fmt.Errorf("get contract nonce: %v", err)
+	}
+	newNonce := new(felt.Felt).SetUint64(1)
+	p.stateDiff.Nonces[*contractAddress] = newNonce.Add(currentNonce, newNonce)
+	return nil
+}
+
+func (p *PendingState) SetClassHash(contractAddress, classHash *felt.Felt) error {
+	if _, err := p.head.ContractClassHash(contractAddress); err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			p.stateDiff.DeployedContracts[*contractAddress] = classHash.Clone()
+			return nil
+		}
+		return fmt.Errorf("get latest class hash: %v", err)
+	}
+	p.stateDiff.ReplacedClasses[*contractAddress] = classHash.Clone()
+	return nil
+}
+
+func (p *PendingState) SetContractClass(classHash *felt.Felt, class core.Class) error {
+	if _, err := p.Class(classHash); err == nil {
+		return errors.New("class already declared")
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return fmt.Errorf("get class: %v", err)
+	}
+
+	p.newClasses[*classHash] = class
+	if class.Version() == 0 {
+		p.stateDiff.DeclaredV0Classes = append(p.stateDiff.DeclaredV0Classes, classHash.Clone())
+	} // assumption: SetCompiledClassHash will be called for Cairo1 contracts
+	return nil
+}
+
+func (p *PendingState) SetCompiledClassHash(classHash, compiledClassHash *felt.Felt) error {
+	// assumption: SetContractClass was called for classHash and succeeded
+	p.stateDiff.DeclaredV1Classes[*classHash] = compiledClassHash.Clone()
+	return nil
+}
+
+// StateDiff returns the pending state's internal state diff. The returned object will continue to be
+// read and modified by the pending state.
+func (p *PendingState) StateDiff() *core.StateDiff {
+	return p.stateDiff
 }

@@ -690,11 +690,11 @@ func TestPending(t *testing.T) {
 			require.NoError(t, closer())
 		})
 
-		for address, diff := range su.StateDiff.StorageDiffs {
-			for _, kv := range diff {
-				value, csErr := reader.ContractStorage(&address, kv.Key)
+		for addr, diff := range su.StateDiff.StorageDiffs {
+			for key, diffVal := range diff {
+				value, csErr := reader.ContractStorage(&addr, &key)
 				require.NoError(t, csErr)
-				require.Equal(t, kv.Value, value)
+				require.Equal(t, diffVal, value)
 			}
 		}
 
@@ -786,7 +786,6 @@ func TestMakeStateDiffForEmptyBlock(t *testing.T) {
 		}, nil)
 		sd, err := blockchain.MakeStateDiffForEmptyBlock(mockReader, 10)
 		require.NoError(t, err)
-		assert.Equal(t, &felt.Zero, sd.StorageDiffs[*storageContractAddr][0].Key)
-		assert.Equal(t, blockHash, sd.StorageDiffs[*storageContractAddr][0].Value)
+		assert.Equal(t, blockHash, sd.StorageDiffs[*storageContractAddr][felt.Zero])
 	})
 }

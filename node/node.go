@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/db/remote"
@@ -76,7 +77,10 @@ type Config struct {
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
 
-	DBCacheSize uint `mapstructure:"db-cache-size"`
+	DBCacheSize  uint `mapstructure:"db-cache-size"`
+	DBMaxHandles int  `mapstructure:"db-max-handles"`
+
+	GatewayAPIKey string `mapstructure:"gw-api-key"`
 }
 
 type Node struct {
@@ -108,7 +112,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, dbLog)
+		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
@@ -118,11 +122,25 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services := make([]service.Service, 0)
 
 	chain := blockchain.New(database, cfg.Network, log)
+
+	// Verify that cfg.Network is compatible with the database.
+	head, err := chain.Head()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, fmt.Errorf("get head block from database: %v", err)
+	}
+	if head != nil {
+		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
+		if _, err = core.VerifyBlockHash(head, cfg.Network); err != nil {
+			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+		}
+	}
+
 	feederClientTimeout := 5 * time.Second
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
+	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).
+		WithTimeout(feederClientTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
@@ -162,6 +180,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		jsonrpcServer.WithListener(rpcMetrics)
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
 		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+		client.WithListener(makeFeederMetrics())
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {

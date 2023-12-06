@@ -1,12 +1,16 @@
 pub mod jsonrpc;
-mod juno_state_reader;
+mod juno_state;
 
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use blockifier::state::state_api::State;
+use crate::juno_state::{ptr_to_felt, JunoState};
 use std::{
     collections::HashMap,
     ffi::{c_char, c_uchar, c_ulonglong, c_void, c_longlong, CStr, CString},
     slice,
 };
+
+#[macro_use]
+extern crate lazy_static;
 
 use blockifier::{
     abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
@@ -17,7 +21,7 @@ use blockifier::{
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
     },
     fee::fee_utils::calculate_tx_fee,
-    state::cached_state::{CachedState, GlobalContractCache},
+    state::cached_state::{CachedState, GlobalContractCache, MutRefState},
     transaction::{
         objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType},
         transaction_execution::Transaction,
@@ -36,7 +40,7 @@ use cairo_vm::vm::runners::builtin_runner::{
     OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
     SEGMENT_ARENA_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
 };
-use juno_state_reader::{contract_class_from_json_str, felt_to_byte_array};
+use juno_state::{contract_class_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash};
 use starknet_api::{
@@ -58,7 +62,11 @@ extern "C" {
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
 }
 
-const N_STEPS_FEE_WEIGHT: f64 = 0.01;
+const N_STEPS_FEE_WEIGHT: f64 = 0.005;
+const CONSTRUCTOR_FELT_BYTES: [u8; 32] = [2, 143, 254, 79, 240, 242, 38, 169, 16, 114, 83, 225, 122, 144, 64, 153, 170, 79, 99, 160, 42, 86, 33, 222, 5, 118, 229, 170, 113, 188, 81, 148];
+lazy_static! {
+    static ref CONSTRUCTOR_SELECTOR: StarkFelt = StarkFelt::new(CONSTRUCTOR_FELT_BYTES).expect("cannot create constructor Starkfelt from bytes");
+}
 
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
@@ -71,8 +79,8 @@ pub extern "C" fn cairoVMCall(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
+    mutable_state: c_uchar,
 ) {
-    let reader = JunoStateReader::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
     let class_hash = if class_hash.is_null() {
         None
@@ -91,8 +99,15 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
+    let caller_entry_point_type = if entry_point_selector_felt == *CONSTRUCTOR_SELECTOR {
+        EntryPointType::Constructor
+    } else {
+        EntryPointType::External
+    };
+
+
     let entry_point = CallEntryPoint {
-        entry_point_type: EntryPointType::External,
+        entry_point_type: caller_entry_point_type,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
@@ -107,7 +122,16 @@ pub extern "C" fn cairoVMCall(
         eth_l1_gas_price: 1,
         strk_l1_gas_price: 1,
     };
-    let mut state = CachedState::new(reader, GlobalContractCache::default());
+
+    let mut juno_state = JunoState::new(reader_handle, block_number);
+    let mut cached_juno_state: CachedState<JunoState>;
+    let mut state: MutRefState<'_, dyn State> = if mutable_state == 0 {
+        cached_juno_state = CachedState::new(juno_state, GlobalContractCache::default());
+        MutRefState::new(&mut cached_juno_state)
+    } else {
+        MutRefState::new(&mut juno_state)
+    };
+
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new(
         &build_block_context(
@@ -160,8 +184,8 @@ pub extern "C" fn cairoVMExecute(
     gas_price_wei: *const c_uchar,
     gas_price_strk: *const c_uchar,
     legacy_json: c_uchar,
+    mutable_state: c_uchar,
 ) {
-    let reader = JunoStateReader::new(reader_handle, block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
@@ -208,7 +232,16 @@ pub extern "C" fn cairoVMExecute(
             strk_l1_gas_price: felt_to_u128(gas_price_strk_felt),
         },
     );
-    let mut state = CachedState::new(reader, GlobalContractCache::default());
+
+    let mut juno_state = JunoState::new(reader_handle, block_number);
+    let mut cached_juno_state: CachedState<JunoState>;
+    let mut state: MutRefState<'_, dyn State> = if mutable_state == 0 {
+        cached_juno_state = CachedState::new(juno_state, GlobalContractCache::default());
+        MutRefState::new(&mut cached_juno_state)
+    } else {
+        MutRefState::new(&mut juno_state)
+    };
+
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -261,7 +294,7 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
-        let mut txn_state = CachedState::create_transactional(&mut state);
+        let mut txn_state = CachedState::new_transactional(&mut state);
         let fee_type;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {

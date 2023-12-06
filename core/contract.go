@@ -145,20 +145,20 @@ func ContractRoot(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 type OnValueChanged = func(location, oldValue *felt.Felt) error
 
 // UpdateStorage applies a change-set to the contract storage.
-func (c *ContractUpdater) UpdateStorage(diff []StorageDiff, cb OnValueChanged) error {
+func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValueChanged) error {
 	cStorage, err := storage(c.Address, c.txn)
 	if err != nil {
 		return err
 	}
 	// apply the diff
-	for _, pair := range diff {
-		oldValue, pErr := cStorage.Put(pair.Key, pair.Value)
+	for key, value := range diff {
+		oldValue, pErr := cStorage.Put(&key, value)
 		if pErr != nil {
 			return pErr
 		}
 
 		if oldValue != nil {
-			if err = cb(pair.Key, oldValue); err != nil {
+			if err = cb(&key, oldValue); err != nil {
 				return err
 			}
 		}

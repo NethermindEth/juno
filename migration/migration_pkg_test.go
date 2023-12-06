@@ -392,3 +392,179 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
 	})
 }
+
+func TestChangeStateDiffStructEmptyDB(t *testing.T) {
+	testdb := pebble.NewMemTest(t)
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
+		require.NoError(t, migrator.Before(nil))
+		intermediateState, err := migrator.Migrate(context.Background(), txn, utils.Mainnet)
+		require.NoError(t, err)
+		require.Nil(t, intermediateState)
+
+		// DB is still empty.
+		iter, err := txn.NewIterator()
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
+		require.NoError(t, err)
+		require.False(t, iter.Valid())
+
+		return nil
+	}))
+}
+
+func TestChangeStateDiffStruct(t *testing.T) {
+	testdb := pebble.NewMemTest(t)
+
+	// Initialise DB with two state diffs.
+	zero := make([]byte, 8)
+	binary.BigEndian.PutUint64(zero, 0)
+	su0Key := db.StateUpdatesByBlockNumber.Key(zero)
+	one := make([]byte, 8)
+	binary.BigEndian.PutUint64(one, 1)
+	su1Key := db.StateUpdatesByBlockNumber.Key(one)
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		//nolint: dupl
+		su0 := oldStateUpdate{
+			BlockHash: utils.HexToFelt(t, "0x0"),
+			NewRoot:   utils.HexToFelt(t, "0x1"),
+			OldRoot:   utils.HexToFelt(t, "0x2"),
+			StateDiff: &oldStateDiff{
+				StorageDiffs: map[felt.Felt][]oldStorageDiff{
+					*utils.HexToFelt(t, "0x3"): {{Key: utils.HexToFelt(t, "0x4"), Value: utils.HexToFelt(t, "0x5")}},
+				},
+				Nonces: map[felt.Felt]*felt.Felt{
+					*utils.HexToFelt(t, "0x6"): utils.HexToFelt(t, "0x7"),
+				},
+				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x8"), ClassHash: utils.HexToFelt(t, "0x9")}},
+				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x10")},
+				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x11"), CompiledClassHash: utils.HexToFelt(t, "0x12")}},
+				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x13"), ClassHash: utils.HexToFelt(t, "0x14")}},
+			},
+		}
+		su0Bytes, err := encoder.Marshal(su0)
+		require.NoError(t, err)
+		require.NoError(t, txn.Set(su0Key, su0Bytes))
+
+		//nolint: dupl
+		su1 := oldStateUpdate{
+			BlockHash: utils.HexToFelt(t, "0x15"),
+			NewRoot:   utils.HexToFelt(t, "0x16"),
+			OldRoot:   utils.HexToFelt(t, "0x17"),
+			StateDiff: &oldStateDiff{
+				StorageDiffs: map[felt.Felt][]oldStorageDiff{
+					*utils.HexToFelt(t, "0x18"): {{Key: utils.HexToFelt(t, "0x19"), Value: utils.HexToFelt(t, "0x20")}},
+				},
+				Nonces: map[felt.Felt]*felt.Felt{
+					*utils.HexToFelt(t, "0x21"): utils.HexToFelt(t, "0x22"),
+				},
+				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x23"), ClassHash: utils.HexToFelt(t, "0x24")}},
+				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x25")},
+				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x26"), CompiledClassHash: utils.HexToFelt(t, "0x27")}},
+				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x28"), ClassHash: utils.HexToFelt(t, "0x29")}},
+			},
+		}
+		su1Bytes, err := encoder.Marshal(su1)
+		require.NoError(t, err)
+		require.NoError(t, txn.Set(su1Key, su1Bytes))
+		return nil
+	}))
+
+	// Migrate.
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
+		require.NoError(t, migrator.Before(nil))
+		intermediateState, err := migrator.Migrate(context.Background(), txn, utils.Mainnet)
+		require.NoError(t, err)
+		require.Nil(t, intermediateState)
+		return nil
+	}))
+
+	// Assert:
+	// - Both state diffs have been updated.
+	// - There are no extraneous entries in the DB.
+	require.NoError(t, testdb.View(func(txn db.Transaction) error {
+		iter, err := txn.NewIterator()
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, iter.Close())
+		}()
+
+		updates := []struct {
+			key  []byte
+			want *core.StateUpdate
+		}{
+			//nolint: dupl
+			{
+				key: su0Key,
+				want: &core.StateUpdate{
+					BlockHash: utils.HexToFelt(t, "0x0"),
+					NewRoot:   utils.HexToFelt(t, "0x1"),
+					OldRoot:   utils.HexToFelt(t, "0x2"),
+					StateDiff: &core.StateDiff{
+						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x3"): {
+								*utils.HexToFelt(t, "0x4"): utils.HexToFelt(t, "0x5"),
+							},
+						},
+						Nonces: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x6"): utils.HexToFelt(t, "0x7"),
+						},
+						DeployedContracts: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x8"): utils.HexToFelt(t, "0x9"),
+						},
+						DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x10")},
+						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x11"): utils.HexToFelt(t, "0x12"),
+						},
+						ReplacedClasses: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x13"): utils.HexToFelt(t, "0x14"),
+						},
+					},
+				},
+			},
+			//nolint: dupl
+			{
+				key: su1Key,
+				want: &core.StateUpdate{
+					BlockHash: utils.HexToFelt(t, "0x15"),
+					NewRoot:   utils.HexToFelt(t, "0x16"),
+					OldRoot:   utils.HexToFelt(t, "0x17"),
+					StateDiff: &core.StateDiff{
+						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x18"): {
+								*utils.HexToFelt(t, "0x19"): utils.HexToFelt(t, "0x20"),
+							},
+						},
+						Nonces: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x21"): utils.HexToFelt(t, "0x22"),
+						},
+						DeployedContracts: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x23"): utils.HexToFelt(t, "0x24"),
+						},
+						DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x25")},
+						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x26"): utils.HexToFelt(t, "0x27"),
+						},
+						ReplacedClasses: map[felt.Felt]*felt.Felt{
+							*utils.HexToFelt(t, "0x28"): utils.HexToFelt(t, "0x29"),
+						},
+					},
+				},
+			},
+		}
+		for _, update := range updates {
+			require.True(t, iter.Next())
+			key := iter.Key()
+			require.Equal(t, update.key, key)
+			value, err := iter.Value()
+			require.NoError(t, err)
+			got := new(core.StateUpdate)
+			require.NoError(t, encoder.Unmarshal(value, got))
+			require.Equal(t, update.want, got)
+		}
+		require.False(t, iter.Next())
+		return nil
+	}))
+}
