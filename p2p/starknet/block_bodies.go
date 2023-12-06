@@ -124,7 +124,6 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 
 type contractDiff struct {
 	address      *felt.Felt
-	classHash    *felt.Felt
 	storageDiffs []core.StorageDiff
 	nonce        *felt.Felt
 }
@@ -136,12 +135,7 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 	modifiedContracts := make(map[felt.Felt]*contractDiff)
 
 	initContractDiff := func(addr *felt.Felt) (*contractDiff, error) {
-		var cHash *felt.Felt
-		cHash, err = b.stateReader.ContractClassHash(addr)
-		if err != nil {
-			return nil, err
-		}
-		return &contractDiff{address: addr, classHash: cHash}, nil
+		return &contractDiff{address: addr}, nil
 	}
 	updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
 		cDiff, ok := modifiedContracts[addr]
@@ -179,7 +173,7 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 
 	var contractDiffs []*spec.StateDiff_ContractDiff
 	for _, c := range modifiedContracts {
-		contractDiffs = append(contractDiffs, core2p2p.AdaptStateDiff(c.address, c.classHash, c.nonce, c.storageDiffs))
+		contractDiffs = append(contractDiffs, core2p2p.AdaptStateDiff(c.address, c.nonce, c.storageDiffs))
 	}
 
 	return &spec.BlockBodiesResponse{

@@ -36,7 +36,9 @@ func AdaptStateDiff(s *spec.StateDiff, classes []*spec.Class) *core.StateDiff {
 	for _, diff := range s.ContractDiffs {
 		address := AdaptAddress(diff.Address)
 
-		nonces[*address] = AdaptFelt(diff.Nonce)
+		if diff.Nonce != nil {
+			nonces[*address] = AdaptFelt(diff.Nonce)
+		}
 		storageDiffs[*address] = utils.Map(diff.Values, adaptStoredValue)
 	}
 

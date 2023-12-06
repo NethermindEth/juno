@@ -22,3 +22,19 @@ func AdaptEvent(e *spec.Event) *core.Event {
 func AdaptSignature(cs *spec.ConsensusSignature) []*felt.Felt {
 	return []*felt.Felt{AdaptFelt(cs.R), AdaptFelt(cs.S)}
 }
+
+func AdaptBlockHeader(h *spec.BlockHeader) core.Header {
+	return core.Header{
+		Hash:             nil, // todo: add this when building the block
+		ParentHash:       AdaptHash(h.ParentHash),
+		Number:           h.Number,
+		GlobalStateRoot:  AdaptHash(h.State.Root),
+		SequencerAddress: AdaptAddress(h.SequencerAddress),
+		TransactionCount: uint64(h.Transactions.NLeaves),
+		EventCount:       uint64(h.Events.NLeaves),
+		Timestamp:        uint64(h.Time.AsTime().Unix()),
+		ProtocolVersion:  h.ProtocolVersion,
+		EventsBloom:      nil, // Todo: add this in when building the block
+		GasPrice:         AdaptFelt(h.GasPrice),
+	}
+}

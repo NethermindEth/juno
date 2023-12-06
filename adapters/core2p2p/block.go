@@ -49,6 +49,8 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.
 			NLeaves: uint32(header.EventCount),
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
+		ProtocolVersion: header.ProtocolVersion,
+		GasPrice:        AdaptFelt(header.GasPrice),
 	}
 }
 

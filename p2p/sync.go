@@ -2,17 +2,16 @@ package p2p
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync/atomic"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
-
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-
-	"github.com/NethermindEth/juno/blockchain"
-
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -34,7 +33,6 @@ type BlockRange struct {
 }
 
 type syncService struct {
-	height   uint64 // todo: remove later, instead use blockchain
 	host     host.Host
 	network  utils.Network
 	bootNode peer.ID
@@ -47,7 +45,6 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, bootNode peer.ID, ne
 	log utils.SimpleLogger,
 ) *syncService {
 	return &syncService{
-		height:     0,
 		host:       h,
 		network:    network,
 		blockchain: bc,
@@ -69,8 +66,13 @@ func (s *syncService) startSerial(ctx context.Context) {
 
 	coreBlocks := make(chan blockBody)
 
+	var curHeight uint64
+	curHeight, err = s.blockchain.Height()
+	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
+		s.log.Errorw("Failed to get current height", "err", err)
+	}
 	// Just get one block for now
-	go s.requestBlocks(ctx, BlockRange{0, bootNodeHeight}, coreBlocks)
+	go s.requestBlocks(ctx, BlockRange{curHeight, bootNodeHeight}, coreBlocks)
 
 	for bBody := range coreBlocks {
 		fmt.Println("Got Block Body Number", bBody.block.Number)
@@ -337,7 +339,7 @@ func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration
 				curBlockBody = new(specBlockBody)
 			}
 		default:
-			fmt.Printf("Unknown BlockBody type %T\n", res.BodyMessage)
+			return nil, fmt.Errorf("unknown BlockBody type %T\n", res.BodyMessage)
 		}
 	}
 	return blockBodies, nil
@@ -371,21 +373,7 @@ iteratorLoop:
 		for i, part := range parts {
 			switch part.HeaderMessage.(type) {
 			case *spec.BlockHeadersResponsePart_Header:
-				h := part.GetHeader()
-
-				header = core.Header{
-					Hash:             nil, // todo: add this when building the block
-					ParentHash:       p2p2core.AdaptHash(h.ParentHash),
-					Number:           h.Number,
-					GlobalStateRoot:  p2p2core.AdaptHash(h.State.Root),
-					SequencerAddress: p2p2core.AdaptAddress(h.SequencerAddress),
-					TransactionCount: uint64(h.Transactions.NLeaves),
-					EventCount:       uint64(h.Events.NLeaves),
-					Timestamp:        uint64(h.Time.AsTime().Second()) + 1,
-					ProtocolVersion:  h.ProtocolVersion,
-					EventsBloom:      nil, // Todo: add this in when building the block
-					GasPrice:         p2p2core.AdaptFelt(h.GasPrice),
-				}
+				header = p2p2core.AdaptBlockHeader(part.GetHeader())
 			case *spec.BlockHeadersResponsePart_Signatures:
 				signatures = utils.Map(part.GetSignatures().Signatures, p2p2core.AdaptSignature)
 			case *spec.BlockHeadersResponsePart_Fin:
@@ -545,8 +533,6 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 	for _, body := range blocksFromPeer {
 		blockB := newBlockBody()
 		curBlockNum := body.id.Number
-
-		fmt.Println("curBlockNum", body.id.Number)
 
 		blockB.block.Transactions = transactions[curBlockNum]
 

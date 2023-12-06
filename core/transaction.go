@@ -499,7 +499,6 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 				n.ChainID(),
 				d.ClassHash,
 			)
-			fmt.Println("DeclareV0 Hash", h.String())
 			return h, nil
 		}
 
