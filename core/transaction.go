@@ -484,6 +484,25 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 	switch {
 	case d.Version.Is(0):
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
+		if d.TransactionHash == nil {
+			// This is only going to happen when a transaction is received from p2p as no hash is passed along with a p2p transaction.
+			// Therefore, we have to calculate the transaction hash.
+			// This may become problematic if blockifier create a hash which is different from below.
+			// Todo: Add test for this for sepolia network
+			h := crypto.PedersenArray(
+				declareFelt,
+				d.Version.AsFelt(),
+				d.SenderAddress,
+				new(felt.Felt),
+				crypto.PedersenArray(),
+				d.MaxFee,
+				n.ChainID(),
+				d.ClassHash,
+			)
+			fmt.Println("DeclareV0 Hash", h.String())
+			return h, nil
+		}
+
 		return d.TransactionHash, nil
 	case d.Version.Is(1):
 		return crypto.PedersenArray(

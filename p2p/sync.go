@@ -498,12 +498,12 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 	limit := uint64(10)
 
 	if r.End <= limit {
-		limit = 0
+		limit = 1
 	}
 
 	fmt.Println("range end", r.End)
-	for i := r.Start; i < r.End; i += limit {
-		fmt.Println("i =========", i)
+	for i := r.Start; i < r.End; i = +limit {
+		fmt.Println("i =========", i, "limit", limit)
 		it := s.createIterator(BlockRange{
 			Start: i,
 			End:   i + limit,
