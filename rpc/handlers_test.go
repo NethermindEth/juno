@@ -2999,7 +2999,6 @@ func TestCall(t *testing.T) {
 	})
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	t.Run("call - unknown contract", func(t *testing.T) {
-		fmt.Println(mockState)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
@@ -3202,7 +3201,6 @@ func TestSimulateTransactions(t *testing.T) {
 	sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
 
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
-
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, false, nil, nil, false).
 			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
 
@@ -3620,7 +3618,7 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		_, rpcErr := handler.Call(nil, rpc.BlockID{Latest: true})
+		_, rpcErr := handler.Call(&rpc.FunctionCall{}, rpc.BlockID{Latest: true})
 		assert.Equal(t, utils.ErrResourceBusy.Error(), rpcErr.Data)
 	})
 
@@ -3670,7 +3668,7 @@ func TestThrottledVMError(t *testing.T) {
 }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, nil, nil, nil, nil, "", nil)
+	handler := rpc.New(nil, nil, &utils.Network{}, nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0-rc5", version)

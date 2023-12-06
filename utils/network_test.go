@@ -29,46 +29,29 @@ func TestNetwork(t *testing.T) {
 			assert.Equal(t, str, network.String())
 		}
 	})
-	t.Run("feeder url", func(t *testing.T) {
-		for n := range networkStrings {
-			switch n {
-			case utils.Goerli:
-				assert.Equal(t, "https://alpha4.starknet.io/feeder_gateway", n.FeederURL)
-			case utils.Mainnet:
-				assert.Equal(t, "https://alpha-mainnet.starknet.io/feeder_gateway", n.FeederURL)
-			case utils.Goerli2:
-				assert.Equal(t, "https://alpha4-2.starknet.io/feeder_gateway", n.FeederURL)
-			case utils.Integration:
-				assert.Equal(t, "https://external.integration.starknet.io/feeder_gateway", n.FeederURL)
-			case utils.Sepolia:
-				assert.Equal(t, "https://alpha-sepolia.starknet.io/feeder_gateway", n.FeederURL)
-			case utils.SepoliaIntegration:
-				assert.Equal(t, "https://integration-sepolia.starknet.io/feeder_gateway", n.FeederURL)
-			default:
-				assert.Fail(t, "unexpected network")
-			}
+
+	t.Run("feeder and gateway url", func(t *testing.T) {
+		testCases := []struct {
+			network    utils.Network
+			feederURL  string
+			gatewayURL string
+		}{
+			{utils.Mainnet, "https://alpha-mainnet.starknet.io/feeder_gateway", "https://alpha-mainnet.starknet.io/gateway"},
+			{utils.Goerli, "https://alpha4.starknet.io/feeder_gateway", "https://alpha4.starknet.io/gateway"},
+			{utils.Goerli2, "https://alpha4-2.starknet.io/feeder_gateway", "https://alpha4-2.starknet.io/gateway"},
+			{utils.Integration, "https://external.integration.starknet.io/feeder_gateway", "https://external.integration.starknet.io/gateway"},
+			{utils.Sepolia, "https://alpha-sepolia.starknet.io/feeder_gateway", "https://alpha-sepolia.starknet.io/gateway"},
+			{utils.SepoliaIntegration, "https://integration-sepolia.starknet.io/feeder_gateway", "https://integration-sepolia.starknet.io/gateway"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(fmt.Sprintf("Network %v", tc.network), func(t *testing.T) {
+				assert.Equal(t, tc.feederURL, tc.network.FeederURL)
+				assert.Equal(t, tc.gatewayURL, tc.network.GatewayURL)
+			})
 		}
 	})
-	t.Run("gateway url", func(t *testing.T) {
-		for n := range networkStrings {
-			switch n {
-			case utils.Goerli:
-				assert.Equal(t, "https://alpha4.starknet.io/gateway", n.GatewayURL)
-			case utils.Mainnet:
-				assert.Equal(t, "https://alpha-mainnet.starknet.io/gateway", n.GatewayURL)
-			case utils.Goerli2:
-				assert.Equal(t, "https://alpha4-2.starknet.io/gateway", n.GatewayURL)
-			case utils.Integration:
-				assert.Equal(t, "https://external.integration.starknet.io/gateway", n.GatewayURL)
-			case utils.Sepolia:
-				assert.Equal(t, "https://alpha-sepolia.starknet.io/gateway", n.GatewayURL)
-			case utils.SepoliaIntegration:
-				assert.Equal(t, "https://integration-sepolia.starknet.io/gateway", n.GatewayURL)
-			default:
-				assert.Fail(t, "unexpected network")
-			}
-		}
-	})
+
 	t.Run("chainId", func(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
@@ -147,14 +130,14 @@ func TestNetworkSet(t *testing.T) {
 	t.Run("custom network - fail - invalid json input", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `some invalid json`
-		require.ErrorIs(t, n.Set(networkJSON), utils.ErrInvalidNetworkJsonStr)
+		require.ErrorIs(t, n.Set(networkJSON), utils.ErrInvalidNetworkJSONStr)
 	})
 	t.Run("custom network - fail - name error", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
 				"name": "ccstom"
 		}`
-		require.ErrorIs(t, n.Set(networkJSON), utils.ErrInvalidNetworkJsonStr)
+		require.ErrorIs(t, n.Set(networkJSON), utils.ErrInvalidNetworkJSONStr)
 	})
 	t.Run("custom network - fail - feeder_url not set", func(t *testing.T) {
 		n := new(utils.Network)
@@ -162,7 +145,7 @@ func TestNetworkSet(t *testing.T) {
 				"name": "custom",
 				"feeder_url": "baseURL/feeder_gateway/"
 		}`
-		expectedErr := fmt.Errorf("%w: %s", utils.ErrInvalidNetworkJsonStr, errors.New("no gateway_url field"))
+		expectedErr := fmt.Errorf("%w: %s", utils.ErrInvalidNetworkJSONStr, errors.New("no gateway_url field"))
 		require.Equal(t, n.Set(networkJSON), expectedErr)
 	})
 	t.Run("custom network - fail - unverifRange", func(t *testing.T) {
@@ -202,7 +185,7 @@ func TestNetworkUnmarshalText(t *testing.T) {
 
 	t.Run("unknown network", func(t *testing.T) {
 		l := new(utils.Network)
-		require.ErrorIs(t, l.UnmarshalText([]byte("blah")), utils.ErrInvalidNetworkJsonStr)
+		require.ErrorIs(t, l.UnmarshalText([]byte("blah")), utils.ErrInvalidNetworkJSONStr)
 	})
 }
 
