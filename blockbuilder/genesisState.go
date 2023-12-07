@@ -1,36 +1,25 @@
 package blockbuilder
 
 import (
-	"encoding/json"
-	"errors"
-
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/go-playground/validator/v10"
 )
 
-var ErrChainIDRequired = errors.New("ChainID is required")
-
 type GenesisConfig struct {
-	ChainID                 string           `json:"chain_id"`
+	ChainID                 string           `json:"chain_id" validate:"required"`
 	WhitelistedSequencerSet []felt.Felt      `json:"whitelisted_sequencer_set"`
 	State                   genesisStateData `json:"state"`
 }
 
 type genesisStateData struct {
-	Classes       map[string]genesisClassData    `json:"classes"`
-	Contracts     map[string]genesisContractData `json:"contracts"`
-	Storage       map[string][]core.StorageDiff  `json:"storage"`
-	FunctionCalls []functionCall                 `json:"function_calls"`
-}
-
-type genesisClassData struct {
-	Path    string `json:"path"`
-	Version int    `json:"version"`
+	Classes       map[felt.Felt]string              `json:"classes"` // map[classHash]path-to-class.json
+	Contracts     map[felt.Felt]genesisContractData `json:"contracts"`
+	FunctionCalls []functionCall                    `json:"function_calls"`
 }
 
 type genesisContractData struct {
-	ClassHash       felt.Felt    `json:"class_hash"`
-	ConstructorArgs *[]felt.Felt `json:"constructor_args"`
+	ClassHash       felt.Felt   `json:"class_hash"`
+	ConstructorArgs []felt.Felt `json:"constructor_args"`
 }
 type functionCall struct {
 	ContractAddress    felt.Felt   `json:"contract_address"`
@@ -38,13 +27,7 @@ type functionCall struct {
 	Calldata           []felt.Felt `json:"calldata"`
 }
 
-func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
-	type genesisConfig GenesisConfig
-	if err := json.Unmarshal(data, (*genesisConfig)(g)); err != nil {
-		return err
-	}
-	if g.ChainID == "" {
-		return ErrChainIDRequired
-	}
-	return nil
+func (g *GenesisConfig) Validate() error {
+	validate := validator.New()
+	return validate.Struct(g)
 }
