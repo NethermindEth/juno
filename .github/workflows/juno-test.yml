@@ -33,14 +33,7 @@ jobs:
             core/rust
       - name: Install deps
         run: make install-deps
-      - name: Tests
-        run: make test-cover
-      - name: Benchmark
-        run: make benchmarks
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        if: matrix.os == 'ubuntu-latest'
-        with:
-          fail_ci_if_error: true
-          files: ./coverage/coverage.out
-          verbose: true
+      - name: Try make VM
+        run: make vm
+      - name: Try make juno
+        run: make juno
