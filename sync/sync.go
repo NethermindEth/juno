@@ -154,8 +154,8 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
-	for _, classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
-		if err = fetchIfNotFound(classHash); err != nil {
+	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		if err = fetchIfNotFound(&classHash); err != nil {
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
