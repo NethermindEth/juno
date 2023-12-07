@@ -6,7 +6,7 @@ package core
 //
 // extern void Cairo0ClassHash(char* class_json_str, char* hash);
 // #cgo darwin && vm_debug LDFLAGS:  -L./rust/target/debug -ljuno_starknet_core_rs -lm -ldl -framework Foundation -framework SystemConfiguration
-// #cgo darwing && !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs -lm -ldl -framework Foundation -framework SystemConfiguration
+// #cgo darwin && !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs -lm -ldl -framework Foundation -framework SystemConfiguration
 // #cgo vm_debug LDFLAGS:  -L./rust/target/debug -ljuno_starknet_core_rs -lm -ldl
 // #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs -lm -ldl
 import "C"
