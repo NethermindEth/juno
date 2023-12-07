@@ -722,52 +722,46 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 
 	nonces := make([]Nonce, 0, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		addrCopy := addr
-		nonces = append(nonces, Nonce{ContractAddress: &addrCopy, Nonce: nonce})
+		nonces = append(nonces, Nonce{ContractAddress: addr, Nonce: *nonce})
 	}
 
 	storageDiffs := make([]StorageDiff, 0, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
 		entries := make([]Entry, 0, len(diffs))
 		for key, value := range diffs {
-			keyCopy := key
 			entries = append(entries, Entry{
-				Key:   &keyCopy,
-				Value: new(felt.Felt).Set(value),
+				Key:   key,
+				Value: *value,
 			})
 		}
 
-		addrCopy := addr
 		storageDiffs = append(storageDiffs, StorageDiff{
-			Address:        &addrCopy,
+			Address:        addr,
 			StorageEntries: entries,
 		})
 	}
 
 	deployedContracts := make([]DeployedContract, 0, len(update.StateDiff.DeployedContracts))
 	for addr, classHash := range update.StateDiff.DeployedContracts {
-		addrCopy := addr
 		deployedContracts = append(deployedContracts, DeployedContract{
-			Address:   &addrCopy,
-			ClassHash: new(felt.Felt).Set(classHash),
+			Address:   addr,
+			ClassHash: *classHash,
 		})
 	}
 
 	declaredClasses := make([]DeclaredClass, 0, len(update.StateDiff.DeclaredV1Classes))
 	for classHash, compiledClassHash := range update.StateDiff.DeclaredV1Classes {
-		classHashCopy := classHash
 		declaredClasses = append(declaredClasses, DeclaredClass{
-			ClassHash:         &classHashCopy,
-			CompiledClassHash: compiledClassHash,
+			ClassHash:         classHash,
+			CompiledClassHash: *compiledClassHash,
 		})
 	}
 
 	replacedClasses := make([]ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
 	for addr, classHash := range update.StateDiff.ReplacedClasses {
-		addrCopy := addr
 		replacedClasses = append(replacedClasses, ReplacedClass{
-			ClassHash:       classHash,
-			ContractAddress: &addrCopy,
+			ClassHash:       *classHash,
+			ContractAddress: addr,
 		})
 	}
 
