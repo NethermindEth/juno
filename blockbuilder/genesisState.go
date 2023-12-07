@@ -8,9 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-var (
-	ErrChainIDRequired = errors.New("ChainID is required")
-)
+var ErrChainIDRequired = errors.New("ChainID is required")
 
 type GenesisConfig struct {
 	ChainID                 string           `json:"chain_id"`

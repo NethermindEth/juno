@@ -10,7 +10,6 @@ import (
 )
 
 func TestGenesisUnmarshal(t *testing.T) {
-
 	genesisJSONStr := `{
 		"chain_id": "SN_GOERLI",
 		"whitelisted_sequencer_set": [
@@ -82,5 +81,4 @@ func TestGenesisUnmarshal(t *testing.T) {
 		var genesisFalse blockbuilder.GenesisConfig
 		require.ErrorIs(t, json.Unmarshal([]byte("{}"), &genesisFalse), blockbuilder.ErrChainIDRequired)
 	})
-
 }
