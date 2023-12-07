@@ -12,7 +12,7 @@ type GenesisConfig struct {
 }
 
 type genesisStateData struct {
-	Classes       map[felt.Felt]string              `json:"classes"` // map[classHash]path-to-class.json
+	Classes       []string                          `json:"classes"` // []path-to-class.json
 	Contracts     map[felt.Felt]genesisContractData `json:"contracts"`
 	FunctionCalls []functionCall                    `json:"function_calls"`
 }
