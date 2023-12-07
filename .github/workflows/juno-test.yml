@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         go: [ '1.21' ]
-        os: [ macOS-latest]
+        os: [ macos-latest]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
