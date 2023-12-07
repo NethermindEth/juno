@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         go: [ '1.21' ]
-        os: [ macos-latest]
+        os: [ ubuntu-latest, macos-latest, self-hosted-linux-arm64]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
@@ -33,7 +33,14 @@ jobs:
             core/rust
       - name: Install deps
         run: make install-deps
-      - name: Try make VM
-        run: make vm
-      - name: Try make juno
-        run: make juno
+      - name: Tests
+        run: make test-cover
+      - name: Benchmark
+        run: make benchmarks
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          fail_ci_if_error: true
+          files: ./coverage/coverage.out
+          verbose: true
