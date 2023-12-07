@@ -2,7 +2,7 @@ package blockbuilder
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/go-playground/validator/v10"
+	"github.com/NethermindEth/juno/validator"
 )
 
 type GenesisConfig struct {
@@ -28,6 +28,6 @@ type functionCall struct {
 }
 
 func (g *GenesisConfig) Validate() error {
-	validate := validator.New()
-	return validate.Struct(g)
+	validator := validator.Validator()
+	return validator.Struct(g)
 }
