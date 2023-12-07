@@ -691,9 +691,8 @@ func TestPending(t *testing.T) {
 		})
 
 		for addr, diff := range su.StateDiff.StorageDiffs {
-			addrCopy := addr
 			for key, diffVal := range diff {
-				value, csErr := reader.ContractStorage(&addrCopy, &key)
+				value, csErr := reader.ContractStorage(&addr, &key)
 				require.NoError(t, csErr)
 				require.Equal(t, diffVal, value)
 			}

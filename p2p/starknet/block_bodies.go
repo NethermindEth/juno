@@ -103,8 +103,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 		classesM[*hash] = core2p2p.AdaptClass(cls.Class, hash)
 	}
 	for classHash := range stateDiff.DeclaredV1Classes {
-		classHashCopy := classHash
-		cls, err := b.stateReader.Class(&classHashCopy)
+		cls, err := b.stateReader.Class(&classHash)
 		if err != nil {
 			return b.fin()
 		}
@@ -113,7 +112,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 		if err != nil {
 			return b.fin()
 		}
-		classesM[classHashCopy] = core2p2p.AdaptClass(cls.Class, hash)
+		classesM[classHash] = core2p2p.AdaptClass(cls.Class, hash)
 	}
 	for _, classHash := range stateDiff.DeployedContracts {
 		if _, ok := classesM[*classHash]; ok {

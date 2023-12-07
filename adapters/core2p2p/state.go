@@ -17,9 +17,8 @@ func AdaptStateDiff(addr, classHash, nonce *felt.Felt, diff map[felt.Felt]*felt.
 func AdaptStorageDiff(diff map[felt.Felt]*felt.Felt) []*spec.ContractStoredValue {
 	result := make([]*spec.ContractStoredValue, len(diff))
 	for key, value := range diff {
-		keyCopy := key
 		result = append(result, &spec.ContractStoredValue{
-			Key:   AdaptFelt(&keyCopy),
+			Key:   AdaptFelt(&key),
 			Value: AdaptFelt(value),
 		})
 	}
