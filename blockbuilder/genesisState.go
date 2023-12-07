@@ -28,6 +28,6 @@ type functionCall struct {
 }
 
 func (g *GenesisConfig) Validate() error {
-	validator := validator.Validator()
-	return validator.Struct(g)
+	validate := validator.Validator()
+	return validate.Struct(g)
 }
