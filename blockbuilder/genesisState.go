@@ -17,9 +17,10 @@ type GenesisConfig struct {
 }
 
 type genesisStateData struct {
-	Classes   map[string]genesisClassData    `json:"classes"`
-	Contracts map[string]genesisContractData `json:"contracts"`
-	Storage   map[string][]core.StorageDiff  `json:"storage"`
+	Classes       map[string]genesisClassData    `json:"classes"`
+	Contracts     map[string]genesisContractData `json:"contracts"`
+	Storage       map[string][]core.StorageDiff  `json:"storage"`
+	FunctionCalls []functionCall                 `json:"function_calls"`
 }
 
 type genesisClassData struct {
@@ -30,6 +31,11 @@ type genesisClassData struct {
 type genesisContractData struct {
 	ClassHash       felt.Felt    `json:"class_hash"`
 	ConstructorArgs *[]felt.Felt `json:"constructor_args"`
+}
+type functionCall struct {
+	ContractAddress    felt.Felt   `json:"contract_address"`
+	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
+	Calldata           []felt.Felt `json:"calldata"`
 }
 
 func (g *GenesisConfig) UnmarshalJSON(data []byte) error {

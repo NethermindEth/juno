@@ -25,7 +25,7 @@ func TestGenesisUnmarshal(t *testing.T) {
 			},
 			"contracts": {
 				"0x4": {
-					"class_hash": "0x123",
+					"class_hash": "0x1234",
 					"constructor_args": []
 				  }
 			},
@@ -36,7 +36,14 @@ func TestGenesisUnmarshal(t *testing.T) {
 						"value": "0x4574686572"
 					}
 				]
-			}
+			},
+			"function_calls": [
+				{
+					"contract_address": "0x1",
+					"entry_point_selector": "0x2",
+					"calldata": ["0x3","0x4"]
+				}
+			]
 		}
 	}
 	`
@@ -64,7 +71,7 @@ func TestGenesisUnmarshal(t *testing.T) {
 	t.Run("test contracts", func(t *testing.T) {
 		for contractHash, contract := range genesis.State.Contracts {
 			require.Equal(t, contractHash, "0x4")
-			require.Equal(t, contract.ClassHash.String(), "0x123")
+			require.Equal(t, contract.ClassHash.String(), "0x1234")
 			require.Equal(t, contract.ConstructorArgs, &[]felt.Felt{})
 		}
 	})
@@ -76,7 +83,14 @@ func TestGenesisUnmarshal(t *testing.T) {
 			require.Equal(t, storage[0].Value.String(), "0x4574686572")
 		}
 	})
-
+	t.Run("test function calls", func(t *testing.T) {
+		for _, fnCall := range genesis.State.FunctionCalls {
+			require.Equal(t, fnCall.ContractAddress.String(), "0x1")
+			require.Equal(t, fnCall.EntryPointSelector.String(), "0x2")
+			require.Equal(t, fnCall.Calldata[0].String(), "0x3")
+			require.Equal(t, fnCall.Calldata[1].String(), "0x4")
+		}
+	})
 	t.Run("test unmarshal validation", func(t *testing.T) {
 		var genesisFalse blockbuilder.GenesisConfig
 		require.ErrorIs(t, json.Unmarshal([]byte("{}"), &genesisFalse), blockbuilder.ErrChainIDRequired)
