@@ -592,8 +592,7 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 	var classHashes []*felt.Felt
 	classHashes = append(classHashes, v0Classes...)
 	for classHash := range v1Classes {
-		classHashCopy := classHash
-		classHashes = append(classHashes, &classHashCopy)
+		classHashes = append(classHashes, classHash.Clone())
 	}
 
 	classesTrie, classesCloser, err := s.classesTrie()
