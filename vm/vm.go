@@ -12,8 +12,10 @@ package vm
 //					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert, char* gas_price_wei,
 //					char* gas_price_strk, unsigned char legacy_json);
 //
-// #cgo vm_debug  LDFLAGS: -L./rust/target/debug -ljuno_starknet_rs -lm -ldl
-// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lm -ldl
+// #cgo darwin && vm_debug LDFLAGS:  -L./rust/target/debug -ljuno_starknet_core_rs -lm -ldl -framework Foundation -framework SystemConfiguration
+// #cgo darwing && !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs -lm -ldl -framework Foundation -framework SystemConfiguration
+// #cgo vm_debug LDFLAGS:  -L./rust/target/debug -ljuno_starknet_core_rs -lm -ldl
+// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs -lm -ldl
 import "C"
 
 import (
