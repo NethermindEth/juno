@@ -60,6 +60,7 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
+	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(10_000), //nolint:gomnd
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -542,4 +543,90 @@ func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc 
 		orgKeyPrefix[0] = byte(db.Temporary) // move the node to temporary bucket
 		return txn.Set(append(orgKeyPrefix, keyBuffer.Bytes()...), tempBuf.Bytes())
 	}
+}
+
+type oldStorageDiff struct {
+	Key   *felt.Felt
+	Value *felt.Felt
+}
+type oldAddressClassHashPair struct {
+	Address   *felt.Felt
+	ClassHash *felt.Felt
+}
+type oldDeclaredV1Class struct {
+	ClassHash         *felt.Felt
+	CompiledClassHash *felt.Felt
+}
+type oldStateDiff struct {
+	StorageDiffs      map[felt.Felt][]oldStorageDiff
+	Nonces            map[felt.Felt]*felt.Felt
+	DeployedContracts []oldAddressClassHashPair
+	DeclaredV0Classes []*felt.Felt
+	DeclaredV1Classes []oldDeclaredV1Class
+	ReplacedClasses   []oldAddressClassHashPair
+}
+type oldStateUpdate struct {
+	BlockHash *felt.Felt
+	NewRoot   *felt.Felt
+	OldRoot   *felt.Felt
+	StateDiff *oldStateDiff
+}
+
+func changeStateDiffStruct(txn db.Transaction, key, value []byte, _ utils.Network) error {
+	old := new(oldStateUpdate)
+	if err := encoder.Unmarshal(value, old); err != nil {
+		return fmt.Errorf("unmarshal: %v", err)
+	}
+
+	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(old.StateDiff.StorageDiffs))
+	for addr, diff := range old.StateDiff.StorageDiffs {
+		newStorageDiffs := make(map[felt.Felt]*felt.Felt, len(diff))
+		for _, kv := range diff {
+			newStorageDiffs[*kv.Key] = kv.Value
+		}
+		storageDiffs[addr] = newStorageDiffs
+	}
+
+	nonces := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.Nonces))
+	for addr, nonce := range old.StateDiff.Nonces {
+		nonces[addr] = nonce
+	}
+
+	deployedContracts := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.DeployedContracts))
+	for _, deployedContract := range old.StateDiff.DeployedContracts {
+		deployedContracts[*deployedContract.Address] = deployedContract.ClassHash
+	}
+
+	declaredV1Classes := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.DeclaredV1Classes))
+	for _, declaredV1Class := range old.StateDiff.DeclaredV1Classes {
+		declaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
+	}
+
+	replacedClasses := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.ReplacedClasses))
+	for _, replacedClass := range old.StateDiff.ReplacedClasses {
+		replacedClasses[*replacedClass.Address] = replacedClass.ClassHash
+	}
+
+	newValue, err := encoder.Marshal(&core.StateUpdate{
+		BlockHash: old.BlockHash,
+		NewRoot:   old.NewRoot,
+		OldRoot:   old.OldRoot,
+		StateDiff: &core.StateDiff{
+			StorageDiffs:      storageDiffs,
+			Nonces:            nonces,
+			DeployedContracts: deployedContracts,
+			DeclaredV0Classes: old.StateDiff.DeclaredV0Classes,
+			DeclaredV1Classes: declaredV1Classes,
+			ReplacedClasses:   replacedClasses,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal state update: %v", err)
+	}
+
+	if err := txn.Set(key, newValue); err != nil {
+		return fmt.Errorf("set new state update for key: %v", key)
+	}
+
+	return nil
 }
