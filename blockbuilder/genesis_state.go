@@ -6,22 +6,17 @@ import (
 )
 
 type GenesisConfig struct {
-	ChainID                 string           `json:"chain_id" validate:"required"`
-	WhitelistedSequencerSet []felt.Felt      `json:"whitelisted_sequencer_set"`
-	State                   genesisStateData `json:"state"`
-}
-
-type genesisStateData struct {
+	ChainID       string                            `json:"chain_id" validate:"required"`
 	Classes       []string                          `json:"classes"` // []path-to-class.json
 	Contracts     map[felt.Felt]genesisContractData `json:"contracts"`
-	FunctionCalls []functionCall                    `json:"function_calls"`
+	FunctionCalls []FunctionCall                    `json:"function_calls"`
 }
 
 type genesisContractData struct {
 	ClassHash       felt.Felt   `json:"class_hash"`
 	ConstructorArgs []felt.Felt `json:"constructor_args"`
 }
-type functionCall struct {
+type FunctionCall struct {
 	ContractAddress    felt.Felt   `json:"contract_address"`
 	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
 	Calldata           []felt.Felt `json:"calldata"`
