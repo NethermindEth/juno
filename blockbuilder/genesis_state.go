@@ -6,10 +6,19 @@ import (
 )
 
 type GenesisConfig struct {
-	ChainID       string                         `json:"chain_id" validate:"required"`
-	Classes       []string                       `json:"classes"`   // []path-to-class.json
-	Contracts     map[string]GenesisContractData `json:"contracts"` // map[contract-address]GenesisContractData
-	FunctionCalls []FunctionCall                 `json:"function_calls"`
+	ChainID string `json:"chain_id" validate:"required"`
+	// Classes: Paths to 'class.json' files defining classes for the genesis block.
+	Classes []string `json:"classes"`
+
+	// Contracts: Mapping of contract addresses to their initialisation data.
+	// Class constructors called with "ConstructorArgs" will be deployed in the
+	// genesis block. The contract address needs to match what the class generates.
+	Contracts map[string]GenesisContractData `json:"contracts"`
+
+	// FunctionCalls: List of function calls whose resulting state
+	// changes are applied to the genesis state. E.g. calling mint(amount,address)
+	// on a token contract will result in the address having "amount" tokens.
+	FunctionCalls []FunctionCall `json:"function_calls"`
 }
 
 type GenesisContractData struct {
