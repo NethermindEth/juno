@@ -1402,7 +1402,11 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
+	res, err := h.simulateTransactions(id, transactions, simulationFlags, true, true)
+	if err != nil && err.Code == ErrTransactionExecutionError.Code {
+		return nil, makeContractError(errors.New(err.Data.(TransactionExecutionErrorData).ExecutionError))
+	}
+	return res, err
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo
