@@ -1,7 +1,6 @@
 package utils_test
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -14,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var networkStrings = map[utils.Network]string{
-	utils.Mainnet:            "mainnet",
-	utils.Goerli:             "goerli",
-	utils.Goerli2:            "goerli2",
-	utils.Integration:        "integration",
-	utils.Sepolia:            "sepolia",
-	utils.SepoliaIntegration: "sepolia-integration",
+var networkStrings = map[*utils.Network]string{
+	&utils.Mainnet:            "mainnet",
+	&utils.Goerli:             "goerli",
+	&utils.Goerli2:            "goerli2",
+	&utils.Integration:        "integration",
+	&utils.Sepolia:            "sepolia",
+	&utils.SepoliaIntegration: "sepolia-integration",
 }
 
 func TestNetwork(t *testing.T) {
@@ -55,15 +54,15 @@ func TestNetwork(t *testing.T) {
 	t.Run("chainId", func(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
-			case utils.Goerli, utils.Integration:
+			case &utils.Goerli, &utils.Integration:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.ChainIDFelt())
-			case utils.Mainnet:
+			case &utils.Mainnet:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.ChainIDFelt())
-			case utils.Goerli2:
+			case &utils.Goerli2:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.ChainIDFelt())
-			case utils.Sepolia:
+			case &utils.Sepolia:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_SEPOLIA")), n.ChainIDFelt())
-			case utils.SepoliaIntegration:
+			case &utils.SepoliaIntegration:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_INTEGRATION_SEPOLIA")), n.ChainIDFelt())
 			default:
 				assert.Fail(t, "unexpected network")
@@ -74,11 +73,11 @@ func TestNetwork(t *testing.T) {
 		for n := range networkStrings {
 			got := n.DefaultL1ChainID()
 			switch n {
-			case utils.Mainnet:
+			case &utils.Mainnet:
 				assert.Equal(t, big.NewInt(1), got)
-			case utils.Goerli, utils.Goerli2, utils.Integration:
+			case &utils.Goerli, &utils.Goerli2, &utils.Integration:
 				assert.Equal(t, big.NewInt(5), got)
-			case utils.Sepolia, utils.SepoliaIntegration:
+			case &utils.Sepolia, &utils.SepoliaIntegration:
 				assert.Equal(t, big.NewInt(11155111), got)
 			default:
 				assert.Fail(t, "unexpected network")
@@ -93,13 +92,13 @@ func TestNetworkSet(t *testing.T) {
 		t.Run("network "+str, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.Set(str))
-			assert.Equal(t, network, *n)
+			assert.Equal(t, network, n)
 		})
 		uppercase := strings.ToUpper(str)
 		t.Run("network "+uppercase, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.Set(uppercase))
-			assert.Equal(t, network, *n)
+			assert.Equal(t, network, n)
 		})
 	}
 
@@ -110,8 +109,8 @@ func TestNetworkSet(t *testing.T) {
 				"feeder_url": "baseURL/feeder_gateway/",
 				"gateway_url": "baseURL/gateway",
 				"chain_id": "SN_CUSTOM",
-				"l1_chain_id": "123",
-				"core_contract_address": "0x0",
+				"l1_chain_id": 123,
+				"core_contract_address": "0x1",
 				"block_hash_meta_info": {
 					"first_07_block": 1,
 					"unverifiable_range": [2, 3],
@@ -127,43 +126,43 @@ func TestNetworkSet(t *testing.T) {
 		assert.Equal(t, uint64(1), n.MetaInfo().First07Block)
 		assert.Equal(t, []uint64{2, 3}, n.MetaInfo().UnverifiableRange)
 	})
-	t.Run("custom network - fail - invalid json input", func(t *testing.T) {
+	t.Run("fail - invalid json input", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `some invalid json`
 		require.ErrorIs(t, n.Set(networkJSON), utils.ErrInvalidNetworkJSONStr)
 	})
-	t.Run("custom network - fail - name error", func(t *testing.T) {
+	t.Run("fail - unknown network", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
-				"name": "ccstom"
+				"name": "typo"
 		}`
-		require.ErrorIs(t, n.Set(networkJSON), utils.ErrInvalidNetworkJSONStr)
+		require.ErrorIs(t, n.Set(networkJSON), utils.ErrUnknownNetwork)
 	})
-	t.Run("custom network - fail - feeder_url not set", func(t *testing.T) {
+
+	t.Run("fail - ErrMissingCoreContractAddress", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
-				"name": "custom",
-				"feeder_url": "baseURL/feeder_gateway/"
-		}`
-		expectedErr := fmt.Errorf("%w: %s", utils.ErrInvalidNetworkJSONStr, errors.New("no gateway_url field"))
-		require.Equal(t, n.Set(networkJSON), expectedErr)
+			"name": "custom"
+	}`
+		require.ErrorIs(t, n.Set(networkJSON), utils.ErrMissingCoreContractAddress)
 	})
-	t.Run("custom network - fail - unverifRange", func(t *testing.T) {
+	t.Run("fail - validate", func(t *testing.T) {
 		n := new(utils.Network)
 		networkJSON := `{
-				"name": "custom",
-				"feeder_url": "baseURL/feeder_gateway/",
-				"gateway_url": "baseURL/gateway",
-				"chain_id": "SN_CUSTOM",
-				"l1_chain_id": "123",
-				"core_contract_address": "0x0",
-				"block_hash_meta_info": {
-					"first_07_block": 1,
-					"unverifiable_range": [3],
-					"fallback_sequencer_address": "0x0"
-				}
-		}`
-		require.Equal(t, n.Set(networkJSON), utils.ErrNetworkUnverifRange)
+			"name": "custom",
+			"feeder_url": "baseURL/feeder_gateway/",
+			"gateway_url": "baseURL/gateway",
+			"chain_id": "SN_CUSTOM",
+			"l1_chain_id": 123,
+			"core_contract_address": "0x1",
+			"block_hash_meta_info": {
+				"first_07_block": 1,
+				"unverifiable_range": [2, 3]
+			}
+	}`
+
+		require.Nil(t, n.Set(networkJSON))
+		require.NotNil(t, n.Validate())
 	})
 }
 
@@ -173,13 +172,13 @@ func TestNetworkUnmarshalText(t *testing.T) {
 		t.Run("network "+str, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.UnmarshalText([]byte(str)))
-			assert.Equal(t, network, *n)
+			assert.Equal(t, network, n)
 		})
 		uppercase := strings.ToUpper(str)
 		t.Run("network "+uppercase, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.UnmarshalText([]byte(uppercase)))
-			assert.Equal(t, network, *n)
+			assert.Equal(t, network, n)
 		})
 	}
 
@@ -206,13 +205,13 @@ func TestNetworkType(t *testing.T) {
 }
 
 func TestCoreContractAddress(t *testing.T) {
-	addresses := map[utils.Network]common.Address{
-		utils.Mainnet:            common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		utils.Goerli:             common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		utils.Goerli2:            common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		utils.Integration:        common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
-		utils.Sepolia:            common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
-		utils.SepoliaIntegration: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
+	addresses := map[*utils.Network]common.Address{
+		&utils.Mainnet:            common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
+		&utils.Goerli:             common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
+		&utils.Goerli2:            common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
+		&utils.Integration:        common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
+		&utils.Sepolia:            common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
+		&utils.SepoliaIntegration: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 	}
 
 	for n := range networkStrings {
