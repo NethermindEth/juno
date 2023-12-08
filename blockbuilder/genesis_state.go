@@ -6,10 +6,10 @@ import (
 )
 
 type GenesisConfig struct {
-	ChainID       string                            `json:"chain_id" validate:"required"`
-	Classes       []string                          `json:"classes"` // []path-to-class.json
-	Contracts     map[felt.Felt]genesisContractData `json:"contracts"`
-	FunctionCalls []FunctionCall                    `json:"function_calls"`
+	ChainID       string                         `json:"chain_id" validate:"required"`
+	Classes       []string                       `json:"classes"`   // []path-to-class.json
+	Contracts     map[string]genesisContractData `json:"contracts"` // map[contract-address]genesisContractData
+	FunctionCalls []FunctionCall                 `json:"function_calls"`
 }
 
 type genesisContractData struct {
