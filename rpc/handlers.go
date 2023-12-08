@@ -1666,7 +1666,7 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.6.0-rc5", nil
+	return "0.6.0", nil
 }
 
 func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {
