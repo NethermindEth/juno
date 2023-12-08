@@ -10,6 +10,10 @@ else
     VM_TARGET = all
 endif
 
+ifeq ($(shell uname -s),Darwin)
+	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration
+endif
+
 juno: vm core-rust ## compile
 	@mkdir -p build
 	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
