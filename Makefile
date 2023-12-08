@@ -10,6 +10,10 @@ else
     VM_TARGET = all
 endif
 
+ifeq ($(shell uname -s),Darwin)
+	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration
+endif
+
 juno: vm core-rust ## compile
 	@mkdir -p build
 	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
@@ -72,3 +76,6 @@ clean: ## clean project builds
 
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+dump:
+	@printenv
