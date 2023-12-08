@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/db/remote"
@@ -118,6 +119,19 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services := make([]service.Service, 0)
 
 	chain := blockchain.New(database, &cfg.Network, log)
+
+	// Verify that cfg.Network is compatible with the database.
+	head, err := chain.Head()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, fmt.Errorf("get head block from database: %v", err)
+	}
+	if head != nil {
+		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
+		if _, err = core.VerifyBlockHash(head, &cfg.Network); err != nil {
+			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+		}
+	}
+
 	feederClientTimeout := 5 * time.Second
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)

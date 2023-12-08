@@ -36,31 +36,19 @@ func TestPendingState(t *testing.T) {
 			NewRoot:   nil,
 			OldRoot:   nil,
 			StateDiff: &core.StateDiff{
-				DeployedContracts: []core.AddressClassHashPair{
-					{
-						Address:   deployedAddr,
-						ClassHash: deployedClassHash,
-					},
-					{
-						Address:   deployedAddr2,
-						ClassHash: deployedClassHash,
-					},
+				DeployedContracts: map[felt.Felt]*felt.Felt{
+					*deployedAddr:  deployedClassHash,
+					*deployedAddr2: deployedClassHash,
 				},
-				ReplacedClasses: []core.AddressClassHashPair{
-					{
-						Address:   replacedAddr,
-						ClassHash: replacedClassHash,
-					},
+				ReplacedClasses: map[felt.Felt]*felt.Felt{
+					*replacedAddr: replacedClassHash,
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
 					*deployedAddr: new(felt.Felt).SetUint64(44),
 				},
-				StorageDiffs: map[felt.Felt][]core.StorageDiff{
+				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 					*deployedAddr: {
-						{
-							Key:   new(felt.Felt).SetUint64(44),
-							Value: new(felt.Felt).SetUint64(37),
-						},
+						*new(felt.Felt).SetUint64(44): new(felt.Felt).SetUint64(37),
 					},
 				},
 			},

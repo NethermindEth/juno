@@ -722,41 +722,46 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 
 	nonces := make([]Nonce, 0, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		nonces = append(nonces, Nonce{ContractAddress: new(felt.Felt).Set(&addr), Nonce: nonce})
+		nonces = append(nonces, Nonce{ContractAddress: addr, Nonce: *nonce})
 	}
 
 	storageDiffs := make([]StorageDiff, 0, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
-		entries := make([]Entry, len(diffs))
-
-		for index, diff := range diffs {
-			entries[index] = Entry{Key: diff.Key, Value: diff.Value}
+		entries := make([]Entry, 0, len(diffs))
+		for key, value := range diffs {
+			entries = append(entries, Entry{
+				Key:   key,
+				Value: *value,
+			})
 		}
 
-		storageDiffs = append(storageDiffs, StorageDiff{Address: new(felt.Felt).Set(&addr), StorageEntries: entries})
+		storageDiffs = append(storageDiffs, StorageDiff{
+			Address:        addr,
+			StorageEntries: entries,
+		})
 	}
 
 	deployedContracts := make([]DeployedContract, 0, len(update.StateDiff.DeployedContracts))
-	for _, deployedContract := range update.StateDiff.DeployedContracts {
+	for addr, classHash := range update.StateDiff.DeployedContracts {
 		deployedContracts = append(deployedContracts, DeployedContract{
-			Address:   deployedContract.Address,
-			ClassHash: deployedContract.ClassHash,
+			Address:   addr,
+			ClassHash: *classHash,
 		})
 	}
 
 	declaredClasses := make([]DeclaredClass, 0, len(update.StateDiff.DeclaredV1Classes))
-	for _, declaredClass := range update.StateDiff.DeclaredV1Classes {
+	for classHash, compiledClassHash := range update.StateDiff.DeclaredV1Classes {
 		declaredClasses = append(declaredClasses, DeclaredClass{
-			ClassHash:         declaredClass.ClassHash,
-			CompiledClassHash: declaredClass.CompiledClassHash,
+			ClassHash:         classHash,
+			CompiledClassHash: *compiledClassHash,
 		})
 	}
 
 	replacedClasses := make([]ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
-	for _, replacedClass := range update.StateDiff.ReplacedClasses {
+	for addr, classHash := range update.StateDiff.ReplacedClasses {
 		replacedClasses = append(replacedClasses, ReplacedClass{
-			ClassHash:       replacedClass.ClassHash,
-			ContractAddress: replacedClass.Address,
+			ClassHash:       *classHash,
+			ContractAddress: addr,
 		})
 	}
 
@@ -1402,7 +1407,11 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
+	res, err := h.simulateTransactions(id, transactions, simulationFlags, true, true)
+	if err != nil && err.Code == ErrTransactionExecutionError.Code {
+		return nil, makeContractError(errors.New(err.Data.(TransactionExecutionErrorData).ExecutionError))
+	}
+	return res, err
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo
@@ -1662,7 +1671,7 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.6.0-rc5", nil
+	return "0.6.0", nil
 }
 
 func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {

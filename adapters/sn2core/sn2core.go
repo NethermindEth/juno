@@ -320,28 +320,19 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts
 
-	stateDiff.DeclaredV1Classes = make([]core.DeclaredV1Class, len(response.StateDiff.DeclaredClasses))
-	for index, declaredV1Class := range response.StateDiff.DeclaredClasses {
-		stateDiff.DeclaredV1Classes[index] = core.DeclaredV1Class{
-			ClassHash:         declaredV1Class.ClassHash,
-			CompiledClassHash: declaredV1Class.CompiledClassHash,
-		}
+	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.DeclaredClasses))
+	for _, declaredV1Class := range response.StateDiff.DeclaredClasses {
+		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
 	}
 
-	stateDiff.ReplacedClasses = make([]core.AddressClassHashPair, len(response.StateDiff.ReplacedClasses))
-	for index, replacedClass := range response.StateDiff.ReplacedClasses {
-		stateDiff.ReplacedClasses[index] = core.AddressClassHashPair{
-			Address:   replacedClass.Address,
-			ClassHash: replacedClass.ClassHash,
-		}
+	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.ReplacedClasses))
+	for _, replacedClass := range response.StateDiff.ReplacedClasses {
+		stateDiff.ReplacedClasses[*replacedClass.Address] = replacedClass.ClassHash
 	}
 
-	stateDiff.DeployedContracts = make([]core.AddressClassHashPair, len(response.StateDiff.DeployedContracts))
-	for index, deployedContract := range response.StateDiff.DeployedContracts {
-		stateDiff.DeployedContracts[index] = core.AddressClassHashPair{
-			Address:   deployedContract.Address,
-			ClassHash: deployedContract.ClassHash,
-		}
+	stateDiff.DeployedContracts = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.DeployedContracts))
+	for _, deployedContract := range response.StateDiff.DeployedContracts {
+		stateDiff.DeployedContracts[*deployedContract.Address] = deployedContract.ClassHash
 	}
 
 	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt)
@@ -353,19 +344,16 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt][]core.StorageDiff)
+	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StateDiff.StorageDiffs))
 	for addrStr, diffs := range response.StateDiff.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
 			return nil, err
 		}
 
-		stateDiff.StorageDiffs[*addr] = []core.StorageDiff{}
+		stateDiff.StorageDiffs[*addr] = make(map[felt.Felt]*felt.Felt)
 		for _, diff := range diffs {
-			stateDiff.StorageDiffs[*addr] = append(stateDiff.StorageDiffs[*addr], core.StorageDiff{
-				Key:   diff.Key,
-				Value: diff.Value,
-			})
+			stateDiff.StorageDiffs[*addr][*diff.Key] = diff.Value
 		}
 	}
 
