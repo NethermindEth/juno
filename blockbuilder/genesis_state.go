@@ -8,11 +8,11 @@ import (
 type GenesisConfig struct {
 	ChainID       string                         `json:"chain_id" validate:"required"`
 	Classes       []string                       `json:"classes"`   // []path-to-class.json
-	Contracts     map[string]genesisContractData `json:"contracts"` // map[contract-address]genesisContractData
+	Contracts     map[string]GenesisContractData `json:"contracts"` // map[contract-address]genesisContractData
 	FunctionCalls []FunctionCall                 `json:"function_calls"`
 }
 
-type genesisContractData struct {
+type GenesisContractData struct {
 	ClassHash       felt.Felt   `json:"class_hash"`
 	ConstructorArgs []felt.Felt `json:"constructor_args"`
 }
