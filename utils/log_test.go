@@ -28,8 +28,6 @@ func TestLogLevelString(t *testing.T) {
 // both implement the pflag.Value and encoding.TextUnmarshaller interfaces.
 // We can open a PR on github.com/thediveo/enumflag to add TextUnmarshaller
 // support.
-//
-//nolint:dupl
 func TestLogLevelSet(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level "+str, func(t *testing.T) {
@@ -51,7 +49,6 @@ func TestLogLevelSet(t *testing.T) {
 	})
 }
 
-//nolint:dupl
 func TestLogLevelUnmarshalText(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level "+str, func(t *testing.T) {

@@ -86,7 +86,6 @@ func TestNetwork(t *testing.T) {
 	})
 }
 
-//nolint:dupl // see comment in utils/log_test.go
 func TestNetworkSet(t *testing.T) {
 	for network, str := range networkStrings {
 		t.Run("network "+str, func(t *testing.T) {
@@ -166,7 +165,6 @@ func TestNetworkSet(t *testing.T) {
 	})
 }
 
-//nolint:dupl
 func TestNetworkUnmarshalText(t *testing.T) {
 	for network, str := range networkStrings {
 		t.Run("network "+str, func(t *testing.T) {
