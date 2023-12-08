@@ -3222,6 +3222,17 @@ func TestSimulateTransactions(t *testing.T) {
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)
+
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, false, true, true, nil, nil, true).
+			Return(nil, nil, vm.TransactionExecutionError{
+				Index: 44,
+				Cause: errors.New("oops"),
+			})
+
+		_, err = handler.LegacySimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
+			RevertError: "oops",
+		}), err)
 	})
 }
 
