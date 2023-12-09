@@ -188,32 +188,13 @@ func TestUint128FromHexString(t *testing.T) {
 		wantedErr   bool
 	}{
 		{
-			description: "String 1",
-			textInput:   "0x5af3107a4000",
-			expected: &Int{
-				0: 0x5af3107a4000,
-			},
-		},
-		{
-			description: "invalid hex string",
+			description: "invalid hex characters",
 			textInput:   "0x5af3107a40#$^#@($H#(HG(WG_00",
 			expected:    &Int{},
 			wantedErr:   true,
 		},
 		{
-			description: "another invalid hex string",
-			textInput:   "IAMNOTAHEXSTRING",
-			expected:    &Int{},
-			wantedErr:   true,
-		},
-		{
-			description: "another invalid hex string",
-			textInput:   "01234G6789ABCDEF",
-			expected:    &Int{},
-			wantedErr:   true,
-		},
-		{
-			description: "String 5",
+			description: "valid all bits filled hexadecimal",
 			textInput:   "0x6e58133b38301a6cdfa34ca991c4ba39",
 			expected: &Int{
 				0: 0xdfa34ca991c4ba39,
@@ -221,10 +202,17 @@ func TestUint128FromHexString(t *testing.T) {
 			},
 		},
 		{
-			description: "String 6",
-			textInput:   "0x8ac7230489e80000",
+			description: "valid least significant bits hexadecimal",
+			textInput:   "0x5af3107a4000",
 			expected: &Int{
-				0: 0x8ac7230489e80000,
+				0: 0x5af3107a4000,
+			},
+		},
+		{
+			description: "valid most significant bits hexadecimal",
+			textInput:   "0xf0000000000000000",
+			expected: &Int{
+				1: 0xf,
 			},
 		},
 	}

@@ -44,6 +44,12 @@ func (i *Int) SetBigInt(v *big.Int) *Int {
 	return i
 }
 
+func (i *Int) SetZero() *Int {
+	i[0] = 0
+	i[1] = 0
+	return i
+}
+
 func (i *Int) SetString(s string) (*Int, error) {
 	vv := bigIntPool.Get().(*big.Int)
 	defer bigIntPool.Put(vv)
