@@ -257,7 +257,7 @@ func (tx *Transaction) ToPreV3() error {
 	}
 	l1Resources := (*tx.ResourceBounds)[ResourceL1Gas]
 	maxPricePerUnitAsFelt := new(felt.Felt).SetBytes(l1Resources.MaxPricePerUnit.Bytes())
-	tx.MaxFee = new(felt.Felt).Mul(l1Resources.MaxAmount, maxPricePerUnitAsFelt)
+	tx.MaxFee = maxPricePerUnitAsFelt.Mul(maxPricePerUnitAsFelt, l1Resources.MaxAmount)
 	tx.ResourceBounds = nil
 	tx.Tip = nil
 	tx.PaymasterData = nil
