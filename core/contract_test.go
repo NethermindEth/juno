@@ -156,7 +156,7 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 		oldRoot, err := core.ContractRoot(addr, txn)
 		require.NoError(t, err)
 
-		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: classHash}}, NoopOnValueChanged))
+		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: classHash}, NoopOnValueChanged))
 
 		gotValue, err := core.ContractStorage(addr, addr, txn)
 		require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 	})
 
 	t.Run("delete key from storage with storage diff", func(t *testing.T) {
-		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: new(felt.Felt)}}, NoopOnValueChanged))
+		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: new(felt.Felt)}, NoopOnValueChanged))
 
 		val, err := core.ContractStorage(addr, addr, txn)
 		require.NoError(t, err)

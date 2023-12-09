@@ -138,11 +138,10 @@ func TestStateUpdate(t *testing.T) {
 			}
 
 			assert.Equal(t, len(response.StateDiff.DeployedContracts), len(feederUpdate.StateDiff.DeployedContracts))
-			for idx := range response.StateDiff.DeployedContracts {
+			for idx, deployedContract := range response.StateDiff.DeployedContracts {
 				gw := response.StateDiff.DeployedContracts[idx]
-				coreDeployedContract := feederUpdate.StateDiff.DeployedContracts[idx]
-				assert.True(t, gw.ClassHash.Equal(coreDeployedContract.ClassHash))
-				assert.True(t, gw.Address.Equal(coreDeployedContract.Address))
+				coreDeployedContractClassHash := feederUpdate.StateDiff.DeployedContracts[*deployedContract.Address]
+				assert.True(t, gw.ClassHash.Equal(coreDeployedContractClassHash))
 			}
 
 			assert.Equal(t, len(response.StateDiff.StorageDiffs), len(feederUpdate.StateDiff.StorageDiffs))
@@ -151,9 +150,8 @@ func TestStateUpdate(t *testing.T) {
 				coreDiffs := feederUpdate.StateDiff.StorageDiffs[*key]
 				assert.Equal(t, true, len(diffs) > 0)
 				assert.Equal(t, len(diffs), len(coreDiffs))
-				for idx := range diffs {
-					assert.Equal(t, true, diffs[idx].Key.Equal(coreDiffs[idx].Key))
-					assert.Equal(t, true, diffs[idx].Value.Equal(coreDiffs[idx].Value))
+				for _, diff := range diffs {
+					assert.True(t, diff.Value.Equal(coreDiffs[*diff.Key]))
 				}
 			}
 		})

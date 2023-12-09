@@ -26,43 +26,31 @@ func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Cl
 }
 
 func (p *PendingState) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
-	for _, replaced := range p.stateDiff.ReplacedClasses {
-		if replaced.Address.Equal(addr) {
-			return replaced.ClassHash, nil
-		}
+	if classHash, ok := p.stateDiff.ReplacedClasses[*addr]; ok {
+		return classHash, nil
+	} else if classHash, ok = p.stateDiff.DeployedContracts[*addr]; ok {
+		return classHash, nil
 	}
-
-	for _, deployed := range p.stateDiff.DeployedContracts {
-		if deployed.Address.Equal(addr) {
-			return deployed.ClassHash, nil
-		}
-	}
-
 	return p.head.ContractClassHash(addr)
 }
 
 func (p *PendingState) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 	if nonce, found := p.stateDiff.Nonces[*addr]; found {
 		return nonce, nil
-	}
-
-	if p.isDeployedInPending(addr) {
-		return &felt.Zero, nil
+	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
+		return &felt.Felt{}, nil
 	}
 	return p.head.ContractNonce(addr)
 }
 
 func (p *PendingState) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 	if diffs, found := p.stateDiff.StorageDiffs[*addr]; found {
-		for _, diff := range diffs {
-			if diff.Key.Equal(key) {
-				return diff.Value, nil
-			}
+		if value, found := diffs[*key]; found {
+			return value, nil
 		}
 	}
-
-	if p.isDeployedInPending(addr) {
-		return &felt.Zero, nil
+	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
+		return &felt.Felt{}, nil
 	}
 	return p.head.ContractStorage(addr, key)
 }
@@ -76,13 +64,4 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	}
 
 	return p.head.Class(classHash)
-}
-
-func (p *PendingState) isDeployedInPending(addr *felt.Felt) bool {
-	for _, deployed := range p.stateDiff.DeployedContracts {
-		if deployed.Address.Equal(addr) {
-			return true
-		}
-	}
-	return false
 }

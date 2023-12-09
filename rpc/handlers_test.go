@@ -1772,49 +1772,41 @@ func TestStateUpdate(t *testing.T) {
 
 	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpc.StateUpdate) {
 		t.Helper()
-		assert.Equal(t, coreUpdate.BlockHash, rpcUpdate.BlockHash)
-		assert.Equal(t, coreUpdate.NewRoot, rpcUpdate.NewRoot)
-		assert.Equal(t, coreUpdate.OldRoot, rpcUpdate.OldRoot)
+		require.Equal(t, coreUpdate.BlockHash, rpcUpdate.BlockHash)
+		require.Equal(t, coreUpdate.NewRoot, rpcUpdate.NewRoot)
+		require.Equal(t, coreUpdate.OldRoot, rpcUpdate.OldRoot)
 
-		assert.Equal(t, len(coreUpdate.StateDiff.StorageDiffs), len(rpcUpdate.StateDiff.StorageDiffs))
+		require.Equal(t, len(coreUpdate.StateDiff.StorageDiffs), len(rpcUpdate.StateDiff.StorageDiffs))
 		for _, diff := range rpcUpdate.StateDiff.StorageDiffs {
-			coreDiffs := coreUpdate.StateDiff.StorageDiffs[*diff.Address]
-			assert.Equal(t, len(coreDiffs), len(diff.StorageEntries))
-			for index, entry := range diff.StorageEntries {
-				assert.Equal(t, entry.Key, coreDiffs[index].Key)
-				assert.Equal(t, entry.Value, coreDiffs[index].Value)
+			coreDiffs := coreUpdate.StateDiff.StorageDiffs[diff.Address]
+			require.Equal(t, len(coreDiffs), len(diff.StorageEntries))
+			for _, entry := range diff.StorageEntries {
+				require.Equal(t, *coreDiffs[entry.Key], entry.Value)
 			}
 		}
 
-		assert.Equal(t, len(coreUpdate.StateDiff.Nonces), len(rpcUpdate.StateDiff.Nonces))
+		require.Equal(t, len(coreUpdate.StateDiff.Nonces), len(rpcUpdate.StateDiff.Nonces))
 		for _, nonce := range rpcUpdate.StateDiff.Nonces {
-			assert.Equal(t, coreUpdate.StateDiff.Nonces[*nonce.ContractAddress], nonce.Nonce)
+			require.Equal(t, *coreUpdate.StateDiff.Nonces[nonce.ContractAddress], nonce.Nonce)
 		}
 
-		assert.Equal(t, len(coreUpdate.StateDiff.DeployedContracts), len(rpcUpdate.StateDiff.DeployedContracts))
-		for index := range rpcUpdate.StateDiff.DeployedContracts {
-			assert.Equal(t, coreUpdate.StateDiff.DeployedContracts[index].Address,
-				rpcUpdate.StateDiff.DeployedContracts[index].Address)
-			assert.Equal(t, coreUpdate.StateDiff.DeployedContracts[index].ClassHash,
-				rpcUpdate.StateDiff.DeployedContracts[index].ClassHash)
+		require.Equal(t, len(coreUpdate.StateDiff.DeployedContracts), len(rpcUpdate.StateDiff.DeployedContracts))
+		for _, deployedContract := range rpcUpdate.StateDiff.DeployedContracts {
+			require.Equal(t, *coreUpdate.StateDiff.DeployedContracts[deployedContract.Address], deployedContract.ClassHash)
 		}
 
-		assert.Equal(t, coreUpdate.StateDiff.DeclaredV0Classes, rpcUpdate.StateDiff.DeprecatedDeclaredClasses)
+		require.Equal(t, coreUpdate.StateDiff.DeclaredV0Classes, rpcUpdate.StateDiff.DeprecatedDeclaredClasses)
 
-		assert.Equal(t, len(coreUpdate.StateDiff.ReplacedClasses), len(rpcUpdate.StateDiff.ReplacedClasses))
+		require.Equal(t, len(coreUpdate.StateDiff.ReplacedClasses), len(rpcUpdate.StateDiff.ReplacedClasses))
 		for index := range rpcUpdate.StateDiff.ReplacedClasses {
-			assert.Equal(t, coreUpdate.StateDiff.ReplacedClasses[index].Address,
-				rpcUpdate.StateDiff.ReplacedClasses[index].ContractAddress)
-			assert.Equal(t, coreUpdate.StateDiff.ReplacedClasses[index].ClassHash,
+			require.Equal(t, *coreUpdate.StateDiff.ReplacedClasses[rpcUpdate.StateDiff.ReplacedClasses[index].ContractAddress],
 				rpcUpdate.StateDiff.ReplacedClasses[index].ClassHash)
 		}
 
-		assert.Equal(t, len(coreUpdate.StateDiff.DeclaredV1Classes), len(rpcUpdate.StateDiff.DeclaredClasses))
+		require.Equal(t, len(coreUpdate.StateDiff.DeclaredV1Classes), len(rpcUpdate.StateDiff.DeclaredClasses))
 		for index := range rpcUpdate.StateDiff.DeclaredClasses {
-			assert.Equal(t, coreUpdate.StateDiff.DeclaredV1Classes[index].CompiledClassHash,
+			require.Equal(t, *coreUpdate.StateDiff.DeclaredV1Classes[rpcUpdate.StateDiff.DeclaredClasses[index].ClassHash],
 				rpcUpdate.StateDiff.DeclaredClasses[index].CompiledClassHash)
-			assert.Equal(t, coreUpdate.StateDiff.DeclaredV1Classes[index].ClassHash,
-				rpcUpdate.StateDiff.DeclaredClasses[index].ClassHash)
 		}
 	}
 
@@ -3230,6 +3222,17 @@ func TestSimulateTransactions(t *testing.T) {
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)
+
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, false, true, true, nil, nil, true).
+			Return(nil, nil, vm.TransactionExecutionError{
+				Index: 44,
+				Cause: errors.New("oops"),
+			})
+
+		_, err = handler.LegacySimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
+			RevertError: "oops",
+		}), err)
 	})
 }
 
@@ -3673,7 +3676,7 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpc.New(nil, nil, 0, nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.6.0-rc5", version)
+	require.Equal(t, "0.6.0", version)
 
 	legacyVersion, rpcErr := handler.LegacySpecVersion()
 	require.Nil(t, rpcErr)
