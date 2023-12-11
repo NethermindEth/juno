@@ -242,7 +242,3 @@ func (z *Felt) SetBigInt(v *big.Int) *Felt {
 func (z *Felt) Uint64() uint64 {
 	return z.val.Uint64()
 }
-
-func (z *Felt) Clone() *Felt {
-	return &Felt{val: z.val}
-}
