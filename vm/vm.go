@@ -48,6 +48,15 @@ func New(log utils.SimpleLogger) VM {
 	}
 }
 
+type StateReadWriter interface {
+	core.StateReader
+	SetStorage(contractAddress, storageKey, value *felt.Felt) error
+	IncrementNonce(contractAddress *felt.Felt) error
+	SetClassHash(contractAddress, classHash *felt.Felt) error
+	SetContractClass(classHash *felt.Felt, contractClass core.Class) error
+	SetCompiledClassHash(classHash *felt.Felt, compiledClassHash *felt.Felt) error
+}
+
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
