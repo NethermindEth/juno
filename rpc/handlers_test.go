@@ -3685,7 +3685,7 @@ func TestEstimateFee(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	const network = utils.Mainnet
+	network := &utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
