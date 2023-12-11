@@ -1,0 +1,13 @@
+{
+    "chain_id": "1",
+    "classes": [
+        "class1.json"
+    ],
+    "contracts": {
+        "0x1234": {
+            "class_hash": 123,
+            "constructor_args": [1, 2, 3]
+        }
+    },
+    "function_calls": []
+}
