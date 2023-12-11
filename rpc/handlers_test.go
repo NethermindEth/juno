@@ -47,7 +47,7 @@ func TestChainId(t *testing.T) {
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
-			assert.Equal(t, n.ChainID(), cID)
+			assert.Equal(t, n.ChainID, cID)
 		})
 	}
 }
@@ -3182,7 +3182,7 @@ func TestSimulateTransactions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	const network = utils.Mainnet
+	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
@@ -3244,7 +3244,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
-	const network = utils.Mainnet
+	network := utils.Mainnet
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
 	t.Run("block not found", func(t *testing.T) {
@@ -3673,7 +3673,7 @@ func TestThrottledVMError(t *testing.T) {
 }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, 0, nil, nil, nil, "", nil)
+	handler := rpc.New(nil, nil, utils.Network{}, nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0", version)
@@ -3687,7 +3687,7 @@ func TestEstimateFee(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	const network = utils.Mainnet
+	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)

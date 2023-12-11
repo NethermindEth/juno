@@ -29,7 +29,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
@@ -133,10 +132,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	feederClientTimeout := 5 * time.Second
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
+	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua)
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
@@ -236,14 +235,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 }
 
 func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
-	var coreContractAddress common.Address
-	coreContractAddress, err := chain.Network().CoreContractAddress()
-	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", chain.Network(), err)
-	}
-
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
+	ethSubscriber, err := l1.NewEthSubscriber(ethNode, *chain.Network().CoreContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
