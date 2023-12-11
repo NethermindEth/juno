@@ -19,6 +19,7 @@ import "C"
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime/cgo"
 	"unsafe"
 
@@ -71,6 +72,8 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees []*felt.Felt
 	traces     []json.RawMessage
+
+	declaredClasses map[felt.Felt]core.Class
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -175,9 +178,21 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
 ) ([]*felt.Felt, []json.RawMessage, error) {
+	_, isMutableState := state.(StateReadWriter)
+	declaredClassesMap := make(map[felt.Felt]core.Class)
+	if isMutableState {
+		for _, declaredClass := range declaredClasses {
+			classHash, err := declaredClass.Hash()
+			if err != nil {
+				return nil, nil, fmt.Errorf("calculate declared class hash: %v", err)
+			}
+			declaredClassesMap[*classHash] = declaredClass
+		}
+	}
 	context := &callContext{
-		state: state,
-		log:   v.log,
+		state:           state,
+		log:             v.log,
+		declaredClasses: declaredClassesMap,
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()

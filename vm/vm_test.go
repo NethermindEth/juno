@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -46,9 +47,10 @@ func TestV0Call(t *testing.T) {
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
 	}))
+	state := blockchain.NewPendingState(core.EmptyStateDiff(), make(map[felt.Felt]core.Class), core.NewState(txn))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
-	ret, err := New(nil).Call(contractAddr, classHash, entryPoint, nil, 0, 0, testState, utils.Mainnet)
+	ret, err := New(nil).Call(contractAddr, classHash, entryPoint, nil, 0, 0, state, utils.Mainnet)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -64,7 +66,7 @@ func TestV0Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = New(nil).Call(contractAddr, classHash, entryPoint, nil, 1, 0, testState, utils.Mainnet)
+	ret, err = New(nil).Call(contractAddr, classHash, entryPoint, nil, 1, 0, state, utils.Mainnet)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
 }
@@ -99,13 +101,14 @@ func TestV1Call(t *testing.T) {
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
 	}))
+	state := blockchain.NewPendingState(core.EmptyStateDiff(), make(map[felt.Felt]core.Class), core.NewState(txn))
 
 	// test_storage_read
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
 	ret, err := New(nil).Call(contractAddr, nil, entryPoint, []felt.Felt{
 		*storageLocation,
-	}, 0, 0, testState, utils.Goerli)
+	}, 0, 0, state, utils.Goerli)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -123,7 +126,7 @@ func TestV1Call(t *testing.T) {
 
 	ret, err = New(nil).Call(contractAddr, nil, entryPoint, []felt.Felt{
 		*storageLocation,
-	}, 1, 0, testState, utils.Goerli)
+	}, 1, 0, state, utils.Goerli)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
 }
@@ -138,7 +141,7 @@ func TestExecute(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	state := core.NewState(txn)
+	state := blockchain.NewPendingState(core.EmptyStateDiff(), make(map[felt.Felt]core.Class), core.NewState(txn))
 
 	t.Run("empty transaction list", func(t *testing.T) {
 		// data from 0 block
