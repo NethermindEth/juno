@@ -1298,8 +1298,8 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 
 func (h *Handler) LegacyEstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
 	result, err := h.simulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag}, true, true)
-	if err != nil {
-		return nil, err
+	if err != nil && err.Code == ErrTransactionExecutionError.Code {
+		return nil, makeContractError(errors.New(err.Data.(TransactionExecutionErrorData).ExecutionError))
 	}
 
 	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
