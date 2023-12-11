@@ -3680,3 +3680,61 @@ func TestSpecVersion(t *testing.T) {
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.5.1", legacyVersion)
 }
+
+func TestEstimateFee(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	const network = utils.Mainnet
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
+	mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil).AnyTimes()
+	sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+
+	t.Run("ok with zero values", func(t *testing.T) {
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, true, nil, nil, false).
+			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
+
+		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
+		require.Nil(t, err)
+	})
+
+	t.Run("ok with zero values, skip validate", func(t *testing.T) {
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, true, true, nil, nil, false).
+			Return([]*felt.Felt{}, []json.RawMessage{}, nil)
+
+		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		require.Nil(t, err)
+	})
+
+	t.Run("transaction execution error", func(t *testing.T) {
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, true, true, nil, nil, false).
+			Return(nil, nil, vm.TransactionExecutionError{
+				Index: 44,
+				Cause: errors.New("oops"),
+			})
+
+		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+			TransactionIndex: 44,
+			ExecutionError:   "oops",
+		}), err)
+
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, true, nil, nil, true).
+			Return(nil, nil, vm.TransactionExecutionError{
+				Index: 44,
+				Cause: errors.New("oops"),
+			})
+
+		_, err = handler.LegacyEstimateFee([]rpc.BroadcastedTransaction{}, rpc.BlockID{Latest: true})
+		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
+			RevertError: "oops",
+		}), err)
+	})
+}
