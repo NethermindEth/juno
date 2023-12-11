@@ -1,7 +1,8 @@
 pub mod jsonrpc;
 mod juno_state_reader;
 
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use blockifier::state::state_api::State;
+use crate::juno_state_reader::{ptr_to_felt, JunoState};
 use std::{
     collections::HashMap,
     ffi::{c_char, c_uchar, c_ulonglong, c_void, c_longlong, CStr, CString},
@@ -17,7 +18,7 @@ use blockifier::{
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
     },
     fee::fee_utils::calculate_tx_fee,
-    state::cached_state::{CachedState, GlobalContractCache},
+    state::cached_state::{CachedState, GlobalContractCache, MutRefState},
     transaction::{
         objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType},
         transaction_execution::Transaction,
@@ -72,7 +73,7 @@ pub extern "C" fn cairoVMCall(
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
 ) {
-    let reader = JunoStateReader::new(reader_handle, block_number);
+    let reader = JunoState::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
     let class_hash = if class_hash.is_null() {
         None
@@ -160,8 +161,8 @@ pub extern "C" fn cairoVMExecute(
     gas_price_wei: *const c_uchar,
     gas_price_strk: *const c_uchar,
     legacy_json: c_uchar,
+    mutable_state: c_uchar,
 ) {
-    let reader = JunoStateReader::new(reader_handle, block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
@@ -208,7 +209,16 @@ pub extern "C" fn cairoVMExecute(
             strk_l1_gas_price: felt_to_u128(gas_price_strk_felt),
         },
     );
-    let mut state = CachedState::new(reader, GlobalContractCache::default());
+
+    let mut juno_state = JunoState::new(reader_handle, block_number);
+    let mut cached_juno_state: CachedState<JunoState>;
+    let mut state: MutRefState<'_, dyn State> = if mutable_state == 0 {
+        cached_juno_state = CachedState::new(juno_state, GlobalContractCache::default());
+        MutRefState::new(&mut cached_juno_state)
+    } else {
+        MutRefState::new(&mut juno_state)
+    };
+
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -261,7 +271,7 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
-        let mut txn_state = CachedState::create_transactional(&mut state);
+        let mut txn_state = CachedState::new_transactional(&mut state);
         let fee_type;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
