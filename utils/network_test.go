@@ -71,7 +71,7 @@ func TestNetwork(t *testing.T) {
 	})
 	t.Run("default L1 chainId", func(t *testing.T) {
 		for n := range networkStrings {
-			got := n.DefaultL1ChainID()
+			got := n.L1ChainID
 			switch n {
 			case &utils.Mainnet:
 				assert.Equal(t, big.NewInt(1), got)

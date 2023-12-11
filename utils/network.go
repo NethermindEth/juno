@@ -27,7 +27,7 @@ type Network struct {
 	FeederURL           string             `json:"feeder_url" validate:"required"`
 	GatewayURL          string             `json:"gateway_url" validate:"required"`
 	ChainID             string             `json:"chain_id" validate:"required"`
-	L1ChainID           big.Int            `json:"l1_chain_id" validate:"required"`
+	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
 	CoreContractAddress common.Address     `json:"core_contract_address" validate:"required"`
 	BlockHashMetaInfo   *blockHashMetaInfo `json:"block_hash_meta_info" validate:"required"`
 }
@@ -54,7 +54,7 @@ var (
 		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway",
 		GatewayURL:          "https://alpha-mainnet.starknet.io/gateway",
 		ChainID:             "SN_MAIN",
-		L1ChainID:           *big.NewInt(1),
+		L1ChainID:           big.NewInt(1),
 		CoreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             833,
@@ -67,7 +67,7 @@ var (
 		GatewayURL: "https://alpha4.starknet.io/gateway",
 		ChainID:    "SN_GOERLI",
 		//nolint:gomnd
-		L1ChainID:           *big.NewInt(5),
+		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             47028,
@@ -81,7 +81,7 @@ var (
 		GatewayURL: "https://alpha4-2.starknet.io/gateway",
 		ChainID:    "SN_GOERLI2",
 		//nolint:gomnd
-		L1ChainID:           *big.NewInt(5),
+		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             0,
@@ -89,10 +89,12 @@ var (
 		},
 	}
 	Integration = Network{
-		Name:                "integration",
-		FeederURL:           "https://external.integration.starknet.io/feeder_gateway",
-		GatewayURL:          "https://external.integration.starknet.io/gateway",
-		ChainID:             "SN_GOERLI",
+		Name:       "integration",
+		FeederURL:  "https://external.integration.starknet.io/feeder_gateway",
+		GatewayURL: "https://external.integration.starknet.io/gateway",
+		ChainID:    "SN_GOERLI",
+		//nolint:gomnd
+		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             110511,
@@ -101,10 +103,12 @@ var (
 		},
 	}
 	Sepolia = Network{
-		Name:                "sepolia",
-		FeederURL:           "https://alpha-sepolia.starknet.io/feeder_gateway",
-		GatewayURL:          "https://alpha-sepolia.starknet.io/gateway",
-		ChainID:             "SN_SEPOLIA",
+		Name:       "sepolia",
+		FeederURL:  "https://alpha-sepolia.starknet.io/feeder_gateway",
+		GatewayURL: "https://alpha-sepolia.starknet.io/gateway",
+		ChainID:    "SN_SEPOLIA",
+		//nolint:gomnd
+		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             0,
@@ -112,10 +116,12 @@ var (
 		},
 	}
 	SepoliaIntegration = Network{
-		Name:                "sepolia-integration",
-		FeederURL:           "https://integration-sepolia.starknet.io/feeder_gateway",
-		GatewayURL:          "https://integration-sepolia.starknet.io/gateway",
-		ChainID:             "SN_INTEGRATION_SEPOLIA",
+		Name:       "sepolia-integration",
+		FeederURL:  "https://integration-sepolia.starknet.io/feeder_gateway",
+		GatewayURL: "https://integration-sepolia.starknet.io/gateway",
+		ChainID:    "SN_INTEGRATION_SEPOLIA",
+		//nolint:gomnd
+		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 		BlockHashMetaInfo: &blockHashMetaInfo{
 			First07Block:             0,
@@ -203,22 +209,6 @@ func (n *Network) Type() string {
 
 func (n *Network) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
-}
-
-func (n *Network) DefaultL1ChainID() *big.Int {
-	var chainID int64
-	switch n {
-	case &Mainnet:
-		chainID = 1
-	case &Goerli, &Goerli2, &Integration:
-		chainID = 5
-	case &Sepolia, &SepoliaIntegration:
-		chainID = 11155111
-	default:
-		// Should not happen.
-		panic(ErrUnknownNetwork)
-	}
-	return big.NewInt(chainID)
 }
 
 func (n *Network) ChainIDFelt() *felt.Felt {

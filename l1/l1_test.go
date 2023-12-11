@@ -62,7 +62,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 	subscriber.
 		EXPECT().
 		ChainID(gomock.Any()).
-		Return(network.DefaultL1ChainID(), nil).
+		Return(network.L1ChainID, nil).
 		Times(1)
 
 	subscriber.EXPECT().Close().Times(1)
@@ -130,7 +130,7 @@ func TestEventListener(t *testing.T) {
 	subscriber.
 		EXPECT().
 		ChainID(gomock.Any()).
-		Return(network.DefaultL1ChainID(), nil).
+		Return(network.L1ChainID, nil).
 		Times(1)
 
 	subscriber.EXPECT().Close().Times(1)
