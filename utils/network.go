@@ -232,7 +232,7 @@ func (cn *NetworkCustom) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		return err
 	}
 	if !common.IsHexAddress(aux.CoreContractAddress) {
-		return errors.New("invalid core contract address")
+		return ErrInvalidCoreContractAddress
 	}
 	coreContractAddress := common.HexToAddress(aux.CoreContractAddress)
 	cn.CoreContractAddressVal = &coreContractAddress
