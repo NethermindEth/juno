@@ -10,7 +10,7 @@ require (
 	github.com/consensys/gnark-crypto v0.12.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.12.0
-	github.com/fxamacker/cbor/v2 v2.4.0
+	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/jinzhu/copier v0.3.5
 	github.com/libp2p/go-libp2p v0.31.0
