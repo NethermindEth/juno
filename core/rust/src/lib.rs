@@ -1,4 +1,4 @@
-use starknet::core::types::contract::legacy::LegacyContractClass;
+use starknet_core::types::contract::legacy::LegacyContractClass;
 use std::{
     ffi::{c_char, c_uchar, CStr},
     slice,
