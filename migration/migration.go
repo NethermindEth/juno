@@ -69,7 +69,7 @@ func MigrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network,
 	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
 }
 
-func migrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network, log utils.SimpleLogger, migrations []Migration) error { //nolint:lll
+func migrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network, log utils.SimpleLogger, migrations []Migration) error {
 	/*
 		Schema metadata of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
