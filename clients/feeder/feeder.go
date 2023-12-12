@@ -191,7 +191,7 @@ func NewClient(clientURL string) *Client {
 		maxWait:    4 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
-		listener:   SelectiveListener{},
+		listener:   &SelectiveListener{},
 	}
 }
 
