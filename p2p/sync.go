@@ -32,6 +32,10 @@ type BlockRange struct {
 	Start, End uint64
 }
 
+func (b BlockRange) Valid() bool {
+	return b.Start < b.End
+}
+
 type syncService struct {
 	host     host.Host
 	network  utils.Network
@@ -71,10 +75,16 @@ func (s *syncService) startSerial(ctx context.Context) {
 	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
 		s.log.Errorw("Failed to get current height", "err", err)
 	}
+	// hack
+	if curHeight > 0 {
+		curHeight++
+	}
+
 	// Just get one block for now
 	go s.requestBlocks(ctx, BlockRange{curHeight, bootNodeHeight}, coreBlocks)
 
 	for bBody := range coreBlocks {
+		fmt.Println("Iteration")
 		commitmments, err := s.blockchain.SanityCheckNewHeight(bBody.block, bBody.stateUpdate, bBody.newClasses)
 		if err != nil {
 			s.log.Errorw("Failed to sanity check block", "number", bBody.block.Number, "err", err)
@@ -83,20 +93,23 @@ func (s *syncService) startSerial(ctx context.Context) {
 		err = s.blockchain.Store(bBody.block, commitmments, bBody.stateUpdate, bBody.newClasses)
 		if err != nil {
 			s.log.Errorw("Failed to Store Block", "number", bBody.block.Number, "err", err)
+		} else {
+			s.log.Infow("Stored Block", "number", bBody.block.Number, "hash", bBody.block.Hash.ShortString(), "root",
+				bBody.block.GlobalStateRoot.ShortString())
 		}
-		s.log.Infow("Stored Block", "number", bBody.block.Number, "hash", bBody.block.Hash.ShortString(), "root",
-			bBody.block.GlobalStateRoot.ShortString())
 
 		select {
 		case <-ctx.Done():
-			break
+			return
 		default:
-			fmt.Println("sending to storedCh")
+			s.log.Debugw("sending to storedCh in serial")
 			storedCh <- struct{}{}
 		}
 	}
+
+	s.log.Debugw("Closing storedCh")
 	close(storedCh)
-	fmt.Println("closed storedCh")
+	s.log.Debugw("closed storedCh")
 }
 
 func (s *syncService) start(ctx context.Context) {
@@ -495,8 +508,14 @@ func (s *syncService) requestEvents(ctx context.Context, it *spec.Iteration, id 
 
 func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks chan<- blockBody) {
 	defer close(blocks)
+
+	if !r.Valid() {
+		s.log.Warnw("Block range is invalid (not continous sync yet)", "range", r)
+		return
+	}
+
 	it := s.createIterator(r)
-	fmt.Println("Iterator ", it.Start, it.Limit)
+	s.log.Debugw("Iterator", "it", it)
 
 	id := s.randomPeer()
 
@@ -539,6 +558,10 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 		return
 	}
 
+	headers := utils.ToMap(headersFromPeer, func(h core.Header) (uint64, core.Header) {
+		return h.Number, h
+	})
+
 	for _, body := range blocksFromPeer {
 		blockB := newBlockBody()
 		curBlockNum := body.id.Number
@@ -554,7 +577,7 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 		blockB.block.Receipts = blockReceipts
 
 		// Add EventsBloom and Hash
-		header := headersFromPeer[curBlockNum]
+		header := headers[curBlockNum]
 		blockB.block.Header = &header
 		blockB.block.EventsBloom = core.EventsBloom(blockReceipts)
 		blockB.block.Hash, err = core.BlockHash(blockB.block)
@@ -589,12 +612,15 @@ func (s *syncService) requestBlocks(ctx context.Context, r BlockRange, blocks ch
 
 		select {
 		case <-ctx.Done():
+			s.log.Debugw("Context done")
 			return
 		default:
 			blocks <- blockB
 		}
+
+		s.log.Debugw("Writing to storedCh")
 		<-storedCh
-		fmt.Println("Reading from storedCh")
+		s.log.Debugw("Reading from storedCh")
 	}
 }
 
