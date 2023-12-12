@@ -15,17 +15,35 @@ import (
 
 var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
 
-type Network int
-
 // The following are necessary for Cobra and Viper, respectively, to unmarshal log level
 // CLI/config parameters properly.
 var (
-	_ pflag.Value              = (*Network)(nil)
-	_ encoding.TextUnmarshaler = (*Network)(nil)
+	_ pflag.Value              = (*NetworkKnown)(nil)
+	_ encoding.TextUnmarshaler = (*NetworkKnown)(nil)
+	_ Network                  = (*NetworkKnown)(nil)
+	_ Network                  = (*NetworkCustom)(nil)
 )
 
+type Network interface {
+	String() string
+	MarshalYAML() (interface{}, error)
+	MarshalJSON() ([]byte, error)
+	Set(s string) error
+	Type() string
+	UnmarshalText(text []byte) error
+	FeederURL() string
+	GatewayURL() string
+	ChainIDString() string
+	DefaultL1ChainID() *big.Int
+	CoreContractAddress() (common.Address, error)
+	ChainID() *felt.Felt
+	ProtocolID() protocol.ID
+}
+
+type NetworkKnown int
+
 const (
-	Mainnet Network = iota + 1
+	Mainnet NetworkKnown = iota + 1
 	Goerli
 	Goerli2
 	Integration
@@ -33,7 +51,7 @@ const (
 	SepoliaIntegration
 )
 
-func (n Network) String() string {
+func (n NetworkKnown) String() string {
 	switch n {
 	case Mainnet:
 		return "mainnet"
@@ -53,15 +71,15 @@ func (n Network) String() string {
 	}
 }
 
-func (n Network) MarshalYAML() (interface{}, error) {
+func (n NetworkKnown) MarshalYAML() (interface{}, error) {
 	return n.String(), nil
 }
 
-func (n *Network) MarshalJSON() ([]byte, error) {
+func (n *NetworkKnown) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + n.String() + `"`), nil
 }
 
-func (n *Network) Set(s string) error {
+func (n *NetworkKnown) Set(s string) error {
 	switch s {
 	case "MAINNET", "mainnet":
 		*n = Mainnet
@@ -81,16 +99,16 @@ func (n *Network) Set(s string) error {
 	return nil
 }
 
-func (n *Network) Type() string {
-	return "Network"
+func (n *NetworkKnown) Type() string {
+	return "NetworkKnown"
 }
 
-func (n *Network) UnmarshalText(text []byte) error {
+func (n *NetworkKnown) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
 }
 
 // baseURL returns the base URL without endpoint
-func (n Network) baseURL() string {
+func (n NetworkKnown) baseURL() string {
 	switch n {
 	case Goerli:
 		return "https://alpha4.starknet.io/"
@@ -111,16 +129,16 @@ func (n Network) baseURL() string {
 }
 
 // FeederURL returns URL for read commands
-func (n Network) FeederURL() string {
+func (n NetworkKnown) FeederURL() string {
 	return n.baseURL() + "feeder_gateway/"
 }
 
 // GatewayURL returns URL for write commands
-func (n Network) GatewayURL() string {
+func (n NetworkKnown) GatewayURL() string {
 	return n.baseURL() + "gateway/"
 }
 
-func (n Network) ChainIDString() string {
+func (n NetworkKnown) ChainIDString() string {
 	switch n {
 	case Goerli, Integration:
 		return "SN_GOERLI"
@@ -138,7 +156,7 @@ func (n Network) ChainIDString() string {
 	}
 }
 
-func (n Network) DefaultL1ChainID() *big.Int {
+func (n NetworkKnown) DefaultL1ChainID() *big.Int {
 	var chainID int64
 	switch n {
 	case Mainnet:
@@ -154,7 +172,7 @@ func (n Network) DefaultL1ChainID() *big.Int {
 	return big.NewInt(chainID)
 }
 
-func (n Network) CoreContractAddress() (common.Address, error) {
+func (n NetworkKnown) CoreContractAddress() (common.Address, error) {
 	var address common.Address
 	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
 	switch n {
@@ -177,10 +195,84 @@ func (n Network) CoreContractAddress() (common.Address, error) {
 	return address, nil
 }
 
-func (n Network) ChainID() *felt.Felt {
+func (n NetworkKnown) ChainID() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.ChainIDString()))
 }
 
-func (n Network) ProtocolID() protocol.ID {
+func (n NetworkKnown) ProtocolID() protocol.ID {
 	return protocol.ID(fmt.Sprintf("/starknet/%s", n))
+}
+
+type NetworkCustom struct {
+	Name                   string             `json:"name" validate:"required"`
+	FeederURLVal           string             `json:"feeder_url" validate:"required"`
+	GatewayURLVal          string             `json:"gateway_url" validate:"required"`
+	ChainIDVal             string             `json:"chain_id" validate:"required"`
+	ProtocolIDVal          int                `json:"protocol_id" validate:"required"`
+	L1ChainIDVal           *big.Int           `json:"l1_chain_id" validate:"required"`
+	CoreContractAddressVal *common.Address    `json:"core_contract_address" validate:"required"`
+	BlockHashMetaInfo      *blockHashMetaInfo `json:"block_hash_meta_info" validate:"required"`
+}
+type blockHashMetaInfo struct {
+	// The sequencer address to use for blocks that do not have one
+	FallBackSequencerAddress *felt.Felt `json:"fallback_sequencer_address" validate:"required"`
+	// First block that uses the post-0.7.0 block hash algorithm
+	First07Block uint64 `json:"first_07_block" validate:"required"`
+	// Range of blocks that are not verifiable
+	UnverifiableRange []uint64 `json:"unverifiable_range" validate:"required"`
+}
+
+func (cn *NetworkCustom) String() string {
+	return "custom"
+}
+
+func (cn *NetworkCustom) MarshalYAML() (interface{}, error) {
+	return cn.String(), nil
+}
+
+func (cn *NetworkCustom) MarshalJSON() ([]byte, error) {
+	return json.RawMessage(`"` + cn.String() + `"`), nil
+}
+
+func (cn *NetworkCustom) Set(s string) error {
+	return errors.New("custom networks cannot be set")
+}
+
+func (cn *NetworkCustom) Type() string {
+	return "NetworkCustom"
+}
+
+func (cn *NetworkCustom) UnmarshalText(text []byte) error {
+	return cn.Set(string(text))
+}
+
+func (cn *NetworkCustom) FeederURL() string {
+	return cn.FeederURLVal
+}
+
+func (cn *NetworkCustom) GatewayURL() string {
+	return cn.GatewayURLVal
+}
+
+func (cn *NetworkCustom) ChainIDString() string {
+	return cn.ChainIDVal
+}
+
+func (cn *NetworkCustom) DefaultL1ChainID() *big.Int {
+	return cn.L1ChainIDVal
+}
+
+func (cn *NetworkCustom) CoreContractAddress() (common.Address, error) {
+	if cn.CoreContractAddressVal == nil {
+		return common.Address{}, errors.New("core contract address is nil")
+	}
+	return *cn.CoreContractAddressVal, nil
+}
+
+func (cn *NetworkCustom) ChainID() *felt.Felt {
+	return new(felt.Felt).SetBytes([]byte(cn.ChainIDVal))
+}
+
+func (cn *NetworkCustom) ProtocolID() protocol.ID {
+	return protocol.ID(fmt.Sprintf("/starknet/%q", cn.ProtocolIDVal))
 }

@@ -68,7 +68,7 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network  utils.Network
+	network  utils.NetworkKnown
 	database db.DB
 
 	log      utils.SimpleLogger
@@ -77,7 +77,7 @@ type Blockchain struct {
 	cachedPending atomic.Pointer[Pending]
 }
 
-func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
+func New(database db.DB, network utils.NetworkKnown, log utils.SimpleLogger) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
@@ -92,7 +92,7 @@ func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
 	return b
 }
 
-func (b *Blockchain) Network() utils.Network {
+func (b *Blockchain) Network() utils.NetworkKnown {
 	return b.network
 }
 

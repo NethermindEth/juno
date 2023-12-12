@@ -18,7 +18,7 @@ func TestBlockHash(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		number uint64
-		chain  utils.Network
+		chain  utils.NetworkKnown
 		name   string
 	}{
 		{
