@@ -2,9 +2,11 @@ package node
 
 import (
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -225,6 +227,21 @@ func makeL1Metrics() l1.EventListener {
 	return l1.SelectiveListener{
 		OnNewL1HeadCb: func(head *core.L1Head) {
 			l1Height.Set(float64(head.BlockNumber))
+		},
+	}
+}
+
+func makeFeederMetrics() feeder.EventListener {
+	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "feeder",
+		Subsystem: "client",
+		Name:      "request_latency",
+	}, []string{"method", "status"})
+	prometheus.MustRegister(requestLatencies)
+	return feeder.SelectiveListener{
+		OnResponseCb: func(urlPath string, status int, took time.Duration) {
+			statusString := strconv.FormatInt(int64(status), 10)
+			requestLatencies.WithLabelValues(urlPath, statusString).Observe(took.Seconds())
 		},
 	}
 }

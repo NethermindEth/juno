@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
@@ -623,4 +624,18 @@ func TestBlockTrace(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, trace.Traces, 2)
 	})
+}
+
+func TestEventListener(t *testing.T) {
+	isCalled := false
+	client := feeder.NewTestClient(t, utils.Integration).WithListener(&feeder.SelectiveListener{
+		OnResponseCb: func(urlPath string, status int, _ time.Duration) {
+			isCalled = true
+			require.Equal(t, 200, status)
+			require.Equal(t, "/get_block", urlPath)
+		},
+	})
+	_, err := client.Block(context.Background(), "0")
+	require.NoError(t, err)
+	require.True(t, isCalled)
 }
