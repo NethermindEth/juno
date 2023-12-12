@@ -1,7 +1,6 @@
 package utils_test
 
 import (
-	"encoding/json"
 	"math/big"
 	"strings"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v2"
 )
 
 var networkStrings = map[utils.NetworkKnown]string{
@@ -148,14 +148,14 @@ func TestCoreContractAddress(t *testing.T) {
 	}
 }
 
-func TestUnmarshalJSON(t *testing.T) {
+func TestUnmarshalYAML(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		data := []byte(`{
             "core_contract_address": "0x0000000000000000000000000000000000000000"
         }`)
 
 		var nc utils.NetworkCustom
-		err := json.Unmarshal(data, &nc)
+		err := yaml.Unmarshal(data, &nc)
 		require.NoError(t, err)
 		require.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), *nc.CoreContractAddressVal)
 	})
@@ -166,7 +166,7 @@ func TestUnmarshalJSON(t *testing.T) {
         }`)
 
 		var nc utils.NetworkCustom
-		err := json.Unmarshal(data, &nc)
+		err := yaml.Unmarshal(data, &nc)
 		require.Error(t, err)
 	})
 }

@@ -205,27 +205,25 @@ func (n NetworkKnown) ProtocolID() protocol.ID {
 }
 
 type NetworkCustom struct {
-	FeederURLVal           string          `json:"feeder_url" validate:"required"`
-	GatewayURLVal          string          `json:"gateway_url" validate:"required"`
-	ChainIDVal             string          `json:"chain_id" validate:"required"`
-	L1ChainIDVal           *big.Int        `json:"l1_chain_id" validate:"required"`
-	ProtocolIDVal          int             `json:"protocol_id" validate:"required"`
-	CoreContractAddressVal *common.Address `json:"core_contract_address" validate:"required"`
+	FeederURLVal           string          `yaml:"feeder_url" validate:"required"`
+	GatewayURLVal          string          `yaml:"gateway_url" validate:"required"`
+	ChainIDVal             string          `yaml:"chain_id" validate:"required"`
+	L1ChainIDVal           *big.Int        `yaml:"l1_chain_id" validate:"required"`
+	ProtocolIDVal          int             `yaml:"protocol_id" validate:"required"`
+	CoreContractAddressVal *common.Address `yaml:"core_contract_address" validate:"required"`
 }
 
-func (cn *NetworkCustom) UnmarshalJSON(data []byte) error {
-	fmt.Println("====")
+func (cn *NetworkCustom) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type Alias NetworkCustom
 	aux := &struct {
-		CoreContractAddress string `json:"core_contract_address"`
+		CoreContractAddress string `yaml:"core_contract_address"`
 		*Alias
 	}{
 		Alias: (*Alias)(cn),
 	}
-	if err := json.Unmarshal(data, &aux); err != nil {
+	if err := unmarshal(aux); err != nil {
 		return err
 	}
-
 	if !common.IsHexAddress(aux.CoreContractAddress) {
 		return errors.New("invalid core contract address")
 	}
