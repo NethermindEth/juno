@@ -238,7 +238,7 @@ func makeFeederMetrics() feeder.EventListener {
 		Name:      "request_latency",
 	}, []string{"method", "status"})
 	prometheus.MustRegister(requestLatencies)
-	return feeder.SelectiveListener{
+	return &feeder.SelectiveListener{
 		OnResponseCb: func(urlPath string, status int, took time.Duration) {
 			statusString := strconv.FormatInt(int64(status), 10)
 			requestLatencies.WithLabelValues(urlPath, statusString).Observe(took.Seconds())
