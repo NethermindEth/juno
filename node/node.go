@@ -56,7 +56,7 @@ type Config struct {
 	GRPCHost            string              `mapstructure:"grpc-host"`
 	GRPCPort            uint16              `mapstructure:"grpc-port"`
 	DatabasePath        string              `mapstructure:"db-path"`
-	Network             utils.Network       `mapstructure:"network"`
+	Network             utils.NetworkKnown  `mapstructure:"network"`
 	NetworkCustom       utils.NetworkCustom `mapstructure:"network-custom"`
 	EthNode             string              `mapstructure:"eth-node"`
 	Pprof               bool                `mapstructure:"pprof"`
@@ -122,9 +122,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	var network utils.Network
 	if cfg.Network == utils.Custom {
-		network = cfg.NetworkCustom
+		network = &cfg.NetworkCustom
 	} else {
-		network = cfg.Network
+		network = &cfg.Network
 	}
 
 	chain := blockchain.New(database, network, log)
