@@ -204,22 +204,29 @@ func (n NetworkKnown) ProtocolID() protocol.ID {
 }
 
 type NetworkCustom struct {
-	Name                   string             `json:"name" validate:"required"`
-	FeederURLVal           string             `json:"feeder_url" validate:"required"`
-	GatewayURLVal          string             `json:"gateway_url" validate:"required"`
-	ChainIDVal             string             `json:"chain_id" validate:"required"`
-	ProtocolIDVal          int                `json:"protocol_id" validate:"required"`
-	L1ChainIDVal           *big.Int           `json:"l1_chain_id" validate:"required"`
-	CoreContractAddressVal *common.Address    `json:"core_contract_address" validate:"required"`
-	BlockHashMetaInfo      *blockHashMetaInfo `json:"block_hash_meta_info" validate:"required"`
+	Name                   string          `json:"name" validate:"required"`
+	FeederURLVal           string          `json:"feeder_url" validate:"required"`
+	GatewayURLVal          string          `json:"gateway_url" validate:"required"`
+	ChainIDVal             string          `json:"chain_id" validate:"required"`
+	ProtocolIDVal          int             `json:"protocol_id" validate:"required"`
+	L1ChainIDVal           *big.Int        `json:"l1_chain_id" validate:"required"`
+	CoreContractAddressVal *common.Address `json:"core_contract_address" validate:"required"`
 }
-type blockHashMetaInfo struct {
-	// The sequencer address to use for blocks that do not have one
-	FallBackSequencerAddress *felt.Felt `json:"fallback_sequencer_address" validate:"required"`
-	// First block that uses the post-0.7.0 block hash algorithm
-	First07Block uint64 `json:"first_07_block" validate:"required"`
-	// Range of blocks that are not verifiable
-	UnverifiableRange []uint64 `json:"unverifiable_range" validate:"required"`
+
+func (cn *NetworkCustom) UnmarshalJSON(data []byte) error {
+	type Alias NetworkCustom
+	aux := &struct {
+		CoreContractAddress string `json:"core_contract_address"`
+		*Alias
+	}{
+		Alias: (*Alias)(cn),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	coreContractAddress := common.HexToAddress(aux.CoreContractAddress)
+	cn.CoreContractAddressVal = &coreContractAddress
+	return nil
 }
 
 func (cn *NetworkCustom) String() string {
