@@ -11,7 +11,7 @@ import (
 var _ Migration = (*BucketMigrator)(nil)
 
 type (
-	BucketMigratorDoFunc    func(t db.Transaction, b1, b2 []byte, n utils.NetworkKnown) error
+	BucketMigratorDoFunc    func(t db.Transaction, b1, b2 []byte, n utils.Network) error
 	BucketMigratorKeyFilter func([]byte) (bool, error)
 )
 
@@ -41,7 +41,7 @@ func NewBucketMigrator(target db.Bucket, do BucketMigratorDoFunc) *BucketMigrato
 }
 
 func NewBucketMover(source, destination db.Bucket) *BucketMigrator {
-	return NewBucketMigrator(source, func(txn db.Transaction, key, value []byte, n utils.NetworkKnown) error {
+	return NewBucketMigrator(source, func(txn db.Transaction, key, value []byte, n utils.Network) error {
 		err := txn.Delete(key)
 		if err != nil {
 			return err
@@ -72,7 +72,7 @@ func (m *BucketMigrator) Before(_ []byte) error {
 	return nil
 }
 
-func (m *BucketMigrator) Migrate(_ context.Context, txn db.Transaction, network utils.NetworkKnown) ([]byte, error) {
+func (m *BucketMigrator) Migrate(_ context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
 	remainingInBatch := m.batchSize
 	iterator, err := txn.NewIterator()
 	if err != nil {

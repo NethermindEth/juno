@@ -15,11 +15,11 @@ type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Strea
 
 type Client struct {
 	newStream NewStreamFunc
-	network   utils.NetworkKnown
+	network   utils.Network
 	log       utils.Logger
 }
 
-func NewClient(newStream NewStreamFunc, snNetwork utils.NetworkKnown, log utils.Logger) *Client {
+func NewClient(newStream NewStreamFunc, snNetwork utils.Network, log utils.Logger) *Client {
 	return &Client{
 		newStream: newStream,
 		network:   snNetwork,

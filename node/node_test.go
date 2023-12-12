@@ -50,7 +50,7 @@ func TestNewNode(t *testing.T) {
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 	network := utils.Integration
 	tests := map[string]struct {
-		network   utils.NetworkKnown
+		network   utils.Network
 		errString string
 	}{
 		"same network": {

@@ -30,10 +30,10 @@ import (
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-		blockTimestamp uint64, state core.StateReader, network utils.NetworkKnown,
+		blockTimestamp uint64, state core.StateReader, network utils.Network,
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-		sequencerAddress *felt.Felt, state core.StateReader, network utils.NetworkKnown, paidFeesOnL1 []*felt.Felt,
+		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 		skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
 	) ([]*felt.Felt, []json.RawMessage, error)
 }
@@ -110,7 +110,7 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 }
 
 func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, state core.StateReader, network utils.NetworkKnown,
+	blockTimestamp uint64, state core.StateReader, network utils.Network,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -163,7 +163,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-	sequencerAddress *felt.Felt, state core.StateReader, network utils.NetworkKnown, paidFeesOnL1 []*felt.Felt,
+	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
 ) ([]*felt.Felt, []json.RawMessage, error) {
 	context := &callContext{

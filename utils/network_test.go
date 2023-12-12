@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var networkStrings = map[utils.NetworkKnown]string{
+var networkStrings = map[utils.Network]string{
 	utils.Mainnet:     "mainnet",
 	utils.Goerli:      "goerli",
 	utils.Goerli2:     "goerli2",
@@ -131,7 +131,7 @@ func TestNetworkType(t *testing.T) {
 }
 
 func TestCoreContractAddress(t *testing.T) {
-	addresses := map[utils.NetworkKnown]common.Address{
+	addresses := map[utils.Network]common.Address{
 		utils.Mainnet:     common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
 		utils.Goerli:      common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 		utils.Goerli2:     common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),

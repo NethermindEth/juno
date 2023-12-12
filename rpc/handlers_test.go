@@ -37,7 +37,7 @@ import (
 func nopCloser() error { return nil }
 
 func TestChainId(t *testing.T) {
-	for _, n := range []utils.NetworkKnown{utils.Mainnet, utils.Goerli, utils.Goerli2, utils.Integration} {
+	for _, n := range []utils.Network{utils.Mainnet, utils.Goerli, utils.Goerli2, utils.Integration} {
 		t.Run(n.String(), func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
@@ -539,7 +539,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 func TestTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
 		hash     string
-		network  utils.NetworkKnown
+		network  utils.Network
 		expected string
 	}{
 		"DECLARE v1": {
@@ -828,7 +828,7 @@ func TestTransactionByHash(t *testing.T) {
 func TestLegacyTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
 		hash     string
-		network  utils.NetworkKnown
+		network  utils.Network
 		expected string
 	}{
 		"DECLARE v1": {
@@ -2844,7 +2844,7 @@ func TestTransactionStatus(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	tests := []struct {
-		network           utils.NetworkKnown
+		network           utils.Network
 		verifiedTxHash    *felt.Felt
 		nonVerifiedTxHash *felt.Felt
 		notFoundTxHash    *felt.Felt
@@ -3040,7 +3040,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		gomock.Any(), utils.Mainnet, gomock.Any(), gomock.Any(), gomock.Any(), true, latestHeader.GasPrice,
 		latestHeader.GasPriceSTRK, false).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-			sequencerAddress *felt.Felt, state core.StateReader, network utils.NetworkKnown, paidFeesOnL1 []*felt.Felt,
+			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 			skipChargeFee, skipValidate, errOnRevert bool, gasPriceWei, gasPriceSTRK *felt.Felt, legacyTraceJson bool,
 		) ([]*felt.Felt, []json.RawMessage, error) {
 			require.Len(t, txns, 1)
@@ -3098,7 +3098,7 @@ func TestLegacyEstimateMessageFee(t *testing.T) {
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), utils.Mainnet, gomock.Any(), gomock.Any(), gomock.Any(), true, latestHeader.GasPrice, latestHeader.GasPriceSTRK, false).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-			sequencerAddress *felt.Felt, state core.StateReader, network utils.NetworkKnown, paidFeesOnL1 []*felt.Felt,
+			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 			skipChargeFee, skipValidate, errOnRevert bool, gasPriceWei, gasPriceSTRK *felt.Felt, legacyTraceJson bool,
 		) ([]*felt.Felt, []json.RawMessage, error) {
 			actualFee := new(felt.Felt).Mul(expectedGasConsumed, gasPriceWei)
@@ -3673,7 +3673,7 @@ func TestThrottledVMError(t *testing.T) {
 }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, 0, nil, nil, nil, "", nil)
+	handler := rpc.New(nil, nil, nil, nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0", version)

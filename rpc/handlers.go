@@ -82,7 +82,7 @@ type traceCacheKey struct {
 type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
-	network       utils.NetworkKnown
+	network       utils.Network
 	gatewayClient Gateway
 	feederClient  *feeder.Client
 	vm            vm.VM
@@ -106,7 +106,7 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.NetworkKnown,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{

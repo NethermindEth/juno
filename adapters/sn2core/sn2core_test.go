@@ -19,7 +19,7 @@ func TestAdaptBlock(t *testing.T) {
 	tests := []struct {
 		number          uint64
 		protocolVersion string
-		network         utils.NetworkKnown
+		network         utils.Network
 		sig             *starknet.Signature
 		gasPriceWEI     *felt.Felt
 		gasPriceSTRK    *felt.Felt

@@ -331,11 +331,11 @@ func TestSchemaMetadata(t *testing.T) {
 }
 
 type testMigration struct {
-	exec   func(context.Context, db.Transaction, utils.NetworkKnown) ([]byte, error)
+	exec   func(context.Context, db.Transaction, utils.Network) ([]byte, error)
 	before func([]byte) error
 }
 
-func (f testMigration) Migrate(ctx context.Context, txn db.Transaction, network utils.NetworkKnown) ([]byte, error) {
+func (f testMigration) Migrate(ctx context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
 	return f.exec(ctx, txn, network)
 }
 
@@ -346,7 +346,7 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.Transaction, utils.NetworkKnown) ([]byte, error) {
+				exec: func(context.Context, db.Transaction, utils.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {
@@ -362,7 +362,7 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 		var counter int
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.Transaction, utils.NetworkKnown) ([]byte, error) {
+				exec: func(context.Context, db.Transaction, utils.Network) ([]byte, error) {
 					if counter == 0 {
 						counter++
 						return nil, ErrCallWithNewTransaction
@@ -381,7 +381,7 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.Transaction, utils.NetworkKnown) ([]byte, error) {
+				exec: func(context.Context, db.Transaction, utils.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {

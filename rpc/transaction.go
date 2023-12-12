@@ -393,7 +393,7 @@ type FeeEstimate struct {
 }
 
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
-	network utils.NetworkKnown,
+	network utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
 	var feederTxn starknet.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {

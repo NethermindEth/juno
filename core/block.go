@@ -53,7 +53,7 @@ type blockHashMetaInfo struct {
 	FallBackSequencerAddress *felt.Felt // The sequencer address to use for blocks that do not have one
 }
 
-func NetworkBlockHashMetaInfo(network utils.NetworkKnown) *blockHashMetaInfo {
+func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 	fallBackSequencerAddress, err := new(felt.Felt).SetString(
 		"0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	if err != nil {
@@ -106,7 +106,7 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network utils.NetworkKnown) (*BlockCommitments, error) {
+func VerifyBlockHash(b *Block, network utils.Network) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
@@ -151,7 +151,7 @@ func VerifyBlockHash(b *Block, network utils.NetworkKnown) (*BlockCommitments, e
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, network utils.NetworkKnown, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
+func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	metaInfo := NetworkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
