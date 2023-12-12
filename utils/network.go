@@ -23,6 +23,7 @@ var (
 	_ encoding.TextUnmarshaler = (*NetworkKnown)(nil)
 	_ Network                  = (*NetworkKnown)(nil)
 	_ Network                  = (*NetworkCustom)(nil)
+	_ Network                  = Mainnet
 )
 
 type Network interface {
@@ -50,6 +51,7 @@ const (
 	Integration
 	Sepolia
 	SepoliaIntegration
+	Custom
 )
 
 func (n NetworkKnown) String() string {
@@ -66,6 +68,8 @@ func (n NetworkKnown) String() string {
 		return "sepolia"
 	case SepoliaIntegration:
 		return "sepolia-integration"
+	case Custom:
+		return "custom"
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -76,35 +80,35 @@ func (n NetworkKnown) MarshalYAML() (interface{}, error) {
 	return n.String(), nil
 }
 
-func (n *NetworkKnown) MarshalJSON() ([]byte, error) {
+func (n NetworkKnown) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + n.String() + `"`), nil
 }
 
-func (n *NetworkKnown) Set(s string) error {
+func (n NetworkKnown) Set(s string) error {
 	switch s {
 	case "MAINNET", "mainnet":
-		*n = Mainnet
+		n = Mainnet
 	case "GOERLI", "goerli":
-		*n = Goerli
+		n = Goerli
 	case "GOERLI2", "goerli2":
-		*n = Goerli2
+		n = Goerli2
 	case "INTEGRATION", "integration":
-		*n = Integration
+		n = Integration
 	case "SEPOLIA", "sepolia":
-		*n = Sepolia
+		n = Sepolia
 	case "SEPOLIA_INTEGRATION", "sepolia-integration":
-		*n = SepoliaIntegration
+		n = SepoliaIntegration
 	default:
 		return ErrUnknownNetwork
 	}
 	return nil
 }
 
-func (n *NetworkKnown) Type() string {
+func (n NetworkKnown) Type() string {
 	return "NetworkKnown"
 }
 
-func (n *NetworkKnown) UnmarshalText(text []byte) error {
+func (n NetworkKnown) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
 }
 

@@ -57,6 +57,7 @@ type Config struct {
 	GRPCPort            uint16             `mapstructure:"grpc-port"`
 	DatabasePath        string             `mapstructure:"db-path"`
 	Network             utils.NetworkKnown `mapstructure:"network"`
+	NetworkCustom       utils.Network      `mapstructure:"network-custom"`
 	EthNode             string             `mapstructure:"eth-node"`
 	Pprof               bool               `mapstructure:"pprof"`
 	PprofHost           string             `mapstructure:"pprof-host"`
@@ -84,6 +85,7 @@ type Node struct {
 	cfg        *Config
 	db         db.DB
 	blockchain *blockchain.Blockchain
+	network    utils.Network
 
 	services []service.Service
 	log      utils.Logger
@@ -118,28 +120,35 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	services := make([]service.Service, 0)
 
-	chain := blockchain.New(database, cfg.Network, log)
+	var network utils.Network
+	if cfg.Network == utils.Custom {
+		network = cfg.NetworkCustom
+	} else {
+		network = cfg.Network
+	}
 
-	// Verify that cfg.Network is compatible with the database.
+	chain := blockchain.New(database, network, log)
+
+	// Verify that network is compatible with the database.
 	head, err := chain.Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, fmt.Errorf("get head block from database: %v", err)
 	}
 	if head != nil {
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
-		if _, err = core.VerifyBlockHash(head, cfg.Network); err != nil {
+		if _, err = core.VerifyBlockHash(head, network); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
 		}
 	}
 
 	feederClientTimeout := 5 * time.Second
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
+	client := feeder.NewClient(network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
+	gatewayClient := gateway.NewClient(network.GatewayURL(), log).WithUserAgent(ua)
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
+	rpcHandler := rpc.New(chain, synchronizer, network, gatewayClient, client, throttledVM, version, log)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
@@ -188,6 +197,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	n := &Node{
 		cfg:        cfg,
 		log:        log,
+		network:    network,
 		version:    version,
 		db:         database,
 		blockchain: chain,
