@@ -2,6 +2,7 @@ package node_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,6 +43,49 @@ func TestNewNode(t *testing.T) {
 
 	n, err := node.New(config, "v0.3")
 	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	n.Run(ctx)
+}
+
+// Create a new node with all services enabled.
+func TestNewCustomNode(t *testing.T) {
+	commonAddress := common.HexToAddress("this will still pass")
+	config := &node.Config{
+		LogLevel:      utils.INFO,
+		HTTP:          true,
+		HTTPPort:      0,
+		Websocket:     true,
+		WebsocketPort: 0,
+		GRPC:          true,
+		GRPCPort:      0,
+		DatabasePath:  t.TempDir(),
+		Network:       utils.Custom,
+		NetworkCustom: utils.NetworkCustom{
+			FeederURLVal:           "some_url",
+			GatewayURLVal:          "some_other_url",
+			ChainIDVal:             "SN_CUSTOM",
+			L1ChainIDVal:           big.NewInt(5),
+			ProtocolIDVal:          2,
+			CoreContractAddressVal: &commonAddress,
+		},
+		EthNode:             "",
+		Pprof:               true,
+		PprofPort:           0,
+		Colour:              true,
+		PendingPollInterval: time.Second,
+		Metrics:             true,
+		MetricsPort:         0,
+		P2P:                 true,
+		P2PAddr:             "",
+		P2PBootPeers:        "",
+	}
+
+	n, err := node.New(config, "v0.3")
+	require.NoError(t, err)
+
+	require.Equal(t, "custom", n.Config().Network.String())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
