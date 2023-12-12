@@ -124,7 +124,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if cfg.Network == utils.Custom {
 		network = &cfg.NetworkCustom
 	} else {
-		network = &cfg.Network
+		network = cfg.Network
 	}
 
 	chain := blockchain.New(database, network, log)
