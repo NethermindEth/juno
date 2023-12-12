@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
@@ -204,16 +205,16 @@ func (n NetworkKnown) ProtocolID() protocol.ID {
 }
 
 type NetworkCustom struct {
-	Name                   string          `json:"name" validate:"required"`
 	FeederURLVal           string          `json:"feeder_url" validate:"required"`
 	GatewayURLVal          string          `json:"gateway_url" validate:"required"`
 	ChainIDVal             string          `json:"chain_id" validate:"required"`
-	ProtocolIDVal          int             `json:"protocol_id" validate:"required"`
 	L1ChainIDVal           *big.Int        `json:"l1_chain_id" validate:"required"`
+	ProtocolIDVal          int             `json:"protocol_id" validate:"required"`
 	CoreContractAddressVal *common.Address `json:"core_contract_address" validate:"required"`
 }
 
 func (cn *NetworkCustom) UnmarshalJSON(data []byte) error {
+	fmt.Println("====")
 	type Alias NetworkCustom
 	aux := &struct {
 		CoreContractAddress string `json:"core_contract_address"`
@@ -224,9 +225,18 @@ func (cn *NetworkCustom) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+
+	if !common.IsHexAddress(aux.CoreContractAddress) {
+		return errors.New("invalid core contract address")
+	}
 	coreContractAddress := common.HexToAddress(aux.CoreContractAddress)
 	cn.CoreContractAddressVal = &coreContractAddress
 	return nil
+}
+
+func (cn *NetworkCustom) Validate() error {
+	validate := validator.Validator()
+	return validate.Struct(cn)
 }
 
 func (cn *NetworkCustom) String() string {

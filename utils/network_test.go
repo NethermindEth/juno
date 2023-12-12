@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"strings"
 	"testing"
@@ -145,4 +146,27 @@ func TestCoreContractAddress(t *testing.T) {
 			assert.Equal(t, want, got)
 		})
 	}
+}
+
+func TestUnmarshalJSON(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		data := []byte(`{
+            "core_contract_address": "0x0000000000000000000000000000000000000000"
+        }`)
+
+		var nc utils.NetworkCustom
+		err := json.Unmarshal(data, &nc)
+		require.NoError(t, err)
+		require.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), *nc.CoreContractAddressVal)
+	})
+
+	t.Run("fail", func(t *testing.T) {
+		data := []byte(`{
+            "core_contract_address": "invalid_address"
+        }`)
+
+		var nc utils.NetworkCustom
+		err := json.Unmarshal(data, &nc)
+		require.Error(t, err)
+	})
 }
