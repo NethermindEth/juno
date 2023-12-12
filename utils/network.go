@@ -30,9 +30,9 @@ type Network interface {
 	String() string
 	MarshalYAML() (interface{}, error)
 	MarshalJSON() ([]byte, error)
-	Set(s string) error
+	// Set(s string) error
 	Type() string
-	UnmarshalText(text []byte) error
+	// UnmarshalText(text []byte) error
 	FeederURL() string
 	GatewayURL() string
 	ChainIDString() string
@@ -84,20 +84,20 @@ func (n NetworkKnown) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + n.String() + `"`), nil
 }
 
-func (n NetworkKnown) Set(s string) error {
+func (n *NetworkKnown) Set(s string) error {
 	switch s {
 	case "MAINNET", "mainnet":
-		n = Mainnet
+		*n = Mainnet
 	case "GOERLI", "goerli":
-		n = Goerli
+		*n = Goerli
 	case "GOERLI2", "goerli2":
-		n = Goerli2
+		*n = Goerli2
 	case "INTEGRATION", "integration":
-		n = Integration
+		*n = Integration
 	case "SEPOLIA", "sepolia":
-		n = Sepolia
+		*n = Sepolia
 	case "SEPOLIA_INTEGRATION", "sepolia-integration":
-		n = SepoliaIntegration
+		*n = SepoliaIntegration
 	default:
 		return ErrUnknownNetwork
 	}
@@ -108,7 +108,7 @@ func (n NetworkKnown) Type() string {
 	return "NetworkKnown"
 }
 
-func (n NetworkKnown) UnmarshalText(text []byte) error {
+func (n *NetworkKnown) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
 }
 
