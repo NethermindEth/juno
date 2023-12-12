@@ -45,26 +45,26 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	HTTP                bool           `mapstructure:"http"`
-	HTTPHost            string         `mapstructure:"http-host"`
-	HTTPPort            uint16         `mapstructure:"http-port"`
-	Websocket           bool           `mapstructure:"ws"`
-	WebsocketHost       string         `mapstructure:"ws-host"`
-	WebsocketPort       uint16         `mapstructure:"ws-port"`
-	GRPC                bool           `mapstructure:"grpc"`
-	GRPCHost            string         `mapstructure:"grpc-host"`
-	GRPCPort            uint16         `mapstructure:"grpc-port"`
-	DatabasePath        string         `mapstructure:"db-path"`
-	Network             utils.Network  `mapstructure:"network"`
-	NetworkCustom       utils.Network  `mapstructure:"network-custom"`
-	EthNode             string         `mapstructure:"eth-node"`
-	Pprof               bool           `mapstructure:"pprof"`
-	PprofHost           string         `mapstructure:"pprof-host"`
-	PprofPort           uint16         `mapstructure:"pprof-port"`
-	Colour              bool           `mapstructure:"colour"`
-	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
-	RemoteDB            string         `mapstructure:"remote-db"`
+	LogLevel            utils.LogLevel      `mapstructure:"log-level"`
+	HTTP                bool                `mapstructure:"http"`
+	HTTPHost            string              `mapstructure:"http-host"`
+	HTTPPort            uint16              `mapstructure:"http-port"`
+	Websocket           bool                `mapstructure:"ws"`
+	WebsocketHost       string              `mapstructure:"ws-host"`
+	WebsocketPort       uint16              `mapstructure:"ws-port"`
+	GRPC                bool                `mapstructure:"grpc"`
+	GRPCHost            string              `mapstructure:"grpc-host"`
+	GRPCPort            uint16              `mapstructure:"grpc-port"`
+	DatabasePath        string              `mapstructure:"db-path"`
+	Network             utils.Network       `mapstructure:"network"`
+	NetworkCustom       utils.NetworkCustom `mapstructure:"network-custom"`
+	EthNode             string              `mapstructure:"eth-node"`
+	Pprof               bool                `mapstructure:"pprof"`
+	PprofHost           string              `mapstructure:"pprof-host"`
+	PprofPort           uint16              `mapstructure:"pprof-port"`
+	Colour              bool                `mapstructure:"colour"`
+	PendingPollInterval time.Duration       `mapstructure:"pending-poll-interval"`
+	RemoteDB            string              `mapstructure:"remote-db"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
