@@ -122,7 +122,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	var network utils.Network
 	if cfg.Network == utils.Custom {
-		if cfg.NetworkCustom.Validate() != nil {
+		err = cfg.NetworkCustom.Validate()
+		if err != nil {
 			return nil, err
 		}
 		network = cfg.NetworkCustom

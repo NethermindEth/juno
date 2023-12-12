@@ -14,7 +14,10 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+var (
+	ErrUnknownNetwork             = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+	ErrInvalidCoreContractAddress = errors.New("invalid core contract address")
+)
 
 // The following are necessary for Cobra and Viper, respectively, to unmarshal log level
 // CLI/config parameters properly.
@@ -238,6 +241,9 @@ func (cn *NetworkCustom) UnmarshalYAML(unmarshal func(interface{}) error) error 
 
 func (cn NetworkCustom) Validate() error {
 	validate := validator.Validator()
+	if cn.CoreContractAddressVal.String() == "0x0000000000000000000000000000000000000000" {
+		return ErrInvalidCoreContractAddress
+	}
 	return validate.Struct(cn)
 }
 
