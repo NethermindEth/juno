@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -25,12 +24,9 @@ func Validator() *validator.Validate {
 			case felt.Felt:
 				return f.String()
 			case *felt.Felt:
-				return f.String()
-			case common.Address:
-				return f.String()
 			}
-			panic("not a registered type")
-		}, felt.Felt{}, &felt.Felt{}, common.Address{})
+			panic("not a felt")
+		}, felt.Felt{}, &felt.Felt{})
 		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
 			if t, ok := field.Interface().(TransactionType); ok {
 				return t.String()
