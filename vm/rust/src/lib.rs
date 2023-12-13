@@ -58,7 +58,7 @@ extern "C" {
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
 }
 
-const N_STEPS_FEE_WEIGHT: f64 = 0.01;
+const N_STEPS_FEE_WEIGHT: f64 = 0.005;
 
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
