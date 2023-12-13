@@ -24,6 +24,7 @@ func Validator() *validator.Validate {
 			case felt.Felt:
 				return f.String()
 			case *felt.Felt:
+				return f.String()
 			}
 			panic("not a felt")
 		}, felt.Felt{}, &felt.Felt{})
