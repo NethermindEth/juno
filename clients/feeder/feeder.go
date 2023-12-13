@@ -30,6 +30,12 @@ type Client struct {
 	minWait    time.Duration
 	log        utils.SimpleLogger
 	userAgent  string
+	listener   EventListener
+}
+
+func (c *Client) WithListener(l EventListener) *Client {
+	c.listener = l
+	return c
 }
 
 func (c *Client) WithBackoff(b Backoff) *Client {
@@ -185,6 +191,7 @@ func NewClient(clientURL string) *Client {
 		maxWait:    4 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
+		listener:   &SelectiveListener{},
 	}
 }
 
@@ -225,8 +232,10 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("User-Agent", c.userAgent)
 			}
 
+			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			if err == nil {
+				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
 				} else {
