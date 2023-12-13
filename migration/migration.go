@@ -359,7 +359,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 
 func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, _ utils.Network) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
-	// We instead define a cutom struct to force the encoder to use the default encoding.
+	// We instead define a custom struct to force the encoder to use the default encoding.
 	var n node
 	var buf bytes.Buffer
 	var updatedNodes uint64
@@ -378,7 +378,7 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, 
 				continue
 			}
 
-			// We cant fit the entire migration in a single transaction but
+			// We can't fit the entire migration in a single transaction but
 			// the actual limit is much higher than 1M. But the more updates
 			// you queue on a transaction the more memory it uses. 1M is just
 			// an arbitrary number that we can both fit in a transaction and
