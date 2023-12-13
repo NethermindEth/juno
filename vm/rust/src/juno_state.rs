@@ -260,7 +260,7 @@ impl State for JunoState {
     }
 }
 
-fn state_read_err(err_ptr: *const i8) -> StateResult<()> {
+fn state_read_err(err_ptr: *const c_char) -> StateResult<()> {
         if err_ptr.is_null() {
             return Ok(())
         }
