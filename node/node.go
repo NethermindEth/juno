@@ -81,6 +81,20 @@ type Config struct {
 	DBCacheSize uint `mapstructure:"db-cache-size"`
 }
 
+func (c *Config) GetNetwork() (utils.Network, error) {
+	var network utils.Network
+	if c.Network == utils.Custom {
+		err := c.NetworkCustom.Validate()
+		if err != nil {
+			return nil, err
+		}
+		network = c.NetworkCustom
+	} else {
+		network = c.Network
+	}
+	return network, nil
+}
+
 type Node struct {
 	cfg        *Config
 	db         db.DB
@@ -120,15 +134,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	services := make([]service.Service, 0)
 
-	var network utils.Network
-	if cfg.Network == utils.Custom {
-		err = cfg.NetworkCustom.Validate()
-		if err != nil {
-			return nil, err
-		}
-		network = cfg.NetworkCustom
-	} else {
-		network = cfg.Network
+	network, err := cfg.GetNetwork()
+	if err != nil {
+		return nil, err
 	}
 
 	chain := blockchain.New(database, network, log)
