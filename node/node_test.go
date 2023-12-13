@@ -49,93 +49,70 @@ func TestNewNode(t *testing.T) {
 	n.Run(ctx)
 }
 
-// Create a new node with all services enabled.
-//
-//nolint:dupl
-func TestNewCustomNodeFail(t *testing.T) {
+// Create a new node with all services enabled, except for Metrics,
+// because it panics with "duplicate metrics collector registration attempted"
+func TestNewCustomNode(t *testing.T) {
+	config := &node.Config{
+		LogLevel:      utils.INFO,
+		HTTP:          true,
+		HTTPPort:      0,
+		Websocket:     true,
+		WebsocketPort: 0,
+		GRPC:          true,
+		GRPCPort:      0,
+		DatabasePath:  t.TempDir(),
+		Network:       utils.Custom,
+		NetworkCustom: utils.NetworkCustom{
+			FeederURLVal:  "some_url",
+			GatewayURLVal: "some_other_url",
+			ChainIDVal:    "SN_CUSTOM",
+			L1ChainIDVal:  big.NewInt(5),
+			ProtocolIDVal: 2,
+		},
+		EthNode:             "",
+		Pprof:               true,
+		PprofPort:           0,
+		Colour:              true,
+		PendingPollInterval: time.Second,
+		Metrics:             false,
+		MetricsPort:         0,
+		P2P:                 true,
+		P2PAddr:             "",
+		P2PBootPeers:        "",
+	}
+
 	commonAddressFail := common.HexToAddress("fail")
-	config := &node.Config{
-		LogLevel:      utils.INFO,
-		HTTP:          true,
-		HTTPPort:      0,
-		Websocket:     true,
-		WebsocketPort: 0,
-		GRPC:          true,
-		GRPCPort:      0,
-		DatabasePath:  t.TempDir(),
-		Network:       utils.Custom,
-		NetworkCustom: utils.NetworkCustom{
-			FeederURLVal:           "some_url",
-			GatewayURLVal:          "some_other_url",
-			ChainIDVal:             "SN_CUSTOM",
-			L1ChainIDVal:           big.NewInt(5),
-			ProtocolIDVal:          2,
-			CoreContractAddressVal: &commonAddressFail,
-		},
-		EthNode:             "",
-		Pprof:               true,
-		PprofPort:           0,
-		Colour:              true,
-		PendingPollInterval: time.Second,
-		Metrics:             true,
-		MetricsPort:         0,
-		P2P:                 true,
-		P2PAddr:             "",
-		P2PBootPeers:        "",
-	}
-
-	n, err := node.New(config, "v0.3")
-	if err != nil {
-		require.Equal(t, err, utils.ErrInvalidCoreContractAddress)
-	} else {
-		require.Equal(t, "custom", n.Config().Network.String())
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		n.Run(ctx)
-	}
-}
-
-// Create a new node with all services enabled.
-//
-//nolint:dupl
-func TestNewCustomNodeSuccess(t *testing.T) {
 	commonAddressSuccess := common.HexToAddress("0x1")
-	config := &node.Config{
-		LogLevel:      utils.INFO,
-		HTTP:          true,
-		HTTPPort:      0,
-		Websocket:     true,
-		WebsocketPort: 0,
-		GRPC:          true,
-		GRPCPort:      0,
-		DatabasePath:  t.TempDir(),
-		Network:       utils.Custom,
-		NetworkCustom: utils.NetworkCustom{
-			FeederURLVal:           "some_url",
-			GatewayURLVal:          "some_other_url",
-			ChainIDVal:             "SN_CUSTOM",
-			L1ChainIDVal:           big.NewInt(5),
-			ProtocolIDVal:          2,
-			CoreContractAddressVal: &commonAddressSuccess,
+
+	tests := map[string]struct {
+		commonAddress common.Address
+		err           error
+	}{
+		"success": {
+			commonAddress: commonAddressSuccess,
+			err:           nil,
 		},
-		EthNode:             "",
-		Pprof:               true,
-		PprofPort:           0,
-		Colour:              true,
-		PendingPollInterval: time.Second,
-		Metrics:             true,
-		MetricsPort:         0,
-		P2P:                 true,
-		P2PAddr:             "",
-		P2PBootPeers:        "",
+		"fail": {
+			commonAddress: commonAddressFail,
+			err:           utils.ErrInvalidCoreContractAddress,
+		},
 	}
 
-	n, err := node.New(config, "v0.3")
-	require.Nil(t, err)
-	require.Equal(t, "custom", n.Config().Network.String())
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	n.Run(ctx)
+	for description, test := range tests {
+		t.Run(description, func(t *testing.T) {
+			testcommonAddress := test.commonAddress
+			config.NetworkCustom.CoreContractAddressVal = &testcommonAddress
+			n, err := node.New(config, "v0.3")
+			if err != nil {
+				require.Equal(t, err, test.err)
+			} else {
+				require.Equal(t, "custom", n.Config().Network.String())
+				ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+				n.Run(ctx)
+				cancel()
+			}
+		})
+	}
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
