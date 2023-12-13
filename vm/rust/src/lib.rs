@@ -1,8 +1,8 @@
 pub mod jsonrpc;
-mod juno_state_reader;
+mod juno_state;
 
 use blockifier::state::state_api::State;
-use crate::juno_state_reader::{ptr_to_felt, JunoState};
+use crate::juno_state::{ptr_to_felt, JunoState};
 use std::{
     collections::HashMap,
     ffi::{c_char, c_uchar, c_ulonglong, c_void, c_longlong, CStr, CString},
@@ -37,7 +37,7 @@ use cairo_vm::vm::runners::builtin_runner::{
     OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
     SEGMENT_ARENA_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
 };
-use juno_state_reader::{contract_class_from_json_str, felt_to_byte_array};
+use juno_state::{contract_class_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash};
 use starknet_api::{

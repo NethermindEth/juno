@@ -181,10 +181,12 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
+//
+//nolint:funlen
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-) ([]*felt.Felt, []json.RawMessage, error) { //nolint:funlen
+) ([]*felt.Felt, []json.RawMessage, error) {
 	_, isMutableState := state.(StateReadWriter)
 	declaredClassesMap := make(map[felt.Felt]core.Class)
 	if isMutableState {
