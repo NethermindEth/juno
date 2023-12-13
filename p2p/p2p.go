@@ -46,7 +46,7 @@ type Service struct {
 
 func New(addr, userAgent, bootPeers, privKeyStr string, snNetwork utils.Network, log utils.SimpleLogger) (*Service, error) {
 	if addr == "" {
-		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
+		// 0.0.0.0/tcp/0 will listen on any interface device and assign a free port.
 		addr = "/ip4/0.0.0.0/tcp/0"
 	}
 	sourceMultiAddr, err := multiaddr.NewMultiaddr(addr)
