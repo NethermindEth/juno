@@ -72,7 +72,7 @@ jobs:
     needs: [deploy_to_dev]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.DEV_GOERLI_URL }}/v0_5
+      STARKNET_RPC: ${{ secrets.DEV_GOERLI_URL }}/v0_6
       
   dev-starknet-js-tests:
     needs: [deploy_to_dev]
@@ -110,7 +110,7 @@ jobs:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.STAGING_GOERLI_URL }}/v0_5
+      STARKNET_RPC: ${{ secrets.STAGING_GOERLI_URL }}/v0_6
       
   staging-starknet-js-tests:
     needs: [deploy_to_staging]
@@ -148,7 +148,7 @@ jobs:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.PROD_GOERLI_URL }}/v0_5
+      STARKNET_RPC: ${{ secrets.PROD_GOERLI_URL }}/v0_6
       
   prod-starknet-js-tests:
     needs: [deploy_to_production]
