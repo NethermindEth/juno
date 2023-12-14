@@ -81,8 +81,7 @@ func TestNewCustomNode(t *testing.T) {
 		P2PBootPeers:        "",
 	}
 
-	commonAddressFail := common.HexToAddress("fail")
-	commonAddressSuccess := common.HexToAddress("0x1")
+	commonAddressSuccess := common.HexToAddress("0x0")
 
 	tests := map[string]struct {
 		commonAddress common.Address
@@ -92,10 +91,6 @@ func TestNewCustomNode(t *testing.T) {
 			commonAddress: commonAddressSuccess,
 			err:           nil,
 		},
-		"fail": {
-			commonAddress: commonAddressFail,
-			err:           utils.ErrInvalidCoreContractAddress,
-		},
 	}
 
 	for description, test := range tests {
@@ -103,8 +98,8 @@ func TestNewCustomNode(t *testing.T) {
 			testcommonAddress := test.commonAddress
 			config.NetworkCustom.CoreContractAddressVal = &testcommonAddress
 			n, err := node.New(config, "v0.3")
-			if err != nil {
-				require.Equal(t, err, test.err)
+			if test.err != nil {
+				require.Equal(t, test.err, err)
 			} else {
 				require.Equal(t, "custom", n.Config().Network.String())
 				ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
@@ -113,6 +108,36 @@ func TestNewCustomNode(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetNetwork(t *testing.T) {
+	t.Run("custom network", func(t *testing.T) {
+		commonAddressSuccess := common.HexToAddress("0x1")
+		config := &node.Config{
+			Network: utils.Custom,
+			NetworkCustom: utils.NetworkCustom{
+				FeederURLVal:           "some_url",
+				GatewayURLVal:          "some_other_url",
+				ChainIDVal:             "SN_CUSTOM",
+				L1ChainIDVal:           big.NewInt(5),
+				ProtocolIDVal:          2,
+				CoreContractAddressVal: &commonAddressSuccess,
+			},
+		}
+		network, err := config.GetNetwork()
+		require.NoError(t, err)
+		require.Equal(t, config.NetworkCustom, network)
+	})
+
+	t.Run("known network", func(t *testing.T) {
+		config := &node.Config{
+			Network: utils.Mainnet,
+		}
+
+		network, err := config.GetNetwork()
+		require.NoError(t, err)
+		require.Equal(t, config.Network, network)
+	})
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {

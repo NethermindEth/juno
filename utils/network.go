@@ -8,7 +8,6 @@ import (
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
@@ -33,9 +32,7 @@ type Network interface {
 	String() string
 	MarshalYAML() (interface{}, error)
 	MarshalJSON() ([]byte, error)
-	// Set(s string) error
 	Type() string
-	// UnmarshalText(text []byte) error
 	FeederURL() string
 	GatewayURL() string
 	ChainIDString() string
@@ -237,14 +234,6 @@ func (cn *NetworkCustom) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	coreContractAddress := common.HexToAddress(aux.CoreContractAddress)
 	cn.CoreContractAddressVal = &coreContractAddress
 	return nil
-}
-
-func (cn NetworkCustom) Validate() error {
-	validate := validator.Validator()
-	if cn.CoreContractAddressVal.String() == "0x0000000000000000000000000000000000000000" {
-		return ErrInvalidCoreContractAddress
-	}
-	return validate.Struct(cn)
 }
 
 func (cn NetworkCustom) String() string {

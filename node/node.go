@@ -83,8 +83,10 @@ type Config struct {
 
 func (c *Config) GetNetwork() (utils.Network, error) {
 	var network utils.Network
+
 	if c.Network == utils.Custom {
-		err := c.NetworkCustom.Validate()
+		validate := validator.Validator()
+		err := validate.Struct(c.NetworkCustom)
 		if err != nil {
 			return nil, err
 		}
