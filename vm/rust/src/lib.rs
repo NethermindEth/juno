@@ -72,8 +72,8 @@ pub extern "C" fn cairoVMCall(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
+    mutable_state: c_uchar,
 ) {
-    let reader = JunoState::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
     let class_hash = if class_hash.is_null() {
         None
@@ -108,7 +108,16 @@ pub extern "C" fn cairoVMCall(
         eth_l1_gas_price: 1,
         strk_l1_gas_price: 1,
     };
-    let mut state = CachedState::new(reader, GlobalContractCache::default());
+
+    let mut juno_state = JunoState::new(reader_handle, block_number);
+    let mut cached_juno_state: CachedState<JunoState>;
+    let mut state: MutRefState<'_, dyn State> = if mutable_state == 0 {
+        cached_juno_state = CachedState::new(juno_state, GlobalContractCache::default());
+        MutRefState::new(&mut cached_juno_state)
+    } else {
+        MutRefState::new(&mut juno_state)
+    };
+
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new(
         &build_block_context(
