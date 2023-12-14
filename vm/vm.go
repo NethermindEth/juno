@@ -76,6 +76,24 @@ type callContext struct {
 	declaredClasses map[felt.Felt]core.Class
 }
 
+func newContext(state core.StateReader, log utils.SimpleLogger, declaredClasses []core.Class) (*callContext, error) {
+	declaredClassesMap := make(map[felt.Felt]core.Class)
+	for _, declaredClass := range declaredClasses {
+		classHash, err := declaredClass.Hash()
+		if err != nil {
+			return nil, fmt.Errorf("calculate declared class hash: %v", err)
+		}
+		declaredClassesMap[*classHash] = declaredClass
+	}
+
+	return &callContext{
+		state:           state,
+		response:        []*felt.Felt{},
+		log:             log,
+		declaredClasses: declaredClassesMap,
+	}, nil
+}
+
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
 	context, ok := cgo.Handle(readerHandle).Value().(*callContext)
 	if !ok {
@@ -121,14 +139,22 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 	return C.CBytes(feltBytes[:])
 }
 
+func makeByteFromBool(b bool) byte {
+	var boolByte byte
+	if b {
+		boolByte = 1
+	}
+	return boolByte
+}
+
 func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 	blockTimestamp uint64, state core.StateReader, network utils.Network,
 ) ([]*felt.Felt, error) {
-	context := &callContext{
-		state:    state,
-		response: []*felt.Felt{},
-		log:      v.log,
+	context, err := newContext(state, v.log, nil)
+	if err != nil {
+		return nil, err
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -152,10 +178,8 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 	}
 	chainID := C.CString(network.ChainIDString())
 
-	var mutableStateByte byte
-	if _, ok := state.(StateReadWriter); ok {
-		mutableStateByte = 1
-	}
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 
 	C.cairoVMCall((*C.char)(unsafe.Pointer(&addrBytes[0])),
 		(*C.char)(unsafe.Pointer(classHashPtr)),
@@ -181,28 +205,15 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-//
-//nolint:funlen
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
 ) ([]*felt.Felt, []json.RawMessage, error) {
-	_, isMutableState := state.(StateReadWriter)
-	declaredClassesMap := make(map[felt.Felt]core.Class)
-	if isMutableState {
-		for _, declaredClass := range declaredClasses {
-			classHash, err := declaredClass.Hash()
-			if err != nil {
-				return nil, nil, fmt.Errorf("calculate declared class hash: %v", err)
-			}
-			declaredClassesMap[*classHash] = declaredClass
-		}
+	context, err := newContext(state, v.log, declaredClasses)
+	if err != nil {
+		return nil, nil, err
 	}
-	context := &callContext{
-		state:           state,
-		log:             v.log,
-		declaredClasses: declaredClassesMap,
-	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -228,29 +239,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	}
 	gasPriceSTRKBytes := gasPriceSTRK.Bytes()
 
-	var skipChargeFeeByte byte
-	if skipChargeFee {
-		skipChargeFeeByte = 1
-	}
-
-	var skipValidateByte byte
-	if skipValidate {
-		skipValidateByte = 1
-	}
-
-	var errOnRevertByte byte
-	if errOnRevert {
-		errOnRevertByte = 1
-	}
-	var legacyTraceJSONByte byte
-	if legacyTraceJSON {
-		legacyTraceJSONByte = 1
-	}
-
-	var mutableStateByte byte
-	if isMutableState {
-		mutableStateByte = 1
-	}
+	skipChargeFeeByte := makeByteFromBool(skipChargeFee)
+	skipValidateByte := makeByteFromBool(skipValidate)
+	errOnRevertByte := makeByteFromBool(errOnRevert)
+	legacyTraceJSONByte := makeByteFromBool(legacyTraceJSON)
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 
 	chainID := C.CString(network.ChainIDString())
 	C.cairoVMExecute(txnsJSONCstr,
