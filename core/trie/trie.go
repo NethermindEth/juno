@@ -31,7 +31,7 @@ type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 //   - key: represents the storage key for trie [Node]s. It is the full path to the node from the
 //     root.
 //
-// [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
+// [specification]: https://docs.starknet.io/documentation/architecture_and_concepts/Network_Architecture/starknet-state/
 type Trie struct {
 	height  uint8
 	rootKey *Key
@@ -118,7 +118,7 @@ func isSubset(longerKey, shorterKey *Key) bool {
 // path is suffix of key that diverges from parentKey. For example,
 // for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
 //
-// [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
+// [specification]: https://docs.starknet.io/documentation/architecture_and_concepts/Network_Architecture/starknet-state/
 func path(key, parentKey *Key) Key {
 	path := *key
 	// drop parent key, and one more MSB since left/right relation already encodes that information
