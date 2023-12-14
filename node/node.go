@@ -90,7 +90,7 @@ func (c *Config) GetNetwork() (utils.Network, error) {
 		if err != nil {
 			return nil, err
 		}
-		network = c.NetworkCustom
+		network = &c.NetworkCustom
 	} else {
 		network = c.Network
 	}

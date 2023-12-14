@@ -126,7 +126,7 @@ func TestGetNetwork(t *testing.T) {
 		}
 		network, err := config.GetNetwork()
 		require.NoError(t, err)
-		require.Equal(t, config.NetworkCustom, network)
+		require.Equal(t, &config.NetworkCustom, network)
 	})
 
 	t.Run("known network", func(t *testing.T) {

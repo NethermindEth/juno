@@ -236,57 +236,57 @@ func (cn *NetworkCustom) UnmarshalYAML(unmarshal func(interface{}) error) error 
 	return nil
 }
 
-func (cn NetworkCustom) String() string {
+func (cn *NetworkCustom) String() string {
 	return "custom"
 }
 
-func (cn NetworkCustom) MarshalYAML() (interface{}, error) {
+func (cn *NetworkCustom) MarshalYAML() (interface{}, error) {
 	return cn.String(), nil
 }
 
-func (cn NetworkCustom) MarshalJSON() ([]byte, error) {
+func (cn *NetworkCustom) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(`"` + cn.String() + `"`), nil
 }
 
-func (cn NetworkCustom) Set(s string) error {
+func (cn *NetworkCustom) Set(s string) error {
 	return errors.New("custom networks cannot be set")
 }
 
-func (cn NetworkCustom) Type() string {
+func (cn *NetworkCustom) Type() string {
 	return "NetworkCustom"
 }
 
-func (cn NetworkCustom) UnmarshalText(text []byte) error {
+func (cn *NetworkCustom) UnmarshalText(text []byte) error {
 	return cn.Set(string(text))
 }
 
-func (cn NetworkCustom) FeederURL() string {
+func (cn *NetworkCustom) FeederURL() string {
 	return cn.FeederURLVal
 }
 
-func (cn NetworkCustom) GatewayURL() string {
+func (cn *NetworkCustom) GatewayURL() string {
 	return cn.GatewayURLVal
 }
 
-func (cn NetworkCustom) ChainIDString() string {
+func (cn *NetworkCustom) ChainIDString() string {
 	return cn.ChainIDVal
 }
 
-func (cn NetworkCustom) DefaultL1ChainID() *big.Int {
+func (cn *NetworkCustom) DefaultL1ChainID() *big.Int {
 	return cn.L1ChainIDVal
 }
 
-func (cn NetworkCustom) CoreContractAddress() (common.Address, error) {
+func (cn *NetworkCustom) CoreContractAddress() (common.Address, error) {
 	if cn.CoreContractAddressVal == nil {
 		return common.Address{}, errors.New("core contract address is nil")
 	}
 	return *cn.CoreContractAddressVal, nil
 }
 
-func (cn NetworkCustom) ChainID() *felt.Felt {
+func (cn *NetworkCustom) ChainID() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(cn.ChainIDVal))
 }
 
-func (cn NetworkCustom) ProtocolID() protocol.ID {
+func (cn *NetworkCustom) ProtocolID() protocol.ID {
 	return protocol.ID(fmt.Sprintf("/starknet/%q", cn.ProtocolIDVal))
 }
