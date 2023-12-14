@@ -99,7 +99,7 @@ func JunoStateSetStorage(readerHandle C.uintptr_t, addr, key, value unsafe.Point
 	keyFelt := makeFeltFromPtr(key)
 	valueFelt := makeFeltFromPtr(value)
 	state := context.state.(StateReadWriter)
-	if err := state.SetStorage(addrFelt, keyFelt, valueFelt); err != nil {
+	if err := state.SetStorage(addrFelt, keyFelt, valueFelt); err != nil { //nolint:gocritic
 		return unsafe.Pointer(C.CString(err.Error()))
 	}
 	return nil
@@ -110,7 +110,7 @@ func JunoStateIncrementNonce(readerHandle C.uintptr_t, addr unsafe.Pointer) unsa
 	context := unwrapContext(readerHandle)
 	addrFelt := makeFeltFromPtr(addr)
 	state := context.state.(StateReadWriter)
-	if err := state.IncrementNonce(addrFelt); err != nil {
+	if err := state.IncrementNonce(addrFelt); err != nil { //nolint:gocritic
 		return unsafe.Pointer(C.CString(err.Error()))
 	}
 	return nil
@@ -122,7 +122,7 @@ func JunoStateSetClassHashAt(readerHandle C.uintptr_t, addr, classHash unsafe.Po
 	addrFelt := makeFeltFromPtr(addr)
 	classHashFelt := makeFeltFromPtr(classHash)
 	state := context.state.(StateReadWriter)
-	if err := state.SetClassHash(addrFelt, classHashFelt); err != nil {
+	if err := state.SetClassHash(addrFelt, classHashFelt); err != nil { //nolint:gocritic
 		return unsafe.Pointer(C.CString(err.Error()))
 	}
 	return nil
