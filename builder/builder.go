@@ -51,8 +51,16 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 		}
 	}()
 
-	_, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, pendingBlock.Block.Number,
-		pendingBlock.Block.Timestamp, &b.ownAddress, state, b.bc.Network(), []*felt.Felt{},
-		false, false, false, pendingBlock.Block.GasPrice, pendingBlock.Block.GasPriceSTRK, false)
+	blockInfo := &vm.BlockInfo{
+		Header: &core.Header{
+			Number:           pendingBlock.Block.Number,
+			Timestamp:        pendingBlock.Block.Timestamp,
+			SequencerAddress: &b.ownAddress,
+			GasPrice:         pendingBlock.Block.GasPrice,
+			GasPriceSTRK:     pendingBlock.Block.GasPriceSTRK,
+		},
+	}
+	_, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, []*felt.Felt{}, blockInfo, state, //nolint:dogsled
+		b.bc.Network(), false, false, false, false)
 	return err
 }

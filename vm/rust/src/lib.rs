@@ -1,10 +1,12 @@
 pub mod jsonrpc;
-mod juno_state_reader;
+mod juno_state;
 
 #[macro_use]
 extern crate lazy_static;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use blockifier::state::state_api::State;
+use crate::juno_state::{ptr_to_felt, JunoState};
 use std::{
     collections::HashMap, ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
 };
@@ -14,6 +16,19 @@ use blockifier::{
         contract_class::ClassInfo,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     }, fee::fee_utils::calculate_tx_fee, state::{cached_state::{CachedState, GlobalContractCache}, state_api::State}, transaction::{
+    abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
+    block_context::{BlockContext, GasPrices, FeeTokenAddresses},
+    execution::{
+        common_hints::ExecutionMode,
+        contract_class::ContractClass,
+        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
+    },
+    fee::fee_utils::calculate_tx_fee,
+    state::cached_state::{CachedState, GlobalContractCache, MutRefState},
+    transaction::{
+        objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType},
+        transaction_execution::Transaction,
+        transactions::ExecutableTransaction,
         errors::TransactionExecutionError::{
             ContractConstructorExecutionFailed,
             ExecutionError,
@@ -23,6 +38,12 @@ use blockifier::{
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
+use cairo_vm::vm::runners::builtin_runner::{
+    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
+    OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
+    SEGMENT_ARENA_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
+};
+use juno_state::{contract_class_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::{block::BlockHash, core::PatriciaKey, transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash}};
 use starknet_api::{
@@ -238,7 +259,7 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
-        let mut txn_state = CachedState::create_transactional(&mut state);
+        let mut txn_state = CachedState::new_transactional(&mut state);
         let fee_type;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
