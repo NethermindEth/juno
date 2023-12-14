@@ -12,7 +12,6 @@ use blockifier::{
         cached_state::CommitmentStateDiff,
     }
 };
-use indexmap::IndexMap;
 use cached::{Cached, SizedCache};
 use once_cell::sync::Lazy;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -250,13 +249,7 @@ impl State for JunoState {
     }
 
     fn to_state_diff(&mut self) -> CommitmentStateDiff {
-        // return an empty state diff for now. Not needed when we are directly storing all writes anyway.
-        CommitmentStateDiff {
-            address_to_class_hash: IndexMap::default(),
-            storage_updates: IndexMap::default(),
-            class_hash_to_compiled_class_hash: IndexMap::default(),
-            address_to_nonce: IndexMap::default(),
-        }
+        unimplemented!()
     }
 }
 
