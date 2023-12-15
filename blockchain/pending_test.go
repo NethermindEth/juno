@@ -279,3 +279,9 @@ func TestSetCompiledClassHash(t *testing.T) {
 	compiledClassHash := new(felt.Felt).SetUint64(43)
 	require.NoError(t, state.SetCompiledClassHash(classHash, compiledClassHash))
 }
+
+func TestStateDiff(t *testing.T) {
+	state := makeState(t)
+	got := state.StateDiff()
+	require.Equal(t, core.EmptyStateDiff(), got)
+}
