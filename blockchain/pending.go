@@ -119,3 +119,9 @@ func (p *PendingState) SetCompiledClassHash(classHash, compiledClassHash *felt.F
 	p.stateDiff.DeclaredV1Classes[*classHash] = compiledClassHash.Clone()
 	return nil
 }
+
+// StateDiff returns the pending state's internal state diff. The returned object will continue to be
+// read and modified by the pending state.
+func (p *PendingState) StateDiff() *core.StateDiff {
+	return p.stateDiff
+}
