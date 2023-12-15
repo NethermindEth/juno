@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 
+	"github.com/NethermindEth/juno/adapters/p2p2core"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func (s *syncService) startPipeline(ctx context.Context) {
@@ -26,9 +30,13 @@ func (s *syncService) startPipeline(ctx context.Context) {
 		s.log.Errorw("Failed to get current height", "err", err)
 	}
 
-	_, err = s.genBlockHeadersAndSigs(ctx, s.createIterator(BlockRange{nextHeight, bootNodeHeight}))
+	headersAndSigsCh, err := s.genBlockHeadersAndSigs(ctx, s.createIterator(BlockRange{nextHeight, bootNodeHeight}))
 	if err != nil {
 		s.log.Errorw("Failed to get block headers parts", "err", err)
+	}
+
+	for h := range adaptBlockHeadersAndSigs(ctx, headersAndSigsCh) {
+		spew.Dump(h)
 	}
 }
 
@@ -70,4 +78,23 @@ func (s *syncService) genBlockHeadersAndSigs(ctx context.Context, it *spec.Itera
 	}()
 
 	return headersAndSigCh, nil
+}
+
+func adaptBlockHeadersAndSigs(ctx context.Context, headersAndSigsCh <-chan blockHeaderAndSigs) <-chan core.Header {
+	headersCh := make(chan core.Header)
+	go func() {
+		defer close(headersCh)
+		for headerAndSig := range headersAndSigsCh {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				var header core.Header
+				header = p2p2core.AdaptBlockHeader(headerAndSig.header)
+				header.Signatures = utils.Map(headerAndSig.sig.GetSignatures(), p2p2core.AdaptSignature)
+				headersCh <- header
+			}
+		}
+	}()
+	return headersCh
 }

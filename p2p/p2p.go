@@ -230,7 +230,8 @@ func (s *Service) Run(ctx context.Context) error {
 	// 4. Synchroniser has snapshot of peers to send requests to
 	if !s.bootNode {
 		// s.synchroniser.start(ctx)
-		s.synchroniser.startSerial(ctx)
+		// s.synchroniser.startSerial(ctx)
+		s.synchroniser.startPipeline(ctx)
 	}
 	s.setProtocolHandlers()
 
