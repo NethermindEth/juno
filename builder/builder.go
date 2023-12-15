@@ -85,19 +85,31 @@ func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 		return err
 	}
 
-	penidngState := blockchain.NewPendingState(genStateDiff, newClasses, nil) // todo:reader??
+	pendingState := blockchain.NewPendingState(genStateDiff, newClasses, nil) // todo:reader??
 
 	for _, fnCall := range genesisConfig.FunctionCalls {
-		classHash, err := penidngState.ContractClassHash(&fnCall.ContractAddress)
+		classHash, err := pendingState.ContractClassHash(&fnCall.ContractAddress)
 		if err != nil {
 			return err
 		}
-		_, err = b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, penidngState, b.network)
+		_, err = b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, b.network)
 		if err != nil {
 			return err
 		}
 	}
 
+	pending := blockchain.Pending{
+		Block: &core.Block{},
+		StateUpdate: &core.StateUpdate{
+			BlockHash: nil,
+			NewRoot:   nil,
+			OldRoot:   nil,
+			StateDiff: nil,
+		},
+		NewClasses: newClasses,
+	}
+
+	return b.bc.StorePending(&pending)
 }
 
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
