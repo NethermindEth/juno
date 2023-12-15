@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	ErrUnknownNetwork             = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+	ErrUnknownNetwork             = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 	ErrInvalidCoreContractAddress = errors.New("invalid core contract address")
 )
 
@@ -53,6 +53,7 @@ const (
 	SepoliaIntegration
 	Custom
 )
+const CustomStr = "custom"
 
 func (n NetworkKnown) String() string {
 	switch n {
@@ -69,7 +70,7 @@ func (n NetworkKnown) String() string {
 	case SepoliaIntegration:
 		return "sepolia-integration"
 	case Custom:
-		return "custom"
+		return CustomStr
 	default:
 		// Should not happen.
 		panic(ErrUnknownNetwork)
@@ -98,6 +99,8 @@ func (n *NetworkKnown) Set(s string) error {
 		*n = Sepolia
 	case "SEPOLIA_INTEGRATION", "sepolia-integration":
 		*n = SepoliaIntegration
+	case "CUSTOM", "custom":
+		*n = Custom
 	default:
 		return ErrUnknownNetwork
 	}
@@ -209,7 +212,7 @@ func (n NetworkKnown) ProtocolID() protocol.ID {
 }
 
 type NetworkCustom struct {
-	FeederURLVal           string          `yaml:"feeder_url" validate:"required"`
+	FeederURLVal           string          `yaml:"feeder_url" validate:"required" mapstructure:"feeder-url"`
 	GatewayURLVal          string          `yaml:"gateway_url" validate:"required"`
 	ChainIDVal             string          `yaml:"chain_id" validate:"required"`
 	L1ChainIDVal           *big.Int        `yaml:"l1_chain_id" validate:"required"`
@@ -237,7 +240,7 @@ func (cn *NetworkCustom) UnmarshalYAML(unmarshal func(interface{}) error) error 
 }
 
 func (cn *NetworkCustom) String() string {
-	return "custom"
+	return CustomStr
 }
 
 func (cn *NetworkCustom) MarshalYAML() (interface{}, error) {
