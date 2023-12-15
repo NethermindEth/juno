@@ -135,7 +135,7 @@ func (s *syncService) start(ctx context.Context) {
 	var curHeight int32 = -1
 
 	logBlocks := func(prefix string, input <-chan blockBody) <-chan blockBody {
-		return utils.Pipeline(input, func(item blockBody) blockBody {
+		return utils.PipelineStage(ctx, input, func(item blockBody) blockBody {
 			fmt.Println(prefix, item.block.Number)
 			return item
 		})

@@ -1,5 +1,8 @@
 package utils
 
+import "context"
+
+// todo: Consider moving this and the test file to its own package
 func PriorityQueue[T any](highPriority, lowPriority <-chan T) <-chan T {
 	out := make(chan T)
 
@@ -39,7 +42,7 @@ func PriorityQueue[T any](highPriority, lowPriority <-chan T) <-chan T {
 	return out
 }
 
-func Pipeline[From any, To any](in <-chan From, f func(From) To) <-chan To {
+func PipelineStage[From any, To any](ctx context.Context, in <-chan From, f func(From) To) <-chan To {
 	out := make(chan To)
 
 	if in == nil {
@@ -51,7 +54,12 @@ func Pipeline[From any, To any](in <-chan From, f func(From) To) <-chan To {
 	go func() {
 		defer close(out)
 		for v := range in {
-			out <- f(v)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				out <- f(v)
+			}
 		}
 	}()
 
