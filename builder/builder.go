@@ -85,7 +85,15 @@ func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 		return err
 	}
 
-	pendingState := blockchain.NewPendingState(genStateDiff, newClasses, nil) // todo:reader??
+	pendingState, closer, err := b.bc.PendingStateGivenNewClassesAndStateDiff(genStateDiff, newClasses)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := closer(); err != nil {
+			b.log.Errorw("failed to close state in GenesisState", "err", err)
+		}
+	}()
 
 	for _, fnCall := range genesisConfig.FunctionCalls {
 		classHash, err := pendingState.ContractClassHash(&fnCall.ContractAddress)

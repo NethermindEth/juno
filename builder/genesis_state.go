@@ -8,7 +8,7 @@ import (
 type GenesisConfig struct {
 	ChainID string `json:"chain_id" validate:"required"`
 
-	Classes []string `json:"classes"` // list of class.json files
+	Classes []string `json:"classes"` // []path-to-class.json
 
 	Contracts map[string]GenesisContractData `json:"contracts"` // address -> {classHash, constructorArgs}
 
