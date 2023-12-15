@@ -59,7 +59,6 @@ jobs:
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
           GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
           INTEGRATION: apps/juno-dev/overlays/dev-integration/config.yaml
-          MAINNET: apps/juno-dev/overlays/dev-mainnet/config.yaml
         run: |
           curl -L \
           -X POST \
@@ -67,12 +66,13 @@ jobs:
           -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+  
   dev-starknet-rs-tests:
     needs: [deploy_to_dev]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.DEV_GOERLI_URL }}/v0_5
+      STARKNET_RPC: ${{ secrets.DEV_GOERLI_URL }}/v0_6
       
   dev-starknet-js-tests:
     needs: [deploy_to_dev]
@@ -95,6 +95,8 @@ jobs:
           GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
           INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
           MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
+          SEPOLIA: apps/juno-staging/overlays/staging-sepolia/config.yaml
+          SEPOLIA-INTEGRATION: apps/juno-staging/overlays/staging-sepolia-integration/config.yaml
       run: |
           curl -L \
           -X POST \
@@ -102,12 +104,13 @@ jobs:
           -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA-INTEGRATION}}", "tag": "${{ env.IMAGE_TAG }}"}}'
+
   staging-starknet-rs-tests:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.STAGING_GOERLI_URL }}/v0_5
+      STARKNET_RPC: ${{ secrets.STAGING_GOERLI_URL }}/v0_6
       
   staging-starknet-js-tests:
     needs: [deploy_to_staging]
@@ -130,6 +133,8 @@ jobs:
           GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
           INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
           MAINNET: apps/juno-prod/overlays/prod-mainnet/config.yaml
+          SEPOLIA: apps/juno-prod/overlays/prod-sepolia/config.yaml
+          SEPOLIA-INTEGRATION: apps/juno-prod/overlays/prod-sepolia-integration/config.yaml
         run: |
           curl -L \
           -X POST \
@@ -137,13 +142,13 @@ jobs:
           -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA-INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
           
   prod-starknet-rs-tests:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.PROD_GOERLI_URL }}/v0_5
+      STARKNET_RPC: ${{ secrets.PROD_GOERLI_URL }}/v0_6
       
   prod-starknet-js-tests:
     needs: [deploy_to_production]
