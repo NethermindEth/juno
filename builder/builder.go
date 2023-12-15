@@ -71,7 +71,13 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 
 func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 	blockTimestamp := uint64(time.Now().Unix())
-	state, closer, err := b.bc.StateAtBlockNumber(0) // Replace with the actual genesis state, that contains the classes etc
+
+	genStateDiff, err := blockchain.MakeStateDiffForEmptyBlock(b.bc, 0)
+	if err != nil {
+		return err
+	}
+
+	genState, closer, err := b.bc.PendingState()
 	if err != nil {
 		return err
 	}
@@ -81,13 +87,17 @@ func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 		}
 	}()
 
-	// Build State Diff by calling vm.Call(fnCall)
+	// Load and apply contract classes, and accounts
+
 	for _, fnCall := range genesisConfig.FunctionCalls {
-		classHash, err := state.ContractClassHash(&fnCall.ContractAddress)
+		classHash, err := genState.ContractClassHash(&fnCall.ContractAddress)
 		if err != nil {
 			return err
 		}
-		resp, err := b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, state, b.network)
+		_, err = b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, genState, b.network)
+		if err != nil {
+			return err
+		}
 	}
 
 }
