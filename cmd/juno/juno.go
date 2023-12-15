@@ -34,63 +34,69 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 `
 
 const (
-	configF                    = "config"
-	logLevelF                  = "log-level"
-	httpF                      = "http"
-	httpHostF                  = "http-host"
-	httpPortF                  = "http-port"
-	wsF                        = "ws"
-	wsHostF                    = "ws-host"
-	wsPortF                    = "ws-port"
-	dbPathF                    = "db-path"
-	networkF                   = "network"
-	ethNodeF                   = "eth-node"
-	pprofF                     = "pprof"
-	pprofHostF                 = "pprof-host"
-	pprofPortF                 = "pprof-port"
-	colourF                    = "colour"
-	pendingPollIntervalF       = "pending-poll-interval"
-	p2pF                       = "p2p"
-	p2pAddrF                   = "p2p-addr"
-	p2pBootPeersF              = "p2p-boot-peers"
-	metricsF                   = "metrics"
-	metricsHostF               = "metrics-host"
-	metricsPortF               = "metrics-port"
-	grpcF                      = "grpc"
-	grpcHostF                  = "grpc-host"
-	grpcPortF                  = "grpc-port"
-	maxVMsF                    = "max-vms"
-	maxVMQueueF                = "max-vm-queue"
-	remoteDBF                  = "remote-db"
-	rpcMaxBlockScanF           = "rpc-max-block-scan"
-	dbCacheSizeF               = "db-cache-size"
-	feederURLF                 = "feeder-url"
-	gatewayURLF                = "gateway-url"
-	chainIDF                   = "chain-id"
-	l1ChainIDF                 = "l1-chain-id"
-	protocolIDF                = "protocol-id"
-	coreContractAddressF       = "core-contract-address"
-	defaultConfig              = ""
-	defaulHost                 = "localhost"
-	defaultHTTP                = false
-	defaultHTTPPort            = 6060
-	defaultWS                  = false
-	defaultWSPort              = 6061
-	defaultEthNode             = ""
-	defaultPprof               = false
-	defaultPprofPort           = 6062
-	defaultColour              = true
-	defaultPendingPollInterval = time.Duration(0)
-	defaultP2p                 = false
-	defaultP2pAddr             = ""
-	defaultP2pBootPeers        = ""
-	defaultMetrics             = false
-	defaultMetricsPort         = 9090
-	defaultGRPC                = false
-	defaultGRPCPort            = 6064
-	defaultRemoteDB            = ""
-	defaultRPCMaxBlockScan     = math.MaxUint
-	defaultCacheSizeMb         = 8
+	configF                       = "config"
+	logLevelF                     = "log-level"
+	httpF                         = "http"
+	httpHostF                     = "http-host"
+	httpPortF                     = "http-port"
+	wsF                           = "ws"
+	wsHostF                       = "ws-host"
+	wsPortF                       = "ws-port"
+	dbPathF                       = "db-path"
+	networkF                      = "network"
+	ethNodeF                      = "eth-node"
+	pprofF                        = "pprof"
+	pprofHostF                    = "pprof-host"
+	pprofPortF                    = "pprof-port"
+	colourF                       = "colour"
+	pendingPollIntervalF          = "pending-poll-interval"
+	p2pF                          = "p2p"
+	p2pAddrF                      = "p2p-addr"
+	p2pBootPeersF                 = "p2p-boot-peers"
+	metricsF                      = "metrics"
+	metricsHostF                  = "metrics-host"
+	metricsPortF                  = "metrics-port"
+	grpcF                         = "grpc"
+	grpcHostF                     = "grpc-host"
+	grpcPortF                     = "grpc-port"
+	maxVMsF                       = "max-vms"
+	maxVMQueueF                   = "max-vm-queue"
+	remoteDBF                     = "remote-db"
+	rpcMaxBlockScanF              = "rpc-max-block-scan"
+	dbCacheSizeF                  = "db-cache-size"
+	feederURLF                    = "feeder-url"
+	gatewayURLF                   = "gateway-url"
+	chainIDF                      = "chain-id"
+	l1ChainIDF                    = "l1-chain-id"
+	protocolIDF                   = "protocol-id"
+	coreContractAddressF          = "core-contract-address"
+	defaultConfig                 = ""
+	defaulHost                    = "localhost"
+	defaultHTTP                   = false
+	defaultHTTPPort               = 6060
+	defaultWS                     = false
+	defaultWSPort                 = 6061
+	defaultEthNode                = ""
+	defaultPprof                  = false
+	defaultPprofPort              = 6062
+	defaultColour                 = true
+	defaultPendingPollInterval    = time.Duration(0)
+	defaultP2p                    = false
+	defaultP2pAddr                = ""
+	defaultP2pBootPeers           = ""
+	defaultMetrics                = false
+	defaultMetricsPort            = 9090
+	defaultGRPC                   = false
+	defaultGRPCPort               = 6064
+	defaultRemoteDB               = ""
+	defaultRPCMaxBlockScan        = math.MaxUint
+	defaultCacheSizeMb            = 8
+	defaultFeederURL              = ""
+	defaultGatewayURL             = ""
+	defaultChainID                = ""
+	defaultL1ChainIDInt           = 0
+	defaultProtocolID             = 0
+	defaultCoreContractAddressStr = ""
 
 	configFlagUsage                       = "The yaml configuration file."
 	logLevelFlagUsage                     = "Options: debug, info, warn, error."
@@ -209,13 +215,18 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			return err
 		}
 		// Set config.NetworkCustom
-		coreContractAddress := common.HexToAddress(v.GetString(coreContractAddressF))
+		if v.GetString(coreContractAddressF) != "" {
+			coreContractAddress := common.HexToAddress(v.GetString(coreContractAddressF))
+			config.NetworkCustom.CoreContractAddressVal = &coreContractAddress
+		}
 		config.NetworkCustom.FeederURLVal = v.GetString(feederURLF)
 		config.NetworkCustom.GatewayURLVal = v.GetString(gatewayURLF)
 		config.NetworkCustom.ChainIDVal = v.GetString(chainIDF)
-		config.NetworkCustom.L1ChainIDVal = new(big.Int).SetInt64(v.GetInt64(l1ChainIDF))
+		if v.GetInt64(l1ChainIDF) != 0 {
+			config.NetworkCustom.L1ChainIDVal = new(big.Int).SetInt64(v.GetInt64(l1ChainIDF))
+		}
 		config.NetworkCustom.ProtocolIDVal = v.GetInt(protocolIDF)
-		config.NetworkCustom.CoreContractAddressVal = &coreContractAddress
+
 		return nil
 	}
 
@@ -232,12 +243,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
 	defaultNetwork := utils.Mainnet
-	defaultFeederURL := utils.Mainnet.FeederURL()
-	defaultGatewayURL := utils.Mainnet.GatewayURL()
-	defaultChainID := utils.Mainnet.ChainIDString()
-	defaultL1ChainIDInt := 1
-	defaultProtocolID := 7
-	defaultCoreContractAddressStr := "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)

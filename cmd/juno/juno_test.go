@@ -39,14 +39,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultDBPath := filepath.Join(pwd, "juno")
 	defaultNetwork := utils.Mainnet
 	defaultCoreContractAddress := common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
-	defaultCustomNetwork := utils.NetworkCustom{
-		FeederURLVal:           utils.Mainnet.FeederURL(),
-		GatewayURLVal:          utils.Mainnet.GatewayURL(),
-		ChainIDVal:             utils.Mainnet.ChainIDString(),
-		L1ChainIDVal:           new(big.Int).SetUint64(1),
-		ProtocolIDVal:          7,
-		CoreContractAddressVal: &defaultCoreContractAddress,
-	}
+	defaultCustomNetwork := utils.NetworkCustom{}
 	nonDefaultCustomNetwork := utils.NetworkCustom{
 		FeederURLVal:           "awesome_feeder_url",
 		GatewayURLVal:          "awesome_gateway_url",
