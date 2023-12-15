@@ -72,4 +72,28 @@ func TestGenesisStateDiff(t *testing.T) {
 		_, err := b.GenesisStateDiff(genesisConfig)
 		require.NoError(t, err)
 	})
+
+	t.Run("valid non-empty genesis config", func(t *testing.T) {
+		t.Skip("todo: fill in")
+		genesisConfig := builder.GenesisConfig{
+			ChainID: "SN_GOERLI",
+			Classes: []string{""},
+			Contracts: map[string]builder.GenesisContractData{
+				"address": {
+					ClassHash:       felt.Zero,
+					ConstructorArgs: []felt.Felt{},
+				},
+			},
+			FunctionCalls: []builder.FunctionCall{
+				{
+					ContractAddress:    felt.Zero,
+					EntryPointSelector: felt.Zero,
+					Calldata:           []felt.Felt{},
+				},
+			},
+		}
+
+		_, err := b.GenesisStateDiff(genesisConfig)
+		require.NoError(t, err)
+	})
 }

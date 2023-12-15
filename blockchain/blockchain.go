@@ -1052,16 +1052,28 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 }
 
 // PendingState returns the state resulting from execution of the pending block given newClasses
-func (b *Blockchain) PendingStateGivenNewClassesAndStateDiff(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class) (*PendingState, StateCloser, error) { //nolint:lll
+func (b *Blockchain) PendingStateTmp(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class) (*PendingState, StateCloser, error) {
 	b.listener.OnRead("PendingState")
 	txn, err := b.database.NewTransaction(false)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	pending, err := b.pendingBlock(txn)
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	if stateDiff != nil {
+		pending.StateUpdate.StateDiff = stateDiff
+	}
+	if newClasses != nil {
+		pending.NewClasses = newClasses
+	}
+
 	return NewPendingState(
-		stateDiff,
-		newClasses,
+		pending.StateUpdate.StateDiff,
+		pending.NewClasses,
 		core.NewState(txn),
 	), txn.Discard, nil
 }

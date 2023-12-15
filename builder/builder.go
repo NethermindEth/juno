@@ -84,7 +84,11 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		return nil, err
 	}
 
-	pendingState, closer, err := b.bc.PendingStateGivenNewClassesAndStateDiff(genStateDiff, newClasses) // is there a nicer way to do this?
+	// todo: nicer way to do this?
+	// Currently b.bc.PendingState() returns a stateReader which has no Set methods
+	// do we need to return vm.StateReadWriter instead?
+
+	pendingState, closer, err := b.bc.PendingStateTmp(genStateDiff, newClasses)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +116,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 	classMap := make(map[felt.Felt]core.Class)
 	for _, classPath := range classes {
-		bytes, err := os.ReadFile(classPath) // Open, read, and close the file
+		bytes, err := os.ReadFile(classPath)
 		if err != nil {
 			return nil, err
 		}
