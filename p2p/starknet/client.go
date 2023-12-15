@@ -58,6 +58,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		var zero ResT
 		res := zero.ProtoReflect().New().Interface()
 		if err := receiveInto(stream, res); err != nil {
+			// todo: check for a specific error otherwise log the error if it doesn't match
 			stream.Close() // todo: dont ignore close errors
 			return zero, false
 		}

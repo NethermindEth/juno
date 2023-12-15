@@ -40,6 +40,7 @@ type syncService struct {
 	host     host.Host
 	network  utils.Network
 	bootNode peer.ID
+	client   *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
 
 	blockchain *blockchain.Blockchain
 	log        utils.SimpleLogger
@@ -70,18 +71,15 @@ func (s *syncService) startSerial(ctx context.Context) {
 
 	coreBlocks := make(chan blockBody)
 
-	var curHeight uint64
-	curHeight, err = s.blockchain.Height()
-	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
+	var nextHeight uint64
+	if curHeight, err := s.blockchain.Height(); err == nil {
+		nextHeight = curHeight + 1
+	} else if !errors.Is(db.ErrKeyNotFound, err) {
 		s.log.Errorw("Failed to get current height", "err", err)
-	}
-	// hack
-	if curHeight > 0 {
-		curHeight++
 	}
 
 	// Just get one block for now
-	go s.requestBlocks(ctx, BlockRange{curHeight, bootNodeHeight}, coreBlocks)
+	go s.requestBlocks(ctx, BlockRange{nextHeight, bootNodeHeight}, coreBlocks)
 
 	for bBody := range coreBlocks {
 		fmt.Println("Iteration")
@@ -637,6 +635,10 @@ func (s *syncService) randomPeer() peer.ID {
 
 	idx := rand.Intn(len(peers))
 	return peers[idx]
+}
+
+func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
+	return s.host.NewStream(ctx, s.randomPeer(), pids...)
 }
 
 func (s *syncService) createIterator(r BlockRange) *spec.Iteration {
