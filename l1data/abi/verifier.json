@@ -1,0 +1,21 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "programOutputFact",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32[]",
+        "name": "pagesHashes",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "LogMemoryPagesHashes",
+    "type": "event"
+  }
+]

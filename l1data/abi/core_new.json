@@ -1,0 +1,40 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "globalRoot",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "int256",
+        "name": "blockNumber",
+        "type": "int256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "blockHash",
+        "type": "uint256"
+      }
+    ],
+    "name": "LogStateUpdate",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "stateTransitionFact",
+        "type": "bytes32"
+      }
+    ],
+    "name": "LogStateTransitionFact",
+    "type": "event"
+  }
+]
