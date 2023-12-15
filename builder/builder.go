@@ -71,7 +71,7 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 
 func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 	blockTimestamp := uint64(time.Now().Unix())
-	state, closer, err := b.bc.StateAtBlockNumber(0)
+	state, closer, err := b.bc.StateAtBlockNumber(0) // Replace with the actual genesis state, that contains the classes etc
 	if err != nil {
 		return err
 	}
