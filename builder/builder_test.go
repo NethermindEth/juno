@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -60,4 +61,15 @@ func TestValidateAgainstPendingState(t *testing.T) {
 		gomock.Any(), utils.Integration, []*felt.Felt{}, false, false,
 		false, b.GasPrice, b.GasPriceSTRK, false).Return(nil, nil, errors.New("oops"))
 	assert.EqualError(t, testBuilder.ValidateAgainstPendingState(&userTxn), "oops")
+}
+
+func TestGenesisStateDiff(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	chain := blockchain.New(pebble.NewMemTest(t), utils.Goerli, log)
+	b := builder.New(new(felt.Felt).SetUint64(1), chain, vm.New(log), utils.NewNopZapLogger())
+	t.Run("empty genesis config", func(t *testing.T) {
+		genesisConfig := builder.GenesisConfig{}
+		_, err := b.GenesisStateDiff(genesisConfig)
+		require.NoError(t, err)
+	})
 }

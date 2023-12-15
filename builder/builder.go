@@ -85,7 +85,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		return nil, err
 	}
 
-	pendingState, closer, err := b.bc.PendingStateGivenNewClassesAndStateDiff(genStateDiff, newClasses)
+	pendingState, closer, err := b.bc.PendingStateGivenNewClassesAndStateDiff(genStateDiff, newClasses) // is there a nicer way to do this?
 	if err != nil {
 		return nil, err
 	}
