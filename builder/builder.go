@@ -1,7 +1,10 @@
 package builder
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -72,32 +75,56 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 	blockTimestamp := uint64(time.Now().Unix())
 
+	newClasses, err := loadClasses(genesisConfig.Classes)
+	if err != nil {
+		return err
+	}
+
 	genStateDiff, err := blockchain.MakeStateDiffForEmptyBlock(b.bc, 0)
 	if err != nil {
 		return err
 	}
 
-	genState, closer, err := b.bc.PendingState()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := closer(); err != nil {
-			b.log.Errorw("failed to close state in GenesisState", "err", err)
-		}
-	}()
-
-	// Load and apply contract classes, and accounts
+	penidngState := blockchain.NewPendingState(genStateDiff, newClasses, nil) // todo:reader??
 
 	for _, fnCall := range genesisConfig.FunctionCalls {
-		classHash, err := genState.ContractClassHash(&fnCall.ContractAddress)
+		classHash, err := penidngState.ContractClassHash(&fnCall.ContractAddress)
 		if err != nil {
 			return err
 		}
-		_, err = b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, genState, b.network)
+		_, err = b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, penidngState, b.network)
 		if err != nil {
 			return err
 		}
 	}
 
+}
+
+func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
+	classMap := make(map[felt.Felt]core.Class)
+	for _, classPath := range classes {
+
+		file, err := os.Open(classPath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		bytes, err := ioutil.ReadAll(file)
+		if err != nil {
+			return nil, err
+		}
+
+		var class core.Class
+		if err := json.Unmarshal(bytes, &class); err != nil {
+			return nil, err
+		}
+
+		classhash, err := class.Hash()
+		if err != nil {
+			return nil, err
+		}
+		classMap[*classhash] = class
+	}
+	return classMap, nil
 }
