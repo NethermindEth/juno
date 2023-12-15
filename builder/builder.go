@@ -98,13 +98,32 @@ func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 		}
 	}
 
+	// todo: populate with correct values
 	pending := blockchain.Pending{
-		Block: &core.Block{},
+		Block: &core.Block{
+			Header: &core.Header{
+				Hash:             nil,
+				ParentHash:       nil,
+				Number:           0,
+				GlobalStateRoot:  nil,
+				SequencerAddress: &b.ownAddress,
+				TransactionCount: 0,
+				EventCount:       0,
+				Timestamp:        blockTimestamp,
+				ProtocolVersion:  string(b.network.ProtocolID()),
+				EventsBloom:      nil,
+				GasPrice:         nil,
+				Signatures:       nil,
+				GasPriceSTRK:     nil,
+			},
+			Transactions: []core.Transaction{},
+			Receipts:     []*core.TransactionReceipt{},
+		},
 		StateUpdate: &core.StateUpdate{
 			BlockHash: nil,
 			NewRoot:   nil,
 			OldRoot:   nil,
-			StateDiff: nil,
+			StateDiff: genStateDiff,
 		},
 		NewClasses: newClasses,
 	}
