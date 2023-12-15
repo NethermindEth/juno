@@ -2,6 +2,7 @@ package builder
 
 import (
 	"errors"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -18,7 +19,8 @@ type Builder struct {
 	bc *blockchain.Blockchain
 	vm vm.VM
 
-	log utils.Logger
+	network utils.Network
+	log     utils.Logger
 }
 
 func New(ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
@@ -65,4 +67,27 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 		pendingBlock.Block.Timestamp, &b.ownAddress, state, b.bc.Network(), []*felt.Felt{},
 		false, false, false, pendingBlock.Block.GasPrice, pendingBlock.Block.GasPriceSTRK, false)
 	return err
+}
+
+func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
+	blockTimestamp := uint64(time.Now().Unix())
+	state, closer, err := b.bc.StateAtBlockNumber(0)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := closer(); err != nil {
+			b.log.Errorw("failed to close state in GenesisState", "err", err)
+		}
+	}()
+
+	// Build State Diff by calling vm.Call(fnCall)
+	for _, fnCall := range genesisConfig.FunctionCalls {
+		classHash, err := state.ContractClassHash(&fnCall.ContractAddress)
+		if err != nil {
+			return err
+		}
+		resp, err := b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, state, b.network)
+	}
+
 }
