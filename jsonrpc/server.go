@@ -422,7 +422,6 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
-		s.listener.OnRequestFailed(req.Method, err)
 		return res, nil
 	}
 	defer func() {
@@ -438,7 +437,9 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
 		res.Error = errAny.(*Error)
-		s.listener.OnRequestFailed(req.Method, err)
+		if res.Error.Code == InternalError {
+			s.listener.OnRequestFailed(req.Method, err)
+		}
 		return res, nil
 	}
 	res.Result = tuple[0].Interface()
