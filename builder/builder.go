@@ -3,7 +3,6 @@ package builder
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -96,11 +95,13 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 	}()
 
 	for _, fnCall := range genesisConfig.FunctionCalls {
-		classHash, err := pendingState.ContractClassHash(&fnCall.ContractAddress)
+		contractAddress := fnCall.ContractAddress
+		entryPointSelector := fnCall.EntryPointSelector
+		classHash, err := pendingState.ContractClassHash(&contractAddress)
 		if err != nil {
 			return nil, err
 		}
-		_, err = b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, b.network)
+		_, err = b.vm.Call(&contractAddress, classHash, &entryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, b.network)
 		if err != nil {
 			return nil, err
 		}
@@ -111,20 +112,13 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 	classMap := make(map[felt.Felt]core.Class)
 	for _, classPath := range classes {
-
-		file, err := os.Open(classPath)
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-
-		bytes, err := ioutil.ReadAll(file)
+		bytes, err := os.ReadFile(classPath) // Open, read, and close the file
 		if err != nil {
 			return nil, err
 		}
 
 		var class core.Class
-		if err := json.Unmarshal(bytes, &class); err != nil {
+		if err = json.Unmarshal(bytes, &class); err != nil {
 			return nil, err
 		}
 
