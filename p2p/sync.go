@@ -313,6 +313,14 @@ func newBlockBody() blockBody {
 	}
 }
 
+// Todo: consider changing specBlockBody to the following:
+//type specBlockBody struct {
+//	id        *spec.BlockID
+//	proof     *spec.BlockBodiesResponse_Proof
+//	classes   *spec.BlockBodiesResponse_Classes
+//	stateDiff *spec.BlockBodiesResponse_Diff
+//}
+
 type specBlockBody struct {
 	id        *spec.BlockID
 	proof     *spec.BlockProof
