@@ -72,22 +72,22 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 	return err
 }
 
-func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
+func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff, error) {
 	blockTimestamp := uint64(time.Now().Unix())
 
 	newClasses, err := loadClasses(genesisConfig.Classes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	genStateDiff, err := blockchain.MakeStateDiffForEmptyBlock(b.bc, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	pendingState, closer, err := b.bc.PendingStateGivenNewClassesAndStateDiff(genStateDiff, newClasses)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		if err := closer(); err != nil {
@@ -98,45 +98,14 @@ func (b *Builder) GenesisState(genesisConfig GenesisConfig) error {
 	for _, fnCall := range genesisConfig.FunctionCalls {
 		classHash, err := pendingState.ContractClassHash(&fnCall.ContractAddress)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		_, err = b.vm.Call(&fnCall.ContractAddress, classHash, &fnCall.EntryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, b.network)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-
-	// todo: populate with correct values
-	pending := blockchain.Pending{
-		Block: &core.Block{
-			Header: &core.Header{
-				Hash:             nil,
-				ParentHash:       nil,
-				Number:           0,
-				GlobalStateRoot:  nil,
-				SequencerAddress: &b.ownAddress,
-				TransactionCount: 0,
-				EventCount:       0,
-				Timestamp:        blockTimestamp,
-				ProtocolVersion:  string(b.network.ProtocolID()),
-				EventsBloom:      nil,
-				GasPrice:         nil,
-				Signatures:       nil,
-				GasPriceSTRK:     nil,
-			},
-			Transactions: []core.Transaction{},
-			Receipts:     []*core.TransactionReceipt{},
-		},
-		StateUpdate: &core.StateUpdate{
-			BlockHash: nil,
-			NewRoot:   nil,
-			OldRoot:   nil,
-			StateDiff: genStateDiff,
-		},
-		NewClasses: newClasses,
-	}
-
-	return b.bc.StorePending(&pending)
+	return pendingState.StateDiff(), nil
 }
 
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
