@@ -53,16 +53,9 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, string(got))
 	assert.Len(t, listener.OnNewRequestLogs, 1)
-	assert.Len(t, listener.OnConnectionCalls, 1)
-	for _, v := range listener.OnConnectionCalls {
-		assert.Equal(t, 1, v)
-	}
-
+	assert.Equal(t, 1, listener.OnConnectionCalls)
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
-	assert.Len(t, listener.OnConnectionCalls, 1)
-	for _, v := range listener.OnConnectionCalls {
-		assert.Equal(t, 0, v)
-	}
+	assert.Equal(t, 0, listener.OnConnectionCalls)
 }
 
 func TestSendFromHandler(t *testing.T) {

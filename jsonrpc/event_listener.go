@@ -1,14 +1,17 @@
 package jsonrpc
 
 import (
-	"net"
 	"time"
 )
 
+type NewConnectionListener interface {
+	OnNewConnection()
+	OnDisconnect()
+}
+
 type NewRequestListener interface {
+	NewConnectionListener
 	OnNewRequest(method string)
-	OnNewConnection(conn net.Conn)
-	OnDisconnect(conn net.Conn)
 }
 
 type EventListener interface {
@@ -19,8 +22,8 @@ type EventListener interface {
 
 type SelectiveListener struct {
 	OnNewRequestCb     func(method string)
-	OnNewConnectionCb  func(conn net.Conn)
-	OnDisconnectCb     func(conn net.Conn)
+	OnNewConnectionCb  func()
+	OnDisconnectCb     func()
 	OnRequestHandledCb func(method string, took time.Duration)
 	OnRequestFailedCb  func(method string, data any)
 }
@@ -31,15 +34,15 @@ func (l *SelectiveListener) OnNewRequest(method string) {
 	}
 }
 
-func (l *SelectiveListener) OnNewConnection(conn net.Conn) {
+func (l *SelectiveListener) OnNewConnection() {
 	if l.OnNewConnectionCb != nil {
-		l.OnNewConnectionCb(conn)
+		l.OnNewConnectionCb()
 	}
 }
 
-func (l *SelectiveListener) OnDisconnect(conn net.Conn) {
+func (l *SelectiveListener) OnDisconnect() {
 	if l.OnDisconnectCb != nil {
-		l.OnDisconnectCb(conn)
+		l.OnDisconnectCb()
 	}
 }
 
