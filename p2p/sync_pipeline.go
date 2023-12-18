@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
@@ -62,63 +61,46 @@ func (s *syncService) startPipeline(ctx context.Context) {
 		return
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(5)
-	//for h := range utils.PipelineStage(ctx, headersAndSigsCh, adaptBlockHeadersAndSigs) {
-	//	spew.Dump(h)
-	//}
+	// A channel of a specific type cannot be converted to a channel of another type. Therefore, we have to consume/read from the channel
+	// and change the input to the desired type. The following is not allowed:
+	// var ch1 chan any = make(chan any)
+	// var ch2 chan someOtherType = make(chan someOtherType)
+	// ch2 = (chan any)(ch2) <----- This line will give compilation error.
 
-	go func() {
-		defer wg.Done()
-		var count uint
-		for h := range headersAndSigsCh {
-			fmt.Println("Block Header and Signatures:", "number:", h.header.Number)
-			count++
+	specBlockPartsFanIn(ctx,
+		utils.PipelineFanIn(ctx,
+			utils.PipelineStage(ctx, headersAndSigsCh, func(in blockHeaderAndSigs) any { return in }),
+			utils.PipelineStage(ctx, blockBodiesCh, func(in specBlockBody) any { return in }),
+			utils.PipelineStage(ctx, txsCh, func(in specTransactions) any { return in }),
+			utils.PipelineStage(ctx, receiptsCh, func(in specReceipts) any { return in }),
+			utils.PipelineStage(ctx, eventsCh, func(in specEvents) any { return in }),
+		),
+	)
+}
+
+func specBlockPartsFanIn(ctx context.Context, specBlockPartsCh <-chan any) {
+	for part := range specBlockPartsCh {
+		select {
+		case <-ctx.Done():
+		default:
+			var partStr string
+
+			switch p := part.(type) {
+			case blockHeaderAndSigs:
+				partStr = fmt.Sprintf("Block Header and Signatures for block number: %v\n", p.header.Number)
+			case specBlockBody:
+				partStr = fmt.Sprintf("Block Body parts            for block number: %v\n", p.id.Number)
+			case specTransactions:
+				partStr = fmt.Sprintf("Transactions                for block number: %v\n", p.id.Number)
+			case specReceipts:
+				partStr = fmt.Sprintf("Receipts                    for block number: %v\n", p.id.Number)
+			case specEvents:
+				partStr = fmt.Sprintf("Events                      for block number: %v\n", p.id.Number)
+			}
+
+			fmt.Print(partStr)
 		}
-		s.log.Debugw("Total number of headers and signatures received", "count", count)
-	}()
-
-	go func() {
-		defer wg.Done()
-		var count uint
-		for b := range blockBodiesCh {
-			fmt.Println("Block Body parts:", "number:", b.id.Number)
-			count++
-		}
-		s.log.Debugw("Total number of bodies received", "count", count)
-	}()
-
-	go func() {
-		defer wg.Done()
-		var count uint
-		for tx := range txsCh {
-			fmt.Println("Transactions:", "number:", tx.id.Number)
-			count++
-		}
-		s.log.Debugw("Total number of transactions received", "count", count)
-	}()
-
-	go func() {
-		defer wg.Done()
-		var count uint
-		for r := range receiptsCh {
-			fmt.Println("Receipts:", "number:", r.id.Number)
-			count++
-		}
-		s.log.Debugw("Total number of receipts received", "count", count)
-	}()
-
-	go func() {
-		defer wg.Done()
-		var count uint
-		for e := range eventsCh {
-			fmt.Println("Events:", "number:", e.id.Number)
-			count++
-		}
-		s.log.Debugw("Total number of events received", "count", count)
-	}()
-
-	wg.Wait()
+	}
 }
 
 type blockHeaderAndSigs struct {

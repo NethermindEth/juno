@@ -1,6 +1,9 @@
 package utils
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 // todo: Consider moving this and the test file to its own package
 func PriorityQueue[T any](highPriority, lowPriority <-chan T) <-chan T {
@@ -63,6 +66,33 @@ func PipelineStage[From any, To any](ctx context.Context, in <-chan From, f func
 		}
 	}()
 
+	return out
+}
+
+func PipelineFanIn(ctx context.Context, channels ...<-chan any) <-chan any {
+	var wg sync.WaitGroup
+	out := make(chan any)
+
+	multiplex := func(ch <-chan any) {
+		defer wg.Done()
+		for i := range ch {
+			select {
+			case <-ctx.Done():
+				return
+			case out <- i:
+			}
+		}
+	}
+
+	wg.Add(len(channels))
+	for _, ch := range channels {
+		go multiplex(ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
 	return out
 }
 
