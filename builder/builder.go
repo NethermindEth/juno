@@ -6,11 +6,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -83,20 +85,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 	if err != nil {
 		return nil, err
 	}
-
-	// todo: nicer way to do this?
-	// Currently b.bc.PendingState() returns a stateReader which has no Set methods
-	// do we need to return vm.StateReadWriter instead?
-
-	pendingState, closer, err := b.bc.PendingStateTmp(genStateDiff, newClasses)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := closer(); err != nil {
-			b.log.Errorw("failed to close state in GenesisState", "err", err)
-		}
-	}()
+	pendingState := blockchain.NewPendingState(genStateDiff, newClasses, nil)
 
 	for _, fnCall := range genesisConfig.FunctionCalls {
 		contractAddress := fnCall.ContractAddress
@@ -121,16 +110,21 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 			return nil, err
 		}
 
-		var class core.Class
-		if err = json.Unmarshal(bytes, &class); err != nil {
+		var response *starknet.Cairo0Definition
+		if err = json.Unmarshal(bytes, &response); err != nil {
 			return nil, err
 		}
 
-		classhash, err := class.Hash()
+		coreClass, err := sn2core.AdaptCairo0Class(response)
 		if err != nil {
 			return nil, err
 		}
-		classMap[*classhash] = class
+
+		classhash, err := coreClass.Hash()
+		if err != nil {
+			return nil, err
+		}
+		classMap[*classhash] = coreClass
 	}
 	return classMap, nil
 }
