@@ -13,4 +13,4 @@ updates:
     schedule:
       interval: "monthly"
     ignore:
-      dependency-name: "*"
+      - dependency-name: "*"
