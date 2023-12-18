@@ -313,21 +313,6 @@ func newBlockBody() blockBody {
 	}
 }
 
-// Todo: consider changing specBlockBody to the following:
-//type specBlockBody struct {
-//	id        *spec.BlockID
-//	proof     *spec.BlockBodiesResponse_Proof
-//	classes   *spec.BlockBodiesResponse_Classes
-//	stateDiff *spec.BlockBodiesResponse_Diff
-//}
-
-type specBlockBody struct {
-	id        *spec.BlockID
-	proof     *spec.BlockProof
-	classes   *spec.Classes
-	stateDiff *spec.StateDiff
-}
-
 func (s *syncService) requestBlockBodies(ctx context.Context, it *spec.Iteration, id peer.ID) ([]specBlockBody, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return s.host.NewStream(ctx, id, pids...)

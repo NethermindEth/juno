@@ -67,58 +67,53 @@ func (s *syncService) startPipeline(ctx context.Context) {
 	// var ch2 chan someOtherType = make(chan someOtherType)
 	// ch2 = (chan any)(ch2) <----- This line will give compilation error.
 
-	specBlockPartsFanIn(ctx,
+	processSpecBlockParts(ctx,
 		utils.PipelineFanIn(ctx,
-			utils.PipelineStage(ctx, headersAndSigsCh, func(in blockHeaderAndSigs) any { return in }),
-			utils.PipelineStage(ctx, blockBodiesCh, func(in specBlockBody) any { return in }),
-			utils.PipelineStage(ctx, txsCh, func(in specTransactions) any { return in }),
-			utils.PipelineStage(ctx, receiptsCh, func(in specReceipts) any { return in }),
-			utils.PipelineStage(ctx, eventsCh, func(in specEvents) any { return in }),
+			utils.PipelineStage(ctx, headersAndSigsCh, func(i specBlockHeaderAndSigs) specBlockParts { return i }),
+			utils.PipelineStage(ctx, blockBodiesCh, func(i specBlockBody) specBlockParts { return i }),
+			utils.PipelineStage(ctx, txsCh, func(i specTransactions) specBlockParts { return i }),
+			utils.PipelineStage(ctx, receiptsCh, func(i specReceipts) specBlockParts { return i }),
+			utils.PipelineStage(ctx, eventsCh, func(i specEvents) specBlockParts { return i }),
 		),
 	)
 }
 
-func specBlockPartsFanIn(ctx context.Context, specBlockPartsCh <-chan any) {
+func processSpecBlockParts(ctx context.Context, specBlockPartsCh <-chan specBlockParts) {
+	const numOfBlockParts uint = 5
+	// var blockPartsM := make(map[uint64]chan <-any)
 	for part := range specBlockPartsCh {
 		select {
 		case <-ctx.Done():
 		default:
-			var partStr string
-
-			switch p := part.(type) {
-			case blockHeaderAndSigs:
-				partStr = fmt.Sprintf("Block Header and Signatures for block number: %v\n", p.header.Number)
-			case specBlockBody:
-				partStr = fmt.Sprintf("Block Body parts            for block number: %v\n", p.id.Number)
-			case specTransactions:
-				partStr = fmt.Sprintf("Transactions                for block number: %v\n", p.id.Number)
-			case specReceipts:
-				partStr = fmt.Sprintf("Receipts                    for block number: %v\n", p.id.Number)
-			case specEvents:
-				partStr = fmt.Sprintf("Events                      for block number: %v\n", p.id.Number)
-			}
-
-			fmt.Print(partStr)
+			fmt.Println("Received part for block number:", part.blockNumber())
 		}
 	}
 }
 
-type blockHeaderAndSigs struct {
+type specBlockParts interface {
+	blockNumber() uint64
+}
+
+type specBlockHeaderAndSigs struct {
 	header *spec.BlockHeader
 	sig    *spec.Signatures
 }
 
-func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration) (<-chan blockHeaderAndSigs, error) {
+func (s specBlockHeaderAndSigs) blockNumber() uint64 {
+	return s.header.Number
+}
+
+func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration) (<-chan specBlockHeaderAndSigs, error) {
 	headersIt, err := s.client.RequestBlockHeaders(ctx, &spec.BlockHeadersRequest{Iteration: it})
 	if err != nil {
 		return nil, err
 	}
 
-	headersAndSigCh := make(chan blockHeaderAndSigs)
+	headersAndSigCh := make(chan specBlockHeaderAndSigs)
 	go func() {
 		defer close(headersAndSigCh)
 		for res, valid := headersIt(); valid; res, valid = headersIt() {
-			headerAndSig := blockHeaderAndSigs{}
+			headerAndSig := specBlockHeaderAndSigs{}
 			for _, part := range res.GetPart() {
 				switch part.HeaderMessage.(type) {
 				case *spec.BlockHeadersResponsePart_Header:
@@ -142,10 +137,21 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 	return headersAndSigCh, nil
 }
 
-func adaptBlockHeadersAndSigs(headerAndSig blockHeaderAndSigs) core.Header {
+func adaptBlockHeadersAndSigs(headerAndSig specBlockHeaderAndSigs) core.Header {
 	header := p2p2core.AdaptBlockHeader(headerAndSig.header)
 	header.Signatures = utils.Map(headerAndSig.sig.GetSignatures(), p2p2core.AdaptSignature)
 	return header
+}
+
+type specBlockBody struct {
+	id        *spec.BlockID
+	proof     *spec.BlockProof
+	classes   *spec.Classes
+	stateDiff *spec.StateDiff
+}
+
+func (s specBlockBody) blockNumber() uint64 {
+	return s.id.Number
 }
 
 func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<-chan specBlockBody, error) {
@@ -200,6 +206,10 @@ type specReceipts struct {
 	Txs *spec.Receipts
 }
 
+func (s specReceipts) blockNumber() uint64 {
+	return s.id.Number
+}
+
 func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-chan specReceipts, error) {
 	receiptsIt, err := s.client.RequestReceipts(ctx, &spec.ReceiptsRequest{Iteration: it})
 	if err != nil {
@@ -231,6 +241,10 @@ type specEvents struct {
 	Txs *spec.Events
 }
 
+func (s specEvents) blockNumber() uint64 {
+	return s.id.Number
+}
+
 func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan specEvents, error) {
 	eventsIt, err := s.client.RequestEvents(ctx, &spec.EventsRequest{Iteration: it})
 	if err != nil {
@@ -258,6 +272,10 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 type specTransactions struct {
 	id  *spec.BlockID
 	Txs *spec.Transactions
+}
+
+func (s specTransactions) blockNumber() uint64 {
+	return s.id.Number
 }
 
 func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (<-chan specTransactions, error) {

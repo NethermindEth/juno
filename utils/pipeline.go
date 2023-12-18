@@ -69,11 +69,11 @@ func PipelineStage[From any, To any](ctx context.Context, in <-chan From, f func
 	return out
 }
 
-func PipelineFanIn(ctx context.Context, channels ...<-chan any) <-chan any {
+func PipelineFanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 	var wg sync.WaitGroup
-	out := make(chan any)
+	out := make(chan T)
 
-	multiplex := func(ch <-chan any) {
+	multiplex := func(ch <-chan T) {
 		defer wg.Done()
 		for i := range ch {
 			select {
