@@ -67,27 +67,107 @@ func (s *syncService) startPipeline(ctx context.Context) {
 	// var ch2 chan someOtherType = make(chan someOtherType)
 	// ch2 = (chan any)(ch2) <----- This line will give compilation error.
 
-	processSpecBlockParts(ctx,
-		utils.PipelineFanIn(ctx,
-			utils.PipelineStage(ctx, headersAndSigsCh, func(i specBlockHeaderAndSigs) specBlockParts { return i }),
-			utils.PipelineStage(ctx, blockBodiesCh, func(i specBlockBody) specBlockParts { return i }),
-			utils.PipelineStage(ctx, txsCh, func(i specTransactions) specBlockParts { return i }),
-			utils.PipelineStage(ctx, receiptsCh, func(i specReceipts) specBlockParts { return i }),
-			utils.PipelineStage(ctx, eventsCh, func(i specEvents) specBlockParts { return i }),
-		),
-	)
+	for block := range utils.PipelineBridge(ctx,
+		processSpecBlockParts(ctx, nextHeight,
+			utils.PipelineFanIn(ctx,
+				utils.PipelineStage(ctx, headersAndSigsCh, func(i specBlockHeaderAndSigs) specBlockParts { return i }),
+				utils.PipelineStage(ctx, blockBodiesCh, func(i specBlockBody) specBlockParts { return i }),
+				utils.PipelineStage(ctx, txsCh, func(i specTransactions) specBlockParts { return i }),
+				utils.PipelineStage(ctx, receiptsCh, func(i specReceipts) specBlockParts { return i }),
+				utils.PipelineStage(ctx, eventsCh, func(i specEvents) specBlockParts { return i }),
+			))) {
+		fmt.Println("----- Got core block number:", block.block.Number, "-----")
+	}
 }
 
-func processSpecBlockParts(ctx context.Context, specBlockPartsCh <-chan specBlockParts) {
-	const numOfBlockParts uint = 5
-	// var blockPartsM := make(map[uint64]chan <-any)
-	for part := range specBlockPartsCh {
+func processSpecBlockParts(ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts) <-chan <-chan blockBody {
+	orderedBlockBodiesCh := make(chan (<-chan blockBody))
+
+	go func() {
+		defer close(orderedBlockBodiesCh)
+
+		specBlockHeaderAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
+		specBlockBodyM := make(map[uint64]specBlockBody)
+		specTransactionsM := make(map[uint64]specTransactions)
+		specReceiptsM := make(map[uint64]specReceipts)
+		specEventsM := make(map[uint64]specEvents)
+
+		curBlockNum := startingBlockNum
+		for part := range specBlockPartsCh {
+			select {
+			case <-ctx.Done():
+			default:
+				switch p := part.(type) {
+				case specBlockHeaderAndSigs:
+					fmt.Printf("Received Block Header and Signatures for block number: %v\n", p.header.Number)
+					if _, ok := specBlockHeaderAndSigsM[part.blockNumber()]; !ok {
+						specBlockHeaderAndSigsM[part.blockNumber()] = p
+					}
+				case specBlockBody:
+					fmt.Printf("Received Block Body parts            for block number: %v\n", p.id.Number)
+					if _, ok := specBlockBodyM[part.blockNumber()]; !ok {
+						specBlockBodyM[part.blockNumber()] = p
+					}
+				case specTransactions:
+					fmt.Printf("Received Transactions                for block number: %v\n", p.id.Number)
+					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
+						specTransactionsM[part.blockNumber()] = p
+					}
+				case specReceipts:
+					fmt.Printf("Received Receipts                    for block number: %v\n", p.id.Number)
+					if _, ok := specReceiptsM[part.blockNumber()]; !ok {
+						specReceiptsM[part.blockNumber()] = p
+					}
+				case specEvents:
+					fmt.Printf("Received Events                      for block number: %v\n", p.id.Number)
+					if _, ok := specEventsM[part.blockNumber()]; !ok {
+						specEventsM[part.blockNumber()] = p
+					}
+				}
+
+				headerAndSig, ok1 := specBlockHeaderAndSigsM[curBlockNum]
+				body, ok2 := specBlockBodyM[curBlockNum]
+				txs, ok3 := specTransactionsM[curBlockNum]
+				rs, ok4 := specReceiptsM[curBlockNum]
+				es, ok5 := specEventsM[curBlockNum]
+				if ok1 && ok2 && ok3 && ok4 && ok5 {
+					fmt.Println("----- Received all block parts from peers for block number:", curBlockNum, "-----")
+
+					select {
+					case <-ctx.Done():
+					case orderedBlockBodiesCh <- adaptAndSanityCheckBlock(ctx, headerAndSig.header, headerAndSig.sig, body.stateDiff,
+						body.classes, body.proof, txs.txs, rs.receipts, es.events):
+					}
+
+					delete(specBlockHeaderAndSigsM, curBlockNum)
+					delete(specBlockBodyM, curBlockNum)
+					delete(specTransactionsM, curBlockNum)
+					delete(specReceiptsM, curBlockNum)
+					delete(specEventsM, curBlockNum)
+					curBlockNum++
+				}
+			}
+		}
+	}()
+	return orderedBlockBodiesCh
+}
+
+func adaptAndSanityCheckBlock(ctx context.Context, header *spec.BlockHeader, sig *spec.Signatures, diff *spec.StateDiff,
+	classes *spec.Classes, proof *spec.BlockProof, txs *spec.Transactions, receipts *spec.Receipts, events *spec.Events,
+) <-chan blockBody {
+	bodyCh := make(chan blockBody)
+	go func() {
+		defer close(bodyCh)
 		select {
 		case <-ctx.Done():
+			bodyCh <- blockBody{err: ctx.Err()}
 		default:
-			fmt.Println("Received part for block number:", part.blockNumber())
+			// Todo Process block later
+			bodyCh <- blockBody{block: &core.Block{Header: &core.Header{Number: header.Number}}}
 		}
-	}
+	}()
+
+	return bodyCh
 }
 
 type specBlockParts interface {
@@ -202,8 +282,8 @@ func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<
 }
 
 type specReceipts struct {
-	id  *spec.BlockID
-	Txs *spec.Receipts
+	id       *spec.BlockID
+	receipts *spec.Receipts
 }
 
 func (s specReceipts) blockNumber() uint64 {
@@ -237,8 +317,8 @@ func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-ch
 }
 
 type specEvents struct {
-	id  *spec.BlockID
-	Txs *spec.Events
+	id     *spec.BlockID
+	events *spec.Events
 }
 
 func (s specEvents) blockNumber() uint64 {
@@ -271,7 +351,7 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 
 type specTransactions struct {
 	id  *spec.BlockID
-	Txs *spec.Transactions
+	txs *spec.Transactions
 }
 
 func (s specTransactions) blockNumber() uint64 {

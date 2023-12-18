@@ -114,3 +114,38 @@ func PipelineEnd[T any](in <-chan T, f func(T)) <-chan struct{} {
 
 	return done
 }
+
+func PipelineBridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
+	out := make(chan T)
+	go func() {
+		defer close(out)
+		for {
+			var ch <-chan T
+			select {
+			case <-ctx.Done():
+				return
+			case gotCh, ok := <-chanCh:
+				if !ok {
+					return
+				}
+				ch = gotCh
+			innerLoop:
+				for {
+					select {
+					case <-ctx.Done():
+						break innerLoop
+					case val, ok := <-ch:
+						if !ok {
+							break innerLoop
+						}
+						select {
+						case <-ctx.Done():
+						case out <- val:
+						}
+					}
+				}
+			}
+		}
+	}()
+	return out
+}

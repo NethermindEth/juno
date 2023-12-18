@@ -83,12 +83,13 @@ func (s *syncService) startSerial(ctx context.Context) {
 
 	for bBody := range coreBlocks {
 		fmt.Println("Iteration")
-		commitmments, err := s.blockchain.SanityCheckNewHeight(bBody.block, bBody.stateUpdate, bBody.newClasses)
+		commitments, err := s.blockchain.SanityCheckNewHeight(bBody.block, bBody.stateUpdate, bBody.newClasses)
 		if err != nil {
 			s.log.Errorw("Failed to sanity check block", "number", bBody.block.Number, "err", err)
 		}
 
-		err = s.blockchain.Store(bBody.block, commitmments, bBody.stateUpdate, bBody.newClasses)
+		bBody.commitments = commitments
+		err = s.blockchain.Store(bBody.block, bBody.commitments, bBody.stateUpdate, bBody.newClasses)
 		if err != nil {
 			s.log.Errorw("Failed to Store Block", "number", bBody.block.Number, "err", err)
 		} else {
@@ -303,6 +304,8 @@ type blockBody struct {
 	block       *core.Block
 	stateUpdate *core.StateUpdate
 	newClasses  map[felt.Felt]core.Class
+	commitments *core.BlockCommitments
+	err         error
 }
 
 func newBlockBody() blockBody {
