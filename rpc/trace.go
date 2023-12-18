@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"encoding/json"
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -83,14 +82,9 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legac
 			trace.FunctionInvocation = fnInvocation
 		}
 
-		traceJSON, err := json.Marshal(trace)
-		if err != nil {
-			return nil, err
-		}
-
 		traces = append(traces, TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
-			TraceRoot:       traceJSON,
+			TraceRoot:       &trace,
 		})
 	}
 	return traces, nil

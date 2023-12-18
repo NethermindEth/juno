@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -28,11 +27,11 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 }
 
 type SimulatedTransaction struct {
-	TransactionTrace json.RawMessage `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate     `json:"fee_estimation,omitempty"`
+	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitempty"`
 }
 
 type TracedBlockTransaction struct {
-	TraceRoot       json.RawMessage `json:"trace_root,omitempty"`
-	TransactionHash *felt.Felt      `json:"transaction_hash,omitempty"`
+	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
+	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
