@@ -188,6 +188,26 @@ func TestBlockTransactionCount(t *testing.T) {
 }
 
 func TestBlockWithTxHashes(t *testing.T) {
+	errTests := map[string]rpc.BlockID{
+		"latest":  {Latest: true},
+		"pending": {Pending: true},
+		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
+		"number":  {Number: 1},
+	}
+
+	for description, id := range errTests {
+		t.Run(description, func(t *testing.T) {
+			log := utils.NewNopZapLogger()
+			network := utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), network, log)
+			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+
+			block, rpcErr := handler.BlockWithTxHashes(id)
+			assert.Nil(t, block)
+			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		})
+	}
+
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -225,30 +245,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 		}
 		checkBlock(t, b)
 	}
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
-
-		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
-		assert.Nil(t, block)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New("block not found"))
-
-		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
-		assert.Nil(t, block)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
-
-		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Number: uint64(328476)})
-		assert.Nil(t, block)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil)
@@ -310,6 +306,26 @@ func TestBlockWithTxHashes(t *testing.T) {
 }
 
 func TestBlockWithTxs(t *testing.T) {
+	errTests := map[string]rpc.BlockID{
+		"latest":  {Latest: true},
+		"pending": {Pending: true},
+		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
+		"number":  {Number: 1},
+	}
+
+	for description, id := range errTests {
+		t.Run(description, func(t *testing.T) {
+			log := utils.NewNopZapLogger()
+			network := utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), network, log)
+			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+
+			block, rpcErr := handler.BlockWithTxs(id)
+			assert.Nil(t, block)
+			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		})
+	}
+
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -323,30 +339,6 @@ func TestBlockWithTxs(t *testing.T) {
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
-
-		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Latest: true})
-		assert.Nil(t, block)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(gomock.Any()).Return(nil, errors.New("block not found"))
-
-		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
-		assert.Nil(t, block)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
-
-		block, rpcErr := handler.BlockWithTxs(rpc.BlockID{Number: uint64(328476)})
-		assert.Nil(t, block)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
 
 	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpc.BlockWithTxHashes, blockWithTxs *rpc.BlockWithTxs) {
 		t.Helper()
@@ -1734,35 +1726,29 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 }
 
 func TestStateUpdate(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
+	errTests := map[string]rpc.BlockID{
+		"latest":  {Latest: true},
+		"pending": {Pending: true},
+		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
+		"number":  {Number: 1},
+	}
 
+	for description, id := range errTests {
+		t.Run(description, func(t *testing.T) {
+			log := utils.NewNopZapLogger()
+			network := utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), network, log)
+			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+
+			update, rpcErr := handler.StateUpdate(id)
+			assert.Nil(t, update)
+			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		})
+	}
+
+	mockCtrl := gomock.NewController(t)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Height().Return(uint64(0), errors.New("empty blockchain"))
-
-		update, rpcErr := handler.StateUpdate(rpc.BlockID{Latest: true})
-		assert.Nil(t, update)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateUpdateByHash(gomock.Any()).Return(nil, errors.New("block not found"))
-
-		update, rpcErr := handler.StateUpdate(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
-		assert.Nil(t, update)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().StateUpdateByNumber(gomock.Any()).Return(nil, errors.New("block not found"))
-
-		update, rpcErr := handler.StateUpdate(rpc.BlockID{Number: uint64(328476)})
-		assert.Nil(t, update)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
-	})
 
 	client := feeder.NewTestClient(t, utils.Mainnet)
 	mainnetGw := adaptfeeder.New(client)
@@ -3237,6 +3223,26 @@ func TestSimulateTransactions(t *testing.T) {
 }
 
 func TestTraceBlockTransactions(t *testing.T) {
+	errTests := map[string]rpc.BlockID{
+		"latest":  {Latest: true},
+		"pending": {Pending: true},
+		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
+		"number":  {Number: 1},
+	}
+
+	for description, id := range errTests {
+		t.Run(description, func(t *testing.T) {
+			log := utils.NewNopZapLogger()
+			network := utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), network, log)
+			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+
+			update, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
+			assert.Nil(t, update)
+			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		})
+	}
+
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -3247,14 +3253,6 @@ func TestTraceBlockTransactions(t *testing.T) {
 	const network = utils.Mainnet
 	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
 
-	t.Run("block not found", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x0001")
-		mockReader.EXPECT().BlockByHash(blockHash).Return(nil, errors.New("some new err"))
-
-		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
-		require.Equal(t, rpc.ErrBlockNotFound, err)
-		assert.Nil(t, result)
-	})
 	t.Run("pending block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
 		header := &core.Header{
