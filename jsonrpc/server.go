@@ -397,12 +397,7 @@ func isNil(i any) bool {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
-	reqJSON, err := json.Marshal(req)
-	if err == nil {
-		s.log.Debugw("Serving RPC request", "request", string(reqJSON))
-	}
-
-	if err = req.isSane(); err != nil {
+	if err := req.isSane(); err != nil {
 		return nil, err
 	}
 
@@ -425,9 +420,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 		return res, nil
 	}
 	defer func() {
-		handlerTook := time.Since(handlerTimer)
-		s.listener.OnRequestHandled(req.Method, handlerTook)
-		s.log.Debugw("Responding to RPC request", "method", req.Method, "id", req.ID, "took", handlerTook)
+		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
 	}()
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
@@ -438,7 +431,10 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
 		res.Error = errAny.(*Error)
 		if res.Error.Code == InternalError {
-			s.listener.OnRequestFailed(req.Method, err)
+			s.listener.OnRequestFailed(req.Method, res.Error)
+			reqJSON, _ := json.Marshal(req)
+			errJSON, _ := json.Marshal(res.Error)
+			s.log.Debugw("Failed handing RPC request", "req", string(reqJSON), "res", string(errJSON))
 		}
 		return res, nil
 	}
