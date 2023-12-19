@@ -462,7 +462,7 @@ network: goerli
 		},
 		"some setting set in both env variables and config file": {
 			cfgFileContents: `db-path: /home/file/.juno`,
-			env:             []string{"JUNO_DB_PATH", "/home/env/.juno"},
+			env:             []string{"JUNO_DB_PATH", "/home/env/.juno", "JUNO_GW_API_KEY", "apikey"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
 				HTTP:                defaultHTTP,
@@ -488,6 +488,7 @@ network: goerli
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				GatewayAPIKey:       "apikey",
 			},
 		},
 	}
