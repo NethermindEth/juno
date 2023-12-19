@@ -1,22 +1,28 @@
 use blockifier;
-use blockifier::execution::entry_point::{CallType, OrderedL2ToL1Message};
+use blockifier::execution::entry_point::CallType;
+use blockifier::execution::call_info::OrderedL2ToL1Message;
+use cairo_vm::vm::runners::builtin_runner::{
+    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME,
+    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
+    SEGMENT_ARENA_BUILTIN_NAME,
+};
 use blockifier::state::cached_state::TransactionalState;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{State, StateReader};
 use serde::Serialize;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey, EthAddress};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, EthAddress, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 
 use crate::juno_state_reader::JunoStateReader;
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum TransactionType {
     // dummy type for implementing Default trait
-    Unknown,
+    #[default] Unknown,
     Invoke,
     Declare,
     #[serde(rename = "DEPLOY_ACCOUNT")]
@@ -37,13 +43,11 @@ pub struct TransactionTrace {
     constructor_invocation: Option<FunctionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     function_invocation: Option<FunctionInvocation>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<TransactionType>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    state_diff: Option<StateDiff>,
+    r#type: TransactionType,
+    state_diff: StateDiff,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 struct StateDiff {
     storage_diffs: Vec<StorageDiff>,
     nonces: Vec<Nonce>,
@@ -91,8 +95,6 @@ struct DeclaredClass {
 
 impl TransactionTrace {
     pub fn make_legacy(&mut self) {
-        self.state_diff = None;
-        self.r#type = None;
         if let Some(invocation) = &mut self.validate_invocation {
             invocation.make_legacy()
         }
@@ -120,7 +122,7 @@ pub enum ExecuteInvocation {
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
 pub fn new_transaction_trace(
-    tx: StarknetApiTransaction,
+    tx: &StarknetApiTransaction,
     info: BlockifierTxInfo,
     state: &mut TransactionalState<JunoStateReader>,
 ) -> Result<TransactionTrace, StateError> {
@@ -129,13 +131,13 @@ pub fn new_transaction_trace(
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             trace.function_invocation = info.execute_call_info.map(|v| v.into());
-            trace.r#type = Some(TransactionType::L1Handler);
+            trace.r#type = TransactionType::L1Handler;
         }
         StarknetApiTransaction::DeployAccount(_) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.constructor_invocation = info.execute_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.r#type = Some(TransactionType::DeployAccount);
+            trace.r#type = TransactionType::DeployAccount;
         }
         StarknetApiTransaction::Invoke(_) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
@@ -146,17 +148,17 @@ pub fn new_transaction_trace(
                     .map(|v| ExecuteInvocation::Ok(v.into())),
             };
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.r#type = Some(TransactionType::Invoke);
+            trace.r#type = TransactionType::Invoke;
         }
         StarknetApiTransaction::Declare(declare_txn) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.r#type = Some(TransactionType::Declare);
+            trace.r#type = TransactionType::Declare;
             deprecated_declared_class = if info.revert_error.is_none() {
                 match declare_txn {
                     DeclareTransaction::V0(_) => Some(declare_txn.class_hash()),
                     DeclareTransaction::V1(_) => Some(declare_txn.class_hash()),
-                    DeclareTransaction::V2(_) => None,
+                    _ => None,
                 }
             } else {
                 None
@@ -168,24 +170,69 @@ pub fn new_transaction_trace(
         }
     };
 
-    trace.state_diff = Some(make_state_diff(state, deprecated_declared_class)?);
+    trace.state_diff = make_state_diff(state, deprecated_declared_class)?;
     Ok(trace)
 }
 
 #[derive(Serialize)]
 pub struct OrderedEvent {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub order: Option<usize>,
+    pub order: usize,
     #[serde(flatten)]
     pub event: EventContent,
 }
 
-type BlockifierOrderedEvent = blockifier::execution::entry_point::OrderedEvent;
+use blockifier::execution::call_info::OrderedEvent as BlockifierOrderedEvent;
 impl From<BlockifierOrderedEvent> for OrderedEvent {
     fn from(val: BlockifierOrderedEvent) -> Self {
         OrderedEvent {
-            order: Some(val.order),
+            order: val.order,
             event: val.event,
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct ExecutionResources {
+    pub steps: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_holes: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub range_check_builtin_applications: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pedersen_builtin_applications: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poseidon_builtin_applications: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ec_op_builtin_applications: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ecdsa_builtin_applications: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bitwise_builtin_applications: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keccak_builtin_applications: Option<usize>,
+    // https://github.com/starkware-libs/starknet-specs/pull/167
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub segment_arena_builtin: Option<usize>,
+}
+
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
+impl From<VmExecutionResources> for ExecutionResources {
+    fn from(val: VmExecutionResources) -> Self {
+        ExecutionResources {
+            steps: val.n_steps,
+            memory_holes: if val.n_memory_holes > 0 {
+                Some(val.n_memory_holes)
+            } else {
+                None
+            },
+            range_check_builtin_applications: val.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).cloned(),
+            pedersen_builtin_applications: val.builtin_instance_counter.get(HASH_BUILTIN_NAME).cloned(),
+            poseidon_builtin_applications: val.builtin_instance_counter.get(POSEIDON_BUILTIN_NAME).cloned(),
+            ec_op_builtin_applications: val.builtin_instance_counter.get(EC_OP_BUILTIN_NAME).cloned(),
+            ecdsa_builtin_applications: val.builtin_instance_counter.get(SIGNATURE_BUILTIN_NAME).cloned(),
+            bitwise_builtin_applications: val.builtin_instance_counter.get(BITWISE_BUILTIN_NAME).cloned(),
+            keccak_builtin_applications: val.builtin_instance_counter.get(KECCAK_BUILTIN_NAME).cloned(),
+            segment_arena_builtin: val.builtin_instance_counter.get(SEGMENT_ARENA_BUILTIN_NAME).cloned(),
         }
     }
 }
@@ -202,23 +249,20 @@ pub struct FunctionInvocation {
     pub calls: Vec<FunctionInvocation>,
     pub events: Vec<OrderedEvent>,
     pub messages: Vec<OrderedMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub execution_resources: Option<ExecutionResources>,
 }
 
 impl FunctionInvocation {
     fn make_legacy(&mut self) {
-        for indx in 0..self.events.len() {
-            self.events[indx].order = None;
-        }
-        for indx in 0..self.messages.len() {
-            self.messages[indx].order = None;
-        }
-        for indx in 0..self.calls.len() {
-            self.calls[indx].make_legacy();
+        self.execution_resources = None;
+        for call in self.calls.iter_mut() {
+            call.make_legacy();
         }
     }
 }
 
-type BlockifierCallInfo = blockifier::execution::entry_point::CallInfo;
+use blockifier::execution::call_info::CallInfo as BlockifierCallInfo;
 impl From<BlockifierCallInfo> for FunctionInvocation {
     fn from(val: BlockifierCallInfo) -> Self {
         FunctionInvocation {
@@ -248,6 +292,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
                     ordered_message
                 })
                 .collect(),
+            execution_resources: Some(val.vm_resources.into()),
         }
     }
 }
@@ -261,8 +306,7 @@ pub struct FunctionCall {
 
 #[derive(Serialize)]
 pub struct OrderedMessage {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub order: Option<usize>,
+    pub order: usize,
     pub from_address: ContractAddress,
     pub to_address: EthAddress,
     pub payload: L2ToL1Payload,
@@ -271,7 +315,7 @@ pub struct OrderedMessage {
 impl From<OrderedL2ToL1Message> for OrderedMessage {
     fn from(val: OrderedL2ToL1Message) -> Self {
         OrderedMessage {
-            order: Some(val.order),
+            order: val.order,
             from_address: ContractAddress(PatriciaKey::default()),
             to_address: val.message.to_address,
             payload: val.message.payload,

@@ -2,8 +2,10 @@ package main_test
 
 import (
 	"context"
+	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -32,7 +34,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWS := false
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
-	defaultNetwork := utils.MAINNET
+	defaultNetwork := utils.Mainnet
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
 	defaultMetrics := false
@@ -41,12 +43,16 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
 	defaultPendingPollInterval := time.Duration(0)
+	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
+	defaultRPCMaxBlockScan := uint(math.MaxUint)
+	defaultMaxCacheSize := uint(8)
 
 	tests := map[string]struct {
 		cfgFile         bool
 		cfgFileContents string
 		expectErr       bool
 		inputArgs       []string
+		env             []string
 		expectedConfig  *node.Config
 	}{
 		"default config with no flags": {
@@ -72,6 +78,10 @@ func TestConfigPrecedence(t *testing.T) {
 				MetricsPort:         defaultMetricsPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file path is empty string": {
@@ -97,6 +107,10 @@ func TestConfigPrecedence(t *testing.T) {
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file doesn't exist": {
@@ -127,6 +141,10 @@ func TestConfigPrecedence(t *testing.T) {
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
 				DatabasePath:        defaultDBPath,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -153,12 +171,16 @@ pprof: true
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.GOERLI2,
+				Network:             utils.Goerli2,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -188,33 +210,41 @@ http-port: 4576
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"all flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--network", "goerli", "--pprof",
+				"--db-path", "/home/.juno", "--network", "goerli", "--pprof", "--db-cache-size", "8",
 			},
 			expectedConfig: &node.Config{
-				LogLevel:      utils.DEBUG,
-				HTTP:          defaultHTTP,
-				HTTPHost:      "0.0.0.0",
-				HTTPPort:      4576,
-				Websocket:     defaultWS,
-				WebsocketHost: defaultHost,
-				WebsocketPort: defaultWSPort,
-				GRPC:          defaultGRPC,
-				GRPCHost:      defaultHost,
-				GRPCPort:      defaultGRPCPort,
-				Metrics:       defaultMetrics,
-				MetricsHost:   defaultHost,
-				MetricsPort:   defaultMetricsPort,
-				DatabasePath:  "/home/.juno",
-				Network:       utils.GOERLI,
-				Pprof:         true,
-				PprofHost:     defaultHost,
-				PprofPort:     defaultPprofPort,
-				Colour:        defaultColour,
+				LogLevel:        utils.DEBUG,
+				HTTP:            defaultHTTP,
+				HTTPHost:        "0.0.0.0",
+				HTTPPort:        4576,
+				Websocket:       defaultWS,
+				WebsocketHost:   defaultHost,
+				WebsocketPort:   defaultWSPort,
+				GRPC:            defaultGRPC,
+				GRPCHost:        defaultHost,
+				GRPCPort:        defaultGRPCPort,
+				Metrics:         defaultMetrics,
+				MetricsHost:     defaultHost,
+				MetricsPort:     defaultMetricsPort,
+				DatabasePath:    "/home/.juno",
+				Network:         utils.Goerli,
+				Pprof:           true,
+				PprofHost:       defaultHost,
+				PprofPort:       defaultPprofPort,
+				Colour:          defaultColour,
+				MaxVMs:          defaultMaxVMs,
+				MaxVMQueue:      2 * defaultMaxVMs,
+				RPCMaxBlockScan: defaultRPCMaxBlockScan,
+				DBCacheSize:     defaultMaxCacheSize,
 			},
 		},
 		"some flags without config file": {
@@ -237,12 +267,16 @@ http-port: 4576
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.INTEGRATION,
+				Network:             utils.Integration,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -266,11 +300,13 @@ pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
 pending-poll-interval: 5s
+db-cache-size: 8
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
 				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
+				"--db-cache-size", "9",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.ERROR,
@@ -287,12 +323,16 @@ pending-poll-interval: 5s
 				GRPCHost:            "127.0.0.1",
 				GRPCPort:            4577,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.INTEGRATION,
+				Network:             utils.Integration,
 				Pprof:               true,
 				PprofHost:           "0.0.0.0",
 				PprofPort:           6064,
 				Colour:              defaultColour,
 				PendingPollInterval: time.Millisecond,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         9,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -318,12 +358,16 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.GOERLI,
+				Network:             utils.Goerli,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -345,12 +389,105 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.GOERLI2,
+				Network:             utils.Goerli2,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
 				Colour:              defaultColour,
 				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+			},
+		},
+		"only set env variables": {
+			env: []string{"JUNO_HTTP_PORT", "8080", "JUNO_WS", "true", "JUNO_HTTP_HOST", "0.0.0.0"},
+			expectedConfig: &node.Config{
+				LogLevel:            defaultLogLevel,
+				HTTP:                defaultHTTP,
+				HTTPHost:            "0.0.0.0",
+				HTTPPort:            8080,
+				Websocket:           true,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        defaultDBPath,
+				Network:             defaultNetwork,
+				Pprof:               defaultPprof,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+			},
+		},
+		"some setting set in both env variables and flags": {
+			env:       []string{"JUNO_DB_PATH", "/home/env/.juno"},
+			inputArgs: []string{"--db-path", "/home/flag/.juno"},
+			expectedConfig: &node.Config{
+				LogLevel:            defaultLogLevel,
+				HTTP:                defaultHTTP,
+				HTTPHost:            defaultHost,
+				HTTPPort:            defaultHTTPPort,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/flag/.juno",
+				Network:             defaultNetwork,
+				Pprof:               defaultPprof,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+			},
+		},
+		"some setting set in both env variables and config file": {
+			cfgFileContents: `db-path: /home/file/.juno`,
+			env:             []string{"JUNO_DB_PATH", "/home/env/.juno"},
+			expectedConfig: &node.Config{
+				LogLevel:            defaultLogLevel,
+				HTTP:                defaultHTTP,
+				HTTPHost:            defaultHost,
+				HTTPPort:            defaultHTTPPort,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/env/.juno",
+				Network:             defaultNetwork,
+				Pprof:               defaultPprof,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
 			},
 		},
 	}
@@ -360,6 +497,14 @@ network: goerli
 			if tc.cfgFile {
 				fileN := tempCfgFile(t, tc.cfgFileContents)
 				tc.inputArgs = append(tc.inputArgs, "--config", fileN)
+			}
+
+			require.True(t, len(tc.env)%2 == 0, "The number of env variables should be an even number")
+
+			if len(tc.env) > 0 {
+				for i := 0; i < len(tc.env)/2; i++ {
+					os.Setenv(tc.env[2*i], tc.env[2*i+1])
+				}
 			}
 
 			config := new(node.Config)
@@ -374,6 +519,11 @@ network: goerli
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedConfig, config)
+			if len(tc.env) > 0 {
+				for i := 0; i < len(tc.env)/2; i++ {
+					os.Unsetenv(tc.env[2*i])
+				}
+			}
 		})
 	}
 }

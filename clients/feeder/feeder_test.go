@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
@@ -21,48 +22,138 @@ const (
 )
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	t.Run("pre-v0.3", func(t *testing.T) {
+		client := feeder.NewTestClient(t, utils.Mainnet)
+		txnHash := utils.HexToFelt(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
+		status, err := client.Transaction(context.Background(), txnHash)
+		require.NoError(t, err)
 
-	txnHash := utils.HexToFelt(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
-	status, err := client.Transaction(context.Background(), txnHash)
-	require.NoError(t, err)
+		declareTx := status.Transaction
+		assert.Equal(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d", declareTx.Hash.String())
+		assert.Equal(t, "0x1", declareTx.Version.String())
+		assert.Equal(t, "0x5af3107a4000", declareTx.MaxFee.String())
+		assert.Equal(t, "0x1d", declareTx.Nonce.String())
+		assert.Equal(t, "0x2ed6bb4d57ad27a22972b81feb9d09798ff8c273684376ec72c154d90343453", declareTx.ClassHash.String())
+		assert.Equal(t, "0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23", declareTx.SenderAddress.String())
+		assert.Equal(t, starknet.TxnDeclare, declareTx.Type)
+		assert.Equal(t, 2, len(*declareTx.Signature))
+		assert.Equal(t, "0x516b5999b47509105675dd4c6ed9c373448038cfd00549fe868695916eee0ff", (*declareTx.Signature)[0].String())
+		assert.Equal(t, "0x6c0189aaa56bfcb2a3e97198d04bd7a9750a4354b88f4e5edf57cf4d966ddda", (*declareTx.Signature)[1].String())
+	})
 
-	declareTx := status.Transaction
-	assert.Equal(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d", declareTx.Hash.String())
-	assert.Equal(t, "0x1", declareTx.Version.String())
-	assert.Equal(t, "0x5af3107a4000", declareTx.MaxFee.String())
-	assert.Equal(t, "0x1d", declareTx.Nonce.String())
-	assert.Equal(t, "0x2ed6bb4d57ad27a22972b81feb9d09798ff8c273684376ec72c154d90343453", declareTx.ClassHash.String())
-	assert.Equal(t, "0xb8a60857ed233885155f1d839086ca7ad03e6d4237cc10b085a4652a61a23", declareTx.SenderAddress.String())
-	assert.Equal(t, starknet.TxnDeclare, declareTx.Type)
-	assert.Equal(t, 2, len(*declareTx.Signature))
-	assert.Equal(t, "0x516b5999b47509105675dd4c6ed9c373448038cfd00549fe868695916eee0ff", (*declareTx.Signature)[0].String())
-	assert.Equal(t, "0x6c0189aaa56bfcb2a3e97198d04bd7a9750a4354b88f4e5edf57cf4d966ddda", (*declareTx.Signature)[1].String())
+	t.Run("v0.3", func(t *testing.T) {
+		client := feeder.NewTestClient(t, utils.Integration)
+		txnHash := utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
+		status, err := client.Transaction(context.Background(), txnHash)
+		require.NoError(t, err)
+
+		require.Equal(t, &starknet.Transaction{
+			Hash:    utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
+			Version: utils.HexToFelt(t, "0x3"),
+			Signature: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc"),
+				utils.HexToFelt(t, "0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"),
+			},
+			Nonce:       new(felt.Felt).SetUint64(1),
+			NonceDAMode: utils.Ptr(starknet.DAModeL1),
+			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
+			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
+				starknet.ResourceL1Gas: {
+					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
+				},
+				starknet.ResourceL2Gas: {
+					MaxAmount:       new(felt.Felt),
+					MaxPricePerUnit: new(felt.Felt),
+				},
+			},
+			Tip:                   new(felt.Felt),
+			PaymasterData:         &[]*felt.Felt{},
+			SenderAddress:         utils.HexToFelt(t, "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50"),
+			ClassHash:             utils.HexToFelt(t, "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7"),
+			CompiledClassHash:     utils.HexToFelt(t, "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8"),
+			AccountDeploymentData: &[]*felt.Felt{},
+			Type:                  starknet.TxnDeclare,
+		}, status.Transaction)
+	})
 }
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	t.Run("pre-v0.3", func(t *testing.T) {
+		client := feeder.NewTestClient(t, utils.Mainnet)
 
-	txnHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
-	status, err := client.Transaction(context.Background(), txnHash)
-	require.NoError(t, err)
+		txnHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
+		status, err := client.Transaction(context.Background(), txnHash)
+		require.NoError(t, err)
 
-	invokeTx := status.Transaction
-	assert.Equal(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df", invokeTx.Hash.String())
-	assert.Equal(t, "0x0", invokeTx.Version.String())
-	assert.Equal(t, "0x0", invokeTx.MaxFee.String())
-	assert.Equal(t, 0, len(*invokeTx.Signature))
-	assert.Equal(t, "0x17daeb497b6fe0f7adaa32b44677c3a9712b6856b792ad993fcef20aed21ac8", invokeTx.ContractAddress.String())
-	assert.Equal(t, "0x218f305395474a84a39307fa5297be118fe17bf65e27ac5e2de6617baa44c64", invokeTx.EntryPointSelector.String())
-	assert.Equal(t, 2, len(*invokeTx.CallData))
-	assert.Equal(t, "0x346f2b6376b4b57f714ba187716fce9edff1361628cc54783ed0351538faa5e", (*invokeTx.CallData)[0].String())
-	assert.Equal(t, "0x2", (*invokeTx.CallData)[1].String())
-	assert.Equal(t, starknet.TxnInvoke, invokeTx.Type)
+		invokeTx := status.Transaction
+		assert.Equal(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df", invokeTx.Hash.String())
+		assert.Equal(t, "0x0", invokeTx.Version.String())
+		assert.Equal(t, "0x0", invokeTx.MaxFee.String())
+		assert.Equal(t, 0, len(*invokeTx.Signature))
+		assert.Equal(t, "0x17daeb497b6fe0f7adaa32b44677c3a9712b6856b792ad993fcef20aed21ac8", invokeTx.ContractAddress.String())
+		assert.Equal(t, "0x218f305395474a84a39307fa5297be118fe17bf65e27ac5e2de6617baa44c64", invokeTx.EntryPointSelector.String())
+		assert.Equal(t, 2, len(*invokeTx.CallData))
+		assert.Equal(t, "0x346f2b6376b4b57f714ba187716fce9edff1361628cc54783ed0351538faa5e", (*invokeTx.CallData)[0].String())
+		assert.Equal(t, "0x2", (*invokeTx.CallData)[1].String())
+		assert.Equal(t, starknet.TxnInvoke, invokeTx.Type)
+	})
+
+	t.Run("v0.3", func(t *testing.T) {
+		client := feeder.NewTestClient(t, utils.Integration)
+		txnHash := utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd")
+		status, err := client.Transaction(context.Background(), txnHash)
+		require.NoError(t, err)
+
+		require.Equal(t, &starknet.Transaction{
+			Hash:    utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+			Version: new(felt.Felt).SetUint64(3),
+			Signature: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x71a9b2cd8a8a6a4ca284dcddcdefc6c4fd20b92c1b201bd9836e4ce376fad16"),
+				utils.HexToFelt(t, "0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5"),
+			},
+			Nonce:       utils.HexToFelt(t, "0xe97"),
+			NonceDAMode: utils.Ptr(starknet.DAModeL1),
+			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
+			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
+				starknet.ResourceL1Gas: {
+					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+				},
+				starknet.ResourceL2Gas: {
+					MaxAmount:       new(felt.Felt),
+					MaxPricePerUnit: new(felt.Felt),
+				},
+			},
+			Tip:           new(felt.Felt),
+			PaymasterData: &[]*felt.Felt{},
+			SenderAddress: utils.HexToFelt(t, "0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41"),
+			CallData: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x2"),
+				utils.HexToFelt(t, "0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684"),
+				utils.HexToFelt(t, "0x27c3334165536f239cfd400ed956eabff55fc60de4fb56728b6a4f6b87db01c"),
+				utils.HexToFelt(t, "0x0"),
+				utils.HexToFelt(t, "0x4"),
+				utils.HexToFelt(t, "0x4c312760dfd17a954cdd09e76aa9f149f806d88ec3e402ffaf5c4926f568a42"),
+				utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf"),
+				utils.HexToFelt(t, "0x4"),
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x5"),
+				utils.HexToFelt(t, "0x450703c32370cf7ffff540b9352e7ee4ad583af143a361155f2b485c0c39684"),
+				utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf"),
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x7fe4fd616c7fece1244b3616bb516562e230be8c9f29668b46ce0369d5ca829"),
+				utils.HexToFelt(t, "0x287acddb27a2f9ba7f2612d72788dc96a5b30e401fc1e8072250940e024a587"),
+			},
+			AccountDeploymentData: &[]*felt.Felt{},
+			Type:                  starknet.TxnInvoke,
+		}, status.Transaction)
+	})
 }
 
 //nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	txnHash := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -83,36 +174,76 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 }
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	t.Run("pre-v0.3", func(t *testing.T) {
+		client := feeder.NewTestClient(t, utils.Mainnet)
 
-	txnHash := utils.HexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
-	status, err := client.Transaction(context.Background(), txnHash)
-	require.NoError(t, err)
+		txnHash := utils.HexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
+		status, err := client.Transaction(context.Background(), txnHash)
+		require.NoError(t, err)
 
-	deployTx := status.Transaction
-	assert.Equal(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e", deployTx.Hash.String())
-	assert.Equal(t, "0x1", deployTx.Version.String())
-	assert.Equal(t, "0x59f5f9f474b0", deployTx.MaxFee.String())
-	assert.Equal(t, 2, len(*deployTx.Signature))
-	assert.Equal(t, "0x467ae89bbbbaa0139e8f8a02ddc614bd80252998f3c033239f59f9f2ab973c5", (*deployTx.Signature)[0].String())
-	assert.Equal(t, "0x92938929b5afcd596d651a6d28ed38baf90b000192897617d98de19d475331", (*deployTx.Signature)[1].String())
-	assert.Equal(t, "0x0", deployTx.Nonce.String())
-	assert.Equal(t, "0x104714313388bd0ab569ac247fed6cf0b7a2c737105c00d64c23e24bd8dea40", deployTx.ContractAddress.String())
-	assert.Equal(t, "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", deployTx.ContractAddressSalt.String())
-	assert.Equal(t, "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918", deployTx.ClassHash.String())
+		deployTx := status.Transaction
+		assert.Equal(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e", deployTx.Hash.String())
+		assert.Equal(t, "0x1", deployTx.Version.String())
+		assert.Equal(t, "0x59f5f9f474b0", deployTx.MaxFee.String())
+		assert.Equal(t, 2, len(*deployTx.Signature))
+		assert.Equal(t, "0x467ae89bbbbaa0139e8f8a02ddc614bd80252998f3c033239f59f9f2ab973c5", (*deployTx.Signature)[0].String())
+		assert.Equal(t, "0x92938929b5afcd596d651a6d28ed38baf90b000192897617d98de19d475331", (*deployTx.Signature)[1].String())
+		assert.Equal(t, "0x0", deployTx.Nonce.String())
+		assert.Equal(t, "0x104714313388bd0ab569ac247fed6cf0b7a2c737105c00d64c23e24bd8dea40", deployTx.ContractAddress.String())
+		assert.Equal(t, "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", deployTx.ContractAddressSalt.String())
+		assert.Equal(t, "0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918", deployTx.ClassHash.String())
 
-	assert.Equal(t, 5, len(*deployTx.ConstructorCallData))
-	assert.Equal(t, "0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2", (*deployTx.ConstructorCallData)[0].String())
-	assert.Equal(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463", (*deployTx.ConstructorCallData)[1].String())
-	assert.Equal(t, "0x2", (*deployTx.ConstructorCallData)[2].String())
-	assert.Equal(t, "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", (*deployTx.ConstructorCallData)[3].String())
-	assert.Equal(t, "0x0", (*deployTx.ConstructorCallData)[4].String())
-	assert.Equal(t, starknet.TxnDeployAccount, deployTx.Type)
+		assert.Equal(t, 5, len(*deployTx.ConstructorCallData))
+		assert.Equal(t, "0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2", (*deployTx.ConstructorCallData)[0].String())
+		assert.Equal(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463", (*deployTx.ConstructorCallData)[1].String())
+		assert.Equal(t, "0x2", (*deployTx.ConstructorCallData)[2].String())
+		assert.Equal(t, "0x25b9dbdab19b190a556aa42cdfbc07ad6ffe415031e42a8caffd4a2438d5cc3", (*deployTx.ConstructorCallData)[3].String())
+		assert.Equal(t, "0x0", (*deployTx.ConstructorCallData)[4].String())
+		assert.Equal(t, starknet.TxnDeployAccount, deployTx.Type)
+	})
+
+	t.Run("v0.3", func(t *testing.T) {
+		client := feeder.NewTestClient(t, utils.Integration)
+		txnHash := utils.HexToFelt(t, "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0")
+		status, err := client.Transaction(context.Background(), txnHash)
+		require.NoError(t, err)
+
+		require.Equal(t, &starknet.Transaction{
+			Hash:      utils.HexToFelt(t, "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+			Version:   utils.HexToFelt(t, "0x3"),
+			ClassHash: utils.HexToFelt(t, "0x2338634f11772ea342365abd5be9d9dc8a6f44f159ad782fdebd3db5d969738"),
+			Signature: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x6d756e754793d828c6c1a89c13f7ec70dbd8837dfeea5028a673b80e0d6b4ec"),
+				utils.HexToFelt(t, "0x4daebba599f860daee8f6e100601d98873052e1c61530c630cc4375c6bd48e3"),
+			},
+			Nonce:       new(felt.Felt),
+			NonceDAMode: utils.Ptr(starknet.DAModeL1),
+			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
+			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
+				starknet.ResourceL1Gas: {
+					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+				},
+				starknet.ResourceL2Gas: {
+					MaxAmount:       new(felt.Felt),
+					MaxPricePerUnit: new(felt.Felt),
+				},
+			},
+			Tip:                 new(felt.Felt),
+			PaymasterData:       &[]*felt.Felt{},
+			SenderAddress:       utils.HexToFelt(t, "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50"),
+			ContractAddressSalt: new(felt.Felt),
+			ConstructorCallData: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x5cd65f3d7daea6c63939d659b8473ea0c5cd81576035a4d34e52fb06840196c"),
+			},
+			Type: starknet.TxnDeployAccount,
+		}, status.Transaction)
+	})
 }
 
 //nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	txnHash := utils.HexToFelt(t, "0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -133,7 +264,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	block, err := client.Block(context.Background(), strconv.Itoa(11817))
 	require.NoError(t, err)
@@ -143,7 +274,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	assert.Equal(t, uint64(11817), block.Number)
 	assert.Equal(t, "0x3df24be7b5fed6b41de08d38686b6142944119ca2a345c38793590d6804bba4", block.StateRoot.String())
 	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
-	assert.Equal(t, "0x27ad16775", block.GasPrice.String())
+	assert.Equal(t, "0x27ad16775", block.GasPriceETH().String())
 	assert.Equal(t, 52, len(block.Transactions))
 	assert.Equal(t, 52, len(block.Receipts))
 	assert.Equal(t, uint64(1669465009), block.Timestamp)
@@ -151,7 +282,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	block, err := client.Block(context.Background(), strconv.Itoa(19199))
 	require.NoError(t, err)
@@ -161,7 +292,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	assert.Equal(t, uint64(19199), block.Number)
 	assert.Equal(t, "0x541b796ea02703d02ff31459815f65f410ceefe80a4e3499f7ef9ccc36d26ee", block.StateRoot.String())
 	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
-	assert.Equal(t, "0x31c4e2d75", block.GasPrice.String())
+	assert.Equal(t, "0x31c4e2d75", block.GasPriceETH().String())
 	assert.Equal(t, 324, len(block.Transactions))
 	assert.Equal(t, 324, len(block.Receipts))
 	assert.Equal(t, uint64(1674728186), block.Timestamp)
@@ -169,8 +300,25 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9", block.SequencerAddress.String())
 }
 
+func TestBlockHeaderV013Unmarshal(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.Integration)
+	block, err := client.Block(context.Background(), "319132")
+	require.NoError(t, err)
+
+	require.Equal(t, utils.HexToFelt(t, "0x50e864db6b81ce69fbeb70e6a7284ee2febbb9a2e707415de7adab83525e9cd"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x39dfc381180356734085e2d70b640e153c241c7f65936cacbdff9fad84bbc0c"), block.ParentHash)
+	require.Equal(t, uint64(319132), block.Number)
+	require.Equal(t, utils.HexToFelt(t, "0x2a6b9a8b60e1de80dc50e6b704b415a38e8fd03d82244cec92cbff0821a8975"), block.StateRoot)
+	require.Equal(t, "ACCEPTED_ON_L2", block.Status)
+	require.Equal(t, utils.HexToFelt(t, "0x3b9aca08"), block.GasPriceETH())
+	require.Equal(t, utils.HexToFelt(t, "0x2540be400"), block.GasPriceSTRK)
+	require.Equal(t, uint64(1700075354), block.Timestamp)
+	require.Equal(t, utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"), block.SequencerAddress)
+	require.Equal(t, "0.13.0", block.Version)
+}
+
 func TestClassV0Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	hash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 	class, err := client.ClassDefinition(context.Background(), hash)
@@ -188,7 +336,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 }
 
 func TestClassV1Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
 	hash := utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
 	class, err := client.ClassDefinition(context.Background(), hash)
@@ -228,7 +376,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 }
 
 func TestStateUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		stateUpdate, err := client.StateUpdate(context.Background(), "0")
@@ -257,7 +405,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.INTEGRATION)
+		client := feeder.NewTestClient(t, utils.Integration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			update, err := client.StateUpdate(context.Background(), "283746")
@@ -280,7 +428,7 @@ func TestStateUpdate(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
@@ -297,7 +445,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualBlock, err := client.Block(context.Background(), strconv.Itoa(11817))
@@ -317,7 +465,7 @@ func TestBlock(t *testing.T) {
 }
 
 func TestClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
@@ -386,7 +534,7 @@ func TestBackoffFailure(t *testing.T) {
 }
 
 func TestCompiledClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	class, err := client.CompiledClassDefinition(context.Background(), classHash)
@@ -395,7 +543,7 @@ func TestCompiledClassDefinition(t *testing.T) {
 }
 
 func TestTransactionStatusRevertError(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
 	txnHash := utils.HexToFelt(t, "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -404,15 +552,15 @@ func TestTransactionStatusRevertError(t *testing.T) {
 }
 
 func TestPublicKey(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
-	actualPublicKey, err := client.PublickKey(context.Background())
+	actualPublicKey, err := client.PublicKey(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, "0x507b38d81561baa02f718dae46c371ba9f72fc5f0e9535ca94559dfb776115b", actualPublicKey.String())
 }
 
 func TestSignature(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualSignature, err := client.Signature(context.Background(), strconv.Itoa(214584))
@@ -436,7 +584,7 @@ func TestSignature(t *testing.T) {
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), strconv.Itoa(0))
@@ -463,7 +611,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestBlockTrace(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, utils.Integration)
 
 	t.Run("old block", func(t *testing.T) {
 		trace, err := client.BlockTrace(context.Background(), "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279")
@@ -476,4 +624,18 @@ func TestBlockTrace(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, trace.Traces, 2)
 	})
+}
+
+func TestEventListener(t *testing.T) {
+	isCalled := false
+	client := feeder.NewTestClient(t, utils.Integration).WithListener(&feeder.SelectiveListener{
+		OnResponseCb: func(urlPath string, status int, _ time.Duration) {
+			isCalled = true
+			require.Equal(t, 200, status)
+			require.Equal(t, "/get_block", urlPath)
+		},
+	})
+	_, err := client.Block(context.Background(), "0")
+	require.NoError(t, err)
+	require.True(t, isCalled)
 }

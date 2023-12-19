@@ -13,8 +13,10 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
@@ -30,6 +32,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 )
 
@@ -59,6 +63,7 @@ type Config struct {
 	PprofPort           uint16         `mapstructure:"pprof-port"`
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
+	RemoteDB            string         `mapstructure:"remote-db"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -67,6 +72,12 @@ type Config struct {
 	P2P          bool   `mapstructure:"p2p"`
 	P2PAddr      string `mapstructure:"p2p-addr"`
 	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+
+	MaxVMs          uint `mapstructure:"max-vms"`
+	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
+
+	DBCacheSize uint `mapstructure:"db-cache-size"`
 }
 
 type Node struct {
@@ -93,7 +104,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("create DB logger: %w", err)
 	}
 
-	database, err := pebble.New(cfg.DatabasePath, dbLog)
+	dbIsRemote := cfg.RemoteDB != ""
+	var database db.DB
+	if dbIsRemote {
+		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, dbLog)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
@@ -102,13 +119,28 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services := make([]service.Service, 0)
 
 	chain := blockchain.New(database, cfg.Network, log)
+
+	// Verify that cfg.Network is compatible with the database.
+	head, err := chain.Head()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, fmt.Errorf("get head block from database: %v", err)
+	}
+	if head != nil {
+		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
+		if _, err = core.VerifyBlockHash(head, cfg.Network); err != nil {
+			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+		}
+	}
+
 	feederClientTimeout := 5 * time.Second
 	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).WithTimeout(feederClientTimeout)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval)
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua)
 
-	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, vm.New(log), version, log)
+	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	rpcHandler := rpc.New(chain, synchronizer, cfg.Network, gatewayClient, client, throttledVM, version, log)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
@@ -123,9 +155,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":        jsonrpcServer,
-		path:       jsonrpcServer,
-		legacyPath: jsonrpcServerLegacy,
+		"/":                 jsonrpcServer,
+		path:                jsonrpcServer,
+		legacyPath:          jsonrpcServerLegacy,
+		"/rpc":              jsonrpcServer,
+		"/rpc" + path:       jsonrpcServer,
+		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics))
@@ -134,11 +169,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
 	}
 	if cfg.Metrics {
+		chain.WithListener(makeBlockchainMetrics())
+		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
 		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
 		jsonrpcServer.WithListener(rpcMetrics)
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
 		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+		client.WithListener(makeFeederMetrics())
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
@@ -173,7 +211,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
-
+		if cfg.Metrics {
+			l1Client.WithEventListener(makeL1Metrics())
+		}
 		n.services = append(n.services, l1Client)
 	}
 
@@ -234,7 +274,11 @@ func (n *Node) Run(ctx context.Context) {
 	}
 	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
-	if err := migration.MigrateIfNeeded(n.db, n.cfg.Network, n.log); err != nil {
+	if err := migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
+		if errors.Is(err, context.Canceled) {
+			n.log.Infow("DB Migration cancelled")
+			return
+		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}

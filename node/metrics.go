@@ -2,11 +2,15 @@ package node
 
 import (
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -39,8 +43,26 @@ func makeDBMetrics() db.EventListener {
 		Name:      "write_latency",
 		Buckets:   latencyBuckets,
 	})
+	commitLatency := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "db",
+		Name:      "commit_latency",
+		Buckets: []float64{
+			5000,
+			10000,
+			20000,
+			30000,
+			40000,
+			50000,
+			100000, // 100ms
+			200000,
+			300000,
+			500000,
+			1000000,
+			math.Inf(0),
+		},
+	})
 
-	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram)
+	prometheus.MustRegister(readLatencyHistogram, writeLatencyHistogram, commitLatency)
 	return &db.SelectiveListener{
 		OnIOCb: func(write bool, duration time.Duration) {
 			if write {
@@ -48,6 +70,9 @@ func makeDBMetrics() db.EventListener {
 			} else {
 				readLatencyHistogram.Observe(float64(duration.Microseconds()))
 			}
+		},
+		OnCommitCb: func(duration time.Duration) {
+			commitLatency.Observe(float64(duration.Microseconds()))
 		},
 	}
 }
@@ -165,6 +190,58 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		},
 		OnReorgCb: func(blockNum uint64) {
 			reorgCount.Inc()
+		},
+	}
+}
+
+func makeJunoMetrics(version string) {
+	prometheus.MustRegister(prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace:   "juno",
+		Name:        "info",
+		Help:        "Information about the Juno binary",
+		ConstLabels: prometheus.Labels{"version": version},
+	}))
+}
+
+func makeBlockchainMetrics() blockchain.EventListener {
+	reads := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "blockchain",
+		Name:      "reads",
+	}, []string{"method"})
+	prometheus.MustRegister(reads)
+
+	return &blockchain.SelectiveListener{
+		OnReadCb: func(method string) {
+			reads.WithLabelValues(method).Inc()
+		},
+	}
+}
+
+func makeL1Metrics() l1.EventListener {
+	l1Height := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "height",
+	})
+	prometheus.MustRegister(l1Height)
+
+	return l1.SelectiveListener{
+		OnNewL1HeadCb: func(head *core.L1Head) {
+			l1Height.Set(float64(head.BlockNumber))
+		},
+	}
+}
+
+func makeFeederMetrics() feeder.EventListener {
+	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "feeder",
+		Subsystem: "client",
+		Name:      "request_latency",
+	}, []string{"method", "status"})
+	prometheus.MustRegister(requestLatencies)
+	return &feeder.SelectiveListener{
+		OnResponseCb: func(urlPath string, status int, took time.Duration) {
+			statusString := strconv.FormatInt(int64(status), 10)
+			requestLatencies.WithLabelValues(urlPath, statusString).Observe(took.Seconds())
 		},
 	}
 }

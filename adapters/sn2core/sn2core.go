@@ -46,12 +46,12 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 			GlobalStateRoot:  response.StateRoot,
 			Timestamp:        response.Timestamp,
 			ProtocolVersion:  response.Version,
-			ExtraData:        nil,
 			SequencerAddress: response.SequencerAddress,
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
-			GasPrice:         response.GasPrice,
+			GasPrice:         response.GasPriceETH(),
+			GasPriceSTRK:     response.GasPriceSTRK,
 			Signatures:       sigs,
 		},
 		Transactions: txns,
@@ -156,15 +156,42 @@ func AdaptTransaction(transaction *starknet.Transaction) (core.Transaction, erro
 
 func AdaptDeclareTransaction(t *starknet.Transaction) *core.DeclareTransaction {
 	return &core.DeclareTransaction{
-		TransactionHash:      t.Hash,
-		SenderAddress:        t.SenderAddress,
-		MaxFee:               t.MaxFee,
-		TransactionSignature: *t.Signature,
-		Nonce:                t.Nonce,
-		Version:              (*core.TransactionVersion)(t.Version),
-		ClassHash:            t.ClassHash,
-		CompiledClassHash:    t.CompiledClassHash,
+		TransactionHash:       t.Hash,
+		SenderAddress:         t.SenderAddress,
+		MaxFee:                t.MaxFee,
+		TransactionSignature:  *t.Signature,
+		Nonce:                 t.Nonce,
+		Version:               (*core.TransactionVersion)(t.Version),
+		ClassHash:             t.ClassHash,
+		CompiledClassHash:     t.CompiledClassHash,
+		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
+		Tip:                   safeFeltToUint64(t.Tip),
+		PaymasterData:         utils.DerefSlice(t.PaymasterData),
+		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
+		NonceDAMode:           adaptDataAvailabilityMode(t.NonceDAMode),
+		FeeDAMode:             adaptDataAvailabilityMode(t.FeeDAMode),
 	}
+}
+
+func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAvailabilityMode {
+	if mode == nil {
+		return core.DAModeL1
+	}
+	return core.DataAvailabilityMode(*mode)
+}
+
+func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds { //nolint:gocritic
+	if rb == nil {
+		return nil
+	}
+	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
+	for resource, bounds := range *rb {
+		coreBounds[core.Resource(resource)] = core.ResourceBounds{
+			MaxAmount:       bounds.MaxAmount.Uint64(),
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+	}
+	return coreBounds
 }
 
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
@@ -183,15 +210,21 @@ func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 
 func AdaptInvokeTransaction(t *starknet.Transaction) *core.InvokeTransaction {
 	return &core.InvokeTransaction{
-		TransactionHash:      t.Hash,
-		ContractAddress:      t.ContractAddress,
-		EntryPointSelector:   t.EntryPointSelector,
-		Nonce:                t.Nonce,
-		CallData:             *t.CallData,
-		TransactionSignature: *t.Signature,
-		MaxFee:               t.MaxFee,
-		Version:              (*core.TransactionVersion)(t.Version),
-		SenderAddress:        t.SenderAddress,
+		TransactionHash:       t.Hash,
+		ContractAddress:       t.ContractAddress,
+		EntryPointSelector:    t.EntryPointSelector,
+		Nonce:                 t.Nonce,
+		CallData:              *t.CallData,
+		TransactionSignature:  *t.Signature,
+		MaxFee:                t.MaxFee,
+		Version:               (*core.TransactionVersion)(t.Version),
+		SenderAddress:         t.SenderAddress,
+		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
+		Tip:                   safeFeltToUint64(t.Tip),
+		PaymasterData:         utils.DerefSlice(t.PaymasterData),
+		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
+		NonceDAMode:           adaptDataAvailabilityMode(t.NonceDAMode),
+		FeeDAMode:             adaptDataAvailabilityMode(t.FeeDAMode),
 	}
 }
 
@@ -212,6 +245,11 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 		MaxFee:               t.MaxFee,
 		TransactionSignature: *t.Signature,
 		Nonce:                t.Nonce,
+		ResourceBounds:       adaptResourceBounds(t.ResourceBounds),
+		Tip:                  safeFeltToUint64(t.Tip),
+		PaymasterData:        utils.DerefSlice(t.PaymasterData),
+		NonceDAMode:          adaptDataAvailabilityMode(t.NonceDAMode),
+		FeeDAMode:            adaptDataAvailabilityMode(t.FeeDAMode),
 	}
 }
 
@@ -282,28 +320,19 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 	stateDiff := new(core.StateDiff)
 	stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts
 
-	stateDiff.DeclaredV1Classes = make([]core.DeclaredV1Class, len(response.StateDiff.DeclaredClasses))
-	for index, declaredV1Class := range response.StateDiff.DeclaredClasses {
-		stateDiff.DeclaredV1Classes[index] = core.DeclaredV1Class{
-			ClassHash:         declaredV1Class.ClassHash,
-			CompiledClassHash: declaredV1Class.CompiledClassHash,
-		}
+	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.DeclaredClasses))
+	for _, declaredV1Class := range response.StateDiff.DeclaredClasses {
+		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
 	}
 
-	stateDiff.ReplacedClasses = make([]core.AddressClassHashPair, len(response.StateDiff.ReplacedClasses))
-	for index, replacedClass := range response.StateDiff.ReplacedClasses {
-		stateDiff.ReplacedClasses[index] = core.AddressClassHashPair{
-			Address:   replacedClass.Address,
-			ClassHash: replacedClass.ClassHash,
-		}
+	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.ReplacedClasses))
+	for _, replacedClass := range response.StateDiff.ReplacedClasses {
+		stateDiff.ReplacedClasses[*replacedClass.Address] = replacedClass.ClassHash
 	}
 
-	stateDiff.DeployedContracts = make([]core.AddressClassHashPair, len(response.StateDiff.DeployedContracts))
-	for index, deployedContract := range response.StateDiff.DeployedContracts {
-		stateDiff.DeployedContracts[index] = core.AddressClassHashPair{
-			Address:   deployedContract.Address,
-			ClassHash: deployedContract.ClassHash,
-		}
+	stateDiff.DeployedContracts = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.DeployedContracts))
+	for _, deployedContract := range response.StateDiff.DeployedContracts {
+		stateDiff.DeployedContracts[*deployedContract.Address] = deployedContract.ClassHash
 	}
 
 	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt)
@@ -315,19 +344,16 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt][]core.StorageDiff)
+	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StateDiff.StorageDiffs))
 	for addrStr, diffs := range response.StateDiff.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
 			return nil, err
 		}
 
-		stateDiff.StorageDiffs[*addr] = []core.StorageDiff{}
+		stateDiff.StorageDiffs[*addr] = make(map[felt.Felt]*felt.Felt)
 		for _, diff := range diffs {
-			stateDiff.StorageDiffs[*addr] = append(stateDiff.StorageDiffs[*addr], core.StorageDiff{
-				Key:   diff.Key,
-				Value: diff.Value,
-			})
+			stateDiff.StorageDiffs[*addr][*diff.Key] = diff.Value
 		}
 	}
 
@@ -337,4 +363,11 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		OldRoot:   response.OldRoot,
 		StateDiff: stateDiff,
 	}, nil
+}
+
+func safeFeltToUint64(f *felt.Felt) uint64 {
+	if f != nil {
+		return f.Uint64()
+	}
+	return 0
 }

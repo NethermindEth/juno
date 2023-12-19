@@ -21,6 +21,60 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+type Resource uint32
+
+const (
+	ResourceL1Gas Resource = iota + 1
+	ResourceL2Gas
+)
+
+func (r Resource) String() string {
+	switch r {
+	case ResourceL1Gas:
+		return "L1_GAS"
+	case ResourceL2Gas:
+		return "L2_GAS"
+	default:
+		return ""
+	}
+}
+
+type DataAvailabilityMode uint32
+
+const (
+	DAModeL1 DataAvailabilityMode = iota
+	DAModeL2
+)
+
+type FeeUnit byte
+
+// WEI is the default value since ETH is the first native currency.
+// This allows us to avoid a costly database migration.
+const (
+	WEI FeeUnit = iota
+	STRK
+)
+
+// From the RPC spec: The max amount and max price per unit of gas used in this transaction.
+type ResourceBounds struct {
+	MaxAmount uint64
+	// MaxPricePerUnit is technically a uint128
+	MaxPricePerUnit *felt.Felt
+}
+
+func (rb ResourceBounds) Bytes(resource Resource) []byte {
+	const eight = 8
+	maxAmountBytes := make([]byte, eight)
+	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
+	maxPriceBytes := rb.MaxPricePerUnit.Bytes()
+	return utils.Flatten(
+		[]byte{0},
+		[]byte(resource.String()),
+		maxAmountBytes,
+		maxPriceBytes[16:], // Last 128 bits.
+	)
+}
+
 type Event struct {
 	Data []*felt.Felt
 	From *felt.Felt
@@ -48,18 +102,20 @@ type ExecutionResources struct {
 }
 
 type BuiltinInstanceCounter struct {
-	Pedersen   uint64
-	RangeCheck uint64
-	Bitwise    uint64
-	Output     uint64
-	Ecsda      uint64
-	EcOp       uint64
-	Keccak     uint64
-	Poseidon   uint64
+	Pedersen     uint64
+	RangeCheck   uint64
+	Bitwise      uint64
+	Output       uint64
+	Ecsda        uint64
+	EcOp         uint64
+	Keccak       uint64
+	Poseidon     uint64
+	SegmentArena uint64
 }
 
 type TransactionReceipt struct {
 	Fee                *felt.Felt
+	FeeUnit            FeeUnit
 	Events             []*Event
 	ExecutionResources *ExecutionResources
 	L1ToL2Message      *L1ToL2Message
@@ -72,6 +128,7 @@ type TransactionReceipt struct {
 type Transaction interface {
 	Hash() *felt.Felt
 	Signature() []*felt.Felt
+	TxVersion() *TransactionVersion
 }
 
 var (
@@ -155,6 +212,10 @@ type DeployTransaction struct {
 	Version *TransactionVersion
 }
 
+func (d *DeployTransaction) TxVersion() *TransactionVersion {
+	return d.Version
+}
+
 func (d *DeployTransaction) Hash() *felt.Felt {
 	return d.TransactionHash
 }
@@ -171,6 +232,14 @@ type DeployAccountTransaction struct {
 	TransactionSignature []*felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
+
+	// Version 3 fields
+	// See InvokeTransaction for descriptions of the fields.
+	ResourceBounds map[Resource]ResourceBounds
+	Tip            uint64
+	PaymasterData  []*felt.Felt
+	NonceDAMode    DataAvailabilityMode
+	FeeDAMode      DataAvailabilityMode
 }
 
 func (d *DeployAccountTransaction) Hash() *felt.Felt {
@@ -205,6 +274,22 @@ type InvokeTransaction struct {
 	Nonce *felt.Felt
 	// The address of the sender of this transaction
 	SenderAddress *felt.Felt
+
+	// Version 3 fields (there was no version 2)
+	ResourceBounds map[Resource]ResourceBounds
+	Tip            uint64
+	// From the RPC spec: data needed to allow the paymaster to pay for the transaction in native tokens
+	PaymasterData []*felt.Felt
+	// From RPC spec: data needed to deploy the account contract from which this tx will be initiated
+	AccountDeploymentData []*felt.Felt
+	// From RPC spec: The storage domain of the account's nonce (an account has a nonce per DA mode)
+	NonceDAMode DataAvailabilityMode
+	// From RPC spec: The storage domain of the account's balance from which fee will be charged
+	FeeDAMode DataAvailabilityMode
+}
+
+func (i *InvokeTransaction) TxVersion() *TransactionVersion {
+	return i.Version
 }
 
 func (i *InvokeTransaction) Hash() *felt.Felt {
@@ -227,7 +312,7 @@ type DeclareTransaction struct {
 	TransactionSignature []*felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
-	// The transaction’s version. Possible values are 1 or 0.
+	// The transaction’s version. Possible values are 0, 1, 2, or 3.
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
@@ -236,6 +321,19 @@ type DeclareTransaction struct {
 
 	// Version 2 fields
 	CompiledClassHash *felt.Felt
+
+	// Version 3 fields
+	// See InvokeTransaction for descriptions of the fields.
+	ResourceBounds        map[Resource]ResourceBounds
+	Tip                   uint64
+	PaymasterData         []*felt.Felt
+	AccountDeploymentData []*felt.Felt
+	NonceDAMode           DataAvailabilityMode
+	FeeDAMode             DataAvailabilityMode
+}
+
+func (d *DeclareTransaction) TxVersion() *TransactionVersion {
+	return d.Version
 }
 
 func (d *DeclareTransaction) Hash() *felt.Felt {
@@ -260,6 +358,10 @@ type L1HandlerTransaction struct {
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
 	Version *TransactionVersion
+}
+
+func (l *L1HandlerTransaction) TxVersion() *TransactionVersion {
+	return l.Version
 }
 
 func (l *L1HandlerTransaction) Hash() *felt.Felt {
@@ -349,9 +451,33 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			n.ChainID(),
 			i.Nonce,
 		), nil
+	case i.Version.Is(3):
+		return crypto.PoseidonArray(
+			invokeFelt,
+			i.Version.AsFelt(),
+			i.SenderAddress,
+			tipAndResourcesHash(i.Tip, i.ResourceBounds),
+			crypto.PoseidonArray(i.PaymasterData...),
+			n.ChainID(),
+			i.Nonce,
+			new(felt.Felt).SetUint64(dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode)),
+			crypto.PoseidonArray(i.AccountDeploymentData...),
+			crypto.PoseidonArray(i.CallData...),
+		), nil
 	default:
 		return nil, errInvalidTransactionVersion(i, i.Version)
 	}
+}
+
+func tipAndResourcesHash(tip uint64, resourceBounds map[Resource]ResourceBounds) *felt.Felt {
+	l1Bounds := new(felt.Felt).SetBytes(resourceBounds[ResourceL1Gas].Bytes(ResourceL1Gas))
+	l2Bounds := new(felt.Felt).SetBytes(resourceBounds[ResourceL2Gas].Bytes(ResourceL2Gas))
+	return crypto.PoseidonArray(new(felt.Felt).SetUint64(tip), l1Bounds, l2Bounds)
+}
+
+func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) uint64 {
+	const dataAvailabilityModeBits = 32
+	return uint64(feeDAMode) + uint64(nonceDAMode)<<dataAvailabilityModeBits
 }
 
 func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
@@ -382,7 +508,20 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.Nonce,
 			d.CompiledClassHash,
 		), nil
-
+	case d.Version.Is(3):
+		return crypto.PoseidonArray(
+			declareFelt,
+			d.Version.AsFelt(),
+			d.SenderAddress,
+			tipAndResourcesHash(d.Tip, d.ResourceBounds),
+			crypto.PoseidonArray(d.PaymasterData...),
+			n.ChainID(),
+			d.Nonce,
+			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
+			crypto.PoseidonArray(d.AccountDeploymentData...),
+			d.ClassHash,
+			d.CompiledClassHash,
+		), nil
 	default:
 		return nil, errInvalidTransactionVersion(d, d.Version)
 	}
@@ -415,7 +554,8 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 	callData := []*felt.Felt{d.ClassHash, d.ContractAddressSalt}
 	callData = append(callData, d.ConstructorCallData...)
 	// There is no version 0 for deploy account
-	if d.Version.Is(1) {
+	switch {
+	case d.Version.Is(1):
 		return crypto.PedersenArray(
 			deployAccountFelt,
 			d.Version.AsFelt(),
@@ -426,8 +566,23 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			n.ChainID(),
 			d.Nonce,
 		), nil
+	case d.Version.Is(3):
+		return crypto.PoseidonArray(
+			deployAccountFelt,
+			d.Version.AsFelt(),
+			d.ContractAddress,
+			tipAndResourcesHash(d.Tip, d.ResourceBounds),
+			crypto.PoseidonArray(d.PaymasterData...),
+			n.ChainID(),
+			d.Nonce,
+			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
+			crypto.PoseidonArray(d.ConstructorCallData...),
+			d.ClassHash,
+			d.ContractAddressSalt,
+		), nil
+	default:
+		return nil, errInvalidTransactionVersion(d, d.Version)
 	}
-	return nil, errInvalidTransactionVersion(d, d.Version)
 }
 
 func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion string) error {

@@ -44,6 +44,7 @@ type Reader interface {
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
+	readOnlyBlockchain  bool
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
@@ -57,7 +58,7 @@ type Synchronizer struct {
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration,
+	log utils.SimpleLogger, pendingPollInterval time.Duration, readOnlyBlockchain bool,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
@@ -66,6 +67,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		newHeads:            feed.New[*core.Header](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
+		readOnlyBlockchain:  readOnlyBlockchain,
 	}
 	return s
 }
@@ -142,8 +144,8 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 		return stateErr
 	}
 
-	for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
-		if err = fetchIfNotFound(deployedContract.ClassHash); err != nil {
+	for _, classHash := range stateUpdate.StateDiff.DeployedContracts {
+		if err = fetchIfNotFound(classHash); err != nil {
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
@@ -152,8 +154,8 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
-	for _, declaredV1 := range stateUpdate.StateDiff.DeclaredV1Classes {
-		if err = fetchIfNotFound(declaredV1.ClassHash); err != nil {
+	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		if err = fetchIfNotFound(&classHash); err != nil {
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
@@ -166,20 +168,21 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 ) stream.Callback {
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	if err == nil {
+		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	}
 	return func() {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString())
+				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
 				resetStreams()
 				return
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
@@ -194,6 +197,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+
 			highestBlockHeader := s.highestBlockHeader.Load()
 			if highestBlockHeader != nil {
 				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
@@ -228,17 +233,22 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		s.highestBlockHeader.Store(nil)
 	}()
 
-	fetchers, verifiers := s.setupWorkers()
-	streamCtx, streamCancel := context.WithCancel(syncCtx)
-
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
 
+	latestSem := make(chan struct{}, 1)
+	if s.readOnlyBlockchain {
+		s.pollLatest(syncCtx, latestSem)
+		return
+	}
+
+	fetchers, verifiers := s.setupWorkers()
+	streamCtx, streamCancel := context.WithCancel(syncCtx)
+
+	go s.pollLatest(syncCtx, latestSem)
 	pendingSem := make(chan struct{}, 1)
 	go s.pollPending(syncCtx, pendingSem)
-	latestSem := make(chan struct{}, 1)
-	go s.pollLatest(syncCtx, latestSem)
 
 	for {
 		select {

@@ -54,7 +54,8 @@ func TestContractAddress(t *testing.T) {
 func TestNewContract(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -62,7 +63,7 @@ func TestNewContract(t *testing.T) {
 	classHash := new(felt.Felt).SetBytes([]byte("class hash"))
 
 	t.Run("cannot create Contract instance if un-deployed", func(t *testing.T) {
-		_, err := core.NewContract(addr, txn)
+		_, err = core.NewContractUpdater(addr, txn)
 		require.EqualError(t, err, core.ErrContractNotDeployed.Error())
 	})
 
@@ -74,46 +75,22 @@ func TestNewContract(t *testing.T) {
 		require.EqualError(t, err, core.ErrContractAlreadyDeployed.Error())
 	})
 
-	t.Run("instantiate previously deployed contract", func(t *testing.T) {
-		t.Run("contract with empty storage", func(t *testing.T) {
-			newContract, err := core.NewContract(addr, txn)
-			require.NoError(t, err)
-
-			root, err := newContract.Root()
-			require.NoError(t, err)
-			assert.Equal(t, &felt.Zero, root)
-		})
-		t.Run("contract with non-empty storage", func(t *testing.T) {
-			oldRoot, err := contract.Root()
-			require.NoError(t, err)
-
-			require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: classHash}}, NoopOnValueChanged))
-
-			newContract, err := core.NewContract(addr, txn)
-			require.NoError(t, err)
-
-			root, err := newContract.Root()
-			require.NoError(t, err)
-			assert.NotEqual(t, oldRoot, root)
-		})
-	})
-
 	t.Run("a call to contract should fail with a committed txn", func(t *testing.T) {
 		assert.NoError(t, txn.Commit())
 		t.Run("ClassHash()", func(t *testing.T) {
-			_, err := contract.ClassHash()
+			_, err := core.ContractClassHash(addr, txn)
 			assert.Error(t, err)
 		})
 		t.Run("Root()", func(t *testing.T) {
-			_, err := contract.Root()
+			_, err := core.ContractRoot(addr, txn)
 			assert.Error(t, err)
 		})
 		t.Run("Nonce()", func(t *testing.T) {
-			_, err := contract.Nonce()
+			_, err := core.ContractNonce(addr, txn)
 			assert.Error(t, err)
 		})
 		t.Run("Storage()", func(t *testing.T) {
-			_, err := contract.Storage(classHash)
+			_, err := core.ContractStorage(addr, classHash, txn)
 			assert.Error(t, err)
 		})
 		t.Run("UpdateNonce()", func(t *testing.T) {
@@ -128,7 +105,8 @@ func TestNewContract(t *testing.T) {
 func TestNonceAndClassHash(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
@@ -136,20 +114,20 @@ func TestNonceAndClassHash(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("initial nonce should be 0", func(t *testing.T) {
-		got, err := contract.Nonce()
+		got, err := core.ContractNonce(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, new(felt.Felt), got)
 	})
 	t.Run("UpdateNonce()", func(t *testing.T) {
 		require.NoError(t, contract.UpdateNonce(classHash))
 
-		got, err := contract.Nonce()
+		got, err := core.ContractNonce(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, classHash, got)
 	})
 
 	t.Run("ClassHash()", func(t *testing.T) {
-		got, err := contract.ClassHash()
+		got, err := core.ContractClassHash(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, classHash, got)
 	})
@@ -157,7 +135,7 @@ func TestNonceAndClassHash(t *testing.T) {
 	t.Run("Replace()", func(t *testing.T) {
 		replaceWith := utils.HexToFelt(t, "0xDEADBEEF")
 		require.NoError(t, contract.Replace(replaceWith))
-		got, err := contract.ClassHash()
+		got, err := core.ContractClassHash(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, replaceWith, got)
 	})
@@ -166,7 +144,8 @@ func TestNonceAndClassHash(t *testing.T) {
 func TestUpdateStorageAndStorage(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
@@ -174,28 +153,28 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("apply storage diff", func(t *testing.T) {
-		oldRoot, err := contract.Root()
+		oldRoot, err := core.ContractRoot(addr, txn)
 		require.NoError(t, err)
 
-		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: classHash}}, NoopOnValueChanged))
+		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: classHash}, NoopOnValueChanged))
 
-		gotValue, err := contract.Storage(addr)
+		gotValue, err := core.ContractStorage(addr, addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, classHash, gotValue)
 
-		newRoot, err := contract.Root()
+		newRoot, err := core.ContractRoot(addr, txn)
 		require.NoError(t, err)
 		assert.NotEqual(t, oldRoot, newRoot)
 	})
 
 	t.Run("delete key from storage with storage diff", func(t *testing.T) {
-		require.NoError(t, contract.UpdateStorage([]core.StorageDiff{{Key: addr, Value: new(felt.Felt)}}, NoopOnValueChanged))
+		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: new(felt.Felt)}, NoopOnValueChanged))
 
-		val, err := contract.Storage(addr)
+		val, err := core.ContractStorage(addr, addr, txn)
 		require.NoError(t, err)
 		require.Equal(t, &felt.Zero, val)
 
-		sRoot, err := contract.Root()
+		sRoot, err := core.ContractRoot(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, new(felt.Felt), sRoot)
 	})
@@ -204,7 +183,8 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 func TestPurge(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
@@ -212,6 +192,6 @@ func TestPurge(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, contract.Purge())
-	_, err = core.NewContract(addr, txn)
+	_, err = core.NewContractUpdater(addr, txn)
 	assert.ErrorIs(t, err, core.ErrContractNotDeployed)
 }

@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,6 +17,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	_ "go.uber.org/automaxprocs"
 )
 
 const greeting = `
@@ -54,6 +58,11 @@ const (
 	grpcF                = "grpc"
 	grpcHostF            = "grpc-host"
 	grpcPortF            = "grpc-port"
+	maxVMsF              = "max-vms"
+	maxVMQueueF          = "max-vm-queue"
+	remoteDBF            = "remote-db"
+	rpcMaxBlockScanF     = "rpc-max-block-scan"
+	dbCacheSizeF         = "db-cache-size"
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -73,6 +82,9 @@ const (
 	defaultMetricsPort         = 9090
 	defaultGRPC                = false
 	defaultGRPCPort            = 6064
+	defaultRemoteDB            = ""
+	defaultRPCMaxBlockScan     = math.MaxUint
+	defaultCacheSizeMb         = 8
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -83,7 +95,7 @@ const (
 	wsHostUsage       = "The interface on which the Websocket RPC server will listen for requests."
 	wsPortUsage       = "The port on which the websocket server will listen for requests."
 	dbPathUsage       = "Location of the database files."
-	networkUsage      = "Options: mainnet, goerli, goerli2, integration."
+	networkUsage      = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
 	pprofUsage        = "Enables the pprof endpoint on the default port."
 	pprofHostUsage    = "The interface on which the pprof HTTP server will listen for requests."
 	pprofPortUsage    = "The port on which the pprof HTTP server will listen for requests."
@@ -100,6 +112,11 @@ const (
 	grpcUsage                = "Enable the HTTP GRPC server on the default port."
 	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
+	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
+	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
+	remoteDBUsage            = "gRPC URL of a remote Juno node"
+	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
+	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 )
 
 var Version string
@@ -139,6 +156,8 @@ func main() {
 //  2. An Execute* function is called on the command returned from step 1.
 //  3. The config struct is populated.
 //  4. Cobra calls the run function.
+//
+//nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:     "juno [flags]",
@@ -168,6 +187,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		v.AutomaticEnv()
+		v.SetEnvPrefix("JUNO")
+		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		if err := v.BindPFlags(cmd.Flags()); err != nil {
 			return nil
 		}
@@ -190,7 +212,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
-	defaultNetwork := utils.MAINNET
+	defaultNetwork := utils.Mainnet
+	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
@@ -217,6 +240,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
 	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
+	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
+	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
+	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
+	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
+	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 
 	return junoCmd
 }

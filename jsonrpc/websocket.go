@@ -2,7 +2,6 @@ package jsonrpc
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -72,23 +71,23 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var errClose websocket.CloseError
-	if errors.As(err, &errClose) {
-		ws.log.Infow("Client closed websocket connection", "status", websocket.CloseStatus(err))
+	if status := websocket.CloseStatus(err); status != -1 {
+		ws.log.Infow("Client closed websocket connection", "status", status)
 		return
 	}
 
-	ws.log.Warnw("Closing websocket connection due to internal error", "err", err)
+	ws.log.Warnw("Closing websocket connection", "err", err)
 	errString := err.Error()
 	if len(errString) > closeReasonMaxBytes {
 		errString = errString[:closeReasonMaxBytes]
 	}
 	if err = wsc.conn.Close(websocket.StatusInternalError, errString); err != nil {
 		// Don't log an error if the connection is already closed, which can happen
-		// in benign scenarios like timeouts. Unfortunately the error is not exported
-		// from the websocket package so we match the string instead.
-		if !strings.Contains(err.Error(), "already wrote close") {
-			ws.log.Errorw("Failed to close websocket connection", "err", err)
+		// in benign scenarios like timeouts or if the underlying TCP connection was ended before the client
+		// could initiate the close handshake.
+		errString = err.Error()
+		if !strings.Contains(errString, "already wrote close") && !strings.Contains(errString, "WebSocket closed") {
+			ws.log.Errorw("Failed to close websocket connection", "err", errString)
 		}
 	}
 }

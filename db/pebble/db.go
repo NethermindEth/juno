@@ -1,15 +1,19 @@
 package pebble
 
 import (
-	"fmt"
-	"os"
 	"sync"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
+)
+
+const (
+	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
+	minCache = 8
+
+	megabyte = 1 << 20
 )
 
 var _ db.DB = (*DB)(nil)
@@ -21,9 +25,14 @@ type DB struct {
 }
 
 // New opens a new database at the given path
-func New(path string, logger pebble.Logger) (db.DB, error) {
+func New(path string, cache uint, logger pebble.Logger) (db.DB, error) {
+	// Ensure that the specified cache size meets a minimum threshold.
+	if cache < minCache {
+		cache = minCache
+	}
 	pDB, err := newPebble(path, &pebble.Options{
 		Logger: logger,
+		Cache:  pebble.NewCache(int64(cache * megabyte)),
 	})
 	if err != nil {
 		return nil, err
@@ -67,7 +76,7 @@ func (d *DB) WithListener(listener db.EventListener) db.DB {
 }
 
 // NewTransaction : see db.DB.NewTransaction
-func (d *DB) NewTransaction(update bool) db.Transaction {
+func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
 	txn := &Transaction{
 		listener: d.listener,
 	}
@@ -79,7 +88,7 @@ func (d *DB) NewTransaction(update bool) db.Transaction {
 		txn.snapshot = d.pebble.NewSnapshot()
 	}
 
-	return txn
+	return txn, nil
 }
 
 // Close : see io.Closer.Close
@@ -89,32 +98,15 @@ func (d *DB) Close() error {
 
 // View : see db.DB.View
 func (d *DB) View(fn func(txn db.Transaction) error) error {
-	txn := d.NewTransaction(false)
-	defer discardTxnOnPanic(txn)
-	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
+	return db.View(d, fn)
 }
 
 // Update : see db.DB.Update
 func (d *DB) Update(fn func(txn db.Transaction) error) error {
-	txn := d.NewTransaction(true)
-	defer discardTxnOnPanic(txn)
-	if err := fn(txn); err != nil {
-		return utils.RunAndWrapOnError(txn.Discard, err)
-	}
-	return utils.RunAndWrapOnError(txn.Discard, txn.Commit())
+	return db.Update(d, fn)
 }
 
 // Impl : see db.DB.Impl
 func (d *DB) Impl() any {
 	return d.pebble
-}
-
-func discardTxnOnPanic(txn db.Transaction) {
-	p := recover()
-	if p != nil {
-		if err := txn.Discard(); err != nil {
-			fmt.Fprintf(os.Stderr, "failed discarding panicing txn err: %s", err)
-		}
-		panic(p)
-	}
 }

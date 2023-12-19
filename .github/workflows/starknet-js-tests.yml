@@ -9,7 +9,7 @@ on:
         required: false
       TEST_ACCOUNT_PRIVATE_KEY:
           required: false
-
+          
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: starknet-io/starknet.js
-          ref: v5.19.5
+          ref: v5.24.3
   
       - name: Setup Node.js
         uses: actions/setup-node@v3

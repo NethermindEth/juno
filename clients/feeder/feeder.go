@@ -30,6 +30,12 @@ type Client struct {
 	minWait    time.Duration
 	log        utils.SimpleLogger
 	userAgent  string
+	listener   EventListener
+}
+
+func (c *Client) WithListener(l EventListener) *Client {
+	c.listener = l
+	return c
 }
 
 func (c *Client) WithBackoff(b Backoff) *Client {
@@ -181,10 +187,11 @@ func NewClient(clientURL string) *Client {
 		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
-		maxRetries: 35, // ~3.5 minutes with default backoff and maxWait (block time on mainnet is 1-2 minutes)
-		maxWait:    10 * time.Second,
+		maxRetries: 10, // ~40 secs with default backoff and maxWait (block time on mainnet is 20 seconds on average)
+		maxWait:    4 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
+		listener:   &SelectiveListener{},
 	}
 }
 
@@ -225,8 +232,10 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("User-Agent", c.userAgent)
 			}
 
+			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			if err == nil {
+				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
 				} else {
@@ -339,7 +348,7 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 	return class, nil
 }
 
-func (c *Client) PublickKey(ctx context.Context) (*felt.Felt, error) {
+func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	queryURL := c.buildQueryString("get_public_key", nil)
 
 	body, err := c.get(ctx, queryURL)
