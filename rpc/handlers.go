@@ -1510,7 +1510,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			estimate.Unit = utils.Ptr(feeUnit)
 		}
 		result = append(result, SimulatedTransaction{
-			TransactionTrace: traces[i],
+			TransactionTrace: &traces[i],
 			FeeEstimation:    estimate,
 		})
 	}
@@ -1551,7 +1551,7 @@ func prependBlockHashToState(bc blockchain.Reader, blockNumber uint64, state cor
 	), nil
 }
 
-func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
+func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo,funlen
 	legacyJSON bool,
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil
@@ -1639,8 +1639,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	var result []TracedBlockTransaction
 	for i, trace := range traces {
+		trace := trace
 		result = append(result, TracedBlockTransaction{
-			TraceRoot:       trace,
+			TraceRoot:       &trace,
 			TransactionHash: block.Transactions[i].Hash(),
 		})
 	}

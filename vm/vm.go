@@ -36,7 +36,7 @@ type VM interface {
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 		skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-	) ([]*felt.Felt, []*TransactionTrace, error)
+	) ([]*felt.Felt, []TransactionTrace, error)
 }
 
 type vm struct {
@@ -166,7 +166,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-) ([]*felt.Felt, []*TransactionTrace, error) {
+) ([]*felt.Felt, []TransactionTrace, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
@@ -247,10 +247,10 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, errors.New(context.err)
 	}
 
-	traces := make([]*TransactionTrace, 0, len(context.traces))
+	traces := make([]TransactionTrace, 0, len(context.traces))
 	for _, traceJSON := range context.traces {
-		trace := new(TransactionTrace)
-		if err := json.Unmarshal(traceJSON, trace); err != nil {
+		trace := TransactionTrace{}
+		if err := json.Unmarshal(traceJSON, &trace); err != nil {
 			return nil, nil, fmt.Errorf("unmarshal trace: %v", err)
 		}
 		traces = append(traces, trace)

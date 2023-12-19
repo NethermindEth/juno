@@ -3028,7 +3028,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 			skipChargeFee, skipValidate, errOnRevert bool, gasPriceWei, gasPriceSTRK *felt.Felt, legacyTraceJson bool,
-		) ([]*felt.Felt, []*vm.TransactionTrace, error) {
+		) ([]*felt.Felt, []vm.TransactionTrace, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
 
@@ -3039,7 +3039,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			assert.Len(t, paidFeesOnL1, 1)
 
 			actualFee := new(felt.Felt).Mul(expectedGasConsumed, gasPriceWei)
-			return []*felt.Felt{actualFee}, []*vm.TransactionTrace{{
+			return []*felt.Felt{actualFee}, []vm.TransactionTrace{{
 				StateDiff: &vm.StateDiff{
 					StorageDiffs:              []vm.StorageDiff{},
 					Nonces:                    []vm.Nonce{},
@@ -3095,9 +3095,9 @@ func TestLegacyEstimateMessageFee(t *testing.T) {
 		func(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 			sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 			skipChargeFee, skipValidate, errOnRevert bool, gasPriceWei, gasPriceSTRK *felt.Felt, legacyTraceJson bool,
-		) ([]*felt.Felt, []*vm.TransactionTrace, error) {
+		) ([]*felt.Felt, []vm.TransactionTrace, error) {
 			actualFee := new(felt.Felt).Mul(expectedGasConsumed, gasPriceWei)
-			return []*felt.Felt{actualFee}, []*vm.TransactionTrace{{
+			return []*felt.Felt{actualFee}, []vm.TransactionTrace{{
 				StateDiff: &vm.StateDiff{
 					StorageDiffs:              []vm.StorageDiff{},
 					Nonces:                    []vm.Nonce{},
@@ -3184,7 +3184,7 @@ func TestTraceTransaction(t *testing.T) {
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
-			gomock.Any(), utils.Mainnet, []*felt.Felt{}, false, false, false, gomock.Any(), gomock.Any(), false).Return(nil, []*vm.TransactionTrace{vmTrace}, nil)
+			gomock.Any(), utils.Mainnet, []*felt.Felt{}, false, false, false, gomock.Any(), gomock.Any(), false).Return(nil, []vm.TransactionTrace{*vmTrace}, nil)
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
@@ -3210,7 +3210,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, false, nil, nil, false).
-			Return([]*felt.Felt{}, []*vm.TransactionTrace{}, nil)
+			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		require.Nil(t, err)
@@ -3218,7 +3218,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, false, true, false, nil, nil, false).
-			Return([]*felt.Felt{}, []*vm.TransactionTrace{}, nil)
+			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Nil(t, err)
@@ -3330,10 +3330,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 				"replaced_classes": []
 			}
 		}`)
-		vmTrace := new(vm.TransactionTrace)
-		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
+		vmTrace := vm.TransactionTrace{}
+		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, height+1, header.Timestamp, sequencerAddress,
-			gomock.Any(), network, paidL1Fees, false, false, false, header.GasPrice, header.GasPriceSTRK, false).Return(nil, []*vm.TransactionTrace{vmTrace, vmTrace}, nil)
+			gomock.Any(), network, paidL1Fees, false, false, false, header.GasPrice, header.GasPriceSTRK, false).Return(nil, []vm.TransactionTrace{vmTrace, vmTrace}, nil)
 
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
@@ -3396,15 +3396,15 @@ func TestTraceBlockTransactions(t *testing.T) {
 				"replaced_classes": []
 			}
 		}`)
-		vmTrace := new(vm.TransactionTrace)
-		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
+		vmTrace := vm.TransactionTrace{}
+		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
-			gomock.Any(), network, []*felt.Felt{}, false, false, false, header.GasPrice, header.GasPriceSTRK, false).Return(nil, []*vm.TransactionTrace{vmTrace}, nil)
+			gomock.Any(), network, []*felt.Felt{}, false, false, false, header.GasPrice, header.GasPriceSTRK, false).Return(nil, []vm.TransactionTrace{vmTrace}, nil)
 
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
-				TraceRoot:       vmTrace,
+				TraceRoot:       &vmTrace,
 			},
 		}
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
@@ -3759,7 +3759,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("ok with zero values", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, true, nil, nil, false).
-			Return([]*felt.Felt{}, []*vm.TransactionTrace{}, nil)
+			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
@@ -3767,7 +3767,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, true, true, nil, nil, false).
-			Return([]*felt.Felt{}, []*vm.TransactionTrace{}, nil)
+			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)

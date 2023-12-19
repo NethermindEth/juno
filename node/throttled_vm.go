@@ -30,9 +30,9 @@ func (tvm *ThrottledVM) Call(contractAddr, classHash, selector *felt.Felt, calld
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-) ([]*felt.Felt, []*vm.TransactionTrace, error) {
+) ([]*felt.Felt, []vm.TransactionTrace, error) {
 	var ret []*felt.Felt
-	var traces []*vm.TransactionTrace
+	var traces []vm.TransactionTrace
 	throttler := (*utils.Throttler[vm.VM])(tvm)
 	return ret, traces, throttler.Do(func(vm *vm.VM) error {
 		var err error
