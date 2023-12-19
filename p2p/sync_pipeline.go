@@ -15,6 +15,9 @@ import (
 )
 
 func (s *syncService) startPipeline(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	s.client = starknet.NewClient(s.randomPeerStream, s.network, s.log)
 
 	bootNodeHeight, err := s.bootNodeHeight(ctx)
@@ -100,8 +103,8 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 	go func() {
 		defer close(orderedBlockBodiesCh)
 
-		specBlockHeaderAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
-		specBlockBodyM := make(map[uint64]specBlockBody)
+		specBlockHeadersAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
+		specBlockBodiesM := make(map[uint64]specBlockBody)
 		specTransactionsM := make(map[uint64]specTransactions)
 		specReceiptsM := make(map[uint64]specReceipts)
 		specEventsM := make(map[uint64]specEvents)
@@ -114,13 +117,13 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
 					fmt.Printf("Received Block Header and Signatures for block number: %v\n", p.header.Number)
-					if _, ok := specBlockHeaderAndSigsM[part.blockNumber()]; !ok {
-						specBlockHeaderAndSigsM[part.blockNumber()] = p
+					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
+						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specBlockBody:
 					fmt.Printf("Received Block Body parts            for block number: %v\n", p.id.Number)
-					if _, ok := specBlockBodyM[part.blockNumber()]; !ok {
-						specBlockBodyM[part.blockNumber()] = p
+					if _, ok := specBlockBodiesM[part.blockNumber()]; !ok {
+						specBlockBodiesM[part.blockNumber()] = p
 					}
 				case specTransactions:
 					fmt.Printf("Received Transactions                for block number: %v\n", p.id.Number)
@@ -139,8 +142,8 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 					}
 				}
 
-				headerAndSig, ok1 := specBlockHeaderAndSigsM[curBlockNum]
-				body, ok2 := specBlockBodyM[curBlockNum]
+				headerAndSig, ok1 := specBlockHeadersAndSigsM[curBlockNum]
+				body, ok2 := specBlockBodiesM[curBlockNum]
 				txs, ok3 := specTransactionsM[curBlockNum]
 				rs, ok4 := specReceiptsM[curBlockNum]
 				es, ok5 := specEventsM[curBlockNum]
@@ -149,12 +152,30 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 
 					select {
 					case <-ctx.Done():
-					case orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, headerAndSig.sig, body.stateDiff,
-						body.classes, body.proof, txs.txs, rs.receipts, es.events):
+					default:
+						prevBlockRoot := &felt.Zero
+						if curBlockNum > 0 {
+							// First check cache if the header is not present, then get it from the db.
+							if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
+								prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.State.Root)
+							} else {
+								oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
+								if err != nil {
+									s.log.Errorw("Failed to get Header", "number", curBlockNum, "err", err)
+									return
+								}
+								prevBlockRoot = oldHeader.GlobalStateRoot
+							}
+						}
+
+						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, headerAndSig.sig, body.stateDiff,
+							body.classes, body.proof, txs.txs, rs.receipts, es.events, prevBlockRoot)
 					}
 
-					delete(specBlockHeaderAndSigsM, curBlockNum)
-					delete(specBlockBodyM, curBlockNum)
+					if curBlockNum > 0 {
+						delete(specBlockHeadersAndSigsM, curBlockNum-1)
+					}
+					delete(specBlockBodiesM, curBlockNum)
 					delete(specTransactionsM, curBlockNum)
 					delete(specReceiptsM, curBlockNum)
 					delete(specEventsM, curBlockNum)
@@ -168,6 +189,7 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 
 func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.BlockHeader, sig *spec.Signatures, diff *spec.StateDiff,
 	classes *spec.Classes, proof *spec.BlockProof, txs *spec.Transactions, receipts *spec.Receipts, events *spec.Events,
+	prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
@@ -199,7 +221,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			coreBlock.Receipts = coreReceipts
 
 			var err error
-			coreHeader := adaptBlockHeadersAndSigs(specBlockHeaderAndSigs{header, sig})
+
+			coreHeader := p2p2core.AdaptBlockHeader(header)
+			coreHeader.Signatures = utils.Map(sig.GetSignatures(), p2p2core.AdaptSignature)
+
 			coreBlock.Header = &coreHeader
 			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)
 			coreBlock.Hash, err = core.BlockHash(coreBlock)
@@ -223,19 +248,12 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
 			// Update but there is no such message in P2P.
 
-			stateUpdate := new(core.StateUpdate)
-			stateUpdate.OldRoot = &felt.Zero
-			if coreBlock.Number > 0 {
-				oldHeader, err := s.blockchain.BlockHeaderByNumber(coreBlock.Number - 1)
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("block header not fouund for block number %v, error: %v", coreBlock.Number-1, err)}
-					return
-				}
-				stateUpdate.OldRoot = oldHeader.GlobalStateRoot
+			stateUpdate := &core.StateUpdate{
+				BlockHash: coreBlock.Hash,
+				NewRoot:   coreBlock.GlobalStateRoot,
+				OldRoot:   prevBlockRoot,
+				StateDiff: p2p2core.AdaptStateDiff(diff, classes.GetClasses()),
 			}
-			stateUpdate.NewRoot = coreBlock.GlobalStateRoot
-			stateUpdate.BlockHash = coreBlock.Hash
-			stateUpdate.StateDiff = p2p2core.AdaptStateDiff(diff, classes.GetClasses())
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
@@ -247,17 +265,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			case <-ctx.Done():
 			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
 			}
-			<-storedCh
 		}
 	}()
 
 	return bodyCh
-}
-
-func adaptBlockHeadersAndSigs(headerAndSig specBlockHeaderAndSigs) core.Header {
-	header := p2p2core.AdaptBlockHeader(headerAndSig.header)
-	header.Signatures = utils.Map(headerAndSig.sig.GetSignatures(), p2p2core.AdaptSignature)
-	return header
 }
 
 type specBlockParts interface {
