@@ -90,7 +90,6 @@ func TestGenesisStateDiff(t *testing.T) {
 	})
 
 	t.Run("valid non-empty genesis config", func(t *testing.T) {
-
 		accountClassHash, err := new(felt.Felt).SetString("0x04d07e40e93398ed3c76981e72dd1fd22557a78ce36c0515f679e27f0bb5bc5f")
 		require.NoError(t, err)
 		erc20ClassHash, err := new(felt.Felt).SetString("0x02a8846878b6ad1f54f6ba46f5f40e11cee755c677f130b2c4b60566c9003f1f")

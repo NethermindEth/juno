@@ -90,7 +90,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		return nil, err
 	}
 	defer func() {
-		if err := closer(); err != nil {
+		if err = closer(); err != nil {
 			b.log.Errorw("failed to close state in GenesisState", "err", err)
 		}
 	}()
@@ -98,7 +98,8 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 	for classHash, class := range newClasses {
 		switch class.Version() {
 		case 0:
-			if err = pendingState.SetContractClass(&classHash, class); err != nil { // Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
+			// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
+			if err = pendingState.SetContractClass(&classHash, class); err != nil {
 				return nil, fmt.Errorf("failed to set cairo v0 contract class : %v", err)
 			}
 		default:
@@ -106,12 +107,27 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		}
 	}
 
+	constructorEPS, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
+	if err != nil {
+		return nil, err
+	}
+
 	for address, contractData := range genesisConfig.Contracts {
 		addressFelt, err := new(felt.Felt).SetString(address)
 		if err != nil {
 			return nil, fmt.Errorf("failed to set contract address as felt %s", err)
 		}
-		pendingState.SetClassHash(addressFelt, &contractData.ClassHash) // Sets DeployedContracts, ReplacedClasses
+		classHash := contractData.ClassHash
+		err = pendingState.SetClassHash(addressFelt, &classHash) // Sets DeployedContracts, ReplacedClasses
+		if err != nil {
+			return nil, fmt.Errorf("failed to set contract class hash %s", err)
+		}
+
+		// Call the constructors
+		_, err = b.vm.Call(addressFelt, &classHash, constructorEPS, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, b.network)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, fnCall := range genesisConfig.FunctionCalls {
