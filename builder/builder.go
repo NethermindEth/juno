@@ -74,6 +74,8 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 	return err
 }
 
+// GenesisStateDiff builds the genesis stateDiff given the genesis-config data.
+// Note: The blockchain needs to have a pending block stored before calling this.
 func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff, error) {
 	blockTimestamp := uint64(time.Now().Unix())
 
@@ -103,7 +105,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 	for classHash, class := range newClasses {
 		switch class.Version() {
 		case 0:
-			pendingState.SetContractClass(&classHash, class) // Sets pending.newClasses, DeclaredV0Classes, (DeclaredV1Classes)
+			pendingState.SetContractClass(&classHash, class) // Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
 		default:
 			return nil, fmt.Errorf("only cairo v 0 contracts are supported for genesis state initialisation")
 		}

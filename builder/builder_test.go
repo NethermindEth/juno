@@ -65,9 +65,24 @@ func TestValidateAgainstPendingState(t *testing.T) {
 }
 
 func TestGenesisStateDiff(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.Mainnet)
+	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
 	chain := blockchain.New(pebble.NewMemTest(t), utils.Goerli, log)
+
+	// Need to store pending block create NewPendingState
+	block, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	pendingGenesis := blockchain.Pending{
+		Block:       block,
+		StateUpdate: su,
+	}
+	require.NoError(t, chain.StorePending(&pendingGenesis))
+
 	b := builder.New(new(felt.Felt).SetUint64(1), chain, vm.New(log), utils.NewNopZapLogger())
+
 	t.Run("empty genesis config", func(t *testing.T) {
 		genesisConfig := builder.GenesisConfig{}
 		_, err := b.GenesisStateDiff(genesisConfig)
@@ -113,7 +128,13 @@ func TestGenesisStateDiff(t *testing.T) {
 
 		resp, err := b.GenesisStateDiff(genesisConfig)
 		fmt.Println(resp, err)
+		fmt.Println("resp.DeclaredV0Classes", resp.DeclaredV0Classes)
+		fmt.Println("resp.DeclaredV1Classes", resp.DeclaredV1Classes)
+		fmt.Println("resp.ReplacedClasses", resp.ReplacedClasses)
+		fmt.Println("resp.DeployedContracts", resp.DeployedContracts)
+		fmt.Println("resp.Nonces", resp.Nonces)
+		fmt.Println("resp.StorageDiffs", resp.StorageDiffs)
 		require.NoError(t, err)
-
+		panic(1)
 	})
 }
