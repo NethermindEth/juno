@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -186,6 +187,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		v.AutomaticEnv()
+		v.SetEnvPrefix("JUNO")
+		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		if err := v.BindPFlags(cmd.Flags()); err != nil {
 			return nil
 		}
