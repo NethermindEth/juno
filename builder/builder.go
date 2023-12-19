@@ -3,6 +3,7 @@ package builder
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -85,7 +86,25 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 	if err != nil {
 		return nil, err
 	}
+
 	pendingState := blockchain.NewPendingState(genStateDiff, newClasses, nil)
+
+	for classHash, class := range newClasses {
+		switch class.Version() {
+		case 0:
+			pendingState.SetContractClass(&classHash, class) // Sets pending.newClasses, DeclaredV0Classes, (DeclaredV1Classes)
+		default:
+			return nil, fmt.Errorf("only cairo v 0 contracts are supported for genesis state initialisation")
+		}
+	}
+
+	for address, contractData := range genesisConfig.Contracts {
+		addressFelt, err := new(felt.Felt).SetString(address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set contract address as felt %s", err)
+		}
+		pendingState.SetClassHash(addressFelt, &contractData.ClassHash) // Sets DeployedContracts, ReplacedClasses
+	}
 
 	for _, fnCall := range genesisConfig.FunctionCalls {
 		contractAddress := fnCall.ContractAddress
@@ -94,6 +113,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		if err != nil {
 			return nil, err
 		}
+		// Should set nonces and StorageDiffs
 		_, err = b.vm.Call(&contractAddress, classHash, &entryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, b.network)
 		if err != nil {
 			return nil, err

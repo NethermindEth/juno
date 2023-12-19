@@ -89,17 +89,17 @@ func TestGenesisStateDiff(t *testing.T) {
 				"./contracts/udc.json",
 			},
 			Contracts: map[string]builder.GenesisContractData{
-				"0x111": {
+				"0x123": {
 					ClassHash:       *accountClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(222)}, // todo: what pub-key to use ??
+					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(222)}, // todo: what pub-key to use ?? // Not used
 				},
 				"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": { // fee Token
 					ClassHash:       *erc20ClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(333)}, // todo: what pub-key to use ??
+					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(333)}, // todo: what pub-key to use ?? // Not used
 				},
 				"0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf": { // udc - lets us deploy using invoke-txns
 					ClassHash:       *erc20ClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(444)}, // todo: what pub-key to use ??
+					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(444)}, // todo: what pub-key to use ?? // Not used
 				},
 			},
 			// FunctionCalls: []builder.FunctionCall{
