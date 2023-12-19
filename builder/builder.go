@@ -87,7 +87,18 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		return nil, err
 	}
 
-	pendingState := blockchain.NewPendingState(genStateDiff, newClasses, nil)
+	// pendingState := blockchain.NewPendingState(genStateDiff, newClasses, nil)
+
+	// Note: PendingState returns StateReader, not StateReadWriter
+	pendingState, closer, err := b.bc.PendingStateTmp(genStateDiff, newClasses)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := closer(); err != nil {
+			b.log.Errorw("failed to close state in GenesisState", "err", err)
+		}
+	}()
 
 	for classHash, class := range newClasses {
 		switch class.Version() {
