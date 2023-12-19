@@ -41,6 +41,8 @@ const (
 	wsF                  = "ws"
 	wsHostF              = "ws-host"
 	wsPortF              = "ws-port"
+	ipcF                 = "ipc"
+	ipcPathF             = "ipc-path"
 	dbPathF              = "db-path"
 	networkF             = "network"
 	ethNodeF             = "eth-node"
@@ -71,6 +73,7 @@ const (
 	defaultHTTPPort            = 6060
 	defaultWS                  = false
 	defaultWSPort              = 6061
+	defaultIpc                 = false
 	defaultEthNode             = ""
 	defaultPprof               = false
 	defaultPprofPort           = 6062
@@ -96,6 +99,8 @@ const (
 	wsUsage           = "Enables the Websocket RPC server on the default port."
 	wsHostUsage       = "The interface on which the Websocket RPC server will listen for requests."
 	wsPortUsage       = "The port on which the websocket server will listen for requests."
+	ipcUsage          = "Enables the IPC RPC server."
+	ipcPathUsage      = "The path on which the IPC RPC server will listen for requests."
 	dbPathUsage       = "Location of the database files."
 	networkUsage      = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
 	pprofUsage        = "Enables the pprof endpoint on the default port."
@@ -226,6 +231,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
 	junoCmd.Flags().String(wsHostF, defaulHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
+	junoCmd.Flags().Bool(ipcF, defaultIpc, ipcUsage)
+	junoCmd.Flags().String(ipcPathF, defaultDBPath, ipcPathUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)

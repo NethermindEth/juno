@@ -33,6 +33,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultHTTPPort := uint16(6060)
 	defaultWS := false
 	defaultWSPort := uint16(6061)
+	defaultIpc := false
 	defaultDBPath := filepath.Join(pwd, "juno")
 	defaultNetwork := utils.Mainnet
 	defaultPprof := false
@@ -65,6 +66,8 @@ func TestConfigPrecedence(t *testing.T) {
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 defaultIpc,
+				IPCPath:             defaultDBPath,
 				DatabasePath:        defaultDBPath,
 				Network:             defaultNetwork,
 				Pprof:               defaultPprof,
@@ -94,6 +97,8 @@ func TestConfigPrecedence(t *testing.T) {
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 defaultIpc,
+				IPCPath:             defaultDBPath,
 				GRPC:                defaultGRPC,
 				GRPCHost:            defaultHost,
 				GRPCPort:            defaultGRPCPort,
@@ -128,6 +133,8 @@ func TestConfigPrecedence(t *testing.T) {
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 defaultIpc,
+				IPCPath:             defaultDBPath,
 				GRPC:                defaultGRPC,
 				GRPCHost:            defaultHost,
 				GRPCPort:            defaultGRPCPort,
@@ -164,6 +171,8 @@ pprof: true
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 defaultIpc,
+				IPCPath:             defaultDBPath,
 				GRPC:                defaultGRPC,
 				GRPCHost:            defaultHost,
 				GRPCPort:            defaultGRPCPort,
@@ -197,6 +206,8 @@ http-port: 4576
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 defaultIpc,
+				IPCPath:             defaultDBPath,
 				GRPC:                defaultGRPC,
 				GRPCHost:            defaultHost,
 				GRPCPort:            defaultGRPCPort,
@@ -229,6 +240,8 @@ http-port: 4576
 				Websocket:       defaultWS,
 				WebsocketHost:   defaultHost,
 				WebsocketPort:   defaultWSPort,
+				IPC:             defaultIpc,
+				IPCPath:         defaultDBPath,
 				GRPC:            defaultGRPC,
 				GRPCHost:        defaultHost,
 				GRPCPort:        defaultGRPCPort,
@@ -260,6 +273,8 @@ http-port: 4576
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 defaultIpc,
+				IPCPath:             defaultDBPath,
 				GRPC:                defaultGRPC,
 				GRPCHost:            defaultHost,
 				GRPCPort:            defaultGRPCPort,
@@ -288,6 +303,8 @@ http-port: 4576
 ws: true
 ws-host: 0.0.0.0
 ws-port: 4576
+ipc: true
+ipc-path: /home/config-file/.juno
 metrics: true
 metrics-host: 0.0.0.0
 metrics-port: 4576
@@ -304,7 +321,7 @@ db-cache-size: 8
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
-				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
+				"--ipc", "--ipc-path", "/home/flag/.juno", "--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
 				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
 				"--db-cache-size", "9",
 			},
@@ -316,6 +333,8 @@ db-cache-size: 8
 				Websocket:           true,
 				WebsocketHost:       "127.0.0.1",
 				WebsocketPort:       4577,
+				IPC:                 true,
+				IPCPath:             "/home/flag/.juno",
 				Metrics:             true,
 				MetricsHost:         "127.0.0.1",
 				MetricsPort:         4577,
@@ -351,6 +370,8 @@ network: goerli
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 defaultIpc,
+				IPCPath:             defaultDBPath,
 				GRPC:                defaultGRPC,
 				GRPCHost:            defaultHost,
 				GRPCPort:            defaultGRPCPort,
@@ -373,7 +394,7 @@ network: goerli
 		"some setting set in default, config file and flags": {
 			cfgFile:         true,
 			cfgFileContents: `network: goerli2`,
-			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
+			inputArgs:       []string{"--ipc", "--ipc-path", "/home/flag/.juno", "--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
 				HTTP:                defaultHTTP,
@@ -382,6 +403,8 @@ network: goerli
 				Websocket:           defaultWS,
 				WebsocketHost:       defaultHost,
 				WebsocketPort:       defaultWSPort,
+				IPC:                 true,
+				IPCPath:             "/home/flag/.juno",
 				GRPC:                defaultGRPC,
 				GRPCHost:            defaultHost,
 				GRPCPort:            defaultGRPCPort,

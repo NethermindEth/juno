@@ -52,6 +52,8 @@ type Config struct {
 	Websocket           bool           `mapstructure:"ws"`
 	WebsocketHost       string         `mapstructure:"ws-host"`
 	WebsocketPort       uint16         `mapstructure:"ws-port"`
+	IPC                 bool           `mapstructure:"ipc"`
+	IPCPath             string         `mapstructure:"ipc-path"`
 	GRPC                bool           `mapstructure:"grpc"`
 	GRPCHost            string         `mapstructure:"grpc-host"`
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
@@ -170,6 +172,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 	if cfg.Websocket {
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
+	}
+	if cfg.IPC {
+		var ipcRPC *ipcService
+		ipcRPC, err = makeRPCOverIpc(cfg.IPCPath, rpcServers, log, cfg.Metrics)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, ipcRPC)
 	}
 	if cfg.Metrics {
 		chain.WithListener(makeBlockchainMetrics())
