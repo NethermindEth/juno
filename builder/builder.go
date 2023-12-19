@@ -84,15 +84,8 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		return nil, err
 	}
 
-	genStateDiff, err := blockchain.MakeStateDiffForEmptyBlock(b.bc, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	// pendingState := blockchain.NewPendingState(genStateDiff, newClasses, nil)
-
 	// Note: PendingState returns StateReader, not StateReadWriter
-	pendingState, closer, err := b.bc.PendingStateTmp(genStateDiff, newClasses)
+	pendingState, closer, err := b.bc.PendingStateTmp()
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +98,9 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 	for classHash, class := range newClasses {
 		switch class.Version() {
 		case 0:
-			pendingState.SetContractClass(&classHash, class) // Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
+			if err = pendingState.SetContractClass(&classHash, class); err != nil { // Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
+				return nil, fmt.Errorf("failed to set cairo v0 contract class : %v", err)
+			}
 		default:
 			return nil, fmt.Errorf("only cairo v 0 contracts are supported for genesis state initialisation")
 		}
