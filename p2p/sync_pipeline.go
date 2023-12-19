@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -67,8 +68,8 @@ func (s *syncService) startPipeline(ctx context.Context) {
 	// var ch2 chan someOtherType = make(chan someOtherType)
 	// ch2 = (chan any)(ch2) <----- This line will give compilation error.
 
-	for block := range utils.PipelineBridge(ctx,
-		processSpecBlockParts(ctx, nextHeight,
+	for b := range utils.PipelineBridge(ctx,
+		s.processSpecBlockParts(ctx, nextHeight,
 			utils.PipelineFanIn(ctx,
 				utils.PipelineStage(ctx, headersAndSigsCh, func(i specBlockHeaderAndSigs) specBlockParts { return i }),
 				utils.PipelineStage(ctx, blockBodiesCh, func(i specBlockBody) specBlockParts { return i }),
@@ -76,11 +77,24 @@ func (s *syncService) startPipeline(ctx context.Context) {
 				utils.PipelineStage(ctx, receiptsCh, func(i specReceipts) specBlockParts { return i }),
 				utils.PipelineStage(ctx, eventsCh, func(i specEvents) specBlockParts { return i }),
 			))) {
-		fmt.Println("----- Got core block number:", block.block.Number, "-----")
+		if b.err != nil {
+			// cannot process any more blocks
+			s.log.Errorw("Failed to process block", "err", b.err)
+			return
+		}
+		err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
+		if err != nil {
+			s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
+		} else {
+			s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(), "root",
+				b.block.GlobalStateRoot.ShortString())
+		}
 	}
 }
 
-func processSpecBlockParts(ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts) <-chan <-chan blockBody {
+func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNum uint64,
+	specBlockPartsCh <-chan specBlockParts,
+) <-chan <-chan blockBody {
 	orderedBlockBodiesCh := make(chan (<-chan blockBody))
 
 	go func() {
@@ -135,7 +149,7 @@ func processSpecBlockParts(ctx context.Context, startingBlockNum uint64, specBlo
 
 					select {
 					case <-ctx.Done():
-					case orderedBlockBodiesCh <- adaptAndSanityCheckBlock(ctx, headerAndSig.header, headerAndSig.sig, body.stateDiff,
+					case orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, headerAndSig.sig, body.stateDiff,
 						body.classes, body.proof, txs.txs, rs.receipts, es.events):
 					}
 
@@ -152,7 +166,7 @@ func processSpecBlockParts(ctx context.Context, startingBlockNum uint64, specBlo
 	return orderedBlockBodiesCh
 }
 
-func adaptAndSanityCheckBlock(ctx context.Context, header *spec.BlockHeader, sig *spec.Signatures, diff *spec.StateDiff,
+func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.BlockHeader, sig *spec.Signatures, diff *spec.StateDiff,
 	classes *spec.Classes, proof *spec.BlockProof, txs *spec.Transactions, receipts *spec.Receipts, events *spec.Events,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
@@ -162,12 +176,88 @@ func adaptAndSanityCheckBlock(ctx context.Context, header *spec.BlockHeader, sig
 		case <-ctx.Done():
 			bodyCh <- blockBody{err: ctx.Err()}
 		default:
-			// Todo Process block later
-			bodyCh <- blockBody{block: &core.Block{Header: &core.Header{Number: header.Number}}}
+			coreBlock := new(core.Block)
+
+			var coreTxs []core.Transaction
+			for _, i := range txs.GetItems() {
+				coreTxs = append(coreTxs, p2p2core.AdaptTransaction(i, s.network))
+			}
+
+			coreBlock.Transactions = coreTxs
+
+			txHashEventsM := make(map[felt.Felt][]*core.Event)
+			for _, item := range events.GetItems() {
+				txH := p2p2core.AdaptHash(item.TransactionHash)
+				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(item))
+			}
+
+			coreReceipts := utils.Map(receipts.GetItems(), p2p2core.AdaptReceipt)
+			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
+				r.Events = txHashEventsM[*r.TransactionHash]
+				return r
+			})
+			coreBlock.Receipts = coreReceipts
+
+			var err error
+			coreHeader := adaptBlockHeadersAndSigs(specBlockHeaderAndSigs{header, sig})
+			coreBlock.Header = &coreHeader
+			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)
+			coreBlock.Hash, err = core.BlockHash(coreBlock)
+			if err != nil {
+				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
+				return
+			}
+
+			newClasses := make(map[felt.Felt]core.Class)
+			for _, i := range classes.GetClasses() {
+				coreC := p2p2core.AdaptClass(i)
+				h, err := coreC.Hash()
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
+					return
+				}
+				newClasses[*h] = coreC
+			}
+
+			// Build State update
+			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
+			// Update but there is no such message in P2P.
+
+			stateUpdate := new(core.StateUpdate)
+			stateUpdate.OldRoot = &felt.Zero
+			if coreBlock.Number > 0 {
+				oldHeader, err := s.blockchain.BlockHeaderByNumber(coreBlock.Number - 1)
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("block header not fouund for block number %v, error: %v", coreBlock.Number-1, err)}
+					return
+				}
+				stateUpdate.OldRoot = oldHeader.GlobalStateRoot
+			}
+			stateUpdate.NewRoot = coreBlock.GlobalStateRoot
+			stateUpdate.BlockHash = coreBlock.Hash
+			stateUpdate.StateDiff = p2p2core.AdaptStateDiff(diff, classes.GetClasses())
+
+			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
+			if err != nil {
+				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
+			}
+			<-storedCh
 		}
 	}()
 
 	return bodyCh
+}
+
+func adaptBlockHeadersAndSigs(headerAndSig specBlockHeaderAndSigs) core.Header {
+	header := p2p2core.AdaptBlockHeader(headerAndSig.header)
+	header.Signatures = utils.Map(headerAndSig.sig.GetSignatures(), p2p2core.AdaptSignature)
+	return header
 }
 
 type specBlockParts interface {
@@ -215,12 +305,6 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 	}()
 
 	return headersAndSigCh, nil
-}
-
-func adaptBlockHeadersAndSigs(headerAndSig specBlockHeaderAndSigs) core.Header {
-	header := p2p2core.AdaptBlockHeader(headerAndSig.header)
-	header.Signatures = utils.Map(headerAndSig.sig.GetSignatures(), p2p2core.AdaptSignature)
-	return header
 }
 
 type specBlockBody struct {
