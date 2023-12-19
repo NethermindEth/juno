@@ -3185,12 +3185,10 @@ func TestTraceTransaction(t *testing.T) {
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
 			gomock.Any(), utils.Mainnet, []*felt.Felt{}, false, false, false, gomock.Any(), gomock.Any(), false).Return(nil, []*vm.TransactionTrace{vmTrace}, nil)
-		rpcTrace := new(rpc.TransactionTrace)
-		require.NoError(t, json.Unmarshal(vmTraceJSON, rpcTrace))
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
-		assert.Equal(t, rpcTrace, trace)
+		assert.Equal(t, vmTrace, trace)
 	})
 }
 
@@ -3339,17 +3337,17 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
-		assert.Equal(t, &rpc.TransactionTrace{
-			ValidateInvocation:    &rpc.FunctionInvocation{},
-			ExecuteInvocation:     &rpc.ExecuteInvocation{},
-			FeeTransferInvocation: &rpc.FunctionInvocation{},
-			StateDiff: &rpc.StateDiff{
-				StorageDiffs:              []rpc.StorageDiff{},
-				Nonces:                    []rpc.Nonce{},
-				DeployedContracts:         []rpc.DeployedContract{},
+		assert.Equal(t, &vm.TransactionTrace{
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			ExecuteInvocation:     &vm.ExecuteInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			StateDiff: &vm.StateDiff{
+				StorageDiffs:              []vm.StorageDiff{},
+				Nonces:                    []vm.Nonce{},
+				DeployedContracts:         []vm.DeployedContract{},
 				DeprecatedDeclaredClasses: []*felt.Felt{},
-				DeclaredClasses:           []rpc.DeclaredClass{},
-				ReplacedClasses:           []rpc.ReplacedClass{},
+				DeclaredClasses:           []vm.DeclaredClass{},
+				ReplacedClasses:           []vm.ReplacedClass{},
 			},
 		}, result[0].TraceRoot)
 		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
@@ -3403,13 +3401,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, header.SequencerAddress,
 			gomock.Any(), network, []*felt.Felt{}, false, false, false, header.GasPrice, header.GasPriceSTRK, false).Return(nil, []*vm.TransactionTrace{vmTrace}, nil)
 
-		trace := new(rpc.TransactionTrace)
-		require.NoError(t, json.Unmarshal(vmTraceJSON, trace))
-
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
-				TraceRoot:       trace,
+				TraceRoot:       vmTrace,
 			},
 		}
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})

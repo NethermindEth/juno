@@ -1368,7 +1368,7 @@ func (h *Handler) LegacyEstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstim
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
 	return h.traceTransaction(ctx, &hash, false)
 }
 
@@ -1376,7 +1376,7 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) LegacyTraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) LegacyTraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
 	trace, err := h.traceTransaction(ctx, &hash, true)
 	if err != nil && err.Code == ErrTxnHashNotFound.Code {
 		err = ErrInvalidTxHash
@@ -1384,7 +1384,7 @@ func (h *Handler) LegacyTraceTransaction(ctx context.Context, hash felt.Felt) (*
 	return trace, err
 }
 
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, legacyTraceJSON bool) (*TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, legacyTraceJSON bool) (*vm.TransactionTrace, *jsonrpc.Error) {
 	_, _, blockNumber, err := h.bcReader.Receipt(hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
@@ -1510,7 +1510,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			estimate.Unit = utils.Ptr(feeUnit)
 		}
 		result = append(result, SimulatedTransaction{
-			TransactionTrace: adaptVMTrace(traces[i]),
+			TransactionTrace: traces[i],
 			FeeEstimation:    estimate,
 		})
 	}
@@ -1640,7 +1640,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	var result []TracedBlockTransaction
 	for i, trace := range traces {
 		result = append(result, TracedBlockTransaction{
-			TraceRoot:       adaptVMTrace(trace),
+			TraceRoot:       trace,
 			TransactionHash: block.Transactions[i].Hash(),
 		})
 	}

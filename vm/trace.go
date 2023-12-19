@@ -2,6 +2,7 @@ package vm
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
@@ -55,6 +56,27 @@ const (
 	TxnInvoke
 	TxnL1Handler
 )
+
+func (t TransactionType) String() string {
+	switch t {
+	case TxnDeclare:
+		return "DECLARE"
+	case TxnDeploy:
+		return "DEPLOY"
+	case TxnDeployAccount:
+		return "DEPLOY_ACCOUNT"
+	case TxnInvoke:
+		return "INVOKE"
+	case TxnL1Handler:
+		return "L1_HANDLER"
+	default:
+		return "<unknown>"
+	}
+}
+
+func (t TransactionType) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%q", t.String())), nil
+}
 
 func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	switch string(data) {
