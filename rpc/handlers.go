@@ -1230,7 +1230,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		call.Calldata, blockNumber, header.Timestamp, state, h.network)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(err.Error())
 		}
 		return nil, makeContractError(err)
 	}
