@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -62,6 +63,7 @@ const (
 	remoteDBF            = "remote-db"
 	rpcMaxBlockScanF     = "rpc-max-block-scan"
 	dbCacheSizeF         = "db-cache-size"
+	gwAPIKeyF            = "gw-api-key" //nolint: gosec
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -84,6 +86,7 @@ const (
 	defaultRemoteDB            = ""
 	defaultRPCMaxBlockScan     = math.MaxUint
 	defaultCacheSizeMb         = 8
+	defaultGwAPIKey            = ""
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -116,6 +119,7 @@ const (
 	remoteDBUsage            = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
 	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 )
 
 var Version string
@@ -186,6 +190,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		v.AutomaticEnv()
+		v.SetEnvPrefix("JUNO")
+		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		if err := v.BindPFlags(cmd.Flags()); err != nil {
 			return nil
 		}
@@ -241,6 +248,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
 	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
+	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 
 	return junoCmd
 }
