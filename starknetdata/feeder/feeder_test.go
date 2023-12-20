@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -179,18 +180,43 @@ func TestClassV1(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.Integration)
 	adapter := adaptfeeder.New(client)
 
-	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	class, err := adapter.Class(context.Background(), classHash)
-	require.NoError(t, err)
+	tests := []struct {
+		classHash        *felt.Felt
+		hasCompiledClass bool
+	}{
+		{
+			classHash:        utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5"),
+			hasCompiledClass: true,
+		},
+		{
+			classHash:        utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c"),
+			hasCompiledClass: false,
+		},
+	}
 
-	feederClass, err := client.ClassDefinition(context.Background(), classHash)
-	require.NoError(t, err)
-	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
-	require.NoError(t, err)
+	for _, test := range tests {
+		class, err := adapter.Class(context.Background(), test.classHash)
+		require.NoError(t, err)
 
-	adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
-	require.NoError(t, err)
-	assert.Equal(t, adaptedResponse, class)
+		feederClass, err := client.ClassDefinition(context.Background(), test.classHash)
+		require.NoError(t, err)
+		compiled, err := client.CompiledClassDefinition(context.Background(), test.classHash)
+		if test.hasCompiledClass {
+			require.NoError(t, err)
+		} else {
+			require.EqualError(t, err, "deprecated compiled class")
+		}
+
+		adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+		require.NoError(t, err)
+		assert.Equal(t, adaptedResponse, class)
+
+		if test.hasCompiledClass {
+			assert.NotNil(t, adaptedResponse.Compiled)
+		} else {
+			assert.Nil(t, adaptedResponse.Compiled)
+		}
+	}
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {

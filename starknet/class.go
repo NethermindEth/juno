@@ -78,3 +78,11 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	c.V0 = new(Cairo0Definition)
 	return json.Unmarshal(data, c.V0)
 }
+
+func IsDeprecatedCompiledClassDefinition(definition json.RawMessage) (bool, error) {
+	var classMap map[string]json.RawMessage
+	if err := json.Unmarshal(definition, &classMap); err != nil {
+		return false, err
+	}
+	return len(classMap["program"]) > 0, nil
+}

@@ -18,8 +18,7 @@ func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 		return json.Marshal(compiledCairo0Class)
 	case *core.Cairo1Class:
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
-		compiledCairo1Class := core2sn.AdaptCompiledClass(&c.Compiled)
-		return json.Marshal(compiledCairo1Class)
+		return json.Marshal(core2sn.AdaptCompiledClass(c.Compiled))
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
@@ -34,8 +33,7 @@ func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
 		}
 		return json.Marshal(declaredClass)
 	case *core.Cairo1Class:
-		declaredClass := core2sn.AdaptSierraClass(c)
-		return json.Marshal(declaredClass)
+		return json.Marshal(core2sn.AdaptSierraClass(c))
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}

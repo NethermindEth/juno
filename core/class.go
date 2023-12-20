@@ -62,7 +62,7 @@ type Cairo1Class struct {
 	Program         []*felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string
-	Compiled        CompiledClass
+	Compiled        *CompiledClass
 }
 
 type CompiledClass struct {

@@ -21,6 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
+
 type Backoff func(wait time.Duration) time.Duration
 
 type Client struct {
@@ -354,8 +356,17 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 	}
 	defer body.Close()
 
+	definition, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+
+	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(definition); deprecated {
+		return nil, ErrDeprecatedCompiledClass
+	}
+
 	class := new(starknet.CompiledClass)
-	if err = json.NewDecoder(body).Decode(class); err != nil {
+	if err = json.Unmarshal(definition, class); err != nil {
 		return nil, err
 	}
 	return class, nil

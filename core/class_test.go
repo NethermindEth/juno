@@ -55,11 +55,16 @@ func TestClassV1Hash(t *testing.T) {
 	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
 	tests := []struct {
-		classHash string
+		classHash       string
+		checkNoCompiled bool
 	}{
 		{
 			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5
 			classHash: "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+		},
+		{
+			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c
+			classHash: "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c",
 		},
 	}
 

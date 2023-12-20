@@ -281,17 +281,16 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 	}
 
 	if compiledClass != nil {
-		adaptedCompiledClass, err := AdaptCompiledClass(compiledClass)
+		class.Compiled, err = AdaptCompiledClass(compiledClass)
 		if err != nil {
 			return nil, err
 		}
-		class.Compiled = adaptedCompiledClass
 	}
 
 	return class, nil
 }
 
-func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (core.CompiledClass, error) {
+func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {
 	var compiled core.CompiledClass
 	compiled.Bytecode = compiledClass.Bytecode
 	compiled.PythonicHints = compiledClass.PythonicHints
@@ -301,7 +300,7 @@ func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (core.CompiledCla
 	var ok bool
 	compiled.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
 	if !ok {
-		return core.CompiledClass{}, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
+		return nil, fmt.Errorf("couldn't convert prime value to big.Int: %d", compiled.Prime)
 	}
 
 	entryPoints := compiledClass.EntryPoints
@@ -309,7 +308,7 @@ func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (core.CompiledCla
 	compiled.L1Handler = utils.Map(entryPoints.L1Handler, adaptCompiledEntryPoint)
 	compiled.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
 
-	return compiled, nil
+	return &compiled, nil
 }
 
 func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {

@@ -64,7 +64,7 @@ var defaultMigrations = []Migration{
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(10_000), //nolint:gomnd
-	NewBucketMigrator(db.Class, migrateCairo1CompiledClass),
+	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),
 }
 
 type declaredClass struct {
@@ -106,17 +106,19 @@ func migrateCairo1CompiledClass(txn db.Transaction, key, value []byte, _ utils.N
 
 		return err
 	}
-	fmt.Println("COMPILATION SUCCESS. Abi len: ", len(class.Class.Abi))
 
-	var starknetCompiledClass starknet.CompiledClass
-	err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
-	if err != nil {
-		return err
-	}
+	var coreCompiledClass *core.CompiledClass
+	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(class.Class.Compiled); !deprecated {
+		var starknetCompiledClass starknet.CompiledClass
+		err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
+		if err != nil {
+			return err
+		}
 
-	coreCompiledClass, err := sn2core.AdaptCompiledClass(&starknetCompiledClass)
-	if err != nil {
-		return err
+		coreCompiledClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
+		if err != nil {
+			return err
+		}
 	}
 
 	declaredClass := core.DeclaredClass{
