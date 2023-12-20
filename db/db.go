@@ -111,7 +111,7 @@ func discardTxnOnPanic(txn Transaction) {
 	p := recover()
 	if p != nil {
 		if err := txn.Discard(); err != nil {
-			fmt.Fprintf(os.Stderr, "failed discarding panicing txn err: %s", err)
+			fmt.Fprintf(os.Stderr, "failed discarding panicking txn err: %s", err)
 		}
 		panic(p)
 	}

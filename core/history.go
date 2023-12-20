@@ -35,18 +35,18 @@ func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 	}
 
 	for it.Seek(logDBKey(key, height)); it.Valid(); it.Next() {
-		seekedKey := it.Key()
-		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
-		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
+		soughtKey := it.Key()
+		// soughtKey size should be `len(key) + sizeof(uint64)` and soughtKey should match key prefix
+		if len(soughtKey) != len(key)+8 || !bytes.HasPrefix(soughtKey, key) {
 			break
 		}
 
-		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
-		if seekedHeight < height {
+		soughtHeight := binary.BigEndian.Uint64(soughtKey[len(key):])
+		if soughtHeight < height {
 			// last change happened before the height we are looking for
 			// check head state
 			break
-		} else if seekedHeight == height {
+		} else if soughtHeight == height {
 			// a log exists for the height we are looking for, so the old value in this log entry is not useful.
 			// advance the iterator and see we can use the next entry. If not, ErrCheckHeadState will be returned
 			continue
@@ -56,7 +56,7 @@ func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
 			return nil, err
 		}
-		// seekedHeight > height
+		// soughtHeight > height
 		return val, nil
 	}
 

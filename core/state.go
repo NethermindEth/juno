@@ -389,7 +389,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		}
 	}
 
-	// sort the contracts in decending diff size order
+	// sort the contracts in descending diff size order
 	// so we start with the heaviest update first
 	keys := make([]felt.Felt, 0, len(diffs))
 	for key := range diffs {

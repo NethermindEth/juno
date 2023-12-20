@@ -126,7 +126,7 @@ impl StateReader for JunoStateReader {
             // About the changes in the second attempt at making class cache behave as expected;
             //
             // The initial assumption here was that `self.height` uniquely identifies and strictly orders the underlying state
-            // instances. The first assumption doesn't necessarily hold, because we can pass different state instaces with the
+            // instances. The first assumption doesn't necessarily hold, because we can pass different state instances with the
             // same height. This most commonly happens with call/estimate/simulate and trace flows. Trace flow calls the VM
             // for block number N with the state at the beginning of the block, while call/estimate/simulate flows call the VM
             // with the same block number but with the state at the end of that block. That is why, we cannot use classes from cache

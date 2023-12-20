@@ -1,6 +1,6 @@
 * Goals: consensus, scale, validator-fullnode separation, cleanup
 * requests are responded to with a stream of messages that are varint message delimited.
-* When a stream returnes several logical objects, each in several messages, then each object messages should end with a Fin message
+* When a stream returns several logical objects, each in several messages, then each object messages should end with a Fin message
 * Responses to events, receipts and transactions also include block hash for cases of reorg.
 * request_id is handled at the protocol level, specifically to support multiplexing
 * number of messages (especially repeated ones) is capped for ddos

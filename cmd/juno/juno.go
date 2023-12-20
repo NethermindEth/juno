@@ -67,7 +67,7 @@ const (
 	gwAPIKeyF            = "gw-api-key" //nolint: gosec
 
 	defaultConfig              = ""
-	defaulHost                 = "localhost"
+	defaultHost                = "localhost"
 	defaultHTTP                = false
 	defaultHTTPPort            = 6060
 	defaultWS                  = false
@@ -109,7 +109,7 @@ const (
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"
 	p2PAddrUsage             = "specify p2p source address as multiaddr"
-	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
+	p2pBootPeersUsage        = "specify list of p2p boot peers split by a comma"
 	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
 	metricsHostUsage         = "The interface on which the prometheus endpoint will listen for requests."
 	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
@@ -117,7 +117,7 @@ const (
 	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
 	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
 	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
+	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
 	remoteDBUsage            = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
 	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
@@ -224,16 +224,16 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
-	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
+	junoCmd.Flags().String(httpHostF, defaultHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
-	junoCmd.Flags().String(wsHostF, defaulHost, wsHostUsage)
+	junoCmd.Flags().String(wsHostF, defaultHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
-	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
+	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
@@ -241,10 +241,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
-	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
+	junoCmd.Flags().String(metricsHostF, defaultHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
-	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
+	junoCmd.Flags().String(grpcHostF, defaultHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)

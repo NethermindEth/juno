@@ -398,7 +398,7 @@ func TestPanic(t *testing.T) {
 	})
 
 	t.Run("update", func(t *testing.T) {
-		var panicingTxn db.Transaction
+		var panickingTxn db.Transaction
 		defer func() {
 			p := recover()
 			require.NotNil(t, p)
@@ -406,11 +406,11 @@ func TestPanic(t *testing.T) {
 			require.ErrorIs(t, testDB.View(func(txn db.Transaction) error {
 				return txn.Get([]byte{0}, func(b []byte) error { return nil })
 			}), db.ErrKeyNotFound)
-			require.EqualError(t, panicingTxn.Get([]byte{0}, func(b []byte) error { return nil }), "discarded txn")
+			require.EqualError(t, panickingTxn.Get([]byte{0}, func(b []byte) error { return nil }), "discarded txn")
 		}()
 
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-			panicingTxn = txn
+			panickingTxn = txn
 			require.ErrorIs(t, txn.Get([]byte{0}, func(b []byte) error { return nil }), db.ErrKeyNotFound)
 			require.NoError(t, txn.Set([]byte{0}, []byte{0}))
 			panic("update")
