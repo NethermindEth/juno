@@ -46,6 +46,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(8)
+	defaultMaxHandles := 1024
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -82,6 +83,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"config file path is empty string": {
@@ -111,6 +113,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"config file doesn't exist": {
@@ -145,6 +148,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -181,6 +185,7 @@ pprof: true
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -214,6 +219,7 @@ http-port: 4576
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"all flags without config file": {
@@ -245,6 +251,7 @@ http-port: 4576
 				MaxVMQueue:      2 * defaultMaxVMs,
 				RPCMaxBlockScan: defaultRPCMaxBlockScan,
 				DBCacheSize:     defaultMaxCacheSize,
+				DBMaxHandles:    defaultMaxHandles,
 			},
 		},
 		"some flags without config file": {
@@ -277,6 +284,7 @@ http-port: 4576
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -333,6 +341,7 @@ db-cache-size: 8
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         9,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -368,6 +377,7 @@ network: goerli
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -399,6 +409,7 @@ network: goerli
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"only set env variables": {
@@ -428,6 +439,7 @@ network: goerli
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -458,6 +470,7 @@ network: goerli
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -489,6 +502,7 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				GatewayAPIKey:       "apikey",
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 	}
