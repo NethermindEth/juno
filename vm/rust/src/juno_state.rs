@@ -149,7 +149,17 @@ impl StateReader for JunoState {
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
-            if cached_class.cached_on_height <= self.height {
+            //
+            // About the changes in the second attempt at making class cache behave as expected;
+            //
+            // The initial assumption here was that `self.height` uniquely identifies and strictly orders the underlying state
+            // instances. The first assumption doesn't necessarily hold, because we can pass different state instaces with the
+            // same height. This most commonly happens with call/estimate/simulate and trace flows. Trace flow calls the VM
+            // for block number N with the state at the beginning of the block, while call/estimate/simulate flows call the VM
+            // with the same block number but with the state at the end of that block. That is why, we cannot use classes from cache
+            // if they are cached on the same height that we are executing on. Because they might be cached using a state instance that
+            // is in the future compared to the state that we are currently executing on, even tho they have the same height.
+            if cached_class.cached_on_height < self.height {
                 return Ok(cached_class.definition.clone());
             }
         }

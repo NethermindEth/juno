@@ -15,6 +15,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -40,6 +41,7 @@ type Client struct {
 	timeout   time.Duration
 	log       utils.SimpleLogger
 	userAgent string
+	apiKey    string
 }
 
 func (c *Client) WithUserAgent(ua string) *Client {
@@ -47,18 +49,27 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
-// NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t *testing.T) *Client {
-	srv := newTestServer()
-	ua := "Juno/v0.0.1-test Starknet Implementation"
-	t.Cleanup(srv.Close)
-
-	return NewClient(srv.URL, utils.NewNopZapLogger()).WithUserAgent(ua)
+func (c *Client) WithAPIKey(key string) *Client {
+	c.apiKey = key
+	return c
 }
 
-func newTestServer() *httptest.Server {
+// NewTestClient returns a client and a function to close a test server.
+func NewTestClient(t *testing.T) *Client {
+	srv := newTestServer(t)
+	ua := "Juno/v0.0.1-test Starknet Implementation"
+	apiKey := "API_KEY"
+	t.Cleanup(srv.Close)
+
+	return NewClient(srv.URL, utils.NewNopZapLogger()).WithUserAgent(ua).WithAPIKey(apiKey)
+}
+
+func newTestServer(t *testing.T) *httptest.Server {
 	// As this is a test sever we are mimic response for one good and one bad request.
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
+		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
+
 		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -141,6 +152,9 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	req.Header.Set("Content-Type", "application/json")
 	if c.userAgent != "" {
 		req.Header.Set("User-Agent", c.userAgent)
+	}
+	if c.apiKey != "" {
+		req.Header.Set("X-Throttling-Bypass", c.apiKey)
 	}
 	return c.client.Do(req)
 }

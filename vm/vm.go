@@ -36,7 +36,7 @@ type VM interface {
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 		skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-	) ([]*felt.Felt, []json.RawMessage, error)
+	) ([]*felt.Felt, []TransactionTrace, error)
 }
 
 type vm struct {
@@ -208,7 +208,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-) ([]*felt.Felt, []json.RawMessage, error) {
+) ([]*felt.Felt, []TransactionTrace, error) {
 	context, err := newContext(state, v.log, declaredClasses)
 	if err != nil {
 		return nil, nil, err
@@ -279,7 +279,14 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, errors.New(context.err)
 	}
 
-	return context.actualFees, context.traces, nil
+	traces := make([]TransactionTrace, len(context.traces))
+	for index, traceJSON := range context.traces {
+		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
+			return nil, nil, fmt.Errorf("unmarshal trace: %v", err)
+		}
+	}
+
+	return context.actualFees, traces, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
