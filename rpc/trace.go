@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legacyJSON bool) ([]TracedBlockTransaction, error) {
@@ -91,7 +90,7 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacy
 		fnInvocation.Messages = append(fnInvocation.Messages, vm.OrderedL2toL1Message{
 			Order:   snMessage.Order,
 			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
-			To:      common.HexToAddress(snMessage.ToAddr),
+			To:      snMessage.ToAddr,
 		})
 	}
 

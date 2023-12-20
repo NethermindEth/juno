@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type StateDiff struct {
@@ -134,10 +133,10 @@ type OrderedEvent struct {
 }
 
 type OrderedL2toL1Message struct {
-	Order   uint64         `json:"order"`
-	From    *felt.Felt     `json:"from_address,omitempty"`
-	To      common.Address `json:"to_address"`
-	Payload []*felt.Felt   `json:"payload"`
+	Order   uint64       `json:"order"`
+	From    *felt.Felt   `json:"from_address,omitempty"`
+	To      string       `json:"to_address"` //todo: make common.Address after fixing starknet-api EthAddress serialization
+	Payload []*felt.Felt `json:"payload"`
 }
 
 type ExecutionResources struct {
