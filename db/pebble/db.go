@@ -25,14 +25,15 @@ type DB struct {
 }
 
 // New opens a new database at the given path
-func New(path string, cache uint, logger pebble.Logger) (db.DB, error) {
+func New(path string, cache uint, maxOpenFiles int, logger pebble.Logger) (db.DB, error) {
 	// Ensure that the specified cache size meets a minimum threshold.
 	if cache < minCache {
 		cache = minCache
 	}
 	pDB, err := newPebble(path, &pebble.Options{
-		Logger: logger,
-		Cache:  pebble.NewCache(int64(cache * megabyte)),
+		Logger:       logger,
+		Cache:        pebble.NewCache(int64(cache * megabyte)),
+		MaxOpenFiles: maxOpenFiles,
 	})
 	if err != nil {
 		return nil, err
