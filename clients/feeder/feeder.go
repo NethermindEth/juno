@@ -17,6 +17,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type Backoff func(wait time.Duration) time.Duration
@@ -30,6 +32,7 @@ type Client struct {
 	minWait    time.Duration
 	log        utils.SimpleLogger
 	userAgent  string
+	apiKey     string
 	listener   EventListener
 }
 
@@ -73,6 +76,11 @@ func (c *Client) WithTimeout(t time.Duration) *Client {
 	return c
 }
 
+func (c *Client) WithAPIKey(key string) *Client {
+	c.apiKey = key
+	return c
+}
+
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	return wait * 2
 }
@@ -83,11 +91,12 @@ func NopBackoff(d time.Duration) time.Duration {
 
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T, network utils.Network) *Client {
-	srv := newTestServer(network)
+	srv := newTestServer(t, network)
 	t.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
+	apiKey := "API_KEY"
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua)
+	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -106,7 +115,7 @@ func NewTestClient(t *testing.T, network utils.Network) *Client {
 	return c
 }
 
-func newTestServer(network utils.Network) *httptest.Server {
+func newTestServer(t *testing.T, network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -114,10 +123,11 @@ func newTestServer(network utils.Network) *httptest.Server {
 			return
 		}
 
+		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
+		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
+
 		wd, err := os.Getwd()
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 
 		base := wd[:strings.LastIndex(wd, "juno")+4]
 		queryArg := ""
@@ -230,6 +240,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			}
 			if c.userAgent != "" {
 				req.Header.Set("User-Agent", c.userAgent)
+			}
+			if c.apiKey != "" {
+				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
 			reqTimer := time.Now()
