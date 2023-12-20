@@ -28,7 +28,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, utils.Integration, utils.NewNopZapLogger())
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	testBuilder := builder.New(seqAddr, bc, mockVM, utils.NewNopZapLogger())
+	testBuilder := builder.New(seqAddr, bc, mockVM, utils.NewNopZapLogger(), nil)
 
 	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
@@ -65,10 +65,11 @@ func TestValidateAgainstPendingState(t *testing.T) {
 }
 
 func TestGenesisStateDiff(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	network := utils.Mainnet
+	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), utils.Goerli, log)
+	chain := blockchain.New(pebble.NewMemTest(t), utils.Mainnet, log)
 
 	// Need to store pending block create NewPendingState
 	block, err := gw.BlockByNumber(context.Background(), 0)
@@ -81,7 +82,7 @@ func TestGenesisStateDiff(t *testing.T) {
 	}
 	require.NoError(t, chain.StorePending(&pendingGenesis))
 
-	b := builder.New(new(felt.Felt).SetUint64(1), chain, vm.New(log), utils.NewNopZapLogger())
+	b := builder.New(new(felt.Felt).SetUint64(1), chain, vm.New(log), utils.NewNopZapLogger(), &network)
 
 	t.Run("empty genesis config", func(t *testing.T) {
 		genesisConfig := builder.GenesisConfig{}
@@ -95,25 +96,33 @@ func TestGenesisStateDiff(t *testing.T) {
 		erc20ClassHash, err := new(felt.Felt).SetString("0x02a8846878b6ad1f54f6ba46f5f40e11cee755c677f130b2c4b60566c9003f1f")
 		require.NoError(t, err)
 
+		erc20Name := *new(felt.Felt).SetUint64(111)
+		erc20Symbol := *new(felt.Felt).SetUint64(222)
+		erc20Decimal := *new(felt.Felt).SetUint64(333)
+		erc20InitSup := *new(felt.Felt).SetUint64(444)
+		erc20Recipient := *new(felt.Felt).SetUint64(555)
+
 		genesisConfig := builder.GenesisConfig{
-			ChainID: "SN_GOERLI",
+			ChainID: network.ChainIDString(),
 			Classes: []string{
 				"./contracts/account.json",
 				"./contracts/erc20.json",
 				"./contracts/udc.json",
 			},
 			Contracts: map[string]builder.GenesisContractData{
-				"0x123": {
+				"0xdeadbeef": { // account address // todo: needs to match what the constructor generates?
 					ClassHash:       *accountClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(222)}, // todo: what pub-key to use ?? // Not used
+					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(222)},
 				},
-				"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": { // fee Token
-					ClassHash:       *erc20ClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(333)}, // todo: what pub-key to use ?? // Not used
-				},
-				"0x041a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf": { // udc - lets us deploy using invoke-txns
-					ClassHash:       *erc20ClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(444)}, // todo: what pub-key to use ?? // Not used
+				"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": { // fee token address
+					ClassHash: *erc20ClassHash,
+					ConstructorArgs: []felt.Felt{
+						erc20Name,
+						erc20Symbol,
+						erc20Decimal,
+						erc20InitSup,
+						erc20Recipient,
+					},
 				},
 			},
 			// FunctionCalls: []builder.FunctionCall{

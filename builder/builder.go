@@ -24,16 +24,17 @@ type Builder struct {
 	bc *blockchain.Blockchain
 	vm vm.VM
 
-	network utils.Network
+	network *utils.Network
 	log     utils.Logger
 }
 
-func New(ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
+func New(ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger, network *utils.Network) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
 
-		bc: bc,
-		vm: builderVM,
+		bc:      bc,
+		vm:      builderVM,
+		network: network,
 	}
 }
 
@@ -77,6 +78,7 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 // GenesisStateDiff builds the genesis stateDiff given the genesis-config data.
 // Note: The blockchain needs to have a pending block stored before calling this.
 func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff, error) {
+
 	blockTimestamp := uint64(time.Now().Unix())
 
 	newClasses, err := loadClasses(genesisConfig.Classes)
@@ -124,7 +126,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		}
 
 		// Call the constructors
-		_, err = b.vm.Call(addressFelt, &classHash, constructorEPS, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, b.network)
+		_, err = b.vm.Call(addressFelt, &classHash, constructorEPS, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, *b.network)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +140,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 			return nil, err
 		}
 		// Should set nonces and StorageDiffs
-		_, err = b.vm.Call(&contractAddress, classHash, &entryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, b.network)
+		_, err = b.vm.Call(&contractAddress, classHash, &entryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, *b.network)
 		if err != nil {
 			return nil, err
 		}
