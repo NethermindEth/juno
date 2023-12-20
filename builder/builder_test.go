@@ -69,7 +69,7 @@ func TestGenesisStateDiff(t *testing.T) {
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), utils.Mainnet, log)
+	chain := blockchain.New(pebble.NewMemTest(t), network, log)
 
 	// Need to store pending block create NewPendingState
 	block, err := gw.BlockByNumber(context.Background(), 0)
@@ -107,7 +107,6 @@ func TestGenesisStateDiff(t *testing.T) {
 			Classes: []string{
 				"./contracts/account.json",
 				"./contracts/erc20.json",
-				"./contracts/udc.json",
 			},
 			Contracts: map[string]builder.GenesisContractData{
 				"0xdeadbeef": { // account address // todo: needs to match what the constructor generates?

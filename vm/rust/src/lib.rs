@@ -9,6 +9,9 @@ use std::{
     slice,
 };
 
+#[macro_use]
+extern crate lazy_static;
+
 use blockifier::{
     abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
     block_context::{BlockContext, GasPrices, FeeTokenAddresses},
@@ -60,6 +63,10 @@ extern "C" {
 }
 
 const N_STEPS_FEE_WEIGHT: f64 = 0.005;
+const CONSTRUCTOR_FELT_BYTES: [u8; 32] = [2, 143, 254, 79, 240, 242, 38, 169, 16, 114, 83, 225, 122, 144, 64, 153, 170, 79, 99, 160, 42, 86, 33, 222, 5, 118, 229, 170, 113, 188, 81, 148];
+lazy_static! {
+    static ref CONSTRUCTOR_SELECTOR: StarkFelt = StarkFelt::new(CONSTRUCTOR_FELT_BYTES).expect("cannot create constructor Starkfelt from bytes");
+}
 
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
@@ -92,8 +99,15 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
+    let caller_entry_point_type = if entry_point_selector_felt == *CONSTRUCTOR_SELECTOR {
+        EntryPointType::Constructor
+    } else {
+        EntryPointType::External
+    };
+
+
     let entry_point = CallEntryPoint {
-        entry_point_type: EntryPointType::External,
+        entry_point_type: caller_entry_point_type,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),

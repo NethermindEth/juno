@@ -109,7 +109,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		}
 	}
 
-	_, err = new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
+	constructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
 	if err != nil {
 		return nil, err
 	}
@@ -125,14 +125,8 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 			return nil, fmt.Errorf("failed to set contract class hash %s", err)
 		}
 
-		// Note: definitely calling the correct selector
-		declClass, err := pendingState.Class(&classHash)
-		declClass0, _ := declClass.Class.(*core.Cairo0Class)
-		eps := declClass0.Constructors[0].Selector
-		fmt.Println(eps)
-
 		// Call the constructors
-		_, err = b.vm.Call(addressFelt, &classHash, eps, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, *b.network)
+		_, err = b.vm.Call(addressFelt, &classHash, constructorSelector, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, *b.network)
 		if err != nil {
 			return nil, err
 		}

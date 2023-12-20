@@ -16,6 +16,7 @@ cairo-lang-starknet = "=2.4.0"
 indexmap = "2.1.0"
 cached = "0.44.0"
 once_cell = "1.18.0"
+lazy_static = "1.4.0"
 
 [lib]
 crate-type = ["staticlib"]
