@@ -77,7 +77,8 @@ type Config struct {
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
 
-	DBCacheSize uint `mapstructure:"db-cache-size"`
+	DBCacheSize  uint `mapstructure:"db-cache-size"`
+	DBMaxHandles int  `mapstructure:"db-max-handles"`
 
 	GatewayAPIKey string `mapstructure:"gw-api-key"`
 }
@@ -111,7 +112,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, dbLog)
+		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
