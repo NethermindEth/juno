@@ -1638,11 +1638,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	var result []TracedBlockTransaction
-	for i, trace := range traces {
-		trace := trace
+	for index := range traces {
 		result = append(result, TracedBlockTransaction{
-			TraceRoot:       &trace,
-			TransactionHash: block.Transactions[i].Hash(),
+			TraceRoot:       &traces[index],
+			TransactionHash: block.Transactions[index].Hash(),
 		})
 	}
 

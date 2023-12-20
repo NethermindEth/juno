@@ -127,35 +127,17 @@ type ExecuteInvocation struct {
 }
 
 type OrderedEvent struct {
-	Order uint64 `json:"order"`
-	Event
+	Order uint64       `json:"order"`
+	From  *felt.Felt   `json:"from_address,omitempty"`
+	Keys  []*felt.Felt `json:"keys"`
+	Data  []*felt.Felt `json:"data"`
 }
 
 type OrderedL2toL1Message struct {
-	Order uint64 `json:"order"`
-	MsgToL1
-}
-
-type MsgFromL1 struct {
-	// The address of the L1 contract sending the message.
-	From common.Address `json:"from_address" validate:"required"`
-	// The address of the L1 contract sending the message.
-	To felt.Felt `json:"to_address" validate:"required"`
-	// The payload of the message.
-	Payload  []felt.Felt `json:"payload" validate:"required"`
-	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
-}
-
-type MsgToL1 struct {
+	Order   uint64         `json:"order"`
 	From    *felt.Felt     `json:"from_address,omitempty"`
 	To      common.Address `json:"to_address"`
 	Payload []*felt.Felt   `json:"payload"`
-}
-
-type Event struct {
-	From *felt.Felt   `json:"from_address,omitempty"`
-	Keys []*felt.Felt `json:"keys"`
-	Data []*felt.Felt `json:"data"`
 }
 
 type ExecutionResources struct {

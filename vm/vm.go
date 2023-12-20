@@ -247,13 +247,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, errors.New(context.err)
 	}
 
-	traces := make([]TransactionTrace, 0, len(context.traces))
-	for _, traceJSON := range context.traces {
-		trace := TransactionTrace{}
-		if err := json.Unmarshal(traceJSON, &trace); err != nil {
+	traces := make([]TransactionTrace, len(context.traces))
+	for index, traceJSON := range context.traces {
+		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
 			return nil, nil, fmt.Errorf("unmarshal trace: %v", err)
 		}
-		traces = append(traces, trace)
 	}
 
 	return context.actualFees, traces, nil
