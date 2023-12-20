@@ -63,6 +63,7 @@ const (
 	remoteDBF            = "remote-db"
 	rpcMaxBlockScanF     = "rpc-max-block-scan"
 	dbCacheSizeF         = "db-cache-size"
+	dbMaxHandlesF        = "db-max-handles"
 	gwAPIKeyF            = "gw-api-key" //nolint: gosec
 
 	defaultConfig              = ""
@@ -86,6 +87,7 @@ const (
 	defaultRemoteDB            = ""
 	defaultRPCMaxBlockScan     = math.MaxUint
 	defaultCacheSizeMb         = 8
+	defaultMaxHandles          = 1024
 	defaultGwAPIKey            = ""
 
 	configFlagUsage   = "The yaml configuration file."
@@ -119,6 +121,7 @@ const (
 	remoteDBUsage            = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
 	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 )
 
@@ -249,6 +252,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
+	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 
 	return junoCmd
 }
