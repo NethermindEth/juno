@@ -23,7 +23,7 @@ type GenesisConfig struct {
 
 	Contracts map[string]GenesisContractData `json:"contracts"` // address -> {classHash, constructorArgs}
 
-	FunctionCalls []FunctionCall `json:"function_calls"` // list of function calls to execute
+	FunctionCalls []FunctionCall `json:"function_calls"` // list of functionCalls to Call()
 }
 
 type GenesisContractData struct {
