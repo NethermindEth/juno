@@ -1051,26 +1051,6 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 	), txn.Discard, nil
 }
 
-// PendingStateTmp
-func (b *Blockchain) PendingStateTmp() (*PendingState, StateCloser, error) {
-	b.listener.OnRead("PendingState")
-	txn, err := b.database.NewTransaction(false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	_, err = b.pendingBlock(txn)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return NewPendingState(
-		core.EmptyStateDiff(),
-		make(map[felt.Felt]core.Class),
-		core.NewState(txn),
-	), txn.Discard, nil
-}
-
 func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff, error) {
 	stateDiff := core.EmptyStateDiff()
 

@@ -84,8 +84,9 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		return nil, nil, err
 	}
 
-	// Note: PendingState returns StateReader, not StateReadWriter
-	pendingState, closer, err := b.bc.PendingStateTmp()
+	pendingReader, closer, err := b.bc.PendingState()
+	pendingState := blockchain.NewPendingState(core.EmptyStateDiff(), newClasses, pendingReader)
+
 	if err != nil {
 		return nil, nil, err
 	}
