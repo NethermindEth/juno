@@ -3,7 +3,6 @@ package builder_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -91,44 +90,40 @@ func TestGenesisStateDiff(t *testing.T) {
 	})
 
 	t.Run("valid non-empty genesis config", func(t *testing.T) {
-		accountClassHash, err := new(felt.Felt).SetString("0x04d07e40e93398ed3c76981e72dd1fd22557a78ce36c0515f679e27f0bb5bc5f")
+		simpleStoreClassHash, err := new(felt.Felt).SetString("0x73b1d55a550a6b9073933817a40c22c4099aa5932694a85322dd5cefedbb467")
 		require.NoError(t, err)
 
-		accountAddress, err := new(felt.Felt).SetString("0xdeadbeef")
+		simpleStoreAddress, err := new(felt.Felt).SetString("0xdeadbeef")
 		require.NoError(t, err)
 
-		setPubKeySelector, err := new(felt.Felt).SetString("0x00bc0eb87884ab91e330445c3584a50d7ddf4b568f02fbeb456a6242cce3f5d9")
+		selector, err := new(felt.Felt).SetString("0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320") // increase_balance(amount)
 		require.NoError(t, err)
 
 		genesisConfig := builder.GenesisConfig{
 			ChainID: network.ChainIDString(),
 			Classes: []string{
-				"./contracts/account.json",
+				"./contracts/simpleStore.json",
 			},
 			Contracts: map[string]builder.GenesisContractData{
-				accountAddress.String(): {
-					ClassHash:       *accountClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(222)},
+				simpleStoreAddress.String(): {
+					ClassHash:       *simpleStoreClassHash,
+					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(1)},
 				},
 			},
 			FunctionCalls: []builder.FunctionCall{
 				{
-					ContractAddress:    *accountAddress,
-					EntryPointSelector: *setPubKeySelector,
-					Calldata:           []felt.Felt{*new(felt.Felt).SetUint64(123)},
+					ContractAddress:    *simpleStoreAddress,
+					EntryPointSelector: *selector,
+					Calldata:           []felt.Felt{*new(felt.Felt).SetUint64(2)},
 				},
 			},
 		}
 
 		resp, err := b.GenesisStateDiff(genesisConfig)
-		fmt.Println(resp, err)
-		fmt.Println("resp.DeclaredV0Classes", resp.DeclaredV0Classes)
-		fmt.Println("resp.DeclaredV1Classes", resp.DeclaredV1Classes)
-		fmt.Println("resp.ReplacedClasses", resp.ReplacedClasses)
-		fmt.Println("resp.DeployedContracts", resp.DeployedContracts)
-		fmt.Println("resp.Nonces", resp.Nonces)
-		fmt.Println("resp.StorageDiffs", resp.StorageDiffs)
+		balanceKey, err := new(felt.Felt).SetString("0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091")
 		require.NoError(t, err)
+		balanceVal := resp.StorageDiffs[*simpleStoreAddress][*balanceKey]
+		require.Equal(t, balanceVal.String(), "0x3")
 		panic(1)
 	})
 }

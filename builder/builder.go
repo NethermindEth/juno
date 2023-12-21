@@ -168,6 +168,7 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 		}
 
 		classhash, err := coreClass.Hash()
+		fmt.Println("classhash", classhash)
 		if err != nil {
 			return nil, err
 		}
