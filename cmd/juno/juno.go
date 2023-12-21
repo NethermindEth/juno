@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,42 +35,45 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 `
 
 const (
-	configF                       = "config"
-	logLevelF                     = "log-level"
-	httpF                         = "http"
-	httpHostF                     = "http-host"
-	httpPortF                     = "http-port"
-	wsF                           = "ws"
-	wsHostF                       = "ws-host"
-	wsPortF                       = "ws-port"
-	dbPathF                       = "db-path"
-	networkF                      = "network"
-	ethNodeF                      = "eth-node"
-	pprofF                        = "pprof"
-	pprofHostF                    = "pprof-host"
-	pprofPortF                    = "pprof-port"
-	colourF                       = "colour"
-	pendingPollIntervalF          = "pending-poll-interval"
-	p2pF                          = "p2p"
-	p2pAddrF                      = "p2p-addr"
-	p2pBootPeersF                 = "p2p-boot-peers"
-	metricsF                      = "metrics"
-	metricsHostF                  = "metrics-host"
-	metricsPortF                  = "metrics-port"
-	grpcF                         = "grpc"
-	grpcHostF                     = "grpc-host"
-	grpcPortF                     = "grpc-port"
-	maxVMsF                       = "max-vms"
-	maxVMQueueF                   = "max-vm-queue"
-	remoteDBF                     = "remote-db"
-	rpcMaxBlockScanF              = "rpc-max-block-scan"
-	dbCacheSizeF                  = "db-cache-size"
-	cnFeederURLF                  = "feeder-url"
-	cnGatewayURLF                 = "gateway-url"
-	cnChainIDF                    = "chain-id"
-	cnL1ChainIDF                  = "l1-chain-id"
-	cnProtocolIDF                 = "protocol-id"
-	cnCoreContractAddressF        = "core-contract-address"
+	configF                = "config"
+	logLevelF              = "log-level"
+	httpF                  = "http"
+	httpHostF              = "http-host"
+	httpPortF              = "http-port"
+	wsF                    = "ws"
+	wsHostF                = "ws-host"
+	wsPortF                = "ws-port"
+	dbPathF                = "db-path"
+	networkF               = "network"
+	ethNodeF               = "eth-node"
+	pprofF                 = "pprof"
+	pprofHostF             = "pprof-host"
+	pprofPortF             = "pprof-port"
+	colourF                = "colour"
+	pendingPollIntervalF   = "pending-poll-interval"
+	p2pF                   = "p2p"
+	p2pAddrF               = "p2p-addr"
+	p2pBootPeersF          = "p2p-boot-peers"
+	metricsF               = "metrics"
+	metricsHostF           = "metrics-host"
+	metricsPortF           = "metrics-port"
+	grpcF                  = "grpc"
+	grpcHostF              = "grpc-host"
+	grpcPortF              = "grpc-port"
+	maxVMsF                = "max-vms"
+	maxVMQueueF            = "max-vm-queue"
+	remoteDBF              = "remote-db"
+	rpcMaxBlockScanF       = "rpc-max-block-scan"
+	dbCacheSizeF           = "db-cache-size"
+	dbMaxHandlesF          = "db-max-handles"
+	gwAPIKeyF              = "gw-api-key" //nolint: gosec
+	cnFeederURLF           = "feeder-url"
+	cnGatewayURLF          = "gateway-url"
+	cnChainIDF             = "chain-id"
+	cnL1ChainIDF           = "l1-chain-id"
+	cnProtocolIDF          = "protocol-id"
+	cnCoreContractAddressF = "core-contract-address"
+
 	defaultConfig                 = ""
 	defaulHost                    = "localhost"
 	defaultHTTP                   = false
@@ -97,6 +101,8 @@ const (
 	defaultL1ChainIDInt           = 0
 	defaultProtocolID             = 0
 	defaultCoreContractAddressStr = ""
+	defaultMaxHandles             = 1024
+	defaultGwAPIKey               = ""
 
 	configFlagUsage                       = "The yaml configuration file."
 	logLevelFlagUsage                     = "Options: debug, info, warn, error."
@@ -135,6 +141,8 @@ const (
 	remoteDBUsage            = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
 	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
+	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 )
 
 var Version string
@@ -205,6 +213,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		v.AutomaticEnv()
+		v.SetEnvPrefix("JUNO")
+		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		if err := v.BindPFlags(cmd.Flags()); err != nil {
 			return nil
 		}
@@ -281,6 +292,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
 	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
+	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
+	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 
 	return junoCmd
 }
