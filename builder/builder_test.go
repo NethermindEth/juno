@@ -85,7 +85,7 @@ func TestGenesisStateDiff(t *testing.T) {
 
 	t.Run("empty genesis config", func(t *testing.T) {
 		genesisConfig := builder.GenesisConfig{}
-		_, err := b.GenesisStateDiff(genesisConfig)
+		_, _, err := b.GenesisStateDiff(genesisConfig)
 		require.NoError(t, err)
 	})
 
@@ -96,7 +96,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		simpleStoreAddress, err := new(felt.Felt).SetString("0xdeadbeef")
 		require.NoError(t, err)
 
-		selector, err := new(felt.Felt).SetString("0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320") // increase_balance(amount)
+		selector, err := new(felt.Felt).SetString("0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320") // "increase_balance(amount)"
 		require.NoError(t, err)
 
 		genesisConfig := builder.GenesisConfig{
@@ -119,11 +119,17 @@ func TestGenesisStateDiff(t *testing.T) {
 			},
 		}
 
-		resp, err := b.GenesisStateDiff(genesisConfig)
+		stateDiff, newClasses, err := b.GenesisStateDiff(genesisConfig)
+		require.NoError(t, err)
 		balanceKey, err := new(felt.Felt).SetString("0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091")
 		require.NoError(t, err)
-		balanceVal := resp.StorageDiffs[*simpleStoreAddress][*balanceKey]
+		balanceVal := stateDiff.StorageDiffs[*simpleStoreAddress][*balanceKey]
 		require.Equal(t, balanceVal.String(), "0x3")
-		panic(1)
+		require.Empty(t, stateDiff.Nonces)
+		require.Equal(t, stateDiff.DeployedContracts[*simpleStoreAddress], simpleStoreClassHash)
+		require.Equal(t, stateDiff.DeclaredV0Classes, []*felt.Felt{simpleStoreClassHash})
+		require.Empty(t, stateDiff.DeclaredV1Classes)
+		require.Empty(t, stateDiff.ReplacedClasses)
+		require.NotNil(t, newClasses[*simpleStoreClassHash])
 	})
 }

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -77,20 +76,18 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 }
 
 // GenesisStateDiff builds the genesis stateDiff given the genesis-config data.
-// Note: The blockchain needs to have a pending block stored before calling this.
-func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff, error) {
-
+func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff, map[felt.Felt]core.Class, error) {
 	blockTimestamp := uint64(time.Now().Unix())
 
 	newClasses, err := loadClasses(genesisConfig.Classes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Note: PendingState returns StateReader, not StateReadWriter
 	pendingState, closer, err := b.bc.PendingStateTmp()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() {
 		if err = closer(); err != nil {
@@ -103,33 +100,33 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		case 0:
 			// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
 			if err = pendingState.SetContractClass(&classHash, class); err != nil {
-				return nil, fmt.Errorf("failed to set cairo v0 contract class : %v", err)
+				return nil, nil, fmt.Errorf("failed to set cairo v0 contract class : %v", err)
 			}
 		default:
-			return nil, fmt.Errorf("only cairo v 0 contracts are supported for genesis state initialisation")
+			return nil, nil, fmt.Errorf("only cairo v 0 contracts are supported for genesis state initialisation")
 		}
 	}
 
 	constructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for address, contractData := range genesisConfig.Contracts {
 		addressFelt, err := new(felt.Felt).SetString(address)
 		if err != nil {
-			return nil, fmt.Errorf("failed to set contract address as felt %s", err)
+			return nil, nil, fmt.Errorf("failed to set contract address as felt %s", err)
 		}
 		classHash := contractData.ClassHash
 		err = pendingState.SetClassHash(addressFelt, &classHash) // Sets DeployedContracts, ReplacedClasses
 		if err != nil {
-			return nil, fmt.Errorf("failed to set contract class hash %s", err)
+			return nil, nil, fmt.Errorf("failed to set contract class hash %s", err)
 		}
 
 		// Call the constructors
-		_, err = b.vm.Call(addressFelt, &classHash, constructorSelector, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, *b.network)
+		_, err = b.vm.Call(addressFelt, &classHash, constructorSelector, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, *b.network) //nolint:lll
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -138,15 +135,14 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 		entryPointSelector := fnCall.EntryPointSelector
 		classHash, err := pendingState.ContractClassHash(&contractAddress)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		// Should set nonces and StorageDiffs
 		_, err = b.vm.Call(&contractAddress, classHash, &entryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, *b.network)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return pendingState.StateDiff(), nil
+	return pendingState.StateDiff(), newClasses, nil
 }
 
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
@@ -168,7 +164,6 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 		}
 
 		classhash, err := coreClass.Hash()
-		fmt.Println("classhash", classhash)
 		if err != nil {
 			return nil, err
 		}
