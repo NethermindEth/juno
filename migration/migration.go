@@ -67,81 +67,6 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),
 }
 
-type declaredClass struct {
-	At    uint64
-	Class oldCairo1Class
-}
-
-type oldCairo1Class struct {
-	Abi         string
-	AbiHash     *felt.Felt
-	EntryPoints struct {
-		Constructor []core.SierraEntryPoint
-		External    []core.SierraEntryPoint
-		L1Handler   []core.SierraEntryPoint
-	}
-	Program         []*felt.Felt
-	ProgramHash     *felt.Felt
-	SemanticVersion string
-	Compiled        json.RawMessage
-}
-
-func (o *oldCairo1Class) Version() uint64 {
-	return 1
-}
-
-func (o *oldCairo1Class) Hash() (*felt.Felt, error) {
-	return nil, nil
-}
-
-func migrateCairo1CompiledClass(txn db.Transaction, key, value []byte, _ utils.Network) error {
-	var class declaredClass
-	err := encoder.Unmarshal(value, &class)
-	if err != nil {
-		// assumption that only Cairo0 class causes this error
-		targetErr := new(cbor.UnmarshalTypeError)
-		if errors.As(err, &targetErr) {
-			return nil
-		}
-
-		return err
-	}
-
-	var coreCompiledClass *core.CompiledClass
-	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(class.Class.Compiled); !deprecated {
-		var starknetCompiledClass starknet.CompiledClass
-		err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
-		if err != nil {
-			return err
-		}
-
-		coreCompiledClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
-		if err != nil {
-			return err
-		}
-	}
-
-	declaredClass := core.DeclaredClass{
-		At: class.At,
-		Class: &core.Cairo1Class{
-			Abi:             class.Class.Abi,
-			AbiHash:         class.Class.AbiHash,
-			EntryPoints:     class.Class.EntryPoints,
-			Program:         class.Class.Program,
-			ProgramHash:     class.Class.ProgramHash,
-			SemanticVersion: class.Class.SemanticVersion,
-			Compiled:        coreCompiledClass,
-		},
-	}
-
-	value, err = encoder.Marshal(declaredClass)
-	if err != nil {
-		return err
-	}
-
-	return txn.Set(key, value)
-}
-
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
 func MigrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network, log utils.SimpleLogger) error {
@@ -708,4 +633,79 @@ func changeStateDiffStruct(txn db.Transaction, key, value []byte, _ utils.Networ
 	}
 
 	return nil
+}
+
+type declaredClass struct {
+	At    uint64
+	Class oldCairo1Class
+}
+
+type oldCairo1Class struct {
+	Abi         string
+	AbiHash     *felt.Felt
+	EntryPoints struct {
+		Constructor []core.SierraEntryPoint
+		External    []core.SierraEntryPoint
+		L1Handler   []core.SierraEntryPoint
+	}
+	Program         []*felt.Felt
+	ProgramHash     *felt.Felt
+	SemanticVersion string
+	Compiled        json.RawMessage
+}
+
+func (o *oldCairo1Class) Version() uint64 {
+	return 1
+}
+
+func (o *oldCairo1Class) Hash() (*felt.Felt, error) {
+	return nil, nil
+}
+
+func migrateCairo1CompiledClass(txn db.Transaction, key, value []byte, _ utils.Network) error {
+	var class declaredClass
+	err := encoder.Unmarshal(value, &class)
+	if err != nil {
+		// assumption that only Cairo0 class causes this error
+		targetErr := new(cbor.UnmarshalTypeError)
+		if errors.As(err, &targetErr) {
+			return nil
+		}
+
+		return err
+	}
+
+	var coreCompiledClass *core.CompiledClass
+	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(class.Class.Compiled); !deprecated {
+		var starknetCompiledClass starknet.CompiledClass
+		err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
+		if err != nil {
+			return err
+		}
+
+		coreCompiledClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
+		if err != nil {
+			return err
+		}
+	}
+
+	declaredClass := core.DeclaredClass{
+		At: class.At,
+		Class: &core.Cairo1Class{
+			Abi:             class.Class.Abi,
+			AbiHash:         class.Class.AbiHash,
+			EntryPoints:     class.Class.EntryPoints,
+			Program:         class.Class.Program,
+			ProgramHash:     class.Class.ProgramHash,
+			SemanticVersion: class.Class.SemanticVersion,
+			Compiled:        coreCompiledClass,
+		},
+	}
+
+	value, err = encoder.Marshal(declaredClass)
+	if err != nil {
+		return err
+	}
+
+	return txn.Set(key, value)
 }
