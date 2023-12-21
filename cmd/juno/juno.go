@@ -64,12 +64,12 @@ const (
 	remoteDBF                     = "remote-db"
 	rpcMaxBlockScanF              = "rpc-max-block-scan"
 	dbCacheSizeF                  = "db-cache-size"
-	feederURLF                    = "feeder-url"
-	gatewayURLF                   = "gateway-url"
-	chainIDF                      = "chain-id"
-	l1ChainIDF                    = "l1-chain-id"
-	protocolIDF                   = "protocol-id"
-	coreContractAddressF          = "core-contract-address"
+	cnFeederURLF                  = "feeder-url"
+	cnGatewayURLF                 = "gateway-url"
+	cnChainIDF                    = "chain-id"
+	cnL1ChainIDF                  = "l1-chain-id"
+	cnProtocolIDF                 = "protocol-id"
+	cnCoreContractAddressF        = "core-contract-address"
 	defaultConfig                 = ""
 	defaulHost                    = "localhost"
 	defaultHTTP                   = false
@@ -215,17 +215,17 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			return err
 		}
 		// Set config.NetworkCustom
-		if v.GetString(coreContractAddressF) != "" {
-			coreContractAddress := common.HexToAddress(v.GetString(coreContractAddressF))
+		if v.GetString(cnCoreContractAddressF) != "" {
+			coreContractAddress := common.HexToAddress(v.GetString(cnCoreContractAddressF))
 			config.NetworkCustom.CoreContractAddressVal = &coreContractAddress
 		}
-		config.NetworkCustom.FeederURLVal = v.GetString(feederURLF)
-		config.NetworkCustom.GatewayURLVal = v.GetString(gatewayURLF)
-		config.NetworkCustom.ChainIDVal = v.GetString(chainIDF)
-		if v.GetInt64(l1ChainIDF) != 0 {
-			config.NetworkCustom.L1ChainIDVal = new(big.Int).SetInt64(v.GetInt64(l1ChainIDF))
+		config.NetworkCustom.FeederURLVal = v.GetString(cnFeederURLF)
+		config.NetworkCustom.GatewayURLVal = v.GetString(cnGatewayURLF)
+		config.NetworkCustom.ChainIDVal = v.GetString(cnChainIDF)
+		if v.GetInt64(cnL1ChainIDF) != 0 {
+			config.NetworkCustom.L1ChainIDVal = new(big.Int).SetInt64(v.GetInt64(cnL1ChainIDF))
 		}
-		config.NetworkCustom.ProtocolIDVal = v.GetInt(protocolIDF)
+		config.NetworkCustom.ProtocolIDVal = v.GetInt(cnProtocolIDF)
 
 		return nil
 	}
@@ -255,12 +255,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
-	junoCmd.Flags().String(feederURLF, defaultFeederURL, networkCustomFeederUsage)
-	junoCmd.Flags().String(gatewayURLF, defaultGatewayURL, networkCustomGatewayUsage)
-	junoCmd.Flags().String(chainIDF, defaultChainID, networkCustomL2ChainIDUsage)
-	junoCmd.Flags().Int(l1ChainIDF, defaultL1ChainIDInt, networkCustomL1ChainIDUsage)
-	junoCmd.Flags().Int(protocolIDF, defaultProtocolID, networkCustomProtocolIDUsage)
-	junoCmd.Flags().String(coreContractAddressF, defaultCoreContractAddressStr, networkCustomCoreContractAddressUsage)
+	junoCmd.Flags().String(cnFeederURLF, defaultFeederURL, networkCustomFeederUsage)
+	junoCmd.Flags().String(cnGatewayURLF, defaultGatewayURL, networkCustomGatewayUsage)
+	junoCmd.Flags().String(cnChainIDF, defaultChainID, networkCustomL2ChainIDUsage)
+	junoCmd.Flags().Int(cnL1ChainIDF, defaultL1ChainIDInt, networkCustomL1ChainIDUsage)
+	junoCmd.Flags().Int(cnProtocolIDF, defaultProtocolID, networkCustomProtocolIDUsage)
+	junoCmd.Flags().String(cnCoreContractAddressF, defaultCoreContractAddressStr, networkCustomCoreContractAddressUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
