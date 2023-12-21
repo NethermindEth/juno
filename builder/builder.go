@@ -85,7 +85,7 @@ func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff
 	}
 
 	pendingReader, closer, err := b.bc.PendingState()
-	pendingState := blockchain.NewPendingState(core.EmptyStateDiff(), newClasses, pendingReader)
+	pendingState := blockchain.NewPendingState(core.EmptyStateDiff(), make(map[felt.Felt]core.Class), pendingReader)
 
 	if err != nil {
 		return nil, nil, err
