@@ -1,7 +1,6 @@
 pub mod jsonrpc;
 mod juno_state;
 
-use blockifier::state::state_api::State;
 use crate::juno_state::{ptr_to_felt, JunoState};
 use std::{
     collections::HashMap,
@@ -10,7 +9,11 @@ use std::{
 };
 
 use blockifier::{
-    abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
+    state::state_api::State,
+    abi::{
+        constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE, CONSTRUCTOR_ENTRY_POINT_NAME},
+        abi_utils::selector_from_name
+    },
     block_context::{BlockContext, GasPrices, FeeTokenAddresses},
     execution::{
         common_hints::ExecutionMode,
@@ -89,8 +92,15 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
+    let caller_entry_point_type = if entry_point_selector_felt == selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME).0 {
+        EntryPointType::Constructor
+    } else {
+        EntryPointType::External
+    };
+
+
     let entry_point = CallEntryPoint {
-        entry_point_type: EntryPointType::External,
+        entry_point_type: caller_entry_point_type,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
