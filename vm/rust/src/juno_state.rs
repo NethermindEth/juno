@@ -3,13 +3,14 @@ use std::{
     slice,
     sync::Mutex,
 };
+use std::collections::HashSet;
 
 use blockifier::{
     execution::contract_class::{ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1},
     state::state_api::{StateReader, StateResult},
-    execution::contract_class::{ContractClassV0, ContractClassV1, ContractClass},
+    execution::contract_class:: ContractClass,
     state::{
-        state_api::{StateReader, StateResult, State},
+        state_api:: State,
         errors::StateError,
         cached_state::CommitmentStateDiff,
     }
@@ -211,14 +212,16 @@ impl State for JunoState {
         contract_address: ContractAddress,
         key: StorageKey,
         value: StarkFelt,
-        ) {
+        ) -> Result<(), blockifier::state::errors::StateError> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let storage_key = felt_to_byte_array(key.0.key());
         let storage_value = felt_to_byte_array(&value);
         let result = state_read_err(unsafe { JunoStateSetStorage(self.handle, addr.as_ptr(), storage_key.as_ptr(), storage_value.as_ptr()) });
-        if result.is_err() {
-            panic!("{}", result.unwrap_err());
-        }
+        result        
+    }
+
+    fn add_visited_pcs(&mut self, _class_hash: ClassHash, _pcs: &HashSet<usize>){
+        todo!()
     }
 
     /// Increments the nonce of the given contract instance.
@@ -243,7 +246,7 @@ impl State for JunoState {
     /// Sets the given contract class under the given class hash.
     fn set_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
         _contract_class: ContractClass,
         ) -> StateResult<()> {
         let class_hash = felt_to_byte_array(&class_hash.0);
