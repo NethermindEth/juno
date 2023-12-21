@@ -1,19 +1,13 @@
 package builder
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
-	"time"
 
-	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -24,17 +18,15 @@ type Builder struct {
 	bc *blockchain.Blockchain
 	vm vm.VM
 
-	network *utils.Network
-	log     utils.Logger
+	log utils.Logger
 }
 
-func New(ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger, network *utils.Network) *Builder {
+func New(ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
 
-		bc:      bc,
-		vm:      builderVM,
-		network: network,
+		bc: bc,
+		vm: builderVM,
 	}
 }
 
@@ -73,102 +65,4 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 		pendingBlock.Block.Timestamp, &b.ownAddress, state, b.bc.Network(), []*felt.Felt{},
 		false, false, false, pendingBlock.Block.GasPrice, pendingBlock.Block.GasPriceSTRK, false)
 	return err
-}
-
-// GenesisStateDiff builds the genesis stateDiff given the genesis-config data.
-func (b *Builder) GenesisStateDiff(genesisConfig GenesisConfig) (*core.StateDiff, map[felt.Felt]core.Class, error) {
-	blockTimestamp := uint64(time.Now().Unix())
-
-	newClasses, err := loadClasses(genesisConfig.Classes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pendingReader, closer, err := b.bc.PendingState()
-	pendingState := blockchain.NewPendingState(core.EmptyStateDiff(), make(map[felt.Felt]core.Class), pendingReader)
-
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		if err = closer(); err != nil {
-			b.log.Errorw("failed to close state in GenesisState", "err", err)
-		}
-	}()
-
-	for classHash, class := range newClasses {
-		switch class.Version() {
-		case 0:
-			// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
-			if err = pendingState.SetContractClass(&classHash, class); err != nil {
-				return nil, nil, fmt.Errorf("failed to set cairo v0 contract class : %v", err)
-			}
-		default:
-			return nil, nil, fmt.Errorf("only cairo v 0 contracts are supported for genesis state initialisation")
-		}
-	}
-
-	constructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for address, contractData := range genesisConfig.Contracts {
-		addressFelt, err := new(felt.Felt).SetString(address)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to set contract address as felt %s", err)
-		}
-		classHash := contractData.ClassHash
-		err = pendingState.SetClassHash(addressFelt, &classHash) // Sets DeployedContracts, ReplacedClasses
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to set contract class hash %s", err)
-		}
-
-		// Call the constructors
-		_, err = b.vm.Call(addressFelt, &classHash, constructorSelector, contractData.ConstructorArgs, 0, blockTimestamp, pendingState, *b.network) //nolint:lll
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	for _, fnCall := range genesisConfig.FunctionCalls {
-		contractAddress := fnCall.ContractAddress
-		entryPointSelector := fnCall.EntryPointSelector
-		classHash, err := pendingState.ContractClassHash(&contractAddress)
-		if err != nil {
-			return nil, nil, err
-		}
-		_, err = b.vm.Call(&contractAddress, classHash, &entryPointSelector, fnCall.Calldata, 0, blockTimestamp, pendingState, *b.network)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	return pendingState.StateDiff(), newClasses, nil
-}
-
-func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
-	classMap := make(map[felt.Felt]core.Class)
-	for _, classPath := range classes {
-		bytes, err := os.ReadFile(classPath)
-		if err != nil {
-			return nil, err
-		}
-
-		var response *starknet.Cairo0Definition
-		if err = json.Unmarshal(bytes, &response); err != nil {
-			return nil, err
-		}
-
-		coreClass, err := sn2core.AdaptCairo0Class(response)
-		if err != nil {
-			return nil, err
-		}
-
-		classhash, err := coreClass.Hash()
-		if err != nil {
-			return nil, err
-		}
-		classMap[*classhash] = coreClass
-	}
-	return classMap, nil
 }
