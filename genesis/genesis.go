@@ -42,7 +42,13 @@ func (g *GenesisConfig) Validate() error {
 }
 
 // GenesisStateDiff builds the genesis stateDiff given the genesis-config data.
-func GenesisStateDiff(genesisConfig GenesisConfig, chain *blockchain.Blockchain, vmm vm.VM, network *utils.Network, log utils.Logger) (*core.StateDiff, map[felt.Felt]core.Class, error) {
+func GenesisStateDiff(
+	genesisConfig GenesisConfig,
+	chain *blockchain.Blockchain,
+	vmm vm.VM,
+	network *utils.Network,
+	log utils.Logger,
+) (*core.StateDiff, map[felt.Felt]core.Class, error) {
 	blockTimestamp := uint64(time.Now().Unix())
 
 	newClasses, err := loadClasses(genesisConfig.Classes)
