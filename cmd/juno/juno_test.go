@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/big"
 	"os"
@@ -644,7 +643,6 @@ network: goerli
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
 				fileN := tempCfgFile(t, tc.cfgFileContents)
-				fmt.Println(fileN)
 				tc.inputArgs = append(tc.inputArgs, "--config", fileN)
 			}
 
