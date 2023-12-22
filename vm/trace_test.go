@@ -3,6 +3,7 @@ package vm_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
 )
@@ -23,48 +24,59 @@ func TestRevertReason(t *testing.T) {
 func TestAllEvents(t *testing.T) {
 	numEvents := uint64(10)
 	events := make([]vm.OrderedEvent, 0, numEvents)
+	contractAddr := utils.HexToFelt(t, "0x1337")
 	for i := uint64(0); i < numEvents; i++ {
 		events = append(events, vm.OrderedEvent{Order: i})
 	}
 	tests := map[string]*vm.TransactionTrace{
 		"many top-level invocations": {
 			ValidateInvocation: &vm.FunctionInvocation{
-				Events: []vm.OrderedEvent{events[0]},
+				ContractAddress: *contractAddr,
+				Events:          []vm.OrderedEvent{events[0]},
 			},
 			FunctionInvocation: &vm.FunctionInvocation{
-				Events: []vm.OrderedEvent{events[1]},
+				ContractAddress: *contractAddr,
+				Events:          []vm.OrderedEvent{events[1]},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{
-				Events: []vm.OrderedEvent{events[2]},
+				ContractAddress: *contractAddr,
+				Events:          []vm.OrderedEvent{events[2]},
 			},
 			ExecuteInvocation: &vm.ExecuteInvocation{
 				FunctionInvocation: &vm.FunctionInvocation{
-					Events: []vm.OrderedEvent{events[3]},
+					ContractAddress: *contractAddr,
+					Events:          []vm.OrderedEvent{events[3]},
 				},
 			},
 			FeeTransferInvocation: &vm.FunctionInvocation{
-				Events: events[4:],
+				ContractAddress: *contractAddr,
+				Events:          events[4:],
 			},
 		},
 		"only validate invocation": {
 			ValidateInvocation: &vm.FunctionInvocation{
-				Events: events,
+				ContractAddress: *contractAddr,
+				Events:          events,
 			},
 		},
 		"present in some sub-calls": {
 			ValidateInvocation: &vm.FunctionInvocation{
-				Events: []vm.OrderedEvent{events[0]},
+				ContractAddress: *contractAddr,
+				Events:          []vm.OrderedEvent{events[0]},
 				Calls: []vm.FunctionInvocation{
 					{
-						Events: events[1:5],
+						ContractAddress: *contractAddr,
+						Events:          events[1:5],
 					},
 				},
 			},
 			FunctionInvocation: &vm.FunctionInvocation{
-				Events: []vm.OrderedEvent{events[5]},
+				ContractAddress: *contractAddr,
+				Events:          []vm.OrderedEvent{events[5]},
 				Calls: []vm.FunctionInvocation{
 					{
-						Events: events[6:],
+						ContractAddress: *contractAddr,
+						Events:          events[6:],
 					},
 				},
 			},
@@ -73,7 +85,10 @@ func TestAllEvents(t *testing.T) {
 
 	for description, trace := range tests {
 		t.Run(description, func(t *testing.T) {
-			require.ElementsMatch(t, events, trace.AllEvents())
+			require.ElementsMatch(t, utils.Map(events, func(e vm.OrderedEvent) vm.OrderedEvent {
+				e.From = contractAddr
+				return e
+			}), trace.AllEvents())
 		})
 	}
 }
@@ -85,45 +100,56 @@ func TestAllMessages(t *testing.T) {
 	for i := uint64(0); i < nummessages; i++ {
 		messages = append(messages, vm.OrderedL2toL1Message{Order: i})
 	}
+	contractAddr := utils.HexToFelt(t, "0x1337")
 	tests := map[string]*vm.TransactionTrace{
 		"many top-level invocations": {
 			ValidateInvocation: &vm.FunctionInvocation{
-				Messages: []vm.OrderedL2toL1Message{messages[0]},
+				ContractAddress: *contractAddr,
+				Messages:        []vm.OrderedL2toL1Message{messages[0]},
 			},
 			FunctionInvocation: &vm.FunctionInvocation{
-				Messages: []vm.OrderedL2toL1Message{messages[1]},
+				ContractAddress: *contractAddr,
+				Messages:        []vm.OrderedL2toL1Message{messages[1]},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{
-				Messages: []vm.OrderedL2toL1Message{messages[2]},
+				ContractAddress: *contractAddr,
+				Messages:        []vm.OrderedL2toL1Message{messages[2]},
 			},
 			ExecuteInvocation: &vm.ExecuteInvocation{
 				FunctionInvocation: &vm.FunctionInvocation{
-					Messages: []vm.OrderedL2toL1Message{messages[3]},
+					ContractAddress: *contractAddr,
+					Messages:        []vm.OrderedL2toL1Message{messages[3]},
 				},
 			},
 			FeeTransferInvocation: &vm.FunctionInvocation{
-				Messages: messages[4:],
+				ContractAddress: *contractAddr,
+				Messages:        messages[4:],
 			},
 		},
 		"only validate invocation": {
 			ValidateInvocation: &vm.FunctionInvocation{
-				Messages: messages,
+				ContractAddress: *contractAddr,
+				Messages:        messages,
 			},
 		},
 		"present in some sub-calls": {
 			ValidateInvocation: &vm.FunctionInvocation{
-				Messages: []vm.OrderedL2toL1Message{messages[0]},
+				ContractAddress: *contractAddr,
+				Messages:        []vm.OrderedL2toL1Message{messages[0]},
 				Calls: []vm.FunctionInvocation{
 					{
-						Messages: messages[1:5],
+						ContractAddress: *contractAddr,
+						Messages:        messages[1:5],
 					},
 				},
 			},
 			FunctionInvocation: &vm.FunctionInvocation{
-				Messages: []vm.OrderedL2toL1Message{messages[5]},
+				ContractAddress: *contractAddr,
+				Messages:        []vm.OrderedL2toL1Message{messages[5]},
 				Calls: []vm.FunctionInvocation{
 					{
-						Messages: messages[6:],
+						ContractAddress: *contractAddr,
+						Messages:        messages[6:],
 					},
 				},
 			},
@@ -132,7 +158,10 @@ func TestAllMessages(t *testing.T) {
 
 	for description, trace := range tests {
 		t.Run(description, func(t *testing.T) {
-			require.ElementsMatch(t, messages, trace.AllMessages())
+			require.ElementsMatch(t, utils.Map(messages, func(e vm.OrderedL2toL1Message) vm.OrderedL2toL1Message {
+				e.From = contractAddr
+				return e
+			}), trace.AllMessages())
 		})
 	}
 }

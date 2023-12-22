@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type StateDiff struct {
@@ -138,6 +139,10 @@ func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
 	return total
 }
 
+func (t *TransactionTrace) IsReverted() bool {
+	return t.ExecuteInvocation != nil && t.ExecuteInvocation.FunctionInvocation == nil
+}
+
 func (t *TransactionTrace) RevertReason() string {
 	if t.ExecuteInvocation == nil {
 		return ""
@@ -181,7 +186,10 @@ func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
 	for i := range invocation.Calls {
 		events = append(events, invocation.Calls[i].allEvents()...)
 	}
-	return append(events, invocation.Events...)
+	return append(events, utils.Map(invocation.Events, func(e OrderedEvent) OrderedEvent {
+		e.From = &invocation.ContractAddress
+		return e
+	})...)
 }
 
 func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
@@ -189,7 +197,10 @@ func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
 	for i := range invocation.Calls {
 		messages = append(messages, invocation.Calls[i].allMessages()...)
 	}
-	return append(messages, invocation.Messages...)
+	return append(messages, utils.Map(invocation.Messages, func(e OrderedL2toL1Message) OrderedL2toL1Message {
+		e.From = &invocation.ContractAddress
+		return e
+	})...)
 }
 
 type ExecuteInvocation struct {
