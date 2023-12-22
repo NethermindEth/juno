@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 
+	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -108,4 +109,17 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 		start += step
 	}
 	return sig, nil
+}
+
+func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.TransactionTrace) *core.TransactionReceipt {
+	return &core.TransactionReceipt{
+		Fee:                fee,
+		FeeUnit:            feeUnit,
+		Events:             vm2core.AdaptOrderedEvents(trace.AllEvents()),
+		ExecutionResources: vm2core.AdaptExecutionResources(trace.TotalExecutionResources()),
+		L2ToL1Message:      vm2core.AdaptOrderedMessagesToL1(trace.AllMessages()),
+		TransactionHash:    txHash,
+		Reverted:           trace.IsReverted(),
+		RevertReason:       trace.RevertReason(),
+	}
 }
