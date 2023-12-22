@@ -211,12 +211,6 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 	blockchain.RegisterCoreTypesToEncoder()
 	txn := db.NewMemTransaction()
 
-	compiledValues := map[string]any{
-		"prime": "123",
-	}
-	compiledJSON, err := json.Marshal(compiledValues)
-	require.NoError(t, err)
-
 	key := []byte("key")
 	class := oldCairo1Class{
 		Abi:     "some cairo abi",
@@ -248,37 +242,59 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		Program:         randSlice(t),
 		ProgramHash:     randFelt(t),
 		SemanticVersion: "0.1.0",
-		Compiled:        json.RawMessage(compiledJSON),
 	}
 	expectedDeclared := declaredClass{
 		At:    777,
 		Class: class,
 	}
 
-	classBytes, err := encoder.Marshal(expectedDeclared)
-	require.NoError(t, err)
-	err = txn.Set(key, classBytes)
-	require.NoError(t, err)
+	for _, test := range []struct {
+		compiledJson        string
+		checkCompiledExists bool
+	}{
+		{
+			compiledJson: `{
+				"prime": "123"
+			}`,
+			checkCompiledExists: true,
+		},
+		{
+			compiledJson: `{
+				"program" : "shouldnotexist"
+			}`,
+		},
+	} {
+		expectedDeclared.Class.Compiled = json.RawMessage(test.compiledJson)
+		classBytes, err := encoder.Marshal(expectedDeclared)
+		require.NoError(t, err)
+		err = txn.Set(key, classBytes)
+		require.NoError(t, err)
 
-	require.NoError(t, migrateCairo1CompiledClass(txn, key, classBytes, utils.Mainnet))
+		require.NoError(t, migrateCairo1CompiledClass(txn, key, classBytes, utils.Mainnet))
 
-	var actualDeclared core.DeclaredClass
-	err = txn.Get(key, func(bytes []byte) error {
-		return encoder.Unmarshal(bytes, &actualDeclared)
-	})
-	require.NoError(t, err)
+		var actualDeclared core.DeclaredClass
+		err = txn.Get(key, func(bytes []byte) error {
+			return encoder.Unmarshal(bytes, &actualDeclared)
+		})
+		require.NoError(t, err)
 
-	assert.Equal(t, actualDeclared.At, expectedDeclared.At)
+		assert.Equal(t, actualDeclared.At, expectedDeclared.At)
 
-	actualClass := actualDeclared.Class.(*core.Cairo1Class)
-	expectedClass := expectedDeclared.Class
-	assert.Equal(t, expectedClass.Abi, actualClass.Abi)
-	assert.Equal(t, expectedClass.AbiHash, actualClass.AbiHash)
-	assert.Equal(t, expectedClass.EntryPoints, actualClass.EntryPoints)
-	assert.Equal(t, expectedClass.Program, actualClass.Program)
-	assert.Equal(t, expectedClass.ProgramHash, actualClass.ProgramHash)
-	assert.Equal(t, expectedClass.SemanticVersion, actualClass.SemanticVersion)
-	assert.Equal(t, compiledValues["prime"], actualClass.Compiled.Prime.String())
+		actualClass := actualDeclared.Class.(*core.Cairo1Class)
+		expectedClass := expectedDeclared.Class
+		assert.Equal(t, expectedClass.Abi, actualClass.Abi)
+		assert.Equal(t, expectedClass.AbiHash, actualClass.AbiHash)
+		assert.Equal(t, expectedClass.EntryPoints, actualClass.EntryPoints)
+		assert.Equal(t, expectedClass.Program, actualClass.Program)
+		assert.Equal(t, expectedClass.ProgramHash, actualClass.ProgramHash)
+		assert.Equal(t, expectedClass.SemanticVersion, actualClass.SemanticVersion)
+
+		if test.checkCompiledExists {
+			assert.NotNil(t, actualClass.Compiled)
+		} else {
+			assert.Nil(t, actualClass.Compiled)
+		}
+	}
 }
 
 func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {

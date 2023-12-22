@@ -489,6 +489,8 @@ func TestClassV1(t *testing.T) {
 	assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
 	assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
 	assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
+	assert.Equal(t, len(compiled.EntryPoints.Constructor), len(v1Class.Compiled.Constructor))
+	assert.Equal(t, len(compiled.EntryPoints.L1Handler), len(v1Class.Compiled.L1Handler))
 
 	assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
 	for i, v := range feederClass.V1.EntryPoints.External {
