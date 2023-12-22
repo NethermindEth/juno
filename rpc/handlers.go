@@ -352,12 +352,15 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 	case *core.DeployAccountTransaction:
 		txn = adaptDeployAccountTrandaction(v)
 	case *core.L1HandlerTransaction:
-		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1669
+		nonce := v.Nonce
+		if nonce == nil {
+			nonce = new(felt.Felt)
+		}
 		txn = &Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version.AsFelt(),
-			Nonce:              v.Nonce,
+			Nonce:              nonce,
 			ContractAddress:    v.ContractAddress,
 			EntryPointSelector: v.EntryPointSelector,
 			CallData:           &v.CallData,
