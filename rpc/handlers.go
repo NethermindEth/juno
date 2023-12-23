@@ -354,7 +354,7 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
-			nonce = new(felt.Felt)
+			nonce = &felt.Zero
 		}
 		txn = &Transaction{
 			Type:               TxnL1Handler,
