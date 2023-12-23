@@ -249,22 +249,22 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 	}
 
 	for _, test := range []struct {
-		compiledJson        string
+		compiledJSON        string
 		checkCompiledExists bool
 	}{
 		{
-			compiledJson: `{
+			compiledJSON: `{
 				"prime": "123"
 			}`,
 			checkCompiledExists: true,
 		},
 		{
-			compiledJson: `{
+			compiledJSON: `{
 				"program" : "shouldnotexist"
 			}`,
 		},
 	} {
-		expectedDeclared.Class.Compiled = json.RawMessage(test.compiledJson)
+		expectedDeclared.Class.Compiled = json.RawMessage(test.compiledJSON)
 		classBytes, err := encoder.Marshal(expectedDeclared)
 		require.NoError(t, err)
 		err = txn.Set(key, classBytes)

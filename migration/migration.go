@@ -64,7 +64,7 @@ var defaultMigrations = []Migration{
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(10_000), //nolint:gomnd
-	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),
+	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),                 //nolint:gomnd
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
