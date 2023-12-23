@@ -1,13 +1,12 @@
 package core2p2p
 
 import (
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(addr, nonce *felt.Felt, diff []core.StorageDiff) *spec.StateDiff_ContractDiff {
+func AdaptStateDiff(addr, nonce *felt.Felt, diff map[felt.Felt]*felt.Felt) *spec.StateDiff_ContractDiff {
 	return &spec.StateDiff_ContractDiff{
 		Address:   AdaptAddress(addr),
 		Nonce:     AdaptFelt(nonce),
@@ -16,18 +15,18 @@ func AdaptStateDiff(addr, nonce *felt.Felt, diff []core.StorageDiff) *spec.State
 	}
 }
 
-func AdaptStorageDiff(diff []core.StorageDiff) []*spec.ContractStoredValue {
-	return utils.Map(diff, func(item core.StorageDiff) *spec.ContractStoredValue {
+func AdaptStorageDiff(diff map[felt.Felt]*felt.Felt) []*spec.ContractStoredValue {
+	return utils.ToSlice(diff, func(key felt.Felt, value *felt.Felt) *spec.ContractStoredValue {
 		return &spec.ContractStoredValue{
-			Key:   AdaptFelt(item.Key),
-			Value: AdaptFelt(item.Value),
+			Key:   AdaptFelt(&key),
+			Value: AdaptFelt(value),
 		}
 	})
 }
 
-func AdaptAddressClassHashPair(c core.AddressClassHashPair) *spec.StateDiff_ContractAddrToClassHash {
+func AdaptAddressClassHashPair(address felt.Felt, classHash *felt.Felt) *spec.StateDiff_ContractAddrToClassHash {
 	return &spec.StateDiff_ContractAddrToClassHash{
-		ContractAddr: AdaptAddress(c.Address),
-		ClassHash:    AdaptHash(c.ClassHash),
+		ContractAddr: AdaptAddress(&address),
+		ClassHash:    AdaptHash(classHash),
 	}
 }

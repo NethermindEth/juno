@@ -55,7 +55,7 @@ func AdaptClass(class *spec.Class) core.Class {
 			Program:         program,
 			ProgramHash:     crypto.PoseidonArray(program...),
 			SemanticVersion: cairo1.ContractClassVersion,
-			Compiled:        *compiledC,
+			Compiled:        compiledC,
 		}
 	default:
 		panic(fmt.Errorf("unsupported class %T", cls))

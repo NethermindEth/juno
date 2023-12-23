@@ -103,8 +103,8 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 
 		classes = append(classes, core2p2p.AdaptClass(cls.Class))
 	}
-	for _, class := range stateDiff.DeclaredV1Classes {
-		cls, err := b.stateReader.Class(class.ClassHash)
+	for classHash := range stateDiff.DeclaredV1Classes {
+		cls, err := b.stateReader.Class(&classHash)
 		if err != nil {
 			return b.fin()
 		}
@@ -124,7 +124,7 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 
 type contractDiff struct {
 	address      *felt.Felt
-	storageDiffs []core.StorageDiff
+	storageDiffs map[felt.Felt]*felt.Felt
 	nonce        *felt.Felt
 }
 
@@ -182,8 +182,8 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 			Diff: &spec.StateDiff{
 				Domain:            0,
 				ContractDiffs:     contractDiffs,
-				ReplacedClasses:   utils.Map(diff.ReplacedClasses, core2p2p.AdaptAddressClassHashPair),
-				DeployedContracts: utils.Map(diff.DeployedContracts, core2p2p.AdaptAddressClassHashPair),
+				ReplacedClasses:   utils.ToSlice(diff.ReplacedClasses, core2p2p.AdaptAddressClassHashPair),
+				DeployedContracts: utils.ToSlice(diff.DeployedContracts, core2p2p.AdaptAddressClassHashPair),
 			},
 		},
 	}, true

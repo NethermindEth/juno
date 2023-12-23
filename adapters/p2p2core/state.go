@@ -12,7 +12,7 @@ import (
 func AdaptStateDiff(s *spec.StateDiff, classes []*spec.Class) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
-		declaredV1Classes []core.DeclaredV1Class
+		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
 	)
 
 	for _, class := range utils.Map(classes, AdaptClass) {
@@ -24,14 +24,12 @@ func AdaptStateDiff(s *spec.StateDiff, classes []*spec.Class) *core.StateDiff {
 		case *core.Cairo0Class:
 			declaredV0Classes = append(declaredV0Classes, h)
 		case *core.Cairo1Class:
-			declaredV1Classes = append(declaredV1Classes, core.DeclaredV1Class{
-				ClassHash:         h,
-				CompiledClassHash: c.Compiled.Hash(),
-			})
+			declaredV1Classes[*h] = c.Compiled.Hash()
 		}
 	}
 
-	storageDiffs := make(map[felt.Felt][]core.StorageDiff)
+	// addr -> {key -> value, ...}
+	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
 	nonces := make(map[felt.Felt]*felt.Felt)
 	for _, diff := range s.ContractDiffs {
 		address := AdaptAddress(diff.Address)
@@ -39,29 +37,24 @@ func AdaptStateDiff(s *spec.StateDiff, classes []*spec.Class) *core.StateDiff {
 		if diff.Nonce != nil {
 			nonces[*address] = AdaptFelt(diff.Nonce)
 		}
-		storageDiffs[*address] = utils.Map(diff.Values, adaptStoredValue)
+		storageDiffs[*address] = utils.ToMap(diff.Values, adaptStoredValue)
 	}
 
 	return &core.StateDiff{
 		StorageDiffs:      storageDiffs,
 		Nonces:            nonces,
-		DeployedContracts: utils.Map(s.DeployedContracts, adaptAddrToClassHash),
+		DeployedContracts: utils.ToMap(s.DeployedContracts, adaptAddrToClassHash),
 		DeclaredV0Classes: declaredV0Classes,
 		DeclaredV1Classes: declaredV1Classes,
-		ReplacedClasses:   utils.Map(s.ReplacedClasses, adaptAddrToClassHash),
+		ReplacedClasses:   utils.ToMap(s.ReplacedClasses, adaptAddrToClassHash),
 	}
 }
 
-func adaptStoredValue(v *spec.ContractStoredValue) core.StorageDiff {
-	return core.StorageDiff{
-		Key:   AdaptFelt(v.Key),
-		Value: AdaptFelt(v.Value),
-	}
+func adaptStoredValue(v *spec.ContractStoredValue) (felt.Felt, *felt.Felt) {
+	return *AdaptFelt(v.Key), AdaptFelt(v.Value)
 }
 
-func adaptAddrToClassHash(addrToClassHash *spec.StateDiff_ContractAddrToClassHash) core.AddressClassHashPair {
-	return core.AddressClassHashPair{
-		Address:   AdaptAddress(addrToClassHash.ContractAddr),
-		ClassHash: AdaptHash(addrToClassHash.ClassHash),
-	}
+// todo rename
+func adaptAddrToClassHash(v *spec.StateDiff_ContractAddrToClassHash) (felt.Felt, *felt.Felt) {
+	return *AdaptAddress(v.ContractAddr), AdaptHash(v.ClassHash)
 }
