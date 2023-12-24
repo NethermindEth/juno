@@ -97,7 +97,7 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, e
 	switch {
 	case response.V1 != nil:
 		compiledClass, cErr := f.client.CompiledClassDefinition(ctx, classHash)
-		if cErr != nil {
+		if cErr != nil && !errors.Is(cErr, feeder.ErrDeprecatedCompiledClass) {
 			return nil, cErr
 		}
 

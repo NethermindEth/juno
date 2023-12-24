@@ -22,7 +22,6 @@ func AdaptClass(class core.Class, compiledHash *felt.Felt) *spec.Class {
 	case *core.Cairo1Class:
 		return &spec.Class{
 			CompiledHash: AdaptHash(compiledHash),
-			Definition:   v.Compiled,
 		}
 	default:
 		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, class.Version()))
