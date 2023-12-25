@@ -1479,14 +1479,11 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
 		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(err.Error())
-		}
 		var txnExecutionError vm.TransactionExecutionError
 		if errors.As(err, &txnExecutionError) {
 			return nil, makeTransactionExecutionError(&txnExecutionError)
 		}
-		return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, ErrInternal.CloneWithData(err.Error())
 	}
 
 	var result []SimulatedTransaction
@@ -1629,12 +1626,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
 		sequencerAddress, state, h.network, paidFeesOnL1, false, false, false, block.Header.GasPrice, block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(err.Error())
-		}
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
-		// report them as unexpected errors
-		return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		// report them as internal errors
+		return nil, ErrInternal.CloneWithData(err.Error())
 	}
 
 	var result []TracedBlockTransaction
