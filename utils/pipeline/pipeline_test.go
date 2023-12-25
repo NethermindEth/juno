@@ -1,4 +1,4 @@
-package utils
+package pipeline
 
 import (
 	"context"
@@ -80,8 +80,8 @@ func TestPriorityQueue(t *testing.T) {
 
 func TestPipeline(t *testing.T) {
 	t.Run("nil channel", func(t *testing.T) {
-		outValue := PipelineStage(context.Background(), nil, strconv.Itoa)
-		done := PipelineEnd(outValue, func(string) {
+		outValue := Stage(context.Background(), nil, strconv.Itoa)
+		done := End(outValue, func(string) {
 			// this function should not be called
 			t.Fail()
 		})

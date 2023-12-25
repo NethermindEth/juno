@@ -1,4 +1,4 @@
-package utils
+package pipeline
 
 import (
 	"context"
@@ -45,7 +45,7 @@ func PriorityQueue[T any](highPriority, lowPriority <-chan T) <-chan T {
 	return out
 }
 
-func PipelineStage[From any, To any](ctx context.Context, in <-chan From, f func(From) To) <-chan To {
+func Stage[From any, To any](ctx context.Context, in <-chan From, f func(From) To) <-chan To {
 	out := make(chan To)
 
 	if in == nil {
@@ -69,7 +69,7 @@ func PipelineStage[From any, To any](ctx context.Context, in <-chan From, f func
 	return out
 }
 
-func PipelineFanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
+func FanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 	var wg sync.WaitGroup
 	out := make(chan T)
 
@@ -93,10 +93,11 @@ func PipelineFanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 		wg.Wait()
 		close(out)
 	}()
+
 	return out
 }
 
-func PipelineEnd[T any](in <-chan T, f func(T)) <-chan struct{} {
+func End[T any](in <-chan T, f func(T)) <-chan struct{} {
 	done := make(chan struct{})
 
 	if in == nil {
@@ -115,7 +116,7 @@ func PipelineEnd[T any](in <-chan T, f func(T)) <-chan struct{} {
 	return done
 }
 
-func PipelineBridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
+func Bridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
 	out := make(chan T)
 	go func() {
 		defer close(out)

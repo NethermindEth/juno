@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"sync/atomic"
 
+	"github.com/NethermindEth/juno/utils/pipeline"
+
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -136,7 +138,7 @@ func (s *syncService) start(ctx context.Context) {
 	var curHeight int32 = -1
 
 	logBlocks := func(prefix string, input <-chan blockBody) <-chan blockBody {
-		return utils.PipelineStage(ctx, input, func(item blockBody) blockBody {
+		return pipeline.Stage(ctx, input, func(item blockBody) blockBody {
 			fmt.Println(prefix, item.block.Number)
 			return item
 		})
@@ -276,7 +278,7 @@ func (s *syncService) start(ctx context.Context) {
 	orderedBlocks := orderCheckedBlocks(unorderedBlocks)
 	orderedBlocks = logBlocks("Ordered", orderedBlocks)
 
-	stopped := utils.PipelineEnd(orderedBlocks, storeBlock)
+	stopped := pipeline.End(orderedBlocks, storeBlock)
 	<-stopped
 }
 

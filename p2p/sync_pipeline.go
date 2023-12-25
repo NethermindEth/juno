@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/utils/pipeline"
+
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -71,14 +73,14 @@ func (s *syncService) startPipeline(ctx context.Context) {
 	// var ch2 chan someOtherType = make(chan someOtherType)
 	// ch2 = (chan any)(ch2) <----- This line will give compilation error.
 
-	for b := range utils.PipelineBridge(ctx,
+	for b := range pipeline.Bridge(ctx,
 		s.processSpecBlockParts(ctx, nextHeight,
-			utils.PipelineFanIn(ctx,
-				utils.PipelineStage(ctx, headersAndSigsCh, func(i specBlockHeaderAndSigs) specBlockParts { return i }),
-				utils.PipelineStage(ctx, blockBodiesCh, func(i specBlockBody) specBlockParts { return i }),
-				utils.PipelineStage(ctx, txsCh, func(i specTransactions) specBlockParts { return i }),
-				utils.PipelineStage(ctx, receiptsCh, func(i specReceipts) specBlockParts { return i }),
-				utils.PipelineStage(ctx, eventsCh, func(i specEvents) specBlockParts { return i }),
+			pipeline.FanIn(ctx,
+				pipeline.Stage(ctx, headersAndSigsCh, func(i specBlockHeaderAndSigs) specBlockParts { return i }),
+				pipeline.Stage(ctx, blockBodiesCh, func(i specBlockBody) specBlockParts { return i }),
+				pipeline.Stage(ctx, txsCh, func(i specTransactions) specBlockParts { return i }),
+				pipeline.Stage(ctx, receiptsCh, func(i specReceipts) specBlockParts { return i }),
+				pipeline.Stage(ctx, eventsCh, func(i specEvents) specBlockParts { return i }),
 			))) {
 		if b.err != nil {
 			// cannot process any more blocks
