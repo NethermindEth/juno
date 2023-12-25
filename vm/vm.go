@@ -28,8 +28,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-var ErrInternal = errors.New("internal vm error")
-
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
@@ -284,7 +282,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return nil, nil, fmt.Errorf("%w: unmarshal trace: %v", ErrInternal, err)
+			return nil, nil, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
 
