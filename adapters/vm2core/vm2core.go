@@ -15,7 +15,7 @@ func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionRe
 			Pedersen:     resources.Pedersen,
 			RangeCheck:   resources.RangeCheck,
 			Bitwise:      resources.Bitwise,
-			Ecsda:        resources.Ecsda,
+			Ecsda:        resources.Ecdsa,
 			EcOp:         resources.EcOp,
 			Keccak:       resources.Keccak,
 			Poseidon:     resources.Poseidon,
