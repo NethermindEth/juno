@@ -3167,7 +3167,7 @@ func TestTraceTransaction(t *testing.T) {
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			ProtocolVersion:  "0.12.3",
+			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{
 			Header:       header,
@@ -3306,7 +3306,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			GasPrice:        utils.HexToFelt(t, "0x777"),
-			ProtocolVersion: "0.12.3",
+			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x000000C"),
@@ -3383,7 +3383,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
 			GasPrice:         utils.HexToFelt(t, "0x777"),
-			ProtocolVersion:  "0.12.3",
+			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{
 			Header:       header,
@@ -3717,7 +3717,7 @@ func TestThrottledVMError(t *testing.T) {
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			GasPrice:        utils.HexToFelt(t, "0x777"),
-			ProtocolVersion: "0.12.3",
+			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x000000C"),
