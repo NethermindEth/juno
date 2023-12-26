@@ -90,7 +90,7 @@ func TestAdaptExecutionResources(t *testing.T) {
 		Pedersen:     1,
 		RangeCheck:   2,
 		Bitwise:      3,
-		Ecsda:        4,
+		Ecdsa:        4,
 		EcOp:         5,
 		Keccak:       6,
 		Poseidon:     7,
