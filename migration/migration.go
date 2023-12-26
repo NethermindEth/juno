@@ -109,7 +109,7 @@ func migrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network,
 			if dbErr := targetDB.Update(func(txn db.Transaction) error {
 				metadata.IntermediateState, err = migration.Migrate(ctx, txn, network)
 				switch {
-				case err == nil || errors.Is(err, ctx.Err()):
+				case err == nil:
 					if metadata.IntermediateState == nil {
 						metadata.Version++
 					}

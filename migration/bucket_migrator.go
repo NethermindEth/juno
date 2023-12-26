@@ -72,7 +72,7 @@ func (m *BucketMigrator) Before(_ []byte) error {
 	return nil
 }
 
-func (m *BucketMigrator) Migrate(_ context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
+func (m *BucketMigrator) Migrate(ctx context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
 	remainingInBatch := m.batchSize
 	iterator, err := txn.NewIterator()
 	if err != nil {
@@ -80,6 +80,10 @@ func (m *BucketMigrator) Migrate(_ context.Context, txn db.Transaction, network 
 	}
 
 	for iterator.Seek(m.startFrom); iterator.Valid(); iterator.Next() {
+		if err := ctx.Err(); err != nil {
+			return nil, utils.RunAndWrapOnError(iterator.Close, err)
+		}
+
 		key := iterator.Key()
 		if !bytes.HasPrefix(key, m.target.Key()) {
 			break
