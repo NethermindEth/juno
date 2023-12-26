@@ -225,13 +225,13 @@ func (t *Trie) deleteExistingKey(sibling storageNode, nodeKey Key, nodes []stora
 	return nil, nil
 }
 
-func (t *Trie) replaceLinkWithNewParent(commonKey Key, siblingParent storageNode) storageNode {
 	if siblingParent.node.Left.Equal(siblingParent.key) {
+func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent storageNode) {
+	if siblingParent.node.Left.Equal(key) {
 		*siblingParent.node.Left = commonKey
 	} else {
 		*siblingParent.node.Right = commonKey
 	}
-	return siblingParent
 }
 
 func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode, sibling storageNode) error {
@@ -257,9 +257,9 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode
 	}
 
 	if len(nodes) > 1 { // sibling has a parent
-		siblingParent := nodes[len(nodes)-2]
-		siblingParent = t.replaceLinkWithNewParent(commonKey, siblingParent)
+		siblingParent := (nodes)[len(nodes)-2]
 
+		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent)
 		if err := t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
 			return err
 		}
@@ -287,7 +287,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	}
 
 	oldValue, err := t.updateLeaf(nodeKey, node, value)
-	// xor operation, because we don't want to return if the error is nil and the old value is nil
+	// xor operation, because we don't want to return result if the error is nil and the old value is nil
 	if (err != nil) != (oldValue != nil) {
 		return oldValue, err
 	}
