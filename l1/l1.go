@@ -9,19 +9,29 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/event"
 )
 
-//go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
+//go:generate mockgen -destination=./mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 
 	Close()
+}
+
+type L1HeadSubscription struct {
+	*feed.Subscription[*core.L1Head]
+}
+
+//go:generate mockgen -destination=../mocks/mock_l1reader.go -package=mocks -mock_names Reader=L1Reader github.com/NethermindEth/juno/l1 Reader
+type Reader interface {
+	SubscribeL1Heads() L1HeadSubscription
 }
 
 type Client struct {
@@ -33,6 +43,7 @@ type Client struct {
 	pollFinalisedInterval time.Duration
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
 	listener              EventListener
+	l1Heads               *feed.Feed[*core.L1Head]
 }
 
 var _ service.Service = (*Client)(nil)
@@ -47,6 +58,7 @@ func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogg
 		pollFinalisedInterval: time.Minute,
 		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate, 0),
 		listener:              SelectiveListener{},
+		l1Heads:               feed.New[*core.L1Head](),
 	}
 }
 
@@ -212,10 +224,17 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
 	}
 	c.listener.OnNewL1Head(head)
+	c.l1Heads.Send(head)
 	c.log.Infow("Updated l1 head",
 		"blockNumber", head.BlockNumber,
 		"blockHash", head.BlockHash.ShortString(),
 		"stateRoot", head.StateRoot.ShortString())
 
 	return nil
+}
+
+func (c *Client) SubscribeL1Heads() L1HeadSubscription {
+	return L1HeadSubscription{
+		Subscription: c.l1Heads.Subscribe(),
+	}
 }

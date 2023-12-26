@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -102,4 +103,30 @@ type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
+}
+
+func adaptBlockWithTxs(block *core.Block, status BlockStatus) *BlockWithTxs {
+	txs := make([]*Transaction, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		txs[index] = AdaptTransaction(txn)
+	}
+
+	return &BlockWithTxs{
+		Status:       status,
+		BlockHeader:  adaptBlockHeader(block.Header),
+		Transactions: txs,
+	}
+}
+
+func adaptBlockWithTxHashes(block *core.Block, status BlockStatus) *BlockWithTxHashes {
+	txnHashes := make([]*felt.Felt, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		txnHashes[index] = txn.Hash()
+	}
+
+	return &BlockWithTxHashes{
+		Status:      status,
+		BlockHeader: adaptBlockHeader(block.Header),
+		TxnHashes:   txnHashes,
+	}
 }

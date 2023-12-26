@@ -436,10 +436,12 @@ func TestEvents(t *testing.T) {
 		if b.Number < 6 {
 			require.NoError(t, chain.Store(b, &emptyCommitments, s, nil))
 		} else {
-			require.NoError(t, chain.StorePending(&blockchain.Pending{
+			stored, err := chain.StorePending(&blockchain.Pending{
 				Block:       b,
 				StateUpdate: s,
-			}))
+			})
+			require.True(t, stored)
+			require.NoError(t, err)
 		}
 	}
 
@@ -655,7 +657,10 @@ func TestPending(t *testing.T) {
 			Block:       b,
 			StateUpdate: su,
 		}
-		require.NoError(t, chain.StorePending(&pendingGenesis))
+		var stored bool
+		stored, err = chain.StorePending(&pendingGenesis)
+		require.True(t, stored)
+		require.NoError(t, err)
 
 		gotPending, pErr := chain.Pending()
 		require.NoError(t, pErr)
@@ -720,7 +725,10 @@ func TestPending(t *testing.T) {
 			Block:       b,
 			StateUpdate: su,
 		}
-		require.ErrorIs(t, chain.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+		var stored bool
+		stored, err = chain.StorePending(&notExpectedPending)
+		require.False(t, stored)
+		require.ErrorIs(t, err, blockchain.ErrParentDoesNotMatchHead)
 	})
 
 	t.Run("store expected pending block", func(t *testing.T) {
@@ -733,7 +741,9 @@ func TestPending(t *testing.T) {
 			Block:       b,
 			StateUpdate: su,
 		}
-		require.NoError(t, chain.StorePending(&expectedPending))
+		stored, err := chain.StorePending(&expectedPending)
+		require.True(t, stored)
+		require.NoError(t, err)
 
 		gotPending, pErr := chain.Pending()
 		require.NoError(t, pErr)

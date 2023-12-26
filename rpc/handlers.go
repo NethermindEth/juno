@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -82,6 +83,7 @@ type traceCacheKey struct {
 type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
+	l1Reader      l1.Reader
 	network       utils.Network
 	gatewayClient Gateway
 	feederClient  *feeder.Client
@@ -89,7 +91,9 @@ type Handler struct {
 	log           utils.Logger
 	version       string
 
-	newHeads *feed.Feed[*core.Header]
+	newBlocks    *feed.Feed[*core.Block]
+	pendingBlock *feed.Feed[*core.Block]
+	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -106,12 +110,13 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network, l1Reader l1.Reader,
 	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
 ) *Handler {
 	return &Handler{
 		bcReader:      bcReader,
 		syncReader:    syncReader,
+		l1Reader:      l1Reader,
 		network:       n,
 		log:           logger,
 		feederClient:  feederClient,
@@ -124,7 +129,9 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
 			return n
 		},
 		version:       version,
-		newHeads:      feed.New[*core.Header](),
+		newBlocks:     feed.New[*core.Block](),
+		pendingBlock:  feed.New[*core.Block](),
+		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -144,9 +151,21 @@ func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
+	newHeadsSub := h.syncReader.SubscribeNewBlocks().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	feed.Tee[*core.Block](newHeadsSub, h.newBlocks)
+
+	pendingHeadsSub := h.syncReader.SubscribePendingBlocks().Subscription
+	defer pendingHeadsSub.Unsubscribe()
+	feed.Tee[*core.Block](pendingHeadsSub, h.pendingBlock)
+
+	// Providing an L1 node is optional.
+	if h.l1Reader != nil {
+		l1HeadsSub := h.l1Reader.SubscribeL1Heads().Subscription
+		defer l1HeadsSub.Unsubscribe()
+		feed.Tee[*core.L1Head](l1HeadsSub, h.l1Heads)
+	}
+
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -197,11 +216,6 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		return nil, rpcErr
 	}
 
-	txnHashes := make([]*felt.Felt, len(block.Transactions))
-	for index, txn := range block.Transactions {
-		txnHashes[index] = txn.Hash()
-	}
-
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return nil, jsonErr
@@ -214,11 +228,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		status = BlockAcceptedL1
 	}
 
-	return &BlockWithTxHashes{
-		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
-		TxnHashes:   txnHashes,
-	}, nil
+	return adaptBlockWithTxHashes(block, status), nil
 }
 
 func (h *Handler) LegacyBlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
@@ -241,8 +251,8 @@ func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
 	return l1Head, nil
 }
 
-func isL1Verified(n uint64, l1 *core.L1Head) bool {
-	if l1 != nil && l1.BlockNumber >= n {
+func isL1Verified(n uint64, l1Head *core.L1Head) bool {
+	if l1Head != nil && l1Head.BlockNumber >= n {
 		return true
 	}
 	return false
@@ -309,11 +319,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		status = BlockAcceptedL1
 	}
 
-	return &BlockWithTxs{
-		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
-		Transactions: txs,
-	}, nil
+	return adaptBlockWithTxs(block, status), nil
 }
 
 func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
@@ -1693,7 +1699,29 @@ func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {
 	return "0.5.1", nil
 }
 
-func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error) {
+type SubscriptionEvent byte
+
+const (
+	EventNewBlocks SubscriptionEvent = iota + 1
+	EventPendingBlocks
+	EventL1Blocks
+)
+
+func (s *SubscriptionEvent) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"newBlocks"`:
+		*s = EventNewBlocks
+	case `"pendingBlocks"`:
+		*s = EventPendingBlocks
+	case `"l1Blocks"`:
+		*s = EventL1Blocks
+	default:
+		return fmt.Errorf("unknown subscription event type: %s", string(data))
+	}
+	return nil
+}
+
+func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent, withTxs bool) (uint64, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -1708,37 +1736,79 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	h.mu.Lock()
 	h.subscriptions[id] = sub
 	h.mu.Unlock()
-	headerSub := h.newHeads.Subscribe()
-	sub.wg.Go(func() {
+
+	adaptBlock := func(block *core.Block, status BlockStatus) any {
+		return adaptBlockWithTxHashes(block, status)
+	}
+	if withTxs {
+		adaptBlock = func(block *core.Block, status BlockStatus) any {
+			return adaptBlockWithTxs(block, status)
+		}
+	}
+	switch event {
+	case EventNewBlocks:
+		subscribe[*core.Block](subscriptionCtx, h.newBlocks.Subscribe(), h, id, sub, func(b *core.Block) (any, error) {
+			return adaptBlock(b, BlockAcceptedL2), nil
+		})
+	case EventPendingBlocks:
+		subscribe[*core.Block](subscriptionCtx, h.pendingBlock.Subscribe(), h, id, sub, func(b *core.Block) (any, error) {
+			return adaptBlock(b, BlockPending), nil
+		})
+	case EventL1Blocks:
+		if h.l1Reader == nil {
+			h.unsubscribe(id)
+			return 0, jsonrpc.Err(jsonrpc.InternalError, "subscription event not supported")
+		}
+		subscribe[*core.L1Head](subscriptionCtx, h.l1Heads.Subscribe(), h, id, sub, func(l1Head *core.L1Head) (any, error) {
+			block, err := h.bcReader.BlockByNumber(l1Head.BlockNumber)
+			if err != nil {
+				return nil, fmt.Errorf("get block %d: %v", l1Head.BlockNumber, err)
+			}
+			return adaptBlock(block, BlockAcceptedL1), nil
+		})
+	default:
+		return 0, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unknown event type: %d", event))
+	}
+	return id, nil
+}
+
+func subscribe[T any](ctx context.Context, sub *feed.Subscription[T], h *Handler,
+	id uint64, vsub *subscription, adapt func(T) (any, error),
+) {
+	vsub.wg.Go(func() {
 		defer func() {
-			headerSub.Unsubscribe()
-			h.unsubscribe(sub, id)
+			sub.Unsubscribe()
+			h.unsubscribe(id)
 		}()
 		for {
 			select {
-			case <-subscriptionCtx.Done():
+			case <-ctx.Done():
 				return
-			case header := <-headerSub.Recv():
+			case v := <-sub.Recv():
+				result, err := adapt(v)
+				if err != nil {
+					h.log.Warnw("Failed to adapt subscription result, closing", "err", err)
+					return
+				}
 				resp, err := json.Marshal(jsonrpc.Request{
 					Version: "2.0",
-					Method:  "juno_subscribeNewHeads",
+					Method:  "juno_subscription",
 					Params: map[string]any{
-						"result":       adaptBlockHeader(header),
+						"result":       result,
 						"subscription": id,
 					},
 				})
 				if err != nil {
-					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					h.log.Warnw("Marshalling subscription reply failed, closing", "err", err)
 					return
 				}
-				if _, err = w.Write(resp); err != nil {
-					h.log.Warnw("Error writing a subscription reply", "err", err)
+				if _, err = vsub.conn.Write(resp); err != nil {
+					h.log.Warnw("Writing subscription reply failed, closing", "err", err)
 					return
 				}
 			}
 		}
 	})
-	return id, nil
 }
 
 func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
@@ -1757,12 +1827,12 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	return true, nil
 }
 
-// unsubscribe assumes h.mu is unlocked. It releases all subscription resources.
-func (h *Handler) unsubscribe(sub *subscription, id uint64) {
-	sub.cancel()
+// unsubscribe acquires h.mu and assumes id has not yet been unsubscribed.
+func (h *Handler) unsubscribe(id uint64) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.subscriptions[id].cancel()
 	delete(h.subscriptions, id)
-	h.mu.Unlock()
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
@@ -1907,8 +1977,9 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
-			Handler: h.SubscribeNewHeads,
+			Name:    "juno_subscribe",
+			Params:  []jsonrpc.Parameter{{Name: "event"}, {Name: "withTxs", Optional: true}},
+			Handler: h.Subscribe,
 		},
 		{
 			Name:    "juno_unsubscribe",
@@ -2060,8 +2131,9 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.LegacySpecVersion,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
-			Handler: h.SubscribeNewHeads,
+			Name:    "juno_subscribe",
+			Params:  []jsonrpc.Parameter{{Name: "event"}, {Name: "withTxs", Optional: true}},
+			Handler: h.Subscribe,
 		},
 		{
 			Name:    "juno_unsubscribe",

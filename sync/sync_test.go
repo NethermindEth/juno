@@ -212,7 +212,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	gw := adaptfeeder.New(integrationClient)
 	syncer := sync.New(chain, gw, log, 0, false)
 
-	sub := syncer.SubscribeNewHeads()
+	sub := syncer.SubscribeNewBlocks()
 
 	// Receive on new block.
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -222,6 +222,30 @@ func TestSubscribeNewHeads(t *testing.T) {
 	require.True(t, ok)
 	want, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
-	require.Equal(t, want.Header, got)
+	require.Equal(t, want, got)
+	sub.Unsubscribe()
+}
+
+func TestSubscribePendingHeads(t *testing.T) {
+	t.Parallel()
+	testDB := pebble.NewMemTest(t)
+	log := utils.NewNopZapLogger()
+	mainnet := utils.Mainnet
+	chain := blockchain.New(testDB, mainnet, log)
+	mainnetClient := feeder.NewTestClient(t, mainnet)
+	gw := adaptfeeder.New(mainnetClient)
+	syncer := sync.New(chain, gw, log, 3*time.Millisecond, false)
+
+	sub := syncer.SubscribePendingBlocks()
+
+	// Receive on pending block.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
+	require.NoError(t, syncer.Run(ctx))
+	cancel()
+	got, ok := <-sub.Recv()
+	require.True(t, ok)
+	want, err := gw.BlockPending(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, want, got)
 	sub.Unsubscribe()
 }
