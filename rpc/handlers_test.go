@@ -3476,6 +3476,7 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 }
 
 func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+	t.Parallel()
 	log := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	client := feeder.NewTestClient(t, network)
@@ -3506,7 +3507,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	// Sync blocks and then revert head.
 	// This is a super hacky way to deterministically receive a single block on the subscription.
 	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
-	syncCtx, syncCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), time.Second)
 	require.NoError(t, syncer.Run(syncCtx))
 	syncCancel()
 	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
@@ -3555,6 +3556,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+	t.Parallel()
 	log := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	feederClient := feeder.NewTestClient(t, network)
@@ -3574,7 +3576,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	// Sync blocks and then revert head.
 	// This is a super hacky way to deterministically receive a single block on the subscription.
 	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
-	syncCtx, syncCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), time.Second)
 	require.NoError(t, syncer.Run(syncCtx))
 	syncCancel()
 	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
