@@ -225,7 +225,6 @@ func (t *Trie) deleteExistingKey(sibling storageNode, nodeKey Key, nodes []stora
 	return nil, nil
 }
 
-	if siblingParent.node.Left.Equal(siblingParent.key) {
 func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent storageNode) {
 	if siblingParent.node.Left.Equal(key) {
 		*siblingParent.node.Left = commonKey
