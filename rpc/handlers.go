@@ -1539,7 +1539,7 @@ func (h *Handler) LegacyTraceBlockTransactions(ctx context.Context, id BlockID) 
 	return h.traceBlockTransactions(ctx, block, true)
 }
 
-var traceFallbackVersion = semver.MustParse("0.12.2")
+var traceFallbackVersion = semver.MustParse("0.12.3")
 
 func prependBlockHashToState(bc blockchain.Reader, blockNumber uint64, state core.StateReader) (core.StateReader, error) {
 	stateDiffWithBlockHash, err := blockchain.MakeStateDiffForEmptyBlock(bc, blockNumber)
