@@ -239,6 +239,7 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate0, got0Update)
 	})
+
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
@@ -265,6 +266,13 @@ func TestStore(t *testing.T) {
 		got1Update, err := chain.StateUpdateByNumber(1)
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
+	})
+
+	t.Run("failing state root check", func(t *testing.T) {
+		wrongRootStateUpdate := stateUpdate0
+		wrongRootStateUpdate.NewRoot = new(felt.Felt).SetUint64(1337)
+		chain := blockchain.New(pebble.NewMemTest(t), utils.Mainnet)
+		require.ErrorContains(t, chain.Store(block0, &emptyCommitments, wrongRootStateUpdate, nil), "does not match the expected root")
 	})
 }
 

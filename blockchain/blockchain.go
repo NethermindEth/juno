@@ -340,9 +340,16 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+
+		state := core.NewState(txn)
+		if err := state.Update(block.Number, stateUpdate.StateDiff, newClasses); err != nil {
 			return err
 		}
+
+		if err := b.verifyStateUpdateRoot(state, stateUpdate.NewRoot); err != nil {
+			return err
+		}
+
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
@@ -841,7 +848,11 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 
 	state := core.NewState(txn)
 	// revert state
-	if err = state.Revert(blockNumber, stateUpdate); err != nil {
+	if err = state.Revert(blockNumber, stateUpdate.StateDiff); err != nil {
+		return err
+	}
+
+	if err = b.verifyStateUpdateRoot(state, stateUpdate.OldRoot); err != nil {
 		return err
 	}
 
@@ -1071,4 +1082,16 @@ func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff,
 		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
 	return stateDiff, nil
+}
+
+func (b *Blockchain) verifyStateUpdateRoot(s *core.State, root *felt.Felt) error {
+	currentRoot, err := s.Root()
+	if err != nil {
+		return err
+	}
+
+	if !root.Equal(currentRoot) {
+		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
+	}
+	return nil
 }

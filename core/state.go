@@ -180,36 +180,17 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 	return gTrie, closer, nil
 }
 
-func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
-	currentRoot, err := s.Root()
-	if err != nil {
-		return err
-	}
-
-	if !root.Equal(currentRoot) {
-		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
-	}
-	return nil
-}
-
 // Update applies a StateUpdate to the State object. State is not
-// updated if an error is encountered during the operation. If update's
-// old or new root does not match the state's old or new roots,
-// [ErrMismatchedRoot] is returned.
-func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
-	err := s.verifyStateUpdateRoot(update.OldRoot)
-	if err != nil {
-		return err
-	}
-
+// updated if an error is encountered during the operation.
+func (s *State) Update(blockNumber uint64, diff *StateDiff, declaredClasses map[felt.Felt]Class) error {
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {
-		if err = s.putClass(&cHash, class, blockNumber); err != nil {
+		if err := s.putClass(&cHash, class, blockNumber); err != nil {
 			return err
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
+	if err := s.updateDeclaredClassesTrie(diff.DeclaredV1Classes, declaredClasses); err != nil {
 		return err
 	}
 
@@ -219,21 +200,17 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	}
 
 	// register deployed contracts
-	for addr, classHash := range update.StateDiff.DeployedContracts {
+	for addr, classHash := range diff.DeployedContracts {
 		if err = s.putNewContract(stateTrie, &addr, classHash, blockNumber); err != nil {
 			return err
 		}
 	}
 
-	if err = s.updateContracts(stateTrie, blockNumber, update.StateDiff, true); err != nil {
+	if err = s.updateContracts(stateTrie, blockNumber, diff, true); err != nil {
 		return err
 	}
 
-	if err = storageCloser(); err != nil {
-		return err
-	}
-
-	return s.verifyStateUpdateRoot(update.NewRoot)
+	return storageCloser()
 }
 
 var (
@@ -522,18 +499,13 @@ func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64)
 	return deployedAt <= blockNumber, nil
 }
 
-func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
-	err := s.verifyStateUpdateRoot(update.NewRoot)
-	if err != nil {
-		return fmt.Errorf("verify state update root: %v", err)
-	}
-
-	if err = s.removeDeclaredClasses(blockNumber, update.StateDiff.DeclaredV0Classes, update.StateDiff.DeclaredV1Classes); err != nil {
+func (s *State) Revert(blockNumber uint64, diff *StateDiff) error {
+	if err := s.removeDeclaredClasses(blockNumber, diff.DeclaredV0Classes, diff.DeclaredV1Classes); err != nil {
 		return fmt.Errorf("remove declared classes: %v", err)
 	}
 
 	// update contracts
-	reversedDiff, err := s.buildReverseDiff(blockNumber, update.StateDiff)
+	reversedDiff, err := s.buildReverseDiff(blockNumber, diff)
 	if err != nil {
 		return fmt.Errorf("build reverse diff: %v", err)
 	}
@@ -552,7 +524,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 	}
 
 	// purge deployed contracts
-	for addr := range update.StateDiff.DeployedContracts {
+	for addr := range diff.DeployedContracts {
 		if err = s.purgeContract(&addr); err != nil {
 			return fmt.Errorf("purge contract: %v", err)
 		}
@@ -585,7 +557,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		}
 	}
 
-	return s.verifyStateUpdateRoot(update.OldRoot)
+	return nil
 }
 
 func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt, v1Classes map[felt.Felt]*felt.Felt) error {
