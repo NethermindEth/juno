@@ -797,3 +797,47 @@ func TestMakeStateDiffForEmptyBlock(t *testing.T) {
 		assert.Equal(t, blockHash, sd.StorageDiffs[*storageContractAddr][felt.Zero])
 	})
 }
+
+func TestFinalize(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(testDB, utils.Mainnet, utils.NewNopZapLogger())
+
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingBlock := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &felt.Zero,
+			SequencerAddress: utils.HexToFelt(t, "0x1337"),
+			Timestamp:        0,
+			ProtocolVersion:  "0.0.0",
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         utils.HexToFelt(t, "0x1"),
+			GasPriceSTRK:     utils.HexToFelt(t, "0x2"),
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff, err := blockchain.MakeStateDiffForEmptyBlock(chain, 0)
+	require.NoError(t, err)
+
+	pendingGenesis := &blockchain.Pending{
+		Block: pendingBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   &felt.Zero,
+			StateDiff: stateDiff,
+		},
+		NewClasses: make(map[felt.Felt]core.Class, 0),
+	}
+
+	require.NoError(t, chain.Finalise(pendingGenesis))
+	h, err := chain.Head()
+	require.NoError(t, err)
+	require.Equal(t, pendingGenesis.Block, h)
+
+	pending, err := chain.Pending()
+	require.NoError(t, err)
+	require.NoError(t, chain.Finalise(&pending))
+	h, err = chain.Head()
+	require.NoError(t, err)
+	require.Equal(t, pending.Block, h)
+}
