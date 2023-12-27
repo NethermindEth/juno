@@ -83,19 +83,25 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 }
 
 func (c *Client) checkChainID(ctx context.Context) error {
-	gotChainID, err := c.l1.ChainID(ctx)
-	if err != nil {
-		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
-	}
+	backOffDuration := time.Duration(1) * time.Second
+	for {
+		gotChainID, err := c.l1.ChainID(ctx)
+		if err != nil {
+			backOffDuration *= 2
+			time.Sleep(backOffDuration)
+			c.log.Warnw("Failed to retrieve Ethereum chain ID, retrying", err)
+			continue
+		}
 
-	wantChainID := c.network.DefaultL1ChainID()
-	if gotChainID.Cmp(wantChainID) == 0 {
-		return nil
-	}
+		wantChainID := c.network.DefaultL1ChainID()
+		if gotChainID.Cmp(wantChainID) == 0 {
+			return nil
+		}
 
-	// NOTE: for now we return an error. If we want to support users who fork
-	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
-	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network)
+		// NOTE: for now we return an error. If we want to support users who fork
+		// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
+		return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network)
+	}
 }
 
 func (c *Client) Run(ctx context.Context) error {
