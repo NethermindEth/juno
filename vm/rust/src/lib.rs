@@ -13,7 +13,7 @@ use blockifier::{
     block_context::{BlockContext, GasPrices, FeeTokenAddresses},
     execution::{
         common_hints::ExecutionMode,
-        contract_class::{ContractClass, ContractClassV1},
+        contract_class::ContractClass,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
     },
     fee::fee_utils::calculate_tx_fee,
@@ -29,8 +29,6 @@ use blockifier::{
         },
     },
 };
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_lang_starknet::contract_class::ContractClass as SierraContractClass;
 use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
     OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
@@ -48,7 +46,6 @@ use starknet_api::{
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
-    transaction::TransactionVersion,
 };
 
 extern "C" {
@@ -216,19 +213,14 @@ pub extern "C" fn cairoVMExecute(
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
         let contract_class = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::Declare(declare) => {
+            StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
                     report_error(reader_handle, "missing declared class", txn_index as i64);
                     return;
                 }
                 let class_json_str = classes.remove(0);
 
-                let mut maybe_cc = contract_class_from_json_str(class_json_str.get());
-                if declare.version() >= TransactionVersion(2u32.into()) && maybe_cc.is_err() {
-                    // class json could be sierra
-                    maybe_cc = contract_class_from_sierra_json(class_json_str.get())
-                };
-
+                let maybe_cc = contract_class_from_json_str(class_json_str.get());
                 if let Err(e) = maybe_cc {
                     report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
                     return;
@@ -444,14 +436,4 @@ fn build_block_context(
         validate_max_n_steps: 3_000_000,
         max_recursion_depth: 50,
     }
-}
-
-fn contract_class_from_sierra_json(sierra_json: &str) -> Result<ContractClass, String> {
-    let sierra_class: SierraContractClass =
-        serde_json::from_str(sierra_json).map_err(|err| err.to_string())?;
-    let casm_class = CasmContractClass::from_contract_class(sierra_class, true)
-        .map_err(|err| err.to_string())?;
-    let contract_class_v1 = ContractClassV1::try_from(casm_class).map_err(|err| err.to_string())?;
-
-    Ok(contract_class_v1.into())
 }
