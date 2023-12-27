@@ -28,18 +28,3 @@ func marshalCompiledClass(class core.Class) (json.RawMessage, error) {
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
 }
-
-func marshalDeclaredClass(class core.Class) (json.RawMessage, error) {
-	switch c := class.(type) {
-	case *core.Cairo0Class:
-		declaredClass, err := core2sn.AdaptCairo0Class(c)
-		if err != nil {
-			return nil, err
-		}
-		return json.Marshal(declaredClass)
-	case *core.Cairo1Class:
-		return json.Marshal(core2sn.AdaptSierraClass(c))
-	default:
-		return nil, fmt.Errorf("unsupported class type %T", c)
-	}
-}
