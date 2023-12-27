@@ -151,13 +151,9 @@ func TestCall_MaxSteps(t *testing.T) {
 	encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{})) //nolint:errcheck
 
 	testState := core.NewState(txn)
-	require.NoError(t, testState.Update(0, &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
-		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
-				*contractAddr: classHash,
-			},
+	require.NoError(t, testState.Update(0, &core.StateDiff{
+		DeployedContracts: map[felt.Felt]*felt.Felt{
+			*contractAddr: classHash,
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,

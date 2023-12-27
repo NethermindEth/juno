@@ -17,10 +17,10 @@ import (
 
 func TestGenesisStateDiff(t *testing.T) {
 	network := utils.Mainnet
-	client := feeder.NewTestClient(t, network)
+	client := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), network)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 	// Need to store pending block create NewPendingState
 	block, err := gw.BlockByNumber(context.Background(), 0)
@@ -50,7 +50,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NoError(t, err)
 
 		genesisConfig := genesis.GenesisConfig{
-			ChainID: network.ChainIDString(),
+			ChainID: network.String(),
 			Classes: []string{
 				"./testdata/simpleStore.json",
 			},

@@ -82,10 +82,21 @@ func GenesisStateDiff(
 		if err = genesisState.SetClassHash(addressFelt, &classHash); err != nil {
 			return nil, nil, fmt.Errorf("set class hash: %v", err)
 		}
-
+		callInfo := &vm.CallInfo{
+			ContractAddress: addressFelt,
+			ClassHash:       &classHash,
+			Selector:        constructorSelector,
+			Calldata:        contractData.ConstructorArgs,
+		}
+		blockInfo := vm.BlockInfo{
+			Header: &core.Header{
+				Number:    0,
+				Timestamp: blockTimestamp,
+			},
+		}
+		maxSteps := uint64(100000) //nolint:gomnd
 		// Call the constructors
-		if _, err = v.Call(addressFelt, &classHash, constructorSelector,
-			contractData.ConstructorArgs, 0, blockTimestamp, genesisState, *network); err != nil {
+		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
@@ -97,8 +108,20 @@ func GenesisStateDiff(
 		if err != nil {
 			return nil, nil, fmt.Errorf("get contract class hash: %v", err)
 		}
-		if _, err = v.Call(&contractAddress, classHash, &entryPointSelector,
-			fnCall.Calldata, 0, blockTimestamp, genesisState, *network); err != nil {
+		callInfo := &vm.CallInfo{
+			ContractAddress: &contractAddress,
+			ClassHash:       classHash,
+			Selector:        &entryPointSelector,
+			Calldata:        fnCall.Calldata,
+		}
+		blockInfo := vm.BlockInfo{
+			Header: &core.Header{
+				Number:    0,
+				Timestamp: blockTimestamp,
+			},
+		}
+		maxSteps := uint64(100000) //nolint:gomnd
+		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
