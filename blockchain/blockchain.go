@@ -338,7 +338,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := verifyBlock(txn, block); err != nil {
+		if err := b.storeBlock(txn, block, blockCommitments); err != nil {
 			return err
 		}
 
@@ -351,34 +351,38 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := StoreBlockHeader(txn, block.Header); err != nil {
-			return err
-		}
-
-		for i, tx := range block.Transactions {
-			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
-				block.Receipts[i]); err != nil {
-				return err
-			}
-		}
-
-		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
-			return err
-		}
-
-		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
-			return err
-		}
-
-		if err := b.storeEmptyPending(txn, block.Header); err != nil {
-			return err
-		}
-
-		// Head of the blockchain is maintained as follows:
-		// [db.ChainHeight]() -> (BlockNumber)
-		heightBin := core.MarshalBlockNumber(block.Number)
-		return txn.Set(db.ChainHeight.Key(), heightBin)
+		return storeStateUpdate(txn, block.Number, stateUpdate)
 	})
+}
+
+func (b *Blockchain) storeBlock(txn db.Transaction, block *core.Block, blockCommitments *core.BlockCommitments) error {
+	if err := verifyBlock(txn, block); err != nil {
+		return err
+	}
+
+	if err := StoreBlockHeader(txn, block.Header); err != nil {
+		return err
+	}
+
+	for i, tx := range block.Transactions {
+		if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
+			block.Receipts[i]); err != nil {
+			return err
+		}
+	}
+
+	if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
+		return err
+	}
+
+	if err := b.storeEmptyPending(txn, block.Header); err != nil {
+		return err
+	}
+
+	// Head of the blockchain is maintained as follows:
+	// [db.ChainHeight]() -> (BlockNumber)
+	heightBin := core.MarshalBlockNumber(block.Number)
+	return txn.Set(db.ChainHeight.Key(), heightBin)
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -526,7 +530,7 @@ func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 		return nil, err
 	}
 
-	var txs []core.Transaction
+	txs := []core.Transaction{}
 	numBytes := core.MarshalBlockNumber(number)
 
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
@@ -561,7 +565,7 @@ func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.Transacti
 		return nil, err
 	}
 
-	var receipts []*core.TransactionReceipt
+	receipts := []*core.TransactionReceipt{}
 	numBytes := core.MarshalBlockNumber(number)
 
 	prefix := db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
@@ -1094,4 +1098,45 @@ func (b *Blockchain) verifyStateUpdateRoot(s *core.State, root *felt.Felt) error
 		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
 	}
 	return nil
+}
+
+// Finalise will calculate the state commitment and block hash for the given pending block and append it to the
+// blockchain
+func (b *Blockchain) Finalise(pending *Pending) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		var err error
+
+		state := core.NewState(txn)
+		pending.StateUpdate.OldRoot, err = state.Root()
+		if err != nil {
+			return err
+		}
+
+		if h, hErr := chainHeight(txn); hErr == nil {
+			pending.Block.Number = h + 1
+		}
+
+		if err = state.Update(pending.Block.Number, pending.StateUpdate.StateDiff, pending.NewClasses); err != nil {
+			return err
+		}
+
+		pending.Block.GlobalStateRoot, err = state.Root()
+		if err != nil {
+			return err
+		}
+		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
+
+		var commitments *core.BlockCommitments
+		pending.Block.Hash, commitments, err = core.BlockHash(pending.Block, b.network)
+		if err != nil {
+			return err
+		}
+		pending.StateUpdate.BlockHash = pending.Block.Hash
+
+		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {
+			return err
+		}
+
+		return storeStateUpdate(txn, pending.Block.Number, pending.StateUpdate)
+	})
 }
