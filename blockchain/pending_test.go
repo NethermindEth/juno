@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -203,12 +202,7 @@ func makeState(t *testing.T) *blockchain.PendingState {
 	})
 	state := core.NewState(pebbleTxn)
 	blockNumber := uint64(0)
-	require.NoError(t, state.Update(blockNumber, &core.StateUpdate{
-		BlockHash: new(felt.Felt),
-		NewRoot:   utils.HexToFelt(t, "0x4b2d2338a1f3bd507a2263358fe84eef616528bfff633827ba5b7579b464c49"),
-		OldRoot:   new(felt.Felt),
-		StateDiff: testState,
-	}, map[felt.Felt]core.Class{
+	require.NoError(t, state.Update(blockNumber, testState, map[felt.Felt]core.Class{
 		*classHash: testClass,
 	}))
 	return blockchain.NewPendingState(core.EmptyStateDiff(), map[felt.Felt]core.Class{*contractAddr: testClass}, state)
