@@ -82,7 +82,6 @@ type traceCacheKey struct {
 type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
-	network       utils.Network
 	gatewayClient Gateway
 	feederClient  *feeder.Client
 	vm            vm.VM
@@ -106,17 +105,12 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, n utils.Network,
-	gatewayClient Gateway, feederClient *feeder.Client, virtualMachine vm.VM, version string, logger utils.Logger,
-) *Handler {
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, logger utils.Logger) *Handler {
 	return &Handler{
-		bcReader:      bcReader,
-		syncReader:    syncReader,
-		network:       n,
-		log:           logger,
-		feederClient:  feederClient,
-		gatewayClient: gatewayClient,
-		vm:            virtualMachine,
+		bcReader:   bcReader,
+		syncReader: syncReader,
+		log:        logger,
+		vm:         virtualMachine,
 		idgen: func() uint64 {
 			var n uint64
 			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
@@ -143,6 +137,16 @@ func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
 	return h
 }
 
+func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
+	h.feederClient = feederClient
+	return h
+}
+
+func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
+	h.gatewayClient = gatewayClient
+	return h
+}
+
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
@@ -159,7 +163,7 @@ func (h *Handler) Run(ctx context.Context) error {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
 func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
-	return h.network.ChainID(), nil
+	return h.bcReader.Network().ChainID(), nil
 }
 
 // BlockNumber returns the latest synced block number.
@@ -1139,6 +1143,11 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
 	}
+
+	if h.gatewayClient == nil {
+		return nil, ErrInternal.CloneWithData("no gateway client configured")
+	}
+
 	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
 	if err != nil {
 		return nil, makeJSONErrorFromGatewayError(err)
@@ -1230,7 +1239,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	}
 
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, blockNumber, header.Timestamp, state, h.network)
+		call.Calldata, blockNumber, header.Timestamp, state, h.bcReader.Network())
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1271,6 +1280,10 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			Execution: receipt.ExecutionStatus,
 		}, nil
 	case ErrTxnHashNotFound:
+		if h.feederClient == nil {
+			break
+		}
+
 		txStatus, err := h.feederClient.Transaction(ctx, &hash)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -1298,9 +1311,8 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		default: // Omit the field on error. It's optional in the spec.
 		}
 		return &status, nil
-	default:
-		return nil, txErr
 	}
+	return nil, txErr
 }
 
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
@@ -1451,7 +1463,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.network)
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.bcReader.Network())
 		if aErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -1477,10 +1489,11 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.network, paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON)
+		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
+		header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1626,11 +1639,12 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	sequencerAddress := block.Header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.network).FallBackSequencerAddress
+		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
 	}
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
-		sequencerAddress, state, h.network, paidFeesOnL1, false, false, false, block.Header.GasPrice, block.Header.GasPriceSTRK, legacyJSON)
+		sequencerAddress, state, h.bcReader.Network(), paidFeesOnL1, false, false, false, block.Header.GasPrice,
+		block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1664,6 +1678,10 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt, legacyT
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if h.feederClient == nil {
+		return nil, ErrInternal.CloneWithData("no feeder client configured")
 	}
 
 	blockTrace, fErr := h.feederClient.BlockTrace(ctx, blockHash.String())
