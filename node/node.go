@@ -181,6 +181,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
 		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		client.WithListener(makeFeederMetrics())
+		gatewayClient.WithListener(makeGatewayMetrics())
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {

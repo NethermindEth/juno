@@ -38,6 +38,7 @@ var (
 type Client struct {
 	url       string
 	client    *http.Client
+	listener  EventListener
 	log       utils.SimpleLogger
 	userAgent string
 	apiKey    string
@@ -50,6 +51,11 @@ func (c *Client) WithUserAgent(ua string) *Client {
 
 func (c *Client) WithAPIKey(key string) *Client {
 	c.apiKey = key
+	return c
+}
+
+func (c *Client) WithListener(l EventListener) *Client {
+	c.listener = l
 	return c
 }
 
@@ -100,7 +106,8 @@ func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 		client: &http.Client{
 			Timeout: time.Minute,
 		},
-		log: log,
+		listener: &SelectiveListener{},
+		log:      log,
 	}
 }
 
@@ -153,7 +160,13 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	if c.apiKey != "" {
 		req.Header.Set("X-Throttling-Bypass", c.apiKey)
 	}
-	return c.client.Do(req)
+	reqTimer := time.Now()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	c.listener.OnResponse(req.URL.Path, resp.StatusCode, time.Since(reqTimer))
+	return resp, nil
 }
 
 type ErrorCode string
