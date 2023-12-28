@@ -263,6 +263,22 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 	return base.String()
 }
 
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
+	if c.apiKey != "" {
+		req.Header.Set("X-Throttling-Bypass", c.apiKey)
+	}
+	reqTime := time.Now()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	c.listener.OnResponse(req.URL.Path, resp.StatusCode, time.Since(reqTime))
+	return resp, nil
+}
+
 // GET methods.
 
 // get performs a "GET" http request with the given URL and returns the response body
@@ -280,17 +296,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if err != nil {
 				return nil, err
 			}
-			if c.userAgent != "" {
-				req.Header.Set("User-Agent", c.userAgent)
-			}
-			if c.apiKey != "" {
-				req.Header.Set("X-Throttling-Bypass", c.apiKey)
-			}
 
-			reqTimer := time.Now()
-			res, err = c.client.Do(req)
+			res, err = c.do(req)
 			if err == nil {
-				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
 				} else {
@@ -530,14 +538,8 @@ func (c *Client) post(ctx context.Context, queryURL string, data any) ([]byte, e
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if c.userAgent != "" {
-		req.Header.Set("User-Agent", c.userAgent)
-	}
-	if c.apiKey != "" {
-		req.Header.Set("X-Throttling-Bypass", c.apiKey)
-	}
 
-	resp, err := c.client.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, err
 	}
