@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/url"
@@ -11,9 +12,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/db/remote"
@@ -29,6 +32,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
@@ -81,6 +85,8 @@ type Config struct {
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
 
 	GatewayAPIKey string `mapstructure:"gw-api-key"`
+
+	Sequencer bool `mapstructure:"seq-enable"`
 }
 
 type Node struct {
@@ -135,17 +141,35 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 
-	feederClientTimeout := 5 * time.Second
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).
-		WithTimeout(feederClientTimeout).WithAPIKey(cfg.GatewayAPIKey)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
-	services = append(services, synchronizer)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+	nodeVM := vm.New(log)
+	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	var rpcHandler *rpc.Handler
+	if cfg.Sequencer {
+		pKey, kErr := ecdsa.GenerateKey(rand.Reader)
+		if kErr != nil {
+			return nil, kErr
+		}
 
-	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-	rpcHandler := rpc.New(chain, synchronizer, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
-	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
-	services = append(services, rpcHandler)
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, log) //nolint: gomnd
+		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log)
+		services = append(services, sequencer)
+	} else {
+		feederClientTimeout := 5 * time.Second
+		client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).
+			WithTimeout(feederClientTimeout).WithAPIKey(cfg.GatewayAPIKey)
+		synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
+		gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+		if cfg.Metrics {
+			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+			client.WithListener(makeFeederMetrics())
+			gatewayClient.WithListener(makeGatewayMetrics())
+		}
+
+		rpcHandler = rpc.New(chain, synchronizer, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
+		services = append(services, synchronizer)
+	}
+
+	services = append(services, rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan))
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
@@ -179,9 +203,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
 		jsonrpcServer.WithListener(rpcMetrics)
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
-		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
-		client.WithListener(makeFeederMetrics())
-		gatewayClient.WithListener(makeGatewayMetrics())
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {

@@ -65,6 +65,7 @@ const (
 	dbCacheSizeF         = "db-cache-size"
 	dbMaxHandlesF        = "db-max-handles"
 	gwAPIKeyF            = "gw-api-key" //nolint: gosec
+	seqEnF               = "seq-enable"
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -89,6 +90,7 @@ const (
 	defaultCacheSizeMb         = 8
 	defaultMaxHandles          = 1024
 	defaultGwAPIKey            = ""
+	defaultSeqEn               = false
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -123,6 +125,7 @@ const (
 	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	seqEnUsage               = "Enables sequencer mode of operation"
 )
 
 var Version string
@@ -253,6 +256,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
 
 	return junoCmd
 }
