@@ -3,14 +3,17 @@ package builder
 import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 )
 
 type Builder struct {
 	ownAddress felt.Felt
+	privKey    *ecdsa.PrivateKey
 
 	bc *blockchain.Blockchain
 	vm vm.VM
@@ -18,13 +21,33 @@ type Builder struct {
 	log utils.Logger
 }
 
-func New(ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
+func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
+		privKey:    privKey,
 
 		bc: bc,
 		vm: builderVM,
 	}
+}
+
+// Sign returns the builder's signature over data.
+func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error) {
+	data := crypto.PoseidonArray(blockHash, stateDiffCommitment).Bytes()
+	signatureBytes, err := b.privKey.Sign(data[:], nil)
+	if err != nil {
+		return nil, err
+	}
+	sig := make([]*felt.Felt, 0)
+	for start := 0; start < len(signatureBytes); {
+		step := len(signatureBytes[start:])
+		if step > felt.Bytes {
+			step = felt.Bytes
+		}
+		sig = append(sig, new(felt.Felt).SetBytes(signatureBytes[start:step]))
+		start += step
+	}
+	return sig, nil
 }
 
 // ValidateAgainstPendingState validates a user transaction against the pending state
