@@ -2807,8 +2807,8 @@ func TestAddTransaction(t *testing.T) {
 			mockGateway := mocks.NewMockGateway(mockCtrl)
 			mockGateway.
 				EXPECT().
-				AddTransaction(gomock.Any()).
-				Do(func(txnJSON json.RawMessage) error {
+				AddTransaction(gomock.Any(), gomock.Any()).
+				Do(func(_ context.Context, txnJSON json.RawMessage) error {
 					assert.JSONEq(t, test.expectedJSON, string(txnJSON), string(txnJSON))
 					gatewayTx := starknet.Transaction{}
 					// Ensure the Starknet transaction can be unmarshaled properly.
@@ -2823,7 +2823,7 @@ func TestAddTransaction(t *testing.T) {
 				Times(1)
 
 			handler := rpc.New(nil, nil, network, mockGateway, nil, nil, "", utils.NewNopZapLogger())
-			got, rpcErr := handler.AddTransaction(test.txn)
+			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
 			require.Nil(t, rpcErr)
 			require.Equal(t, &rpc.AddTxResponse{
 				TransactionHash: utils.HexToFelt(t, "0x1"),

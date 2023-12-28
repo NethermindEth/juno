@@ -31,7 +31,7 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
-	AddTransaction(json.RawMessage) (json.RawMessage, error)
+	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
 }
 
 var (
@@ -1100,7 +1100,7 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 }
 
 // AddTransaction relays a transaction to the gateway.
-func (h *Handler) AddTransaction(tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
@@ -1139,7 +1139,7 @@ func (h *Handler) AddTransaction(tx BroadcastedTransaction) (*AddTxResponse, *js
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
 	}
-	respJSON, err := h.gatewayClient.AddTransaction(txJSON)
+	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
 	if err != nil {
 		return nil, makeJSONErrorFromGatewayError(err)
 	}
