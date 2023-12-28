@@ -2,6 +2,7 @@ package builder_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -26,7 +28,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, utils.Integration, utils.NewNopZapLogger())
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	testBuilder := builder.New(seqAddr, bc, mockVM, utils.NewNopZapLogger())
+	testBuilder := builder.New(nil, seqAddr, bc, mockVM, utils.NewNopZapLogger())
 
 	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
@@ -60,4 +62,19 @@ func TestValidateAgainstPendingState(t *testing.T) {
 		gomock.Any(), utils.Integration, []*felt.Felt{}, false, false,
 		false, b.GasPrice, b.GasPriceSTRK, false).Return(nil, nil, errors.New("oops"))
 	assert.EqualError(t, testBuilder.ValidateAgainstPendingState(&userTxn), "oops")
+}
+
+func TestSign(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	mockCtrl := gomock.NewController(t)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	bc := blockchain.New(testDB, utils.Integration, utils.NewNopZapLogger())
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	privKey, err := ecdsa.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, utils.NewNopZapLogger())
+
+	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
+	require.NoError(t, err)
+	// We don't check the signature since the private key generation is not deterministic.
 }
