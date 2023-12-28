@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"context"
 	"errors"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -8,20 +9,28 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
+)
+
+var (
+	_ service.Service = (*Builder)(nil)
+	_ sync.Reader     = (*Builder)(nil)
 )
 
 type Builder struct {
 	ownAddress felt.Felt
 	privKey    *ecdsa.PrivateKey
 
-	bc *blockchain.Blockchain
-	vm vm.VM
-
-	log utils.Logger
+	bc       *blockchain.Blockchain
+	vm       vm.VM
+	newHeads *feed.Feed[*core.Header]
+	log      utils.Logger
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
@@ -29,28 +38,15 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		ownAddress: *ownAddr,
 		privKey:    privKey,
 
-		bc: bc,
-		vm: builderVM,
+		bc:       bc,
+		vm:       builderVM,
+		newHeads: feed.New[*core.Header](),
 	}
 }
 
-// Sign returns the builder's signature over data.
-func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error) {
-	data := crypto.PoseidonArray(blockHash, stateDiffCommitment).Bytes()
-	signatureBytes, err := b.privKey.Sign(data[:], nil)
-	if err != nil {
-		return nil, err
-	}
-	sig := make([]*felt.Felt, 0)
-	for start := 0; start < len(signatureBytes); {
-		step := len(signatureBytes[start:])
-		if step > felt.Bytes {
-			step = felt.Bytes
-		}
-		sig = append(sig, new(felt.Felt).SetBytes(signatureBytes[start:step]))
-		start += step
-	}
-	return sig, nil
+func (b *Builder) Run(ctx context.Context) error {
+	<-ctx.Done()
+	return nil
 }
 
 // ValidateAgainstPendingState validates a user transaction against the pending state
@@ -88,4 +84,37 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 		pendingBlock.Block.Timestamp, &b.ownAddress, state, b.bc.Network(), []*felt.Felt{},
 		false, false, false, pendingBlock.Block.GasPrice, pendingBlock.Block.GasPriceSTRK, false)
 	return err
+}
+
+func (b *Builder) StartingBlockNumber() (uint64, error) {
+	return 0, nil
+}
+
+func (b *Builder) HighestBlockHeader() *core.Header {
+	return nil
+}
+
+func (b *Builder) SubscribeNewHeads() sync.HeaderSubscription {
+	return sync.HeaderSubscription{
+		Subscription: b.newHeads.Subscribe(),
+	}
+}
+
+// Sign returns the builder's signature over data.
+func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error) {
+	data := crypto.PoseidonArray(blockHash, stateDiffCommitment).Bytes()
+	signatureBytes, err := b.privKey.Sign(data[:], nil)
+	if err != nil {
+		return nil, err
+	}
+	sig := make([]*felt.Felt, 0)
+	for start := 0; start < len(signatureBytes); {
+		step := len(signatureBytes[start:])
+		if step > felt.Bytes {
+			step = felt.Bytes
+		}
+		sig = append(sig, new(felt.Felt).SetBytes(signatureBytes[start:step]))
+		start += step
+	}
+	return sig, nil
 }
