@@ -78,3 +78,28 @@ func TestSign(t *testing.T) {
 	require.NoError(t, err)
 	// We don't check the signature since the private key generation is not deterministic.
 }
+
+func TestFinalise(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	mockCtrl := gomock.NewController(t)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+
+	t.Run("empty blocks", func(t *testing.T) {
+		bc := blockchain.New(testDB, utils.Integration, utils.NewNopZapLogger())
+		privKey, err := ecdsa.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		testBuilder := builder.New(privKey, seqAddr, bc, mockVM, utils.NewNopZapLogger())
+
+		require.NoError(t, testBuilder.InitPendingBlock())
+		for i := 0; i < 20; i++ {
+			require.NoError(t, testBuilder.Finalise())
+		}
+
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+		assert.Equal(t, uint64(19), head.Number)
+		assert.NotEqual(t, &felt.Zero, head.Hash)
+		assert.NotEqual(t, &felt.Zero, head.GlobalStateRoot)
+	})
+}

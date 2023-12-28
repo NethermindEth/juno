@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -31,6 +32,8 @@ type Builder struct {
 	vm       vm.VM
 	newHeads *feed.Feed[*core.Header]
 	log      utils.Logger
+
+	PendingBlock *blockchain.Pending
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
@@ -41,12 +44,81 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		bc:       bc,
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
+		log:      log,
 	}
 }
 
 func (b *Builder) Run(ctx context.Context) error {
-	<-ctx.Done()
+	if err := b.InitPendingBlock(); err != nil {
+		return err
+	}
+
+	const blockInterval = 5 * time.Second
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(blockInterval):
+			if err := b.Finalise(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// InitPendingBlock initialises a new pending block
+func (b *Builder) InitPendingBlock() error {
+	nextHeight := uint64(0)
+	parentHash := felt.Zero
+	parentState := felt.Zero
+	if head, err := b.bc.HeadsHeader(); err == nil {
+		nextHeight = head.Number + 1
+		parentHash = *head.Hash
+		// todo: this is not entirely correct, should consider genesis state as well
+		parentState = *head.GlobalStateRoot
+	}
+
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingBlock := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &parentHash,
+			SequencerAddress: &b.ownAddress,
+			Timestamp:        uint64(time.Now().Unix()), // todo: genesis timestamp should be configurable
+			ProtocolVersion:  blockchain.SupportedStarknetVersion.Original(),
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         new(felt.Felt).SetUint64(1), // todo
+			GasPriceSTRK:     new(felt.Felt).SetUint64(2), // todo
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff, err := blockchain.MakeStateDiffForEmptyBlock(b.bc, nextHeight)
+	if err != nil {
+		return err
+	}
+
+	b.PendingBlock = &blockchain.Pending{
+		Block: pendingBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   &parentState,
+			StateDiff: stateDiff,
+		},
+		NewClasses: make(map[felt.Felt]core.Class, 0),
+	}
 	return nil
+}
+
+// Finalise the pending block and initialise the next one
+func (b *Builder) Finalise() error {
+	var err error
+	if err = b.bc.Finalise(b.PendingBlock, b.Sign); err != nil {
+		return err
+	}
+	b.log.Infow("Finalised block", "number", b.PendingBlock.Block.Number, "hash",
+		b.PendingBlock.Block.Hash.ShortString(), "state", b.PendingBlock.Block.GlobalStateRoot.ShortString())
+
+	return b.InitPendingBlock()
 }
 
 // ValidateAgainstPendingState validates a user transaction against the pending state
