@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/feeder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"

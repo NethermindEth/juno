@@ -208,7 +208,7 @@ func newReadTestServer(t *testing.T, network utils.Network) *httptest.Server {
 			return
 		}
 
-		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
+		path := filepath.Join(base, "feeder", "testdata", network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
 			handleNotFound(dir, queryArg, w)

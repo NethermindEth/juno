@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/feeder"
 	"github.com/NethermindEth/juno/node"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
