@@ -1,9 +1,11 @@
 package feeder
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +28,8 @@ var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 type Backoff func(wait time.Duration) time.Duration
 
 type Client struct {
-	url        string
+	readURL    string
+	writeURL   string
 	client     *http.Client
 	backoff    Backoff
 	maxRetries int
@@ -93,12 +96,14 @@ func NopBackoff(d time.Duration) time.Duration {
 
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T, network utils.Network) *Client {
-	srv := newTestServer(t, network)
-	t.Cleanup(srv.Close)
+	srvRead := newReadTestServer(t, network)
+	t.Cleanup(srvRead.Close)
+	srvWrite := newWriteTestServer(t)
+	t.Cleanup(srvWrite.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	apiKey := "API_KEY"
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
+	c := NewClient(srvRead.URL, srvWrite.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -117,7 +122,37 @@ func NewTestClient(t *testing.T, network utils.Network) *Client {
 	return c
 }
 
-func newTestServer(t *testing.T, network utils.Network) *httptest.Server {
+func newWriteTestServer(t *testing.T) *httptest.Server {
+	// As this is a test sever we mimic the response for one good and one bad request.
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
+		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
+
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error())) //nolint:errcheck
+			return
+		}
+
+		// empty request: "{}"
+		emptyReqLen := 4
+		if string(b) == "null" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		} else if len(b) <= emptyReqLen {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"code": "Malformed Request", "message": "empty request"}`)) //nolint:errcheck
+			return
+		}
+
+		hash := new(felt.Felt).SetBytes([]byte("random"))
+		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}", hash.String(), hash.String())
+		w.Write([]byte(resp)) //nolint:errcheck
+	}))
+}
+
+func newReadTestServer(t *testing.T, network utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -194,10 +229,13 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	}
 }
 
-func NewClient(clientURL string) *Client {
+func NewClient(readURL, writeURL string) *Client {
 	return &Client{
-		url:        clientURL,
-		client:     http.DefaultClient,
+		readURL:  strings.TrimSuffix(readURL, "/") + "/",
+		writeURL: strings.TrimSuffix(writeURL, "/") + "/",
+		client: &http.Client{
+			Timeout: time.Minute,
+		},
 		backoff:    ExponentialBackoff,
 		maxRetries: 10, // ~40 secs with default backoff and maxWait (block time on mainnet is 20 seconds on average)
 		maxWait:    4 * time.Second,
@@ -209,7 +247,7 @@ func NewClient(clientURL string) *Client {
 
 // buildQueryString builds the query url with encoded parameters
 func (c *Client) buildQueryString(endpoint string, args map[string]string) string {
-	base, err := url.Parse(c.url)
+	base, err := url.Parse(c.readURL)
 	if err != nil {
 		panic("Malformed feeder base URL")
 	}
@@ -224,6 +262,8 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 
 	return base.String()
 }
+
+// GET methods.
 
 // get performs a "GET" http request with the given URL and returns the response body
 func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
@@ -445,4 +485,81 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 		return nil, err
 	}
 	return traces, nil
+}
+
+// POST methods.
+
+type ErrorCode string
+
+type Error struct {
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message"`
+}
+
+func (e Error) Error() string {
+	return e.Message
+}
+
+var (
+	InvalidContractClass            ErrorCode = "StarknetErrorCode.INVALID_CONTRACT_CLASS"
+	UndeclaredClass                 ErrorCode = "StarknetErrorCode.UNDECLARED_CLASS"
+	ClassAlreadyDeclared            ErrorCode = "StarknetErrorCode.CLASS_ALREADY_DECLARED"
+	InsufficientMaxFee              ErrorCode = "StarknetErrorCode.INSUFFICIENT_MAX_FEE"
+	InsufficientAccountBalance      ErrorCode = "StarknetErrorCode.INSUFFICIENT_ACCOUNT_BALANCE"
+	ValidateFailure                 ErrorCode = "StarknetErrorCode.VALIDATE_FAILURE"
+	ContractBytecodeSizeTooLarge    ErrorCode = "StarknetErrorCode.CONTRACT_BYTECODE_SIZE_TOO_LARGE"
+	DuplicatedTransaction           ErrorCode = "StarknetErrorCode.DUPLICATED_TRANSACTION"
+	InvalidTransactionNonce         ErrorCode = "StarknetErrorCode.INVALID_TRANSACTION_NONCE"
+	CompilationFailed               ErrorCode = "StarknetErrorCode.COMPILATION_FAILED"
+	InvalidCompiledClassHash        ErrorCode = "StarknetErrorCode.INVALID_COMPILED_CLASS_HASH"
+	ContractClassObjectSizeTooLarge ErrorCode = "StarknetErrorCode.CONTRACT_CLASS_OBJECT_SIZE_TOO_LARGE"
+	InvalidTransactionVersion       ErrorCode = "StarknetErrorCode.INVALID_TRANSACTION_VERSION"
+	InvalidContractClassVersion     ErrorCode = "StarknetErrorCode.INVALID_CONTRACT_CLASS_VERSION"
+)
+
+// post performs additional utility function over doPost method
+func (c *Client) post(ctx context.Context, queryURL string, data any) ([]byte, error) {
+	body, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", queryURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
+	}
+	if c.apiKey != "" {
+		req.Header.Set("X-Throttling-Bypass", c.apiKey)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var gatewayError Error
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr == nil && len(body) > 0 {
+			if err := json.Unmarshal(body, &gatewayError); err == nil {
+				if len(gatewayError.Code) != 0 {
+					return nil, &gatewayError
+				}
+			}
+			return nil, errors.New(string(body))
+		}
+		return nil, errors.New(resp.Status)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+func (c *Client) AddTransaction(ctx context.Context, txn json.RawMessage) (json.RawMessage, error) {
+	return c.post(ctx, c.writeURL+"add_transaction", txn)
 }

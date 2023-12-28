@@ -15,7 +15,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -1161,37 +1160,37 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
-	gatewayErr, ok := err.(*gateway.Error)
+	gatewayErr, ok := err.(*feeder.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
 	switch gatewayErr.Code {
-	case gateway.InvalidContractClass:
+	case feeder.InvalidContractClass:
 		return ErrInvalidContractClass
-	case gateway.UndeclaredClass:
+	case feeder.UndeclaredClass:
 		return ErrClassHashNotFound
-	case gateway.ClassAlreadyDeclared:
+	case feeder.ClassAlreadyDeclared:
 		return ErrClassAlreadyDeclared
-	case gateway.InsufficientMaxFee:
+	case feeder.InsufficientMaxFee:
 		return ErrInsufficientMaxFee
-	case gateway.InsufficientAccountBalance:
+	case feeder.InsufficientAccountBalance:
 		return ErrInsufficientAccountBalance
-	case gateway.ValidateFailure:
+	case feeder.ValidateFailure:
 		return ErrValidationFailure.CloneWithData(gatewayErr.Message)
-	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
+	case feeder.ContractBytecodeSizeTooLarge, feeder.ContractClassObjectSizeTooLarge:
 		return ErrContractClassSizeTooLarge
-	case gateway.DuplicatedTransaction:
+	case feeder.DuplicatedTransaction:
 		return ErrDuplicateTx
-	case gateway.InvalidTransactionNonce:
+	case feeder.InvalidTransactionNonce:
 		return ErrInvalidTransactionNonce
-	case gateway.CompilationFailed:
+	case feeder.CompilationFailed:
 		return ErrCompilationFailed
-	case gateway.InvalidCompiledClassHash:
+	case feeder.InvalidCompiledClassHash:
 		return ErrCompiledClassHashMismatch
-	case gateway.InvalidTransactionVersion:
+	case feeder.InvalidTransactionVersion:
 		return ErrUnsupportedTxVersion
-	case gateway.InvalidContractClassVersion:
+	case feeder.InvalidContractClassVersion:
 		return ErrUnsupportedContractClassVersion
 	default:
 		return ErrUnexpectedError.CloneWithData(gatewayErr.Message)

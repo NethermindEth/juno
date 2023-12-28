@@ -2,6 +2,7 @@ package feeder_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -370,7 +371,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 		}
 	}()
 	baseURL := "https\t://mock_feeder.io"
-	client := feeder.NewClient(baseURL).WithUserAgent(ua)
+	client := feeder.NewClient(baseURL, baseURL).WithUserAgent(ua)
 	_, _ = client.Block(context.Background(), strconv.Itoa(0))
 }
 
@@ -489,7 +490,7 @@ func TestHttpError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
-	client := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
+	client := feeder.NewClient(srv.URL, srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
 
 	t.Run("HTTP err in GetBlock", func(t *testing.T) {
 		_, err := client.Block(context.Background(), strconv.Itoa(0))
@@ -525,7 +526,7 @@ func TestBackoffFailure(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	c := feeder.NewClient(srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
+	c := feeder.NewClient(srv.URL, srv.URL).WithBackoff(feeder.NopBackoff).WithMaxRetries(maxRetries).WithUserAgent(ua)
 
 	_, err := c.Block(context.Background(), strconv.Itoa(0))
 	assert.EqualError(t, err, "500 Internal Server Error")
@@ -643,4 +644,43 @@ func TestEventListener(t *testing.T) {
 	_, err := client.Block(context.Background(), "0")
 	require.NoError(t, err)
 	require.True(t, isCalled)
+}
+
+func TestAddInvokeTx(t *testing.T) {
+	client := feeder.NewTestClient(t, utils.Mainnet)
+
+	t.Run("Correct request", func(t *testing.T) {
+		invokeTx := "{\"max_fee\":\"0x1\",\"version\":\"0x1\",\"signature\":[],\"nonce\":\"0x1\",\"type\":\"INVOKE\",\"sender_address\":\"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb\",\"calldata\":[]}"
+
+		invokeTxByte, err := json.Marshal(invokeTx)
+		require.NoError(t, err)
+
+		_, err = client.AddTransaction(context.Background(), invokeTxByte)
+
+		// Since this method is just a proxy for the gateway we don't care what the actual response is,
+		// we just need to check that no error is returned for a well-formed request.
+		assert.NoError(t, err)
+	})
+
+	t.Run("Incorrect empty request", func(t *testing.T) {
+		invokeTx := "{}"
+		invokeTxByte, err := json.Marshal(invokeTx)
+		require.NoError(t, err)
+		resp, err := client.AddTransaction(context.Background(), invokeTxByte)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+
+		gatewayErr, ok := err.(*feeder.Error)
+		require.True(t, ok)
+		assert.Equal(t, feeder.ErrorCode("Malformed Request"), gatewayErr.Code)
+		assert.Equal(t, "empty request", gatewayErr.Message)
+	})
+
+	t.Run("empty req", func(t *testing.T) {
+		resp, err := client.AddTransaction(context.Background(), nil)
+
+		require.EqualError(t, err, "500 Internal Server Error")
+		assert.Nil(t, resp)
+	})
 }
