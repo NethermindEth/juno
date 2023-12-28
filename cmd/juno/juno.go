@@ -82,6 +82,7 @@ const (
 	cnUnverifiableRangeF   = "cn-unverifiable-range"
 	callMaxStepsF          = "rpc-call-max-steps"
 	corsEnableF            = "rpc-cors-enable"
+	seqEnF                 = "seq-enable"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -117,6 +118,7 @@ const (
 	defaultCallMaxSteps             = 4_000_000
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
+	defaultSeqEn                    = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -165,6 +167,7 @@ const (
 	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
 	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests"
 	corsEnableUsage      = "Enable CORS on RPC endpoints"
+	seqEnUsage           = "Enables sequencer mode of operation"
 )
 
 var Version string
@@ -346,6 +349,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.AddCommand(GenP2PKeyPair())
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
 
 	return junoCmd
 }
