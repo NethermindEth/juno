@@ -829,14 +829,21 @@ func TestFinalize(t *testing.T) {
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
 
-	require.NoError(t, chain.Finalise(pendingGenesis))
+	sigs := [][]*felt.Felt{{new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(2)}}
+	sign := func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+		return sigs[0], nil
+	}
+
+	require.NoError(t, chain.Finalise(pendingGenesis, sign))
+	require.Equal(t, pendingGenesis.Block.Signatures, sigs)
 	h, err := chain.Head()
 	require.NoError(t, err)
 	require.Equal(t, pendingGenesis.Block, h)
 
 	pending, err := chain.Pending()
 	require.NoError(t, err)
-	require.NoError(t, chain.Finalise(&pending))
+	require.NoError(t, chain.Finalise(&pending, sign))
+	require.Equal(t, pendingGenesis.Block.Signatures, sigs)
 	h, err = chain.Head()
 	require.NoError(t, err)
 	require.Equal(t, pending.Block, h)

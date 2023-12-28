@@ -1100,9 +1100,11 @@ func (b *Blockchain) verifyStateUpdateRoot(s *core.State, root *felt.Felt) error
 	return nil
 }
 
+type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
+
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the
 // blockchain
-func (b *Blockchain) Finalise(pending *Pending) error {
+func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		var err error
 
@@ -1132,6 +1134,13 @@ func (b *Blockchain) Finalise(pending *Pending) error {
 			return err
 		}
 		pending.StateUpdate.BlockHash = pending.Block.Hash
+
+		var sig []*felt.Felt
+		sig, err = sign(pending.Block.Hash, pending.StateUpdate.StateDiff.Commitment())
+		if err != nil {
+			return err
+		}
+		pending.Block.Signatures = [][]*felt.Felt{sig}
 
 		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {
 			return err
