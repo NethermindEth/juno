@@ -38,7 +38,6 @@ var (
 type Client struct {
 	url       string
 	client    *http.Client
-	timeout   time.Duration
 	log       utils.SimpleLogger
 	userAgent string
 	apiKey    string
@@ -97,22 +96,20 @@ func newTestServer(t *testing.T) *httptest.Server {
 func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
 	return &Client{
-		url:     gatewayURL,
-		timeout: time.Minute,
-		client:  http.DefaultClient,
-		log:     log,
+		url: gatewayURL,
+		client: &http.Client{
+			Timeout: time.Minute,
+		},
+		log: log,
 	}
 }
 
-func (c *Client) AddTransaction(txn json.RawMessage) (json.RawMessage, error) {
-	return c.post(c.url+"/add_transaction", txn)
+func (c *Client) AddTransaction(ctx context.Context, txn json.RawMessage) (json.RawMessage, error) {
+	return c.post(ctx, c.url+"/add_transaction", txn)
 }
 
 // post performs additional utility function over doPost method
-func (c *Client) post(url string, data any) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
-
+func (c *Client) post(ctx context.Context, url string, data any) ([]byte, error) {
 	resp, err := c.doPost(ctx, url, data)
 	if err != nil {
 		return nil, err
