@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -239,6 +240,21 @@ func makeFeederMetrics() feeder.EventListener {
 	}, []string{"method", "status"})
 	prometheus.MustRegister(requestLatencies)
 	return &feeder.SelectiveListener{
+		OnResponseCb: func(urlPath string, status int, took time.Duration) {
+			statusString := strconv.FormatInt(int64(status), 10)
+			requestLatencies.WithLabelValues(urlPath, statusString).Observe(took.Seconds())
+		},
+	}
+}
+
+func makeGatewayMetrics() gateway.EventListener {
+	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "gateway",
+		Subsystem: "client",
+		Name:      "request_latency",
+	}, []string{"method", "status"})
+	prometheus.MustRegister(requestLatencies)
+	return &gateway.SelectiveListener{
 		OnResponseCb: func(urlPath string, status int, took time.Duration) {
 			statusString := strconv.FormatInt(int64(status), 10)
 			requestLatencies.WithLabelValues(urlPath, statusString).Observe(took.Seconds())
