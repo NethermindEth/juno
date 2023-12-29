@@ -32,12 +32,14 @@ type storageElem struct {
 type Pool struct {
 	db        db.DB
 	validator ValidatorFunc
+	txPushed  chan struct{}
 }
 
 func New(poolDB db.DB) *Pool {
 	return &Pool{
 		db:        poolDB,
 		validator: func(_ *BroadcastedTransaction) error { return nil },
+		txPushed:  make(chan struct{}, 1),
 	}
 }
 
@@ -55,7 +57,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		return err
 	}
 
-	return p.db.Update(func(txn db.Transaction) error {
+	if err := p.db.Update(func(txn db.Transaction) error {
 		tail, err := p.tailHash(txn)
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
@@ -95,7 +97,16 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 			return err
 		}
 		return p.updateLen(txn, pLen+1) // don't worry about overflows, highly unlikely
-	})
+	}); err != nil {
+		return err
+	}
+
+	select {
+	case p.txPushed <- struct{}{}:
+	default:
+	}
+
+	return nil
 }
 
 // Pop returns the transaction with the highest priority from the pool
@@ -156,6 +167,10 @@ func (p *Pool) Len() (uint64, error) {
 		l, err = p.len(txn)
 		return err
 	})
+}
+
+func (p *Pool) Wait() <-chan struct{} {
+	return p.txPushed
 }
 
 func (p *Pool) len(txn db.Transaction) (uint64, error) {
