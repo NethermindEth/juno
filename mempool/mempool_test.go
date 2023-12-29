@@ -85,3 +85,36 @@ func TestMempool(t *testing.T) {
 	})
 	require.EqualError(t, pool.Push(&mempool.BroadcastedTransaction{}), "some error")
 }
+
+func TestWait(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	pool := mempool.New(testDB)
+	blockchain.RegisterCoreTypesToEncoder()
+
+	select {
+	case <-pool.Wait():
+		require.Fail(t, "wait channel should not be signalled on empty mempool")
+	default:
+	}
+
+	// One transaction.
+	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
+		Transaction: &core.InvokeTransaction{
+			TransactionHash: new(felt.Felt),
+		},
+	}))
+	<-pool.Wait()
+
+	// Two transactions.
+	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
+		Transaction: &core.InvokeTransaction{
+			TransactionHash: new(felt.Felt),
+		},
+	}))
+	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
+		Transaction: &core.InvokeTransaction{
+			TransactionHash: new(felt.Felt),
+		},
+	}))
+	<-pool.Wait()
+}
