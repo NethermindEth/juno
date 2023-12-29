@@ -43,6 +43,9 @@ func TestGenesisStateDiff(t *testing.T) {
 		simpleStoreClassHash, err := new(felt.Felt).SetString("0x73b1d55a550a6b9073933817a40c22c4099aa5932694a85322dd5cefedbb467")
 		require.NoError(t, err)
 
+		simpleAccountClassHash, err := new(felt.Felt).SetString("0x04c6d6cf894f8bc96bb9c525e6853e5483177841f7388f74a46cfda6f028c755")
+		require.NoError(t, err)
+
 		simpleStoreAddress, err := new(felt.Felt).SetString("0xdeadbeef")
 		require.NoError(t, err)
 
@@ -53,6 +56,7 @@ func TestGenesisStateDiff(t *testing.T) {
 			ChainID: network.String(),
 			Classes: []string{
 				"./testdata/simpleStore.json",
+				"./testdata/simpleAccount.json",
 			},
 			Contracts: map[string]genesis.GenesisContractData{
 				simpleStoreAddress.String(): {
@@ -78,8 +82,10 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.Empty(t, stateDiff.Nonces)
 		require.Equal(t, stateDiff.DeployedContracts[*simpleStoreAddress], simpleStoreClassHash)
 		require.Equal(t, stateDiff.DeclaredV0Classes, []*felt.Felt{simpleStoreClassHash})
-		require.Empty(t, stateDiff.DeclaredV1Classes)
+		require.Equal(t, 1, len(stateDiff.DeclaredV1Classes))
+		require.NotNil(t, stateDiff.DeclaredV1Classes[*simpleAccountClassHash])
 		require.Empty(t, stateDiff.ReplacedClasses)
 		require.NotNil(t, newClasses[*simpleStoreClassHash])
+		require.NotNil(t, newClasses[*simpleAccountClassHash])
 	})
 }

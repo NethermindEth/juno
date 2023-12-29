@@ -2,7 +2,6 @@ package genesis
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -57,14 +56,15 @@ func GenesisStateDiff(
 	genesisState := blockchain.NewPendingState(core.EmptyStateDiff(), make(map[felt.Felt]core.Class), core.NewState(db.NewMemTransaction()))
 
 	for classHash, class := range newClasses {
-		switch class.Version() {
-		case 0:
-			// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
-			if err = genesisState.SetContractClass(&classHash, class); err != nil {
-				return nil, nil, fmt.Errorf("declare v0 class: %v", err)
+		// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
+		if err = genesisState.SetContractClass(&classHash, class); err != nil {
+			return nil, nil, fmt.Errorf("declare v0 class: %v", err)
+		}
+
+		if cairo1Class, isCairo1 := class.(*core.Cairo1Class); isCairo1 {
+			if err = genesisState.SetCompiledClassHash(&classHash, cairo1Class.Compiled.Hash()); err != nil {
+				return nil, nil, fmt.Errorf("set compiled class hash: %v", err)
 			}
-		default:
-			return nil, nil, errors.New("only cairo v0 contracts are supported for genesis state initialisation")
 		}
 	}
 
@@ -136,13 +136,19 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 			return nil, fmt.Errorf("read class file: %v", err)
 		}
 
-		var response *starknet.Cairo0Definition
+		var response *starknet.ClassDefinition
 		if err = json.Unmarshal(bytes, &response); err != nil {
 			return nil, fmt.Errorf("unmarshal class: %v", err)
 		}
 
-		coreClass, err := sn2core.AdaptCairo0Class(response)
-		if err != nil {
+		var coreClass core.Class
+		if response.V0 != nil {
+			if coreClass, err = sn2core.AdaptCairo0Class(response.V0); err != nil {
+				return nil, err
+			}
+		} else if compiledClass, cErr := starknet.Compile(response.V1); cErr != nil {
+			return nil, cErr
+		} else if coreClass, err = sn2core.AdaptCairo1Class(response.V1, compiledClass); err != nil {
 			return nil, err
 		}
 
