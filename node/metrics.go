@@ -84,11 +84,25 @@ func makeHTTPMetrics() jsonrpc.NewRequestListener {
 		Subsystem: "http",
 		Name:      "requests",
 	})
-	prometheus.MustRegister(reqCounter)
+	connGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "http",
+		Name:      "connections",
+	})
+	prometheus.MustRegister(
+		reqCounter,
+		connGauge,
+	)
 
 	return &jsonrpc.SelectiveListener{
 		OnNewRequestCb: func(method string) {
 			reqCounter.Inc()
+		},
+		OnNewConnectionCb: func() {
+			connGauge.Inc()
+		},
+		OnDisconnectCb: func() {
+			connGauge.Dec()
 		},
 	}
 }
@@ -99,11 +113,25 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 		Subsystem: "ws",
 		Name:      "requests",
 	})
-	prometheus.MustRegister(reqCounter)
+	connGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "rpc",
+		Subsystem: "ws",
+		Name:      "connections",
+	})
+	prometheus.MustRegister(
+		reqCounter,
+		connGauge,
+	)
 
 	return &jsonrpc.SelectiveListener{
 		OnNewRequestCb: func(method string) {
 			reqCounter.Inc()
+		},
+		OnNewConnectionCb: func() {
+			connGauge.Inc()
+		},
+		OnDisconnectCb: func() {
+			connGauge.Dec()
 		},
 	}
 }

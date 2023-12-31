@@ -1,6 +1,8 @@
 package jsonrpc_test
 
-import "time"
+import (
+	"time"
+)
 
 type CountingEventListener struct {
 	OnNewRequestLogs      []string
@@ -11,6 +13,21 @@ type CountingEventListener struct {
 	OnRequestFailedCalls []struct {
 		method string
 		data   any
+	}
+	OnConnectionCalls int
+}
+
+func NewCountingEventListener() *CountingEventListener {
+	return &CountingEventListener{
+		OnNewRequestLogs: []string{},
+		OnRequestHandledCalls: []struct {
+			method string
+			took   time.Duration
+		}{},
+		OnRequestFailedCalls: []struct {
+			method string
+			data   any
+		}{},
 	}
 }
 
@@ -36,4 +53,12 @@ func (l *CountingEventListener) OnRequestFailed(method string, data any) {
 		method: method,
 		data:   data,
 	})
+}
+
+func (l *CountingEventListener) OnNewConnection() {
+	l.OnConnectionCalls++
+}
+
+func (l *CountingEventListener) OnDisconnect() {
+	l.OnConnectionCalls--
 }

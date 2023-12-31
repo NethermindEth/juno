@@ -50,7 +50,17 @@ func (h *httpService) Run(ctx context.Context) error {
 	}
 }
 
-func makeHTTPService(host string, port uint16, handler http.Handler) *httpService {
+func makeHTTPService(host string, port uint16, handler http.Handler, listener jsonrpc.NewConnectionListener) *httpService {
+	onState := func(conn net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			listener.OnNewConnection()
+		} else if state == http.StateClosed {
+			listener.OnDisconnect()
+		}
+	}
+	if listener == nil {
+		onState = nil
+	}
 	portStr := strconv.FormatUint(uint64(port), 10)
 	return &httpService{
 		srv: &http.Server{
@@ -58,6 +68,7 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 			Handler: handler,
 			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
 			ReadTimeout: 30 * time.Second,
+			ConnState:   onState,
 		},
 	}
 }
@@ -88,7 +99,7 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 		}
 		mux.Handle(path, exactPathServer(path, httpHandler))
 	}
-	return makeHTTPService(host, port, cors.Default().Handler(mux))
+	return makeHTTPService(host, port, cors.Default().Handler(mux), listener)
 }
 
 func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
@@ -109,12 +120,12 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 		wsPrefixedPath := strings.TrimSuffix("/ws"+path, "/")
 		mux.Handle(wsPrefixedPath, exactPathServer(wsPrefixedPath, wsHandler))
 	}
-	return makeHTTPService(host, port, cors.Default().Handler(mux))
+	return makeHTTPService(host, port, cors.Default().Handler(mux), nil)
 }
 
 func makeMetrics(host string, port uint16) *httpService {
 	return makeHTTPService(host, port,
-		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
+		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}), nil)
 }
 
 type grpcService struct {
@@ -168,5 +179,5 @@ func makePPROF(host string, port uint16) *httpService {
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	return makeHTTPService(host, port, mux)
+	return makeHTTPService(host, port, mux, nil)
 }

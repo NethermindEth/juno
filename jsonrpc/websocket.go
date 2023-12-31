@@ -46,6 +46,9 @@ func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
 // ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
 // The connection's entire "lifetime" is spent in this function.
 func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ws.listener.OnNewConnection()
+	defer ws.listener.OnDisconnect()
+
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
 		ws.log.Errorw("Failed to upgrade connection", "err", err)
