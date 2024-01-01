@@ -901,7 +901,7 @@ func TestFinalize(t *testing.T) {
 
 func TestGenesis(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, utils.Mainnet, utils.NewNopZapLogger())
+	chain := blockchain.New(testDB, &utils.Mainnet)
 
 	_, err := chain.GenesisState()
 	require.ErrorIs(t, err, db.ErrKeyNotFound)

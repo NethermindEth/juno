@@ -24,6 +24,19 @@ type GenesisConfig struct {
 	FunctionCalls []FunctionCall                 `json:"function_calls"` // list of functionCalls to Call()
 }
 
+func Read(path string) (*GenesisConfig, error) {
+	file, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var config GenesisConfig
+	if err = json.Unmarshal(file, &config); err != nil {
+		return nil, err
+	}
+	return &config, err
+}
+
 type GenesisContractData struct {
 	ClassHash       felt.Felt   `json:"class_hash"`
 	ConstructorArgs []felt.Felt `json:"constructor_args"`

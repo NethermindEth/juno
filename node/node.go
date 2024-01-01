@@ -91,7 +91,8 @@ type Config struct {
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 
-	Sequencer bool `mapstructure:"seq-enable"`
+	Sequencer   bool   `mapstructure:"seq-enable"`
+	GenesisFile string `mapstructure:"genesis-file"`
 }
 
 type Node struct {
@@ -361,6 +362,13 @@ func (n *Node) Run(ctx context.Context) {
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.cfg.GenesisFile != "" {
+		if err = buildGenesis(n.cfg.GenesisFile, n.blockchain, vm.New(n.log)); err != nil {
+			n.log.Errorw("Error building genesis state", "err", err)
+			return
+		}
 	}
 
 	for _, s := range n.services {

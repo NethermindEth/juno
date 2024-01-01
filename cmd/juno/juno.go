@@ -83,6 +83,7 @@ const (
 	callMaxStepsF          = "rpc-call-max-steps"
 	corsEnableF            = "rpc-cors-enable"
 	seqEnF                 = "seq-enable"
+	genesisFileF           = "genesis-file"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -119,6 +120,7 @@ const (
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
 	defaultSeqEn                    = false
+	defaultGenesisFile              = ""
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -168,6 +170,7 @@ const (
 	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests"
 	corsEnableUsage      = "Enable CORS on RPC endpoints"
 	seqEnUsage           = "Enables sequencer mode of operation"
+	genesisFileUsage     = "Path to the genesis file"
 )
 
 var Version string
@@ -350,6 +353,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.AddCommand(GenP2PKeyPair())
 	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().String(genesisFileF, defaultGenesisFile, genesisFileUsage)
 
 	return junoCmd
 }

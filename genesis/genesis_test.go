@@ -16,11 +16,11 @@ import (
 )
 
 func TestGenesisStateDiff(t *testing.T) {
-	network := utils.Mainnet
-	client := feeder.NewTestClient(t, &network)
+	network := &utils.Mainnet
+	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(pebble.NewMemTest(t), network)
 
 	// Need to store pending block create NewPendingState
 	block, err := gw.BlockByNumber(context.Background(), 0)
@@ -35,7 +35,7 @@ func TestGenesisStateDiff(t *testing.T) {
 
 	t.Run("empty genesis config", func(t *testing.T) {
 		genesisConfig := genesis.GenesisConfig{}
-		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), &network)
+		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
 	})
 
@@ -73,7 +73,7 @@ func TestGenesisStateDiff(t *testing.T) {
 			},
 		}
 
-		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), &network)
+		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
 		balanceKey, err := new(felt.Felt).SetString("0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091")
 		require.NoError(t, err)
