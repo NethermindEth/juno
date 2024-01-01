@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -84,6 +85,7 @@ type Handler struct {
 	syncReader    sync.Reader
 	gatewayClient Gateway
 	feederClient  *feeder.Client
+	memPool       *mempool.Pool
 	vm            vm.VM
 	log           utils.Logger
 	version       string
@@ -144,6 +146,11 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 
 func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 	h.gatewayClient = gatewayClient
+	return h
+}
+
+func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+	h.memPool = memPool
 	return h
 }
 
@@ -1105,6 +1112,15 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 
 // AddTransaction relays a transaction to the gateway.
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	if h.memPool != nil {
+		return h.addToMempool(&tx)
+	} else if h.gatewayClient != nil {
+		return h.pushToGateway(ctx, &tx)
+	}
+	return nil, ErrInternal.CloneWithData("no gateway client/mempool configured")
+}
+
+func (h *Handler) pushToGateway(ctx context.Context, tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
@@ -1144,10 +1160,6 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		return nil, ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
 	}
 
-	if h.gatewayClient == nil {
-		return nil, ErrInternal.CloneWithData("no gateway client configured")
-	}
-
 	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
 	if err != nil {
 		return nil, makeJSONErrorFromGatewayError(err)
@@ -1167,6 +1179,31 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil
+}
+
+func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
+	userTxn, userClass, _, err := adaptBroadcastedTransaction(tx, h.bcReader.Network())
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err.Error())
+	}
+
+	if err = h.memPool.Push(&mempool.BroadcastedTransaction{
+		Transaction:   userTxn,
+		DeclaredClass: userClass,
+	}); err != nil {
+		return nil, ErrValidationFailure.CloneWithData(err.Error())
+	}
+
+	res := &AddTxResponse{TransactionHash: userTxn.Hash()}
+	if tx.Type == TxnDeployAccount {
+		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+	} else if tx.Type == TxnDeclare {
+		res.ClassHash, err = userClass.Hash()
+		if err != nil {
+			return nil, ErrInternal.CloneWithData(err.Error())
+		}
+	}
+	return res, nil
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
