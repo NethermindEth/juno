@@ -373,8 +373,9 @@ func TestState(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	t.Run("head with no blocks", func(t *testing.T) {
-		_, _, err := chain.HeadState()
-		require.Error(t, err)
+		_, closer, err := chain.HeadState()
+		require.NoError(t, err)
+		require.NoError(t, closer())
 	})
 
 	var existingBlockHash *felt.Felt
@@ -847,4 +848,44 @@ func TestFinalize(t *testing.T) {
 	h, err = chain.Head()
 	require.NoError(t, err)
 	require.Equal(t, pending.Block, h)
+}
+
+func TestGenesis(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(testDB, utils.Mainnet, utils.NewNopZapLogger())
+
+	_, err := chain.GenesisState()
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
+
+	genesisDiff := core.StateDiff{
+		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			*utils.HexToFelt(t, "0x1"): {
+				*utils.HexToFelt(t, "0x0"): utils.HexToFelt(t, "0x1337"),
+			},
+		},
+	}
+	err = chain.InitGenesisState(&genesisDiff, make(map[felt.Felt]core.Class))
+	require.NoError(t, err)
+
+	err = chain.InitGenesisState(&genesisDiff, make(map[felt.Felt]core.Class))
+	require.EqualError(t, err, "genesis state already initiliazed")
+
+	state, closer, err := chain.HeadState()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, closer())
+	})
+
+	val, err := state.ContractStorage(utils.HexToFelt(t, "0x1"), utils.HexToFelt(t, "0x0"))
+	require.NoError(t, err)
+	require.Equal(t, utils.HexToFelt(t, "0x1337"), val)
+
+	genesisUpdate, err := chain.GenesisState()
+	require.NoError(t, err)
+	require.Equal(t, &core.StateUpdate{
+		BlockHash: &felt.Zero,
+		OldRoot:   &felt.Zero,
+		NewRoot:   utils.HexToFelt(t, "0x74d338d85a1e9354bdc6cf6902d93b2784ec0f3f06363e8f059ec53658ac39d"),
+		StateDiff: &genesisDiff,
+	}, genesisUpdate)
 }
