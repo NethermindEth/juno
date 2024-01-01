@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -78,6 +79,7 @@ type Handler struct {
 	syncReader    sync.Reader
 	gatewayClient Gateway
 	feederClient  *feeder.Client
+	memPool       *mempool.Pool
 	vm            vm.VM
 	log           utils.Logger
 
@@ -149,6 +151,11 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 
 func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 	h.gatewayClient = gatewayClient
+	return h
+}
+
+func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+	h.memPool = memPool
 	return h
 }
 
