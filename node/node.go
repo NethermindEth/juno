@@ -86,7 +86,8 @@ type Config struct {
 
 	GatewayAPIKey string `mapstructure:"gw-api-key"`
 
-	Sequencer bool `mapstructure:"seq-enable"`
+	Sequencer   bool   `mapstructure:"seq-enable"`
+	GenesisFile string `mapstructure:"genesis-file"`
 }
 
 type Node struct {
@@ -306,13 +307,20 @@ func (n *Node) Run(ctx context.Context) {
 	}
 	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
-	if err := migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
+	if err = migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.cfg.GenesisFile != "" {
+		if err = buildGenesis(n.cfg.GenesisFile, n.blockchain, vm.New(n.log)); err != nil {
+			n.log.Errorw("Error building genesis state", "err", err)
+			return
+		}
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
