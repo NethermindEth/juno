@@ -66,6 +66,7 @@ const (
 	dbMaxHandlesF        = "db-max-handles"
 	gwAPIKeyF            = "gw-api-key" //nolint: gosec
 	seqEnF               = "seq-enable"
+	genesisFileF         = "genesis-file"
 
 	defaultConfig              = ""
 	defaulHost                 = "localhost"
@@ -91,6 +92,7 @@ const (
 	defaultMaxHandles          = 1024
 	defaultGwAPIKey            = ""
 	defaultSeqEn               = false
+	defaultGenesisFile         = ""
 
 	configFlagUsage   = "The yaml configuration file."
 	logLevelFlagUsage = "Options: debug, info, warn, error."
@@ -126,6 +128,7 @@ const (
 	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 	seqEnUsage               = "Enables sequencer mode of operation"
+	genesisFileUsage         = "Path to the genesis file"
 )
 
 var Version string
@@ -262,6 +265,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().String(genesisFileF, defaultGenesisFile, genesisFileUsage)
 
 	return junoCmd
 }
