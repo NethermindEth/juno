@@ -19,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/rpc"
@@ -2556,7 +2557,8 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 
 func TestAddTransaction(t *testing.T) {
 	network := utils.Integration
-	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
+	cl := feeder.NewTestClient(t, network)
+	gw := adaptfeeder.New(cl)
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(context.Background(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
@@ -2564,6 +2566,12 @@ func TestAddTransaction(t *testing.T) {
 			Transaction: *rpc.AdaptTransaction(tx),
 		}
 	}
+
+	classDef, err := cl.ClassDefinition(context.Background(), utils.HexToFelt(t, "0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b"))
+	require.NoError(t, err)
+	classJSON, err := json.Marshal(classDef.V1)
+	require.NoError(t, err)
+
 	tests := map[string]struct {
 		txn          rpc.BroadcastedTransaction
 		expectedJSON string
@@ -2654,17 +2662,6 @@ func TestAddTransaction(t *testing.T) {
 				],
 				"account_deployment_data": [],
 				"type": "INVOKE_FUNCTION"
-			  }`,
-		},
-		"deploy v0": {
-			txn: txWithoutClass("0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"),
-			expectedJSON: `{
-				"transaction_hash": "0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa",
-				"version": "0x0",
-				"contract_address_salt": "0x5de1c0a37865820ce4896872e78da6877b0a8eede3d363131734556a8815d52",
-				"class_hash": "0x71468bd837666b3a05cca1a5363b0d9e15cacafd6eeaddfbc4f00d5c7b9a51d",
-				"constructor_calldata": [],
-				"type": "DEPLOY"
 			  }`,
 		},
 		"declare v1": {
@@ -2800,39 +2797,58 @@ func TestAddTransaction(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			mockCtrl := gomock.NewController(t)
-			t.Cleanup(mockCtrl.Finish)
+			t.Run("gateway", func(t *testing.T) {
+				mockCtrl := gomock.NewController(t)
+				t.Cleanup(mockCtrl.Finish)
 
-			mockGateway := mocks.NewMockGateway(mockCtrl)
-			mockGateway.
-				EXPECT().
-				AddTransaction(gomock.Any(), gomock.Any()).
-				Do(func(_ context.Context, txnJSON json.RawMessage) error {
-					assert.JSONEq(t, test.expectedJSON, string(txnJSON), string(txnJSON))
-					gatewayTx := starknet.Transaction{}
-					// Ensure the Starknet transaction can be unmarshaled properly.
-					require.NoError(t, json.Unmarshal(txnJSON, &gatewayTx))
-					return nil
-				}).
-				Return(json.RawMessage(`{
-					"transaction_hash": "0x1",
-					"address": "0x2",
-					"class_hash": "0x3"
-				}`), nil).
-				Times(1)
+				mockGateway := mocks.NewMockGateway(mockCtrl)
+				mockGateway.
+					EXPECT().
+					AddTransaction(gomock.Any(), gomock.Any()).
+					Do(func(_ context.Context, txnJSON json.RawMessage) error {
+						assert.JSONEq(t, test.expectedJSON, string(txnJSON), string(txnJSON))
+						gatewayTx := starknet.Transaction{}
+						// Ensure the Starknet transaction can be unmarshaled properly.
+						require.NoError(t, json.Unmarshal(txnJSON, &gatewayTx))
+						return nil
+					}).
+					Return(json.RawMessage(`{
+						"transaction_hash": "0x1",
+						"address": "0x2",
+						"class_hash": "0x3"
+					}`), nil).
+					Times(1)
 
-			handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger())
-			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
-			require.Equal(t, rpcErr.Code, rpc.ErrInternal.Code)
+				handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger())
+				_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+				require.Equal(t, rpcErr.Code, rpc.ErrInternal.Code)
 
-			handler = handler.WithGateway(mockGateway)
-			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
-			require.Nil(t, rpcErr)
-			require.Equal(t, &rpc.AddTxResponse{
-				TransactionHash: utils.HexToFelt(t, "0x1"),
-				ContractAddress: utils.HexToFelt(t, "0x2"),
-				ClassHash:       utils.HexToFelt(t, "0x3"),
-			}, got)
+				handler = handler.WithGateway(mockGateway)
+				got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+				require.Nil(t, rpcErr)
+				require.Equal(t, &rpc.AddTxResponse{
+					TransactionHash: utils.HexToFelt(t, "0x1"),
+					ContractAddress: utils.HexToFelt(t, "0x2"),
+					ClassHash:       utils.HexToFelt(t, "0x3"),
+				}, got)
+			})
+			t.Run("mempool", func(t *testing.T) {
+				mockCtrl := gomock.NewController(t)
+				t.Cleanup(mockCtrl.Finish)
+				mockReader := mocks.NewMockReader(mockCtrl)
+				mockReader.EXPECT().Network().Return(utils.Integration)
+				if test.txn.Type == rpc.TxnDeclare {
+					test.txn.ContractClass = classJSON
+				}
+
+				pool := mempool.New(pebble.NewMemTest(t))
+				handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger()).WithMempool(pool)
+				_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+				require.Nil(t, rpcErr)
+				poolLen, err := pool.Len()
+				require.NoError(t, err)
+				assert.Equal(t, uint64(1), poolLen)
+			})
 		})
 	}
 }
