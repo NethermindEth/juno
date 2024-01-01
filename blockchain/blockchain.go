@@ -771,11 +771,6 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	_, err = chainHeight(txn)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
 	return core.NewState(txn), txn.Discard, nil
 }
 
@@ -1147,5 +1142,53 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
 		}
 
 		return storeStateUpdate(txn, pending.Block.Number, pending.StateUpdate)
+	})
+}
+
+func (b *Blockchain) GenesisState() (*core.StateUpdate, error) {
+	var genesisStateUpdate *core.StateUpdate
+	return genesisStateUpdate, b.database.View(func(txn db.Transaction) error {
+		var err error
+		genesisStateUpdate, err = genesisState(txn)
+		return err
+	})
+}
+
+func genesisState(txn db.Transaction) (*core.StateUpdate, error) {
+	var genesisStateUpdate *core.StateUpdate
+	return genesisStateUpdate, txn.Get(db.GenesisState.Key(), func(b []byte) error {
+		genesisStateUpdate = new(core.StateUpdate)
+		return encoder.Unmarshal(b, genesisStateUpdate)
+	})
+}
+
+func (b *Blockchain) InitGenesisState(stateDiff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		_, err := genesisState(txn)
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return errors.New("genesis state already initiliazed")
+		}
+
+		state := core.NewState(txn)
+		if err = state.Update(0, stateDiff, classes); err != nil {
+			return err
+		}
+
+		genesisRoot, err := state.Root()
+		if err != nil {
+			return err
+		}
+
+		genesisStateUpdateBytes, err := encoder.Marshal(core.StateUpdate{
+			BlockHash: &felt.Zero,
+			OldRoot:   &felt.Zero,
+			NewRoot:   genesisRoot,
+			StateDiff: stateDiff,
+		})
+		if err != nil {
+			return err
+		}
+
+		return txn.Set(db.GenesisState.Key(), genesisStateUpdateBytes)
 	})
 }
