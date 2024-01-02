@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -193,8 +194,16 @@ func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
 }
 
 type ExecuteInvocation struct {
-	RevertReason        string `json:"revert_reason,omitempty"`
+	RevertReason        string `json:"revert_reason"`
 	*FunctionInvocation `json:",omitempty"`
+}
+
+func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+	if e.FunctionInvocation != nil {
+		return json.Marshal(e.FunctionInvocation)
+	}
+	type alias ExecuteInvocation
+	return json.Marshal(alias(e))
 }
 
 type OrderedEvent struct {

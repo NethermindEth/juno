@@ -1,6 +1,7 @@
 package vm_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/vm"
@@ -221,6 +222,48 @@ func TestTotalExecutionResources(t *testing.T) {
 				Poseidon:     resources.Poseidon * test.multiplier,
 				SegmentArena: resources.SegmentArena * test.multiplier,
 			}, test.trace.TotalExecutionResources())
+		})
+	}
+}
+
+func TestExecuteInvocation(t *testing.T) {
+	tests := map[string]struct {
+		inv      vm.ExecuteInvocation
+		expected string
+	}{
+		"success": {
+			inv: vm.ExecuteInvocation{
+				FunctionInvocation: &vm.FunctionInvocation{
+					CallType: "DEADBEEF",
+				},
+			},
+			expected: `{"contract_address":"0x0","calldata":null,"caller_address":"0x0","call_type":"DEADBEEF","result":null,"calls":null,"events":null,"messages":null}`,
+		},
+		"reverted with reason": {
+			inv: vm.ExecuteInvocation{
+				RevertReason: "Oops",
+			},
+			expected: `{"revert_reason":"Oops"}`,
+		},
+		"reverted without reason": {
+			inv:      vm.ExecuteInvocation{},
+			expected: `{"revert_reason":""}`,
+		},
+	}
+
+	for desc, test := range tests {
+		t.Run(desc, func(t *testing.T) {
+			t.Run("value", func(t *testing.T) {
+				j, err := json.Marshal(test.inv)
+				require.NoError(t, err)
+				require.JSONEq(t, test.expected, string(j), string(j))
+			})
+
+			t.Run("pointer", func(t *testing.T) {
+				j, err := json.Marshal(&test.inv)
+				require.NoError(t, err)
+				require.JSONEq(t, test.expected, string(j), string(j))
+			})
 		})
 	}
 }
