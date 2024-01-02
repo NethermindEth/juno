@@ -889,3 +889,48 @@ func TestGenesis(t *testing.T) {
 		StateDiff: &genesisDiff,
 	}, genesisUpdate)
 }
+
+func TestCannotRevertGenesisState(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	network := utils.Mainnet
+	chain := blockchain.New(testDB, network, utils.NewNopZapLogger())
+
+	// Initialise genesis state.
+	genesisDiff := core.StateDiff{
+		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			*utils.HexToFelt(t, "0x1"): {
+				*utils.HexToFelt(t, "0x0"): utils.HexToFelt(t, "0x1337"),
+			},
+		},
+	}
+	err := chain.InitGenesisState(&genesisDiff, make(map[felt.Felt]core.Class))
+	require.NoError(t, err)
+	var genesisRoot *felt.Felt
+	require.NoError(t, testDB.View(func(txn db.Transaction) error {
+		genesisRoot, err = core.NewState(txn).Root()
+		return err
+	}))
+
+	// Store first mainnet block.
+	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
+	block0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	su0.OldRoot = genesisRoot
+	su0.NewRoot = utils.HexToFelt(t, "0x78bb2f3d68f25219b1629d9c5d5fe9de26249fca369fbeb96d23fec5e806455")
+	require.NoError(t, chain.Store(block0, nil, su0, nil))
+
+	// Revert the block.
+	require.NoError(t, chain.RevertHead())
+
+	// Genesis state is intact.
+	state, closer, err := chain.HeadState()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, closer())
+	})
+	got, err := state.ContractStorage(new(felt.Felt).SetUint64(1), new(felt.Felt))
+	require.NoError(t, err)
+	require.Equal(t, got, utils.HexToFelt(t, "0x1337"))
+}
