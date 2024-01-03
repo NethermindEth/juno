@@ -120,8 +120,8 @@ func (p *PendingState) SetCompiledClassHash(classHash, compiledClassHash *felt.F
 	return nil
 }
 
-// StateDiff returns the pending state's internal state diff. The returned object will continue to be
+// StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
 // read and modified by the pending state.
-func (p *PendingState) StateDiff() *core.StateDiff {
-	return p.stateDiff
+func (p *PendingState) StateDiffAndClasses() (*core.StateDiff, map[felt.Felt]core.Class) {
+	return p.stateDiff, p.newClasses
 }

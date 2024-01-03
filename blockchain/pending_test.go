@@ -275,6 +275,9 @@ func TestSetCompiledClassHash(t *testing.T) {
 
 func TestStateDiff(t *testing.T) {
 	state := makeState(t)
-	got := state.StateDiff()
-	require.Equal(t, core.EmptyStateDiff(), got)
+	gotSD, gotC := state.StateDiffAndClasses()
+	require.Equal(t, core.EmptyStateDiff(), gotSD)
+	require.Equal(t, map[felt.Felt]core.Class{
+		*contractAddr: testClass,
+	}, gotC)
 }
