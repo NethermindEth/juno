@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -59,8 +58,6 @@ func GenesisStateDiff(
 	v vm.VM,
 	network utils.Network,
 ) (*core.StateDiff, map[felt.Felt]core.Class, error) {
-	blockTimestamp := uint64(time.Now().Unix())
-
 	newClasses, err := loadClasses(config.Classes)
 	if err != nil {
 		return nil, nil, err
@@ -98,7 +95,7 @@ func GenesisStateDiff(
 
 		// Call the constructors
 		if _, err = v.Call(addressFelt, &classHash, constructorSelector,
-			contractData.ConstructorArgs, 0, blockTimestamp, genesisState, network); err != nil {
+			contractData.ConstructorArgs, 0, 0, genesisState, network); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
@@ -111,7 +108,7 @@ func GenesisStateDiff(
 			return nil, nil, fmt.Errorf("get contract class hash: %v", err)
 		}
 		if _, err = v.Call(&contractAddress, classHash, &entryPointSelector,
-			fnCall.Calldata, 0, blockTimestamp, genesisState, network); err != nil {
+			fnCall.Calldata, 0, 0, genesisState, network); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
