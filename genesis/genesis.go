@@ -135,7 +135,9 @@ func GenesisStateDiff(
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
-	return genesisState.StateDiff(), newClasses, nil
+
+	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
+	return genesisStateDiff, genesisClasses, nil
 }
 
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
