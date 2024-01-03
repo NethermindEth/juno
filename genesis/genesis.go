@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -59,8 +58,6 @@ func GenesisStateDiff(
 	v vm.VM,
 	network *utils.Network,
 ) (*core.StateDiff, map[felt.Felt]core.Class, error) {
-	blockTimestamp := uint64(time.Now().Unix())
-
 	newClasses, err := loadClasses(config.Classes)
 	if err != nil {
 		return nil, nil, err
@@ -104,7 +101,7 @@ func GenesisStateDiff(
 		blockInfo := vm.BlockInfo{
 			Header: &core.Header{
 				Number:    0,
-				Timestamp: blockTimestamp,
+				Timestamp: 0,
 			},
 		}
 		maxSteps := uint64(100000) //nolint:gomnd
@@ -130,7 +127,7 @@ func GenesisStateDiff(
 		blockInfo := vm.BlockInfo{
 			Header: &core.Header{
 				Number:    0,
-				Timestamp: blockTimestamp,
+				Timestamp: 0,
 			},
 		}
 		maxSteps := uint64(100000) //nolint:gomnd
