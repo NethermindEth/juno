@@ -24,6 +24,7 @@ import (
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/rpc"
@@ -156,9 +157,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if kErr != nil {
 			return nil, kErr
 		}
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Minute, log) //nolint: gomnd
-		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, &cfg.Network, log)
 
+		poolDB, _ := pebble.NewMem()
+		p := mempool.New(poolDB)
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Minute, p, log) //nolint: gomnd
+		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, &cfg.Network, log).WithMempool(p)
 		services = append(services, sequencer)
 	} else {
 
