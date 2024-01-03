@@ -25,13 +25,49 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+func waitFor(t *testing.T, timeout time.Duration, check func() bool) {
+	t.Helper()
+
+	const numPolls = 4
+	pollInterval := timeout / numPolls
+
+	for i := 0; i < numPolls; i++ {
+		if check() {
+			return
+		}
+		time.Sleep(pollInterval)
+	}
+	require.Equal(t, true, false, "reached timeout")
+}
+
+func waitForBlock(t *testing.T, bc blockchain.Reader, timeout time.Duration, targetBlockNumber uint64) {
+	waitFor(t, timeout, func() bool {
+		curBlockNumber, err := bc.Height()
+		require.NoError(t, err)
+		return curBlockNumber >= targetBlockNumber
+	})
+}
+
+func waitForTxns(t *testing.T, bc blockchain.Reader, timeout time.Duration, txns []*felt.Felt) {
+	waitFor(t, timeout, func() bool {
+		for _, txnHash := range txns {
+			_, _, _, err := bc.Receipt(txnHash)
+			if err != nil {
+				return false
+			}
+		}
+		return true
+	})
+}
+
 func TestValidateAgainstPendingState(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, utils.Integration)
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	testBuilder := builder.New(nil, seqAddr, bc, mockVM, 0, utils.NewNopZapLogger())
+	p := mempool.New(pebble.NewMemTest(t))
+	testBuilder := builder.New(nil, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger())
 
 	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
@@ -75,7 +111,8 @@ func TestSign(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, utils.NewNopZapLogger())
+	p := mempool.New(pebble.NewMemTest(t))
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger())
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
@@ -204,27 +241,6 @@ func TestReceipt(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-type finisher struct {
-	i      uint64
-	min    uint64
-	cancel context.CancelFunc
-}
-
-func newFinisher(min uint64, cancel context.CancelFunc) *finisher {
-	return &finisher{
-		min:    min,
-		cancel: cancel,
-	}
-}
-
-func (f *finisher) OnBlockFinalised(_ *core.Header) {
-	if f.i < f.min {
-		f.i++
-	} else {
-		f.cancel()
-	}
-}
-
 func TestBuildTwoEmptyBlocks(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
@@ -234,12 +250,15 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+	p := mempool.New(pebble.NewMemTest(t))
+	minHeight := uint64(2)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger())
 
 	ctx, cancel := context.WithCancel(context.Background())
-	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, utils.NewNopZapLogger()).WithEventListener(&builder.SelectiveListener{
-		OnBlockFinalisedCb: newFinisher(minHeight, cancel).OnBlockFinalised,
-	})
+	go func() {
+		waitForBlock(t, bc, time.Second, minHeight)
+		cancel()
+	}()
 	require.NoError(t, testBuilder.Run(ctx))
 
 	height, err := bc.Height()
@@ -252,4 +271,60 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 		require.Empty(t, block.Transactions)
 		require.Empty(t, block.Receipts)
 	}
+}
+
+func TestBuildBlocks(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+
+	bc := blockchain.New(pebble.NewMemTest(t), utils.Integration)
+	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), nil))
+	mockVM := mocks.NewMockVM(mockCtrl)
+
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	privKey, err := ecdsa.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	p := mempool.New(pebble.NewMemTest(t))
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger())
+
+	txnHashes := []*felt.Felt{}
+	for i := uint64(0); i < 100; i++ {
+		invokeTxn := &core.InvokeTransaction{
+			TransactionHash: new(felt.Felt).SetUint64(i),
+			Version:         new(core.TransactionVersion),
+		}
+		require.NoError(t, p.Push(&mempool.BroadcastedTransaction{
+			Transaction: invokeTxn,
+		}))
+
+		var executionErr error
+		if i%10 == 0 {
+			executionErr = vm.TransactionExecutionError{}
+		} else {
+			txnHashes = append(txnHashes, invokeTxn.TransactionHash)
+		}
+
+		mockVM.EXPECT().Execute([]core.Transaction{invokeTxn}, gomock.Any(), gomock.Any(), gomock.Any(),
+			seqAddr, gomock.Any(), gomock.Any(), gomock.Any(), false, false, false, gomock.Any(), gomock.Any(), false).Return(
+			[]*felt.Felt{&felt.Zero}, []vm.TransactionTrace{
+				{},
+			}, executionErr,
+		)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		waitForTxns(t, bc, time.Second, txnHashes)
+		cancel()
+	}()
+	require.NoError(t, testBuilder.Run(ctx))
+
+	var totalTxns uint64
+	height, err := bc.Height()
+	require.NoError(t, err)
+	for i := uint64(0); i < height; i++ {
+		block, err := bc.BlockByNumber(i + 1)
+		require.NoError(t, err)
+		totalTxns += block.TransactionCount
+	}
+	require.Equal(t, uint64(90), totalTxns)
 }
