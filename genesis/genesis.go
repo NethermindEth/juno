@@ -17,9 +17,9 @@ import (
 )
 
 type GenesisConfig struct {
-	Classes       []string                       `json:"classes"`        // []path-to-class.json
-	Contracts     map[string]GenesisContractData `json:"contracts"`      // address -> {classHash, constructorArgs}
-	FunctionCalls []FunctionCall                 `json:"function_calls"` // list of functionCalls to Call()
+	Classes       []string                          `json:"classes"`        // []path-to-class.json
+	Contracts     map[felt.Felt]GenesisContractData `json:"contracts"`      // address -> {classHash, constructorArgs}
+	FunctionCalls []FunctionCall                    `json:"function_calls"` // list of functionCalls to Call()
 }
 
 func Read(path string) (*GenesisConfig, error) {
@@ -82,17 +82,13 @@ func GenesisStateDiff(
 		return nil, nil, fmt.Errorf("convert string to felt: %v", err)
 	}
 
-	for address, contractData := range config.Contracts {
-		addressFelt, err := new(felt.Felt).SetString(address)
-		if err != nil {
-			return nil, nil, fmt.Errorf("convert string to felt: %v", err)
-		}
+	for addressFelt, contractData := range config.Contracts {
 		classHash := contractData.ClassHash
-		if err = genesisState.SetClassHash(addressFelt, &classHash); err != nil {
+		if err = genesisState.SetClassHash(&addressFelt, &classHash); err != nil {
 			return nil, nil, fmt.Errorf("set class hash: %v", err)
 		}
 		callInfo := &vm.CallInfo{
-			ContractAddress: addressFelt,
+			ContractAddress: &addressFelt,
 			ClassHash:       &classHash,
 			Selector:        constructorSelector,
 			Calldata:        contractData.ConstructorArgs,

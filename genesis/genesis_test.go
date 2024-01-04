@@ -57,8 +57,8 @@ func TestGenesisStateDiff(t *testing.T) {
 				"./testdata/simpleStore.json",
 				"./testdata/simpleAccount.json",
 			},
-			Contracts: map[string]genesis.GenesisContractData{
-				simpleStoreAddress.String(): {
+			Contracts: map[felt.Felt]genesis.GenesisContractData{
+				*simpleStoreAddress: {
 					ClassHash:       *simpleStoreClassHash,
 					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(1)},
 				},
