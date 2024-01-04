@@ -17,7 +17,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	_ "go.uber.org/automaxprocs"
+	"go.uber.org/automaxprocs/maxprocs"
 )
 
 const greeting = `
@@ -128,6 +128,11 @@ const (
 var Version string
 
 func main() {
+	if _, err := maxprocs.Set(); err != nil {
+		fmt.Printf("error: set maxprocs: %v", err)
+		return
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
