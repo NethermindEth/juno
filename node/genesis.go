@@ -10,8 +10,7 @@ import (
 )
 
 func buildGenesis(genesisPath string, bc *blockchain.Blockchain, v vm.VM) error {
-	_, err := bc.GenesisState()
-	if !errors.Is(err, db.ErrKeyNotFound) {
+	if _, err := bc.Height(); !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
 
@@ -25,5 +24,5 @@ func buildGenesis(genesisPath string, bc *blockchain.Blockchain, v vm.VM) error 
 		return err
 	}
 
-	return bc.InitGenesisState(diff, classes)
+	return bc.StoreGenesis(diff, classes)
 }
