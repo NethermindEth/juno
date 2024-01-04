@@ -605,19 +605,24 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, chain.RevertHead())
 
 	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
-		require.NoError(t, testdb.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator()
-			if err != nil {
-				return err
-			}
-			assert.False(t, it.Next(), it.Key())
-			return it.Close()
-		}))
+		dbIsEmpty(t, testdb)
 	})
 
 	t.Run("cannot revert on empty chain", func(t *testing.T) {
 		require.Error(t, chain.RevertHead())
 	})
+}
+
+func dbIsEmpty(t testing.TB, testDB db.DB) {
+	t.Helper()
+	require.NoError(t, testDB.View(func(txn db.Transaction) error {
+		it, err := txn.NewIterator()
+		if err != nil {
+			return err
+		}
+		require.False(t, it.Next(), it.Key())
+		return it.Close()
+	}))
 }
 
 func TestL1Update(t *testing.T) {
@@ -850,87 +855,123 @@ func TestFinalize(t *testing.T) {
 	require.Equal(t, pending.Block, h)
 }
 
-func TestGenesis(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, utils.Mainnet, utils.NewNopZapLogger())
-
-	_, err := chain.GenesisState()
-	require.ErrorIs(t, err, db.ErrKeyNotFound)
-
-	genesisDiff := core.StateDiff{
-		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-			*utils.HexToFelt(t, "0x1"): {
-				*utils.HexToFelt(t, "0x0"): utils.HexToFelt(t, "0x1337"),
+func TestStoreGenesis(t *testing.T) {
+	class := &core.Cairo1Class{
+		SemanticVersion: "0.0",
+		AbiHash:         new(felt.Felt),
+		ProgramHash:     new(felt.Felt),
+		EntryPoints: struct {
+			Constructor []core.SierraEntryPoint
+			External    []core.SierraEntryPoint
+			L1Handler   []core.SierraEntryPoint
+		}{},
+		Compiled: &core.CompiledClass{
+			Bytecode: []*felt.Felt{},
+		},
+	}
+	classHash, err := class.Hash()
+	require.NoError(t, err)
+	tests := map[string]struct {
+		diff    *core.StateDiff
+		classes map[felt.Felt]core.Class
+	}{
+		"empty": {
+			diff: core.EmptyStateDiff(),
+		},
+		"storage slot is set, one class is declared and deployed": {
+			diff: &core.StateDiff{
+				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+					{}: {{}: new(felt.Felt)},
+				},
+				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+					*classHash: class.Compiled.Hash(),
+				},
+				DeployedContracts: map[felt.Felt]*felt.Felt{
+					{}: classHash,
+				},
+			},
+			classes: map[felt.Felt]core.Class{
+				*classHash: class,
 			},
 		},
 	}
-	err = chain.InitGenesisState(&genesisDiff, make(map[felt.Felt]core.Class))
-	require.NoError(t, err)
 
-	err = chain.InitGenesisState(&genesisDiff, make(map[felt.Felt]core.Class))
-	require.EqualError(t, err, "genesis state already initiliazed")
+	for description, test := range tests {
+		t.Run(description, func(t *testing.T) {
+			for _, network := range []utils.Network{utils.Mainnet, utils.Integration, utils.Goerli, utils.Goerli2, utils.Sepolia, utils.SepoliaIntegration} {
+				t.Run(network.String(), func(t *testing.T) {
+					testDB := pebble.NewMemTest(t)
+					chain := blockchain.New(testDB, network, utils.NewNopZapLogger())
 
-	state, closer, err := chain.HeadState()
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, closer())
-	})
+					require.NoError(t, chain.StoreGenesis(test.diff, test.classes))
 
-	val, err := state.ContractStorage(utils.HexToFelt(t, "0x1"), utils.HexToFelt(t, "0x0"))
-	require.NoError(t, err)
-	require.Equal(t, utils.HexToFelt(t, "0x1337"), val)
+					// Block are stored.
+					block, err := chain.Head()
+					require.NoError(t, err)
+					receipts := make([]*core.TransactionReceipt, 0)
+					wantBlock := &core.Block{
+						Header: &core.Header{
+							ParentHash:       new(felt.Felt),
+							SequencerAddress: new(felt.Felt),
+							EventsBloom:      core.EventsBloom(receipts),
+							GasPrice:         new(felt.Felt),
+							Signatures:       make([][]*felt.Felt, 0),
+							GasPriceSTRK:     new(felt.Felt),
+						},
+						Transactions: make([]core.Transaction, 0),
+						Receipts:     receipts,
+					}
+					require.NoError(t, testDB.View(func(txn db.Transaction) error {
+						var rootErr error
+						wantBlock.GlobalStateRoot, rootErr = core.NewState(txn).Root()
+						require.NoError(t, rootErr)
+						return nil
+					}))
+					var wantCommitments *core.BlockCommitments
+					wantBlock.Hash, wantCommitments, err = core.BlockHash(wantBlock, network)
+					require.NoError(t, err)
+					require.Equal(t, wantBlock, block)
 
-	genesisUpdate, err := chain.GenesisState()
-	require.NoError(t, err)
-	require.Equal(t, &core.StateUpdate{
-		BlockHash: &felt.Zero,
-		OldRoot:   &felt.Zero,
-		NewRoot:   utils.HexToFelt(t, "0x74d338d85a1e9354bdc6cf6902d93b2784ec0f3f06363e8f059ec53658ac39d"),
-		StateDiff: &genesisDiff,
-	}, genesisUpdate)
-}
+					// Commitments are stored
+					commitments, err := chain.BlockCommitmentsByNumber(0)
+					require.NoError(t, err)
+					require.Equal(t, wantCommitments, commitments)
 
-func TestCannotRevertGenesisState(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	network := utils.Mainnet
-	chain := blockchain.New(testDB, network, utils.NewNopZapLogger())
+					// State update is stored.
+					su, err := chain.StateUpdateByNumber(0)
+					require.NoError(t, err)
+					require.Equal(t, &core.StateUpdate{
+						BlockHash: block.Hash,
+						NewRoot:   block.GlobalStateRoot,
+						OldRoot:   new(felt.Felt),
+						StateDiff: test.diff,
+					}, su)
 
-	// Initialise genesis state.
-	genesisDiff := core.StateDiff{
-		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-			*utils.HexToFelt(t, "0x1"): {
-				*utils.HexToFelt(t, "0x0"): utils.HexToFelt(t, "0x1337"),
-			},
-		},
+					// Classes are stored.
+					stateReader, closer, err := chain.HeadState()
+					require.NoError(t, err)
+					defer func() {
+						require.NoError(t, closer())
+					}()
+					for hash, class := range test.classes {
+						var got *core.DeclaredClass
+						got, err = stateReader.Class(&hash)
+						require.NoError(t, err)
+						require.Equal(t, &core.DeclaredClass{
+							At:    0,
+							Class: class,
+						}, got)
+					}
+
+					// Pending is initialised.
+					_, err = chain.Pending()
+					require.NoError(t, err)
+
+					// Reverting Genesis leads to empty db.
+					require.NoError(t, chain.RevertHead())
+					dbIsEmpty(t, testDB)
+				})
+			}
+		})
 	}
-	err := chain.InitGenesisState(&genesisDiff, make(map[felt.Felt]core.Class))
-	require.NoError(t, err)
-	var genesisRoot *felt.Felt
-	require.NoError(t, testDB.View(func(txn db.Transaction) error {
-		genesisRoot, err = core.NewState(txn).Root()
-		return err
-	}))
-
-	// Store first mainnet block.
-	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
-	block0, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
-	su0, err := gw.StateUpdate(context.Background(), 0)
-	require.NoError(t, err)
-	su0.OldRoot = genesisRoot
-	su0.NewRoot = utils.HexToFelt(t, "0x78bb2f3d68f25219b1629d9c5d5fe9de26249fca369fbeb96d23fec5e806455")
-	require.NoError(t, chain.Store(block0, nil, su0, nil))
-
-	// Revert the block.
-	require.NoError(t, chain.RevertHead())
-
-	// Genesis state is intact.
-	state, closer, err := chain.HeadState()
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, closer())
-	})
-	got, err := state.ContractStorage(new(felt.Felt).SetUint64(1), new(felt.Felt))
-	require.NoError(t, err)
-	require.Equal(t, got, utils.HexToFelt(t, "0x1337"))
 }

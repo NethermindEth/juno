@@ -1130,12 +1130,15 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
 		}
 		pending.StateUpdate.BlockHash = pending.Block.Hash
 
+		pending.Block.Signatures = [][]*felt.Felt{}
 		var sig []*felt.Felt
 		sig, err = sign(pending.Block.Hash, pending.StateUpdate.StateDiff.Commitment())
 		if err != nil {
 			return err
 		}
-		pending.Block.Signatures = [][]*felt.Felt{sig}
+		if sig != nil {
+			pending.Block.Signatures = append(pending.Block.Signatures, sig)
+		}
 
 		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {
 			return err
@@ -1145,50 +1148,28 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
 	})
 }
 
-func (b *Blockchain) GenesisState() (*core.StateUpdate, error) {
-	var genesisStateUpdate *core.StateUpdate
-	return genesisStateUpdate, b.database.View(func(txn db.Transaction) error {
-		var err error
-		genesisStateUpdate, err = genesisState(txn)
-		return err
-	})
-}
-
-func genesisState(txn db.Transaction) (*core.StateUpdate, error) {
-	var genesisStateUpdate *core.StateUpdate
-	return genesisStateUpdate, txn.Get(db.GenesisState.Key(), func(b []byte) error {
-		genesisStateUpdate = new(core.StateUpdate)
-		return encoder.Unmarshal(b, genesisStateUpdate)
-	})
-}
-
-func (b *Blockchain) InitGenesisState(stateDiff *core.StateDiff, classes map[felt.Felt]core.Class) error {
-	return b.database.Update(func(txn db.Transaction) error {
-		_, err := genesisState(txn)
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return errors.New("genesis state already initiliazed")
-		}
-
-		state := core.NewState(txn)
-		if err = state.Update(0, stateDiff, classes); err != nil {
-			return err
-		}
-
-		genesisRoot, err := state.Root()
-		if err != nil {
-			return err
-		}
-
-		genesisStateUpdateBytes, err := encoder.Marshal(core.StateUpdate{
-			BlockHash: &felt.Zero,
+func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingGenesis := Pending{
+		Block: &core.Block{
+			Header: &core.Header{
+				ParentHash:       &felt.Zero,
+				Number:           0,
+				SequencerAddress: &felt.Zero,
+				EventsBloom:      core.EventsBloom(receipts),
+				GasPrice:         &felt.Zero,
+				GasPriceSTRK:     &felt.Zero,
+			},
+			Transactions: make([]core.Transaction, 0),
+			Receipts:     receipts,
+		},
+		StateUpdate: &core.StateUpdate{
 			OldRoot:   &felt.Zero,
-			NewRoot:   genesisRoot,
-			StateDiff: stateDiff,
-		})
-		if err != nil {
-			return err
-		}
-
-		return txn.Set(db.GenesisState.Key(), genesisStateUpdateBytes)
+			StateDiff: diff,
+		},
+		NewClasses: classes,
+	}
+	return b.Finalise(&pendingGenesis, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+		return nil, nil
 	})
 }
