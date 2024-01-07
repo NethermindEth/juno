@@ -90,20 +90,20 @@ func TestNetwork(t *testing.T) {
 func TestNetworkSet(t *testing.T) {
 	for network, str := range networkStrings {
 		t.Run("network "+str, func(t *testing.T) {
-			n := new(utils.Network)
+			n := new(utils.NetworkKnown)
 			require.NoError(t, n.Set(str))
 			assert.Equal(t, network, n)
 		})
 		uppercase := strings.ToUpper(str)
 		t.Run("network "+uppercase, func(t *testing.T) {
-			n := new(utils.Network)
+			n := new(utils.NetworkKnown)
 			require.NoError(t, n.Set(uppercase))
 			assert.Equal(t, network, n)
 		})
 	}
 
 	t.Run("custom network - success", func(t *testing.T) {
-		n := new(utils.Network)
+		n := new(utils.NetworkKnown)
 		networkJSON := `{
 				"name": "custom",
 				"feeder_url": "baseURL/feeder_gateway/",
@@ -127,12 +127,12 @@ func TestNetworkSet(t *testing.T) {
 		assert.Equal(t, []uint64{2, 3}, n.MetaInfo().UnverifiableRange)
 	})
 	t.Run("fail - invalid json input", func(t *testing.T) {
-		n := new(utils.Network)
+		n := new(utils.NetworkKnown)
 		networkJSON := `some invalid json`
 		require.ErrorIs(t, n.Set(networkJSON), utils.ErrInvalidNetworkJSONStr)
 	})
 	t.Run("fail - unknown network", func(t *testing.T) {
-		n := new(utils.Network)
+		n := new(utils.NetworkKnown)
 		networkJSON := `{
 				"name": "typo"
 		}`
@@ -140,14 +140,14 @@ func TestNetworkSet(t *testing.T) {
 	})
 
 	t.Run("fail - ErrMissingCoreContractAddress", func(t *testing.T) {
-		n := new(utils.Network)
+		n := new(utils.NetworkKnown)
 		networkJSON := `{
 			"name": "custom"
 	}`
 		require.ErrorIs(t, n.Set(networkJSON), utils.ErrMissingCoreContractAddress)
 	})
 	t.Run("fail - validate", func(t *testing.T) {
-		n := new(utils.Network)
+		n := new(utils.NetworkKnown)
 		networkJSON := `{
 			"name": "custom",
 			"feeder_url": "baseURL/feeder_gateway/",
@@ -169,20 +169,20 @@ func TestNetworkSet(t *testing.T) {
 func TestNetworkUnmarshalText(t *testing.T) {
 	for network, str := range networkStrings {
 		t.Run("network "+str, func(t *testing.T) {
-			n := new(utils.Network)
+			n := new(utils.NetworkKnown)
 			require.NoError(t, n.UnmarshalText([]byte(str)))
 			assert.Equal(t, network, *n)
 		})
 		uppercase := strings.ToUpper(str)
 		t.Run("network "+uppercase, func(t *testing.T) {
-			n := new(utils.Network)
+			n := new(utils.NetworkKnown)
 			require.NoError(t, n.UnmarshalText([]byte(uppercase)))
 			assert.Equal(t, network, *n)
 		})
 	}
 
 	t.Run("unknown network", func(t *testing.T) {
-		l := new(utils.Network)
+		l := new(utils.NetworkKnown)
 		require.ErrorIs(t, l.UnmarshalText([]byte("blah")), utils.ErrUnknownNetwork)
 	})
 }
@@ -200,7 +200,7 @@ func TestNetworkMarshalJSON(t *testing.T) {
 }
 
 func TestNetworkType(t *testing.T) {
-	assert.Equal(t, "Network", new(utils.Network).Type())
+	assert.Equal(t, "Network", new(utils.NetworkKnown).Type())
 }
 
 func TestCoreContractAddress(t *testing.T) {

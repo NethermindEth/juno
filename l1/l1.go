@@ -88,7 +88,7 @@ func (c *Client) checkChainID(ctx context.Context) error {
 		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
 	}
 
-	wantChainID := c.network.L1ChainID
+	wantChainID := c.network.L1ChainID()
 	if gotChainID.Cmp(wantChainID) == 0 {
 		return nil
 	}

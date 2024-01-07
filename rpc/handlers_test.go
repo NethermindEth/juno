@@ -3673,7 +3673,7 @@ func TestThrottledVMError(t *testing.T) {
 }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, utils.Network{}, nil, nil, nil, "", nil)
+	handler := rpc.New(nil, nil, utils.NetworkKnown{}, nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0", version)
