@@ -212,7 +212,7 @@ func (n NetworkKnown) ProtocolID() protocol.ID {
 }
 
 type NetworkCustom struct {
-	FeederURLVal           string          `yaml:"feeder_url" validate:"required" mapstructure:"feeder-url"`
+	FeederURLVal           string          `yaml:"feeder_url" validate:"required" mapstructure:"cn.feeder-url"`
 	GatewayURLVal          string          `yaml:"gateway_url" validate:"required"`
 	ChainIDVal             string          `yaml:"chain_id" validate:"required"`
 	L1ChainIDVal           *big.Int        `yaml:"l1_chain_id" validate:"required"`

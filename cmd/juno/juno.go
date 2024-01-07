@@ -67,12 +67,12 @@ const (
 	dbCacheSizeF           = "db-cache-size"
 	dbMaxHandlesF          = "db-max-handles"
 	gwAPIKeyF              = "gw-api-key" //nolint: gosec
-	cnFeederURLF           = "feeder-url"
-	cnGatewayURLF          = "gateway-url"
-	cnChainIDF             = "chain-id"
-	cnL1ChainIDF           = "l1-chain-id"
-	cnProtocolIDF          = "protocol-id"
-	cnCoreContractAddressF = "core-contract-address"
+	cnFeederURLF           = "cn.feeder-url"
+	cnGatewayURLF          = "cn.gateway-url"
+	cnChainIDF             = "cn.chain-id"
+	cnL1ChainIDF           = "cn.l1-chain-id"
+	cnProtocolIDF          = "cn.protocol-id"
+	cnCoreContractAddressF = "cn.core-contract-address"
 
 	defaultConfig                 = ""
 	defaulHost                    = "localhost"

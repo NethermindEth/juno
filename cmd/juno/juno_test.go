@@ -104,9 +104,9 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
 				"--db-path", "/home/.juno", "--network", "custom", "--pprof", "--db-cache-size", "8",
-				"--feeder-url", "awesome_feeder_url", "--gateway-url", "awesome_gateway_url",
-				"--chain-id", "SN_AWESOME", "--l1-chain-id", "42", "--protocol-id", "88",
-				"--core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
+				"--cn.feeder-url", "awesome_feeder_url", "--cn.gateway-url", "awesome_gateway_url",
+				"--cn.chain-id", "SN_AWESOME", "--cn.l1-chain-id", "42", "--cn.protocol-id", "88",
+				"--cn.core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:        utils.DEBUG,
@@ -142,12 +142,12 @@ http-host: 0.0.0.0
 http-port: 4576
 db-path: /home/.juno
 network: custom
-feeder-url: awesome_feeder_url
-gateway-url: awesome_gateway_url
-chain-id: SN_AWESOME
-l1-chain-id: 42
-protocol-id: 88
-core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
+cn.feeder-url: awesome_feeder_url
+cn.gateway-url: awesome_gateway_url
+cn.chain-id: SN_AWESOME
+cn.l1-chain-id: 42
+cn.protocol-id: 88
+cn.core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
 pprof: true
 `,
 			expectedConfig: &node.Config{
