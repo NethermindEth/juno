@@ -69,7 +69,7 @@ const (
 	gwAPIKeyF              = "gw-api-key" //nolint: gosec
 	cnFeederURLF           = "cn.feeder-url"
 	cnGatewayURLF          = "cn.gateway-url"
-	cnChainIDF             = "cn.chain-id"
+	cnL2ChainIDF             = "cn.l2-chain-id"
 	cnL1ChainIDF           = "cn.l1-chain-id"
 	cnProtocolIDF          = "cn.protocol-id"
 	cnCoreContractAddressF = "cn.core-contract-address"
@@ -114,12 +114,12 @@ const (
 	wsPortUsage                           = "The port on which the websocket server will listen for requests."
 	dbPathUsage                           = "Location of the database files."
 	networkUsage                          = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration, custom."
-	networkCustomFeederUsage              = "Feeder URL (required for custom networks)"
-	networkCustomGatewayUsage             = "Gateway URL (required for custom networks)"
-	networkCustomL1ChainIDUsage           = "L1 Chain ID (required for custom networks)"
-	networkCustomL2ChainIDUsage           = "L2 Chain ID  (required for custom networks)"
-	networkCustomProtocolIDUsage          = "Protocol ID (required for custom networks)"
-	networkCustomCoreContractAddressUsage = "Core Contract Address (required for custom networks)"
+	networkCustomFeederUsage              = "Custom network feeder URL."
+	networkCustomGatewayUsage             = "Custom network gateway URL."
+	networkCustomL1ChainIDUsage           = "Custom network L1 chain id."
+	networkCustomL2ChainIDUsage           = "Custom network L2 chain id."
+	networkCustomProtocolIDUsage          = "Custom network protocol id."
+	networkCustomCoreContractAddressUsage = "Custom network core contract address."
 	pprofUsage                            = "Enables the pprof endpoint on the default port."
 	pprofHostUsage                        = "The interface on which the pprof HTTP server will listen for requests."
 	pprofPortUsage                        = "The port on which the pprof HTTP server will listen for requests."
@@ -232,7 +232,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		}
 		config.NetworkCustom.FeederURLVal = v.GetString(cnFeederURLF)
 		config.NetworkCustom.GatewayURLVal = v.GetString(cnGatewayURLF)
-		config.NetworkCustom.ChainIDVal = v.GetString(cnChainIDF)
+		config.NetworkCustom.ChainIDVal = v.GetString(cnL2ChainIDF)
 		if v.GetInt64(cnL1ChainIDF) != 0 {
 			config.NetworkCustom.L1ChainIDVal = new(big.Int).SetInt64(v.GetInt64(cnL1ChainIDF))
 		}
@@ -268,7 +268,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(cnFeederURLF, defaultFeederURL, networkCustomFeederUsage)
 	junoCmd.Flags().String(cnGatewayURLF, defaultGatewayURL, networkCustomGatewayUsage)
-	junoCmd.Flags().String(cnChainIDF, defaultChainID, networkCustomL2ChainIDUsage)
+	junoCmd.Flags().String(cnL2ChainIDF, defaultChainID, networkCustomL2ChainIDUsage)
 	junoCmd.Flags().Int(cnL1ChainIDF, defaultL1ChainIDInt, networkCustomL1ChainIDUsage)
 	junoCmd.Flags().Int(cnProtocolIDF, defaultProtocolID, networkCustomProtocolIDUsage)
 	junoCmd.Flags().String(cnCoreContractAddressF, defaultCoreContractAddressStr, networkCustomCoreContractAddressUsage)
