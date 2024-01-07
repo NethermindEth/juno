@@ -43,7 +43,8 @@ func TestChainId(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			mockReader := mocks.NewMockReader(mockCtrl)
-			handler := rpc.New(mockReader, nil, n, nil, nil, nil, "", nil)
+			mockReader.EXPECT().Network().Return(n)
+			handler := rpc.New(mockReader, nil, nil, "", nil)
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
@@ -57,7 +58,7 @@ func TestBlockNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		expectedHeight := uint64(0)
@@ -83,7 +84,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
@@ -115,7 +116,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Goerli, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	client := feeder.NewTestClient(t, utils.Goerli)
 	gw := adaptfeeder.New(client)
@@ -200,7 +201,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			network := utils.Mainnet
 			chain := blockchain.New(pebble.NewMemTest(t), network, log)
-			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+			handler := rpc.New(chain, nil, nil, "", log)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
 			assert.Nil(t, block)
@@ -212,7 +213,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Goerli, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	client := feeder.NewTestClient(t, utils.Goerli)
 	gw := adaptfeeder.New(client)
@@ -318,7 +319,7 @@ func TestBlockWithTxs(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			network := utils.Mainnet
 			chain := blockchain.New(pebble.NewMemTest(t), network, log)
-			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+			handler := rpc.New(chain, nil, nil, "", log)
 
 			block, rpcErr := handler.BlockWithTxs(id)
 			assert.Nil(t, block)
@@ -330,7 +331,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	client := feeder.NewTestClient(t, utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -450,7 +451,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, network, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	blockNumber := uint64(319132)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
@@ -520,7 +521,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
 
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	tx, rpcErr := handler.TransactionByHash(*txHash)
 	assert.Nil(t, tx)
@@ -566,7 +567,7 @@ func TestTransactionByHash(t *testing.T) {
 			}`,
 		},
 
-		"L1 Handler v0": {
+		"L1 Handler v0 with nonce": {
 			hash:    "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
 			network: utils.Mainnet,
 			expected: `{
@@ -584,6 +585,24 @@ func TestTransactionByHash(t *testing.T) {
            "0x3"
        ]
    }`,
+		},
+		"L1 Handler v0 without nonce": {
+			hash:    "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
+			network: utils.Mainnet,
+			expected: `{
+				"type": "L1_HANDLER",
+				"transaction_hash":  "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
+				"version": "0x0",
+				"nonce": "0x0",
+				"contract_address":  "0x58b43819bb12aba8ab3fb2e997523e507399a3f48a1e2aa20a5fb7734a0449f",
+				"entry_point_selector": "0xe3f5e9e1456ffa52a3fbc7e8c296631d4cc2120c0be1e2829301c0d8fa026b",
+				"calldata": [
+					"0x5474c49483aa09993090979ade8101ebb4cdce4a",
+					"0xabf8dd8438d1c21e83a8b5e9c1f9b58aaf3ed360",
+					"0x2",
+					"0x4c04fac82913f01a8f01f6e15ff7e834ff2d9a9a1d8e9adffc7bd45692f4f9a"
+				]
+			}`,
 		},
 
 		"Invoke v1": {
@@ -795,7 +814,7 @@ func TestTransactionByHash(t *testing.T) {
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 				return gw.Transaction(context.Background(), hash)
 			}).Times(1)
-			handler := rpc.New(mockReader, nil, test.network, nil, nil, nil, "", nil)
+			handler := rpc.New(mockReader, nil, nil, "", nil)
 
 			hash, err := new(felt.Felt).SetString(test.hash)
 			require.NoError(t, err)
@@ -1052,7 +1071,7 @@ func TestLegacyTransactionByHash(t *testing.T) {
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 				return gw.Transaction(context.Background(), hash)
 			}).Times(1)
-			handler := rpc.New(mockReader, nil, test.network, nil, nil, nil, "", nil)
+			handler := rpc.New(mockReader, nil, nil, "", nil)
 
 			hash, err := new(felt.Felt).SetString(test.hash)
 			require.NoError(t, err)
@@ -1086,7 +1105,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, errors.New("empty blockchain"))
@@ -1224,7 +1243,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -1481,7 +1500,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -1736,9 +1755,8 @@ func TestStateUpdate(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			network := utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), network, log)
-			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+			chain := blockchain.New(pebble.NewMemTest(t), utils.Mainnet, log)
+			handler := rpc.New(chain, nil, nil, "", nil)
 
 			update, rpcErr := handler.StateUpdate(id)
 			assert.Nil(t, update)
@@ -1748,7 +1766,7 @@ func TestStateUpdate(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	client := feeder.NewTestClient(t, utils.Mainnet)
 	mainnetGw := adaptfeeder.New(client)
@@ -1863,7 +1881,7 @@ func TestSyncing(t *testing.T) {
 
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, synchronizer, utils.Mainnet, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, synchronizer, nil, "", nil)
 	defaultSyncState := false
 
 	startingBlock := uint64(0)
@@ -1936,7 +1954,7 @@ func TestNonce(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", log)
+	handler := rpc.New(mockReader, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
@@ -2009,7 +2027,7 @@ func TestStorageAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", log)
+	handler := rpc.New(mockReader, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
@@ -2091,7 +2109,7 @@ func TestClassHashAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", log)
+	handler := rpc.New(mockReader, nil, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
@@ -2229,7 +2247,7 @@ func TestClass(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
 
 	latest := rpc.BlockID{Latest: true}
 
@@ -2285,7 +2303,7 @@ func TestClassAt(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
 
 	latest := rpc.BlockID{Latest: true}
 
@@ -2336,7 +2354,7 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	handler := rpc.New(chain, nil, utils.Goerli2, nil, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(chain, nil, nil, "", utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	args := rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
@@ -2789,8 +2807,8 @@ func TestAddTransaction(t *testing.T) {
 			mockGateway := mocks.NewMockGateway(mockCtrl)
 			mockGateway.
 				EXPECT().
-				AddTransaction(gomock.Any()).
-				Do(func(txnJSON json.RawMessage) error {
+				AddTransaction(gomock.Any(), gomock.Any()).
+				Do(func(_ context.Context, txnJSON json.RawMessage) error {
 					assert.JSONEq(t, test.expectedJSON, string(txnJSON), string(txnJSON))
 					gatewayTx := starknet.Transaction{}
 					// Ensure the Starknet transaction can be unmarshaled properly.
@@ -2804,8 +2822,12 @@ func TestAddTransaction(t *testing.T) {
 				}`), nil).
 				Times(1)
 
-			handler := rpc.New(nil, nil, network, mockGateway, nil, nil, "", utils.NewNopZapLogger())
-			got, rpcErr := handler.AddTransaction(test.txn)
+			handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger())
+			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+			require.Equal(t, rpcErr.Code, rpc.ErrInternal.Code)
+
+			handler = handler.WithGateway(mockGateway)
+			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
 			require.Nil(t, rpcErr)
 			require.Equal(t, &rpc.AddTxResponse{
 				TransactionHash: utils.HexToFelt(t, "0x1"),
@@ -2819,7 +2841,7 @@ func TestAddTransaction(t *testing.T) {
 func TestVersion(t *testing.T) {
 	const version = "1.2.3-rc1"
 
-	handler := rpc.New(nil, nil, utils.Mainnet, nil, nil, nil, version, nil)
+	handler := rpc.New(nil, nil, nil, version, nil)
 	ver, err := handler.Version()
 	require.Nil(t, err)
 	assert.Equal(t, version, ver)
@@ -2872,7 +2894,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
 					mockReader.EXPECT().L1Head().Return(nil, nil)
 
-					handler := rpc.New(mockReader, nil, test.network, nil, nil, nil, "", nil)
+					handler := rpc.New(mockReader, nil, nil, "", nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL2,
@@ -2890,7 +2912,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, test.network, nil, nil, nil, "", nil)
+					handler := rpc.New(mockReader, nil, nil, "", nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -2919,9 +2941,12 @@ func TestTransactionStatus(t *testing.T) {
 				for description, notFoundTest := range notFoundTests {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
-						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound)
-						handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
+						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
+						handler := rpc.New(mockReader, nil, nil, "", nil)
+						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
+						require.Equal(t, rpc.ErrTxnHashNotFound.Code, err.Code)
 
+						handler = handler.WithFeeder(client)
 						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Nil(t, err)
 						require.Equal(t, notFoundTest.finality, status.Finality)
@@ -2934,7 +2959,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, nil, test.network, nil, client, nil, "", nil)
+				handler := rpc.New(mockReader, nil, nil, "", nil).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
@@ -2949,8 +2974,7 @@ func TestCall(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, nil, "", log)
+	handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, errors.New("empty blockchain"))
@@ -2994,10 +3018,10 @@ func TestEstimateMessageFee(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
 
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 	msg := rpc.MsgFromL1{
 		From:     common.HexToAddress("0xDEADBEEF"),
 		To:       *new(felt.Felt).SetUint64(1337),
@@ -3068,10 +3092,10 @@ func TestLegacyEstimateMessageFee(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
 
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 	msg := rpc.MsgFromL1{
 		From:     common.HexToAddress("0xDEADBEEF"),
 		To:       *new(felt.Felt).SetUint64(1337),
@@ -3124,9 +3148,9 @@ func TestTraceTransaction(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, utils.Mainnet, nil, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xBBBB")
@@ -3149,7 +3173,7 @@ func TestTraceTransaction(t *testing.T) {
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			ProtocolVersion:  "0.12.3",
+			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{
 			Header:       header,
@@ -3199,9 +3223,9 @@ func TestSimulateTransactions(t *testing.T) {
 	const network = utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(network).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
@@ -3263,7 +3287,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			network := utils.Mainnet
 			chain := blockchain.New(pebble.NewMemTest(t), network, log)
-			handler := rpc.New(chain, nil, network, nil, nil, nil, "", log)
+			handler := rpc.New(chain, nil, nil, "", log)
 
 			update, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
 			assert.Nil(t, update)
@@ -3273,13 +3297,14 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
+	const network = utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(network).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
-	const network = utils.Mainnet
-	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, nil, mockVM, "", log)
 
 	t.Run("pending block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
@@ -3288,7 +3313,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			GasPrice:        utils.HexToFelt(t, "0x777"),
-			ProtocolVersion: "0.12.3",
+			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x000000C"),
@@ -3365,7 +3390,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
 			GasPrice:         utils.HexToFelt(t, "0x777"),
-			ProtocolVersion:  "0.12.3",
+			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{
 			Header:       header,
@@ -3418,7 +3443,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, utils.Goerli, nil, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	client := feeder.NewTestClient(t, utils.Goerli)
 	gw := adaptfeeder.New(client)
@@ -3458,6 +3483,7 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 }
 
 func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+	t.Parallel()
 	log := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	client := feeder.NewTestClient(t, network)
@@ -3466,7 +3492,8 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Cleanup(cancel)
 	chain := blockchain.New(pebble.NewMemTest(t), network, log)
 	syncer := sync.New(chain, gw, log, 0, false)
-	handler := rpc.New(chain, syncer, network, nil, nil, nil, "", log)
+	handler := rpc.New(chain, syncer, nil, "", log)
+
 	go func() {
 		require.NoError(t, handler.Run(ctx))
 	}()
@@ -3488,7 +3515,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	// Sync blocks and then revert head.
 	// This is a super hacky way to deterministically receive a single block on the subscription.
 	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
-	syncCtx, syncCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), time.Second)
 	require.NoError(t, syncer.Run(syncCtx))
 	syncCancel()
 	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
@@ -3537,6 +3564,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+	t.Parallel()
 	log := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	feederClient := feeder.NewTestClient(t, network)
@@ -3545,7 +3573,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Cleanup(cancel)
 	chain := blockchain.New(pebble.NewMemTest(t), network, log)
 	syncer := sync.New(chain, gw, log, 0, false)
-	handler := rpc.New(chain, syncer, network, nil, nil, nil, "", log)
+	handler := rpc.New(chain, syncer, nil, "", log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))
 	}()
@@ -3556,7 +3584,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	// Sync blocks and then revert head.
 	// This is a super hacky way to deterministically receive a single block on the subscription.
 	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
-	syncCtx, syncCancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	syncCtx, syncCancel := context.WithTimeout(context.Background(), time.Second)
 	require.NoError(t, syncer.Run(syncCtx))
 	syncCancel()
 	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
@@ -3628,7 +3656,6 @@ func TestTraceFallback(t *testing.T) {
 	client := feeder.NewTestClient(t, network)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	gateway := adaptfeeder.New(client)
-	handler := rpc.New(mockReader, nil, network, nil, client, nil, "", nil)
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
 		return gateway.BlockByNumber(context.Background(), number)
@@ -3656,7 +3683,12 @@ func TestTraceFallback(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			mockReader.EXPECT().BlockByHash(utils.HexToFelt(t, test.hash)).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
 				return mockReader.BlockByNumber(test.blockNumber)
-			})
+			}).Times(2)
+			handler := rpc.New(mockReader, nil, nil, "", nil)
+			_, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: test.blockNumber})
+			require.Equal(t, rpc.ErrInternal.Code, jErr.Code)
+
+			handler = handler.WithFeeder(client)
 			trace, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: test.blockNumber})
 			require.Nil(t, jErr)
 			jsonStr, err := json.Marshal(trace)
@@ -3670,11 +3702,11 @@ func TestThrottledVMError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	network := utils.Integration
+	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, nil, network, nil, nil, throttledVM, "", nil)
+	handler := rpc.New(mockReader, nil, throttledVM, "", nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	t.Run("call", func(t *testing.T) {
@@ -3699,7 +3731,7 @@ func TestThrottledVMError(t *testing.T) {
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			GasPrice:        utils.HexToFelt(t, "0x777"),
-			ProtocolVersion: "0.12.3",
+			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x000000C"),
@@ -3731,7 +3763,7 @@ func TestThrottledVMError(t *testing.T) {
 }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, nil, nil, nil, nil, "", nil)
+	handler := rpc.New(nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0", version)
@@ -3748,9 +3780,10 @@ func TestEstimateFee(t *testing.T) {
 	const network = utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(network).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, network, nil, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, nil, mockVM, "", log)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()

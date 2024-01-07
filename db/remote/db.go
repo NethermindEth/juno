@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"math"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -34,12 +35,7 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 }
 
 func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
-	const (
-		megabyte = 1 << 20
-		// Some classes are larger than the default of 4MB.
-		maxCallMsgSize = 10 * megabyte
-	)
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(maxCallMsgSize), grpc.MaxCallRecvMsgSize(maxCallMsgSize))
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
 	if err != nil {
 		return nil, err
 	}

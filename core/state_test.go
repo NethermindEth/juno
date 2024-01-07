@@ -490,7 +490,7 @@ func TestRevert(t *testing.T) {
 			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
 			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
 			SemanticVersion: "version 1",
-			Compiled:        json.RawMessage("complied cairo 1 class"),
+			Compiled:        &core.CompiledClass{},
 		}
 
 		cairo1Addr := utils.HexToFelt(t, "0xcd5678")

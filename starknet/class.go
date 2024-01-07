@@ -46,6 +46,25 @@ type ClassDefinition struct {
 	V1 *SierraDefinition
 }
 
+type CompiledClass struct {
+	Prime           string          `json:"prime"`
+	Bytecode        []*felt.Felt    `json:"bytecode"`
+	Hints           json.RawMessage `json:"hints"`
+	PythonicHints   json.RawMessage `json:"pythonic_hints"`
+	CompilerVersion string          `json:"compiler_version"`
+	EntryPoints     struct {
+		External    []CompiledEntryPoint `json:"EXTERNAL"`
+		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
+		Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
+	} `json:"entry_points_by_type"`
+}
+
+type CompiledEntryPoint struct {
+	Selector *felt.Felt `json:"selector"`
+	Offset   uint64     `json:"offset"`
+	Builtins []string   `json:"builtins"`
+}
+
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	jsonMap := make(map[string]any)
 	if err := json.Unmarshal(data, &jsonMap); err != nil {
@@ -58,4 +77,12 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	}
 	c.V0 = new(Cairo0Definition)
 	return json.Unmarshal(data, c.V0)
+}
+
+func IsDeprecatedCompiledClassDefinition(definition json.RawMessage) (bool, error) {
+	var classMap map[string]json.RawMessage
+	if err := json.Unmarshal(definition, &classMap); err != nil {
+		return false, err
+	}
+	return len(classMap["program"]) > 0, nil
 }

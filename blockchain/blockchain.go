@@ -44,6 +44,8 @@ type Reader interface {
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error)
 
 	Pending() (Pending, error)
+
+	Network() utils.Network
 }
 
 var (

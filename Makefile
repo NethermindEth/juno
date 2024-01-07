@@ -14,7 +14,9 @@ ifeq ($(shell uname -s),Darwin)
 	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration
 endif
 
-juno: vm core-rust ## compile
+rustdeps: vm core-rust compiler
+
+juno: rustdeps ## compile
 	@mkdir -p build
 	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
@@ -24,6 +26,9 @@ vm:
 core-rust:
 	$(MAKE) -C core/rust $(VM_TARGET)
 
+compiler:
+	$(MAKE) -C starknet/rust $(VM_TARGET)
+
 generate: ## generate
 	mkdir -p mocks
 	go generate ./...
@@ -31,19 +36,19 @@ generate: ## generate
 clean-testcache:
 	go clean -testcache
 
-test: clean-testcache vm core-rust ## tests
+test: clean-testcache rustdeps ## tests
 	go test $(GO_TAGS) ./...
 
-test-cached: vm core-rust ## tests with existing cache
+test-cached: rustdeps ## tests with existing cache
 	go test $(GO_TAGS) ./...
 
-test-race: clean-testcache vm core-rust
+test-race: clean-testcache rustdeps
 	go test $(GO_TAGS) ./... -race
 
-benchmarks: vm core-rust ## benchmarking
+benchmarks: rustdeps ## benchmarking
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
-test-cover: vm core-rust ## tests with coverage
+test-cover: rustdeps ## tests with coverage
 	mkdir -p coverage
 	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
@@ -72,6 +77,7 @@ format: ## run go formatter
 clean: ## clean project builds
 	$(MAKE) -C vm/rust clean
 	$(MAKE) -C core/rust clean
+	$(MAKE) -C starknet/rust clean
 	@rm -rf ./build
 
 help: ## show this help

@@ -166,7 +166,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-	rpcHandler := rpc.New(chain, synchronizer, network, gatewayClient, client, throttledVM, version, log)
+	rpcHandler := rpc.New(chain, synchronizer, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
@@ -204,6 +204,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
 		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		client.WithListener(makeFeederMetrics())
+		gatewayClient.WithListener(makeGatewayMetrics())
 		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
@@ -226,21 +227,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
 	} else {
-		var ethNodeURL *url.URL
-		ethNodeURL, err = url.Parse(n.cfg.EthNode)
-		if err != nil {
-			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
-		}
-		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + n.cfg.EthNode)
-		}
 		var l1Client *l1.Client
-		l1Client, err = newL1Client(n.cfg.EthNode, n.blockchain, n.log)
+		l1Client, err = newL1Client(cfg, n.blockchain, n.log)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
-		}
-		if cfg.Metrics {
-			l1Client.WithEventListener(makeL1Metrics())
 		}
 		n.services = append(n.services, l1Client)
 	}
@@ -264,19 +254,36 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(ethNode string, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+	ethNodeURL, err := url.Parse(cfg.EthNode)
+	if err != nil {
+		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+	}
+	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
+		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+	}
+
 	var coreContractAddress common.Address
-	coreContractAddress, err := chain.Network().CoreContractAddress()
+	coreContractAddress, err = chain.Network().CoreContractAddress()
 	if err != nil {
 		return nil, fmt.Errorf("find core contract address for network %s: %w", chain.Network(), err)
 	}
 
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, coreContractAddress)
+	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, coreContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
-	return l1.NewClient(ethSubscriber, chain, log), nil
+
+	l1Client, err := l1.NewClient(ethSubscriber, chain, log), nil
+	if err != nil {
+		return nil, fmt.Errorf("set up l1 client: %w", err)
+	}
+
+	if cfg.Metrics {
+		l1Client.WithEventListener(makeL1Metrics())
+	}
+	return l1Client, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.

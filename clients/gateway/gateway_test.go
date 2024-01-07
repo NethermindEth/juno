@@ -1,6 +1,7 @@
 package gateway_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestAddInvokeTx(t *testing.T) {
 		invokeTxByte, err := json.Marshal(invokeTx)
 		require.NoError(t, err)
 
-		_, err = client.AddTransaction(invokeTxByte)
+		_, err = client.AddTransaction(context.Background(), invokeTxByte)
 
 		// Since this method is just a proxy for the gateway we don't care what the actual response is,
 		// we just need to check that no error is returned for a well-formed request.
@@ -29,7 +30,7 @@ func TestAddInvokeTx(t *testing.T) {
 		invokeTx := "{}"
 		invokeTxByte, err := json.Marshal(invokeTx)
 		require.NoError(t, err)
-		resp, err := client.AddTransaction(invokeTxByte)
+		resp, err := client.AddTransaction(context.Background(), invokeTxByte)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -41,7 +42,7 @@ func TestAddInvokeTx(t *testing.T) {
 	})
 
 	t.Run("empty req", func(t *testing.T) {
-		resp, err := client.AddTransaction(nil)
+		resp, err := client.AddTransaction(context.Background(), nil)
 
 		require.EqualError(t, err, "500 Internal Server Error")
 		assert.Nil(t, resp)
