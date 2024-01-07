@@ -69,7 +69,7 @@ const (
 	gwAPIKeyF              = "gw-api-key" //nolint: gosec
 	cnFeederURLF           = "cn.feeder-url"
 	cnGatewayURLF          = "cn.gateway-url"
-	cnL2ChainIDF             = "cn.l2-chain-id"
+	cnL2ChainIDF           = "cn.l2-chain-id"
 	cnL1ChainIDF           = "cn.l1-chain-id"
 	cnProtocolIDF          = "cn.protocol-id"
 	cnCoreContractAddressF = "cn.core-contract-address"

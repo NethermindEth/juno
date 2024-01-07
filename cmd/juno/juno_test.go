@@ -98,6 +98,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMQueue:      2 * defaultMaxVMs,
 				RPCMaxBlockScan: defaultRPCMaxBlockScan,
 				DBCacheSize:     defaultMaxCacheSize,
+				DBMaxHandles:    defaultMaxHandles,
 			},
 		},
 		"all flags without config file - non-default custom network": {
@@ -105,7 +106,7 @@ func TestConfigPrecedence(t *testing.T) {
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
 				"--db-path", "/home/.juno", "--network", "custom", "--pprof", "--db-cache-size", "8",
 				"--cn.feeder-url", "awesome_feeder_url", "--cn.gateway-url", "awesome_gateway_url",
-				"--cn.chain-id", "SN_AWESOME", "--cn.l1-chain-id", "42", "--cn.protocol-id", "88",
+				"--cn.l2-chain-id", "SN_AWESOME", "--cn.l1-chain-id", "42", "--cn.protocol-id", "88",
 				"--cn.core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
 			},
 			expectedConfig: &node.Config{
@@ -133,6 +134,7 @@ func TestConfigPrecedence(t *testing.T) {
 				MaxVMQueue:      2 * defaultMaxVMs,
 				RPCMaxBlockScan: defaultRPCMaxBlockScan,
 				DBCacheSize:     defaultMaxCacheSize,
+				DBMaxHandles:    defaultMaxHandles,
 			},
 		},
 		"config file with all settings but without any other flags  custom network": {
@@ -144,7 +146,7 @@ db-path: /home/.juno
 network: custom
 cn.feeder-url: awesome_feeder_url
 cn.gateway-url: awesome_gateway_url
-cn.chain-id: SN_AWESOME
+cn.l2-chain-id: SN_AWESOME
 cn.l1-chain-id: 42
 cn.protocol-id: 88
 cn.core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
@@ -176,6 +178,7 @@ pprof: true
 				MaxVMQueue:          2 * defaultMaxVMs,
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
 			},
 		},
 		"default config with no flags": {
