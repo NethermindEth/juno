@@ -483,6 +483,23 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 		}
 		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
 	})
+
+	t.Run("error if using new db on old version of juno", func(t *testing.T) {
+		testDB := pebble.NewMemTest(t)
+		migrations := []Migration{
+			testMigration{
+				exec: func(context.Context, db.Transaction, utils.Network) ([]byte, error) {
+					return nil, nil
+				},
+				before: func([]byte) error {
+					return nil
+				},
+			},
+		}
+		require.NoError(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), migrations))
+		want := "db is from a newer, incompatible version of Juno"
+		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, utils.Mainnet, utils.NewNopZapLogger(), []Migration{}), want)
+	})
 }
 
 func TestChangeStateDiffStructEmptyDB(t *testing.T) {

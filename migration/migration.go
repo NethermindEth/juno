@@ -95,7 +95,12 @@ func migrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network,
 		return err
 	}
 
-	for i := metadata.Version; i < uint64(len(migrations)); i++ {
+	currentVersion := uint64(len(migrations))
+	if metadata.Version > currentVersion {
+		return errors.New("db is from a newer, incompatible version of Juno; upgrade to use this database")
+	}
+
+	for i := metadata.Version; i < currentVersion; i++ {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
