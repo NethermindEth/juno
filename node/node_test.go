@@ -23,6 +23,8 @@ func TestNewNode(t *testing.T) {
 		HTTPPort:            0,
 		Websocket:           true,
 		WebsocketPort:       0,
+		IPC:                 true,
+		IPCPath:             t.TempDir(),
 		GRPC:                true,
 		GRPCPort:            0,
 		DatabasePath:        t.TempDir(),

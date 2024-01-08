@@ -108,6 +108,21 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 	}
 }
 
+func makeIpcMetrics() jsonrpc.NewRequestListener {
+	reqCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "rpc",
+		Subsystem: "ipc",
+		Name:      "requests",
+	})
+	prometheus.MustRegister(reqCounter)
+
+	return &jsonrpc.SelectiveListener{
+		OnNewRequestCb: func(method string) {
+			reqCounter.Inc()
+		},
+	}
+}
+
 func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonrpc.EventListener) {
 	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
