@@ -139,7 +139,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 		classHashBytes := classHash.Bytes()
 		classHashPtr = &classHashBytes[0]
 	}
-	chainID := C.CString(network.ChainIDString())
+	chainID := C.CString(network.L2ChainID)
 	C.cairoVMCall((*C.char)(unsafe.Pointer(&addrBytes[0])),
 		(*C.char)(unsafe.Pointer(classHashPtr)),
 		(*C.char)(unsafe.Pointer(&selectorBytes[0])),
@@ -215,7 +215,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		legacyTraceJSONByte = 1
 	}
 
-	chainID := C.CString(network.ChainIDString())
+	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
 		C.uintptr_t(handle),

@@ -43,6 +43,7 @@ const (
 	wsPortF              = "ws-port"
 	dbPathF              = "db-path"
 	networkF             = "network"
+	customNetworkF       = "custom-network"
 	ethNodeF             = "eth-node"
 	pprofF               = "pprof"
 	pprofHostF           = "pprof-host"
@@ -89,22 +90,24 @@ const (
 	defaultCacheSizeMb         = 8
 	defaultMaxHandles          = 1024
 	defaultGwAPIKey            = ""
+	defaultCustomNetwork       = ""
 
-	configFlagUsage   = "The yaml configuration file."
-	logLevelFlagUsage = "Options: debug, info, warn, error."
-	httpUsage         = "Enables the HTTP RPC server on the default port and interface."
-	httpHostUsage     = "The interface on which the HTTP RPC server will listen for requests."
-	httpPortUsage     = "The port on which the HTTP server will listen for requests."
-	wsUsage           = "Enables the Websocket RPC server on the default port."
-	wsHostUsage       = "The interface on which the Websocket RPC server will listen for requests."
-	wsPortUsage       = "The port on which the websocket server will listen for requests."
-	dbPathUsage       = "Location of the database files."
-	networkUsage      = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
-	pprofUsage        = "Enables the pprof endpoint on the default port."
-	pprofHostUsage    = "The interface on which the pprof HTTP server will listen for requests."
-	pprofPortUsage    = "The port on which the pprof HTTP server will listen for requests."
-	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	configFlagUsage    = "The yaml configuration file."
+	logLevelFlagUsage  = "Options: debug, info, warn, error."
+	httpUsage          = "Enables the HTTP RPC server on the default port and interface."
+	httpHostUsage      = "The interface on which the HTTP RPC server will listen for requests."
+	httpPortUsage      = "The port on which the HTTP server will listen for requests."
+	wsUsage            = "Enables the Websocket RPC server on the default port."
+	wsHostUsage        = "The interface on which the Websocket RPC server will listen for requests."
+	wsPortUsage        = "The port on which the websocket server will listen for requests."
+	dbPathUsage        = "Location of the database files."
+	networkUsage       = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
+	customNetworkUsage = "Json-string specifying `name` (string),`feeder_url` (string) ,`gateway_url` (string),`l2_chain_id` (string),`l1_chain_id (int)`,`core_contract_address` (string)." //nolint:lll
+	pprofUsage         = "Enables the pprof endpoint on the default port."
+	pprofHostUsage     = "The interface on which the pprof HTTP server will listen for requests."
+	pprofPortUsage     = "The port on which the pprof HTTP server will listen for requests."
+	colourUsage        = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage       = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"
@@ -202,8 +205,19 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
 		// encoding.TextUnmarshaller interface (see the LogLevel type for an example).
-		return v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc())))
+		if err := v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc()))); err != nil {
+			return err
+		}
+
+		if v.GetString(customNetworkF) != "" {
+			err := config.Network.SetCustomNetwork(v.GetString(customNetworkF))
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
 	var defaultDBPath string
@@ -231,6 +245,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
+	junoCmd.Flags().String(customNetworkF, defaultCustomNetwork, customNetworkUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
@@ -253,6 +268,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
+	junoCmd.MarkFlagsMutuallyExclusive(networkF, customNetworkF)
 
 	return junoCmd
 }

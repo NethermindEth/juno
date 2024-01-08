@@ -95,7 +95,7 @@ func NetworkBlockHashMetaInfo(network utils.Network) *blockHashMetaInfo {
 		}
 	default:
 		// This should never happen
-		panic(fmt.Sprintf("unknown network: %d", network))
+		panic(fmt.Sprintf("unknown network: %s", network.String()))
 	}
 }
 
@@ -155,7 +155,7 @@ func blockHash(b *Block, network utils.Network, overrideSeqAddr *felt.Felt) (*fe
 	metaInfo := NetworkBlockHashMetaInfo(network)
 
 	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.ChainID())
+		return pre07Hash(b, network.ChainIDFelt())
 	}
 	return post07Hash(b, overrideSeqAddr)
 }

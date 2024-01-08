@@ -3,6 +3,7 @@ package main_test
 import (
 	"context"
 	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,6 +13,7 @@ import (
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +36,17 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWS := false
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
+	defaultCoreContractAddress := common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
 	defaultNetwork := utils.Mainnet
+	defaultCustomNetwork := utils.Network{
+		Name:                "custom",
+		FeederURL:           "awesome_feeder_url",
+		GatewayURL:          "awesome_gateway_url",
+		L2ChainID:           "SN_AWESOME",
+		L1ChainID:           new(big.Int).SetUint64(42),
+		CoreContractAddress: defaultCoreContractAddress,
+	}
+	defaultCustomNetworkString := `{"name":"custom","feeder_url":"awesome_feeder_url","gateway_url":"awesome_gateway_url","l2_chain_id":"SN_AWESOME","l1_chain_id":42,"core_contract_address":"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"}`
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
 	defaultMetrics := false
@@ -56,6 +68,41 @@ func TestConfigPrecedence(t *testing.T) {
 		env             []string
 		expectedConfig  *node.Config
 	}{
+		"custom network flags": {
+			inputArgs: []string{
+				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
+				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "8",
+				"--custom-network", `{"name":"custom","feeder_url":"awesome_feeder_url","gateway_url":"awesome_gateway_url","l2_chain_id":"SN_AWESOME","l1_chain_id":42,"core_contract_address":"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"}`,
+			},
+			expectedConfig: &node.Config{
+				LogLevel:            utils.DEBUG,
+				HTTP:                defaultHTTP,
+				HTTPHost:            "0.0.0.0",
+				HTTPPort:            4576,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/.juno",
+				Network:             defaultCustomNetwork,
+				CustomNetwork:       defaultCustomNetworkString,
+				Pprof:               true,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
+			},
+		},
 		"default config with no flags": {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{

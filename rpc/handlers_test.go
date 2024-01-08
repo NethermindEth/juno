@@ -48,7 +48,7 @@ func TestChainId(t *testing.T) {
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
-			assert.Equal(t, n.ChainID(), cID)
+			assert.Equal(t, n.ChainIDFelt(), cID)
 		})
 	}
 }
@@ -3220,7 +3220,7 @@ func TestSimulateTransactions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	const network = utils.Mainnet
+	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(network).AnyTimes()
@@ -3297,7 +3297,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	const network = utils.Mainnet
+	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(network).AnyTimes()
@@ -3777,7 +3777,7 @@ func TestEstimateFee(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	const network = utils.Mainnet
+	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(network).AnyTimes()

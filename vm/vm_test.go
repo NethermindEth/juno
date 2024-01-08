@@ -132,7 +132,7 @@ func TestV1Call(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	const network = utils.Goerli2
+	network := utils.Goerli2
 
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(false)

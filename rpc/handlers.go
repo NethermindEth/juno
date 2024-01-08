@@ -163,7 +163,7 @@ func (h *Handler) Run(ctx context.Context) error {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
 func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
-	return h.bcReader.Network().ChainID(), nil
+	return h.bcReader.Network().ChainIDFelt(), nil
 }
 
 // BlockNumber returns the latest synced block number.
