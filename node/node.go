@@ -203,7 +203,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
 		jsonrpcServer.WithListener(rpcMetrics)
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
-		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
 		if synchronizer != nil {
