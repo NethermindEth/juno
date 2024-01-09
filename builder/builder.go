@@ -2,6 +2,8 @@ package builder
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -26,16 +28,24 @@ type Builder struct {
 	ownAddress felt.Felt
 	privKey    *ecdsa.PrivateKey
 
-	bc       *blockchain.Blockchain
-	vm       vm.VM
-	newHeads *feed.Feed[*core.Header]
-	log      utils.Logger
+	bc        *blockchain.Blockchain
+	vm        vm.VM
+	newHeads  *feed.Feed[*core.Header]
+	log       utils.Logger
+	blockTime time.Duration
+
+	listener EventListener
 }
 
-func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM, log utils.Logger) *Builder {
+func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
+	blockTime time.Duration, log utils.Logger,
+) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
 		privKey:    privKey,
+		blockTime:  blockTime,
+		log:        log,
+		listener:   &SelectiveListener{},
 
 		bc:       bc,
 		vm:       builderVM,
@@ -43,9 +53,32 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 	}
 }
 
+func (b *Builder) WithEventListener(l EventListener) *Builder {
+	b.listener = l
+	return b
+}
+
+// Run takes ownership of the Builder.
 func (b *Builder) Run(ctx context.Context) error {
-	<-ctx.Done()
-	return nil
+	ticker := time.NewTicker(b.blockTime)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			pending, err := b.bc.Pending()
+			if err != nil {
+				return fmt.Errorf("get pending: %v", err)
+			}
+			pending.Block.SequencerAddress = &b.ownAddress
+			if err = b.bc.Finalise(&pending, b.Sign); err != nil {
+				return fmt.Errorf("finalise: %v", err)
+			}
+			b.log.Infow("Finalised block", "number", pending.Block.Number, "hash", pending.Block.Hash.ShortString())
+			b.listener.OnBlockFinalised(pending.Block.Header)
+		}
+	}
 }
 
 // ValidateAgainstPendingState validates a user transaction against the pending state
