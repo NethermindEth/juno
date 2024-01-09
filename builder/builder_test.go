@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -30,7 +31,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, utils.Integration)
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	testBuilder := builder.New(nil, seqAddr, bc, mockVM, utils.NewNopZapLogger())
+	testBuilder := builder.New(nil, seqAddr, bc, mockVM, 0, utils.NewNopZapLogger())
 
 	client := feeder.NewTestClient(t, utils.Integration)
 	gw := adaptfeeder.New(client)
@@ -74,7 +75,7 @@ func TestSign(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, utils.NewNopZapLogger())
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, utils.NewNopZapLogger())
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
@@ -201,4 +202,54 @@ func TestReceipt(t *testing.T) {
 	}
 	got := builder.Receipt(want.Fee, want.FeeUnit, want.TransactionHash, trace)
 	require.Equal(t, want, got)
+}
+
+type finisher struct {
+	i      uint64
+	min    uint64
+	cancel context.CancelFunc
+}
+
+func newFinisher(min uint64, cancel context.CancelFunc) *finisher {
+	return &finisher{
+		min:    min,
+		cancel: cancel,
+	}
+}
+
+func (f *finisher) OnBlockFinalised(_ *core.Header) {
+	if f.i < f.min {
+		f.i++
+	} else {
+		f.cancel()
+	}
+}
+
+func TestBuildTwoEmptyBlocks(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	mockCtrl := gomock.NewController(t)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	bc := blockchain.New(testDB, utils.Integration)
+	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), nil))
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	privKey, err := ecdsa.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	minHeight := uint64(2)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, utils.NewNopZapLogger()).WithEventListener(&builder.SelectiveListener{
+		OnBlockFinalisedCb: newFinisher(minHeight, cancel).OnBlockFinalised,
+	})
+	require.NoError(t, testBuilder.Run(ctx))
+
+	height, err := bc.Height()
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, height, minHeight)
+	for i := uint64(0); i < height; i++ {
+		block, err := bc.BlockByNumber(i + 1)
+		require.NoError(t, err)
+		require.Equal(t, seqAddr, block.SequencerAddress)
+		require.Empty(t, block.Transactions)
+		require.Empty(t, block.Receipts)
+	}
 }
