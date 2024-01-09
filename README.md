@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/NethermindEth/juno">
-    <img alt="Juno Logo" height="125" src="./.github/Juno_Dark_Powered_by_Nethermind.png">
+    <img alt="Juno Logo" height="125" src="./.github/Juno_Light.png">
   </a>
   <br>
 </p>
