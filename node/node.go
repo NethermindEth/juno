@@ -156,8 +156,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if kErr != nil {
 			return nil, kErr
 		}
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, log) //nolint: gomnd
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Minute, log) //nolint: gomnd
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, &cfg.Network, log)
+
 		services = append(services, sequencer)
 	} else {
 
