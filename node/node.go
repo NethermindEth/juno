@@ -316,11 +316,9 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	if n.cfg.GenesisFile != "" {
-		if err = buildGenesis(n.cfg.GenesisFile, n.blockchain, vm.New(n.log)); err != nil {
-			n.log.Errorw("Error building genesis state", "err", err)
-			return
-		}
+	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
+		n.log.Errorw("Error building genesis state", "err", err)
+		return
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
