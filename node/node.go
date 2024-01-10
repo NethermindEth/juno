@@ -122,7 +122,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	services := make([]service.Service, 0)
 
-	chain := blockchain.New(database, cfg.Network, log)
+	chain := blockchain.New(database, cfg.Network)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
