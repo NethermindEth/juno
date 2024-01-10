@@ -73,18 +73,16 @@ type Blockchain struct {
 	network  utils.Network
 	database db.DB
 
-	log      utils.SimpleLogger
 	listener EventListener
 
 	cachedPending atomic.Pointer[Pending]
 }
 
-func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
+func New(database db.DB, network utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
 		network:  network,
-		log:      log,
 		listener: &SelectiveListener{},
 	}
 }

@@ -200,7 +200,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			network := utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), network, log)
+			chain := blockchain.New(pebble.NewMemTest(t), network)
 			handler := rpc.New(chain, nil, nil, "", log)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
@@ -318,7 +318,7 @@ func TestBlockWithTxs(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			network := utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), network, log)
+			chain := blockchain.New(pebble.NewMemTest(t), network)
 			handler := rpc.New(chain, nil, nil, "", log)
 
 			block, rpcErr := handler.BlockWithTxs(id)
@@ -1754,8 +1754,7 @@ func TestStateUpdate(t *testing.T) {
 
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
-			chain := blockchain.New(pebble.NewMemTest(t), utils.Mainnet, log)
+			chain := blockchain.New(pebble.NewMemTest(t), utils.Mainnet)
 			handler := rpc.New(chain, nil, nil, "", nil)
 
 			update, rpcErr := handler.StateUpdate(id)
@@ -2331,7 +2330,7 @@ func TestClassAt(t *testing.T) {
 
 func TestEvents(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, utils.Goerli2, utils.NewNopZapLogger())
+	chain := blockchain.New(testDB, utils.Goerli2)
 
 	client := feeder.NewTestClient(t, utils.Goerli2)
 	gw := adaptfeeder.New(client)
@@ -3286,7 +3285,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			network := utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), network, log)
+			chain := blockchain.New(pebble.NewMemTest(t), network)
 			handler := rpc.New(chain, nil, nil, "", log)
 
 			update, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
@@ -3490,7 +3489,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), network, log)
+	chain := blockchain.New(pebble.NewMemTest(t), network)
 	syncer := sync.New(chain, gw, log, 0, false)
 	handler := rpc.New(chain, syncer, nil, "", log)
 
@@ -3571,7 +3570,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(feederClient)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), network, log)
+	chain := blockchain.New(pebble.NewMemTest(t), network)
 	syncer := sync.New(chain, gw, log, 0, false)
 	handler := rpc.New(chain, syncer, nil, "", log)
 	go func() {

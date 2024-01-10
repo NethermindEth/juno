@@ -69,7 +69,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			database, err := pebble.New(dbPath, 1, 1, log)
 			require.NoError(t, err)
-			chain := blockchain.New(database, network, log)
+			chain := blockchain.New(database, network)
 			syncer := sync.New(chain, adaptfeeder.New(feeder.NewTestClient(t, network)), log, 0, false)
 			ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 			require.NoError(t, syncer.Run(ctx))
