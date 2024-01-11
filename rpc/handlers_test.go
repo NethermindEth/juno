@@ -48,7 +48,7 @@ func TestChainId(t *testing.T) {
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
-			assert.Equal(t, n.ChainIDFelt(), cID)
+			assert.Equal(t, n.L2ChainIDFelt(), cID)
 		})
 	}
 }
@@ -3230,7 +3230,7 @@ func TestSimulateTransactions(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil).AnyTimes()
-	sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+	sequencerAddress := network.BlockHashMetaInfo.FallBackSequencerAddress
 
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, false, nil, nil, false).
@@ -3340,7 +3340,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		const height uint64 = 8
 		mockReader.EXPECT().Height().Return(height, nil)
 
-		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+		sequencerAddress := network.BlockHashMetaInfo.FallBackSequencerAddress
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
 		vmTraceJSON := json.RawMessage(`{
 			"validate_invocation": {},
@@ -3788,7 +3788,7 @@ func TestEstimateFee(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil).AnyTimes()
-	sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
+	sequencerAddress := network.BlockHashMetaInfo.FallBackSequencerAddress
 
 	t.Run("ok with zero values", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), sequencerAddress, mockState, network, []*felt.Felt{}, true, false, true, nil, nil, false).

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/validator"
@@ -26,10 +27,10 @@ type Network struct {
 	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
 	L2ChainID           string             `json:"l2_chain_id" validate:"required"`
 	CoreContractAddress common.Address     `json:"core_contract_address" validate:"required"`
-	BlockHashMetaInfo   *blockHashMetaInfo `json:"block_hash_meta_info"`
+	BlockHashMetaInfo   *BlockHashMetaInfo `json:"block_hash_meta_info"`
 }
 
-type blockHashMetaInfo struct {
+type BlockHashMetaInfo struct {
 	// The sequencer address to use for blocks that do not have one
 	FallBackSequencerAddress *felt.Felt `json:"fallback_sequencer_address" validate:"required"`
 	// First block that uses the post-0.7.0 block hash algorithm
@@ -53,7 +54,7 @@ var (
 		L2ChainID:           "SN_MAIN",
 		L1ChainID:           big.NewInt(1),
 		CoreContractAddress: common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		BlockHashMetaInfo: &blockHashMetaInfo{
+		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             833,
 			FallBackSequencerAddress: fallBackSequencerAddressMainnet,
 		},
@@ -66,7 +67,7 @@ var (
 		//nolint:gomnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		BlockHashMetaInfo: &blockHashMetaInfo{
+		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             47028,
 			UnverifiableRange:        []uint64{119802, 148428},
 			FallBackSequencerAddress: fallBackSequencerAddress,
@@ -80,7 +81,7 @@ var (
 		//nolint:gomnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		BlockHashMetaInfo: &blockHashMetaInfo{
+		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
@@ -93,7 +94,7 @@ var (
 		//nolint:gomnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
-		BlockHashMetaInfo: &blockHashMetaInfo{
+		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             110511,
 			UnverifiableRange:        []uint64{0, 110511},
 			FallBackSequencerAddress: fallBackSequencerAddress,
@@ -107,7 +108,7 @@ var (
 		//nolint:gomnd
 		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
-		BlockHashMetaInfo: &blockHashMetaInfo{
+		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
@@ -120,7 +121,7 @@ var (
 		//nolint:gomnd
 		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
-		BlockHashMetaInfo: &blockHashMetaInfo{
+		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
@@ -140,22 +141,17 @@ func (n *Network) MarshalJSON() ([]byte, error) {
 }
 
 func (n *Network) Set(s string) error {
+	sLower := strings.ToLower(s)
 	predefinedNetworks := map[string]Network{
-		"MAINNET":             Mainnet,
 		"mainnet":             Mainnet,
-		"GOERLI":              Goerli,
 		"goerli":              Goerli,
-		"GOERLI2":             Goerli2,
 		"goerli2":             Goerli2,
-		"INTEGRATION":         Integration,
 		"integration":         Integration,
-		"SEPOLIA":             Sepolia,
 		"sepolia":             Sepolia,
-		"SEPOLIA-INTEGRATION": SepoliaIntegration,
 		"sepolia-integration": SepoliaIntegration,
 	}
 
-	if network, ok := predefinedNetworks[s]; ok {
+	if network, ok := predefinedNetworks[sLower]; ok {
 		*n = network
 		return nil
 	}
@@ -171,10 +167,6 @@ func (n *Network) SetCustomNetwork(s string) error {
 }
 
 func (n *Network) Validate() error {
-	if !(n.Name == "CUSTOM" || n.Name == "custom") {
-		return ErrUnknownNetwork
-	}
-
 	validate := validator.Validator()
 	return validate.Struct(n)
 }
@@ -202,7 +194,7 @@ func (n *Network) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
 }
 
-func (n Network) ChainIDFelt() *felt.Felt {
+func (n Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
 }
 

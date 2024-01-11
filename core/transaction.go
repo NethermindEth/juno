@@ -438,7 +438,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.EntryPointSelector,
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 		), nil
 	case i.Version.Is(1):
 		return crypto.PedersenArray(
@@ -448,7 +448,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			i.Nonce,
 		), nil
 	case i.Version.Is(3):
@@ -458,7 +458,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.SenderAddress,
 			tipAndResourcesHash(i.Tip, i.ResourceBounds),
 			crypto.PoseidonArray(i.PaymasterData...),
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			i.Nonce,
 			new(felt.Felt).SetUint64(dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode)),
 			crypto.PoseidonArray(i.AccountDeploymentData...),
@@ -493,7 +493,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			new(felt.Felt),
 			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 		), nil
 	case d.Version.Is(2):
@@ -504,7 +504,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			&felt.Zero,
 			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 			d.CompiledClassHash,
 		), nil
@@ -515,7 +515,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.SenderAddress,
 			tipAndResourcesHash(d.Tip, d.ResourceBounds),
 			crypto.PoseidonArray(d.PaymasterData...),
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
 			crypto.PoseidonArray(d.AccountDeploymentData...),
@@ -542,7 +542,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 			l.EntryPointSelector,
 			crypto.PedersenArray(l.CallData...),
 			&felt.Zero,
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			l.Nonce,
 		), nil
 	default:
@@ -563,7 +563,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			&felt.Zero,
 			crypto.PedersenArray(callData...),
 			d.MaxFee,
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 		), nil
 	case d.Version.Is(3):
@@ -573,7 +573,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			d.ContractAddress,
 			tipAndResourcesHash(d.Tip, d.ResourceBounds),
 			crypto.PoseidonArray(d.PaymasterData...),
-			n.ChainIDFelt(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
 			crypto.PoseidonArray(d.ConstructorCallData...),

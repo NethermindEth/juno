@@ -163,7 +163,7 @@ func (h *Handler) Run(ctx context.Context) error {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
 func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
-	return h.bcReader.Network().ChainIDFelt(), nil
+	return h.bcReader.Network().L2ChainIDFelt(), nil
 }
 
 // BlockNumber returns the latest synced block number.
@@ -1489,7 +1489,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
+		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
 		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
@@ -1639,7 +1639,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	sequencerAddress := block.Header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
+		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
