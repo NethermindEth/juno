@@ -46,7 +46,6 @@ func TestConfigPrecedence(t *testing.T) {
 		L1ChainID:           new(big.Int).SetUint64(42),
 		CoreContractAddress: defaultCoreContractAddress,
 	}
-	defaultCustomNetworkString := `{"name":"custom","feeder_url":"awesome_feeder_url","gateway_url":"awesome_gateway_url","l2_chain_id":"SN_AWESOME","l1_chain_id":42,"core_contract_address":"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"}`
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
 	defaultMetrics := false
@@ -68,11 +67,13 @@ func TestConfigPrecedence(t *testing.T) {
 		env             []string
 		expectedConfig  *node.Config
 	}{
-		"custom network flags": {
+		"custom network all flags": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
 				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "8",
-				"--custom-network", `{"name":"custom","feeder_url":"awesome_feeder_url","gateway_url":"awesome_gateway_url","l2_chain_id":"SN_AWESOME","l1_chain_id":42,"core_contract_address":"0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"}`,
+				"--network", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
+				"--cn-l1-chain-id", "42", "--cn-l2-chain-id", "SN_AWESOME", "--cn-protocol-id", "88",
+				"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
@@ -90,7 +91,49 @@ func TestConfigPrecedence(t *testing.T) {
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
 				Network:             defaultCustomNetwork,
-				CustomNetwork:       defaultCustomNetworkString,
+				Pprof:               true,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
+			},
+		},
+		"custom network config file": {
+			cfgFile: true,
+			cfgFileContents: `log-level: debug
+http-host: 0.0.0.0
+http-port: 4576
+db-path: /home/.juno
+pprof: true
+network: custom
+cn-feeder-url: awesome_feeder_url
+cn-gateway-url: awesome_gateway_url
+cn-l2-chain-id: SN_AWESOME
+cn-l1-chain-id: 42
+cn-protocol-id: 88
+cn-core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
+`,
+			expectedConfig: &node.Config{
+				LogLevel:            utils.DEBUG,
+				HTTP:                defaultHTTP,
+				HTTPHost:            "0.0.0.0",
+				HTTPPort:            4576,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/.juno",
+				Network:             defaultCustomNetwork,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,

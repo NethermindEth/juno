@@ -104,52 +104,6 @@ func TestNetworkSet(t *testing.T) {
 		n := utils.Network{}
 		require.Error(t, n.Set("blah"))
 	})
-
-	t.Run("custom network - success", func(t *testing.T) {
-		n := new(utils.Network)
-		networkJSON := `{
-				"name": "custom",
-				"feeder_url": "baseURL/feeder_gateway/",
-				"gateway_url": "baseURL/gateway",
-				"l2_chain_id": "SN_CUSTOM",
-				"l1_chain_id": 123,
-				"core_contract_address": "0x1",
-				"block_hash_meta_info": {
-					"first_07_block": 1,
-					"unverifiable_range": [2, 3],
-					"fallback_sequencer_address": "0x0"
-				}
-		}`
-		require.NoError(t, n.SetCustomNetwork(networkJSON))
-		assert.Equal(t, "custom", n.String())
-		assert.Equal(t, "baseURL/feeder_gateway/", n.FeederURL)
-		assert.Equal(t, "SN_CUSTOM", n.L2ChainID)
-		assert.Equal(t, "0x0", n.BlockHashMetaInfo.FallBackSequencerAddress.String())
-		assert.Equal(t, uint64(1), n.BlockHashMetaInfo.First07Block)
-		assert.Equal(t, []uint64{2, 3}, n.BlockHashMetaInfo.UnverifiableRange)
-	})
-
-	t.Run("fail - invalid json input", func(t *testing.T) {
-		n := new(utils.Network)
-		networkJSON := `some invalid json`
-		require.ErrorIs(t, n.SetCustomNetwork(networkJSON), utils.ErrInvalidCustomNetworkJSONStr)
-	})
-
-	t.Run("fail - unknown network", func(t *testing.T) {
-		n := new(utils.Network)
-		networkJSON := `{
-				"name": "typo"
-		}`
-		require.ErrorIs(t, n.SetCustomNetwork(networkJSON), utils.ErrUnknownNetwork)
-	})
-
-	t.Run("fail - custom network vaildate", func(t *testing.T) {
-		n := new(utils.Network)
-		networkJSON := `{
-			"name": "custom"
-	}`
-		require.Error(t, n.SetCustomNetwork(networkJSON))
-	})
 }
 
 func TestNetworkUnmarshalText(t *testing.T) {

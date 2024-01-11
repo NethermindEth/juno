@@ -9,16 +9,12 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/validator"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
 )
 
-var (
-	ErrUnknownNetwork              = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
-	ErrInvalidCustomNetworkJSONStr = errors.New("invalid custom-network json string")
-)
+var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 
 type Network struct {
 	Name                string             `json:"name" validate:"required"`
@@ -126,6 +122,9 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
+	CustomNetwork = Network{
+		Name: "custom",
+	}
 )
 
 func (n *Network) String() string {
@@ -142,6 +141,7 @@ func (n *Network) MarshalJSON() ([]byte, error) {
 
 func (n *Network) Set(s string) error {
 	sLower := strings.ToLower(s)
+
 	predefinedNetworks := map[string]Network{
 		"mainnet":             Mainnet,
 		"goerli":              Goerli,
@@ -149,6 +149,7 @@ func (n *Network) Set(s string) error {
 		"integration":         Integration,
 		"sepolia":             Sepolia,
 		"sepolia-integration": SepoliaIntegration,
+		"custom":              CustomNetwork,
 	}
 
 	if network, ok := predefinedNetworks[sLower]; ok {
@@ -156,34 +157,6 @@ func (n *Network) Set(s string) error {
 		return nil
 	}
 	return ErrUnknownNetwork
-}
-
-func (n *Network) SetCustomNetwork(s string) error {
-	*n = Network{}
-	if err := n.UnmarshalJSON([]byte(s)); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidCustomNetworkJSONStr, err)
-	}
-	return n.Validate()
-}
-
-func (n *Network) Validate() error {
-	validate := validator.Validator()
-	return validate.Struct(n)
-}
-
-func (n *Network) UnmarshalJSON(data []byte) error {
-	type Alias Network
-	aux := &struct {
-		CoreContractAddress string `json:"core_contract_address"`
-		*Alias
-	}{
-		Alias: (*Alias)(n),
-	}
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-	n.CoreContractAddress = common.HexToAddress(aux.CoreContractAddress)
-	return nil
 }
 
 func (n *Network) Type() string {
