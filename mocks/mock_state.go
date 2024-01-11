@@ -5,7 +5,6 @@
 //
 //	mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
 //
-
 // Package mocks is a generated GoMock package.
 package mocks
 

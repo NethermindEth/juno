@@ -163,7 +163,8 @@ func (h *Handler) Run(ctx context.Context) error {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
 func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
-	return h.bcReader.Network().L2ChainIDFelt(), nil
+	network := h.bcReader.Network()
+	return network.L2ChainIDFelt(), nil
 }
 
 // BlockNumber returns the latest synced block number.
@@ -1237,9 +1238,9 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		}
 		blockNumber = height + 1
 	}
-
+	network := h.bcReader.Network()
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, blockNumber, header.Timestamp, state, h.bcReader.Network())
+		call.Calldata, blockNumber, header.Timestamp, state, &network)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1441,7 +1442,7 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 	return res, err
 }
 
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo,funlen
 	simulationFlags []SimulationFlag, legacyTraceJSON, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
@@ -1463,7 +1464,8 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.bcReader.Network())
+		network := h.bcReader.Network()
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], &network)
 		if aErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -1491,8 +1493,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if sequencerAddress == nil {
 		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
+	network := h.bcReader.Network()
 	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
-		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
+		state, &network, paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
 		header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -1567,7 +1570,7 @@ func prependBlockHashToState(bc blockchain.Reader, blockNumber uint64, state cor
 	), nil
 }
 
-func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
+func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo,funlen
 	legacyJSON bool,
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil
@@ -1642,8 +1645,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
 
+	network := h.bcReader.Network()
 	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
-		sequencerAddress, state, h.bcReader.Network(), paidFeesOnL1, false, false, false, block.Header.GasPrice,
+		sequencerAddress, state, &network, paidFeesOnL1, false, false, false, block.Header.GasPrice,
 		block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {

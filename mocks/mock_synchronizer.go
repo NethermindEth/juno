@@ -5,7 +5,6 @@
 //
 //	mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 //
-
 // Package mocks is a generated GoMock package.
 package mocks
 

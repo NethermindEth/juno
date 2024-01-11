@@ -5,7 +5,6 @@
 //
 //	mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 //
-
 // Package mocks is a generated GoMock package.
 package mocks
 

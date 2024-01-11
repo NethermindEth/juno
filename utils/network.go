@@ -128,11 +128,11 @@ var (
 	}
 )
 
-func (n Network) String() string {
+func (n *Network) String() string {
 	return n.Name
 }
 
-func (n Network) MarshalYAML() (interface{}, error) {
+func (n *Network) MarshalYAML() (interface{}, error) {
 	return n.String(), nil
 }
 
@@ -194,10 +194,10 @@ func (n *Network) UnmarshalText(text []byte) error {
 	return n.Set(string(text))
 }
 
-func (n Network) L2ChainIDFelt() *felt.Felt {
+func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
 }
 
-func (n Network) ProtocolID() protocol.ID {
-	return protocol.ID(fmt.Sprintf("/starknet/%s", n))
+func (n *Network) ProtocolID() protocol.ID {
+	return protocol.ID(fmt.Sprintf("/starknet/%s", n.String()))
 }
