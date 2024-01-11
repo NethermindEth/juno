@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var ErrUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
+var errUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
 
 type Network struct {
 	Name                string             `json:"name" validate:"required"`
@@ -156,7 +156,7 @@ func (n *Network) Set(s string) error {
 		*n = network
 		return nil
 	}
-	return ErrUnknownNetwork
+	return errUnknownNetwork
 }
 
 func (n *Network) Type() string {
