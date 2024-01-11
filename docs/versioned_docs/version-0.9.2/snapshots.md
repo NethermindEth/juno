@@ -26,7 +26,7 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
    Fetch a snapshot from one of the provided URLs:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.7.5_449406.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.2_501593.tar
    ```
 
 2. **Prepare Directory**
