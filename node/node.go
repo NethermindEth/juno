@@ -88,8 +88,9 @@ type Node struct {
 	db         db.DB
 	blockchain *blockchain.Blockchain
 
-	services []service.Service
-	log      utils.Logger
+	metricsService service.Service // Start the metrics service earlier than other services.
+	services       []service.Service
+	log            utils.Logger
 
 	version string
 }
@@ -121,7 +122,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	services := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network, log)
+	chain := blockchain.New(database, &cfg.Network)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
@@ -172,6 +173,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if cfg.Websocket {
 		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
 	}
+	var metricsService service.Service
 	if cfg.Metrics {
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
@@ -182,7 +184,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
-		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
+		metricsService = makeMetrics(cfg.MetricsHost, cfg.MetricsPort)
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
@@ -192,12 +194,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	n := &Node{
-		cfg:        cfg,
-		log:        log,
-		version:    version,
-		db:         database,
-		blockchain: chain,
-		services:   services,
+		cfg:            cfg,
+		log:            log,
+		version:        version,
+		db:             database,
+		blockchain:     chain,
+		services:       services,
+		metricsService: metricsService,
 	}
 
 	if n.cfg.EthNode == "" {
@@ -284,6 +287,20 @@ func (n *Node) Run(ctx context.Context) {
 	}
 	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
+	wg := conc.NewWaitGroup()
+	defer wg.Wait()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if n.metricsService != nil {
+		wg.Go(func() {
+			defer cancel()
+			if err := n.metricsService.Run(ctx); err != nil {
+				n.log.Errorw("Metrics error", "err", err)
+			}
+		})
+	}
+
 	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
@@ -293,8 +310,6 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	wg := conc.NewWaitGroup()
 	for _, s := range n.services {
 		s := s
 		wg.Go(func() {
@@ -306,10 +321,8 @@ func (n *Node) Run(ctx context.Context) {
 			}
 		})
 	}
-	defer wg.Wait()
 
 	<-ctx.Done()
-	cancel()
 	n.log.Infow("Shutting down Juno...")
 }
 
