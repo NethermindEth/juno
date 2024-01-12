@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/rpc"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -29,40 +30,11 @@ func Validator() *validator.Validate {
 			panic("not a felt")
 		}, felt.Felt{}, &felt.Felt{})
 		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
-			if t, ok := field.Interface().(TransactionType); ok {
+			if t, ok := field.Interface().(rpc.TransactionType); ok {
 				return t.String()
 			}
 			panic("not a TransactionType")
-		}, TransactionType(0))
+		}, rpc.TransactionType(0))
 	})
 	return v
-}
-
-// TransactionType is duplicated here to prevent import cycles
-type TransactionType uint8
-
-const (
-	Invalid TransactionType = iota
-	TxnDeclare
-	TxnDeploy
-	TxnDeployAccount
-	TxnInvoke
-	TxnL1Handler
-)
-
-func (t TransactionType) String() string {
-	switch t {
-	case TxnDeclare:
-		return "DECLARE"
-	case TxnDeploy:
-		return "DEPLOY"
-	case TxnDeployAccount:
-		return "DEPLOY_ACCOUNT"
-	case TxnInvoke:
-		return "INVOKE"
-	case TxnL1Handler:
-		return "L1_HANDLER"
-	default:
-		return "<unknown>"
-	}
 }
