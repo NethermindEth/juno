@@ -131,7 +131,7 @@ func (n *Network) String() string {
 	return n.Name
 }
 
-func (n *Network) MarshalYAML() (interface{}, error) {
+func (n *Network) MarshalYAML() (any, error) {
 	return n.String(), nil
 }
 
@@ -140,8 +140,6 @@ func (n *Network) MarshalJSON() ([]byte, error) {
 }
 
 func (n *Network) Set(s string) error {
-	sLower := strings.ToLower(s)
-
 	predefinedNetworks := map[string]Network{
 		"mainnet":             Mainnet,
 		"goerli":              Goerli,
@@ -152,7 +150,7 @@ func (n *Network) Set(s string) error {
 		"custom":              CustomNetwork,
 	}
 
-	if network, ok := predefinedNetworks[sLower]; ok {
+	if network, ok := predefinedNetworks[strings.ToLower(s)]; ok {
 		*n = network
 		return nil
 	}
