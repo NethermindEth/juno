@@ -53,7 +53,6 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NoError(t, err)
 
 		genesisConfig := genesis.GenesisConfig{
-			ChainID: network.ChainIDString(),
 			Classes: []string{
 				"./testdata/simpleStore.json",
 				"./testdata/simpleAccount.json",
