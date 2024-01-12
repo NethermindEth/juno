@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var errUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration, custom)")
+var errUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
 
 type Network struct {
 	Name                string             `json:"name" validate:"required"`
@@ -122,9 +122,6 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
-	CustomNetwork = Network{
-		Name: "custom",
-	}
 )
 
 func (n *Network) String() string {
@@ -147,7 +144,6 @@ func (n *Network) Set(s string) error {
 		"integration":         Integration,
 		"sepolia":             Sepolia,
 		"sepolia-integration": SepoliaIntegration,
-		"custom":              CustomNetwork,
 	}
 
 	if network, ok := predefinedNetworks[strings.ToLower(s)]; ok {

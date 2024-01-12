@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -69,6 +68,7 @@ const (
 	dbCacheSizeF           = "db-cache-size"
 	dbMaxHandlesF          = "db-max-handles"
 	gwAPIKeyF              = "gw-api-key" //nolint: gosec
+	cnNameF                = "cn-name"
 	cnFeederURLF           = "cn-feeder-url"
 	cnGatewayURLF          = "cn-gateway-url"
 	cnL1ChainIDF           = "cn-l1-chain-id"
@@ -99,6 +99,7 @@ const (
 	defaultCacheSizeMb              = 8
 	defaultMaxHandles               = 1024
 	defaultGwAPIKey                 = ""
+	defaultCNName                   = ""
 	defaultCNFeederURL              = ""
 	defaultCNGatewayURL             = ""
 	defaultCNL1ChainID              = 0
@@ -115,7 +116,8 @@ const (
 	wsHostUsage                           = "The interface on which the Websocket RPC server will listen for requests."
 	wsPortUsage                           = "The port on which the websocket server will listen for requests."
 	dbPathUsage                           = "Location of the database files."
-	networkUsage                          = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration, custom."
+	networkUsage                          = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
+	networkCustomName                     = "Custom network name."
 	networkCustomFeederUsage              = "Custom network feeder URL."
 	networkCustomGatewayUsage             = "Custom network gateway URL."
 	networkCustomL1ChainIDUsage           = "Custom network L1 chain id."
@@ -230,10 +232,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		}
 
 		// Set custom network
-		if config.Network.String() == "custom" {
-			if v.GetString(cnFeederURLF) == "" {
-				return errors.New("custom networks must specify all `cn` flags (--cn-feeder-url etc)")
-			}
+		if v.GetString(cnNameF) != "" {
+			config.Network = utils.Network{}
+			config.Network.Name = v.GetString(cnNameF)
 			config.Network.FeederURL = v.GetString(cnFeederURLF)
 			config.Network.GatewayURL = v.GetString(cnGatewayURLF)
 			config.Network.L1ChainID = new(big.Int).SetInt64(v.GetInt64(cnL1ChainIDF))
@@ -270,6 +271,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
+	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
 	junoCmd.Flags().String(cnFeederURLF, defaultCNFeederURL, networkCustomFeederUsage)
 	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
 	junoCmd.Flags().Int(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
@@ -298,7 +300,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
-	junoCmd.MarkFlagsRequiredTogether(cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnProtocolIDF, cnCoreContractAddressF)
+	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnProtocolIDF, cnCoreContractAddressF)
+	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 
 	return junoCmd
 }

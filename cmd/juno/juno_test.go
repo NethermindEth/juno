@@ -71,7 +71,7 @@ func TestConfigPrecedence(t *testing.T) {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
 				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "8",
-				"--network", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
+				"--cn-name", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
 				"--cn-l1-chain-id", "42", "--cn-l2-chain-id", "SN_AWESOME", "--cn-protocol-id", "88",
 				"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
 			},
@@ -110,7 +110,7 @@ http-host: 0.0.0.0
 http-port: 4576
 db-path: /home/.juno
 pprof: true
-network: custom
+cn-name: custom
 cn-feeder-url: awesome_feeder_url
 cn-gateway-url: awesome_gateway_url
 cn-l2-chain-id: SN_AWESOME
