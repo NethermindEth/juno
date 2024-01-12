@@ -17,7 +17,6 @@ import (
 )
 
 type GenesisConfig struct {
-	ChainID       string                         `json:"chain_id" validate:"required"`
 	Classes       []string                       `json:"classes"`        // []path-to-class.json
 	Contracts     map[string]GenesisContractData `json:"contracts"`      // address -> {classHash, constructorArgs}
 	FunctionCalls []FunctionCall                 `json:"function_calls"` // list of functionCalls to Call()
