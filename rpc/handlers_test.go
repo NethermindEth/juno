@@ -3336,8 +3336,6 @@ func TestTraceBlockTransactions(t *testing.T) {
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		const height uint64 = 8
-		mockReader.EXPECT().Height().Return(height, nil)
 
 		sequencerAddress := core.NetworkBlockHashMetaInfo(network).FallBackSequencerAddress
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
@@ -3356,7 +3354,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}`)
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, height+1, header.Timestamp, sequencerAddress,
+		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, header.Number, header.Timestamp, sequencerAddress,
 			gomock.Any(), network, paidL1Fees, false, false, false, header.GasPrice, header.GasPriceSTRK, false).Return(nil, []vm.TransactionTrace{vmTrace, vmTrace}, nil)
 
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
@@ -3754,8 +3752,6 @@ func TestThrottledVMError(t *testing.T) {
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		const height uint64 = 8
-		mockReader.EXPECT().Height().Return(height, nil)
 		_, rpcErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, utils.ErrResourceBusy.Error(), rpcErr.Data)
 	})

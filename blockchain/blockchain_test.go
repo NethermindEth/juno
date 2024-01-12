@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -665,19 +666,31 @@ func TestPending(t *testing.T) {
 	t.Run("no pending block means pending state matches head state", func(t *testing.T) {
 		pending, pErr := chain.Pending()
 		require.NoError(t, pErr)
-		require.Equal(t, b.Timestamp+1, pending.Block.Timestamp)
-		require.Equal(t, b.SequencerAddress, pending.Block.SequencerAddress)
-		require.Equal(t, b.GasPrice, pending.Block.GasPrice)
-		require.Equal(t, b.GasPriceSTRK, pending.Block.GasPriceSTRK)
-		require.Equal(t, b.ProtocolVersion, pending.Block.ProtocolVersion)
-		require.Equal(t, su.NewRoot, pending.StateUpdate.OldRoot)
-		require.Empty(t, pending.StateUpdate.StateDiff.Nonces)
-		require.Empty(t, pending.StateUpdate.StateDiff.StorageDiffs)
-		require.Empty(t, pending.StateUpdate.StateDiff.ReplacedClasses)
-		require.Empty(t, pending.StateUpdate.StateDiff.DeclaredV0Classes)
-		require.Empty(t, pending.StateUpdate.StateDiff.DeclaredV1Classes)
-		require.Empty(t, pending.StateUpdate.StateDiff.DeployedContracts)
-		require.Empty(t, pending.NewClasses)
+
+		require.LessOrEqual(t, pending.Block.Timestamp, uint64(time.Now().Unix()))
+		require.GreaterOrEqual(t, pending.Block.Timestamp, b.Timestamp)
+		receipts := make([]*core.TransactionReceipt, 0)
+		require.Equal(t, blockchain.Pending{
+			Block: &core.Block{
+				Header: &core.Header{
+					ParentHash:       b.Hash,
+					SequencerAddress: b.SequencerAddress,
+					Number:           b.Number + 1,
+					Timestamp:        pending.Block.Timestamp, // Tested above.
+					ProtocolVersion:  b.ProtocolVersion,
+					EventsBloom:      core.EventsBloom(receipts),
+					GasPrice:         b.GasPrice,
+					GasPriceSTRK:     b.GasPriceSTRK,
+				},
+				Transactions: make([]core.Transaction, 0),
+				Receipts:     receipts,
+			},
+			StateUpdate: &core.StateUpdate{
+				OldRoot:   su.NewRoot,
+				StateDiff: core.EmptyStateDiff(),
+			},
+			NewClasses: make(map[felt.Felt]core.Class, 0),
+		}, pending)
 
 		// PendingState matches head state.
 		require.NoError(t, pErr)
@@ -758,6 +771,32 @@ func TestPending(t *testing.T) {
 		})
 		require.NoError(t, pErr)
 	})
+}
+
+func TestStorePendingIncludesNumber(t *testing.T) {
+	network := utils.Mainnet
+	chain := blockchain.New(pebble.NewMemTest(t), network)
+
+	// Add block zero.
+	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
+	b, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+	require.NoError(t, chain.Store(b, nil, su, nil))
+
+	// Store pending.
+	require.NoError(t, chain.StorePending(&blockchain.Pending{
+		Block: &core.Block{
+			Header: &core.Header{
+				ParentHash: b.Hash,
+				Hash:       new(felt.Felt),
+			},
+		},
+	}))
+	pending, err := chain.Pending()
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), pending.Block.Number)
 }
 
 func TestMakeStateDiffForEmptyBlock(t *testing.T) {
