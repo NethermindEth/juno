@@ -73,7 +73,6 @@ const (
 	cnGatewayURLF          = "cn-gateway-url"
 	cnL1ChainIDF           = "cn-l1-chain-id"
 	cnL2ChainIDF           = "cn-l2-chain-id"
-	cnProtocolIDF          = "cn-protocol-id"
 	cnCoreContractAddressF = "cn-core-contract-address"
 
 	defaultConfig                   = ""
@@ -104,7 +103,6 @@ const (
 	defaultCNGatewayURL             = ""
 	defaultCNL1ChainID              = 0
 	defaultCNL2ChainID              = ""
-	defaultCNProtocolID             = 0
 	defaultCNCoreContractAddressStr = ""
 
 	configFlagUsage                       = "The yaml configuration file."
@@ -122,7 +120,6 @@ const (
 	networkCustomGatewayUsage             = "Custom network gateway URL."
 	networkCustomL1ChainIDUsage           = "Custom network L1 chain id."
 	networkCustomL2ChainIDUsage           = "Custom network L2 chain id."
-	networkCustomProtocolIDUsage          = "Custom network protocol id."
 	networkCustomCoreContractAddressUsage = "Custom network core contract address."
 	pprofUsage                            = "Enables the pprof endpoint on the default port."
 	pprofHostUsage                        = "The interface on which the pprof HTTP server will listen for requests."
@@ -276,7 +273,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
 	junoCmd.Flags().Int(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
 	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
-	junoCmd.Flags().Int(cnProtocolIDF, defaultCNProtocolID, networkCustomProtocolIDUsage)
 	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
@@ -300,7 +296,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
-	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnProtocolIDF, cnCoreContractAddressF)
+	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF)
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 
 	return junoCmd
