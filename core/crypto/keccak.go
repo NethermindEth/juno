@@ -7,7 +7,7 @@ import (
 
 // StarknetKeccak implements [Starknet keccak]
 //
-// [Starknet keccak]: https://docs.starknet.//io/documentation/develop/Hashing/hash-functions/#starknet_keccak
+// [Starknet keccak]: https://docs.starknet.io/documentation/architecture_and_concepts/Cryptography/hash-functions/#starknet_keccak
 func StarknetKeccak(b []byte) (*felt.Felt, error) {
 	h := sha3.NewLegacyKeccak256()
 	_, err := h.Write(b)

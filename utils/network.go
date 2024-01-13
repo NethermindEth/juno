@@ -156,7 +156,7 @@ func (n Network) DefaultL1ChainID() *big.Int {
 
 func (n Network) CoreContractAddress() (common.Address, error) {
 	var address common.Address
-	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
+	// The docs states the addresses for each network: https://docs.starknet.io/documentation/tools/important_addresses/
 	switch n {
 	case Mainnet:
 		address = common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")

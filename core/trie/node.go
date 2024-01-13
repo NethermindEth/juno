@@ -24,7 +24,7 @@ func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 	}
 
 	pathFelt := path.Felt()
-	// https://docs.starknet.io/documentation/develop/State/starknet-state/
+	// https://docs.starknet.io/documentation/architecture_and_concepts/Network_Architecture/starknet-state/
 	hash := hashFunc(n.Value, &pathFelt)
 	pathFelt.SetUint64(uint64(path.Len()))
 	return hash.Add(hash, &pathFelt)
