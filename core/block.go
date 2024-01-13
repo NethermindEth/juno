@@ -73,25 +73,27 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 	}
 
 	metaInfo := network.BlockHashMetaInfo
-	unverifiableRange := metaInfo.UnverifiableRange
-	for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
-		var overrideSeq *felt.Felt
-		if b.SequencerAddress == nil {
-			overrideSeq = fallbackSeq
-		}
+	if metaInfo != nil {
+		unverifiableRange := metaInfo.UnverifiableRange
+		for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
+			var overrideSeq *felt.Felt
+			if b.SequencerAddress == nil {
+				overrideSeq = fallbackSeq
+			}
 
-		hash, commitments, err := blockHash(b, network, overrideSeq)
-		if err != nil {
-			return nil, err
-		}
+			hash, commitments, err := blockHash(b, network, overrideSeq)
+			if err != nil {
+				return nil, err
+			}
 
-		if hash.Equal(b.Hash) {
-			return commitments, nil
-		} else if unverifiableRange != nil {
-			// Check if the block number is in the unverifiable range
-			if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
-				// If so, return success
+			if hash.Equal(b.Hash) {
 				return commitments, nil
+			} else if unverifiableRange != nil {
+				// Check if the block number is in the unverifiable range
+				if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
+					// If so, return success
+					return commitments, nil
+				}
 			}
 		}
 	}
@@ -102,7 +104,7 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 func blockHash(b *Block, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo
 
-	if b.Number < metaInfo.First07Block {
+	if metaInfo != nil && b.Number < metaInfo.First07Block {
 		return pre07Hash(b, network.L2ChainIDFelt())
 	}
 	return post07Hash(b, overrideSeqAddr)

@@ -234,15 +234,15 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		}
 
 		// Set custom network
-		if v.GetString(cnNameF) != "" {
-			config.Network = utils.Network{}
-			config.Network.Name = v.GetString(cnNameF)
-			config.Network.FeederURL = v.GetString(cnFeederURLF)
-			config.Network.GatewayURL = v.GetString(cnGatewayURLF)
-			config.Network.L1ChainID = new(big.Int).SetInt64(v.GetInt64(cnL1ChainIDF))
-			config.Network.L2ChainID = v.GetString(cnL2ChainIDF)
-			coreContractAddress := common.HexToAddress(v.GetString(cnCoreContractAddressF))
-			config.Network.CoreContractAddress = coreContractAddress
+		if v.IsSet(cnNameF) {
+			config.Network = utils.Network{
+				Name:                v.GetString(cnNameF),
+				FeederURL:           v.GetString(cnFeederURLF),
+				GatewayURL:          v.GetString(cnGatewayURLF),
+				L1ChainID:           new(big.Int).SetInt64(v.GetInt64(cnL1ChainIDF)),
+				L2ChainID:           v.GetString(cnL2ChainIDF),
+				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
+			}
 		}
 
 		return nil
