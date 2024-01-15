@@ -49,14 +49,14 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	}
 
 	mockVM.EXPECT().Execute([]core.Transaction{userTxn.Transaction},
-		[]core.Class{userTxn.DeclaredClass}, uint64(0), b.Timestamp, seqAddr,
+		[]core.Class{userTxn.DeclaredClass}, uint64(0), gomock.Any(), seqAddr,
 		gomock.Any(), utils.Integration, []*felt.Felt{}, false, false,
 		false, b.GasPrice, b.GasPriceSTRK, false).Return(nil, nil, nil)
 	assert.NoError(t, testBuilder.ValidateAgainstPendingState(&userTxn))
 
 	require.NoError(t, bc.Store(b, &core.BlockCommitments{}, su, nil))
 	mockVM.EXPECT().Execute([]core.Transaction{userTxn.Transaction},
-		[]core.Class{userTxn.DeclaredClass}, uint64(1), b.Timestamp+1, seqAddr,
+		[]core.Class{userTxn.DeclaredClass}, uint64(1), gomock.Any(), seqAddr,
 		gomock.Any(), utils.Integration, []*felt.Felt{}, false, false,
 		false, b.GasPrice, b.GasPriceSTRK, false).Return(nil, nil, errors.New("oops"))
 	assert.EqualError(t, testBuilder.ValidateAgainstPendingState(&userTxn), "oops")

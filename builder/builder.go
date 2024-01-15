@@ -1,12 +1,9 @@
 package builder
 
 import (
-	"errors"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -38,13 +35,6 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 		declaredClasses = []core.Class{userTxn.DeclaredClass}
 	}
 
-	nextHeight := uint64(0)
-	if height, err := b.bc.Height(); err == nil {
-		nextHeight = height + 1
-	} else if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return err
-	}
-
 	pendingBlock, err := b.bc.Pending()
 	if err != nil {
 		return err
@@ -61,7 +51,7 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 		}
 	}()
 
-	_, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, nextHeight,
+	_, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, pendingBlock.Block.Number,
 		pendingBlock.Block.Timestamp, &b.ownAddress, state, b.bc.Network(), []*felt.Felt{},
 		false, false, false, pendingBlock.Block.GasPrice, pendingBlock.Block.GasPriceSTRK, false)
 	return err
