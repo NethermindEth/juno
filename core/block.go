@@ -74,7 +74,11 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 
 	metaInfo := network.BlockHashMetaInfo
 	unverifiableRange := metaInfo.UnverifiableRange
-	for _, fallbackSeq := range []*felt.Felt{&felt.Zero, metaInfo.FallBackSequencerAddress} {
+	fallbackSeqAddresses := []*felt.Felt{&felt.Zero}
+	if metaInfo.FallBackSequencerAddress != nil {
+		fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
+	}
+	for _, fallbackSeq := range fallbackSeqAddresses {
 		var overrideSeq *felt.Felt
 		if b.SequencerAddress == nil {
 			overrideSeq = fallbackSeq

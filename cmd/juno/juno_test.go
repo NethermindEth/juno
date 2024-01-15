@@ -11,7 +11,6 @@ import (
 	"time"
 
 	juno "github.com/NethermindEth/juno/cmd/juno"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -38,7 +37,6 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
 	defaultCoreContractAddress := common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
-	defaultFallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	defaultNetwork := utils.Mainnet
 	defaultCustomNetwork := utils.Network{
 		Name:                "custom",
@@ -48,8 +46,7 @@ func TestConfigPrecedence(t *testing.T) {
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
 		BlockHashMetaInfo: &utils.BlockHashMetaInfo{
-			First07Block:             0,
-			FallBackSequencerAddress: defaultFallBackSequencerAddress,
+			First07Block: 0,
 		},
 	}
 	defaultPprof := false
