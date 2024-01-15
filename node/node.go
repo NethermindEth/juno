@@ -318,13 +318,13 @@ func (n *Node) Run(ctx context.Context) {
 	if n.metricsService != nil {
 		wg.Go(func() {
 			defer cancel()
-			if err := n.metricsService.Run(ctx); err != nil {
-				n.log.Errorw("Metrics error", "err", err)
+			if metricsErr := n.metricsService.Run(ctx); metricsErr != nil {
+				n.log.Errorw("Metrics error", "err", metricsErr)
 			}
 		})
 	}
 
-	if err := migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
+	if err = migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
@@ -344,8 +344,8 @@ func (n *Node) Run(ctx context.Context) {
 			// Immediately acknowledge panicing services by shutting down the node
 			// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 			defer cancel()
-			if err := s.Run(ctx); err != nil {
-				n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
+			if serviceErr := s.Run(ctx); serviceErr != nil {
+				n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", serviceErr)
 			}
 		})
 	}
