@@ -45,7 +45,7 @@ func TestConfigPrecedence(t *testing.T) {
 		FeederURL:           "awesome_feeder_url",
 		GatewayURL:          "awesome_gateway_url",
 		L2ChainID:           "SN_AWESOME",
-		L1ChainID:           new(big.Int).SetUint64(42),
+		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
 		BlockHashMetaInfo: &utils.BlockHashMetaInfo{
 			First07Block:             0,
@@ -78,7 +78,7 @@ func TestConfigPrecedence(t *testing.T) {
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
 				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "8",
 				"--cn-name", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
-				"--cn-l1-chain-id", "42", "--cn-l2-chain-id", "SN_AWESOME",
+				"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
 				"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
 			},
 			expectedConfig: &node.Config{
@@ -120,7 +120,7 @@ cn-name: custom
 cn-feeder-url: awesome_feeder_url
 cn-gateway-url: awesome_gateway_url
 cn-l2-chain-id: SN_AWESOME
-cn-l1-chain-id: 42
+cn-l1-chain-id: 0x1
 cn-core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
 `,
 			expectedConfig: &node.Config{

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -102,7 +103,7 @@ const (
 	defaultCNName                   = ""
 	defaultCNFeederURL              = ""
 	defaultCNGatewayURL             = ""
-	defaultCNL1ChainID              = 0
+	defaultCNL1ChainID              = ""
 	defaultCNL2ChainID              = ""
 	defaultCNCoreContractAddressStr = ""
 
@@ -237,11 +238,15 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		// Set custom network
 		if v.IsSet(cnNameF) {
 			fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+			l1ChainId, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
+			if ok == false {
+				return errors.New(fmt.Sprintf("invalid L1 chain id %s", v.GetString(cnL1ChainIDF)))
+			}
 			config.Network = utils.Network{
 				Name:                v.GetString(cnNameF),
 				FeederURL:           v.GetString(cnFeederURLF),
 				GatewayURL:          v.GetString(cnGatewayURLF),
-				L1ChainID:           new(big.Int).SetInt64(v.GetInt64(cnL1ChainIDF)),
+				L1ChainID:           l1ChainId,
 				L2ChainID:           v.GetString(cnL2ChainIDF),
 				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
 				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
@@ -282,7 +287,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
 	junoCmd.Flags().String(cnFeederURLF, defaultCNFeederURL, networkCustomFeederUsage)
 	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
-	junoCmd.Flags().Int(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
+	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
 	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
 	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
