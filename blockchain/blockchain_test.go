@@ -777,6 +777,19 @@ func TestStorePendingIncludesNumber(t *testing.T) {
 	network := utils.Mainnet
 	chain := blockchain.New(pebble.NewMemTest(t), network)
 
+	// Store pending genesis.
+	require.NoError(t, chain.StorePending(&blockchain.Pending{
+		Block: &core.Block{
+			Header: &core.Header{
+				ParentHash: new(felt.Felt),
+				Hash:       new(felt.Felt),
+			},
+		},
+	}))
+	pending, err := chain.Pending()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), pending.Block.Number)
+
 	// Add block zero.
 	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
 	b, err := gw.BlockByNumber(context.Background(), 0)
@@ -794,7 +807,7 @@ func TestStorePendingIncludesNumber(t *testing.T) {
 			},
 		},
 	}))
-	pending, err := chain.Pending()
+	pending, err = chain.Pending()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), pending.Block.Number)
 }
