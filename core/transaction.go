@@ -398,7 +398,7 @@ func (l *L1HandlerTransaction) MessageHash() []byte {
 	return digest.Sum(nil)
 }
 
-func TransactionHash(transaction Transaction, n utils.Network) (*felt.Felt, error) {
+func TransactionHash(transaction Transaction, n *utils.Network) (*felt.Felt, error) {
 	switch t := transaction.(type) {
 	case *DeclareTransaction:
 		return declareTransactionHash(t, n)
@@ -428,7 +428,7 @@ func errInvalidTransactionVersion(t Transaction, version *TransactionVersion) er
 	return fmt.Errorf("invalid Transaction (type: %T) version: %s", t, version)
 }
 
-func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, error) {
+func invokeTransactionHash(i *InvokeTransaction, n *utils.Network) (*felt.Felt, error) {
 	switch {
 	case i.Version.Is(0):
 		return crypto.PedersenArray(
@@ -438,7 +438,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.EntryPointSelector,
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 		), nil
 	case i.Version.Is(1):
 		return crypto.PedersenArray(
@@ -448,7 +448,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			new(felt.Felt),
 			crypto.PedersenArray(i.CallData...),
 			i.MaxFee,
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			i.Nonce,
 		), nil
 	case i.Version.Is(3):
@@ -458,7 +458,7 @@ func invokeTransactionHash(i *InvokeTransaction, n utils.Network) (*felt.Felt, e
 			i.SenderAddress,
 			tipAndResourcesHash(i.Tip, i.ResourceBounds),
 			crypto.PoseidonArray(i.PaymasterData...),
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			i.Nonce,
 			new(felt.Felt).SetUint64(dataAvailabilityMode(i.FeeDAMode, i.NonceDAMode)),
 			crypto.PoseidonArray(i.AccountDeploymentData...),
@@ -480,7 +480,7 @@ func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) uint64 {
 	return uint64(feeDAMode) + uint64(nonceDAMode)<<dataAvailabilityModeBits
 }
 
-func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt, error) {
+func declareTransactionHash(d *DeclareTransaction, n *utils.Network) (*felt.Felt, error) {
 	switch {
 	case d.Version.Is(0):
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
@@ -493,7 +493,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			new(felt.Felt),
 			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 		), nil
 	case d.Version.Is(2):
@@ -504,7 +504,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			&felt.Zero,
 			crypto.PedersenArray(d.ClassHash),
 			d.MaxFee,
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 			d.CompiledClassHash,
 		), nil
@@ -515,7 +515,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 			d.SenderAddress,
 			tipAndResourcesHash(d.Tip, d.ResourceBounds),
 			crypto.PoseidonArray(d.PaymasterData...),
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
 			crypto.PoseidonArray(d.AccountDeploymentData...),
@@ -527,7 +527,7 @@ func declareTransactionHash(d *DeclareTransaction, n utils.Network) (*felt.Felt,
 	}
 }
 
-func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.Felt, error) {
+func l1HandlerTransactionHash(l *L1HandlerTransaction, n *utils.Network) (*felt.Felt, error) {
 	switch {
 	case l.Version.Is(0):
 		// There are some l1 handler transaction which do not return a nonce and for some random
@@ -542,7 +542,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 			l.EntryPointSelector,
 			crypto.PedersenArray(l.CallData...),
 			&felt.Zero,
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			l.Nonce,
 		), nil
 	default:
@@ -550,7 +550,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n utils.Network) (*felt.F
 	}
 }
 
-func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) (*felt.Felt, error) {
+func deployAccountTransactionHash(d *DeployAccountTransaction, n *utils.Network) (*felt.Felt, error) {
 	callData := []*felt.Felt{d.ClassHash, d.ContractAddressSalt}
 	callData = append(callData, d.ConstructorCallData...)
 	// There is no version 0 for deploy account
@@ -563,7 +563,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			&felt.Zero,
 			crypto.PedersenArray(callData...),
 			d.MaxFee,
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 		), nil
 	case d.Version.Is(3):
@@ -573,7 +573,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 			d.ContractAddress,
 			tipAndResourcesHash(d.Tip, d.ResourceBounds),
 			crypto.PoseidonArray(d.PaymasterData...),
-			n.ChainID(),
+			n.L2ChainIDFelt(),
 			d.Nonce,
 			new(felt.Felt).SetUint64(dataAvailabilityMode(d.FeeDAMode, d.NonceDAMode)),
 			crypto.PoseidonArray(d.ConstructorCallData...),
@@ -585,7 +585,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n utils.Network) 
 	}
 }
 
-func VerifyTransactions(txs []Transaction, n utils.Network, protocolVersion string) error {
+func VerifyTransactions(txs []Transaction, n *utils.Network, protocolVersion string) error {
 	blockVersion, err := ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return err

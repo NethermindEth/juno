@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,78 +35,97 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 `
 
 const (
-	configF              = "config"
-	logLevelF            = "log-level"
-	httpF                = "http"
-	httpHostF            = "http-host"
-	httpPortF            = "http-port"
-	wsF                  = "ws"
-	wsHostF              = "ws-host"
-	wsPortF              = "ws-port"
-	dbPathF              = "db-path"
-	networkF             = "network"
-	ethNodeF             = "eth-node"
-	pprofF               = "pprof"
-	pprofHostF           = "pprof-host"
-	pprofPortF           = "pprof-port"
-	colourF              = "colour"
-	pendingPollIntervalF = "pending-poll-interval"
-	p2pF                 = "p2p"
-	p2pAddrF             = "p2p-addr"
-	p2pBootPeersF        = "p2p-boot-peers"
-	metricsF             = "metrics"
-	metricsHostF         = "metrics-host"
-	metricsPortF         = "metrics-port"
-	grpcF                = "grpc"
-	grpcHostF            = "grpc-host"
-	grpcPortF            = "grpc-port"
-	maxVMsF              = "max-vms"
-	maxVMQueueF          = "max-vm-queue"
-	remoteDBF            = "remote-db"
-	rpcMaxBlockScanF     = "rpc-max-block-scan"
-	dbCacheSizeF         = "db-cache-size"
-	dbMaxHandlesF        = "db-max-handles"
-	gwAPIKeyF            = "gw-api-key" //nolint: gosec
+	configF                = "config"
+	logLevelF              = "log-level"
+	httpF                  = "http"
+	httpHostF              = "http-host"
+	httpPortF              = "http-port"
+	wsF                    = "ws"
+	wsHostF                = "ws-host"
+	wsPortF                = "ws-port"
+	dbPathF                = "db-path"
+	networkF               = "network"
+	customNetworkF         = "custom-network"
+	ethNodeF               = "eth-node"
+	pprofF                 = "pprof"
+	pprofHostF             = "pprof-host"
+	pprofPortF             = "pprof-port"
+	colourF                = "colour"
+	pendingPollIntervalF   = "pending-poll-interval"
+	p2pF                   = "p2p"
+	p2pAddrF               = "p2p-addr"
+	p2pBootPeersF          = "p2p-boot-peers"
+	metricsF               = "metrics"
+	metricsHostF           = "metrics-host"
+	metricsPortF           = "metrics-port"
+	grpcF                  = "grpc"
+	grpcHostF              = "grpc-host"
+	grpcPortF              = "grpc-port"
+	maxVMsF                = "max-vms"
+	maxVMQueueF            = "max-vm-queue"
+	remoteDBF              = "remote-db"
+	rpcMaxBlockScanF       = "rpc-max-block-scan"
+	dbCacheSizeF           = "db-cache-size"
+	dbMaxHandlesF          = "db-max-handles"
+	gwAPIKeyF              = "gw-api-key" //nolint: gosec
+	cnNameF                = "cn-name"
+	cnFeederURLF           = "cn-feeder-url"
+	cnGatewayURLF          = "cn-gateway-url"
+	cnL1ChainIDF           = "cn-l1-chain-id"
+	cnL2ChainIDF           = "cn-l2-chain-id"
+	cnCoreContractAddressF = "cn-core-contract-address"
 
-	defaultConfig              = ""
-	defaulHost                 = "localhost"
-	defaultHTTP                = false
-	defaultHTTPPort            = 6060
-	defaultWS                  = false
-	defaultWSPort              = 6061
-	defaultEthNode             = ""
-	defaultPprof               = false
-	defaultPprofPort           = 6062
-	defaultColour              = true
-	defaultPendingPollInterval = time.Duration(0)
-	defaultP2p                 = false
-	defaultP2pAddr             = ""
-	defaultP2pBootPeers        = ""
-	defaultMetrics             = false
-	defaultMetricsPort         = 9090
-	defaultGRPC                = false
-	defaultGRPCPort            = 6064
-	defaultRemoteDB            = ""
-	defaultRPCMaxBlockScan     = math.MaxUint
-	defaultCacheSizeMb         = 8
-	defaultMaxHandles          = 1024
-	defaultGwAPIKey            = ""
+	defaultConfig                   = ""
+	defaulHost                      = "localhost"
+	defaultHTTP                     = false
+	defaultHTTPPort                 = 6060
+	defaultWS                       = false
+	defaultWSPort                   = 6061
+	defaultEthNode                  = ""
+	defaultPprof                    = false
+	defaultPprofPort                = 6062
+	defaultColour                   = true
+	defaultPendingPollInterval      = time.Duration(0)
+	defaultP2p                      = false
+	defaultP2pAddr                  = ""
+	defaultP2pBootPeers             = ""
+	defaultMetrics                  = false
+	defaultMetricsPort              = 9090
+	defaultGRPC                     = false
+	defaultGRPCPort                 = 6064
+	defaultRemoteDB                 = ""
+	defaultRPCMaxBlockScan          = math.MaxUint
+	defaultCacheSizeMb              = 8
+	defaultMaxHandles               = 1024
+	defaultGwAPIKey                 = ""
+	defaultCNName                   = ""
+	defaultCNFeederURL              = ""
+	defaultCNGatewayURL             = ""
+	defaultCNL1ChainID              = ""
+	defaultCNL2ChainID              = ""
+	defaultCNCoreContractAddressStr = ""
 
-	configFlagUsage   = "The yaml configuration file."
-	logLevelFlagUsage = "Options: debug, info, warn, error."
-	httpUsage         = "Enables the HTTP RPC server on the default port and interface."
-	httpHostUsage     = "The interface on which the HTTP RPC server will listen for requests."
-	httpPortUsage     = "The port on which the HTTP server will listen for requests."
-	wsUsage           = "Enables the Websocket RPC server on the default port."
-	wsHostUsage       = "The interface on which the Websocket RPC server will listen for requests."
-	wsPortUsage       = "The port on which the websocket server will listen for requests."
-	dbPathUsage       = "Location of the database files."
-	networkUsage      = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
-	pprofUsage        = "Enables the pprof endpoint on the default port."
-	pprofHostUsage    = "The interface on which the pprof HTTP server will listen for requests."
-	pprofPortUsage    = "The port on which the pprof HTTP server will listen for requests."
-	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	configFlagUsage                       = "The yaml configuration file."
+	logLevelFlagUsage                     = "Options: debug, info, warn, error."
+	httpUsage                             = "Enables the HTTP RPC server on the default port and interface."
+	httpHostUsage                         = "The interface on which the HTTP RPC server will listen for requests."
+	httpPortUsage                         = "The port on which the HTTP server will listen for requests."
+	wsUsage                               = "Enables the Websocket RPC server on the default port."
+	wsHostUsage                           = "The interface on which the Websocket RPC server will listen for requests."
+	wsPortUsage                           = "The port on which the websocket server will listen for requests."
+	dbPathUsage                           = "Location of the database files."
+	networkUsage                          = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
+	networkCustomName                     = "Custom network name."
+	networkCustomFeederUsage              = "Custom network feeder URL."
+	networkCustomGatewayUsage             = "Custom network gateway URL."
+	networkCustomL1ChainIDUsage           = "Custom network L1 chain id."
+	networkCustomL2ChainIDUsage           = "Custom network L2 chain id."
+	networkCustomCoreContractAddressUsage = "Custom network core contract address."
+	pprofUsage                            = "Enables the pprof endpoint on the default port."
+	pprofHostUsage                        = "The interface on which the pprof HTTP server will listen for requests."
+	pprofPortUsage                        = "The port on which the pprof HTTP server will listen for requests."
+	colourUsage                           = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage                          = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
 	p2pUsage                 = "enable p2p server"
@@ -207,8 +228,31 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
 		// encoding.TextUnmarshaller interface (see the LogLevel type for an example).
-		return v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc())))
+		if err := v.Unmarshal(config, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+			mapstructure.TextUnmarshallerHookFunc(), mapstructure.StringToTimeDurationHookFunc()))); err != nil {
+			return err
+		}
+
+		// Set custom network
+		if v.IsSet(cnNameF) {
+			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
+			if !ok {
+				return fmt.Errorf("invalid L1 chain id %s", v.GetString(cnL1ChainIDF))
+			}
+			config.Network = utils.Network{
+				Name:                v.GetString(cnNameF),
+				FeederURL:           v.GetString(cnFeederURLF),
+				GatewayURL:          v.GetString(cnGatewayURLF),
+				L1ChainID:           l1ChainID,
+				L2ChainID:           v.GetString(cnL2ChainIDF),
+				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
+				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
+					First07Block: 0,
+				},
+			}
+		}
+
+		return nil
 	}
 
 	var defaultDBPath string
@@ -236,6 +280,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
+	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
+	junoCmd.Flags().String(cnFeederURLF, defaultCNFeederURL, networkCustomFeederUsage)
+	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
+	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
+	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
+	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
@@ -258,6 +308,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
+	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF)
+	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 
 	return junoCmd
 }

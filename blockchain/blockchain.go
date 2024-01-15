@@ -79,11 +79,11 @@ type Blockchain struct {
 	cachedPending atomic.Pointer[Pending]
 }
 
-func New(database db.DB, network utils.Network) *Blockchain {
+func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
-		network:  network,
+		network:  *network,
 		listener: &SelectiveListener{},
 	}
 }
@@ -640,7 +640,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return nil, err
 	}
 
-	return core.VerifyBlockHash(block, b.network)
+	return core.VerifyBlockHash(block, &b.network)
 }
 
 type txAndReceiptDBKey struct {

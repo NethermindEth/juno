@@ -163,7 +163,8 @@ func (h *Handler) Run(ctx context.Context) error {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
 func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
-	return h.bcReader.Network().ChainID(), nil
+	network := h.bcReader.Network()
+	return network.L2ChainIDFelt(), nil
 }
 
 // BlockNumber returns the latest synced block number.
@@ -1229,8 +1230,9 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		return nil, ErrContractNotFound
 	}
 
+	network := h.bcReader.Network()
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, header.Number, header.Timestamp, state, h.bcReader.Network())
+		call.Calldata, header.Number, header.Timestamp, state, &network)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1454,7 +1456,8 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.bcReader.Network())
+		network := h.bcReader.Network()
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], &network)
 		if aErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -1468,13 +1471,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			classes = append(classes, declaredClass)
 		}
 	}
-
+	network := h.bcReader.Network()
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
+		sequencerAddress = network.BlockHashMetaInfo.FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, sequencerAddress,
-		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
+		state, &network, paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
 		header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -1610,13 +1613,14 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 	}
 
+	network := h.bcReader.Network()
 	sequencerAddress := block.Header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
+		sequencerAddress = network.BlockHashMetaInfo.FallBackSequencerAddress
 	}
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, block.Number, block.Header.Timestamp,
-		sequencerAddress, state, h.bcReader.Network(), paidFeesOnL1, false, false, false, block.Header.GasPrice,
+		sequencerAddress, state, &network, paidFeesOnL1, false, false, false, block.Header.GasPrice,
 		block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
