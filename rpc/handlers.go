@@ -1434,7 +1434,7 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 	return res, err
 }
 
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo,funlen
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, legacyTraceJSON, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
@@ -1552,7 +1552,7 @@ func prependBlockHashToState(bc blockchain.Reader, blockNumber uint64, state cor
 	), nil
 }
 
-func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo,funlen
+func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
 	legacyJSON bool,
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil

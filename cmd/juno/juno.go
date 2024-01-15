@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -238,15 +237,15 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		// Set custom network
 		if v.IsSet(cnNameF) {
 			fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
-			l1ChainId, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
-			if ok == false {
-				return errors.New(fmt.Sprintf("invalid L1 chain id %s", v.GetString(cnL1ChainIDF)))
+			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
+			if !ok {
+				return fmt.Errorf("invalid L1 chain id %s", v.GetString(cnL1ChainIDF))
 			}
 			config.Network = utils.Network{
 				Name:                v.GetString(cnNameF),
 				FeederURL:           v.GetString(cnFeederURLF),
 				GatewayURL:          v.GetString(cnGatewayURLF),
-				L1ChainID:           l1ChainId,
+				L1ChainID:           l1ChainID,
 				L2ChainID:           v.GetString(cnL2ChainIDF),
 				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
 				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
