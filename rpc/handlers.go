@@ -1490,7 +1490,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	sequencerAddress := header.SequencerAddress
-	if sequencerAddress == nil && h.bcReader.Network().BlockHashMetaInfo != nil {
+	if sequencerAddress == nil {
 		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
 	network := h.bcReader.Network()
@@ -1641,7 +1641,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	sequencerAddress := block.Header.SequencerAddress
-	if sequencerAddress == nil && h.bcReader.Network().BlockHashMetaInfo != nil {
+	if sequencerAddress == nil {
 		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
 

@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -235,6 +236,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 		// Set custom network
 		if v.IsSet(cnNameF) {
+			fallBackSequencerAddress, _ := new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 			config.Network = utils.Network{
 				Name:                v.GetString(cnNameF),
 				FeederURL:           v.GetString(cnFeederURLF),
@@ -242,6 +244,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				L1ChainID:           new(big.Int).SetInt64(v.GetInt64(cnL1ChainIDF)),
 				L2ChainID:           v.GetString(cnL2ChainIDF),
 				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
+				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
+					First07Block:             0,
+					FallBackSequencerAddress: fallBackSequencerAddress,
+				},
 			}
 		}
 
