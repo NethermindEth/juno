@@ -1230,17 +1230,9 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		return nil, ErrContractNotFound
 	}
 
-	blockNumber := header.Number
-	if id.Pending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
 	network := h.bcReader.Network()
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, blockNumber, header.Timestamp, state, &network)
+		call.Calldata, header.Number, header.Timestamp, state, &network)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1479,22 +1471,12 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			classes = append(classes, declaredClass)
 		}
 	}
-
-	blockNumber := header.Number
-	if id.Pending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
+	network := h.bcReader.Network()
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
+		sequencerAddress = network.BlockHashMetaInfo.FallBackSequencerAddress
 	}
-	network := h.bcReader.Network()
-	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
+	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, sequencerAddress,
 		state, &network, paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
 		header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
@@ -1596,16 +1578,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
-	blockNumber := block.Number
-	if isPending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
-	if state, err = prependBlockHashToState(h.bcReader, blockNumber, state); err != nil {
+	if state, err = prependBlockHashToState(h.bcReader, block.Number, state); err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
@@ -1640,13 +1613,13 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 	}
 
+	network := h.bcReader.Network()
 	sequencerAddress := block.Header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
+		sequencerAddress = network.BlockHashMetaInfo.FallBackSequencerAddress
 	}
 
-	network := h.bcReader.Network()
-	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
+	_, traces, err := h.vm.Execute(block.Transactions, classes, block.Number, block.Header.Timestamp,
 		sequencerAddress, state, &network, paidFeesOnL1, false, false, false, block.Header.GasPrice,
 		block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {

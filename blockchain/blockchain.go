@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -930,7 +931,8 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 		Header: &core.Header{
 			ParentHash:       latestHeader.Hash,
 			SequencerAddress: latestHeader.SequencerAddress,
-			Timestamp:        latestHeader.Timestamp + 1,
+			Number:           latestHeader.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  latestHeader.ProtocolVersion,
 			EventsBloom:      core.EventsBloom(receipts),
 			GasPrice:         latestHeader.GasPrice,
@@ -971,9 +973,13 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 			return ErrParentDoesNotMatchHead
 		}
 
-		existingPending, err := b.pendingBlock(txn)
-		if err == nil && existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
-			return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+		if existingPending, err := b.pendingBlock(txn); err == nil {
+			if existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
+				return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+			}
+			pending.Block.Number = existingPending.Block.Number // Just in case the number is not set.
+		} else if !errors.Is(err, db.ErrKeyNotFound) { // Allow StorePending before block zero.
+			return err
 		}
 
 		return b.storePending(txn, pending)
