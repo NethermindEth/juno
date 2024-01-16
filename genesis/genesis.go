@@ -62,7 +62,8 @@ func GenesisStateDiff(
 		return nil, nil, err
 	}
 
-	genesisState := blockchain.NewPendingState(core.EmptyStateDiff(), make(map[felt.Felt]core.Class), core.NewState(db.NewMemTransaction()))
+	genesisState := blockchain.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
+		core.NewState(db.NewMemTransaction()))
 
 	for classHash, class := range newClasses {
 		// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)

@@ -70,7 +70,21 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	return p.head.Class(classHash)
 }
 
-func (p *PendingState) SetStorage(contractAddress, key, value *felt.Felt) error {
+type PendingStateWriter struct {
+	*PendingState
+}
+
+func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) *PendingStateWriter {
+	return &PendingStateWriter{
+		PendingState: &PendingState{
+			stateDiff:  stateDiff,
+			newClasses: newClasses,
+			head:       head,
+		},
+	}
+}
+
+func (p *PendingStateWriter) SetStorage(contractAddress, key, value *felt.Felt) error {
 	if _, found := p.stateDiff.StorageDiffs[*contractAddress]; !found {
 		p.stateDiff.StorageDiffs[*contractAddress] = make(map[felt.Felt]*felt.Felt)
 	}
@@ -78,7 +92,7 @@ func (p *PendingState) SetStorage(contractAddress, key, value *felt.Felt) error 
 	return nil
 }
 
-func (p *PendingState) IncrementNonce(contractAddress *felt.Felt) error {
+func (p *PendingStateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	currentNonce, err := p.ContractNonce(contractAddress)
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
@@ -88,7 +102,7 @@ func (p *PendingState) IncrementNonce(contractAddress *felt.Felt) error {
 	return nil
 }
 
-func (p *PendingState) SetClassHash(contractAddress, classHash *felt.Felt) error {
+func (p *PendingStateWriter) SetClassHash(contractAddress, classHash *felt.Felt) error {
 	if _, err := p.head.ContractClassHash(contractAddress); err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			p.stateDiff.DeployedContracts[*contractAddress] = classHash.Clone()
@@ -100,7 +114,7 @@ func (p *PendingState) SetClassHash(contractAddress, classHash *felt.Felt) error
 	return nil
 }
 
-func (p *PendingState) SetContractClass(classHash *felt.Felt, class core.Class) error {
+func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.Class) error {
 	if _, err := p.Class(classHash); err == nil {
 		return errors.New("class already declared")
 	} else if !errors.Is(err, db.ErrKeyNotFound) {
@@ -114,7 +128,7 @@ func (p *PendingState) SetContractClass(classHash *felt.Felt, class core.Class) 
 	return nil
 }
 
-func (p *PendingState) SetCompiledClassHash(classHash, compiledClassHash *felt.Felt) error {
+func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *felt.Felt) error {
 	// assumption: SetContractClass was called for classHash and succeeded
 	p.stateDiff.DeclaredV1Classes[*classHash] = compiledClassHash.Clone()
 	return nil
@@ -122,6 +136,6 @@ func (p *PendingState) SetCompiledClassHash(classHash, compiledClassHash *felt.F
 
 // StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
 // read and modified by the pending state.
-func (p *PendingState) StateDiffAndClasses() (*core.StateDiff, map[felt.Felt]core.Class) {
+func (p *PendingStateWriter) StateDiffAndClasses() (*core.StateDiff, map[felt.Felt]core.Class) {
 	return p.stateDiff, p.newClasses
 }
