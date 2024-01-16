@@ -59,7 +59,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	}
 
 	return func() (ResT, bool) {
-		fmt.Printf("iterator function is called (streamID is %v)\n", id)
+		fmt.Printf("iterator function is called (streamID is %v) for protocol %v\n", id, stream.Protocol())
 
 		var zero ResT
 		res := zero.ProtoReflect().New().Interface()
