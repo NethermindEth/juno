@@ -96,12 +96,10 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 
 		if hash.Equal(b.Hash) {
 			return commitments, nil
-		} else if unverifiableRange != nil {
+		} else if skipVerification {
 			// Check if the block number is in the unverifiable range
-			if !skipVerification {
-				// If so, return success
-				return commitments, nil
-			}
+			// If so, return success
+			return commitments, nil
 		}
 	}
 
