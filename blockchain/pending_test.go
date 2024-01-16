@@ -193,7 +193,7 @@ var (
 	}
 )
 
-func makeState(t *testing.T) *blockchain.PendingState {
+func makeState(t *testing.T) *blockchain.PendingStateWriter {
 	testDB := pebble.NewMemTest(t)
 	pebbleTxn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -205,7 +205,7 @@ func makeState(t *testing.T) *blockchain.PendingState {
 	require.NoError(t, state.Update(blockNumber, testState, map[felt.Felt]core.Class{
 		*classHash: testClass,
 	}))
-	return blockchain.NewPendingState(core.EmptyStateDiff(), map[felt.Felt]core.Class{*contractAddr: testClass}, state)
+	return blockchain.NewPendingStateWriter(core.EmptyStateDiff(), map[felt.Felt]core.Class{*contractAddr: testClass}, state)
 }
 
 func TestIncrementNonce(t *testing.T) {
