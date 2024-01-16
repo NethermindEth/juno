@@ -67,7 +67,8 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 
 	response, err := reqHandler(req.(ReqT))
 	if err != nil {
-		log.Debugw("Error handling request", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		//	log.Debugw("Error handling request", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		fmt.Printf("Error handling request peer %v protocol %v err %v\n", stream.ID(), stream.Protocol(), err)
 		return
 	}
 

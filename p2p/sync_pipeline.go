@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/utils/pipeline"
 
@@ -41,6 +42,10 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
+		if bootNodeHeight-nextHeight == 0 {
+			time.Sleep(time.Second)
+			continue
+		}
 		commonIt := s.createIterator(BlockRange{nextHeight, bootNodeHeight})
 		headersAndSigsCh, err := s.genHeadersAndSigs(ctx, commonIt)
 		if err != nil {
@@ -301,6 +306,8 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 	headersAndSigCh := make(chan specBlockHeaderAndSigs)
 	go func() {
 		defer close(headersAndSigCh)
+
+	iteratorLoop:
 		for res, valid := headersIt(); valid; res, valid = headersIt() {
 			headerAndSig := specBlockHeaderAndSigs{}
 			for _, part := range res.GetPart() {
@@ -311,7 +318,8 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 					headerAndSig.sig = part.GetSignatures()
 				case *spec.BlockHeadersResponsePart_Fin:
 					// received all the parts of BlockHeadersResponse
-					return
+					// To close the stream we need to do an extra read from the stream which will cause and error thus closing the stream
+					continue iteratorLoop
 				}
 			}
 
@@ -411,7 +419,7 @@ func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-ch
 				case receiptsCh <- specReceipts{res.GetId(), res.GetReceipts()}:
 				}
 			case *spec.ReceiptsResponse_Fin:
-				return
+				continue
 			}
 		}
 	}()
@@ -445,7 +453,7 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 				case eventsCh <- specEvents{res.GetId(), res.GetEvents()}:
 				}
 			case *spec.EventsResponse_Fin:
-				return
+				continue
 			}
 		}
 	}()
@@ -478,7 +486,7 @@ func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (
 				case txsCh <- specTransactions{res.GetId(), res.GetTransactions()}:
 				}
 			case *spec.TransactionsResponse_Fin:
-				return
+				continue
 			}
 		}
 	}()

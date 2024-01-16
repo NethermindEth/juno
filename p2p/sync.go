@@ -292,12 +292,16 @@ func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
 		s.log.Errorw("request block header from peer", "id", s.bootNode, "err", err)
 	}
 
-	res, valid := headersIt()
-	if !valid {
-		return 0, fmt.Errorf("failed to fetch boot node height (iterator is not valid)")
+	var header *spec.BlockHeader
+	for res, valid := headersIt(); valid; res, valid = headersIt() {
+		for _, part := range res.GetPart() {
+			switch part.HeaderMessage.(type) {
+			case *spec.BlockHeadersResponsePart_Header:
+				header = part.GetHeader()
+			}
+		}
 	}
 
-	header := res.GetPart()[0].GetHeader()
 	return header.Number, nil
 }
 

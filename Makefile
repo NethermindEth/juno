@@ -93,7 +93,12 @@ bootnode: juno
 	"5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089"
 
 .PHONY: node
-node: juno
+node: 
 	./build/juno --network=sepolia --log-level=debug --p2p \
 	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
 	--db-path ./juno2
+
+node2: juno
+	./build/juno --network=sepolia --log-level=debug --p2p \
+	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
+	--db-path ./juno3

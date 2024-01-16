@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -50,16 +51,26 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	if err != nil {
 		return nil, err
 	}
+
+	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
+		fmt.Printf("sendAndCloseWrite (stream is not closed), error: %v (streamID is %v)\n", err, id)
 		return nil, err
 	}
 
 	return func() (ResT, bool) {
+		fmt.Printf("iterator function is called (streamID is %v)\n", id)
+
 		var zero ResT
 		res := zero.ProtoReflect().New().Interface()
 		if err := receiveInto(stream, res); err != nil {
 			// todo: check for a specific error otherwise log the error if it doesn't match
-			stream.Close() // todo: dont ignore close errors
+			closeErr := stream.Close() // todo: dont ignore close errors
+			if closeErr != nil {
+				fmt.Printf("-----------Close stream error-------------: %v\n", closeErr)
+			} else {
+				fmt.Printf("stream %v is closed for protocol %v\n", id, stream.Protocol())
+			}
 			return zero, false
 		}
 		return res.(ResT), true
