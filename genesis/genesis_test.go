@@ -52,15 +52,25 @@ func TestGenesisStateDiff(t *testing.T) {
 		selector, err := new(felt.Felt).SetString("0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320") // "increase_balance(amount)"
 		require.NoError(t, err)
 
+		udcClassHash, err := new(felt.Felt).SetString("0x07b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69")
+		require.NoError(t, err)
+
+		udcAddress, err := new(felt.Felt).SetString("0xdeadbeef222")
+		require.NoError(t, err)
+
 		genesisConfig := genesis.GenesisConfig{
 			Classes: []string{
 				"./testdata/simpleStore.json",
 				"./testdata/simpleAccount.json",
+				"./testdata/universalDeployer.json",
 			},
 			Contracts: map[felt.Felt]genesis.GenesisContractData{
 				*simpleStoreAddress: {
 					ClassHash:       *simpleStoreClassHash,
 					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(1)},
+				},
+				*udcAddress: {
+					ClassHash: *udcClassHash,
 				},
 			},
 			FunctionCalls: []genesis.FunctionCall{
@@ -80,7 +90,8 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.Equal(t, balanceVal.String(), "0x3")
 		require.Empty(t, stateDiff.Nonces)
 		require.Equal(t, stateDiff.DeployedContracts[*simpleStoreAddress], simpleStoreClassHash)
-		require.Equal(t, stateDiff.DeclaredV0Classes, []*felt.Felt{simpleStoreClassHash})
+		require.Equal(t, stateDiff.DeployedContracts[*udcAddress], udcClassHash)
+		require.Equal(t, stateDiff.DeclaredV0Classes, []*felt.Felt{simpleStoreClassHash, udcClassHash})
 		require.Equal(t, 1, len(stateDiff.DeclaredV1Classes))
 		require.NotNil(t, stateDiff.DeclaredV1Classes[*simpleAccountClassHash])
 		require.Empty(t, stateDiff.ReplacedClasses)

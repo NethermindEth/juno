@@ -88,22 +88,24 @@ func GenesisStateDiff(
 		if err = genesisState.SetClassHash(&addressFelt, &classHash); err != nil {
 			return nil, nil, fmt.Errorf("set class hash: %v", err)
 		}
-		callInfo := &vm.CallInfo{
-			ContractAddress: &addressFelt,
-			ClassHash:       &classHash,
-			Selector:        constructorSelector,
-			Calldata:        contractData.ConstructorArgs,
-		}
-		blockInfo := vm.BlockInfo{
-			Header: &core.Header{
-				Number:    0,
-				Timestamp: 0,
-			},
-		}
-		maxSteps := uint64(100000) //nolint:gomnd
-		// Call the constructors
-		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
-			return nil, nil, fmt.Errorf("execute function call: %v", err)
+		if contractData.ConstructorArgs != nil {
+			callInfo := &vm.CallInfo{
+				ContractAddress: &addressFelt,
+				ClassHash:       &classHash,
+				Selector:        constructorSelector,
+				Calldata:        contractData.ConstructorArgs,
+			}
+			blockInfo := vm.BlockInfo{
+				Header: &core.Header{
+					Number:    0,
+					Timestamp: 0,
+				},
+			}
+			maxSteps := uint64(100000) //nolint:gomnd
+			// Call the constructors
+			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
+				return nil, nil, fmt.Errorf("execute function call: %v", err)
+			}
 		}
 	}
 
