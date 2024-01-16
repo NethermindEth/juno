@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/bits-and-blooms/bitset v1.12.0
-	github.com/bits-and-blooms/bloom/v3 v3.4.0
+	github.com/bits-and-blooms/bloom/v3 v3.6.0
 	github.com/cockroachdb/pebble v1.0.0
 	github.com/consensys/gnark-crypto v0.12.1
 	github.com/davecgh/go-spew v1.1.1
