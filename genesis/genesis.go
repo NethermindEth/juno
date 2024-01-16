@@ -89,10 +89,12 @@ func GenesisStateDiff(
 			return nil, nil, fmt.Errorf("set class hash: %v", err)
 		}
 
-		// Call the constructors
-		if _, err = v.Call(&addressFelt, &classHash, constructorSelector,
-			contractData.ConstructorArgs, 0, 0, genesisState, network); err != nil {
-			return nil, nil, fmt.Errorf("execute function call: %v", err)
+		if contractData.ConstructorArgs != nil {
+			// Call the constructors
+			if _, err = v.Call(&addressFelt, &classHash, constructorSelector,
+				contractData.ConstructorArgs, 0, 0, genesisState, network); err != nil {
+				return nil, nil, fmt.Errorf("execute function call: %v", err)
+			}
 		}
 	}
 
