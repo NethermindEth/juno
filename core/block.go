@@ -68,12 +68,17 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 		}
 	}
 
-	if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
-		return nil, err
-	}
-
 	metaInfo := network.BlockHashMetaInfo
 	unverifiableRange := metaInfo.UnverifiableRange
+
+	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
+
+	if !skipVerification {
+		if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
+			return nil, err
+		}
+	}
+
 	fallbackSeqAddresses := []*felt.Felt{&felt.Zero}
 	if metaInfo.FallBackSequencerAddress != nil {
 		fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
@@ -91,12 +96,10 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 
 		if hash.Equal(b.Hash) {
 			return commitments, nil
-		} else if unverifiableRange != nil {
+		} else if skipVerification {
 			// Check if the block number is in the unverifiable range
-			if b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] {
-				// If so, return success
-				return commitments, nil
-			}
+			// If so, return success
+			return commitments, nil
 		}
 	}
 

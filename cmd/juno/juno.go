@@ -74,6 +74,7 @@ const (
 	cnL1ChainIDF           = "cn-l1-chain-id"
 	cnL2ChainIDF           = "cn-l2-chain-id"
 	cnCoreContractAddressF = "cn-core-contract-address"
+	cnUnverifiableRangeF   = "cn-unverifiable-range"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -121,6 +122,7 @@ const (
 	networkCustomL1ChainIDUsage           = "Custom network L1 chain id."
 	networkCustomL2ChainIDUsage           = "Custom network L2 chain id."
 	networkCustomCoreContractAddressUsage = "Custom network core contract address."
+	networkCustomUnverifiableRange        = "Custom network range of blocks to skip hash verifications (e.g. `0,100`)."
 	pprofUsage                            = "Enables the pprof endpoint on the default port."
 	pprofHostUsage                        = "The interface on which the pprof HTTP server will listen for requests."
 	pprofPortUsage                        = "The port on which the pprof HTTP server will listen for requests."
@@ -237,8 +239,13 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		if v.IsSet(cnNameF) {
 			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
 			if !ok {
-				return fmt.Errorf("invalid L1 chain id %s", v.GetString(cnL1ChainIDF))
+				return fmt.Errorf("invalid %s id %s", cnL1ChainIDF, v.GetString(cnL1ChainIDF))
 			}
+			unverifRange := v.GetIntSlice(cnUnverifiableRangeF)
+			if len(unverifRange) != 2 || unverifRange[0] < 0 || unverifRange[1] < 0 {
+				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
+			}
+
 			config.Network = utils.Network{
 				Name:                v.GetString(cnNameF),
 				FeederURL:           v.GetString(cnFeederURLF),
@@ -247,7 +254,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 				L2ChainID:           v.GetString(cnL2ChainIDF),
 				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
 				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
-					First07Block: 0,
+					First07Block:      0,
+					UnverifiableRange: []uint64{uint64(unverifRange[0]), uint64(unverifRange[1])},
 				},
 			}
 		}
@@ -269,6 +277,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultLogLevel := utils.INFO
 	defaultNetwork := utils.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
+	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
@@ -286,6 +295,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
 	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
 	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
+	junoCmd.Flags().IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
@@ -308,7 +318,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
-	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF)
+	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 
 	return junoCmd

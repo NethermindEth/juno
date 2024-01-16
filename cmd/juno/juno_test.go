@@ -46,7 +46,8 @@ func TestConfigPrecedence(t *testing.T) {
 		L1ChainID:           new(big.Int).SetUint64(1),
 		CoreContractAddress: defaultCoreContractAddress,
 		BlockHashMetaInfo: &utils.BlockHashMetaInfo{
-			First07Block: 0,
+			First07Block:      0,
+			UnverifiableRange: []uint64{0, 10},
 		},
 	}
 	defaultPprof := false
@@ -76,6 +77,7 @@ func TestConfigPrecedence(t *testing.T) {
 				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "8",
 				"--cn-name", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
 				"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
+				"--cn-unverifiable-range", "0,10",
 				"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
 			},
 			expectedConfig: &node.Config{
@@ -119,6 +121,7 @@ cn-gateway-url: awesome_gateway_url
 cn-l2-chain-id: SN_AWESOME
 cn-l1-chain-id: 0x1
 cn-core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
+cn-unverifiable-range: [0,10]
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
