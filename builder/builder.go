@@ -269,7 +269,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
 
-	state := blockchain.NewPendingState(b.pendingBlock.StateUpdate.StateDiff, b.pendingBlock.NewClasses, b.headState)
+	state := blockchain.NewPendingStateWriter(b.pendingBlock.StateUpdate.StateDiff, b.pendingBlock.NewClasses, b.headState)
 	var classes []core.Class
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
