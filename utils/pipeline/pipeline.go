@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
@@ -49,13 +50,13 @@ func Stage[From any, To any](ctx context.Context, in <-chan From, f func(From) T
 	out := make(chan To)
 
 	if in == nil {
-		close(out)
+		closeAndLog("Stage in is nil", out)
 		return out
 	}
 
 	// todo handle panic?
 	go func() {
-		defer close(out)
+		defer closeAndLog("Stage defer", out)
 		for v := range in {
 			select {
 			case <-ctx.Done():
@@ -91,7 +92,8 @@ func FanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 
 	go func() {
 		wg.Wait()
-		close(out)
+		closeAndLog("FanIn", out)
+		// close(out)
 	}()
 
 	return out
@@ -119,7 +121,7 @@ func End[T any](in <-chan T, f func(T)) <-chan struct{} {
 func Bridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
 	out := make(chan T)
 	go func() {
-		defer close(out)
+		defer closeAndLog("bridge", out)
 		for {
 			var ch <-chan T
 			select {
@@ -149,4 +151,9 @@ func Bridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
 		}
 	}()
 	return out
+}
+
+func closeAndLog[T any](label string, ch chan T) {
+	fmt.Printf("Closing %q\n", label)
+	close(ch)
 }

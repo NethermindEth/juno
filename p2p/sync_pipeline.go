@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -378,13 +380,17 @@ func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<
 		// If the above assumption is not true we should return separate channels for each of the parts. Also, see todo above specBlockBody
 		// on line 317 in p2p/sync.go
 		for res, valid := blockIt(); valid; res, valid = blockIt() {
+			fmt.Println("Reading from block bodies iterator")
+			spew.Dump(res.BodyMessage)
 			switch res.BodyMessage.(type) {
 			case *spec.BlockBodiesResponse_Classes:
 				if curBlockBody.id == nil {
+					fmt.Println("Got block body part for block ID", res.Id.String())
 					curBlockBody.id = res.GetId()
 				}
 				curBlockBody.classes = res.GetClasses()
 			case *spec.BlockBodiesResponse_Diff:
+				fmt.Println("Got StateDiff", res.Id.String())
 				if curBlockBody.id == nil {
 					curBlockBody.id = res.GetId()
 				}

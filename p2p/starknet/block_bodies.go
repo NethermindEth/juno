@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"crypto/rand"
+	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -74,6 +75,7 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 		b.step = sendClasses
 	case sendClasses:
 		msg, valid = b.classes()
+		fmt.Println("Returned from classes()")
 		b.step = sendProof
 	case sendProof:
 		msg, valid = b.proof()
@@ -91,6 +93,7 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 }
 
 func (b *blockBodyIterator) classes() (proto.Message, bool) {
+	fmt.Println("BlockBodyIterator: classes", b.header.Number)
 	var classes []*spec.Class
 
 	stateDiff := b.stateUpdate.StateDiff

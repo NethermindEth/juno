@@ -46,7 +46,8 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 ) {
 	defer func() {
 		if err := stream.Close(); err != nil {
-			log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			// log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			fmt.Println("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		}
 	}()
 
@@ -54,14 +55,16 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 	defer bufferPool.Put(buffer)
 
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		log.Debugw("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		// log.Debugw("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		fmt.Println("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		return
 	}
 
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		log.Debugw("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		// log.Debugw("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		fmt.Println("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		return
 	}
 
@@ -73,9 +76,14 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 	}
 
 	for msg, valid := response(); valid; msg, valid = response() {
-		// fmt.Printf("Writing data to network, size=%v\n", proto.Size(msg))
+		if stream.Conn().IsClosed() {
+			fmt.Println("Connection is closed for ", stream.ID(), stream.Protocol())
+			break
+		}
+
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			// log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			fmt.Println("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		}
 	}
 }
@@ -137,7 +145,7 @@ func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[p
 			return fin()
 		}
 		it.Next()
-		fmt.Printf("Created iterator for header at blockNumber %d\n", header.Number)
+		// fmt.Printf("Created iterator for header at blockNumber %d\n", header.Number)
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
@@ -193,7 +201,7 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 		}
 		it.Next()
 
-		fmt.Printf("Creating blockBodyIterator for blockNumber %d\n", header.Number)
+		// fmt.Printf("Creating blockBodyIterator for blockNumber %d\n", header.Number)
 		bodyIterator, err = newBlockBodyIterator(h.bcReader, header, h.log)
 		if err != nil {
 			h.log.Errorw("Failed to create block body iterator", "err", err)
