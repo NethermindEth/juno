@@ -182,6 +182,29 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
 }
 
+func (h *Handler) AddMsgFromL1(msg MsgFromL1, nonce felt.Felt) (*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	tx := &core.L1HandlerTransaction{
+		ContractAddress:    &msg.To,
+		EntryPointSelector: &msg.Selector,
+		Nonce:              &nonce,
+		CallData: utils.Map(msg.Payload, func(f felt.Felt) *felt.Felt {
+			return &f
+		}),
+		Version: new(core.TransactionVersion),
+	}
+	var err error
+	tx.TransactionHash, err = core.TransactionHash(tx, h.bcReader.Network())
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
+	if err := h.memPool.Push(&mempool.BroadcastedTransaction{
+		Transaction: tx,
+	}); err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
+	return tx.TransactionHash, nil
+}
+
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -336,6 +359,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
+		},
+		{
+			Name:    "juno_addMsgFromL1",
+			Params:  []jsonrpc.Parameter{{Name: "msg"}, {Name: "nonce"}},
+			Handler: h.AddMsgFromL1,
 		},
 	}, "/v0_7"
 }
