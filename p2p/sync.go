@@ -640,7 +640,7 @@ func (s *syncService) createIterator(r BlockRange) *spec.Iteration {
 	return &spec.Iteration{
 		Start:     &spec.Iteration_BlockNumber{r.Start},
 		Direction: spec.Iteration_Forward,
-		Limit:     limit,
+		Limit:     limit + 1,
 		Step:      1,
 	}
 }

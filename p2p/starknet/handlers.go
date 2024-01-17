@@ -76,11 +76,6 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 	}
 
 	for msg, valid := response(); valid; msg, valid = response() {
-		if stream.Conn().IsClosed() {
-			fmt.Println("Connection is closed for ", stream.ID(), stream.Protocol())
-			break
-		}
-
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
 			// log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 			fmt.Println("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
@@ -145,7 +140,7 @@ func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[p
 			return fin()
 		}
 		it.Next()
-		// fmt.Printf("Created iterator for header at blockNumber %d\n", header.Number)
+		fmt.Printf("Created Block Header Iterator for blockNumber %d\n", header.Number)
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
@@ -201,10 +196,11 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 		}
 		it.Next()
 
-		// fmt.Printf("Creating blockBodyIterator for blockNumber %d\n", header.Number)
+		fmt.Printf("Creating Block Body Iterator for blockNumber %d\n", header.Number)
 		bodyIterator, err = newBlockBodyIterator(h.bcReader, header, h.log)
 		if err != nil {
-			h.log.Errorw("Failed to create block body iterator", "err", err)
+			// h.log.Errorw("Failed to create block body iterator", "err", err)
+			fmt.Println("Failed to create block body iterator", "err", err)
 			return fin()
 		}
 		// no need to call hasNext since it's first iteration over a block

@@ -2,7 +2,9 @@ package starknet
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -41,7 +43,10 @@ func sendAndCloseWrite(stream network.Stream, req proto.Message) error {
 }
 
 func receiveInto(stream network.Stream, res proto.Message) error {
-	return protodelim.UnmarshalFrom(&byteReader{stream}, res)
+	unmarshaller := protodelim.UnmarshalOptions{
+		MaxSize: 10 << 20, // 10 MB
+	}
+	return unmarshaller.UnmarshalFrom(&byteReader{stream}, res)
 }
 
 func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context.Context,
@@ -62,12 +67,13 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		var zero ResT
 		res := zero.ProtoReflect().New().Interface()
 		if err := receiveInto(stream, res); err != nil {
-			// todo: check for a specific error otherwise log the error if it doesn't match
-			closeErr := stream.Close() // todo: dont ignore close errors
+			if !errors.Is(err, io.EOF) {
+				fmt.Println("Error while reading from stream", err)
+			}
+
+			closeErr := stream.Close()
 			if closeErr != nil {
-				fmt.Printf("-----------Close stream error-------------: %v\n", closeErr)
-			} else {
-				fmt.Printf("stream %v is closed for protocol %v\n", id, stream.Protocol())
+				fmt.Println("Error while closing stream", closeErr)
 			}
 			return zero, false
 		}

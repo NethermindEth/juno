@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -38,7 +36,6 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			s.logError("Failed to get boot node height", err)
 			return
 		}
-		s.log.Infow("Boot node height", "height", bootNodeHeight)
 
 		var nextHeight uint64
 		if curHeight, err := s.blockchain.Height(); err == nil { //nolint:govet
@@ -47,11 +44,13 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
-		fmt.Println("Next height", nextHeight)
-		if bootNodeHeight-nextHeight == 0 {
-			time.Sleep(time.Second)
+		if bootNodeHeight-(nextHeight-1) == 0 {
+			s.log.Infow("Bootnode height is the same as local height, retrying in 30s")
+			time.Sleep(30 * time.Second)
 			continue
 		}
+
+		s.log.Infow("Start Pipeline", "Bootnode height", bootNodeHeight, "Current height", nextHeight-1)
 
 		commonIt := s.createIterator(BlockRange{nextHeight, bootNodeHeight})
 		headersAndSigsCh, err := s.genHeadersAndSigs(ctx, commonIt)
@@ -104,7 +103,6 @@ func (s *syncService) startPipeline(ctx context.Context) {
 				s.log.Errorw("Failed to process block", "err", b.err)
 				return
 			}
-			fmt.Println("About to store a block")
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
@@ -114,12 +112,6 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			}
 		}
 	}
-}
-
-// Todo: Temp func, remove after debugging
-func closeAndLog[T any](label string, ch chan T) {
-	fmt.Printf("Closing %q\n", label)
-	close(ch)
 }
 
 func (s *syncService) logError(msg string, err error) {
@@ -134,7 +126,7 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 	orderedBlockBodiesCh := make(chan (<-chan blockBody))
 
 	go func() {
-		defer closeAndLog("orderedBlockBodiesCh", orderedBlockBodiesCh)
+		defer close(orderedBlockBodiesCh)
 
 		specBlockHeadersAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
 		specBlockBodiesM := make(map[uint64]specBlockBody)
@@ -226,7 +218,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
-		defer closeAndLog("bodyCh", bodyCh)
+		defer close(bodyCh)
 		select {
 		case <-ctx.Done():
 			bodyCh <- blockBody{err: ctx.Err()}
@@ -325,7 +317,7 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 
 	headersAndSigCh := make(chan specBlockHeaderAndSigs)
 	go func() {
-		defer closeAndLog("headersAndSigCh", headersAndSigCh)
+		defer close(headersAndSigCh)
 
 	iteratorLoop:
 		for res, valid := headersIt(); valid; res, valid = headersIt() {
@@ -373,24 +365,20 @@ func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<
 
 	specBodiesCh := make(chan specBlockBody)
 	go func() {
-		defer closeAndLog("specBodiesCh", specBodiesCh)
+		defer close(specBodiesCh)
 		curBlockBody := new(specBlockBody)
 		// Assumes that all parts of the same block will arrive before the next block parts
 		// Todo: the above assumption may not be true. A peer may decide to send different parts of the block in different order
 		// If the above assumption is not true we should return separate channels for each of the parts. Also, see todo above specBlockBody
 		// on line 317 in p2p/sync.go
 		for res, valid := blockIt(); valid; res, valid = blockIt() {
-			fmt.Println("Reading from block bodies iterator")
-			spew.Dump(res.BodyMessage)
 			switch res.BodyMessage.(type) {
 			case *spec.BlockBodiesResponse_Classes:
 				if curBlockBody.id == nil {
-					fmt.Println("Got block body part for block ID", res.Id.String())
 					curBlockBody.id = res.GetId()
 				}
 				curBlockBody.classes = res.GetClasses()
 			case *spec.BlockBodiesResponse_Diff:
-				fmt.Println("Got StateDiff", res.Id.String())
 				if curBlockBody.id == nil {
 					curBlockBody.id = res.GetId()
 				}
@@ -433,7 +421,7 @@ func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-ch
 
 	receiptsCh := make(chan specReceipts)
 	go func() {
-		defer closeAndLog("receiptsCh", receiptsCh)
+		defer close(receiptsCh)
 
 		for res, valid := receiptsIt(); valid; res, valid = receiptsIt() {
 			switch res.Responses.(type) {
@@ -468,7 +456,7 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 
 	eventsCh := make(chan specEvents)
 	go func() {
-		defer closeAndLog("eventsCh", eventsCh)
+		defer close(eventsCh)
 		for res, valid := eventsIt(); valid; res, valid = eventsIt() {
 			switch res.Responses.(type) {
 			case *spec.EventsResponse_Events:
@@ -501,7 +489,7 @@ func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (
 
 	txsCh := make(chan specTransactions)
 	go func() {
-		defer closeAndLog("txsCh", txsCh)
+		defer close(txsCh)
 		for res, valid := txsIt(); valid; res, valid = txsIt() {
 			switch res.Responses.(type) {
 			case *spec.TransactionsResponse_Transactions:
