@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/mock v0.3.0
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.16.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.32.0
