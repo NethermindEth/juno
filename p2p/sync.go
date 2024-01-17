@@ -289,7 +289,7 @@ func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
 
 	headersIt, err := c.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
 	if err != nil {
-		s.log.Errorw("request block header from peer", "id", s.bootNode, "err", err)
+		return 0, err
 	}
 
 	var header *spec.BlockHeader

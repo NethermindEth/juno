@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/NethermindEth/juno/utils/pipeline"
-
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -15,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/pipeline"
 )
 
 func (s *syncService) startPipeline(ctx context.Context) {
@@ -25,12 +24,16 @@ func (s *syncService) startPipeline(ctx context.Context) {
 
 	var bootNodeHeight uint64
 	for i := 0; ; i++ {
+		if ctx.Err() != nil {
+			break
+		}
+
 		s.log.Infow("Continous iteration", "i", i)
 
 		var err error
 		bootNodeHeight, err = s.bootNodeHeight(ctx)
 		if err != nil {
-			s.log.Errorw("Failed to get boot node height", "err", err)
+			s.logError("Failed to get boot node height", err)
 			return
 		}
 		s.log.Infow("Boot node height", "height", bootNodeHeight)
@@ -46,34 +49,35 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			time.Sleep(time.Second)
 			continue
 		}
+
 		commonIt := s.createIterator(BlockRange{nextHeight, bootNodeHeight})
 		headersAndSigsCh, err := s.genHeadersAndSigs(ctx, commonIt)
 		if err != nil {
-			s.log.Errorw("Failed to get block headers parts", "err", err)
+			s.logError("Failed to get block headers parts", err)
 			return
 		}
 
 		blockBodiesCh, err := s.genBlockBodies(ctx, commonIt)
 		if err != nil {
-			s.log.Errorw("Failed to get block bodies", "err", err)
+			s.logError("Failed to get block bodies", err)
 			return
 		}
 
 		txsCh, err := s.genTransactions(ctx, commonIt)
 		if err != nil {
-			s.log.Errorw("Failed to get transactions", "err", err)
+			s.logError("Failed to get transactions", err)
 			return
 		}
 
 		receiptsCh, err := s.genReceipts(ctx, commonIt)
 		if err != nil {
-			s.log.Errorw("Failed to get receipts", "err", err)
+			s.logError("Failed to get receipts", err)
 			return
 		}
 
 		eventsCh, err := s.genEvents(ctx, commonIt)
 		if err != nil {
-			s.log.Errorw("Failed to get events", "err", err)
+			s.logError("Failed to get events", err)
 			return
 		}
 
@@ -105,6 +109,12 @@ func (s *syncService) startPipeline(ctx context.Context) {
 					b.block.GlobalStateRoot.ShortString())
 			}
 		}
+	}
+}
+
+func (s *syncService) logError(msg string, err error) {
+	if !errors.Is(err, context.Canceled) {
+		s.log.Errorw(msg, "err", err)
 	}
 }
 

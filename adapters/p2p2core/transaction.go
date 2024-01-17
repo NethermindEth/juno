@@ -178,6 +178,10 @@ func AdaptTransaction(t *spec.Transaction, network utils.Network) core.Transacti
 			Nonce:                AdaptFelt(tx.Nonce),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			EntryPointSelector:   nil,
+			ResourceBounds: map[core.Resource]core.ResourceBounds{
+				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
+				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
+			},
 		}
 		invTx.TransactionHash = hash(invTx)
 
@@ -196,6 +200,13 @@ func AdaptTransaction(t *spec.Transaction, network utils.Network) core.Transacti
 		return l1Tx
 	default:
 		panic(fmt.Errorf("unsupported tx type %T", t.Txn))
+	}
+}
+
+func adaptResourceLimits(limits *spec.ResourceLimits) core.ResourceBounds {
+	return core.ResourceBounds{
+		MaxAmount:       AdaptFelt(limits.MaxAmount).Uint64(),
+		MaxPricePerUnit: AdaptFelt(limits.MaxPricePerUnit),
 	}
 }
 
