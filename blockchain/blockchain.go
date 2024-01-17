@@ -46,7 +46,7 @@ type Reader interface {
 
 	Pending() (Pending, error)
 
-	Network() utils.Network
+	Network() *utils.Network
 }
 
 var (
@@ -71,7 +71,7 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network  utils.Network
+	network  *utils.Network
 	database db.DB
 
 	listener EventListener
@@ -83,7 +83,7 @@ func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
-		network:  *network,
+		network:  network,
 		listener: &SelectiveListener{},
 	}
 }
@@ -93,7 +93,7 @@ func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
 	return b
 }
 
-func (b *Blockchain) Network() utils.Network {
+func (b *Blockchain) Network() *utils.Network {
 	return b.network
 }
 
@@ -640,7 +640,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return nil, err
 	}
 
-	return core.VerifyBlockHash(block, &b.network)
+	return core.VerifyBlockHash(block, b.network)
 }
 
 type txAndReceiptDBKey struct {

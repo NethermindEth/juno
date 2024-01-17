@@ -208,10 +208,10 @@ func (mr *MockReaderMockRecorder) L1Head() *gomock.Call {
 }
 
 // Network mocks base method.
-func (m *MockReader) Network() utils.Network {
+func (m *MockReader) Network() *utils.Network {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Network")
-	ret0, _ := ret[0].(utils.Network)
+	ret0, _ := ret[0].(*utils.Network)
 	return ret0
 }
 

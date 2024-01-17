@@ -43,7 +43,7 @@ func TestChainId(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			mockReader := mocks.NewMockReader(mockCtrl)
-			mockReader.EXPECT().Network().Return(n)
+			mockReader.EXPECT().Network().Return(&n)
 			handler := rpc.New(mockReader, nil, nil, "", nil)
 
 			cID, err := handler.ChainID()
@@ -3017,7 +3017,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
+	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
@@ -3091,7 +3091,7 @@ func TestLegacyEstimateMessageFee(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
+	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
@@ -3147,7 +3147,7 @@ func TestTraceTransaction(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
+	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
@@ -3222,7 +3222,7 @@ func TestSimulateTransactions(t *testing.T) {
 	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(network).AnyTimes()
+	mockReader.EXPECT().Network().Return(&network).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
@@ -3299,7 +3299,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(network).AnyTimes()
+	mockReader.EXPECT().Network().Return(&network).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
@@ -3699,7 +3699,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(utils.Mainnet).AnyTimes()
+	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
@@ -3775,7 +3775,7 @@ func TestEstimateFee(t *testing.T) {
 	network := utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(network).AnyTimes()
+	mockReader.EXPECT().Network().Return(&network).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, mockVM, "", log)
