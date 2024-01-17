@@ -114,6 +114,12 @@ func (s *syncService) startPipeline(ctx context.Context) {
 	}
 }
 
+// Todo: Temp func, remove after debugging
+func closeAndLog[T any](label string, ch chan T) {
+	fmt.Printf("Closing %q\n", label)
+	close(ch)
+}
+
 func (s *syncService) logError(msg string, err error) {
 	if !errors.Is(err, context.Canceled) {
 		s.log.Errorw(msg, "err", err)
@@ -126,7 +132,7 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 	orderedBlockBodiesCh := make(chan (<-chan blockBody))
 
 	go func() {
-		defer close(orderedBlockBodiesCh)
+		defer closeAndLog("orderedBlockBodiesCh", orderedBlockBodiesCh)
 
 		specBlockHeadersAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
 		specBlockBodiesM := make(map[uint64]specBlockBody)
@@ -218,7 +224,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
-		defer close(bodyCh)
+		defer closeAndLog("bodyCh", bodyCh)
 		select {
 		case <-ctx.Done():
 			bodyCh <- blockBody{err: ctx.Err()}
@@ -317,7 +323,7 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 
 	headersAndSigCh := make(chan specBlockHeaderAndSigs)
 	go func() {
-		defer close(headersAndSigCh)
+		defer closeAndLog("headersAndSigCh", headersAndSigCh)
 
 	iteratorLoop:
 		for res, valid := headersIt(); valid; res, valid = headersIt() {
@@ -365,7 +371,7 @@ func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<
 
 	specBodiesCh := make(chan specBlockBody)
 	go func() {
-		defer close(specBodiesCh)
+		defer closeAndLog("specBodiesCh", specBodiesCh)
 		curBlockBody := new(specBlockBody)
 		// Assumes that all parts of the same block will arrive before the next block parts
 		// Todo: the above assumption may not be true. A peer may decide to send different parts of the block in different order
@@ -421,7 +427,7 @@ func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-ch
 
 	receiptsCh := make(chan specReceipts)
 	go func() {
-		defer close(receiptsCh)
+		defer closeAndLog("receiptsCh", receiptsCh)
 
 		for res, valid := receiptsIt(); valid; res, valid = receiptsIt() {
 			switch res.Responses.(type) {
@@ -456,7 +462,7 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 
 	eventsCh := make(chan specEvents)
 	go func() {
-		defer close(eventsCh)
+		defer closeAndLog("eventsCh", eventsCh)
 		for res, valid := eventsIt(); valid; res, valid = eventsIt() {
 			switch res.Responses.(type) {
 			case *spec.EventsResponse_Events:
@@ -489,7 +495,7 @@ func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (
 
 	txsCh := make(chan specTransactions)
 	go func() {
-		defer close(txsCh)
+		defer closeAndLog("txsCh", txsCh)
 		for res, valid := txsIt(); valid; res, valid = txsIt() {
 			switch res.Responses.(type) {
 			case *spec.TransactionsResponse_Transactions:
