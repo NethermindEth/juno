@@ -28,7 +28,7 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			break
 		}
 
-		s.log.Infow("Continous iteration", "i", i)
+		fmt.Println("Continuous iteration", "i", i)
 
 		var err error
 		bootNodeHeight, err = s.bootNodeHeight(ctx)
@@ -45,6 +45,7 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
+		fmt.Println("Next height", nextHeight)
 		if bootNodeHeight-nextHeight == 0 {
 			time.Sleep(time.Second)
 			continue
@@ -101,6 +102,7 @@ func (s *syncService) startPipeline(ctx context.Context) {
 				s.log.Errorw("Failed to process block", "err", b.err)
 				return
 			}
+			fmt.Println("About to store a block")
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
