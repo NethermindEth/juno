@@ -16,6 +16,8 @@ import (
 	"github.com/NethermindEth/juno/utils/pipeline"
 )
 
+const maxBlocks = 100
+
 func (s *syncService) startPipeline(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -24,17 +26,20 @@ func (s *syncService) startPipeline(ctx context.Context) {
 
 	var bootNodeHeight uint64
 	for i := 0; ; i++ {
-		if ctx.Err() != nil {
+		if err := ctx.Err(); err != nil {
 			break
 		}
 
 		fmt.Println("Continuous iteration", "i", i)
 
+		ctx, cancelIteration := context.WithCancel(ctx)
+
 		var err error
 		bootNodeHeight, err = s.bootNodeHeight(ctx)
 		if err != nil {
 			s.logError("Failed to get boot node height", err)
-			return
+			cancelIteration()
+			continue
 		}
 
 		var nextHeight uint64
@@ -44,74 +49,85 @@ func (s *syncService) startPipeline(ctx context.Context) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
-		if bootNodeHeight-(nextHeight-1) == 0 {
+		blockBehind := bootNodeHeight - (nextHeight - 1)
+		if blockBehind <= 0 {
 			s.log.Infow("Bootnode height is the same as local height, retrying in 30s")
 			time.Sleep(30 * time.Second)
+			cancelIteration()
 			continue
 		}
 
 		s.log.Infow("Start Pipeline", "Bootnode height", bootNodeHeight, "Current height", nextHeight-1)
+		s.log.Infow("Fetching blocks", "Start", nextHeight, "End", nextHeight+min(blockBehind, maxBlocks))
 
-		commonIt := s.createIterator(BlockRange{nextHeight, bootNodeHeight})
+		commonIt := s.createIterator(BlockRange{nextHeight, nextHeight + min(blockBehind, maxBlocks)})
 		headersAndSigsCh, err := s.genHeadersAndSigs(ctx, commonIt)
 		if err != nil {
 			s.logError("Failed to get block headers parts", err)
-			return
+			cancelIteration()
+			continue
 		}
 
 		blockBodiesCh, err := s.genBlockBodies(ctx, commonIt)
 		if err != nil {
 			s.logError("Failed to get block bodies", err)
-			return
+			cancelIteration()
+			continue
 		}
 
 		txsCh, err := s.genTransactions(ctx, commonIt)
 		if err != nil {
 			s.logError("Failed to get transactions", err)
-			return
+			cancelIteration()
+			continue
 		}
 
 		receiptsCh, err := s.genReceipts(ctx, commonIt)
 		if err != nil {
 			s.logError("Failed to get receipts", err)
-			return
+			cancelIteration()
+			continue
 		}
 
 		eventsCh, err := s.genEvents(ctx, commonIt)
 		if err != nil {
 			s.logError("Failed to get events", err)
-			return
+			cancelIteration()
+			continue
 		}
 
-		// A channel of a specific type cannot be converted to a channel of another type. Therefore, we have to consume/read from the channel
-		// and change the input to the desired type. The following is not allowed:
-		// var ch1 chan any = make(chan any)
-		// var ch2 chan someOtherType = make(chan someOtherType)
-		// ch2 = (chan any)(ch2) <----- This line will give compilation error.
+		blocksCh := pipeline.Bridge(ctx, s.processSpecBlockParts(ctx, nextHeight, pipeline.FanIn(ctx,
+			pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+			pipeline.Stage(ctx, blockBodiesCh, specBlockPartsFunc[specBlockBody]),
+			pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTransactions]),
+			pipeline.Stage(ctx, receiptsCh, specBlockPartsFunc[specReceipts]),
+			pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
+		)))
 
-		for b := range pipeline.Bridge(ctx,
-			s.processSpecBlockParts(ctx, nextHeight,
-				pipeline.FanIn(ctx,
-					pipeline.Stage(ctx, headersAndSigsCh, func(i specBlockHeaderAndSigs) specBlockParts { return i }),
-					pipeline.Stage(ctx, blockBodiesCh, func(i specBlockBody) specBlockParts { return i }),
-					pipeline.Stage(ctx, txsCh, func(i specTransactions) specBlockParts { return i }),
-					pipeline.Stage(ctx, receiptsCh, func(i specReceipts) specBlockParts { return i }),
-					pipeline.Stage(ctx, eventsCh, func(i specEvents) specBlockParts { return i }),
-				))) {
+		for b := range blocksCh {
 			if b.err != nil {
 				// cannot process any more blocks
 				s.log.Errorw("Failed to process block", "err", b.err)
-				return
+				cancelIteration()
+				break
 			}
+
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
+				cancelIteration()
+				break
 			} else {
 				s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(), "root",
 					b.block.GlobalStateRoot.ShortString())
 			}
 		}
+		cancelIteration()
 	}
+}
+
+func specBlockPartsFunc[T specBlockHeaderAndSigs | specBlockBody | specTransactions | specReceipts | specEvents](i T) specBlockParts {
+	return specBlockParts(i)
 }
 
 func (s *syncService) logError(msg string, err error) {
@@ -120,9 +136,7 @@ func (s *syncService) logError(msg string, err error) {
 	}
 }
 
-func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNum uint64,
-	specBlockPartsCh <-chan specBlockParts,
-) <-chan <-chan blockBody {
+func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts) <-chan <-chan blockBody {
 	orderedBlockBodiesCh := make(chan (<-chan blockBody))
 
 	go func() {
@@ -337,7 +351,9 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 
 			select {
 			case <-ctx.Done():
-				return
+				// Consume everything from the stream which will eventually break the for iteration loop.
+				// Todo: modify the usage of stream, so that we use libp2p network stream which gives the ability to close it.
+				continue
 			case headersAndSigCh <- headerAndSig:
 			}
 		}

@@ -98,7 +98,7 @@ node:
 	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
 	--db-path ./juno2
 
-node2: juno
+node2:
 	./build/juno --network=sepolia --log-level=debug --p2p \
 	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
 	--db-path ./juno3
