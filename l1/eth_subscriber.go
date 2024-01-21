@@ -20,6 +20,7 @@ type EthSubscriber struct {
 	ethClient *ethclient.Client
 	client    *rpc.Client
 	filterer  *contract.StarknetFilterer
+	listener  EventListener
 }
 
 var _ Subscriber = (*EthSubscriber)(nil)
@@ -42,6 +43,7 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 		ethClient: ethClient,
 		client:    client,
 		filterer:  filterer,
+		listener:  SelectiveListener{},
 	}, nil
 }
 
@@ -50,12 +52,22 @@ func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *co
 }
 
 func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
-	return s.ethClient.ChainID(ctx)
+	reqTimer := time.Now()
+	chainID, err := s.ethClient.ChainID(ctx)
+	s.listener.OnL1Call("eth_chainId", time.Since(reqTimer))
+	if err != nil {
+		return nil, fmt.Errorf("get chain ID: %w", err)
+	}
+	return chainID, nil
 }
 
 func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
 	finalisedBlock := make(map[string]any, 0)
-	if err := s.client.CallContext(ctx, &finalisedBlock, "eth_getBlockByNumber", "finalized", false); err != nil { //nolint:misspell
+	reqTimer := time.Now()
+	method := "eth_getBlockByNumber"
+	err := s.client.CallContext(ctx, &finalisedBlock, method, "finalized", false)
+	s.listener.OnL1Call(method, time.Since(reqTimer))
+	if err != nil { //nolint:misspell
 		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
 	}
 

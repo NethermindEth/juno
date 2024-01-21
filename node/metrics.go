@@ -224,10 +224,19 @@ func makeL1Metrics() l1.EventListener {
 		Name:      "height",
 	})
 	prometheus.MustRegister(l1Height)
+	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "l1",
+		Subsystem: "client",
+		Name:      "request_latency",
+	}, []string{"method"})
+	prometheus.MustRegister(requestLatencies)
 
 	return l1.SelectiveListener{
 		OnNewL1HeadCb: func(head *core.L1Head) {
 			l1Height.Set(float64(head.BlockNumber))
+		},
+		OnL1CallCb: func(method string, took time.Duration) {
+			requestLatencies.WithLabelValues(method).Observe(took.Seconds())
 		},
 	}
 }
