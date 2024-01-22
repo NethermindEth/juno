@@ -222,18 +222,11 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Infow("Listening on", "addr", addr)
 	}
 
-	// Start Synchronisation only if bootnode is false
-
-	// 1. First get all the peers from dht
-	// 2. Ask for missing blocks
-	// 3. Synchronisation handles peers connecting and disconnecting
-	// 4. Synchroniser has snapshot of peers to send requests to
-	if !s.bootNode {
-		// s.synchroniser.start(ctx)
-		// s.synchroniser.startSerial(ctx)
-		s.synchroniser.startPipeline(ctx)
-	}
 	s.setProtocolHandlers()
+
+	if !s.bootNode {
+		s.synchroniser.start(ctx)
+	}
 
 	<-s.runCtx.Done()
 	if err := s.dht.Close(); err != nil {
