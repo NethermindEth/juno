@@ -136,11 +136,11 @@ func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[p
 
 		header, err := it.Header()
 		if err != nil {
-			h.log.Errorw("Failed to fetch header", "err", err)
+			h.log.Debugw("Failed to fetch header", "err", err)
 			return fin()
 		}
 		it.Next()
-		fmt.Printf("Created Block Header Iterator for blockNumber %d\n", header.Number)
+		fmt.Printf("Created Header Iterator for blockNumber %d\n", header.Number)
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
@@ -191,7 +191,7 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 
 		header, err := it.Header()
 		if err != nil {
-			h.log.Errorw("Failed to fetch header", "err", err)
+			h.log.Debugw("Failed to fetch header", "err", err)
 			return fin()
 		}
 		it.Next()
@@ -224,10 +224,11 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 
 		block, err := it.Block()
 		if err != nil {
-			h.log.Errorw("Failed to fetch block", "err", err, "blockNumber", it.BlockNumber())
+			h.log.Debugw("Failed to fetch block", "err", err, "blockNumber", it.BlockNumber())
 			return fin()
 		}
 		it.Next()
+		fmt.Printf("Created Events Iterator for blockNumber %d\n", block.Number)
 
 		events := make([]*spec.Event, 0, len(block.Receipts))
 		for _, receipt := range block.Receipts {
@@ -248,7 +249,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 }
 
 func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Message], error) {
-	blockchainIt, err := h.newIterator(req.Iteration)
+	it, err := h.newIterator(req.Iteration)
 	if err != nil {
 		return nil, err
 	}
@@ -256,25 +257,26 @@ func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Mes
 	fin := newFin(&spec.ReceiptsResponse{Responses: &spec.ReceiptsResponse_Fin{}})
 
 	return func() (proto.Message, bool) {
-		if !blockchainIt.Valid() {
+		if !it.Valid() {
 			return fin()
 		}
 
-		b, err := blockchainIt.Block()
+		block, err := it.Block()
 		if err != nil {
-			h.log.Errorw("Failed to fetch block", "block number", b.Number, "err", err)
+			h.log.Debugw("Failed to fetch block", "block number", it.BlockNumber(), "err", err)
 			return fin()
 		}
-		blockchainIt.Next()
+		it.Next()
+		fmt.Printf("Created Receipts Iterator for blockNumber %d\n", block.Number)
 
-		receipts := make([]*spec.Receipt, len(b.Receipts))
-		for i := 0; i < len(b.Receipts); i++ {
-			receipts[i] = core2p2p.AdaptReceipt(b.Receipts[i], b.Transactions[i])
+		receipts := make([]*spec.Receipt, len(block.Receipts))
+		for i := 0; i < len(block.Receipts); i++ {
+			receipts[i] = core2p2p.AdaptReceipt(block.Receipts[i], block.Transactions[i])
 		}
 
 		rs := &spec.Receipts{Items: receipts}
 		res := &spec.ReceiptsResponse{
-			Id:        core2p2p.AdaptBlockID(b.Header),
+			Id:        core2p2p.AdaptBlockID(block.Header),
 			Responses: &spec.ReceiptsResponse_Receipts{Receipts: rs},
 		}
 
@@ -299,10 +301,11 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 
 		block, err := it.Block()
 		if err != nil {
-			h.log.Errorw("Iterator failure", "err", err)
+			h.log.Debugw("Iterator failure", "err", err)
 			return fin()
 		}
 		it.Next()
+		fmt.Printf("Created Transactions Iterator for blockNumber %d\n", block.Number)
 
 		return &spec.TransactionsResponse{
 			Id: core2p2p.AdaptBlockID(block.Header),

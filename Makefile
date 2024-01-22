@@ -98,12 +98,13 @@ node:
 	./build/juno --network=sepolia --log-level=debug --p2p \
 	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
 	--db-path ./juno2 \
+	--p2p-addr /ip4/0.0.0.0/tcp/7778 \
 	--p2p-private-key \
 	"8aeffc26c3c371565dbe634c5248ae26f4fa5c33bc8f7328ac95e73fb94eaf263550f02449521f7cf64af17d248c5f170be46c06986a29803124c0819cb8fac3"
 
 node2:
 	./build/juno --network=sepolia --log-level=debug --p2p \
-	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
+	--p2p-boot-peers /ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
 	--db-path ./juno3 \
 	--p2p-private-key \
 	"2d87e1d1c9d8dda1cf9a662de1978d2cd0b96e6ba390c75ded87c6c4fab657057fa782ae5977c3bd02d58281dccd16f2c26990d1f6c22f818a84edac97957348"

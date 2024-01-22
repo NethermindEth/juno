@@ -591,8 +591,12 @@ func (s *syncService) randomPeer() peer.ID {
 		panic("No peers available")
 	}
 
-	idx := rand.Intn(len(peers))
-	return peers[idx]
+	peer := peers[rand.Intn(len(peers))]
+
+	fmt.Println("Number of peers", len(peers))
+	fmt.Println("Random chosen peer's Info", s.host.Peerstore().PeerInfo(peer))
+
+	return peer
 }
 
 func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
