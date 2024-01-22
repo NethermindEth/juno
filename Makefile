@@ -94,10 +94,10 @@ bootnode:
 	"5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089"
 
 .PHONY: node
-node:
+node1:
 	./build/juno --network=sepolia --log-level=debug --p2p \
 	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
-	--db-path ./juno2 \
+	--db-path ./juno1 \
 	--p2p-addr /ip4/0.0.0.0/tcp/7778 \
 	--p2p-private-key \
 	"8aeffc26c3c371565dbe634c5248ae26f4fa5c33bc8f7328ac95e73fb94eaf263550f02449521f7cf64af17d248c5f170be46c06986a29803124c0819cb8fac3"
@@ -105,14 +105,14 @@ node:
 node2:
 	./build/juno --network=sepolia --log-level=debug --p2p \
 	--p2p-boot-peers /ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
-	--db-path ./juno3 \
+	--db-path ./juno2 \
 	--p2p-private-key \
 	"2d87e1d1c9d8dda1cf9a662de1978d2cd0b96e6ba390c75ded87c6c4fab657057fa782ae5977c3bd02d58281dccd16f2c26990d1f6c22f818a84edac97957348"
 
 node3:
 	./build/juno --network=sepolia --log-level=debug --p2p \
 	--p2p-boot-peers /ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
-	--db-path ./juno4 \
+	--db-path ./juno3 \
 	--p2p-private-key \
 	"54a695e2a5d5717d5ba8730efcafe6f17251a1955733cffc55a4085fbf7f5d2c1b4009314092069ef7ca9b364ce3eb3072531c64dfb2799c6bad76720a5bdff0"
 
