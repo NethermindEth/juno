@@ -89,6 +89,7 @@ help: ## show this help
 
 bootnode:
 	./build/juno --network=sepolia --log-level=debug --p2p --p2p-bootnode --p2p-addr /ip4/0.0.0.0/tcp/7777 \
+    --gw-api-key "$(GW_API_KEY)" \
     --p2p-private-key \
 	"5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089"
 
