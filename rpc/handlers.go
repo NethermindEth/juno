@@ -96,7 +96,8 @@ type Handler struct {
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
-	filterLimit uint
+	filterLimit  uint
+	callMaxSteps uint64
 }
 
 type subscription struct {
@@ -129,6 +130,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	h.filterLimit = limit
+	return h
+}
+
+func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
+	h.callMaxSteps = maxSteps
 	return h
 }
 
@@ -1253,7 +1259,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	}
 
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, header.Number, header.Timestamp, state, h.bcReader.Network())
+		call.Calldata, header.Number, header.Timestamp, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())

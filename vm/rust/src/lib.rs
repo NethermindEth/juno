@@ -9,7 +9,7 @@ use std::{
 };
 
 use blockifier::{
-    abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
+    abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE, MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX},
     block_context::{BlockContext, GasPrices, FeeTokenAddresses},
     execution::{
         common_hints::ExecutionMode,
@@ -68,6 +68,7 @@ pub extern "C" fn cairoVMCall(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
+    max_steps: c_ulonglong,
 ) {
     let reader = JunoStateReader::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
@@ -113,6 +114,7 @@ pub extern "C" fn cairoVMCall(
             block_timestamp,
             StarkFelt::default(),
             GAS_PRICES,
+            Some(max_steps),
         ),
         &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
         ExecutionMode::Execute,
@@ -204,6 +206,7 @@ pub extern "C" fn cairoVMExecute(
             eth_l1_gas_price: felt_to_u128(gas_price_wei_felt),
             strk_l1_gas_price: felt_to_u128(gas_price_strk_felt),
         },
+        None
     );
     let mut state = CachedState::new(reader, GlobalContractCache::default());
     let charge_fee = skip_charge_fee == 0;
@@ -396,6 +399,7 @@ fn build_block_context(
     block_timestamp: c_ulonglong,
     sequencer_address: StarkFelt,
     gas_prices: GasPrices,
+    max_steps: Option<c_ulonglong>,
 ) -> BlockContext {
     BlockContext {
         chain_id: ChainId(chain_id_str.into()),
@@ -432,8 +436,8 @@ fn build_block_context(
             (KECCAK_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 2048.0),
         ])
         .into(),
-        invoke_tx_max_n_steps: 3_000_000,
-        validate_max_n_steps: 3_000_000,
+        invoke_tx_max_n_steps: max_steps.unwrap_or(MAX_STEPS_PER_TX as u64).try_into().unwrap(),
+        validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
         max_recursion_depth: 50,
     }
 }

@@ -76,6 +76,7 @@ type Config struct {
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
+	RPCCallMaxSteps uint `mapstructure:"rpc-call-max-steps"`
 
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
@@ -145,7 +146,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 	rpcHandler := rpc.New(chain, synchronizer, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
-	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)

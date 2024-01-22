@@ -62,6 +62,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(8)
 	defaultMaxHandles := 1024
+	defaultCallMaxSteps := uint(4_000_000)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -106,6 +107,7 @@ func TestConfigPrecedence(t *testing.T) {
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"custom network config file": {
@@ -149,6 +151,7 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"default config with no flags": {
@@ -179,6 +182,7 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"config file path is empty string": {
@@ -209,6 +213,7 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"config file doesn't exist": {
@@ -244,6 +249,7 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -281,6 +287,7 @@ pprof: true
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -315,6 +322,7 @@ http-port: 4576
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"all flags without config file": {
@@ -347,6 +355,7 @@ http-port: 4576
 				RPCMaxBlockScan: defaultRPCMaxBlockScan,
 				DBCacheSize:     defaultMaxCacheSize,
 				DBMaxHandles:    defaultMaxHandles,
+				RPCCallMaxSteps: defaultCallMaxSteps,
 			},
 		},
 		"some flags without config file": {
@@ -380,6 +389,7 @@ http-port: 4576
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -437,6 +447,7 @@ db-cache-size: 8
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         9,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -473,6 +484,7 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -505,6 +517,7 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"only set env variables": {
@@ -535,6 +548,7 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -566,6 +580,7 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -598,6 +613,7 @@ network: goerli
 				DBCacheSize:         defaultMaxCacheSize,
 				GatewayAPIKey:       "apikey",
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
 			},
 		},
 	}
