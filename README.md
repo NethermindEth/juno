@@ -130,13 +130,13 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 4. **Run Juno**
 
-   Execute the Docker command to run Juno, ensuring that you're using the correct snapshot path `$HOME/snapshots/juno_mainnet`:
+   Execute the Docker command to run Juno, ensuring that you're using the correct snapshot path `$HOME/snapshots/juno-mainnet`:
 
    ```bash
    docker run -d \
      --name juno \
      -p 6060:6060 \
-     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
+     -v $HOME/snapshots/juno-mainnet:/var/lib/juno \
      nethermind/juno \
      --http \
      --http-port 6060 \
