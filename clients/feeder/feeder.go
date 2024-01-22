@@ -329,7 +329,8 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
-		"classHash": classHash.String(),
+		"classHash":   classHash.String(),
+		"blockNumber": "pending",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -347,7 +348,8 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 
 func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CompiledClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
-		"classHash": classHash.String(),
+		"classHash":   classHash.String(),
+		"blockNumber": "pending",
 	})
 
 	body, err := c.get(ctx, queryURL)
