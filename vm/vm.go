@@ -5,7 +5,7 @@ package vm
 //#include <stddef.h>
 // extern void cairoVMCall(char* contract_address, char* class_hash, char* entry_point_selector, char** calldata,
 //					 size_t len_calldata, uintptr_t readerHandle, unsigned long long block_number,
-//					 unsigned long long block_timestamp, char* chain_id);
+//					 unsigned long long block_timestamp, char* chain_id, unsigned long long max_steps);
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
 //					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
@@ -31,7 +31,7 @@ import (
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-		blockTimestamp uint64, state core.StateReader, network *utils.Network,
+		blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
@@ -111,7 +111,7 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 }
 
 func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, state core.StateReader, network *utils.Network,
+	blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -149,6 +149,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 		C.ulonglong(blockNumber),
 		C.ulonglong(blockTimestamp),
 		chainID,
+		C.ulonglong(maxSteps),
 	)
 
 	for _, ptr := range calldataPtrs {

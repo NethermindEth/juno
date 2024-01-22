@@ -16,13 +16,14 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 }
 
 func (tvm *ThrottledVM) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, state core.StateReader, network *utils.Network,
+	blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
 ) ([]*felt.Felt, error) {
 	var ret []*felt.Felt
 	throttler := (*utils.Throttler[vm.VM])(tvm)
 	return ret, throttler.Do(func(vm *vm.VM) error {
 		var err error
-		ret, err = (*vm).Call(contractAddr, classHash, selector, calldata, blockNumber, blockTimestamp, state, network)
+		ret, err = (*vm).Call(contractAddr, classHash, selector, calldata, blockNumber, blockTimestamp,
+			state, network, maxSteps)
 		return err
 	})
 }
