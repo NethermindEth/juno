@@ -11,10 +11,3 @@ config/
 
 # pyenv
 .python-version
-
-# local juno files
-node.log
-juno
-juno2
-juno3
-juno4
