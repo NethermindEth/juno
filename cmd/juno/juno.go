@@ -75,6 +75,7 @@ const (
 	cnL2ChainIDF           = "cn-l2-chain-id"
 	cnCoreContractAddressF = "cn-core-contract-address"
 	cnUnverifiableRangeF   = "cn-unverifiable-range"
+	callMaxStepsF          = "rpc-call-max-steps"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -105,6 +106,7 @@ const (
 	defaultCNL1ChainID              = ""
 	defaultCNL2ChainID              = ""
 	defaultCNCoreContractAddressStr = ""
+	defaultCallMaxSteps             = 4_000_000
 
 	configFlagUsage                       = "The yaml configuration file."
 	logLevelFlagUsage                     = "Options: debug, info, warn, error."
@@ -146,6 +148,7 @@ const (
 	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	callMaxStepsUsage        = "Maximum number of steps to be executed in starknet_call requests"
 )
 
 var Version string
@@ -320,6 +323,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
+	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 
 	return junoCmd
 }

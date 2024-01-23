@@ -2973,7 +2973,8 @@ func TestCall(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+	mockVM := mocks.NewMockVM(mockCtrl)
+	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -3009,6 +3010,40 @@ func TestCall(t *testing.T) {
 		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
+	})
+
+	t.Run("ok", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337)
+
+		contractAddr := new(felt.Felt).SetUint64(1)
+		selector := new(felt.Felt).SetUint64(2)
+		classHash := new(felt.Felt).SetUint64(3)
+		calldata := []felt.Felt{
+			*new(felt.Felt).SetUint64(4),
+			*new(felt.Felt).SetUint64(5),
+		}
+		expectedRes := []*felt.Felt{
+			new(felt.Felt).SetUint64(6),
+			new(felt.Felt).SetUint64(7),
+		}
+
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{
+			Number:    100,
+			Timestamp: 101,
+		}, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockReader.EXPECT().Network().Return(&utils.Mainnet)
+		mockVM.EXPECT().Call(contractAddr, classHash, selector, calldata, uint64(100),
+			uint64(101), gomock.Any(), &utils.Mainnet, uint64(1337)).Return(expectedRes, nil)
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{
+			ContractAddress:    *contractAddr,
+			EntryPointSelector: *selector,
+			Calldata:           calldata,
+		}, rpc.BlockID{Latest: true})
+		require.Nil(t, rpcErr)
+		require.Equal(t, expectedRes, res)
 	})
 }
 
