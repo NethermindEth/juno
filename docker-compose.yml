@@ -1,7 +1,7 @@
 version: '3.8'
 # first, run "docker build -t juno:latest"
 services:
-  boot-node:
+  feeder-node:
     image: juno:latest
     healthcheck:
       test: ["CMD", "sleep", "4"]
@@ -20,7 +20,7 @@ services:
     image: juno:latest
     networks: [p2p-network]
     depends_on:
-      boot-node:
+      feeder-node:
         condition: service_healthy
     command: ["--http", "--p2p", "--p2p-boot-peers", "/ip4/192.168.10.10/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG"]
     deploy:

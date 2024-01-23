@@ -25,16 +25,16 @@ import (
 const maxBlocks = 100
 
 type syncService struct {
-	host     host.Host
-	network  utils.Network
-	bootNode peer.ID
-	client   *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
+	host       host.Host
+	network    utils.Network
+	feederNode peer.ID
+	client     *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
 
 	blockchain *blockchain.Blockchain
 	log        utils.SimpleLogger
 }
 
-func newSyncService(bc *blockchain.Blockchain, h host.Host, bootNode peer.ID, network utils.Network,
+func newSyncService(bc *blockchain.Blockchain, h host.Host, feederNode peer.ID, network utils.Network,
 	log utils.SimpleLogger,
 ) *syncService {
 	return &syncService{
@@ -42,13 +42,13 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, bootNode peer.ID, ne
 		network:    network,
 		blockchain: bc,
 		log:        log,
-		bootNode:   bootNode,
+		feederNode: feederNode,
 	}
 }
 
-func (s *syncService) bootNodeHeight(ctx context.Context) (uint64, error) {
+func (s *syncService) feederNodeHeight(ctx context.Context) (uint64, error) {
 	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
-		return s.host.NewStream(ctx, s.bootNode, pids...)
+		return s.host.NewStream(ctx, s.feederNode, pids...)
 	}, s.network, s.log)
 
 	headersIt, err := c.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
@@ -74,7 +74,7 @@ func (s *syncService) start(ctx context.Context) {
 
 	s.client = starknet.NewClient(s.randomPeerStream, s.network, s.log)
 
-	var bootNodeHeight uint64
+	var feederNodeHeight uint64
 	for i := 0; ; i++ {
 		if err := ctx.Err(); err != nil {
 			break
@@ -85,7 +85,7 @@ func (s *syncService) start(ctx context.Context) {
 		ctx, cancelIteration := context.WithCancel(ctx)
 
 		var err error
-		bootNodeHeight, err = s.bootNodeHeight(ctx)
+		feederNodeHeight, err = s.feederNodeHeight(ctx)
 		if err != nil {
 			s.logError("Failed to get boot node height", err)
 			cancelIteration()
@@ -99,7 +99,7 @@ func (s *syncService) start(ctx context.Context) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
-		blockBehind := bootNodeHeight - (nextHeight - 1)
+		blockBehind := feederNodeHeight - (nextHeight - 1)
 		if blockBehind <= 0 {
 			s.log.Infow("Bootnode height is the same as local height, retrying in 30s")
 			time.Sleep(30 * time.Second)
@@ -107,7 +107,7 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		s.log.Infow("Start Pipeline", "Bootnode height", bootNodeHeight, "Current height", nextHeight-1)
+		s.log.Infow("Start Pipeline", "Bootnode height", feederNodeHeight, "Current height", nextHeight-1)
 		s.log.Infow("Fetching blocks", "Start", nextHeight, "End", nextHeight+min(blockBehind, maxBlocks))
 
 		commonIt := s.createIterator(nextHeight, min(blockBehind, maxBlocks))

@@ -36,7 +36,7 @@ func TestNewNode(t *testing.T) {
 		MetricsPort:         0,
 		P2P:                 true,
 		P2PAddr:             "",
-		P2PBootPeers:        "",
+		P2PPeers:            "",
 	}
 
 	n, err := node.New(config, "v0.3")

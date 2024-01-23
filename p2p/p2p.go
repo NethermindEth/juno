@@ -55,7 +55,7 @@ type Service struct {
 	runLock sync.RWMutex
 }
 
-func New(addr, userAgent, bootPeers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	if addr == "" {
@@ -79,34 +79,34 @@ func New(addr, userAgent, bootPeers, privKeyStr string, feederNode bool, bc *blo
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, bootPeers, feederNode, bc, snNetwork, log)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log)
 }
 
-func NewWithHost(p2phost host.Host, bootNodes string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
-	bootPeers := []peer.AddrInfo{}
-	if bootNodes != "" {
-		splitted := strings.Split(bootNodes, ",")
+	peersAddrInfoS := []peer.AddrInfo{}
+	if peers != "" {
+		splitted := strings.Split(peers, ",")
 		for _, peerStr := range splitted {
-			bootAddr, err := peer.AddrInfoFromString(peerStr)
+			peerAddr, err := peer.AddrInfoFromString(peerStr)
 			if err != nil {
 				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
 			}
 
-			bootPeers = append(bootPeers, *bootAddr)
+			peersAddrInfoS = append(peersAddrInfoS, *peerAddr)
 		}
 	}
 
-	p2pdht, err := makeDHT(p2phost, snNetwork, bootPeers)
+	p2pdht, err := makeDHT(p2phost, snNetwork, peersAddrInfoS)
 	if err != nil {
 		return nil, err
 	}
 
-	// todo: reconsider initialising synchroniser here because if node is a bootnode we shouldn't not create an instance of it.
+	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 	var peerId peer.ID
-	if len(bootPeers) > 0 {
-		peerId = bootPeers[0].ID
+	if len(peersAddrInfoS) > 0 {
+		peerId = peersAddrInfoS[0].ID
 	}
 	synchroniser := newSyncService(bc, p2phost, peerId, snNetwork, log)
 	s := &Service{
@@ -123,10 +123,10 @@ func NewWithHost(p2phost host.Host, bootNodes string, feederNode bool, bc *block
 	return s, nil
 }
 
-func makeDHT(p2phost host.Host, snNetwork utils.Network, bootPeers []peer.AddrInfo) (*dht.IpfsDHT, error) {
+func makeDHT(p2phost host.Host, snNetwork utils.Network, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(snNetwork.ProtocolID()),
-		dht.BootstrapPeers(bootPeers...),
+		dht.BootstrapPeers(addrInfos...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
 	)

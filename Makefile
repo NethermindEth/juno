@@ -87,11 +87,11 @@ clean: ## clean project builds
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-bootnode:
+feedernode:
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
-	--db-path=./p2p-dbs/bootnode \
+	--db-path=./p2p-dbs/feedernode \
 	--p2p \
 	--p2p-feeder-node \
 	--p2p-addr=/ip4/0.0.0.0/tcp/7777 \
@@ -103,7 +103,7 @@ node1:
 	--log-level=debug \
 	--db-path=./p2p-dbs/node1 \
 	--p2p \
-	--p2p-boot-peers=/ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
+	--p2p-peers=/ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
 	--p2p-addr=/ip4/0.0.0.0/tcp/7778 \
 	--p2p-private-key="8aeffc26c3c371565dbe634c5248ae26f4fa5c33bc8f7328ac95e73fb94eaf263550f02449521f7cf64af17d248c5f170be46c06986a29803124c0819cb8fac3"
 
@@ -113,7 +113,7 @@ node2:
 	--log-level=debug \
 	--db-path=./p2p-dbs/node2 \
 	--p2p \
-	--p2p-boot-peers=/ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
+	--p2p-peers=/ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
 	--p2p-private-key="2d87e1d1c9d8dda1cf9a662de1978d2cd0b96e6ba390c75ded87c6c4fab657057fa782ae5977c3bd02d58281dccd16f2c26990d1f6c22f818a84edac97957348"
 
 node3:
@@ -122,6 +122,6 @@ node3:
 	--log-level=debug \
 	--db-path=./p2p-dbs/node3 \
 	--p2p \
-	--p2p-boot-peers=/ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
+	--p2p-peers=/ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
 	--p2p-private-key="54a695e2a5d5717d5ba8730efcafe6f17251a1955733cffc55a4085fbf7f5d2c1b4009314092069ef7ca9b364ce3eb3072531c64dfb2799c6bad76720a5bdff0"
 

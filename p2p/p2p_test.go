@@ -39,17 +39,17 @@ func TestService(t *testing.T) {
 	events, err := peerA.SubscribePeerConnectednessChanged(testCtx)
 	require.NoError(t, err)
 
-	bootAddrs, err := peerA.ListenAddrs()
+	peerAddrs, err := peerA.ListenAddrs()
 	require.NoError(t, err)
 
-	var bootAddrsString []string
-	for _, bootAddr := range bootAddrs {
-		bootAddrsString = append(bootAddrsString, bootAddr.String())
+	var peerAddrsString []string
+	for _, addr := range peerAddrs {
+		peerAddrsString = append(peerAddrsString, addr.String())
 	}
 
 	peerB, err := p2p.NewWithHost(
 		peerHosts[1],
-		strings.Join(bootAddrsString, ","),
+		strings.Join(peerAddrsString, ","),
 		true,
 		nil,
 		utils.Integration,

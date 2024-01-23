@@ -53,7 +53,7 @@ const (
 	pendingPollIntervalF = "pending-poll-interval"
 	p2pF                 = "p2p"
 	p2pAddrF             = "p2p-addr"
-	p2pBootPeersF        = "p2p-boot-peers"
+	p2pPeersF            = "p2p-peers"
 	p2pFeederNodeF       = "p2p-feeder-node"
 	p2pPrivateKey        = "p2p-private-key"
 	metricsF             = "metrics"
@@ -83,7 +83,7 @@ const (
 	defaultPendingPollInterval = time.Duration(0)
 	defaultP2p                 = false
 	defaultP2pAddr             = ""
-	defaultP2pBootPeers        = ""
+	defaultP2pPeers            = ""
 	defaultP2pFeederNode       = false
 	defaultP2pPrivateKey       = ""
 	defaultMetrics             = false
@@ -115,7 +115,7 @@ const (
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)."
 	p2pUsage                 = "Enables p2p server."
 	p2pAddrUsage             = "Specify p2p source address as multiaddr."
-	p2pBootPeersUsage        = "Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes."
+	p2pPeersUsage            = "Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage       = "Run juno as a feeder node which will only sync from feeder gateway and gossip the new blocks to the network."
 	p2pPrivateKeyUsage       = "Hexadecimal representation of a private key on the Ed25519 elliptic curve."
 	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
@@ -247,7 +247,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
-	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
+	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
@@ -264,7 +264,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 
-	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pBootPeersF)
+	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.AddCommand(NewCmdGenP2PKeyPair())
 
 	return junoCmd
