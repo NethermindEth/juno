@@ -136,7 +136,7 @@ func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[p
 
 		header, err := it.Header()
 		if err != nil {
-			h.log.Debugw("Failed to fetch header", "err", err)
+			h.log.Debugw("Failed to fetch header", "blockNumber", it.BlockNumber(), "err", err)
 			return fin()
 		}
 		it.Next()
@@ -144,7 +144,7 @@ func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[p
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
-			h.log.Errorw("Failed to fetch block commitments", "err", err)
+			h.log.Debugw("Failed to fetch block commitments", "blockNumber", it.BlockNumber(), "err", err)
 			return fin()
 		}
 
@@ -191,7 +191,7 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 
 		header, err := it.Header()
 		if err != nil {
-			h.log.Debugw("Failed to fetch header", "err", err)
+			h.log.Debugw("Failed to fetch header", "blockNumber", it.BlockNumber(), "err", err)
 			return fin()
 		}
 		it.Next()
@@ -199,8 +199,7 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 		fmt.Printf("Creating Block Body Iterator for blockNumber %d\n", header.Number)
 		bodyIterator, err = newBlockBodyIterator(h.bcReader, header, h.log)
 		if err != nil {
-			// h.log.Errorw("Failed to create block body iterator", "err", err)
-			fmt.Println("Failed to create block body iterator", "err", err)
+			h.log.Debugw("Failed to create block body iterator", "blockNumber", it.BlockNumber(), "err", err)
 			return fin()
 		}
 		// no need to call hasNext since it's first iteration over a block
@@ -224,7 +223,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 
 		block, err := it.Block()
 		if err != nil {
-			h.log.Debugw("Failed to fetch block", "err", err, "blockNumber", it.BlockNumber())
+			h.log.Debugw("Failed to fetch block for Events", "blockNumber", it.BlockNumber(), "err", err)
 			return fin()
 		}
 		it.Next()
@@ -263,7 +262,7 @@ func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Mes
 
 		block, err := it.Block()
 		if err != nil {
-			h.log.Debugw("Failed to fetch block", "block number", it.BlockNumber(), "err", err)
+			h.log.Debugw("Failed to fetch block for Receipts", "blockNumber", it.BlockNumber(), "err", err)
 			return fin()
 		}
 		it.Next()
@@ -301,7 +300,7 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 
 		block, err := it.Block()
 		if err != nil {
-			h.log.Debugw("Iterator failure", "err", err)
+			h.log.Debugw("Failed to fetch block for Transactions", "blockNumber", it.BlockNumber(), "err", err)
 			return fin()
 		}
 		it.Next()
