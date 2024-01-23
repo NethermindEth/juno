@@ -54,7 +54,7 @@ const (
 	p2pF                 = "p2p"
 	p2pAddrF             = "p2p-addr"
 	p2pBootPeersF        = "p2p-boot-peers"
-	p2pBootNodeF         = "p2p-bootnode"
+	p2pFeederNodeF       = "p2p-feeder-node"
 	p2pPrivateKey        = "p2p-private-key"
 	metricsF             = "metrics"
 	metricsHostF         = "metrics-host"
@@ -84,7 +84,7 @@ const (
 	defaultP2p                 = false
 	defaultP2pAddr             = ""
 	defaultP2pBootPeers        = ""
-	defaultP2pBootNode         = false
+	defaultP2pFeederNode       = false
 	defaultP2pPrivateKey       = ""
 	defaultMetrics             = false
 	defaultMetricsPort         = 9090
@@ -112,12 +112,12 @@ const (
 	colourUsage       = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
-	p2pUsage                 = "enable p2p server"
-	p2pAddrUsage             = "specify p2p source address as multiaddr"
-	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
-	p2pBootNodeUsage         = "run juno as a bootnode"
-	p2pPrivateKeyUsage       = ""
+	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)."
+	p2pUsage                 = "Enables p2p server."
+	p2pAddrUsage             = "Specify p2p source address as multiaddr."
+	p2pBootPeersUsage        = "Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes."
+	p2pFeederNodeUsage       = "Run juno as a feeder node which will only sync from feeder gateway and gossip the new blocks to the network."
+	p2pPrivateKeyUsage       = "Hexadecimal representation of a private key on the Ed25519 elliptic curve."
 	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
 	metricsHostUsage         = "The interface on which the prometheus endpoint will listen for requests."
 	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
@@ -248,7 +248,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
 	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
-	junoCmd.Flags().Bool(p2pBootNodeF, defaultP2pBootNode, p2pBootNodeUsage)
+	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
@@ -264,7 +264,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
 
-	junoCmd.MarkFlagsMutuallyExclusive(p2pBootNodeF, p2pBootPeersF)
+	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pBootPeersF)
 	junoCmd.AddCommand(NewCmdGenP2PKeyPair())
 
 	return junoCmd

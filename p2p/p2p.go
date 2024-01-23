@@ -49,13 +49,13 @@ type Service struct {
 
 	synchroniser *syncService
 
-	bootNode bool
+	feederNode bool
 
 	runCtx  context.Context
 	runLock sync.RWMutex
 }
 
-func New(addr, userAgent, bootPeers, privKeyStr string, bootNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+func New(addr, userAgent, bootPeers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	if addr == "" {
@@ -76,10 +76,13 @@ func New(addr, userAgent, bootPeers, privKeyStr string, bootNode bool, bc *block
 	if err != nil {
 		return nil, err
 	}
-	return NewWithHost(p2pHost, bootPeers, bootNode, bc, snNetwork, log)
+	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
+	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
+	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
+	return NewWithHost(p2pHost, bootPeers, feederNode, bc, snNetwork, log)
 }
 
-func NewWithHost(p2phost host.Host, bootNodes string, bootNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+func NewWithHost(p2phost host.Host, bootNodes string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	bootPeers := []peer.AddrInfo{}
@@ -112,7 +115,7 @@ func NewWithHost(p2phost host.Host, bootNodes string, bootNode bool, bc *blockch
 		host:         p2phost,
 		network:      snNetwork,
 		dht:          p2pdht,
-		bootNode:     bootNode,
+		feederNode:   feederNode,
 		topics:       make(map[string]*pubsub.Topic),
 		handler:      starknet.NewHandler(bc, log),
 	}
@@ -224,7 +227,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 	s.setProtocolHandlers()
 
-	if !s.bootNode {
+	if !s.feederNode {
 		s.synchroniser.start(ctx)
 	}
 

@@ -72,7 +72,7 @@ type Config struct {
 	P2P           bool   `mapstructure:"p2p"`
 	P2PAddr       string `mapstructure:"p2p-addr"`
 	P2PBootPeers  string `mapstructure:"p2p-boot-peers"`
-	P2PBootNode   bool   `mapstructure:"p2p-bootnode"`
+	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
 
 	MaxVMs          uint `mapstructure:"max-vms"`
@@ -144,12 +144,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 	if cfg.P2P {
-		if !cfg.P2PBootNode {
+		if !cfg.P2PFeederNode {
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
 		var p2pService *p2p.Service
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, cfg.P2PPrivateKey, cfg.P2PBootNode, chain, cfg.Network, log)
+		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
