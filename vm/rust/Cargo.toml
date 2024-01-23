@@ -8,17 +8,17 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-blockifier = "=0.4.0"
+blockifier = "=0.4.1-rc.0"
 starknet_api = "=0.6.0"
-cairo-vm = "=0.8.3"
+cairo-vm = "=0.8.4-rc.0"
 indexmap = "2.1.0"
 cached = "0.46.1"
 once_cell = "1.18.0"
 
-cairo-lang-casm = "=2.4.0"
-cairo-lang-runner = "=2.4.0"
-cairo-lang-starknet = "=2.4.0"
-cairo-lang-utils = "=2.4.0"
+cairo-lang-casm = "=2.4.3"
+cairo-lang-runner = "=2.4.3"
+cairo-lang-starknet = "=2.4.3"
+cairo-lang-utils = "=2.4.3"
 
 [lib]
 crate-type = ["staticlib"]
