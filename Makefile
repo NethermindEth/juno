@@ -91,7 +91,6 @@ bootnode:
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
- 	--gw-api-key=$(GW_API_KEY) \
 	--db-path=./p2p-dbs/bootnode \
 	--p2p \
 	--p2p-feeder-node \
