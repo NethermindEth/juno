@@ -26,33 +26,25 @@ import (
 const maxBlocks = 100
 
 type syncService struct {
-	host       host.Host
-	network    utils.Network
-	feederNode peer.ID
-	client     *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
+	host    host.Host
+	network utils.Network
+	client  *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
 
 	blockchain *blockchain.Blockchain
 	log        utils.SimpleLogger
 }
 
-func newSyncService(bc *blockchain.Blockchain, h host.Host, feederNode peer.ID, network utils.Network,
-	log utils.SimpleLogger,
-) *syncService {
+func newSyncService(bc *blockchain.Blockchain, h host.Host, network utils.Network, log utils.SimpleLogger) *syncService {
 	return &syncService{
 		host:       h,
 		network:    network,
 		blockchain: bc,
 		log:        log,
-		feederNode: feederNode,
 	}
 }
 
-func (s *syncService) feederNodeHeight(ctx context.Context) (uint64, error) {
-	c := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
-		return s.host.NewStream(ctx, s.feederNode, pids...)
-	}, s.network, s.log)
-
-	headersIt, err := c.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
+func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
+	headersIt, err := s.client.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
 	if err != nil {
 		return 0, err
 	}
@@ -66,7 +58,7 @@ func (s *syncService) feederNodeHeight(ctx context.Context) (uint64, error) {
 		}
 	}
 
-	return header.Number, nil
+	return int(header.Number), nil
 }
 
 func (s *syncService) start(ctx context.Context) {
@@ -75,7 +67,7 @@ func (s *syncService) start(ctx context.Context) {
 
 	s.client = starknet.NewClient(s.randomPeerStream, s.network, s.log)
 
-	var feederNodeHeight uint64
+	var randHeight int
 	for i := 0; ; i++ {
 		if err := ctx.Err(); err != nil {
 			break
@@ -86,32 +78,33 @@ func (s *syncService) start(ctx context.Context) {
 		ctx, cancelIteration := context.WithCancel(ctx)
 
 		var err error
-		feederNodeHeight, err = s.feederNodeHeight(ctx)
+		randHeight, err = s.randomNodeHeight(ctx)
 		if err != nil {
-			s.logError("Failed to get boot node height", err)
+			s.logError("Failed to get random node height", err)
 			cancelIteration()
 			continue
 		}
 
-		var nextHeight uint64
+		var nextHeight int
 		if curHeight, err := s.blockchain.Height(); err == nil { //nolint:govet
-			nextHeight = curHeight + 1
+			nextHeight = int(curHeight) + 1
 		} else if !errors.Is(db.ErrKeyNotFound, err) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
-		blockBehind := feederNodeHeight - (nextHeight - 1)
+		blockBehind := randHeight - (nextHeight - 1)
 		if blockBehind <= 0 {
-			s.log.Infow("Bootnode height is the same as local height, retrying in 30s")
-			time.Sleep(30 * time.Second)
+			s.log.Infow("Random node height is the same or less as local height, retrying in 100ms", "Random node height", randHeight,
+				"Current height", nextHeight-1)
+			time.Sleep(100 * time.Millisecond)
 			cancelIteration()
 			continue
 		}
 
-		s.log.Infow("Start Pipeline", "Bootnode height", feederNodeHeight, "Current height", nextHeight-1)
-		s.log.Infow("Fetching blocks", "Start", nextHeight, "End", nextHeight+min(blockBehind, maxBlocks))
+		s.log.Infow("Start Pipeline", "Random node height", randHeight, "Current height", nextHeight-1, "Start", nextHeight, "End",
+			nextHeight+min(blockBehind, maxBlocks))
 
-		commonIt := s.createIterator(nextHeight, min(blockBehind, maxBlocks))
+		commonIt := s.createIterator(uint64(nextHeight), uint64(min(blockBehind, maxBlocks)))
 		headersAndSigsCh, err := s.genHeadersAndSigs(ctx, commonIt)
 		if err != nil {
 			s.logError("Failed to get block headers parts", err)
@@ -147,7 +140,7 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		blocksCh := pipeline.Bridge(ctx, s.processSpecBlockParts(ctx, nextHeight, pipeline.FanIn(ctx,
+		blocksCh := pipeline.Bridge(ctx, s.processSpecBlockParts(ctx, uint64(nextHeight), pipeline.FanIn(ctx,
 			pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
 			pipeline.Stage(ctx, blockBodiesCh, specBlockPartsFunc[specBlockBody]),
 			pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTransactions]),
@@ -602,6 +595,7 @@ func (s *syncService) randomPeer() peer.ID {
 	peer := peers[rand.Intn(len(peers))]
 
 	fmt.Println("Number of peers", len(peers))
+	// Random chosen peer's Info {12D3KooWBejoxD2ivkPjRYhD887XXdCL9o6uAYr196BWJac36uzo: []}
 	fmt.Println("Random chosen peer's Info", s.host.Peerstore().PeerInfo(peer))
 
 	return peer

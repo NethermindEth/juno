@@ -50,9 +50,6 @@ type Service struct {
 	synchroniser *syncService
 
 	feederNode bool
-
-	runCtx  context.Context
-	runLock sync.RWMutex
 }
 
 func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
@@ -104,11 +101,8 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	}
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
-	var peerId peer.ID
-	if len(peersAddrInfoS) > 0 {
-		peerId = peersAddrInfoS[0].ID
-	}
-	synchroniser := newSyncService(bc, p2phost, peerId, snNetwork, log)
+
+	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
 	s := &Service{
 		synchroniser: synchroniser,
 		log:          log,
@@ -119,7 +113,6 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		topics:       make(map[string]*pubsub.Topic),
 		handler:      starknet.NewHandler(bc, log),
 	}
-	s.runLock.Lock()
 	return s, nil
 }
 
@@ -196,25 +189,16 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 func (s *Service) Run(ctx context.Context) error {
 	defer s.host.Close()
 
-	err := func() error {
-		defer s.runLock.Unlock()
-
-		err := s.dht.Bootstrap(ctx)
-		if err != nil {
-			return err
-		}
-
-		s.pubsub, err = pubsub.NewGossipSub(ctx, s.host)
-		if err != nil {
-			return err
-		}
-
-		s.runCtx = ctx
-		return nil
-	}()
+	err := s.dht.Bootstrap(ctx)
 	if err != nil {
 		return err
 	}
+
+	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host)
+	if err != nil {
+		return err
+	}
+
 	defer s.callAndLogErr(s.dht.Close, "Failed stopping DHT")
 
 	listenAddrs, err := s.ListenAddrs()
@@ -231,7 +215,7 @@ func (s *Service) Run(ctx context.Context) error {
 		s.synchroniser.start(ctx)
 	}
 
-	<-s.runCtx.Done()
+	<-ctx.Done()
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
@@ -309,12 +293,6 @@ func (s *Service) joinTopic(topic string) (*pubsub.Topic, error) {
 		return existingTopic, nil
 	}
 
-	s.runLock.RLock()
-	defer s.runLock.RUnlock()
-	if s.runCtx == nil {
-		return nil, errors.New("uninitialized p2p service")
-	}
-
 	newTopic, err := s.pubsub.Join(topic)
 	if err != nil {
 		return nil, err
@@ -341,20 +319,20 @@ func (s *Service) SubscribeToTopic(topic string) (chan []byte, func(), error) {
 	ch := make(chan []byte, bufferSize)
 	go func() {
 		for {
-			msg, err := sub.Next(s.runCtx)
-			if err != nil {
-				close(ch)
-				return
-			}
+			//msg, err := sub.Next(s.runCtx)
+			//if err != nil {
+			//	close(ch)
+			//	return
+			//}
 			// only forward messages delivered by others
-			if msg.ReceivedFrom == s.host.ID() {
-				continue
-			}
+			//if msg.ReceivedFrom == s.host.ID() {
+			//	continue
+			//}
 
-			select {
-			case ch <- msg.GetData():
-			case <-s.runCtx.Done():
-			}
+			//select {
+			//case ch <- msg.GetData():
+			//case <-s.runCtx.Done():
+			//}
 		}
 	}()
 	return ch, sub.Cancel, nil
@@ -365,8 +343,10 @@ func (s *Service) PublishOnTopic(topic string, data []byte) error {
 	if joinErr != nil {
 		return joinErr
 	}
+	_ = t
 
-	return t.Publish(s.runCtx, data)
+	return nil
+	// return t.Publish(s.runCtx, data)
 }
 
 func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {
