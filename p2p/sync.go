@@ -611,11 +611,16 @@ func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID)
 	randPeer := s.randomPeer()
 	stream, err := s.host.NewStream(ctx, randPeer, pids...)
 	if err != nil {
-		fmt.Println("Removing peer", randPeer)
-		s.host.Peerstore().RemovePeer(randPeer)
+		s.removePeer(randPeer)
 		return nil, err
 	}
 	return stream, err
+}
+
+func (s *syncService) removePeer(id peer.ID) {
+	fmt.Println("Removing peer", id)
+	s.host.Peerstore().RemovePeer(id)
+	s.host.Peerstore().ClearAddrs(id)
 }
 
 func (s *syncService) createIterator(start, limit uint64) *spec.Iteration {
