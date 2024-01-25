@@ -20,6 +20,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"go.uber.org/zap"
 )
 
 const maxBlocks = 100
@@ -182,7 +183,14 @@ func specBlockPartsFunc[T specBlockHeaderAndSigs | specBlockBody | specTransacti
 
 func (s *syncService) logError(msg string, err error) {
 	if !errors.Is(err, context.Canceled) {
-		s.log.Errorw(msg, "err", err)
+		var log utils.SimpleLogger
+		if v, ok := s.log.(*utils.ZapLogger); ok {
+			log = v.WithOptions(zap.AddCallerSkip(1))
+		} else {
+			log = s.log
+		}
+
+		log.Errorw(msg, "err", err)
 	}
 }
 
@@ -600,7 +608,14 @@ func (s *syncService) randomPeer() peer.ID {
 }
 
 func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
-	return s.host.NewStream(ctx, s.randomPeer(), pids...)
+	randPeer := s.randomPeer()
+	stream, err := s.host.NewStream(ctx, randPeer, pids...)
+	if err != nil {
+		fmt.Println("Removing peer", randPeer)
+		s.host.Peerstore().RemovePeer(randPeer)
+		return nil, err
+	}
+	return stream, err
 }
 
 func (s *syncService) createIterator(start, limit uint64) *spec.Iteration {
