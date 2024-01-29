@@ -50,13 +50,17 @@ func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
 	}
 
 	var header *spec.BlockHeader
-	for res, valid := headersIt(); valid; res, valid = headersIt() {
+	headersIt(func(res *spec.BlockHeadersResponse) bool {
 		for _, part := range res.GetPart() {
 			if _, ok := part.HeaderMessage.(*spec.BlockHeadersResponsePart_Header); ok {
 				header = part.GetHeader()
+				// found header - time to stop iterator
+				return false
 			}
 		}
-	}
+
+		return true
+	})
 
 	return int(header.Number), nil
 }
@@ -393,8 +397,7 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 	go func() {
 		defer close(headersAndSigCh)
 
-	iteratorLoop:
-		for res, valid := headersIt(); valid; res, valid = headersIt() {
+		headersIt(func(res *spec.BlockHeadersResponse) bool {
 			headerAndSig := specBlockHeaderAndSigs{}
 			for _, part := range res.GetPart() {
 				switch part.HeaderMessage.(type) {
@@ -403,20 +406,18 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 				case *spec.BlockHeadersResponsePart_Signatures:
 					headerAndSig.sig = part.GetSignatures()
 				case *spec.BlockHeadersResponsePart_Fin:
-					// received all the parts of BlockHeadersResponse
-					// To close the stream we need to do an extra read from the stream which will cause and error thus closing the stream
-					continue iteratorLoop
+					return false
 				}
 			}
 
 			select {
 			case <-ctx.Done():
-				// Consume everything from the stream which will eventually break the for iteration loop.
-				// Todo: modify the usage of stream, so that we use libp2p network stream which gives the ability to close it.
-				continue
+				return false
 			case headersAndSigCh <- headerAndSig:
 			}
-		}
+
+			return true
+		})
 	}()
 
 	return headersAndSigCh, nil
@@ -447,7 +448,8 @@ func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<
 		// Todo: the above assumption may not be true. A peer may decide to send different parts of the block in different order
 		// If the above assumption is not true we should return separate channels for each of the parts. Also, see todo above specBlockBody
 		// on line 317 in p2p/sync.go
-		for res, valid := blockIt(); valid; res, valid = blockIt() {
+
+		blockIt(func(res *spec.BlockBodiesResponse) bool {
 			switch res.BodyMessage.(type) {
 			case *spec.BlockBodiesResponse_Classes:
 				if curBlockBody.id == nil {
@@ -468,13 +470,16 @@ func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<
 				if curBlockBody.id != nil {
 					select {
 					case <-ctx.Done():
+						return false
 					default:
 						specBodiesCh <- *curBlockBody
 						curBlockBody = new(specBlockBody)
 					}
 				}
 			}
-		}
+
+			return true
+		})
 	}()
 
 	return specBodiesCh, nil
@@ -499,17 +504,20 @@ func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-ch
 	go func() {
 		defer close(receiptsCh)
 
-		for res, valid := receiptsIt(); valid; res, valid = receiptsIt() {
+		receiptsIt(func(res *spec.ReceiptsResponse) bool {
 			switch res.Responses.(type) {
 			case *spec.ReceiptsResponse_Receipts:
 				select {
 				case <-ctx.Done():
+					return false
 				case receiptsCh <- specReceipts{res.GetId(), res.GetReceipts()}:
 				}
 			case *spec.ReceiptsResponse_Fin:
-				continue
+				return false
 			}
-		}
+
+			return true
+		})
 	}()
 
 	return receiptsCh, nil
@@ -533,17 +541,22 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 	eventsCh := make(chan specEvents)
 	go func() {
 		defer close(eventsCh)
-		for res, valid := eventsIt(); valid; res, valid = eventsIt() {
+
+		eventsIt(func(res *spec.EventsResponse) bool {
 			switch res.Responses.(type) {
 			case *spec.EventsResponse_Events:
 				select {
 				case <-ctx.Done():
+					return false
 				case eventsCh <- specEvents{res.GetId(), res.GetEvents()}:
+					return true
 				}
 			case *spec.EventsResponse_Fin:
-				continue
+				return false
 			}
-		}
+
+			return true
+		})
 	}()
 	return eventsCh, nil
 }
@@ -566,17 +579,21 @@ func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (
 	txsCh := make(chan specTransactions)
 	go func() {
 		defer close(txsCh)
-		for res, valid := txsIt(); valid; res, valid = txsIt() {
+
+		txsIt(func(res *spec.TransactionsResponse) bool {
 			switch res.Responses.(type) {
 			case *spec.TransactionsResponse_Transactions:
 				select {
 				case <-ctx.Done():
+					return false
 				case txsCh <- specTransactions{res.GetId(), res.GetTransactions()}:
 				}
 			case *spec.TransactionsResponse_Fin:
-				continue
+				return false
 			}
-		}
+
+			return true
+		})
 	}()
 	return txsCh, nil
 }

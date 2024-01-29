@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/NethermindEth/juno/utils/iter"
+
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -51,7 +53,7 @@ func receiveInto(stream network.Stream, res proto.Message) error {
 
 func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context.Context,
 	newStream NewStreamFunc, protocolID protocol.ID, req ReqT,
-) (Stream[ResT], error) {
+) (iter.Seq[ResT], error) {
 	stream, err := newStream(ctx, protocolID)
 	if err != nil {
 		return nil, err
@@ -63,45 +65,53 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		return nil, err
 	}
 
-	return func() (ResT, bool) {
-		var zero ResT
-		res := zero.ProtoReflect().New().Interface()
-		if err := receiveInto(stream, res); err != nil {
-			if !errors.Is(err, io.EOF) {
-				fmt.Println("Error while reading from stream", err)
-			}
-
+	return func(yield func(ResT) bool) {
+		defer func() {
 			closeErr := stream.Close()
 			if closeErr != nil {
 				fmt.Println("Error while closing stream", closeErr)
 			}
-			return zero, false
+		}()
+
+		for {
+			var zero ResT
+			res := zero.ProtoReflect().New().Interface()
+			if err := receiveInto(stream, res); err != nil {
+				if !errors.Is(err, io.EOF) {
+					fmt.Println("Error while reading from stream", err)
+				}
+
+				break
+			}
+
+			if !yield(res.(ResT)) {
+				break
+			}
 		}
-		return res.(ResT), true
 	}, nil
 }
 
-func (c *Client) RequestCurrentBlockHeader(ctx context.Context, req *spec.CurrentBlockHeaderRequest) (Stream[*spec.BlockHeadersResponse], error) {
+func (c *Client) RequestCurrentBlockHeader(ctx context.Context, req *spec.CurrentBlockHeaderRequest) (iter.Seq[*spec.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*spec.CurrentBlockHeaderRequest, *spec.BlockHeadersResponse](ctx, c.newStream,
 		CurrentBlockHeaderPID(c.network), req)
 }
 
-func (c *Client) RequestBlockHeaders(ctx context.Context, req *spec.BlockHeadersRequest) (Stream[*spec.BlockHeadersResponse], error) {
+func (c *Client) RequestBlockHeaders(ctx context.Context, req *spec.BlockHeadersRequest) (iter.Seq[*spec.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(c.network), req)
 }
 
-func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (Stream[*spec.BlockBodiesResponse], error) {
+func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (iter.Seq[*spec.BlockBodiesResponse], error) {
 	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](ctx, c.newStream, BlockBodiesPID(c.network), req)
 }
 
-func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (Stream[*spec.EventsResponse], error) {
+func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (iter.Seq[*spec.EventsResponse], error) {
 	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(c.network), req)
 }
 
-func (c *Client) RequestReceipts(ctx context.Context, req *spec.ReceiptsRequest) (Stream[*spec.ReceiptsResponse], error) {
+func (c *Client) RequestReceipts(ctx context.Context, req *spec.ReceiptsRequest) (iter.Seq[*spec.ReceiptsResponse], error) {
 	return requestAndReceiveStream[*spec.ReceiptsRequest, *spec.ReceiptsResponse](ctx, c.newStream, ReceiptsPID(c.network), req)
 }
 
-func (c *Client) RequestTransactions(ctx context.Context, req *spec.TransactionsRequest) (Stream[*spec.TransactionsResponse], error) {
+func (c *Client) RequestTransactions(ctx context.Context, req *spec.TransactionsRequest) (iter.Seq[*spec.TransactionsResponse], error) {
 	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](ctx, c.newStream, TransactionsPID(c.network), req)
 }
