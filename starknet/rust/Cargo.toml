@@ -8,10 +8,10 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-cairo-lang-starknet = "=2.4.0"
-cairo-lang-casm = "=2.4.0"
-cairo-lang-utils = "=2.4.0"
-cairo-lang-compiler = "=2.4.0"
+cairo-lang-starknet = "=2.4.3"
+cairo-lang-casm = "=2.4.3"
+cairo-lang-utils = "=2.4.3"
+cairo-lang-compiler = "=2.4.3"
 
 [lib]
 crate-type = ["staticlib"]
