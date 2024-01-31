@@ -123,7 +123,6 @@ func makeDHT(p2phost host.Host, snNetwork utils.Network, addrInfos []peer.AddrIn
 }
 
 func privateKey(privKeyStr string) (crypto.PrivKey, error) {
-	fmt.Println("Inside privateKey()", privKeyStr)
 	if privKeyStr == "" {
 		// Creates a new key pair for this host.
 		prvKey, _, _, err := GenKeyPair()

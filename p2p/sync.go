@@ -606,7 +606,7 @@ func (s *syncService) randomPeer() peer.ID {
 		return peerID != s.host.ID()
 	})
 	if len(peers) == 0 {
-		panic("No peers available")
+		return ""
 	}
 
 	peer := peers[rand.Intn(len(peers))]
@@ -618,8 +618,13 @@ func (s *syncService) randomPeer() peer.ID {
 	return peer
 }
 
+var errNoPeers = errors.New("no peers available")
+
 func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 	randPeer := s.randomPeer()
+	if randPeer == "" {
+		return nil, errNoPeers
+	}
 	stream, err := s.host.NewStream(ctx, randPeer, pids...)
 	if err != nil {
 		s.removePeer(randPeer)
