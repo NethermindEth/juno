@@ -65,6 +65,8 @@ func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
 	return int(header.Number), nil
 }
 
+const retyrDuration = 5 * time.Second
+
 func (s *syncService) start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -84,8 +86,13 @@ func (s *syncService) start(ctx context.Context) {
 		var err error
 		randHeight, err = s.randomNodeHeight(ctx)
 		if err != nil {
-			s.logError("Failed to get random node height", err)
 			cancelIteration()
+			if errors.Is(err, errNoPeers) {
+				s.log.Infow("No peers available", "retrying in", retyrDuration.String())
+				time.Sleep(retyrDuration)
+			} else {
+				s.logError("Failed to get random node height", err)
+			}
 			continue
 		}
 
@@ -98,10 +105,10 @@ func (s *syncService) start(ctx context.Context) {
 
 		blockBehind := randHeight - (nextHeight - 1)
 		if blockBehind <= 0 {
-			s.log.Infow("Random node height is the same or less as local height, retrying in 100ms", "Random node height", randHeight,
-				"Current height", nextHeight-1)
-			time.Sleep(100 * time.Millisecond)
+			s.log.Infow("Random node height is the same or less as local height", " retrying in", retyrDuration.String(),
+				"Random node height", randHeight, "Current height", nextHeight-1)
 			cancelIteration()
+			time.Sleep(retyrDuration)
 			continue
 		}
 
