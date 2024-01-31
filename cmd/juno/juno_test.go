@@ -63,6 +63,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxCacheSize := uint(8)
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
+	defaultGwTimeout := 5 * time.Second
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -108,6 +109,7 @@ func TestConfigPrecedence(t *testing.T) {
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"custom network config file": {
@@ -152,6 +154,7 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"default config with no flags": {
@@ -183,6 +186,7 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file path is empty string": {
@@ -214,6 +218,7 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file doesn't exist": {
@@ -250,6 +255,7 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -288,6 +294,7 @@ pprof: true
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -323,6 +330,7 @@ http-port: 4576
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"all flags without config file": {
@@ -356,6 +364,7 @@ http-port: 4576
 				DBCacheSize:     defaultMaxCacheSize,
 				DBMaxHandles:    defaultMaxHandles,
 				RPCCallMaxSteps: defaultCallMaxSteps,
+				GatewayTimeout:  defaultGwTimeout,
 			},
 		},
 		"some flags without config file": {
@@ -390,6 +399,7 @@ http-port: 4576
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -448,6 +458,7 @@ db-cache-size: 8
 				DBCacheSize:         9,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -485,6 +496,7 @@ network: goerli
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -518,6 +530,7 @@ network: goerli
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"only set env variables": {
@@ -549,6 +562,7 @@ network: goerli
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -581,6 +595,7 @@ network: goerli
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -614,6 +629,7 @@ network: goerli
 				GatewayAPIKey:       "apikey",
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 	}
