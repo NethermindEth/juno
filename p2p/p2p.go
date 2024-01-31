@@ -10,29 +10,26 @@ import (
 	"sync"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/crypto/pb"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/NethermindEth/juno/p2p/starknet"
-
 	"github.com/NethermindEth/juno/blockchain"
-
+	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/crypto/pb"
 	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
 	keyLength                 = 2048
-	routingTableRefreshPeriod = 10 * time.Second
+	routingTableRefreshPeriod = 1 * time.Second
 )
 
 type Service struct {
