@@ -68,6 +68,7 @@ const (
 	dbCacheSizeF           = "db-cache-size"
 	dbMaxHandlesF          = "db-max-handles"
 	gwAPIKeyF              = "gw-api-key" //nolint: gosec
+	gwTimeoutF             = "gw-timeout" //nolint: gosec
 	cnNameF                = "cn-name"
 	cnFeederURLF           = "cn-feeder-url"
 	cnGatewayURLF          = "cn-gateway-url"
@@ -107,6 +108,7 @@ const (
 	defaultCNL2ChainID              = ""
 	defaultCNCoreContractAddressStr = ""
 	defaultCallMaxSteps             = 4_000_000
+	defaultGwTimeout                = 5 * time.Second
 
 	configFlagUsage                       = "The yaml configuration file."
 	logLevelFlagUsage                     = "Options: debug, info, warn, error."
@@ -148,6 +150,7 @@ const (
 	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	gwTimeoutUsage           = "Timeout for requests made to the gateway"          //nolint: gosec
 	callMaxStepsUsage        = "Maximum number of steps to be executed in starknet_call requests"
 )
 
@@ -324,6 +327,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
+	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 
 	return junoCmd
 }

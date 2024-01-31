@@ -81,7 +81,8 @@ type Config struct {
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
 
-	GatewayAPIKey string `mapstructure:"gw-api-key"`
+	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
+	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 }
 
 type Node struct {
@@ -137,9 +138,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 
-	feederClientTimeout := 5 * time.Second
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
-		WithTimeout(feederClientTimeout).WithAPIKey(cfg.GatewayAPIKey)
+		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
