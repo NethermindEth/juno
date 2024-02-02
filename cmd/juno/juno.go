@@ -77,6 +77,7 @@ const (
 	cnCoreContractAddressF = "cn-core-contract-address"
 	cnUnverifiableRangeF   = "cn-unverifiable-range"
 	callMaxStepsF          = "rpc-call-max-steps"
+	corsEnableF            = "rpc-cors-enable"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -109,6 +110,7 @@ const (
 	defaultCNCoreContractAddressStr = ""
 	defaultCallMaxSteps             = 4_000_000
 	defaultGwTimeout                = 5 * time.Second
+	defaultCorsEnable               = false
 
 	configFlagUsage                       = "The yaml configuration file."
 	logLevelFlagUsage                     = "Options: debug, info, warn, error."
@@ -152,6 +154,7 @@ const (
 	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 	gwTimeoutUsage           = "Timeout for requests made to the gateway"          //nolint: gosec
 	callMaxStepsUsage        = "Maximum number of steps to be executed in starknet_call requests"
+	corsEnableUsage          = "Enable CORS on RPC endpoints"
 )
 
 var Version string
@@ -328,6 +331,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
+	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 
 	return junoCmd
 }
