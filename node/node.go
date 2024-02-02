@@ -48,6 +48,7 @@ type Config struct {
 	HTTP                bool           `mapstructure:"http"`
 	HTTPHost            string         `mapstructure:"http-host"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
+	RPCCorsEnable       bool           `mapstructure:"rpc-cors-enable"`
 	Websocket           bool           `mapstructure:"ws"`
 	WebsocketHost       string         `mapstructure:"ws-host"`
 	WebsocketPort       uint16         `mapstructure:"ws-port"`
@@ -169,10 +170,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	var metricsService service.Service
 	if cfg.Metrics {
