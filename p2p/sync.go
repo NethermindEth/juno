@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"time"
 
+	junoSync "github.com/NethermindEth/juno/sync"
+
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -31,6 +33,7 @@ type syncService struct {
 	client  *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
 
 	blockchain *blockchain.Blockchain
+	listener   junoSync.EventListener
 	log        utils.SimpleLogger
 }
 
@@ -40,6 +43,7 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, network utils.Networ
 		network:    network,
 		blockchain: bc,
 		log:        log,
+		listener:   &junoSync.SelectiveListener{},
 	}
 }
 
@@ -167,15 +171,17 @@ func (s *syncService) start(ctx context.Context) {
 				break
 			}
 
+			storeTimer := time.Now()
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
 				cancelIteration()
 				break
-			} else {
-				s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(), "root",
-					b.block.GlobalStateRoot.ShortString())
 			}
+
+			s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(), "root",
+				b.block.GlobalStateRoot.ShortString())
+			s.listener.OnSyncStepDone(junoSync.OpStore, b.block.Number, time.Since(storeTimer))
 		}
 		cancelIteration()
 	}
@@ -656,4 +662,8 @@ func (s *syncService) createIterator(start, limit uint64) *spec.Iteration {
 		Limit:     limit,
 		Step:      1,
 	}
+}
+
+func (s *syncService) WithListener(l junoSync.EventListener) {
+	s.listener = l
 }

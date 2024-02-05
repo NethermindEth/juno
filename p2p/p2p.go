@@ -12,6 +12,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/p2p/starknet"
+	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -347,4 +348,8 @@ func (s *Service) PublishOnTopic(topic string, data []byte) error {
 
 func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {
 	s.host.SetStreamHandler(pid, handler)
+}
+
+func (s *Service) WithListener(l junoSync.EventListener) {
+	s.synchroniser.WithListener(l)
 }

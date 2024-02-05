@@ -143,12 +143,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
+	var p2pService *p2p.Service
 	if cfg.P2P {
 		if !cfg.P2PFeederNode {
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		var p2pService *p2p.Service
 		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
@@ -162,8 +162,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
-	var syncReader sync.Reader
-	syncReader = &sync.NoopSynchronizer{}
+	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 	if synchronizer != nil {
 		syncReader = synchronizer
 	}
@@ -206,6 +205,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
+
+		if p2pService != nil {
+			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
+		}
 		if synchronizer != nil {
 			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		}

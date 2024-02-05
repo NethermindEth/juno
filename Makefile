@@ -101,6 +101,7 @@ node1:
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
+	--metrics \
 	--db-path=./p2p-dbs/node1 \
 	--p2p \
 	--p2p-peers=/ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
