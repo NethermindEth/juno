@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"math"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -20,7 +21,12 @@ type DB struct {
 	log        utils.SimpleLogger
 }
 
-func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
+func New(
+	rawURL string,
+	ctx context.Context,
+	log utils.SimpleLogger,
+	opts ...grpc.DialOption,
+) (*DB, error) {
 	grpcClient, err := grpc.Dial(rawURL, opts...)
 	if err != nil {
 		return nil, err
@@ -35,7 +41,11 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 }
 
 func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txClient, err := d.kvClient.Tx(
+		d.ctx,
+		grpc.MaxCallSendMsgSize(math.MaxInt),
+		grpc.MaxCallRecvMsgSize(math.MaxInt),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -62,3 +72,6 @@ func (d *DB) Close() error {
 func (d *DB) Impl() any {
 	return d.kvClient
 }
+
+// Remote database is unmetered
+func (d *DB) Meter(time.Duration) {}

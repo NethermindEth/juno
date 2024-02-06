@@ -32,6 +32,8 @@ func (l *eventListener) OnIO(write bool, _ time.Duration) {
 
 func (l *eventListener) OnCommit(_ time.Duration) {}
 
+func (l *eventListener) OnPebbleMetrics(*db.PebbleMetrics) {}
+
 func TestTransaction(t *testing.T) {
 	listener := eventListener{}
 	t.Run("new transaction can retrieve existing value", func(t *testing.T) {
@@ -406,12 +408,20 @@ func TestPanic(t *testing.T) {
 			require.ErrorIs(t, testDB.View(func(txn db.Transaction) error {
 				return txn.Get([]byte{0}, func(b []byte) error { return nil })
 			}), db.ErrKeyNotFound)
-			require.EqualError(t, panicingTxn.Get([]byte{0}, func(b []byte) error { return nil }), "discarded txn")
+			require.EqualError(
+				t,
+				panicingTxn.Get([]byte{0}, func(b []byte) error { return nil }),
+				"discarded txn",
+			)
 		}()
 
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			panicingTxn = txn
-			require.ErrorIs(t, txn.Get([]byte{0}, func(b []byte) error { return nil }), db.ErrKeyNotFound)
+			require.ErrorIs(
+				t,
+				txn.Get([]byte{0}, func(b []byte) error { return nil }),
+				db.ErrKeyNotFound,
+			)
 			require.NoError(t, txn.Set([]byte{0}, []byte{0}))
 			panic("update")
 		}))

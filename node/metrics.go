@@ -16,6 +16,143 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// pebbleListener listens for pebble metrics.
+type pebbleListener struct {
+	compTime       prometheus.Counter   // Counter for total time spent in database compaction.
+	compRead       prometheus.Counter   // Counter for the amount of data read during compaction.
+	compWrite      prometheus.Counter   // Counter for the amount of data written during compaction.
+	writeDelays    prometheus.Counter   // Counter for the number of write delays due to database compaction.
+	writeDelay     prometheus.Counter   // Counter for the duration of write delays due to database compaction.
+	diskSize       prometheus.Gauge     // Gauge for the size of all levels in the database.
+	diskRead       prometheus.Counter   // Counter for the amount of data read from the database.
+	diskWrite      prometheus.Counter   // Counter for the amount of data written to the database.
+	memComp        prometheus.Counter   // Counter for the number of memory compactions.
+	level0Comp     prometheus.Counter   // Counter for the number of table compactions in level 0.
+	nonLevel0Comp  prometheus.Counter   // Counter for the number of table compactions in non-level 0.
+	levelFiles     *prometheus.GaugeVec // Gauge vector for the number of files in each level.
+	seekComp       prometheus.Counter   // Counter for the number of table compactions caused by read operations.
+	manualMemAlloc prometheus.Gauge     // Gauge for the size of non-managed memory allocated.
+}
+
+// newPebbleListener creates and returns a new pebbleListener instance.
+func newPebbleListener(registry prometheus.Registerer) *pebbleListener {
+	const (
+		namespace = "db"
+		subsystem = "pebble"
+	)
+	listener := &pebbleListener{}
+	listener.compTime = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "compTime",
+	})
+	listener.compRead = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "compIn",
+	})
+	listener.compWrite = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "compOut",
+	})
+	listener.writeDelays = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "writeDelays",
+	})
+	listener.writeDelay = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "writeDelay",
+	})
+	listener.diskSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "diskSize",
+	})
+	listener.diskRead = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "diskRead",
+	})
+	listener.diskWrite = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "diskWrite",
+	})
+	listener.memComp = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "memComp",
+	})
+	listener.level0Comp = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "level0Comp",
+	})
+	listener.nonLevel0Comp = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "nonLevel0Comp",
+	})
+	listener.levelFiles = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "levelFiles",
+	}, []string{"lvl"})
+	listener.seekComp = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "seekComp",
+	})
+	listener.manualMemAlloc = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "manualMemAlloc",
+	})
+	registry.MustRegister(
+		listener.compTime,
+		listener.compRead,
+		listener.compWrite,
+		listener.writeDelays,
+		listener.writeDelay,
+		listener.diskSize,
+		listener.diskRead,
+		listener.diskWrite,
+		listener.memComp,
+		listener.level0Comp,
+		listener.nonLevel0Comp,
+		listener.levelFiles,
+		listener.seekComp,
+		listener.manualMemAlloc,
+	)
+	return listener
+}
+
+// gather updates metrics with data from the PebbleMetrics.
+func (l *pebbleListener) gather(m *db.PebbleMetrics) {
+	l.compTime.Add(m.CompTime.Seconds())
+	l.compRead.Add(float64(m.CompRead))
+	l.compWrite.Add(float64(m.CompWrite))
+
+	l.writeDelays.Add(float64(m.WriteDelayN))
+	l.writeDelay.Add(m.WriteDelay.Seconds())
+
+	l.diskSize.Set(float64(m.DiskSize))
+	l.diskRead.Add(float64(m.DiskRead))
+	l.diskWrite.Add(float64(m.DiskWrite))
+
+	l.memComp.Add(float64(m.MemComps))
+	l.level0Comp.Add(float64(m.Level0Comp))
+	l.nonLevel0Comp.Add(float64(m.NonLevel0Comp))
+	for i := 0; i < len(m.LevelFiles); i++ {
+		l.levelFiles.WithLabelValues(strconv.Itoa(i)).Set(float64(m.LevelFiles[i]))
+	}
+	l.seekComp.Add(float64(m.SeekComp))
+	l.manualMemAlloc.Set(float64(m.ManualMemAlloc))
+}
+
 func makeDBMetrics() db.EventListener {
 	latencyBuckets := []float64{
 		25,
@@ -180,7 +317,13 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		return 0
 	})
 
-	prometheus.MustRegister(opTimerHistogram, blockCount, chainHeightGauge, bestBlockGauge, reorgCount)
+	prometheus.MustRegister(
+		opTimerHistogram,
+		blockCount,
+		chainHeightGauge,
+		bestBlockGauge,
+		reorgCount,
+	)
 
 	return &sync.SelectiveListener{
 		OnSyncStepDoneCb: func(op string, blockNum uint64, took time.Duration) {

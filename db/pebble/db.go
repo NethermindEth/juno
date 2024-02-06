@@ -2,7 +2,9 @@ package pebble
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble"
@@ -19,9 +21,20 @@ const (
 var _ db.DB = (*DB)(nil)
 
 type DB struct {
-	pebble   *pebble.DB
-	wMutex   *sync.Mutex
+	pebble *pebble.DB
+	wMutex *sync.Mutex
+
 	listener db.EventListener
+
+	// event-derrived stats
+	activeComp          int           // Current number of active compactions
+	compStartTime       time.Time     // The start time of the earliest currently-active compaction
+	compTime            atomic.Int64  // Total time spent in compaction
+	level0Comp          atomic.Uint32 // Total number of level-zero compactions
+	nonLevel0Comp       atomic.Uint32 // Total number of non level-zero compactions
+	writeDelayStartTime time.Time     // The start time of the latest write stall
+	writeDelayCount     atomic.Uint64 // Total number of write stall counts
+	writeDelayTime      atomic.Int64  // Total time spent in write stalls
 }
 
 // New opens a new database at the given path
@@ -63,17 +76,41 @@ func NewMemTest(t *testing.T) db.DB {
 }
 
 func newPebble(path string, options *pebble.Options) (*DB, error) {
-	pDB, err := pebble.Open(path, options)
+	var (
+		database = &DB{
+			wMutex:   new(sync.Mutex),
+			listener: &db.SelectiveListener{},
+		}
+		err error
+	)
+	// hookup into events
+	if options.EventListener == nil {
+		options.EventListener = &pebble.EventListener{}
+	}
+	options.EventListener.CompactionBegin = database.onCompactionBegin
+	options.EventListener.CompactionEnd = database.onCompactionEnd
+	options.EventListener.WriteStallBegin = database.onWriteStallBegin
+	options.EventListener.WriteStallEnd = database.onWriteStallEnd
+
+	database.pebble, err = pebble.Open(path, options)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{pebble: pDB, wMutex: new(sync.Mutex), listener: &db.SelectiveListener{}}, nil
+	return database, nil
 }
 
 // WithListener registers an EventListener
 func (d *DB) WithListener(listener db.EventListener) db.DB {
 	d.listener = listener
 	return d
+}
+
+// Meter: see db.DB.Meter
+func (d *DB) Meter(interval time.Duration) {
+	if d.listener == nil {
+		return
+	}
+	go d.meter(interval)
 }
 
 // NewTransaction : see db.DB.NewTransaction

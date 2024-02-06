@@ -114,7 +114,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.DB
 	if dbIsRemote {
-		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		database, err = remote.New(
+			cfg.RemoteDB,
+			context.TODO(),
+			log,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 	} else {
 		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
 	}
@@ -135,19 +140,32 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if head != nil {
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
 		if _, err = core.VerifyBlockHash(head, &cfg.Network); err != nil {
-			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+			return nil, errors.New(
+				"unable to verify latest block hash; are the database and --network option compatible?",
+			)
 		}
 	}
 
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
+	synchronizer := sync.New(
+		chain,
+		adaptfeeder.New(client),
+		log,
+		cfg.PendingPollInterval,
+		dbIsRemote,
+	)
 	services = append(services, synchronizer)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).
+		WithUserAgent(ua).
+		WithAPIKey(cfg.GatewayAPIKey)
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-	rpcHandler := rpc.New(chain, synchronizer, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
-	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+	rpcHandler := rpc.New(chain, synchronizer, throttledVM, version, log).
+		WithGateway(gatewayClient).
+		WithFeeder(client)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).
+		WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
@@ -156,7 +174,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if err = jsonrpcServer.RegisterMethods(methods...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).
+		WithValidator(validator.Validator())
 	legacyMethods, legacyPath := rpcHandler.LegacyMethods()
 	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
 		return nil, err
@@ -170,10 +189,30 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(
+			services,
+			makeRPCOverHTTP(
+				cfg.HTTPHost,
+				cfg.HTTPPort,
+				rpcServers,
+				log,
+				cfg.Metrics,
+				cfg.RPCCorsEnable,
+			),
+		)
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(
+			services,
+			makeRPCOverWebsocket(
+				cfg.WebsocketHost,
+				cfg.WebsocketPort,
+				rpcServers,
+				log,
+				cfg.Metrics,
+				cfg.RPCCorsEnable,
+			),
+		)
 	}
 	var metricsService service.Service
 	if cfg.Metrics {
@@ -235,18 +274,28 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(
+	cfg *Config,
+	chain *blockchain.Blockchain,
+	log utils.SimpleLogger,
+) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(cfg.EthNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		return nil, errors.New(
+			"non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode,
+		)
 	}
 
 	network := chain.Network()
 	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", network.String(), err)
+		return nil, fmt.Errorf(
+			"find core contract address for network %s: %w",
+			network.String(),
+			err,
+		)
 	}
 
 	var ethSubscriber *l1.EthSubscriber
