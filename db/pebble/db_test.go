@@ -32,7 +32,7 @@ func (l *eventListener) OnIO(write bool, _ time.Duration) {
 
 func (l *eventListener) OnCommit(_ time.Duration) {}
 
-func (l *eventListener) OnPebbleMetrics(*db.PebbleMetrics)
+func (l *eventListener) OnPebbleMetrics(*db.PebbleMetrics) {}
 
 func TestTransaction(t *testing.T) {
 	listener := eventListener{}
