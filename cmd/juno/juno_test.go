@@ -3,6 +3,7 @@ package main_test
 import (
 	"context"
 	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,6 +13,7 @@ import (
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,7 +36,20 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultWS := false
 	defaultWSPort := uint16(6061)
 	defaultDBPath := filepath.Join(pwd, "juno")
+	defaultCoreContractAddress := common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4")
 	defaultNetwork := utils.Mainnet
+	defaultCustomNetwork := utils.Network{
+		Name:                "custom",
+		FeederURL:           "awesome_feeder_url",
+		GatewayURL:          "awesome_gateway_url",
+		L2ChainID:           "SN_AWESOME",
+		L1ChainID:           new(big.Int).SetUint64(1),
+		CoreContractAddress: defaultCoreContractAddress,
+		BlockHashMetaInfo: &utils.BlockHashMetaInfo{
+			First07Block:      0,
+			UnverifiableRange: []uint64{0, 10},
+		},
+	}
 	defaultPprof := false
 	defaultPprofPort := uint16(6062)
 	defaultMetrics := false
@@ -47,6 +62,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(8)
 	defaultMaxHandles := 1024
+	defaultCallMaxSteps := uint(4_000_000)
+	defaultGwTimeout := 5 * time.Second
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -56,6 +73,90 @@ func TestConfigPrecedence(t *testing.T) {
 		env             []string
 		expectedConfig  *node.Config
 	}{
+		"custom network all flags": {
+			inputArgs: []string{
+				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
+				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "8",
+				"--cn-name", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
+				"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
+				"--cn-unverifiable-range", "0,10",
+				"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
+			},
+			expectedConfig: &node.Config{
+				LogLevel:            utils.DEBUG,
+				HTTP:                defaultHTTP,
+				HTTPHost:            "0.0.0.0",
+				HTTPPort:            4576,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/.juno",
+				Network:             defaultCustomNetwork,
+				Pprof:               true,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
+			},
+		},
+		"custom network config file": {
+			cfgFile: true,
+			cfgFileContents: `log-level: debug
+http-host: 0.0.0.0
+http-port: 4576
+db-path: /home/.juno
+pprof: true
+cn-name: custom
+cn-feeder-url: awesome_feeder_url
+cn-gateway-url: awesome_gateway_url
+cn-l2-chain-id: SN_AWESOME
+cn-l1-chain-id: 0x1
+cn-core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
+cn-unverifiable-range: [0,10]
+`,
+			expectedConfig: &node.Config{
+				LogLevel:            utils.DEBUG,
+				HTTP:                defaultHTTP,
+				HTTPHost:            "0.0.0.0",
+				HTTPPort:            4576,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/.juno",
+				Network:             defaultCustomNetwork,
+				Pprof:               true,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
+			},
+		},
 		"default config with no flags": {
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
@@ -84,6 +185,8 @@ func TestConfigPrecedence(t *testing.T) {
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file path is empty string": {
@@ -114,6 +217,8 @@ func TestConfigPrecedence(t *testing.T) {
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file doesn't exist": {
@@ -149,6 +254,8 @@ func TestConfigPrecedence(t *testing.T) {
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -186,6 +293,8 @@ pprof: true
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -220,6 +329,8 @@ http-port: 4576
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"all flags without config file": {
@@ -252,6 +363,8 @@ http-port: 4576
 				RPCMaxBlockScan: defaultRPCMaxBlockScan,
 				DBCacheSize:     defaultMaxCacheSize,
 				DBMaxHandles:    defaultMaxHandles,
+				RPCCallMaxSteps: defaultCallMaxSteps,
+				GatewayTimeout:  defaultGwTimeout,
 			},
 		},
 		"some flags without config file": {
@@ -285,6 +398,8 @@ http-port: 4576
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -342,6 +457,8 @@ db-cache-size: 8
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         9,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -378,6 +495,8 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -410,6 +529,8 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"only set env variables": {
@@ -440,6 +561,8 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -471,6 +594,8 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -503,6 +628,8 @@ network: goerli
 				DBCacheSize:         defaultMaxCacheSize,
 				GatewayAPIKey:       "apikey",
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 	}

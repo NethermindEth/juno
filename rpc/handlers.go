@@ -96,7 +96,8 @@ type Handler struct {
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
-	filterLimit uint
+	filterLimit  uint
+	callMaxSteps uint64
 }
 
 type subscription struct {
@@ -132,6 +133,11 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	return h
 }
 
+func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
+	h.callMaxSteps = maxSteps
+	return h
+}
+
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
 	h.idgen = idgen
 	return h
@@ -163,7 +169,7 @@ func (h *Handler) Run(ctx context.Context) error {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L542
 func (h *Handler) ChainID() (*felt.Felt, *jsonrpc.Error) {
-	return h.bcReader.Network().ChainID(), nil
+	return h.bcReader.Network().L2ChainIDFelt(), nil
 }
 
 // BlockNumber returns the latest synced block number.
@@ -483,22 +489,34 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, error) {
+func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
+	var header *core.Header
+	var err error
 	switch {
 	case id.Latest:
-		return h.bcReader.HeadsHeader()
+		header, err = h.bcReader.HeadsHeader()
 	case id.Hash != nil:
-		return h.bcReader.BlockHeaderByHash(id.Hash)
+		header, err = h.bcReader.BlockHeaderByHash(id.Hash)
 	case id.Pending:
-		pending, err := h.bcReader.Pending()
-		if err != nil {
-			return nil, err
+		var pending blockchain.Pending
+		pending, err = h.bcReader.Pending()
+		if pending.Block != nil {
+			header = pending.Block.Header
 		}
-
-		return pending.Block.Header, nil
 	default:
-		return h.bcReader.BlockHeaderByNumber(id.Number)
+		header, err = h.bcReader.BlockHeaderByNumber(id.Number)
 	}
+
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, ErrBlockNotFound
+		}
+		return nil, ErrInternal.CloneWithData(err)
+	}
+	if header == nil {
+		return nil, ErrInternal.CloneWithData("nil header with no error")
+	}
+	return header, nil
 }
 
 // TransactionByHash returns the details of a transaction identified by the given hash.
@@ -530,9 +548,9 @@ func (h *Handler) LegacyTransactionByHash(hash felt.Felt) (*Transaction, *jsonrp
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
 func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
-	header, err := h.blockHeaderByID(&id)
-	if header == nil || err != nil {
-		return 0, ErrBlockNotFound
+	header, rpcErr := h.blockHeaderByID(&id)
+	if rpcErr != nil {
+		return 0, rpcErr
 	}
 	return header.TransactionCount, nil
 }
@@ -560,9 +578,9 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
-	header, err := h.blockHeaderByID(&id)
-	if header == nil || err != nil {
-		return nil, ErrBlockNotFound
+	header, rpcErr := h.blockHeaderByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint64(txIndex))
@@ -836,17 +854,28 @@ func (h *Handler) Syncing() (*Sync, *jsonrpc.Error) {
 	}, nil
 }
 
-func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, error) {
+func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
+	var reader core.StateReader
+	var closer blockchain.StateCloser
+	var err error
 	switch {
 	case id.Latest:
-		return h.bcReader.HeadState()
+		reader, closer, err = h.bcReader.HeadState()
 	case id.Hash != nil:
-		return h.bcReader.StateAtBlockHash(id.Hash)
+		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		return h.bcReader.PendingState()
+		reader, closer, err = h.bcReader.PendingState()
 	default:
-		return h.bcReader.StateAtBlockNumber(id.Number)
+		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
 	}
+
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, nil, ErrBlockNotFound
+		}
+		return nil, nil, ErrInternal.CloneWithData(err)
+	}
+	return reader, closer, nil
 }
 
 // Nonce returns the nonce associated with the given address in the given block number
@@ -854,9 +883,9 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
 func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, err := h.stateByBlockID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getNonce")
 
@@ -873,9 +902,9 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
 func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, err := h.stateByBlockID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
@@ -892,9 +921,9 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
 func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, err := h.stateByBlockID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
 
@@ -911,9 +940,9 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
 func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error) {
-	state, stateCloser, err := h.stateByBlockID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	state, stateCloser, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClass")
 
@@ -1213,15 +1242,15 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
 func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
-	state, closer, err := h.stateByBlockID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	state, closer, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
 
-	header, err := h.blockHeaderByID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	header, rpcErr := h.blockHeaderByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	classHash, err := state.ContractClassHash(&call.ContractAddress)
@@ -1229,17 +1258,8 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		return nil, ErrContractNotFound
 	}
 
-	blockNumber := header.Number
-	if id.Pending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, blockNumber, header.Timestamp, state, h.bcReader.Network())
+		call.Calldata, header.Number, header.Timestamp, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(err.Error())
@@ -1441,21 +1461,21 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 	return res, err
 }
 
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, //nolint: gocyclo
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, legacyTraceJSON, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
-	state, closer, err := h.stateByBlockID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	state, closer, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
-	header, err := h.blockHeaderByID(&id)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	header, rpcErr := h.blockHeaderByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	var txns []core.Transaction
@@ -1478,20 +1498,11 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 	}
 
-	blockNumber := header.Number
-	if id.Pending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
+		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
-	overallFees, traces, err := h.vm.Execute(txns, classes, blockNumber, header.Timestamp, sequencerAddress,
+	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, sequencerAddress,
 		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
 		header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
@@ -1593,16 +1604,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
-	blockNumber := block.Number
-	if isPending {
-		height, hErr := h.bcReader.Height()
-		if hErr != nil {
-			return nil, ErrBlockNotFound
-		}
-		blockNumber = height + 1
-	}
-
-	if state, err = prependBlockHashToState(h.bcReader, blockNumber, state); err != nil {
+	if state, err = prependBlockHashToState(h.bcReader, block.Number, state); err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
@@ -1637,13 +1639,14 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 	}
 
+	network := h.bcReader.Network()
 	sequencerAddress := block.Header.SequencerAddress
 	if sequencerAddress == nil {
-		sequencerAddress = core.NetworkBlockHashMetaInfo(h.bcReader.Network()).FallBackSequencerAddress
+		sequencerAddress = network.BlockHashMetaInfo.FallBackSequencerAddress
 	}
 
-	_, traces, err := h.vm.Execute(block.Transactions, classes, blockNumber, block.Header.Timestamp,
-		sequencerAddress, state, h.bcReader.Network(), paidFeesOnL1, false, false, false, block.Header.GasPrice,
+	_, traces, err := h.vm.Execute(block.Transactions, classes, block.Number, block.Header.Timestamp,
+		sequencerAddress, state, network, paidFeesOnL1, false, false, false, block.Header.GasPrice,
 		block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {

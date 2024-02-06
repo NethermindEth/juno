@@ -50,7 +50,7 @@ type Service struct {
 	feederNode bool
 }
 
-func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	if addr == "" {
@@ -105,7 +105,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		synchroniser: synchroniser,
 		log:          log,
 		host:         p2phost,
-		network:      snNetwork,
+		network:      *snNetwork,
 		dht:          p2pdht,
 		feederNode:   feederNode,
 		topics:       make(map[string]*pubsub.Topic),
@@ -114,7 +114,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	return s, nil
 }
 
-func makeDHT(p2phost host.Host, snNetwork utils.Network, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
+func makeDHT(p2phost host.Host, snNetwork *utils.Network, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(snNetwork.ProtocolID()),
 		dht.BootstrapPeers(addrInfos...),

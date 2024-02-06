@@ -16,19 +16,20 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 }
 
 func (tvm *ThrottledVM) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, state core.StateReader, network utils.Network,
+	blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
 ) ([]*felt.Felt, error) {
 	var ret []*felt.Felt
 	throttler := (*utils.Throttler[vm.VM])(tvm)
 	return ret, throttler.Do(func(vm *vm.VM) error {
 		var err error
-		ret, err = (*vm).Call(contractAddr, classHash, selector, calldata, blockNumber, blockTimestamp, state, network)
+		ret, err = (*vm).Call(contractAddr, classHash, selector, calldata, blockNumber, blockTimestamp,
+			state, network, maxSteps)
 		return err
 	})
 }
 
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-	sequencerAddress *felt.Felt, state core.StateReader, network utils.Network, paidFeesOnL1 []*felt.Felt,
+	sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
 	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
 ) ([]*felt.Felt, []vm.TransactionTrace, error) {
 	var ret []*felt.Felt

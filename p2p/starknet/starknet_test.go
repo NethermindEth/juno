@@ -50,16 +50,16 @@ func TestClientHandler(t *testing.T) { //nolint:gocyclo
 
 	handlerHost := mockNet.Host(handlerID)
 	handlerHost.SetStreamHandler(starknet.CurrentBlockHeaderPID(testNetwork), handler.CurrentBlockHeaderHandler)
-	handlerHost.SetStreamHandler(starknet.BlockHeadersPID(testNetwork), handler.BlockHeadersHandler)
-	handlerHost.SetStreamHandler(starknet.BlockBodiesPID(testNetwork), handler.BlockBodiesHandler)
-	handlerHost.SetStreamHandler(starknet.EventsPID(testNetwork), handler.EventsHandler)
-	handlerHost.SetStreamHandler(starknet.ReceiptsPID(testNetwork), handler.ReceiptsHandler)
-	handlerHost.SetStreamHandler(starknet.TransactionsPID(testNetwork), handler.TransactionsHandler)
+	handlerHost.SetStreamHandler(starknet.BlockHeadersPID(&testNetwork), handler.BlockHeadersHandler)
+	handlerHost.SetStreamHandler(starknet.BlockBodiesPID(&testNetwork), handler.BlockBodiesHandler)
+	handlerHost.SetStreamHandler(starknet.EventsPID(&testNetwork), handler.EventsHandler)
+	handlerHost.SetStreamHandler(starknet.ReceiptsPID(&testNetwork), handler.ReceiptsHandler)
+	handlerHost.SetStreamHandler(starknet.TransactionsPID(&testNetwork), handler.TransactionsHandler)
 
 	clientHost := mockNet.Host(clientID)
 	client := starknet.NewClient(func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 		return clientHost.NewStream(ctx, handlerID, pids...)
-	}, testNetwork, log)
+	}, &testNetwork, log)
 
 	t.Run("get block headers", func(t *testing.T) {
 		type pair struct {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -45,7 +46,7 @@ type Reader interface {
 
 	Pending() (Pending, error)
 
-	Network() utils.Network
+	Network() *utils.Network
 }
 
 var (
@@ -70,21 +71,19 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network  utils.Network
+	network  *utils.Network
 	database db.DB
 
-	log      utils.SimpleLogger
 	listener EventListener
 
 	cachedPending atomic.Pointer[Pending]
 }
 
-func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
+func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
 		network:  network,
-		log:      log,
 		listener: &SelectiveListener{},
 	}
 }
@@ -94,7 +93,7 @@ func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
 	return b
 }
 
-func (b *Blockchain) Network() utils.Network {
+func (b *Blockchain) Network() *utils.Network {
 	return b.network
 }
 
@@ -932,7 +931,8 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 		Header: &core.Header{
 			ParentHash:       latestHeader.Hash,
 			SequencerAddress: latestHeader.SequencerAddress,
-			Timestamp:        latestHeader.Timestamp + 1,
+			Number:           latestHeader.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  latestHeader.ProtocolVersion,
 			EventsBloom:      core.EventsBloom(receipts),
 			GasPrice:         latestHeader.GasPrice,
@@ -973,9 +973,13 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 			return ErrParentDoesNotMatchHead
 		}
 
-		existingPending, err := b.pendingBlock(txn)
-		if err == nil && existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
-			return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+		if existingPending, err := b.pendingBlock(txn); err == nil {
+			if existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
+				return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+			}
+			pending.Block.Number = existingPending.Block.Number // Just in case the number is not set.
+		} else if !errors.Is(err, db.ErrKeyNotFound) { // Allow StorePending before block zero.
+			return err
 		}
 
 		return b.storePending(txn, pending)

@@ -52,7 +52,7 @@ func TestService(t *testing.T) {
 		strings.Join(peerAddrsString, ","),
 		true,
 		nil,
-		utils.Integration,
+		&utils.Integration,
 		utils.NewNopZapLogger(),
 	)
 	require.NoError(t, err)

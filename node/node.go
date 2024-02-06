@@ -29,7 +29,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
@@ -49,6 +48,7 @@ type Config struct {
 	HTTP                bool           `mapstructure:"http"`
 	HTTPHost            string         `mapstructure:"http-host"`
 	HTTPPort            uint16         `mapstructure:"http-port"`
+	RPCCorsEnable       bool           `mapstructure:"rpc-cors-enable"`
 	Websocket           bool           `mapstructure:"ws"`
 	WebsocketHost       string         `mapstructure:"ws-host"`
 	WebsocketPort       uint16         `mapstructure:"ws-port"`
@@ -57,6 +57,7 @@ type Config struct {
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
+	CustomNetwork       string         `mapstructure:"custom-network"`
 	EthNode             string         `mapstructure:"eth-node"`
 	Pprof               bool           `mapstructure:"pprof"`
 	PprofHost           string         `mapstructure:"pprof-host"`
@@ -78,11 +79,13 @@ type Config struct {
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
+	RPCCallMaxSteps uint `mapstructure:"rpc-call-max-steps"`
 
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
 
-	GatewayAPIKey string `mapstructure:"gw-api-key"`
+	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
+	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 }
 
 type Node struct {
@@ -90,8 +93,9 @@ type Node struct {
 	db         db.DB
 	blockchain *blockchain.Blockchain
 
-	services []service.Service
-	log      utils.Logger
+	metricsService service.Service // Start the metrics service earlier than other services.
+	services       []service.Service
+	log            utils.Logger
 
 	version string
 }
@@ -123,7 +127,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	services := make([]service.Service, 0)
 
-	chain := blockchain.New(database, cfg.Network, log)
+	chain := blockchain.New(database, &cfg.Network)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
@@ -132,16 +136,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 	if head != nil {
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
-		if _, err = core.VerifyBlockHash(head, cfg.Network); err != nil {
+		if _, err = core.VerifyBlockHash(head, &cfg.Network); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
 		}
 	}
 
-	feederClientTimeout := 5 * time.Second
-	client := feeder.NewClient(cfg.Network.FeederURL()).WithUserAgent(ua).WithLogger(log).
-		WithTimeout(feederClientTimeout).WithAPIKey(cfg.GatewayAPIKey)
+	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
+		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL(), log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 	var p2pService *p2p.Service
 	if cfg.P2P {
@@ -173,7 +176,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
-	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
@@ -196,11 +199,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
+	var metricsService service.Service
 	if cfg.Metrics {
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
@@ -210,6 +214,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
+		metricsService = makeMetrics(cfg.MetricsHost, cfg.MetricsPort)
 
 		if p2pService != nil {
 			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
@@ -227,12 +232,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	n := &Node{
-		cfg:        cfg,
-		log:        log,
-		version:    version,
-		db:         database,
-		blockchain: chain,
-		services:   services,
+		cfg:            cfg,
+		log:            log,
+		version:        version,
+		db:             database,
+		blockchain:     chain,
+		services:       services,
+		metricsService: metricsService,
 	}
 
 	if n.cfg.EthNode == "" {
@@ -265,14 +271,13 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
 	}
 
-	var coreContractAddress common.Address
-	coreContractAddress, err = chain.Network().CoreContractAddress()
+	network := chain.Network()
 	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", chain.Network(), err)
+		return nil, fmt.Errorf("find core contract address for network %s: %w", network.String(), err)
 	}
 
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, coreContractAddress)
+	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
@@ -311,7 +316,21 @@ func (n *Node) Run(ctx context.Context) {
 	}
 	n.log.Debugw(fmt.Sprintf("Running Juno with config:\n%s", string(yamlConfig)))
 
-	if err := migration.MigrateIfNeeded(ctx, n.db, n.cfg.Network, n.log); err != nil {
+	wg := conc.NewWaitGroup()
+	defer wg.Wait()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	if n.metricsService != nil {
+		wg.Go(func() {
+			defer cancel()
+			if err := n.metricsService.Run(ctx); err != nil {
+				n.log.Errorw("Metrics error", "err", err)
+			}
+		})
+	}
+
+	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
@@ -320,8 +339,6 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	wg := conc.NewWaitGroup()
 	for _, s := range n.services {
 		s := s
 		wg.Go(func() {
@@ -333,10 +350,8 @@ func (n *Node) Run(ctx context.Context) {
 			}
 		})
 	}
-	defer wg.Wait()
 
 	<-ctx.Done()
-	cancel()
 	n.log.Infow("Shutting down Juno...")
 }
 
