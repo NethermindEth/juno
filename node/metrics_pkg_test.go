@@ -37,13 +37,14 @@ func TestPebbleMetrics(t *testing.T) {
 			wg.Done()
 		},
 	}
-	testDB, err := pebble.New(t.TempDir(), utils.NewNopZapLogger())
+	testDB, err := pebble.New(t.TempDir(), 1, 1, utils.NewNopZapLogger())
 	require.NoError(t, err)
 	defer testDB.Close()
 	testDB = testDB.WithListener(selectiveListener)
 	// do some arbitrary load in order to have some data in gathered metrics
 	for i := 0; i < 2<<10; i++ {
-		txn := testDB.NewTransaction(true)
+		txn, err := testDB.NewTransaction(true)
+		require.NoError(t, err)
 		for x := 0; x < 2<<5; x++ {
 			key := make([]byte, 32)
 			_, err := rand.Read(key)
