@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -21,7 +22,7 @@ type eventListener struct {
 	ReadCount  int
 }
 
-func (l *eventListener) OnIO(write bool) {
+func (l *eventListener) OnIO(write bool, _ time.Duration) {
 	if write {
 		l.WriteCount++
 	} else {
@@ -29,21 +30,23 @@ func (l *eventListener) OnIO(write bool) {
 	}
 }
 
-func (l *eventListener) OnPebbleMetrics(_ *db.PebbleMetrics) {}
+func (l *eventListener) OnCommit(_ time.Duration) {}
 
 func TestTransaction(t *testing.T) {
 	listener := eventListener{}
 	t.Run("new transaction can retrieve existing value", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t).WithListener(&listener)
 
-		txn := testDB.NewTransaction(true)
+		txn, err := testDB.NewTransaction(true)
+		require.NoError(t, err)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
 		assert.Equal(t, 1, listener.WriteCount)
 		assert.Equal(t, 0, listener.ReadCount)
 
 		require.NoError(t, txn.Commit())
 
-		readOnlyTxn := testDB.NewTransaction(false)
+		readOnlyTxn, err := testDB.NewTransaction(false)
+		require.NoError(t, err)
 		assert.NoError(t, readOnlyTxn.Get([]byte("key"), func(val []byte) error {
 			assert.Equal(t, "value", string(val))
 			return nil
@@ -57,11 +60,13 @@ func TestTransaction(t *testing.T) {
 	t.Run("discarded transaction is not committed to DB", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
 
-		txn := testDB.NewTransaction(true)
+		txn, err := testDB.NewTransaction(true)
+		require.NoError(t, err)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
 		require.NoError(t, txn.Discard())
 
-		readOnlyTxn := testDB.NewTransaction(false)
+		readOnlyTxn, err := testDB.NewTransaction(false)
+		require.NoError(t, err)
 		assert.EqualError(t, readOnlyTxn.Get([]byte("key"), noop), db.ErrKeyNotFound.Error())
 		require.NoError(t, readOnlyTxn.Discard())
 	})
@@ -70,8 +75,10 @@ func TestTransaction(t *testing.T) {
 		" before Commit()", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
 
-		txn1 := testDB.NewTransaction(true)
-		txn2 := testDB.NewTransaction(false)
+		txn1, err := testDB.NewTransaction(true)
+		require.NoError(t, err)
+		txn2, err := testDB.NewTransaction(false)
+		require.NoError(t, err)
 
 		require.NoError(t, txn1.Set([]byte("key1"), []byte("value1")))
 		assert.EqualError(t, txn2.Get([]byte("key1"), noop), db.ErrKeyNotFound.Error())
@@ -80,7 +87,8 @@ func TestTransaction(t *testing.T) {
 		assert.EqualError(t, txn2.Get([]byte("key1"), noop), db.ErrKeyNotFound.Error())
 		require.NoError(t, txn2.Discard())
 
-		txn3 := testDB.NewTransaction(false)
+		txn3, err := testDB.NewTransaction(false)
+		require.NoError(t, err)
 		assert.NoError(t, txn3.Get([]byte("key1"), func(bytes []byte) error {
 			assert.Equal(t, []byte("value1"), bytes)
 			return nil
@@ -91,7 +99,8 @@ func TestTransaction(t *testing.T) {
 	t.Run("discarded transaction cannot commit", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
 
-		txn := testDB.NewTransaction(true)
+		txn, err := testDB.NewTransaction(true)
+		require.NoError(t, err)
 		require.NoError(t, txn.Set([]byte("key"), []byte("value")))
 		require.NoError(t, txn.Discard())
 
@@ -215,7 +224,8 @@ func TestConcurrentUpdate(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 10; i++ {
-				txn := testDB.NewTransaction(true)
+				txn, err := testDB.NewTransaction(true)
+				require.NoError(t, err)
 				var next byte
 				require.NoError(t, txn.Get(key, func(bytes []byte) error {
 					next = bytes[0] + 1
@@ -239,7 +249,8 @@ func TestConcurrentUpdate(t *testing.T) {
 func TestSeek(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -336,7 +347,8 @@ func TestPrefixSearch(t *testing.T) {
 func TestNext(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -394,12 +406,20 @@ func TestPanic(t *testing.T) {
 			require.ErrorIs(t, testDB.View(func(txn db.Transaction) error {
 				return txn.Get([]byte{0}, func(b []byte) error { return nil })
 			}), db.ErrKeyNotFound)
-			require.EqualError(t, panicingTxn.Get([]byte{0}, func(b []byte) error { return nil }), "discarded txn")
+			require.EqualError(
+				t,
+				panicingTxn.Get([]byte{0}, func(b []byte) error { return nil }),
+				"discarded txn",
+			)
 		}()
 
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			panicingTxn = txn
-			require.ErrorIs(t, txn.Get([]byte{0}, func(b []byte) error { return nil }), db.ErrKeyNotFound)
+			require.ErrorIs(
+				t,
+				txn.Get([]byte{0}, func(b []byte) error { return nil }),
+				db.ErrKeyNotFound,
+			)
 			require.NoError(t, txn.Set([]byte{0}, []byte{0}))
 			panic("update")
 		}))

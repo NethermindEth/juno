@@ -2,7 +2,7 @@ package jsonrpc
 
 import (
 	"context"
-	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -56,41 +56,38 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	wsc := newWebsocketConn(r.Context(), conn, ws.connParams)
 
-	ctx := context.WithValue(wsc.ctx, ConnKey{}, wsc)
 	for {
-		var msg []byte
-		_, msg, err = wsc.conn.Read(ctx)
-		if err != nil {
-			break
-		}
-		var resp []byte
-		resp, err = ws.rpc.Handle(ctx, msg)
+		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
 		if err != nil {
 			break
 		}
 		ws.listener.OnNewRequest("any")
-		if _, err = wsc.Write(resp); err != nil {
+		if err = ws.rpc.HandleReadWriter(wsc.ctx, wsc); err != nil {
+			break
+		}
+		// From websocket docs: "Read to EOF otherwise connection will hang."
+		if _, err = io.Copy(io.Discard, wsc.r); err != nil {
 			break
 		}
 	}
 
-	var errClose websocket.CloseError
-	if errors.As(err, &errClose) {
-		ws.log.Infow("Client closed websocket connection", "status", websocket.CloseStatus(err))
+	if status := websocket.CloseStatus(err); status != -1 {
+		ws.log.Infow("Client closed websocket connection", "status", status)
 		return
 	}
 
-	ws.log.Warnw("Closing websocket connection due to internal error", "err", err)
+	ws.log.Warnw("Closing websocket connection", "err", err)
 	errString := err.Error()
 	if len(errString) > closeReasonMaxBytes {
 		errString = errString[:closeReasonMaxBytes]
 	}
 	if err = wsc.conn.Close(websocket.StatusInternalError, errString); err != nil {
 		// Don't log an error if the connection is already closed, which can happen
-		// in benign scenarios like timeouts. Unfortunately the error is not exported
-		// from the websocket package so we match the string instead.
-		if !strings.Contains(err.Error(), "already wrote close") {
-			ws.log.Errorw("Failed to close websocket connection", "err", err)
+		// in benign scenarios like timeouts or if the underlying TCP connection was ended before the client
+		// could initiate the close handshake.
+		errString = err.Error()
+		if !strings.Contains(errString, "already wrote close") && !strings.Contains(errString, "WebSocket closed") {
+			ws.log.Errorw("Failed to close websocket connection", "err", errString)
 		}
 	}
 }
@@ -110,6 +107,7 @@ func DefaultWebsocketConnParams() *WebsocketConnParams {
 }
 
 type websocketConn struct {
+	r      io.Reader
 	conn   *websocket.Conn
 	ctx    context.Context
 	params *WebsocketConnParams
@@ -122,6 +120,10 @@ func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *Websock
 		ctx:    ctx,
 		params: params,
 	}
+}
+
+func (wsc *websocketConn) Read(p []byte) (int, error) {
+	return wsc.r.Read(p)
 }
 
 // Write returns the number of bytes of p sent, not including the header.

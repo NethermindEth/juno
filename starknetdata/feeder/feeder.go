@@ -3,12 +3,14 @@ package feeder
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 )
 
@@ -57,15 +59,15 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 		return nil, errors.New("no pending block")
 	}
 
-	var sig *feeder.Signature
+	var sig *starknet.Signature
 	if blockID != pendingID {
 		sig, err = f.client.Signature(ctx, blockID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)
 		}
 	}
 
-	return feeder2core.AdaptBlock(response, sig)
+	return sn2core.AdaptBlock(response, sig)
 }
 
 // Transaction gets the transaction for a given transaction hash from the feeder,
@@ -76,7 +78,7 @@ func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (c
 		return nil, err
 	}
 
-	tx, err := feeder2core.AdaptTransaction(response.Transaction)
+	tx, err := sn2core.AdaptTransaction(response.Transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +97,13 @@ func (f *Feeder) Class(ctx context.Context, classHash *felt.Felt) (core.Class, e
 	switch {
 	case response.V1 != nil:
 		compiledClass, cErr := f.client.CompiledClassDefinition(ctx, classHash)
-		if cErr != nil {
+		if cErr != nil && !errors.Is(cErr, feeder.ErrDeprecatedCompiledClass) {
 			return nil, cErr
 		}
 
-		return feeder2core.AdaptCairo1Class(response.V1, compiledClass)
+		return sn2core.AdaptCairo1Class(response.V1, compiledClass)
 	case response.V0 != nil:
-		return feeder2core.AdaptCairo0Class(response.V0)
+		return sn2core.AdaptCairo0Class(response.V0)
 	default:
 		return nil, errors.New("empty class")
 	}
@@ -113,7 +115,7 @@ func (f *Feeder) stateUpdate(ctx context.Context, blockID string) (*core.StateUp
 		return nil, err
 	}
 
-	return feeder2core.AdaptStateUpdate(response)
+	return sn2core.AdaptStateUpdate(response)
 }
 
 // StateUpdate gets the state update for a given block number from the feeder,
@@ -138,7 +140,7 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 		return nil, nil, errors.New("no pending block")
 	}
 
-	var sig *feeder.Signature
+	var sig *starknet.Signature
 	if blockID != pendingID {
 		sig, err = f.client.Signature(ctx, blockID)
 		if err != nil {
@@ -149,11 +151,11 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 	var adaptedState *core.StateUpdate
 	var adaptedBlock *core.Block
 
-	if adaptedState, err = feeder2core.AdaptStateUpdate(response.StateUpdate); err != nil {
+	if adaptedState, err = sn2core.AdaptStateUpdate(response.StateUpdate); err != nil {
 		return nil, nil, err
 	}
 
-	if adaptedBlock, err = feeder2core.AdaptBlock(response.Block, sig); err != nil {
+	if adaptedBlock, err = sn2core.AdaptBlock(response.Block, sig); err != nil {
 		return nil, nil, err
 	}
 

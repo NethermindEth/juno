@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -16,6 +17,7 @@ var (
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64
+	Hash() (*felt.Felt, error)
 }
 
 // Cairo0Class unambiguously defines a [Contract]'s semantics.
@@ -44,6 +46,10 @@ func (c *Cairo0Class) Version() uint64 {
 	return 0
 }
 
+func (c *Cairo0Class) Hash() (*felt.Felt, error) {
+	return cairo0ClassHash(c)
+}
+
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
 type Cairo1Class struct {
 	Abi         string
@@ -56,7 +62,24 @@ type Cairo1Class struct {
 	Program         []*felt.Felt
 	ProgramHash     *felt.Felt
 	SemanticVersion string
-	Compiled        json.RawMessage
+	Compiled        *CompiledClass
+}
+
+type CompiledClass struct {
+	Bytecode        []*felt.Felt
+	PythonicHints   json.RawMessage
+	CompilerVersion string
+	Hints           json.RawMessage
+	Prime           *big.Int
+	External        []CompiledEntryPoint
+	L1Handler       []CompiledEntryPoint
+	Constructor     []CompiledEntryPoint
+}
+
+type CompiledEntryPoint struct {
+	Offset   uint64
+	Builtins []string
+	Selector *felt.Felt
 }
 
 type SierraEntryPoint struct {
@@ -68,7 +91,7 @@ func (c *Cairo1Class) Version() uint64 {
 	return 1
 }
 
-func (c *Cairo1Class) Hash() *felt.Felt {
+func (c *Cairo1Class) Hash() (*felt.Felt, error) {
 	return crypto.PoseidonArray(
 		new(felt.Felt).SetBytes([]byte("CONTRACT_CLASS_V"+c.SemanticVersion)),
 		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.External)...),
@@ -76,6 +99,18 @@ func (c *Cairo1Class) Hash() *felt.Felt {
 		crypto.PoseidonArray(flattenSierraEntryPoints(c.EntryPoints.Constructor)...),
 		c.AbiHash,
 		c.ProgramHash,
+	), nil
+}
+
+var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
+
+func (c *CompiledClass) Hash() *felt.Felt {
+	return crypto.PoseidonArray(
+		compiledClassV1Prefix,
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.External)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.L1Handler)...),
+		crypto.PoseidonArray(flattenCompiledEntryPoints(c.Constructor)...),
+		crypto.PoseidonArray(c.Bytecode...),
 	)
 }
 
@@ -90,18 +125,39 @@ func flattenSierraEntryPoints(entryPoints []SierraEntryPoint) []*felt.Felt {
 	return result
 }
 
+func flattenCompiledEntryPoints(entryPoints []CompiledEntryPoint) []*felt.Felt {
+	result := make([]*felt.Felt, len(entryPoints)*3)
+	for i, entryPoint := range entryPoints {
+		// It is important that Selector is first, then Offset is second because the order
+		// influences the class hash.
+		result[3*i] = entryPoint.Selector
+		result[3*i+1] = new(felt.Felt).SetUint64(entryPoint.Offset)
+		builtins := make([]*felt.Felt, len(entryPoint.Builtins))
+		for idx, buil := range entryPoint.Builtins {
+			builtins[idx] = new(felt.Felt).SetBytes([]byte(buil))
+		}
+		result[3*i+2] = crypto.PoseidonArray(builtins...)
+	}
+
+	return result
+}
+
 func VerifyClassHashes(classes map[felt.Felt]Class) error {
 	for hash, class := range classes {
-		cairo1Class, ok := class.(*Cairo1Class)
-		// cairo0 classes are deprecated and hard to verify their hash, just ignore them
-		if !ok {
-			return nil
+		if _, ok := class.(*Cairo0Class); ok {
+			// skip validation of cairo0 class hash
+			continue
 		}
 
-		cHash := cairo1Class.Hash()
+		cHash, err := class.Hash()
+		if err != nil {
+			return err
+		}
+
 		if !cHash.Equal(&hash) {
 			return fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cHash.String(), hash.String())
 		}
 	}
+
 	return nil
 }

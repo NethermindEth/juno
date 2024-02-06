@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         go: [ '1.21' ]
-        os: [ ubuntu-latest, macOS-latest, self-hosted-linux-arm64]
+        os: [ ubuntu-latest, macos-latest, self-hosted-linux-arm64]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
@@ -28,7 +28,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: vm/rust
+          workspaces: |
+            vm/rust
+            core/rust
       - name: Install deps
         run: make install-deps
       - name: Tests

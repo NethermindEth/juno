@@ -143,7 +143,7 @@ func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 }
 
 func TestVerifyTransactionHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	txnHash0 := utils.HexToFelt(t, "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
@@ -169,7 +169,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 	t.Run("contains bad transaction", func(t *testing.T) {
 		badTxn0 := new(core.DeclareTransaction)
 		*badTxn0 = *txn0.(*core.DeclareTransaction)
-		badTxn0.Version = new(core.TransactionVersion).SetUint64(3)
+		badTxn0.Version = new(core.TransactionVersion).SetUint64(18)
 
 		badTxn1 := new(core.L1HandlerTransaction)
 		*badTxn1 = *txn3.(*core.L1HandlerTransaction)
@@ -182,7 +182,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 		}{
 			*badTxn0.Hash(): {
 				name:    "Declare - error if transaction hash calculation failed",
-				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %w", badTxn0.Hash().String(), errors.New("invalid Transaction (type: *core.DeclareTransaction) version: 0x3")),
+				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %w", badTxn0.Hash().String(), errors.New("invalid Transaction (type: *core.DeclareTransaction) version: 0x12")),
 				txn:     badTxn0,
 			},
 			*badTxn1.Hash(): {
@@ -199,7 +199,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, utils.MAINNET, "99.99.99")
+				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, &utils.Mainnet, "99.99.99")
 				require.Equal(t, test.wantErr, tErr)
 			})
 		}
@@ -207,8 +207,65 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 	t.Run("does not contain bad transaction(s)", func(t *testing.T) {
 		txns := []core.Transaction{txn0, txn1, txn2, txn3, txn4}
-		assert.NoError(t, core.VerifyTransactions(txns, utils.MAINNET, "99.99.99"))
+		assert.NoError(t, core.VerifyTransactions(txns, &utils.Mainnet, "99.99.99"))
 	})
+}
+
+func TestTransactionV3Hash(t *testing.T) {
+	network := utils.Integration
+	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
+	ctx := context.Background()
+
+	// Test data was obtained by playing with Papyrus's implementation before v0.13 was released on integration.
+	tests := map[string]struct {
+		tx   func(hash *felt.Felt) core.Transaction
+		want *felt.Felt
+	}{
+		"invoke": {
+			// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd
+			tx: func(hash *felt.Felt) core.Transaction {
+				tx, err := gw.Transaction(ctx, hash)
+				require.NoError(t, err)
+				invoke, ok := tx.(*core.InvokeTransaction)
+				require.True(t, ok)
+				invoke.TransactionHash = nil
+				return invoke
+			},
+			want: utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+		},
+		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3
+		"declare": {
+			tx: func(hash *felt.Felt) core.Transaction {
+				tx, err := gw.Transaction(ctx, hash)
+				require.NoError(t, err)
+				declare, ok := tx.(*core.DeclareTransaction)
+				require.True(t, ok)
+				declare.TransactionHash = nil
+				return declare
+			},
+			want: utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
+		},
+		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0
+		"deployAccount": {
+			tx: func(hash *felt.Felt) core.Transaction {
+				tx, err := gw.Transaction(ctx, hash)
+				require.NoError(t, err)
+				deployAccount, ok := tx.(*core.DeployAccountTransaction)
+				require.True(t, ok)
+				deployAccount.TransactionHash = nil
+				return deployAccount
+			},
+			want: utils.HexToFelt(t, "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+		},
+	}
+
+	for description, test := range tests {
+		t.Run(description, func(t *testing.T) {
+			got, err := core.TransactionHash(test.tx(test.want), &network)
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
+		})
+	}
 }
 
 func TestTransactionVersi(t *testing.T) {

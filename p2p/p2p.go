@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	defaultSourcePort         = 30301
 	keyLength                 = 2048
 	routingTableRefreshPeriod = 10 * time.Second
 )
@@ -45,17 +44,10 @@ type Service struct {
 	runLock sync.RWMutex
 }
 
-func New(
-	addr,
-	userAgent,
-	bootPeers,
-	privKeyStr string,
-	snNetwork utils.Network,
-	log utils.SimpleLogger,
-) (*Service, error) {
+func New(addr, userAgent, bootPeers, privKeyStr string, snNetwork *utils.Network, log utils.SimpleLogger) (*Service, error) {
 	if addr == "" {
-		// 0.0.0.0 will listen on any interface device.
-		addr = fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", defaultSourcePort)
+		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
+		addr = "/ip4/0.0.0.0/tcp/0"
 	}
 	sourceMultiAddr, err := multiaddr.NewMultiaddr(addr)
 	if err != nil {
@@ -67,18 +59,14 @@ func New(
 		return nil, err
 	}
 
-	p2phost, err := libp2p.New(
-		libp2p.ListenAddrs(sourceMultiAddr),
-		libp2p.Identity(prvKey),
-		libp2p.UserAgent(userAgent),
-	)
+	p2pHost, err := libp2p.New(libp2p.ListenAddrs(sourceMultiAddr), libp2p.Identity(prvKey), libp2p.UserAgent(userAgent))
 	if err != nil {
 		return nil, err
 	}
-	return NewWithHost(p2phost, bootPeers, snNetwork, log)
+	return NewWithHost(p2pHost, bootPeers, snNetwork, log)
 }
 
-func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, log utils.SimpleLogger) (*Service, error) {
+func NewWithHost(p2phost host.Host, bootPeers string, snNetwork *utils.Network, log utils.SimpleLogger) (*Service, error) {
 	p2pdht, err := makeDHT(p2phost, snNetwork, bootPeers)
 	if err != nil {
 		return nil, err
@@ -88,7 +76,7 @@ func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, l
 		bootPeers: bootPeers,
 		log:       log,
 		host:      p2phost,
-		network:   snNetwork,
+		network:   *snNetwork,
 		dht:       p2pdht,
 		topics:    make(map[string]*pubsub.Topic),
 	}
@@ -96,7 +84,7 @@ func NewWithHost(p2phost host.Host, bootPeers string, snNetwork utils.Network, l
 	return s, nil
 }
 
-func makeDHT(p2phost host.Host, snNetwork utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
+func makeDHT(p2phost host.Host, snNetwork *utils.Network, cfgBootPeers string) (*dht.IpfsDHT, error) {
 	bootPeers := []peer.AddrInfo{}
 	if cfgBootPeers != "" {
 		splitted := strings.Split(cfgBootPeers, ",")

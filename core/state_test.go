@@ -19,12 +19,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Address of first deployed contract in mainnet block 1's state update.
+var (
+	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
+	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
+)
+
 func TestUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -83,11 +90,8 @@ func TestUpdate(t *testing.T) {
 		OldRoot: su2.NewRoot,
 		NewRoot: utils.HexToFelt(t, "0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a"),
 		StateDiff: &core.StateDiff{
-			DeclaredV1Classes: []core.DeclaredV1Class{
-				{
-					ClassHash:         utils.HexToFelt(t, "0xDEADBEEF"),
-					CompiledClassHash: utils.HexToFelt(t, "0xBEEFDEAD"),
-				},
+			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+				*utils.HexToFelt(t, "0xDEADBEEF"): utils.HexToFelt(t, "0xBEEFDEAD"),
 			},
 		},
 	}
@@ -112,7 +116,7 @@ func TestUpdate(t *testing.T) {
 		OldRoot: su3.NewRoot,
 		NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt][]core.StorageDiff{*scAddr: {{Key: scKey, Value: scValue}}},
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr: {*scKey: scValue}},
 		},
 	}
 
@@ -141,7 +145,7 @@ func TestUpdate(t *testing.T) {
 			OldRoot: su4.NewRoot,
 			NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
 			StateDiff: &core.StateDiff{
-				StorageDiffs: map[felt.Felt][]core.StorageDiff{*scAddr2: {{Key: scKey, Value: scValue}}},
+				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr2: {*scKey: scValue}},
 			},
 		}
 		assert.ErrorIs(t, state.Update(5, su5, nil), core.ErrContractNotDeployed)
@@ -149,11 +153,12 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -171,12 +176,12 @@ func TestContractClassHash(t *testing.T) {
 
 	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
 
-	for _, dc := range su0.StateDiff.DeployedContracts {
-		allDeployedContracts[*dc.Address] = dc.ClassHash
+	for addr, classHash := range su0.StateDiff.DeployedContracts {
+		allDeployedContracts[addr] = classHash
 	}
 
-	for _, dc := range su1.StateDiff.DeployedContracts {
-		allDeployedContracts[*dc.Address] = dc.ClassHash
+	for addr, classHash := range su1.StateDiff.DeployedContracts {
+		allDeployedContracts[addr] = classHash
 	}
 
 	for addr, expectedClassHash := range allDeployedContracts {
@@ -192,18 +197,15 @@ func TestContractClassHash(t *testing.T) {
 			BlockHash: utils.HexToFelt(t, "0xDEADBEEF"),
 			NewRoot:   utils.HexToFelt(t, "0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b"),
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.AddressClassHashPair{
-					{
-						Address:   su1.StateDiff.DeployedContracts[0].Address,
-						ClassHash: utils.HexToFelt(t, "0x1337"),
-					},
+				ReplacedClasses: map[felt.Felt]*felt.Felt{
+					su1FirstDeployedAddress: utils.HexToFelt(t, "0x1337"),
 				},
 			},
 		}
 
 		require.NoError(t, state.Update(2, replaceUpdate, nil))
 
-		gotClassHash, err := state.ContractClassHash(su1.StateDiff.DeployedContracts[0].Address)
+		gotClassHash, err := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, err)
 
 		assert.Equal(t, utils.HexToFelt(t, "0x1337"), gotClassHash)
@@ -212,7 +214,8 @@ func TestContractClassHash(t *testing.T) {
 
 func TestNonce(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -226,11 +229,8 @@ func TestNonce(t *testing.T) {
 		OldRoot: &felt.Zero,
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
-			DeployedContracts: []core.AddressClassHashPair{
-				{
-					Address:   addr,
-					ClassHash: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
-				},
+			DeployedContracts: map[felt.Felt]*felt.Felt{
+				*addr: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
 			},
 		},
 	}
@@ -263,12 +263,13 @@ func TestNonce(t *testing.T) {
 
 func TestStateHistory(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
@@ -293,12 +294,9 @@ func TestStateHistory(t *testing.T) {
 		NewRoot: utils.HexToFelt(t, "0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c"),
 		OldRoot: su0.NewRoot,
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt][]core.StorageDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
-					{
-						Key:   changedLoc,
-						Value: utils.HexToFelt(t, "0x44"),
-					},
+					*changedLoc: utils.HexToFelt(t, "0x44"),
 				},
 			},
 		},
@@ -313,11 +311,12 @@ func TestStateHistory(t *testing.T) {
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -365,12 +364,13 @@ func TestContractIsDeployedAt(t *testing.T) {
 
 func TestClass(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
 	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
@@ -409,12 +409,13 @@ func TestClass(t *testing.T) {
 
 func TestRevert(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
@@ -426,42 +427,37 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, state.Update(1, su1, nil))
 
 	t.Run("revert a replaced class", func(t *testing.T) {
-		addr := su1.StateDiff.DeployedContracts[0].Address
 		replaceStateUpdate := &core.StateUpdate{
 			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
-				ReplacedClasses: []core.AddressClassHashPair{
-					{
-						Address:   addr,
-						ClassHash: utils.HexToFelt(t, "0xDEADBEEF"),
-					},
+				ReplacedClasses: map[felt.Felt]*felt.Felt{
+					su1FirstDeployedAddress: utils.HexToFelt(t, "0xDEADBEEF"),
 				},
 			},
 		}
 
 		require.NoError(t, state.Update(2, replaceStateUpdate, nil))
 		require.NoError(t, state.Revert(2, replaceStateUpdate))
-		classHash, sErr := state.ContractClassHash(addr)
+		classHash, sErr := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
-		assert.Equal(t, su1.StateDiff.DeployedContracts[0].ClassHash, classHash)
+		assert.Equal(t, su1.StateDiff.DeployedContracts[*new(felt.Felt).Set(&su1FirstDeployedAddress)], classHash)
 	})
 
 	t.Run("revert a nonce update", func(t *testing.T) {
-		addr := su1.StateDiff.DeployedContracts[0].Address
 		nonceStateUpdate := &core.StateUpdate{
 			NewRoot: utils.HexToFelt(t, "0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{
-					*addr: utils.HexToFelt(t, "0xDEADBEEF"),
+					su1FirstDeployedAddress: utils.HexToFelt(t, "0xDEADBEEF"),
 				},
 			},
 		}
 
 		require.NoError(t, state.Update(2, nonceStateUpdate, nil))
 		require.NoError(t, state.Revert(2, nonceStateUpdate))
-		nonce, sErr := state.ContractNonce(addr)
+		nonce, sErr := state.ContractNonce(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
 		assert.Equal(t, &felt.Zero, nonce)
 	})
@@ -494,7 +490,7 @@ func TestRevert(t *testing.T) {
 			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
 			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
 			SemanticVersion: "version 1",
-			Compiled:        json.RawMessage("complied cairo 1 class"),
+			Compiled:        &core.CompiledClass{},
 		}
 
 		cairo1Addr := utils.HexToFelt(t, "0xcd5678")
@@ -505,11 +501,8 @@ func TestRevert(t *testing.T) {
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				DeclaredV0Classes: []*felt.Felt{cairo0Addr},
-				DeclaredV1Classes: []core.DeclaredV1Class{
-					{
-						ClassHash:         cairo1Addr,
-						CompiledClassHash: utils.HexToFelt(t, "0xef9123"),
-					},
+				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+					*cairo1Addr: utils.HexToFelt(t, "0xef9123"),
 				},
 			},
 		}
@@ -560,12 +553,42 @@ func TestRevert(t *testing.T) {
 	})
 }
 
+// TestRevertGenesisStateDiff ensures the reverse diff for the genesis block sets all storage values to zero.
+func TestRevertGenesisStateDiff(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+	state := core.NewState(txn)
+
+	addr := new(felt.Felt).SetUint64(1)
+	key := new(felt.Felt).SetUint64(2)
+	value := new(felt.Felt).SetUint64(3)
+	su := &core.StateUpdate{
+		BlockHash: new(felt.Felt),
+		NewRoot:   utils.HexToFelt(t, "0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8"),
+		OldRoot:   new(felt.Felt),
+		StateDiff: &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*addr: {
+					*key: value,
+				},
+			},
+		},
+	}
+	require.NoError(t, state.Update(0, su, nil))
+	require.NoError(t, state.Revert(0, su))
+}
+
 func TestRevertNoClassContracts(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -589,7 +612,7 @@ func TestRevertNoClassContracts(t *testing.T) {
 	// update state root
 	su1.NewRoot = utils.HexToFelt(t, "0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341")
 
-	su1.StateDiff.StorageDiffs[*scAddr] = []core.StorageDiff{{scKey, scValue}}
+	su1.StateDiff.StorageDiffs[*scAddr] = map[felt.Felt]*felt.Felt{*scKey: scValue}
 
 	require.NoError(t, state.Update(1, su1, nil))
 
@@ -603,7 +626,8 @@ func TestRevertNoClassContracts(t *testing.T) {
 
 func TestRevertDeclaredClasses(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	txn := testDB.NewTransaction(true)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
@@ -617,11 +641,8 @@ func TestRevertDeclaredClasses(t *testing.T) {
 		BlockHash: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			DeclaredV0Classes: []*felt.Felt{classHash},
-			DeclaredV1Classes: []core.DeclaredV1Class{
-				{
-					ClassHash:         sierraHash,
-					CompiledClassHash: sierraHash,
-				},
+			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+				*sierraHash: sierraHash,
 			},
 		},
 	}

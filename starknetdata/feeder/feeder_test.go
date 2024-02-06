@@ -5,9 +5,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,7 @@ import (
 func TestBlockByNumber(t *testing.T) {
 	numbers := []uint64{147, 11817}
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -29,7 +30,7 @@ func TestBlockByNumber(t *testing.T) {
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
-			adaptedResponse, err := feeder2core.AdaptBlock(response, sig)
+			adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, block)
 		})
@@ -37,7 +38,7 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestBlockLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -47,7 +48,7 @@ func TestBlockLatest(t *testing.T) {
 	require.NoError(t, err)
 	block, err := adapter.BlockLatest(ctx)
 	require.NoError(t, err)
-	adaptedResponse, err := feeder2core.AdaptBlock(response, sig)
+	adaptedResponse, err := sn2core.AdaptBlock(response, sig)
 	require.NoError(t, err)
 	assert.Equal(t, adaptedResponse, block)
 }
@@ -55,7 +56,7 @@ func TestBlockLatest(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, utils.MAINNET)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -66,7 +67,7 @@ func TestStateUpdate(t *testing.T) {
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
 
-			adaptedResponse, err := feeder2core.AdaptStateUpdate(response)
+			adaptedResponse, err := sn2core.AdaptStateUpdate(response)
 			require.NoError(t, err)
 			assert.Equal(t, adaptedResponse, feederUpdate)
 		})
@@ -81,7 +82,7 @@ func TestClassV0(t *testing.T) {
 		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
 	}
 
-	client := feeder.NewTestClient(t, utils.GOERLI)
+	client := feeder.NewTestClient(t, &utils.Goerli)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -93,7 +94,7 @@ func TestClassV0(t *testing.T) {
 			classGeneric, err := adapter.Class(ctx, hash)
 			require.NoError(t, err)
 
-			adaptedResponse, err := feeder2core.AdaptCairo0Class(response.V0)
+			adaptedResponse, err := sn2core.AdaptCairo0Class(response.V0)
 			require.NoError(t, err)
 			require.Equal(t, adaptedResponse, classGeneric)
 		})
@@ -101,10 +102,10 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, utils.GOERLI)
+	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
 	adapterGoerli := adaptfeeder.New(clientGoerli)
 
-	clientMainnet := feeder.NewTestClient(t, utils.MAINNET)
+	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
 	ctx := context.Background()
@@ -119,7 +120,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		invokeTx, ok := txn.(*core.InvokeTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptInvokeTransaction(responseTx), invokeTx)
+		assert.Equal(t, sn2core.AdaptInvokeTransaction(responseTx), invokeTx)
 	})
 
 	t.Run("deploy transaction", func(t *testing.T) {
@@ -132,7 +133,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		deployTx, ok := txn.(*core.DeployTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeployTransaction(responseTx), deployTx)
+		assert.Equal(t, sn2core.AdaptDeployTransaction(responseTx), deployTx)
 	})
 
 	t.Run("deploy account transaction", func(t *testing.T) {
@@ -145,7 +146,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		deployAccountTx, ok := txn.(*core.DeployAccountTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeployAccountTransaction(responseTx), deployAccountTx)
+		assert.Equal(t, sn2core.AdaptDeployAccountTransaction(responseTx), deployAccountTx)
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
@@ -158,7 +159,7 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		declareTx, ok := txn.(*core.DeclareTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptDeclareTransaction(responseTx), declareTx)
+		assert.Equal(t, sn2core.AdaptDeclareTransaction(responseTx), declareTx)
 	})
 
 	t.Run("l1handler transaction", func(t *testing.T) {
@@ -171,32 +172,57 @@ func TestTransaction(t *testing.T) {
 		require.NoError(t, err)
 		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
 		require.True(t, ok)
-		assert.Equal(t, feeder2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
+		assert.Equal(t, sn2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
 	})
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
 
-	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	class, err := adapter.Class(context.Background(), classHash)
-	require.NoError(t, err)
+	tests := []struct {
+		classHash        *felt.Felt
+		hasCompiledClass bool
+	}{
+		{
+			classHash:        utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5"),
+			hasCompiledClass: true,
+		},
+		{
+			classHash:        utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c"),
+			hasCompiledClass: false,
+		},
+	}
 
-	feederClass, err := client.ClassDefinition(context.Background(), classHash)
-	require.NoError(t, err)
-	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
-	require.NoError(t, err)
+	for _, test := range tests {
+		class, err := adapter.Class(context.Background(), test.classHash)
+		require.NoError(t, err)
 
-	adaptedResponse, err := feeder2core.AdaptCairo1Class(feederClass.V1, compiled)
-	require.NoError(t, err)
-	assert.Equal(t, adaptedResponse, class)
+		feederClass, err := client.ClassDefinition(context.Background(), test.classHash)
+		require.NoError(t, err)
+		compiled, err := client.CompiledClassDefinition(context.Background(), test.classHash)
+		if test.hasCompiledClass {
+			require.NoError(t, err)
+		} else {
+			require.EqualError(t, err, "deprecated compiled class")
+		}
+
+		adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+		require.NoError(t, err)
+		assert.Equal(t, adaptedResponse, class)
+
+		if test.hasCompiledClass {
+			assert.NotNil(t, adaptedResponse.Compiled)
+		} else {
+			assert.Nil(t, adaptedResponse.Compiled)
+		}
+	}
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
 	numbers := []uint64{0, 78541}
 
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -208,9 +234,9 @@ func TestStateUpdateWithBlock(t *testing.T) {
 			require.NoError(t, err)
 			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
 			require.NoError(t, err)
-			adaptedBlock, err := feeder2core.AdaptBlock(response.Block, sig)
+			adaptedBlock, err := sn2core.AdaptBlock(response.Block, sig)
 			require.NoError(t, err)
-			adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
+			adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
 			require.NoError(t, err)
 			assert.Equal(t, block, adaptedBlock)
 			assert.Equal(t, stateUpdate, adaptedStateUpdate)
@@ -219,15 +245,15 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.INTEGRATION)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
 	response, err := client.StateUpdateWithBlock(ctx, "pending")
 	require.NoError(t, err)
-	adaptedBlock, err := feeder2core.AdaptBlock(response.Block, nil)
+	adaptedBlock, err := sn2core.AdaptBlock(response.Block, nil)
 	require.NoError(t, err)
-	adaptedStateUpdate, err := feeder2core.AdaptStateUpdate(response.StateUpdate)
+	adaptedStateUpdate, err := sn2core.AdaptStateUpdate(response.StateUpdate)
 	require.NoError(t, err)
 	stateUpdate, block, err := adapter.StateUpdatePendingWithBlock(ctx)
 	require.NoError(t, err)

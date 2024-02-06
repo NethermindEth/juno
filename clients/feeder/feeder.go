@@ -15,8 +15,13 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
 type Backoff func(wait time.Duration) time.Duration
 
@@ -29,6 +34,13 @@ type Client struct {
 	minWait    time.Duration
 	log        utils.SimpleLogger
 	userAgent  string
+	apiKey     string
+	listener   EventListener
+}
+
+func (c *Client) WithListener(l EventListener) *Client {
+	c.listener = l
+	return c
 }
 
 func (c *Client) WithBackoff(b Backoff) *Client {
@@ -66,6 +78,11 @@ func (c *Client) WithTimeout(t time.Duration) *Client {
 	return c
 }
 
+func (c *Client) WithAPIKey(key string) *Client {
+	c.apiKey = key
+	return c
+}
+
 func ExponentialBackoff(wait time.Duration) time.Duration {
 	return wait * 2
 }
@@ -75,12 +92,13 @@ func NopBackoff(d time.Duration) time.Duration {
 }
 
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t *testing.T, network utils.Network) *Client {
-	srv := newTestServer(network)
+func NewTestClient(t *testing.T, network *utils.Network) *Client {
+	srv := newTestServer(t, network)
 	t.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
+	apiKey := "API_KEY"
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua)
+	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -99,7 +117,7 @@ func NewTestClient(t *testing.T, network utils.Network) *Client {
 	return c
 }
 
-func newTestServer(network utils.Network) *httptest.Server {
+func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -107,10 +125,11 @@ func newTestServer(network utils.Network) *httptest.Server {
 			return
 		}
 
+		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
+		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
+
 		wd, err := os.Getwd()
-		if err != nil {
-			panic(err)
-		}
+		require.NoError(t, err)
 
 		base := wd[:strings.LastIndex(wd, "juno")+4]
 		queryArg := ""
@@ -143,6 +162,9 @@ func newTestServer(network utils.Network) *httptest.Server {
 		case strings.HasSuffix(r.URL.Path, "get_signature"):
 			dir = "signature"
 			queryArg = blockNumberArg
+		case strings.HasSuffix(r.URL.Path, "get_block_traces"):
+			dir = "traces"
+			queryArg = "blockHash"
 		}
 
 		fileName, found := queryMap[queryArg]
@@ -177,10 +199,11 @@ func NewClient(clientURL string) *Client {
 		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
-		maxRetries: 35, // ~3.5 minutes with default backoff and maxWait (block time on mainnet is 1-2 minutes)
-		maxWait:    10 * time.Second,
+		maxRetries: 10, // ~40 secs with default backoff and maxWait (block time on mainnet is 20 seconds on average)
+		maxWait:    4 * time.Second,
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
+		listener:   &SelectiveListener{},
 	}
 }
 
@@ -220,9 +243,14 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if c.userAgent != "" {
 				req.Header.Set("User-Agent", c.userAgent)
 			}
+			if c.apiKey != "" {
+				req.Header.Set("X-Throttling-Bypass", c.apiKey)
+			}
 
+			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			if err == nil {
+				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
 				} else {
@@ -239,13 +267,13 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			c.log.Debugw("Failed query to feeder, retrying...", "retryAfter", wait.String(), "err", err)
+			c.log.Debugw("Failed query to feeder, retrying...", "req", req.URL.String(), "retryAfter", wait.String(), "err", err)
 		}
 	}
 	return nil, err
 }
 
-func (c *Client) StateUpdate(ctx context.Context, blockID string) (*StateUpdate, error) {
+func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -256,14 +284,14 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*StateUpdate,
 	}
 	defer body.Close()
 
-	update := new(StateUpdate)
+	update := new(starknet.StateUpdate)
 	if err = json.NewDecoder(body).Decode(update); err != nil {
 		return nil, err
 	}
 	return update, nil
 }
 
-func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*TransactionStatus, error) {
+func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
 	queryURL := c.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
@@ -274,14 +302,14 @@ func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*
 	}
 	defer body.Close()
 
-	txStatus := new(TransactionStatus)
+	txStatus := new(starknet.TransactionStatus)
 	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
 		return nil, err
 	}
 	return txStatus, nil
 }
 
-func (c *Client) Block(ctx context.Context, blockID string) (*Block, error) {
+func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -292,16 +320,17 @@ func (c *Client) Block(ctx context.Context, blockID string) (*Block, error) {
 	}
 	defer body.Close()
 
-	block := new(Block)
+	block := new(starknet.Block)
 	if err = json.NewDecoder(body).Decode(block); err != nil {
 		return nil, err
 	}
 	return block, nil
 }
 
-func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*ClassDefinition, error) {
+func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
-		"classHash": classHash.String(),
+		"classHash":   classHash.String(),
+		"blockNumber": "pending",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -310,16 +339,17 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*Cl
 	}
 	defer body.Close()
 
-	class := new(ClassDefinition)
+	class := new(starknet.ClassDefinition)
 	if err = json.NewDecoder(body).Decode(class); err != nil {
 		return nil, err
 	}
 	return class, nil
 }
 
-func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (json.RawMessage, error) {
+func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CompiledClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
-		"classHash": classHash.String(),
+		"classHash":   classHash.String(),
+		"blockNumber": "pending",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -328,14 +358,23 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 	}
 	defer body.Close()
 
-	var class json.RawMessage
-	if err = json.NewDecoder(body).Decode(&class); err != nil {
+	definition, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+
+	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(definition); deprecated {
+		return nil, ErrDeprecatedCompiledClass
+	}
+
+	class := new(starknet.CompiledClass)
+	if err = json.Unmarshal(definition, class); err != nil {
 		return nil, err
 	}
 	return class, nil
 }
 
-func (c *Client) PublickKey(ctx context.Context) (*felt.Felt, error) {
+func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	queryURL := c.buildQueryString("get_public_key", nil)
 
 	body, err := c.get(ctx, queryURL)
@@ -353,7 +392,7 @@ func (c *Client) PublickKey(ctx context.Context) (*felt.Felt, error) {
 	return publicKey, nil
 }
 
-func (c *Client) Signature(ctx context.Context, blockID string) (*Signature, error) {
+func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
 	queryURL := c.buildQueryString("get_signature", map[string]string{
 		"blockNumber": blockID,
 	})
@@ -364,7 +403,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*Signature, err
 	}
 	defer body.Close()
 
-	signature := new(Signature)
+	signature := new(starknet.Signature)
 	if err := json.NewDecoder(body).Decode(signature); err != nil {
 		return nil, err
 	}
@@ -372,7 +411,7 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*Signature, err
 	return signature, nil
 }
 
-func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*StateUpdateWithBlock, error) {
+func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber":  blockID,
 		"includeBlock": "true",
@@ -384,10 +423,28 @@ func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*Sta
 	}
 	defer body.Close()
 
-	stateUpdate := new(StateUpdateWithBlock)
+	stateUpdate := new(starknet.StateUpdateWithBlock)
 	if err := json.NewDecoder(body).Decode(stateUpdate); err != nil {
 		return nil, err
 	}
 
 	return stateUpdate, nil
+}
+
+func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.BlockTrace, error) {
+	queryURL := c.buildQueryString("get_block_traces", map[string]string{
+		"blockHash": blockHash,
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	traces := new(starknet.BlockTrace)
+	if err = json.NewDecoder(body).Decode(traces); err != nil {
+		return nil, err
+	}
+	return traces, nil
 }

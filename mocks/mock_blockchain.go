@@ -14,6 +14,7 @@ import (
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	utils "github.com/NethermindEth/juno/utils"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -68,6 +69,21 @@ func (m *MockReader) BlockByNumber(arg0 uint64) (*core.Block, error) {
 func (mr *MockReaderMockRecorder) BlockByNumber(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockReader)(nil).BlockByNumber), arg0)
+}
+
+// BlockCommitmentsByNumber mocks base method.
+func (m *MockReader) BlockCommitmentsByNumber(arg0 uint64) (*core.BlockCommitments, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockCommitmentsByNumber", arg0)
+	ret0, _ := ret[0].(*core.BlockCommitments)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockCommitmentsByNumber indicates an expected call of BlockCommitmentsByNumber.
+func (mr *MockReaderMockRecorder) BlockCommitmentsByNumber(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockCommitmentsByNumber", reflect.TypeOf((*MockReader)(nil).BlockCommitmentsByNumber), arg0)
 }
 
 // BlockHeaderByHash mocks base method.
@@ -189,6 +205,20 @@ func (m *MockReader) L1Head() (*core.L1Head, error) {
 func (mr *MockReaderMockRecorder) L1Head() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1Head", reflect.TypeOf((*MockReader)(nil).L1Head))
+}
+
+// Network mocks base method.
+func (m *MockReader) Network() *utils.Network {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Network")
+	ret0, _ := ret[0].(*utils.Network)
+	return ret0
+}
+
+// Network indicates an expected call of Network.
+func (mr *MockReaderMockRecorder) Network() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Network", reflect.TypeOf((*MockReader)(nil).Network))
 }
 
 // Pending mocks base method.

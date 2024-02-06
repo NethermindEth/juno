@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/NethermindEth/juno/adapters/feeder2core"
-	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/copier"
 )
@@ -66,6 +65,48 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type FeeUnit byte
+
+const (
+	WEI FeeUnit = iota
+	FRI
+)
+
+func (u FeeUnit) MarshalJSON() ([]byte, error) {
+	switch u {
+	case WEI:
+		return []byte(`"WEI"`), nil
+	case FRI:
+		return []byte(`"FRI"`), nil
+	default:
+		return nil, errors.New("unknown FeeUnit")
+	}
+}
+
+type TxnStatus uint8
+
+const (
+	TxnStatusAcceptedOnL1 TxnStatus = iota + 1
+	TxnStatusAcceptedOnL2
+	TxnStatusReceived
+	TxnStatusRejected
+)
+
+func (s TxnStatus) MarshalJSON() ([]byte, error) {
+	switch s {
+	case TxnStatusReceived:
+		return []byte(`"RECEIVED"`), nil
+	case TxnStatusRejected:
+		return []byte(`"REJECTED"`), nil
+	case TxnStatusAcceptedOnL1:
+		return []byte(`"ACCEPTED_ON_L1"`), nil
+	case TxnStatusAcceptedOnL2:
+		return []byte(`"ACCEPTED_ON_L2"`), nil
+	default:
+		return nil, errors.New("unknown ExecutionStatus")
+	}
+}
+
 type TxnExecutionStatus uint8
 
 const (
@@ -102,29 +143,132 @@ func (fs TxnFinalityStatus) MarshalJSON() ([]byte, error) {
 	}
 }
 
+type DataAvailabilityMode uint32
+
+const (
+	DAModeL1 DataAvailabilityMode = iota
+	DAModeL2
+)
+
+func (m DataAvailabilityMode) MarshalJSON() ([]byte, error) {
+	switch m {
+	case DAModeL1:
+		return []byte(`"L1"`), nil
+	case DAModeL2:
+		return []byte(`"L2"`), nil
+	default:
+		return nil, errors.New("unknown DataAvailabilityMode")
+	}
+}
+
+func (m *DataAvailabilityMode) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"L1"`:
+		*m = DAModeL1
+	case `"L2"`:
+		*m = DAModeL2
+	default:
+		return fmt.Errorf("unknown DataAvailabilityMode: %q", string(data))
+	}
+	return nil
+}
+
+type Resource uint32
+
+const (
+	ResourceL1Gas Resource = iota + 1
+	ResourceL2Gas
+)
+
+func (r Resource) MarshalJSON() ([]byte, error) {
+	switch r {
+	case ResourceL1Gas:
+		return []byte("l1_gas"), nil
+	case ResourceL2Gas:
+		return []byte("l2_gas"), nil
+	default:
+		return nil, errors.New("unknown Resource")
+	}
+}
+
+func (r Resource) MarshalText() ([]byte, error) {
+	return r.MarshalJSON()
+}
+
+func (r *Resource) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"l1_gas"`:
+		*r = ResourceL1Gas
+	case `"l2_gas"`:
+		*r = ResourceL2Gas
+	default:
+		return fmt.Errorf("unknown Resource: %q", string(data))
+	}
+	return nil
+}
+
+func (r *Resource) UnmarshalText(data []byte) error {
+	return r.UnmarshalJSON(data)
+}
+
+type ResourceBounds struct {
+	MaxAmount       *felt.Felt `json:"max_amount"`
+	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
 type Transaction struct {
-	Hash                *felt.Felt      `json:"transaction_hash,omitempty"`
-	Type                TransactionType `json:"type" validate:"required"`
-	Version             *felt.Felt      `json:"version,omitempty" validate:"required"`
-	Nonce               *felt.Felt      `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
-	MaxFee              *felt.Felt      `json:"max_fee,omitempty" validate:"required"`
-	ContractAddress     *felt.Felt      `json:"contract_address,omitempty"`
-	ContractAddressSalt *felt.Felt      `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash           *felt.Felt      `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData *[]*felt.Felt   `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress       *felt.Felt      `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1"`
-	Signature           *[]*felt.Felt   `json:"signature,omitempty" validate:"required"`
-	CallData            *[]*felt.Felt   `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector  *felt.Felt      `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
-	CompiledClassHash   *felt.Felt      `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
+	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
+	Type                  TransactionType              `json:"type" validate:"required"`
+	Version               *felt.Felt                   `json:"version,omitempty" validate:"required"`
+	Nonce                 *felt.Felt                   `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
+	MaxFee                *felt.Felt                   `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
+	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt                   `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1"`
+	Signature             *[]*felt.Felt                `json:"signature,omitempty" validate:"required"`
+	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
+	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
+	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
+	Tip                   *felt.Felt                   `json:"tip,omitempty" validate:"required_if=Version 0x3"`
+	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
+	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
+	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+}
+
+func (tx *Transaction) ToPreV3() error {
+	if tx.Version.Uint64() != 3 {
+		return nil
+	}
+	switch tx.Type {
+	case TxnDeclare:
+		tx.Version.SetUint64(2)
+	case TxnInvoke, TxnDeployAccount:
+		tx.Version.SetUint64(1)
+	default:
+		return fmt.Errorf("unexpected transaction type %s", tx.Type)
+	}
+	l1Resources := (*tx.ResourceBounds)[ResourceL1Gas]
+	tx.MaxFee = new(felt.Felt).Mul(l1Resources.MaxAmount, l1Resources.MaxPricePerUnit)
+
+	tx.ResourceBounds = nil
+	tx.Tip = nil
+	tx.PaymasterData = nil
+	tx.AccountDeploymentData = nil
+	tx.NonceDAMode = nil
+	tx.FeeDAMode = nil
+	return nil
 }
 
 type TransactionStatus struct {
-	Finality  TxnFinalityStatus  `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status"`
+	Finality  TxnStatus          `json:"finality_status"`
+	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
 type MsgFromL1 struct {
@@ -138,13 +282,13 @@ type MsgFromL1 struct {
 }
 
 type MsgToL1 struct {
-	From    *felt.Felt     `json:"from_address"`
+	From    *felt.Felt     `json:"from_address,omitempty"`
 	To      common.Address `json:"to_address"`
 	Payload []*felt.Felt   `json:"payload"`
 }
 
 type Event struct {
-	From *felt.Felt   `json:"from_address"`
+	From *felt.Felt   `json:"from_address,omitempty"`
 	Keys []*felt.Felt `json:"keys"`
 	Data []*felt.Felt `json:"data"`
 }
@@ -156,22 +300,52 @@ func (n NumAsHex) MarshalJSON() ([]byte, error) {
 }
 
 type ExecutionResources struct {
-	Steps       NumAsHex `json:"steps"`
-	MemoryHoles NumAsHex `json:"memory_holes"`
-	Pedersen    NumAsHex `json:"pedersen_builtin_applications"`
-	RangeCheck  NumAsHex `json:"range_check_builtin_applications"`
-	Bitwise     NumAsHex `json:"bitwise_builtin_applications"`
-	Ecsda       NumAsHex `json:"ecdsa_builtin_applications"`
-	EcOp        NumAsHex `json:"ec_op_builtin_applications"`
-	Keccak      NumAsHex `json:"keccak_builtin_applications"`
-	Poseidon    NumAsHex `json:"poseidon_builtin_applications"`
+	Steps        uint64 `json:"steps"`
+	MemoryHoles  uint64 `json:"memory_holes,omitempty"`
+	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
+	RangeCheck   uint64 `json:"range_check_builtin_applications,omitempty"`
+	Bitwise      uint64 `json:"bitwise_builtin_applications,omitempty"`
+	Ecsda        uint64 `json:"ecdsa_builtin_applications,omitempty"`
+	EcOp         uint64 `json:"ec_op_builtin_applications,omitempty"`
+	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
+	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`
+	SegmentArena uint64 `json:"segment_arena_builtin,omitempty"`
+	isLegacy     bool
+}
+
+func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
+	if r.isLegacy {
+		return json.Marshal(struct {
+			Steps       NumAsHex `json:"steps"`
+			MemoryHoles NumAsHex `json:"memory_holes"`
+			Pedersen    NumAsHex `json:"pedersen_builtin_applications"`
+			RangeCheck  NumAsHex `json:"range_check_builtin_applications"`
+			Bitwise     NumAsHex `json:"bitwise_builtin_applications"`
+			Ecsda       NumAsHex `json:"ecdsa_builtin_applications"`
+			EcOp        NumAsHex `json:"ec_op_builtin_applications"`
+			Keccak      NumAsHex `json:"keccak_builtin_applications"`
+			Poseidon    NumAsHex `json:"poseidon_builtin_applications"`
+		}{
+			Steps:       NumAsHex(r.Steps),
+			MemoryHoles: NumAsHex(r.MemoryHoles),
+			Pedersen:    NumAsHex(r.Pedersen),
+			RangeCheck:  NumAsHex(r.RangeCheck),
+			Bitwise:     NumAsHex(r.Bitwise),
+			Ecsda:       NumAsHex(r.Ecsda),
+			EcOp:        NumAsHex(r.EcOp),
+			Keccak:      NumAsHex(r.Keccak),
+			Poseidon:    NumAsHex(r.Poseidon),
+		})
+	}
+	type resources ExecutionResources // Avoid infinite recursion with MarshalJSON.
+	return json.Marshal(resources(*r))
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
 	Type               TransactionType     `json:"type"`
 	Hash               *felt.Felt          `json:"transaction_hash"`
-	ActualFee          *felt.Felt          `json:"actual_fee"`
+	ActualFee          *FeePayment         `json:"actual_fee"`
 	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
 	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
 	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
@@ -182,6 +356,20 @@ type TransactionReceipt struct {
 	RevertReason       string              `json:"revert_reason,omitempty"`
 	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
 	MessageHash        string              `json:"message_hash,omitempty"`
+}
+
+type FeePayment struct {
+	Amount   *felt.Felt `json:"amount"`
+	Unit     FeeUnit    `json:"unit"`
+	isLegacy bool
+}
+
+func (f *FeePayment) MarshalJSON() ([]byte, error) {
+	if f.isLegacy {
+		return json.Marshal(f.Amount)
+	}
+	type fee FeePayment // Avoid infinite recursion with MarshalJSON.
+	return json.Marshal(fee(*f))
 }
 
 type AddTxResponse struct {
@@ -201,18 +389,18 @@ type FeeEstimate struct {
 	GasConsumed *felt.Felt `json:"gas_consumed"`
 	GasPrice    *felt.Felt `json:"gas_price"`
 	OverallFee  *felt.Felt `json:"overall_fee"`
+	Unit        *FeeUnit   `json:"unit,omitempty"`
 }
 
-//nolint:gocyclo
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
-	network utils.Network,
+	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn feeder.Transaction
+	var feederTxn starknet.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
 		return nil, nil, nil, err
 	}
 
-	txn, err := feeder2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(&feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -228,14 +416,9 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	}
 
 	if t, ok := txn.(*core.DeclareTransaction); ok {
-		switch c := declaredClass.(type) {
-		case *core.Cairo0Class:
-			t.ClassHash, err = vm.Cairo0ClassHash(c)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-		case *core.Cairo1Class:
-			t.ClassHash = c.Hash()
+		t.ClassHash, err = declaredClass.Hash()
+		if err != nil {
+			return nil, nil, nil, err
 		}
 	}
 
@@ -263,4 +446,61 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 		return nil, nil, nil, errors.New("deprecated transaction type")
 	}
 	return txn, declaredClass, paidFeeOnL1, nil
+}
+
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
+	rpcResourceBounds := make(map[Resource]ResourceBounds)
+	for resource, bounds := range rb {
+		rpcResourceBounds[Resource(resource)] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+	}
+	return rpcResourceBounds
+}
+
+func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+	if rb == nil {
+		return nil
+	}
+	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
+	for resource, bounds := range *rb {
+		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
+			MaxAmount:       bounds.MaxAmount,
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+	}
+	return &feederResourceBounds
+}
+
+func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
+	if mode == nil {
+		return nil
+	}
+	return utils.Ptr(starknet.DataAvailabilityMode(*mode))
+}
+
+func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
+	return &starknet.Transaction{
+		Hash:                  rpcTx.Hash,
+		Version:               rpcTx.Version,
+		ContractAddress:       rpcTx.ContractAddress,
+		ContractAddressSalt:   rpcTx.ContractAddressSalt,
+		ClassHash:             rpcTx.ClassHash,
+		ConstructorCallData:   rpcTx.ConstructorCallData,
+		Type:                  starknet.TransactionType(rpcTx.Type),
+		SenderAddress:         rpcTx.SenderAddress,
+		MaxFee:                rpcTx.MaxFee,
+		Signature:             rpcTx.Signature,
+		CallData:              rpcTx.CallData,
+		EntryPointSelector:    rpcTx.EntryPointSelector,
+		Nonce:                 rpcTx.Nonce,
+		CompiledClassHash:     rpcTx.CompiledClassHash,
+		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
+		Tip:                   rpcTx.Tip,
+		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
+		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		AccountDeploymentData: rpcTx.AccountDeploymentData,
+		PaymasterData:         rpcTx.PaymasterData,
+	}
 }

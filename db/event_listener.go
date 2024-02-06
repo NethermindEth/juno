@@ -1,6 +1,8 @@
 package db
 
-import "time"
+import (
+	"time"
+)
 
 // PebbleMetrics is a structure that holds metrics related to a Pebble database's performance and resource usage.
 type PebbleMetrics struct {
@@ -27,19 +29,27 @@ type PebbleListener interface {
 }
 
 type EventListener interface {
-	OnIO(write bool)
+	OnIO(write bool, duration time.Duration)
+	OnCommit(duration time.Duration)
 	PebbleListener
 }
 
 type SelectiveListener struct {
-	OnIOCb func(write bool)
+	OnIOCb     func(write bool, duration time.Duration)
+	OnCommitCb func(duration time.Duration)
 
 	OnPebbleMetricsCb func(*PebbleMetrics)
 }
 
-func (l *SelectiveListener) OnIO(write bool) {
+func (l *SelectiveListener) OnIO(write bool, duration time.Duration) {
 	if l.OnIOCb != nil {
-		l.OnIOCb(write)
+		l.OnIOCb(write, duration)
+	}
+}
+
+func (l *SelectiveListener) OnCommit(duration time.Duration) {
+	if l.OnCommitCb != nil {
+		l.OnCommitCb(duration)
 	}
 }
 

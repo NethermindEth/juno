@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/NethermindEth/juno">
-    <img alt="Juno Logo" height="125" src="./.github/Juno_Dark_Powered_by_Nethermind.png">
+    <img alt="Juno Logo" height="125" src="./.github/Juno_Light.png">
   </a>
   <br>
 </p>
@@ -24,7 +24,7 @@
   <a href="https://discord.gg/TcHbSZ9ATd">
     <img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white">
   </a>
-  <a href="https://twitter.com/nethermindeth?s=20&t=xLC_xrid_f17DJqdJ2EZnA">
+  <a href="https://twitter.com/NethermindStark">
     <img src="https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white">
   </a>
   <a href="https://t.me/+skAz9cUvo_AzZWM8">
@@ -39,7 +39,7 @@
 
 > **📌 Looking for a Starknet RPC Provider?**
 >
-> If you are searching for a Starknet RPC provider, Nethermind is introducing a Starknet RPC service ahead of the upcoming feeder gateway deprecation. You can register your interest on [this Google Form](https://docs.google.com/forms/d/e/1FAIpQLSf2Bl4fc9-38E-fpWf0tnMWc3jSeOFkpjSPMN_j1en1WmEgKg/viewform?usp=sf_link).
+> Access Nethermind's Starknet RPC service for free at https://data.voyager.online.
 
 ## ⚙️ Installation
 
@@ -94,19 +94,13 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
+| **>=v0.9.2**  | **156 GB** | **519634** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar) |
 
 #### Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
-
-#### Goerli2
-
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| **>=v0.9.2** | **48 GB** | **931113** | [**juno_goerli.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.9.2_931113.tar) |
 
 ### Run Juno Using Snapshot
 
@@ -115,7 +109,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   curl -o juno_mainnet_247401.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar
    ```
 
 2. **Prepare Directory**
@@ -131,7 +125,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_247401.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**
@@ -146,6 +140,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
      nethermind/juno \
      --http \
      --http-port 6060 \
+     --http-host 0.0.0.0 \
      --db-path /var/lib/juno \
      --eth-node <YOUR-ETH-NODE>
    ```
@@ -154,8 +149,8 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.12.2](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
-- JSON-RPC [v0.4.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.4.0):
+- Starknet [v0.13.0](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
+- JSON-RPC [v0.6.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.6.0) (Available under `/v0_6` endpoint)
   - `starknet_chainId`
   - `starknet_blockNumber`
   - `starknet_blockHashAndNumber`
@@ -168,6 +163,7 @@ After following these steps, Juno should be up and running on your machine, util
   - `starknet_getStateUpdate`
   - `starknet_getNonce`
   - `starknet_getStorageAt`
+  - `starknet_getTransactionStatus`
   - `starknet_getClassHashAt`
   - `starknet_getClass`
   - `starknet_getClassAt`
@@ -179,14 +175,14 @@ After following these steps, Juno should be up and running on your machine, util
   - `starknet_addDeclareTransaction`
   - `starknet_addDeployAccountTransaction`
   - `starkent_estimateMessageFee`
-  - `starknet_pendingTransactions`
   - `starknet_traceTransaction`
   - `starknet_traceBlockTransactions`
   - `starknet_simulateTransactions`
+  - `starknet_specVersion` 
   
 - Juno's JSON-RPC:
   - `juno_version`
-  - `juno_getTransactionStatus`
+- JSON-RPC [v0.5.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.5.1) (Available under `/v0_5` endpoint)
 - Integration of CairoVM. 
 - Verification of State from L1.
 - Handle L1 and L2 Reorgs.
@@ -196,7 +192,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## 🛣 Roadmap
 
-### Phase 1
+### Phase 1: Permissionless access to Starknet ✅
 
 <details>
 <summary></summary>
@@ -230,7 +226,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 </details>
 
-### Phase 2
+### Phase 2: Full JSON RPC Support ✅
 
 <details>
 <summary></summary>
@@ -259,6 +255,35 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
     * [X] `starknet_addDeployAccountTransaction`
 
 </details>
+
+### Phase 3: Starknet decentralization begins 🚧
+
+<details>
+<summary></summary>
+
+Juno can synchronize Starknet state from other full nodes with the aim of decentralizing Starknet by removing the dependency from the centralized sequencer.
+
+
+Snap sync is implemented, significantly reducing sync times.
+
+</details>
+  
+### Phase 4: Juno becomes a Starknet Sequencer 🔜
+
+<details>
+<summary></summary>
+
+The decentralization of Starknet is complete! Juno becomes a sequencer and participates in L2 consensus to secure the network. Juno has multiple modes of operation:
+‍
+
+•   Light client: provides fast permissionless access to Starknet with minimal verification.
+
+•   Full Node: complete verification of Starknet state along with transaction execution.
+
+•   Sequencer: secure the network by taking part in the L2 consensus mechanism.
+
+</details>
+
 
 ## 👍 Contribute
 

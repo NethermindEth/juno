@@ -28,10 +28,11 @@ type Client struct {
 	l1                    Subscriber
 	l2Chain               *blockchain.Blockchain
 	log                   utils.SimpleLogger
-	network               utils.Network
+	network               *utils.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
+	listener              EventListener
 }
 
 var _ service.Service = (*Client)(nil)
@@ -45,7 +46,13 @@ func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogg
 		resubscribeDelay:      10 * time.Second,
 		pollFinalisedInterval: time.Minute,
 		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate, 0),
+		listener:              SelectiveListener{},
 	}
+}
+
+func (c *Client) WithEventListener(l EventListener) *Client {
+	c.listener = l
+	return c
 }
 
 func (c *Client) WithResubscribeDelay(delay time.Duration) *Client {
@@ -81,14 +88,14 @@ func (c *Client) checkChainID(ctx context.Context) error {
 		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
 	}
 
-	wantChainID := c.network.DefaultL1ChainID()
+	wantChainID := c.network.L1ChainID
 	if gotChainID.Cmp(wantChainID) == 0 {
 		return nil
 	}
 
 	// NOTE: for now we return an error. If we want to support users who fork
 	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
-	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network)
+	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network.String())
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -204,6 +211,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 	if err := c.l2Chain.SetL1Head(head); err != nil {
 		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
 	}
+	c.listener.OnNewL1Head(head)
 	c.log.Infow("Updated l1 head",
 		"blockNumber", head.BlockNumber,
 		"blockHash", head.BlockHash.ShortString(),
