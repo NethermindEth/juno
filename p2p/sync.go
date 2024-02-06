@@ -83,7 +83,7 @@ func (s *syncService) start(ctx context.Context) {
 			break
 		}
 
-		fmt.Println("Continuous iteration", "i", i)
+		s.log.Debugw("Continuous iteration", "i", i)
 
 		ctx, cancelIteration := context.WithCancel(ctx)
 
@@ -232,27 +232,27 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					fmt.Printf("Received Block Header and Signatures for block number: %v\n", p.header.Number)
+					s.log.Debugw("Received Block Header and Signatures", "blockNumber", p.header.Number)
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specBlockBody:
-					fmt.Printf("Received Block Body parts            for block number: %v\n", p.id.Number)
+					s.log.Debugw("Received Block Body parts", "blockNumber", p.id.Number)
 					if _, ok := specBlockBodiesM[part.blockNumber()]; !ok {
 						specBlockBodiesM[part.blockNumber()] = p
 					}
 				case specTransactions:
-					fmt.Printf("Received Transactions                for block number: %v\n", p.id.Number)
+					s.log.Debugw("Received Transactions", "blockNumber", p.id.Number)
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
 				case specReceipts:
-					fmt.Printf("Received Receipts                    for block number: %v\n", p.id.Number)
+					s.log.Debugw("Received Receipts", "blockNumber", p.id.Number)
 					if _, ok := specReceiptsM[part.blockNumber()]; !ok {
 						specReceiptsM[part.blockNumber()] = p
 					}
 				case specEvents:
-					fmt.Printf("Received Events                      for block number: %v\n", p.id.Number)
+					s.log.Debugw("Received Events", "blockNumber", p.id.Number)
 					if _, ok := specEventsM[part.blockNumber()]; !ok {
 						specEventsM[part.blockNumber()] = p
 					}
@@ -264,7 +264,7 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 				rs, ok4 := specReceiptsM[curBlockNum]
 				es, ok5 := specEventsM[curBlockNum]
 				if ok1 && ok2 && ok3 && ok4 && ok5 {
-					fmt.Println("----- Received all block parts from peers for block number:", curBlockNum, "-----")
+					s.log.Debugw(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
 
 					select {
 					case <-ctx.Done():
@@ -624,9 +624,8 @@ func (s *syncService) randomPeer() peer.ID {
 
 	peer := peers[rand.Intn(len(peers))]
 
-	fmt.Println("Number of peers", len(peers))
-	// Random chosen peer's Info {12D3KooWBejoxD2ivkPjRYhD887XXdCL9o6uAYr196BWJac36uzo: []}
-	fmt.Println("Random chosen peer's Info", s.host.Peerstore().PeerInfo(peer))
+	s.log.Debugw("Number of peers", "len", len(peers))
+	s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(peer))
 
 	return peer
 }
@@ -647,7 +646,7 @@ func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID)
 }
 
 func (s *syncService) removePeer(id peer.ID) {
-	fmt.Println("Removing peer", id)
+	s.log.Debugw("Removing peer", "peerID", id)
 	s.host.Peerstore().RemovePeer(id)
 	s.host.Peerstore().ClearAddrs(id)
 }

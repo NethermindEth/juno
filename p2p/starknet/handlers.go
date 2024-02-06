@@ -46,8 +46,7 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 ) {
 	defer func() {
 		if err := stream.Close(); err != nil {
-			// log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-			fmt.Println("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		}
 	}()
 
@@ -55,30 +54,26 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 	defer bufferPool.Put(buffer)
 
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		// log.Debugw("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-		fmt.Println("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debugw("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		return
 	}
 
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		// log.Debugw("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-		fmt.Println("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debugw("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		return
 	}
 
 	response, err := reqHandler(req.(ReqT))
 	if err != nil {
-		//	log.Debugw("Error handling request", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-		fmt.Printf("Error handling request peer %v protocol %v err %v\n", stream.ID(), stream.Protocol(), err)
+		log.Debugw("Error handling request peer %v protocol %v err %v\n", stream.ID(), stream.Protocol(), err)
 		return
 	}
 
 	for msg, valid := response(); valid; msg, valid = response() {
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			// log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-			fmt.Println("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		}
 	}
 }
@@ -140,7 +135,7 @@ func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[p
 			return fin()
 		}
 		it.Next()
-		fmt.Printf("Created Header Iterator for blockNumber %d\n", header.Number)
+		h.log.Debugw("Created Header Iterator", "blockNumber", header.Number)
 
 		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
@@ -196,7 +191,7 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (Stream[pro
 		}
 		it.Next()
 
-		fmt.Printf("Creating Block Body Iterator for blockNumber %d\n", header.Number)
+		h.log.Debugw("Creating Block Body Iterator", "blockNumber", header.Number)
 		bodyIterator, err = newBlockBodyIterator(h.bcReader, header, h.log)
 		if err != nil {
 			h.log.Debugw("Failed to create block body iterator", "blockNumber", it.BlockNumber(), "err", err)
@@ -227,7 +222,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (Stream[proto.Message
 			return fin()
 		}
 		it.Next()
-		fmt.Printf("Created Events Iterator for blockNumber %d\n", block.Number)
+		h.log.Debugw("Created Events Iterator", "blockNumber", block.Number)
 
 		events := make([]*spec.Event, 0, len(block.Receipts))
 		for _, receipt := range block.Receipts {
@@ -266,7 +261,7 @@ func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (Stream[proto.Mes
 			return fin()
 		}
 		it.Next()
-		fmt.Printf("Created Receipts Iterator for blockNumber %d\n", block.Number)
+		h.log.Debugw("Created Receipts Iterator", "blockNumber", block.Number)
 
 		receipts := make([]*spec.Receipt, len(block.Receipts))
 		for i := 0; i < len(block.Receipts); i++ {
@@ -304,7 +299,7 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (Stream[p
 			return fin()
 		}
 		it.Next()
-		fmt.Printf("Created Transactions Iterator for blockNumber %d\n", block.Number)
+		h.log.Debugw("Created Transactions Iterator", "blockNumber", block.Number)
 
 		return &spec.TransactionsResponse{
 			Id: core2p2p.AdaptBlockID(block.Header),

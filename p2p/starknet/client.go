@@ -3,7 +3,6 @@ package starknet
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/NethermindEth/juno/utils/iter"
@@ -52,7 +51,7 @@ func receiveInto(stream network.Stream, res proto.Message) error {
 }
 
 func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context.Context,
-	newStream NewStreamFunc, protocolID protocol.ID, req ReqT,
+	newStream NewStreamFunc, protocolID protocol.ID, req ReqT, log utils.SimpleLogger,
 ) (iter.Seq[ResT], error) {
 	stream, err := newStream(ctx, protocolID)
 	if err != nil {
@@ -61,7 +60,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
-		fmt.Printf("sendAndCloseWrite (stream is not closed), error: %v (streamID is %v)\n", err, id)
+		log.Debugw("sendAndCloseWrite (stream is not closed)", "err", err, "streamID", id)
 		return nil, err
 	}
 
@@ -69,7 +68,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		defer func() {
 			closeErr := stream.Close()
 			if closeErr != nil {
-				fmt.Println("Error while closing stream", closeErr)
+				log.Debugw("Error while closing stream", "err", closeErr)
 			}
 		}()
 
@@ -78,7 +77,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 			res := zero.ProtoReflect().New().Interface()
 			if err := receiveInto(stream, res); err != nil {
 				if !errors.Is(err, io.EOF) {
-					fmt.Println("Error while reading from stream", err)
+					log.Debugw("Error while reading from stream", "err", err)
 				}
 
 				break
@@ -93,25 +92,25 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 func (c *Client) RequestCurrentBlockHeader(ctx context.Context, req *spec.CurrentBlockHeaderRequest) (iter.Seq[*spec.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*spec.CurrentBlockHeaderRequest, *spec.BlockHeadersResponse](ctx, c.newStream,
-		CurrentBlockHeaderPID(c.network), req)
+		CurrentBlockHeaderPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestBlockHeaders(ctx context.Context, req *spec.BlockHeadersRequest) (iter.Seq[*spec.BlockHeadersResponse], error) {
-	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(c.network), req)
+	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (iter.Seq[*spec.BlockBodiesResponse], error) {
-	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](ctx, c.newStream, BlockBodiesPID(c.network), req)
+	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](ctx, c.newStream, BlockBodiesPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (iter.Seq[*spec.EventsResponse], error) {
-	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(c.network), req)
+	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestReceipts(ctx context.Context, req *spec.ReceiptsRequest) (iter.Seq[*spec.ReceiptsResponse], error) {
-	return requestAndReceiveStream[*spec.ReceiptsRequest, *spec.ReceiptsResponse](ctx, c.newStream, ReceiptsPID(c.network), req)
+	return requestAndReceiveStream[*spec.ReceiptsRequest, *spec.ReceiptsResponse](ctx, c.newStream, ReceiptsPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestTransactions(ctx context.Context, req *spec.TransactionsRequest) (iter.Seq[*spec.TransactionsResponse], error) {
-	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](ctx, c.newStream, TransactionsPID(c.network), req)
+	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](ctx, c.newStream, TransactionsPID(c.network), req, c.log)
 }
