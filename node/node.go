@@ -145,6 +145,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	var p2pService *p2p.Service
 	if cfg.P2P {
+		if cfg.Network != utils.Sepolia {
+			return nil, fmt.Errorf("P2P can only be used for %v network. Provided network: %v", utils.Sepolia, cfg.Network)
+		}
+		log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
+
 		if !cfg.P2PFeederNode {
 			// Do not start the feeder synchronisation
 			synchronizer = nil

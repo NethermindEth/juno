@@ -113,24 +113,26 @@ const (
 	ethNodeUsage      = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)."
-	p2pUsage                 = "Enables p2p server."
-	p2pAddrUsage             = "Specify p2p source address as multiaddr."
-	p2pPeersUsage            = "Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes."
-	p2pFeederNodeUsage       = "Run juno as a feeder node which will only sync from feeder gateway and gossip the new blocks to the network."
-	p2pPrivateKeyUsage       = "Hexadecimal representation of a private key on the Ed25519 elliptic curve."
-	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
-	metricsHostUsage         = "The interface on which the prometheus endpoint will listen for requests."
-	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
-	grpcUsage                = "Enable the HTTP GRPC server on the default port."
-	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
-	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
-	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
-	remoteDBUsage            = "gRPC URL of a remote Juno node"
-	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
-	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
-	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
+	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p source address as multiaddr."
+	p2pPeersUsage            = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
+		"These peers can be either Feeder or regular nodes."
+	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
+		" blocks to the network."
+	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	metricsUsage         = "Enables the prometheus metrics endpoint on the default port."
+	metricsHostUsage     = "The interface on which the prometheus endpoint will listen for requests."
+	metricsPortUsage     = "The port on which the prometheus endpoint will listen for requests."
+	grpcUsage            = "Enable the HTTP GRPC server on the default port."
+	grpcHostUsage        = "The interface on which the GRPC server will listen for requests."
+	grpcPortUsage        = "The port on which the GRPC server will listen for requests."
+	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
+	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
+	remoteDBUsage        = "gRPC URL of a remote Juno node"
+	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
+	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
+	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 )
 
 var Version string
