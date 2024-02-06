@@ -29,7 +29,7 @@ const maxBlocks = 100
 
 type syncService struct {
 	host    host.Host
-	network utils.Network
+	network *utils.Network
 	client  *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
 
 	blockchain *blockchain.Blockchain
@@ -37,7 +37,7 @@ type syncService struct {
 	log        utils.SimpleLogger
 }
 
-func newSyncService(bc *blockchain.Blockchain, h host.Host, network utils.Network, log utils.SimpleLogger) *syncService {
+func newSyncService(bc *blockchain.Blockchain, h host.Host, network *utils.Network, log utils.SimpleLogger) *syncService {
 	return &syncService{
 		host:       h,
 		network:    network,

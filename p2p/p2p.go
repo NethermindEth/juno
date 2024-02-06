@@ -36,7 +36,7 @@ const (
 type Service struct {
 	host host.Host
 
-	network utils.Network
+	network *utils.Network
 	handler *starknet.Handler
 	log     utils.SimpleLogger
 
@@ -77,7 +77,7 @@ func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockch
 	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork utils.Network,
+func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger,
 ) (*Service, error) {
 	peersAddrInfoS := []peer.AddrInfo{}
@@ -105,7 +105,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		synchroniser: synchroniser,
 		log:          log,
 		host:         p2phost,
-		network:      *snNetwork,
+		network:      snNetwork,
 		dht:          p2pdht,
 		feederNode:   feederNode,
 		topics:       make(map[string]*pubsub.Topic),

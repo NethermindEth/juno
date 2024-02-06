@@ -19,14 +19,14 @@ type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Strea
 
 type Client struct {
 	newStream NewStreamFunc
-	network   utils.Network
+	network   *utils.Network
 	log       utils.SimpleLogger
 }
 
 func NewClient(newStream NewStreamFunc, snNetwork *utils.Network, log utils.SimpleLogger) *Client {
 	return &Client{
 		newStream: newStream,
-		network:   *snNetwork,
+		network:   snNetwork,
 		log:       log,
 	}
 }
@@ -96,21 +96,21 @@ func (c *Client) RequestCurrentBlockHeader(ctx context.Context, req *spec.Curren
 }
 
 func (c *Client) RequestBlockHeaders(ctx context.Context, req *spec.BlockHeadersRequest) (iter.Seq[*spec.BlockHeadersResponse], error) {
-	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(&c.network), req, c.log)
+	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (iter.Seq[*spec.BlockBodiesResponse], error) {
-	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](ctx, c.newStream, BlockBodiesPID(&c.network), req, c.log)
+	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](ctx, c.newStream, BlockBodiesPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (iter.Seq[*spec.EventsResponse], error) {
-	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(&c.network), req, c.log)
+	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestReceipts(ctx context.Context, req *spec.ReceiptsRequest) (iter.Seq[*spec.ReceiptsResponse], error) {
-	return requestAndReceiveStream[*spec.ReceiptsRequest, *spec.ReceiptsResponse](ctx, c.newStream, ReceiptsPID(&c.network), req, c.log)
+	return requestAndReceiveStream[*spec.ReceiptsRequest, *spec.ReceiptsResponse](ctx, c.newStream, ReceiptsPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestTransactions(ctx context.Context, req *spec.TransactionsRequest) (iter.Seq[*spec.TransactionsResponse], error) {
-	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](ctx, c.newStream, TransactionsPID(&c.network), req, c.log)
+	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](ctx, c.newStream, TransactionsPID(c.network), req, c.log)
 }

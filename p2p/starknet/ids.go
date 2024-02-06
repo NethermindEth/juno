@@ -6,7 +6,7 @@ import (
 )
 
 // Todo: consider merging this with BlockHeadersPID
-func CurrentBlockHeaderPID(n utils.Network) protocol.ID {
+func CurrentBlockHeaderPID(n *utils.Network) protocol.ID {
 	return n.ProtocolID() + "/current_header/0"
 }
 

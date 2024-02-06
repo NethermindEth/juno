@@ -56,9 +56,9 @@ const (
 	pendingPollIntervalF   = "pending-poll-interval"
 	p2pF                   = "p2p"
 	p2pAddrF               = "p2p-addr"
-	p2pPeersF            = "p2p-peers"
-	p2pFeederNodeF       = "p2p-feeder-node"
-	p2pPrivateKey        = "p2p-private-key"
+	p2pPeersF              = "p2p-peers"
+	p2pFeederNodeF         = "p2p-feeder-node"
+	p2pPrivateKey          = "p2p-private-key"
 	metricsF               = "metrics"
 	metricsHostF           = "metrics-host"
 	metricsPortF           = "metrics-port"
@@ -96,18 +96,18 @@ const (
 	defaultPendingPollInterval      = time.Duration(0)
 	defaultP2p                      = false
 	defaultP2pAddr                  = ""
-	defaultP2pPeers            = ""
-	defaultP2pFeederNode       = false
-	defaultP2pPrivateKey       = ""
-	defaultMetrics             = false
-	defaultMetricsPort         = 9090
-	defaultGRPC                = false
-	defaultGRPCPort            = 6064
-	defaultRemoteDB            = ""
-	defaultRPCMaxBlockScan     = math.MaxUint
-	defaultCacheSizeMb         = 8
-	defaultMaxHandles          = 1024
-	defaultGwAPIKey            = ""
+	defaultP2pPeers                 = ""
+	defaultP2pFeederNode            = false
+	defaultP2pPrivateKey            = ""
+	defaultMetrics                  = false
+	defaultMetricsPort              = 9090
+	defaultGRPC                     = false
+	defaultGRPCPort                 = 6064
+	defaultRemoteDB                 = ""
+	defaultRPCMaxBlockScan          = math.MaxUint
+	defaultCacheSizeMb              = 8
+	defaultMaxHandles               = 1024
+	defaultGwAPIKey                 = ""
 	defaultCNName                   = ""
 	defaultCNFeederURL              = ""
 	defaultCNGatewayURL             = ""
@@ -162,9 +162,9 @@ const (
 	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutUsage           = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage        = "Maximum number of steps to be executed in starknet_call requests"
-	corsEnableUsage          = "Enable CORS on RPC endpoints"
+	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
+	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests"
+	corsEnableUsage      = "Enable CORS on RPC endpoints"
 )
 
 var Version string

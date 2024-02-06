@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptTransaction(t *spec.Transaction, network utils.Network) core.Transaction {
+func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transaction {
 	if t == nil {
 		return nil
 	}

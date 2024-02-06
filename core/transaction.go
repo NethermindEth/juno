@@ -496,7 +496,7 @@ func declareTransactionHash(d *DeclareTransaction, n *utils.Network) (*felt.Felt
 				new(felt.Felt),
 				crypto.PedersenArray(),
 				d.MaxFee,
-				n.ChainID(),
+				n.L2ChainIDFelt(),
 				d.ClassHash,
 			)
 			return h, nil

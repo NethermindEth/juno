@@ -157,7 +157,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, cfg.Network, log)
+		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, &cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
@@ -222,7 +222,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if synchronizer != nil {
 			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		}
-		services = append(services, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
