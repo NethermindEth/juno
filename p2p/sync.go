@@ -69,7 +69,7 @@ func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
 	return int(header.Number), nil
 }
 
-const retyrDuration = 5 * time.Second
+const retryDuration = 5 * time.Second
 
 func (s *syncService) start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -92,8 +92,8 @@ func (s *syncService) start(ctx context.Context) {
 		if err != nil {
 			cancelIteration()
 			if errors.Is(err, errNoPeers) {
-				s.log.Infow("No peers available", "retrying in", retyrDuration.String())
-				time.Sleep(retyrDuration)
+				s.log.Infow("No peers available", "retrying in", retryDuration.String())
+				s.sleep(retryDuration)
 			} else {
 				s.logError("Failed to get random node height", err)
 			}
@@ -109,10 +109,10 @@ func (s *syncService) start(ctx context.Context) {
 
 		blockBehind := randHeight - (nextHeight - 1)
 		if blockBehind <= 0 {
-			s.log.Infow("Random node height is the same or less as local height", " retrying in", retyrDuration.String(),
+			s.log.Infow("Random node height is the same or less as local height", " retrying in", retryDuration.String(),
 				"Random node height", randHeight, "Current height", nextHeight-1)
 			cancelIteration()
-			time.Sleep(retyrDuration)
+			s.sleep(retryDuration)
 			continue
 		}
 
@@ -665,4 +665,9 @@ func (s *syncService) createIterator(start, limit uint64) *spec.Iteration {
 
 func (s *syncService) WithListener(l junoSync.EventListener) {
 	s.listener = l
+}
+
+func (s *syncService) sleep(d time.Duration) {
+	s.log.Debugw("Sleeping...", "for", d)
+	time.Sleep(d)
 }
