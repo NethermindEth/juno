@@ -26,7 +26,7 @@ func TestNewNode(t *testing.T) {
 		GRPC:                true,
 		GRPCPort:            0,
 		DatabasePath:        t.TempDir(),
-		Network:             utils.Mainnet,
+		Network:             utils.Sepolia, // P2P will only work with Sepolia (for the time being)
 		EthNode:             "",
 		Pprof:               true,
 		PprofPort:           0,

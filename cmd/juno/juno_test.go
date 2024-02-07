@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -643,9 +644,11 @@ network: goerli
 
 			require.True(t, len(tc.env)%2 == 0, "The number of env variables should be an even number")
 
+			junoEnv := unsetJunoPrefixedEnv(t)
+
 			if len(tc.env) > 0 {
 				for i := 0; i < len(tc.env)/2; i++ {
-					os.Setenv(tc.env[2*i], tc.env[2*i+1])
+					require.NoError(t, os.Setenv(tc.env[2*i], tc.env[2*i+1]))
 				}
 			}
 
@@ -663,9 +666,11 @@ network: goerli
 			assert.Equal(t, tc.expectedConfig, config)
 			if len(tc.env) > 0 {
 				for i := 0; i < len(tc.env)/2; i++ {
-					os.Unsetenv(tc.env[2*i])
+					require.NoError(t, os.Unsetenv(tc.env[2*i]))
 				}
 			}
+
+			setJunoPrefixedEnv(t, junoEnv)
 		})
 	}
 }
@@ -686,4 +691,30 @@ func tempCfgFile(t *testing.T, cfg string) string {
 	require.NoError(t, f.Sync())
 
 	return f.Name()
+}
+
+func unsetJunoPrefixedEnv(t *testing.T) map[string]string {
+	t.Helper()
+
+	const prefix = "JUNO_"
+	junoEnv := make(map[string]string)
+
+	for _, e := range os.Environ() {
+		pair := strings.Split(e, "=")
+		k, v := pair[0], pair[1]
+
+		if strings.HasPrefix(k, prefix) {
+			junoEnv[k] = v
+
+			require.NoError(t, os.Unsetenv(k))
+		}
+	}
+	return junoEnv
+}
+
+func setJunoPrefixedEnv(t *testing.T, env map[string]string) {
+	t.Helper()
+	for k, v := range env {
+		require.NoError(t, os.Setenv(k, v))
+	}
 }
