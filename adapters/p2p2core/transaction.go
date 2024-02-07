@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+//nolint:funlen
 func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transaction {
 	if t == nil {
 		return nil

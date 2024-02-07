@@ -314,28 +314,28 @@ func (s *Service) SubscribeToTopic(topic string) (chan []byte, func(), error) {
 
 	const bufferSize = 16
 	ch := make(chan []byte, bufferSize)
-	go func() {
-		for {
-			//msg, err := sub.Next(s.runCtx)
-			//if err != nil {
-			//	close(ch)
-			//	return
-			//}
-			// only forward messages delivered by others
-			//if msg.ReceivedFrom == s.host.ID() {
-			//	continue
-			//}
-
-			//select {
-			//case ch <- msg.GetData():
-			//case <-s.runCtx.Done():
-			//}
-		}
-	}()
+	// go func() {
+	//	for {
+	//		msg, err := sub.Next(s.runCtx)
+	//		if err != nil {
+	//			close(ch)
+	//			return
+	//		}
+	//		only forward messages delivered by others
+	//		if msg.ReceivedFrom == s.host.ID() {
+	//			continue
+	//		}
+	//
+	//		select {
+	//		case ch <- msg.GetData():
+	//		case <-s.runCtx.Done():
+	//		}
+	//	}
+	// }()
 	return ch, sub.Cancel, nil
 }
 
-func (s *Service) PublishOnTopic(topic string, data []byte) error {
+func (s *Service) PublishOnTopic(topic string) error {
 	t, joinErr := s.joinTopic(topic)
 	if joinErr != nil {
 		return joinErr
@@ -343,7 +343,6 @@ func (s *Service) PublishOnTopic(topic string, data []byte) error {
 	_ = t
 
 	return nil
-	// return t.Publish(s.runCtx, data)
 }
 
 func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {

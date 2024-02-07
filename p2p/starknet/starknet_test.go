@@ -1,8 +1,8 @@
 package starknet_test
 
-//func nopCloser() error { return nil }
+// func nopCloser() error { return nil }
 //
-//func TestClientHandler(t *testing.T) { //nolint:gocyclo
+// func TestClientHandler(t *testing.T) { //nolint:gocyclo
 //	mockCtrl := gomock.NewController(t)
 //	t.Cleanup(mockCtrl.Finish)
 //
@@ -777,7 +777,7 @@ package starknet_test
 //	})
 //}
 //
-//func expectedHeaderResponse(h *core.Header, c *core.BlockCommitments) *spec.BlockHeadersResponse {
+// func expectedHeaderResponse(h *core.Header, c *core.BlockCommitments) *spec.BlockHeadersResponse {
 //	adaptHash := core2p2p.AdaptHash
 //	return &spec.BlockHeadersResponse{
 //		Part: []*spec.BlockHeadersResponsePart{
@@ -815,13 +815,13 @@ package starknet_test
 //	}
 //}
 //
-//func mapToExpectedTransactions(block *core.Block) *spec.Transactions {
+// func mapToExpectedTransactions(block *core.Block) *spec.Transactions {
 //	return &spec.Transactions{
 //		Items: utils.Map(block.Transactions, core2p2p.AdaptTransaction),
 //	}
 //}
 //
-//func txVersion(v uint64) *core.TransactionVersion {
+// func txVersion(v uint64) *core.TransactionVersion {
 //	var f felt.Felt
 //	f.SetUint64(v)
 //
@@ -829,11 +829,11 @@ package starknet_test
 //	return &txV
 //}
 //
-//func feltSlice(n int) []*felt.Felt {
+// func feltSlice(n int) []*felt.Felt {
 //	return make([]*felt.Felt, n)
 //}
 //
-//func randFelt(t *testing.T) *felt.Felt {
+// func randFelt(t *testing.T) *felt.Felt {
 //	t.Helper()
 //
 //	f, err := new(felt.Felt).SetRandom()
@@ -842,7 +842,7 @@ package starknet_test
 //	return f
 //}
 //
-//func fillFelts[T any](t *testing.T, i T) T {
+// func fillFelts[T any](t *testing.T, i T) T {
 //	v := reflect.ValueOf(i)
 //	if v.Kind() == reflect.Ptr && !v.IsNil() {
 //		v = v.Elem()
@@ -891,7 +891,7 @@ package starknet_test
 //	return i
 //}
 //
-//func sortContractDiff(diff []*spec.StateDiff_ContractDiff) {
+// func sortContractDiff(diff []*spec.StateDiff_ContractDiff) {
 //	sort.Slice(diff, func(i, j int) bool {
 //		iAddress := diff[i].Address
 //		jAddress := diff[j].Address
@@ -899,7 +899,7 @@ package starknet_test
 //	})
 //}
 //
-//func noError[T any](t *testing.T, f func() (T, error)) T {
+// func noError[T any](t *testing.T, f func() (T, error)) T {
 //	t.Helper()
 //
 //	v, err := f()

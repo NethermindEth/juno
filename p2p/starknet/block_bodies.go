@@ -136,13 +136,13 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 
 	modifiedContracts := make(map[felt.Felt]*contractDiff)
 
-	initContractDiff := func(addr *felt.Felt) (*contractDiff, error) {
-		return &contractDiff{address: addr}, nil
+	initContractDiff := func(addr *felt.Felt) *contractDiff {
+		return &contractDiff{address: addr}
 	}
 	updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
 		cDiff, ok := modifiedContracts[addr]
 		if !ok {
-			cDiff, err = initContractDiff(&addr)
+			cDiff = initContractDiff(&addr)
 			if err != nil {
 				return err
 			}

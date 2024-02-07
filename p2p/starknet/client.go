@@ -5,10 +5,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/NethermindEth/juno/utils/iter"
-
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/utils/iter"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/protobuf/encoding/protodelim"
@@ -90,17 +89,23 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	}, nil
 }
 
-func (c *Client) RequestCurrentBlockHeader(ctx context.Context, req *spec.CurrentBlockHeaderRequest) (iter.Seq[*spec.BlockHeadersResponse], error) {
+func (c *Client) RequestCurrentBlockHeader(
+	ctx context.Context, req *spec.CurrentBlockHeaderRequest,
+) (iter.Seq[*spec.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*spec.CurrentBlockHeaderRequest, *spec.BlockHeadersResponse](ctx, c.newStream,
 		CurrentBlockHeaderPID(c.network), req, c.log)
 }
 
-func (c *Client) RequestBlockHeaders(ctx context.Context, req *spec.BlockHeadersRequest) (iter.Seq[*spec.BlockHeadersResponse], error) {
-	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](ctx, c.newStream, BlockHeadersPID(c.network), req, c.log)
+func (c *Client) RequestBlockHeaders(
+	ctx context.Context, req *spec.BlockHeadersRequest,
+) (iter.Seq[*spec.BlockHeadersResponse], error) {
+	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](
+		ctx, c.newStream, BlockHeadersPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (iter.Seq[*spec.BlockBodiesResponse], error) {
-	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](ctx, c.newStream, BlockBodiesPID(c.network), req, c.log)
+	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](
+		ctx, c.newStream, BlockBodiesPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (iter.Seq[*spec.EventsResponse], error) {
@@ -112,5 +117,6 @@ func (c *Client) RequestReceipts(ctx context.Context, req *spec.ReceiptsRequest)
 }
 
 func (c *Client) RequestTransactions(ctx context.Context, req *spec.TransactionsRequest) (iter.Seq[*spec.TransactionsResponse], error) {
-	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](ctx, c.newStream, TransactionsPID(c.network), req, c.log)
+	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](
+		ctx, c.newStream, TransactionsPID(c.network), req, c.log)
 }

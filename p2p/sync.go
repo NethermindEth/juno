@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"time"
 
-	junoSync "github.com/NethermindEth/juno/sync"
-
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -16,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -37,10 +36,10 @@ type syncService struct {
 	log        utils.SimpleLogger
 }
 
-func newSyncService(bc *blockchain.Blockchain, h host.Host, network *utils.Network, log utils.SimpleLogger) *syncService {
+func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *syncService {
 	return &syncService{
 		host:       h,
-		network:    network,
+		network:    n,
 		blockchain: bc,
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
@@ -71,6 +70,7 @@ func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
 
 const retryDuration = 5 * time.Second
 
+//nolint:funlen,gocyclo
 func (s *syncService) start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -85,10 +85,10 @@ func (s *syncService) start(ctx context.Context) {
 
 		s.log.Debugw("Continuous iteration", "i", i)
 
-		ctx, cancelIteration := context.WithCancel(ctx)
+		iterCtx, cancelIteration := context.WithCancel(ctx)
 
 		var err error
-		randHeight, err = s.randomNodeHeight(ctx)
+		randHeight, err = s.randomNodeHeight(iterCtx)
 		if err != nil {
 			cancelIteration()
 			if errors.Is(err, errNoPeers) {
@@ -120,47 +120,47 @@ func (s *syncService) start(ctx context.Context) {
 			nextHeight+min(blockBehind, maxBlocks))
 
 		commonIt := s.createIterator(uint64(nextHeight), uint64(min(blockBehind, maxBlocks)))
-		headersAndSigsCh, err := s.genHeadersAndSigs(ctx, commonIt)
+		headersAndSigsCh, err := s.genHeadersAndSigs(iterCtx, commonIt)
 		if err != nil {
 			s.logError("Failed to get block headers parts", err)
 			cancelIteration()
 			continue
 		}
 
-		blockBodiesCh, err := s.genBlockBodies(ctx, commonIt)
+		blockBodiesCh, err := s.genBlockBodies(iterCtx, commonIt)
 		if err != nil {
 			s.logError("Failed to get block bodies", err)
 			cancelIteration()
 			continue
 		}
 
-		txsCh, err := s.genTransactions(ctx, commonIt)
+		txsCh, err := s.genTransactions(iterCtx, commonIt)
 		if err != nil {
 			s.logError("Failed to get transactions", err)
 			cancelIteration()
 			continue
 		}
 
-		receiptsCh, err := s.genReceipts(ctx, commonIt)
+		receiptsCh, err := s.genReceipts(iterCtx, commonIt)
 		if err != nil {
 			s.logError("Failed to get receipts", err)
 			cancelIteration()
 			continue
 		}
 
-		eventsCh, err := s.genEvents(ctx, commonIt)
+		eventsCh, err := s.genEvents(iterCtx, commonIt)
 		if err != nil {
 			s.logError("Failed to get events", err)
 			cancelIteration()
 			continue
 		}
 
-		blocksCh := pipeline.Bridge(ctx, s.processSpecBlockParts(ctx, uint64(nextHeight), pipeline.FanIn(ctx,
-			pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
-			pipeline.Stage(ctx, blockBodiesCh, specBlockPartsFunc[specBlockBody]),
-			pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTransactions]),
-			pipeline.Stage(ctx, receiptsCh, specBlockPartsFunc[specReceipts]),
-			pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
+		blocksCh := pipeline.Bridge(iterCtx, s.processSpecBlockParts(iterCtx, uint64(nextHeight), pipeline.FanIn(iterCtx,
+			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+			pipeline.Stage(iterCtx, blockBodiesCh, specBlockPartsFunc[specBlockBody]),
+			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTransactions]),
+			pipeline.Stage(iterCtx, receiptsCh, specBlockPartsFunc[specReceipts]),
+			pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
 		)))
 
 		for b := range blocksCh {
@@ -213,7 +213,10 @@ type blockBody struct {
 	err         error
 }
 
-func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts) <-chan <-chan blockBody {
+//nolint:gocyclo
+func (s *syncService) processSpecBlockParts(
+	ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts,
+) <-chan <-chan blockBody {
 	orderedBlockBodiesCh := make(chan (<-chan blockBody))
 
 	go func() {
@@ -285,7 +288,7 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 						}
 
 						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, headerAndSig.sig, body.stateDiff,
-							body.classes, body.proof, txs.txs, rs.receipts, es.events, prevBlockRoot)
+							body.classes, txs.txs, rs.receipts, es.events, prevBlockRoot)
 					}
 
 					if curBlockNum > 0 {
@@ -304,8 +307,7 @@ func (s *syncService) processSpecBlockParts(ctx context.Context, startingBlockNu
 }
 
 func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.BlockHeader, sig *spec.Signatures, diff *spec.StateDiff,
-	classes *spec.Classes, proof *spec.BlockProof, txs *spec.Transactions, receipts *spec.Receipts, events *spec.Events,
-	prevBlockRoot *felt.Felt,
+	classes *spec.Classes, txs *spec.Transactions, receipts *spec.Receipts, events *spec.Events, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
@@ -336,23 +338,22 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			})
 			coreBlock.Receipts = coreReceipts
 
-			var err error
-
 			coreHeader := p2p2core.AdaptBlockHeader(header)
 			coreHeader.Signatures = utils.Map(sig.GetSignatures(), p2p2core.AdaptSignature)
 
 			coreBlock.Header = &coreHeader
 			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)
-			coreBlock.Hash, err = core.BlockHash(coreBlock)
+			h, err := core.BlockHash(coreBlock)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
 				return
 			}
+			coreBlock.Hash = h
 
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, i := range classes.GetClasses() {
 				coreC := p2p2core.AdaptClass(i)
-				h, err := coreC.Hash()
+				h, err = coreC.Hash()
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
 					return
@@ -507,6 +508,7 @@ func (s specReceipts) blockNumber() uint64 {
 	return s.id.Number
 }
 
+//nolint:dupl
 func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-chan specReceipts, error) {
 	receiptsIt, err := s.client.RequestReceipts(ctx, &spec.ReceiptsRequest{Iteration: it})
 	if err != nil {
@@ -583,6 +585,7 @@ func (s specTransactions) blockNumber() uint64 {
 	return s.id.Number
 }
 
+//nolint:dupl
 func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (<-chan specTransactions, error) {
 	txsIt, err := s.client.RequestTransactions(ctx, &spec.TransactionsRequest{Iteration: it})
 	if err != nil {
@@ -622,12 +625,12 @@ func (s *syncService) randomPeer() peer.ID {
 		return ""
 	}
 
-	peer := peers[rand.Intn(len(peers))]
+	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
 	s.log.Debugw("Number of peers", "len", len(peers))
-	s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(peer))
+	s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(p))
 
-	return peer
+	return p
 }
 
 var errNoPeers = errors.New("no peers available")
@@ -656,7 +659,7 @@ func (s *syncService) createIterator(start, limit uint64) *spec.Iteration {
 		limit = 1
 	}
 	return &spec.Iteration{
-		Start:     &spec.Iteration_BlockNumber{start},
+		Start:     &spec.Iteration_BlockNumber{BlockNumber: start},
 		Direction: spec.Iteration_Forward,
 		Limit:     limit,
 		Step:      1,

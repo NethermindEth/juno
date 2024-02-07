@@ -3,12 +3,12 @@ package core2p2p
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/felt"
-
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 )
 
+//nolint:funlen,gocyclo
 func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	if transaction == nil {
 		return nil

@@ -86,7 +86,7 @@ func TestService(t *testing.T) {
 	RetryLoop:
 		for i := 0; i < maxRetries; i++ {
 			gossipedMessage := []byte(`veryImportantMessage`)
-			require.NoError(t, peerB.PublishOnTopic(topic, gossipedMessage))
+			require.NoError(t, peerB.PublishOnTopic(topic))
 
 			select {
 			case <-time.After(time.Second):
