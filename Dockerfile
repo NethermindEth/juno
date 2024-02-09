@@ -5,7 +5,7 @@ ARG VM_DEBUG
 
 # Install Alpine Dependencies
 RUN apt-get update && \
-    apt-get install build-essential cargo git golang upx-ucl -y
+    apt-get install build-essential cargo git golang upx-ucl libjemalloc-dev libjemalloc2 -y
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN upx-ucl /app/build/juno
 # Stage 2: Build Docker image
 FROM ubuntu:23.10 AS runtime
 
-RUN apt-get update && apt-get install -y ca-certificates curl gawk grep
+RUN apt-get update && apt-get install -y ca-certificates curl gawk grep libjemalloc-dev libjemalloc2
 
 COPY --from=build /app/build/juno /usr/local/bin/
 

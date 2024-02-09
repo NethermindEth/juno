@@ -176,6 +176,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 	var metricsService service.Service
 	if cfg.Metrics {
+		makeJeMallocMetrics()
 		makePebbleMetrics(database)
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
