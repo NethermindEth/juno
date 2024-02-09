@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"

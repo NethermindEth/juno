@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/sync"
@@ -300,4 +301,14 @@ func makePebbleMetrics(nodeDB db.DB) {
 		return float64(metrics.TableCache.Hits) / float64(metrics.TableCache.Hits+metrics.TableCache.Misses)
 	})
 	prometheus.MustRegister(blockCacheSize, blockHitRate, tableCacheSize, tableHitRate)
+}
+
+func makeJeMallocMetrics() {
+	active := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "jemalloc",
+		Name:      "active",
+	}, func() float64 {
+		return float64(jemalloc.GetActive())
+	})
+	prometheus.MustRegister(active)
 }
