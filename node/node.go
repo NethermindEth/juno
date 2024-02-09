@@ -187,6 +187,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
 		metricsService = makeMetrics(cfg.MetricsHost, cfg.MetricsPort)
+		makeJeMallocMetrics()
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))

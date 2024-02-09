@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/sync"
@@ -260,4 +261,14 @@ func makeGatewayMetrics() gateway.EventListener {
 			requestLatencies.WithLabelValues(urlPath, statusString).Observe(took.Seconds())
 		},
 	}
+}
+
+func makeJeMallocMetrics() {
+	active := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "jemalloc",
+		Name:      "active",
+	}, func() float64 {
+		return float64(jemalloc.GetActive())
+	})
+	prometheus.MustRegister(active)
 }
