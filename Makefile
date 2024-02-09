@@ -20,6 +20,10 @@ juno: rustdeps ## compile
 	@mkdir -p build
 	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
+juno-cached:
+	@mkdir -p build
+	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+
 vm:
 	$(MAKE) -C vm/rust $(VM_TARGET)
 
