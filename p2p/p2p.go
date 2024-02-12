@@ -350,5 +350,6 @@ func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Strea
 }
 
 func (s *Service) WithListener(l junoSync.EventListener) {
+	runMetrics(s.host.Peerstore())
 	s.synchroniser.WithListener(l)
 }

@@ -216,11 +216,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		gatewayClient.WithListener(makeGatewayMetrics())
 		metricsService = makeMetrics(cfg.MetricsHost, cfg.MetricsPort)
 
-		if p2pService != nil {
-			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
-		}
 		if synchronizer != nil {
 			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+		} else if p2pService != nil {
+			// regular p2p node
+			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
 		}
 	}
 	if cfg.GRPC {
