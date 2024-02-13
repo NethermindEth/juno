@@ -674,6 +674,11 @@ network: goerli
 	setJunoPrefixedEnv(t, junoEnv)
 }
 
+func TestGenP2PKeyPair(t *testing.T) {
+	cmd := juno.GenP2PKeyPair()
+	require.NoError(t, cmd.Execute())
+}
+
 func tempCfgFile(t *testing.T, cfg string) string {
 	t.Helper()
 
