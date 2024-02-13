@@ -24,7 +24,7 @@ mkdir -p junodb
 docker run -d --name juno -p 6060:6060 -v junodb:/var/lib/juno nethermind/juno:latest --db-path /var/lib/juno --http
 ```
 
-For a complete list of options and their explanations, see the [Example Configuration](config) or run:
+For a complete list of options and their explanations, see the [Example Configuration](example_config.md) or run:
 
 ```shell
 docker run nethermind/juno --help
