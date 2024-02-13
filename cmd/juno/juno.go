@@ -335,3 +335,37 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	return junoCmd
 }
+
+func GenP2PKeyPair() *cobra.Command {
+	return &cobra.Command{
+		Use:   "genp2pkeypair",
+		Short: "Generate private key pair for p2p.",
+		RunE: func(*cobra.Command, []string) error {
+			priv, pub, id, err := p2p.GenKeyPair()
+			if err != nil {
+				return err
+			}
+
+			rawPriv, err := priv.Raw()
+			if err != nil {
+				return err
+			}
+
+			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
+			hex.Encode(privHex, rawPriv)
+			fmt.Println("P2P Private Key:", string(privHex))
+
+			rawPub, err := pub.Raw()
+			if err != nil {
+				return err
+			}
+
+			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
+			hex.Encode(pubHex, rawPub)
+			fmt.Println("P2P Public Key:", string(pubHex))
+
+			fmt.Println("P2P PeerID:", id)
+			return nil
+		},
+	}
+}
