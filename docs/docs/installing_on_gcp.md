@@ -14,15 +14,15 @@ To quickly set up a Starkent RPC Juno Node VM environment on the Google Cloud Pl
 
 1. **Search “Starknet RPC Node” in [Google Marketplace](https://console.cloud.google.com/marketplace) and click the LAUNCH button to start the deployment process.**
    
-   ![step1](/img/installing_on_gcp/step1.png)
+   ![step1](../static/img/installing_on_gcp/step1.png)
 
 2. **Select the configuration for the Juno client and click the DEPLOY button.**
    
-   ![step2](/img/installing_on_gcp/step2.png)
+   ![step2](../static/img/installing_on_gcp/step2.png)
    
 3. **Post-Configuration and testing after deployment.**
    
-   ![step3](/img/installing_on_gcp/step3.png)
+   ![step3](../static/img/installing_on_gcp/step3.png)
    
 4. **Enable Juno Auto Start During Startup**
    1. Click the newly created VM instance name to view the detail.
