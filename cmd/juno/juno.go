@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/node"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -54,7 +56,9 @@ const (
 	pendingPollIntervalF   = "pending-poll-interval"
 	p2pF                   = "p2p"
 	p2pAddrF               = "p2p-addr"
-	p2pBootPeersF          = "p2p-boot-peers"
+	p2pPeersF              = "p2p-peers"
+	p2pFeederNodeF         = "p2p-feeder-node"
+	p2pPrivateKey          = "p2p-private-key"
 	metricsF               = "metrics"
 	metricsHostF           = "metrics-host"
 	metricsPortF           = "metrics-port"
@@ -92,7 +96,9 @@ const (
 	defaultPendingPollInterval      = time.Duration(0)
 	defaultP2p                      = false
 	defaultP2pAddr                  = ""
-	defaultP2pBootPeers             = ""
+	defaultP2pPeers                 = ""
+	defaultP2pFeederNode            = false
+	defaultP2pPrivateKey            = ""
 	defaultMetrics                  = false
 	defaultMetricsPort              = 9090
 	defaultGRPC                     = false
@@ -135,26 +141,30 @@ const (
 	colourUsage                           = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)"
-	p2pUsage                 = "enable p2p server"
-	p2PAddrUsage             = "specify p2p source address as multiaddr"
-	p2pBootPeersUsage        = "specify list of p2p boot peers splitted by a comma"
-	metricsUsage             = "Enables the prometheus metrics endpoint on the default port."
-	metricsHostUsage         = "The interface on which the prometheus endpoint will listen for requests."
-	metricsPortUsage         = "The port on which the prometheus endpoint will listen for requests."
-	grpcUsage                = "Enable the HTTP GRPC server on the default port."
-	grpcHostUsage            = "The interface on which the GRPC server will listen for requests."
-	grpcPortUsage            = "The port on which the GRPC server will listen for requests."
-	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
-	remoteDBUsage            = "gRPC URL of a remote Juno node"
-	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
-	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
-	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutUsage           = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage        = "Maximum number of steps to be executed in starknet_call requests"
-	corsEnableUsage          = "Enable CORS on RPC endpoints"
+	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)."
+	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
+	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p source address as multiaddr."
+	p2pPeersUsage            = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
+		"These peers can be either Feeder or regular nodes."
+	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
+		" blocks to the network."
+	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	metricsUsage         = "Enables the prometheus metrics endpoint on the default port."
+	metricsHostUsage     = "The interface on which the prometheus endpoint will listen for requests."
+	metricsPortUsage     = "The port on which the prometheus endpoint will listen for requests."
+	grpcUsage            = "Enable the HTTP GRPC server on the default port."
+	grpcHostUsage        = "The interface on which the GRPC server will listen for requests."
+	grpcPortUsage        = "The port on which the GRPC server will listen for requests."
+	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
+	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
+	remoteDBUsage        = "gRPC URL of a remote Juno node"
+	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
+	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
+	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
+	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests"
+	corsEnableUsage      = "Enable CORS on RPC endpoints"
 )
 
 var Version string
@@ -312,8 +322,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
-	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2PAddrUsage)
-	junoCmd.Flags().String(p2pBootPeersF, defaultP2pBootPeers, p2pBootPeersUsage)
+	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
+	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
+	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
+	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
@@ -332,6 +344,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
+	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
+	junoCmd.AddCommand(GenP2PKeyPair())
 
 	return junoCmd
 }

@@ -70,9 +70,11 @@ type Config struct {
 	MetricsHost string `mapstructure:"metrics-host"`
 	MetricsPort uint16 `mapstructure:"metrics-port"`
 
-	P2P          bool   `mapstructure:"p2p"`
-	P2PAddr      string `mapstructure:"p2p-addr"`
-	P2PBootPeers string `mapstructure:"p2p-boot-peers"`
+	P2P           bool   `mapstructure:"p2p"`
+	P2PAddr       string `mapstructure:"p2p-addr"`
+	P2PPeers      string `mapstructure:"p2p-peers"`
+	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
+	P2PPrivateKey string `mapstructure:"p2p-private-key"`
 
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
@@ -142,11 +144,38 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
-	services = append(services, synchronizer)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
+	var p2pService *p2p.Service
+	if cfg.P2P {
+		if cfg.Network != utils.Sepolia {
+			return nil, fmt.Errorf("P2P can only be used for %v network. Provided network: %v", utils.Sepolia, cfg.Network)
+		}
+		log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
+
+		if !cfg.P2PFeederNode {
+			// Do not start the feeder synchronisation
+			synchronizer = nil
+		}
+		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, &cfg.Network, log)
+		if err != nil {
+			return nil, fmt.Errorf("set up p2p service: %w", err)
+		}
+
+		services = append(services, p2pService)
+	}
+	if synchronizer != nil {
+		services = append(services, synchronizer)
+	}
+
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-	rpcHandler := rpc.New(chain, synchronizer, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
+
+	var syncReader sync.Reader = &sync.NoopSynchronizer{}
+	if synchronizer != nil {
+		syncReader = synchronizer
+	}
+
+	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
@@ -183,10 +212,16 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
 		jsonrpcServer.WithListener(rpcMetrics)
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
-		synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
 		metricsService = makeMetrics(cfg.MetricsHost, cfg.MetricsPort)
+
+		if synchronizer != nil {
+			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+		} else if p2pService != nil {
+			// regular p2p node
+			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
+		}
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
@@ -214,15 +249,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 		n.services = append(n.services, l1Client)
-	}
-
-	if cfg.P2P {
-		p2pService, err := p2p.New(cfg.P2PAddr, "juno", cfg.P2PBootPeers, "", &cfg.Network, log)
-		if err != nil {
-			return nil, fmt.Errorf("set up p2p service: %w", err)
-		}
-
-		n.services = append(n.services, p2pService)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
