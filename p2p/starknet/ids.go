@@ -5,6 +5,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
+// Todo: consider merging this with BlockHeadersPID
+func CurrentBlockHeaderPID(n *utils.Network) protocol.ID {
+	return n.ProtocolID() + "/current_header/0"
+}
+
 func BlockHeadersPID(n *utils.Network) protocol.ID {
 	return n.ProtocolID() + "/block_headers/0"
 }

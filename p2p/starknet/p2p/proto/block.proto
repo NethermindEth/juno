@@ -14,7 +14,7 @@ message Signatures {
 // Note: commitments may change to be for the previous blocks like comet/tendermint
 // hash of block header sent to L1
 message BlockHeader {
-    Hash                      parent_header     = 1;
+    Hash                      parent_hash       = 1;
     uint64                    number            = 2;
     google.protobuf.Timestamp time              = 3;   // TODO: see if this needs to be Felt252 or can be converted
     Address                   sequencer_address = 4;
@@ -29,6 +29,8 @@ message BlockHeader {
     Merkle                    transactions      = 8;   // By order of execution. TBD: required? the client can execute (powerful machine) and match state diff
     Merkle                    events            = 9;   // By order of issuance. TBD: in receipts?
     Merkle                    receipts          = 10;  // By order of issuance.
+    string                    protocol_version  = 11; // Starknet version
+    Felt252                   gas_price         = 12;
 }
 
 message BlockProof {
@@ -45,6 +47,8 @@ message NewBlock {
     }
 }
 
+// Requests a peer's CurrentBlockHeader
+message CurrentBlockHeaderRequest {}
 
 // result is (BlockHeader, Signature?)* in order of creation (incr/dec)
 message BlockHeadersRequest {
