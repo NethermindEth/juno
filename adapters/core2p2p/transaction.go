@@ -4,9 +4,11 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 )
 
+//nolint:funlen,gocyclo
 func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	if transaction == nil {
 		return nil
@@ -28,6 +30,24 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 					Nonce:       AdaptFelt(tx.Nonce),
 					AddressSalt: AdaptFelt(tx.ContractAddressSalt),
 					Calldata:    AdaptFeltSlice(tx.ConstructorCallData),
+				},
+			}
+		case tx.Version.Is(3):
+			specTx.Txn = &spec.Transaction_DeployAccountV3_{
+				DeployAccountV3: &spec.Transaction_DeployAccountV3{
+					MaxFee:      AdaptFelt(tx.MaxFee),
+					Signature:   AdaptAccountSignature(tx.Signature()),
+					ClassHash:   AdaptHash(tx.ClassHash),
+					Nonce:       AdaptFelt(tx.Nonce),
+					AddressSalt: AdaptFelt(tx.ContractAddressSalt),
+					Calldata:    AdaptFeltSlice(tx.ConstructorCallData),
+					L1Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
+					L2Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
+					Tip:         AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
+					// todo fill rest of V3 fields:
+					Paymaster:   nil,
+					NonceDomain: "",
+					FeeDomain:   "",
 				},
 			}
 		default:
@@ -65,6 +85,24 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 					CompiledClassHash: AdaptFelt(tx.CompiledClassHash),
 				},
 			}
+		case tx.Version.Is(3):
+			specTx.Txn = &spec.Transaction_DeclareV3_{
+				DeclareV3: &spec.Transaction_DeclareV3{
+					Sender:            AdaptAddress(tx.SenderAddress),
+					MaxFee:            AdaptFelt(tx.MaxFee),
+					Signature:         AdaptAccountSignature(tx.Signature()),
+					ClassHash:         AdaptHash(tx.ClassHash),
+					Nonce:             AdaptFelt(tx.Nonce),
+					CompiledClassHash: AdaptFelt(tx.CompiledClassHash),
+					L1Gas:             adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
+					L2Gas:             adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
+					Tip:               AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
+					// todo fill rest of V3 fields:
+					Paymaster:   nil,
+					NonceDomain: "",
+					FeeDomain:   "",
+				},
+			}
 		default:
 			panic(fmt.Errorf("unsupported Declare transaction version %s", tx.Version))
 		}
@@ -87,6 +125,24 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 					MaxFee:    AdaptFelt(tx.MaxFee),
 					Signature: AdaptAccountSignature(tx.Signature()),
 					Calldata:  AdaptFeltSlice(tx.CallData),
+					Nonce:     AdaptFelt(tx.Nonce),
+				},
+			}
+		case tx.Version.Is(3):
+			specTx.Txn = &spec.Transaction_InvokeV3_{
+				InvokeV3: &spec.Transaction_InvokeV3{
+					Sender:    AdaptAddress(tx.SenderAddress),
+					MaxFee:    AdaptFelt(tx.MaxFee),
+					Signature: AdaptAccountSignature(tx.Signature()),
+					Calldata:  AdaptFeltSlice(tx.CallData),
+					Nonce:     AdaptFelt(tx.Nonce),
+					L1Gas:     adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
+					L2Gas:     adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
+					Tip:       AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
+					// todo fill rest of V3 fields:
+					Paymaster:   nil,
+					NonceDomain: "",
+					FeeDomain:   "",
 				},
 			}
 		default:
@@ -97,6 +153,14 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	}
 
 	return &specTx
+}
+
+func adaptResourceLimits(bounds core.ResourceBounds) *spec.ResourceLimits {
+	maxAmount := new(felt.Felt).SetUint64(bounds.MaxAmount)
+	return &spec.ResourceLimits{
+		MaxAmount:       AdaptFelt(maxAmount),
+		MaxPricePerUnit: AdaptFelt(bounds.MaxPricePerUnit),
+	}
 }
 
 func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy_ {
@@ -110,10 +174,6 @@ func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy
 }
 
 func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *spec.Transaction_L1Handler {
-	if !tx.Version.Is(1) {
-		panic(fmt.Errorf("unsupported L1Handler tx version %s", tx.Version))
-	}
-
 	return &spec.Transaction_L1Handler{
 		L1Handler: &spec.Transaction_L1HandlerV1{
 			Nonce:              AdaptFelt(tx.Nonce),

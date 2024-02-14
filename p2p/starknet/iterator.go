@@ -76,6 +76,10 @@ func (it *iterator) Next() bool {
 	return it.Valid()
 }
 
+func (it *iterator) BlockNumber() uint64 {
+	return it.blockNumber
+}
+
 func (it *iterator) Block() (*core.Block, error) {
 	block, err := it.bcReader.BlockByNumber(it.blockNumber)
 	if errors.Is(err, db.ErrKeyNotFound) {

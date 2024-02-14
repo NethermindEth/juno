@@ -26,16 +26,17 @@ const (
 )
 
 type blockBodyIterator struct {
-	log         utils.Logger
+	log         utils.SimpleLogger
 	stateReader core.StateReader
 	stateCloser func() error
 
-	step        blockBodyStep
-	header      *core.Header
+	step   blockBodyStep
+	header *core.Header
+
 	stateUpdate *core.StateUpdate
 }
 
-func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log utils.Logger) (*blockBodyIterator, error) {
+func newBlockBodyIterator(bcReader blockchain.Reader, header *core.Header, log utils.SimpleLogger) (*blockBodyIterator, error) {
 	stateUpdate, err := bcReader.StateUpdateByNumber(header.Number)
 	if err != nil {
 		return nil, err
@@ -90,7 +91,7 @@ func (b *blockBodyIterator) next() (msg proto.Message, valid bool) {
 }
 
 func (b *blockBodyIterator) classes() (proto.Message, bool) {
-	classesM := make(map[felt.Felt]*spec.Class)
+	var classes []*spec.Class
 
 	stateDiff := b.stateUpdate.StateDiff
 
@@ -100,67 +101,31 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 			return b.fin()
 		}
 
-		classesM[*hash] = core2p2p.AdaptClass(cls.Class, hash)
+		classes = append(classes, core2p2p.AdaptClass(cls.Class))
 	}
 	for classHash := range stateDiff.DeclaredV1Classes {
 		cls, err := b.stateReader.Class(&classHash)
 		if err != nil {
 			return b.fin()
 		}
-
-		hash, err := cls.Class.Hash()
-		if err != nil {
-			return b.fin()
-		}
-		classesM[classHash] = core2p2p.AdaptClass(cls.Class, hash)
-	}
-	for _, classHash := range stateDiff.DeployedContracts {
-		if _, ok := classesM[*classHash]; ok {
-			// Skip if the class was declared and deployed in the same block. Otherwise, there will be duplicate classes.
-			continue
-		}
-		cls, err := b.stateReader.Class(classHash)
-		if err != nil {
-			return b.fin()
-		}
-
-		var compiledHash *felt.Felt
-		switch cairoClass := cls.Class.(type) {
-		case *core.Cairo0Class:
-			compiledHash = classHash
-		case *core.Cairo1Class:
-			compiledHash, err = cairoClass.Hash()
-			if err != nil {
-				return b.fin()
-			}
-		default:
-			b.log.Errorw("Unknown cairo class", "cairoClass", cairoClass)
-			return b.fin()
-		}
-
-		classesM[*compiledHash] = core2p2p.AdaptClass(cls.Class, compiledHash)
+		classes = append(classes, core2p2p.AdaptClass(cls.Class))
 	}
 
-	var classes []*spec.Class
-	for _, c := range classesM {
-		c := c
-		classes = append(classes, c)
-	}
-
-	return &spec.BlockBodiesResponse{
-		Id: core2p2p.AdaptBlockID(b.header),
+	res := &spec.BlockBodiesResponse{
+		Id: b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Classes{
 			Classes: &spec.Classes{
 				Domain:  0,
 				Classes: classes,
 			},
 		},
-	}, true
+	}
+
+	return res, true
 }
 
 type contractDiff struct {
 	address      *felt.Felt
-	classHash    *felt.Felt
 	storageDiffs map[felt.Felt]*felt.Felt
 	nonce        *felt.Felt
 }
@@ -170,54 +135,57 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 	diff := b.stateUpdate.StateDiff
 
 	modifiedContracts := make(map[felt.Felt]*contractDiff)
-	initContractDiff := func(addr *felt.Felt) (*contractDiff, error) {
-		var cHash *felt.Felt
-		cHash, err = b.stateReader.ContractClassHash(addr)
-		if err != nil {
-			return nil, err
+
+	initContractDiff := func(addr *felt.Felt) *contractDiff {
+		return &contractDiff{address: addr}
+	}
+	updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
+		cDiff, ok := modifiedContracts[addr]
+		if !ok {
+			cDiff = initContractDiff(&addr)
+			if err != nil {
+				return err
+			}
+			modifiedContracts[addr] = cDiff
 		}
-		return &contractDiff{address: addr, classHash: cHash}, nil
+
+		f(cDiff)
+		return nil
 	}
 
 	for addr, n := range diff.Nonces {
-		addr := addr // copy
-		cDiff, ok := modifiedContracts[addr]
-		if !ok {
-			cDiff, err = initContractDiff(&addr)
-			if err != nil {
-				b.log.Errorw("Failed to get class hash", "err", err)
-				return b.fin()
-			}
-			modifiedContracts[addr] = cDiff
+		err = updateModifiedContracts(addr, func(diff *contractDiff) {
+			diff.nonce = n
+		})
+		if err != nil {
+			b.log.Errorw("Failed to update modified contract", "err", err)
+			return b.fin()
 		}
-		cDiff.nonce = n
 	}
 
 	for addr, sDiff := range diff.StorageDiffs {
-		addr := addr // copy
-		cDiff, ok := modifiedContracts[addr]
-		if !ok {
-			cDiff, err = initContractDiff(&addr)
-			if err != nil {
-				b.log.Errorw("Failed to get class hash", "err", err)
-				return b.fin()
-			}
-			modifiedContracts[addr] = cDiff
+		err = updateModifiedContracts(addr, func(diff *contractDiff) {
+			diff.storageDiffs = sDiff
+		})
+		if err != nil {
+			b.log.Errorw("Failed to update modified contract", "err", err)
+			return b.fin()
 		}
-		cDiff.storageDiffs = sDiff
 	}
 
 	var contractDiffs []*spec.StateDiff_ContractDiff
 	for _, c := range modifiedContracts {
-		contractDiffs = append(contractDiffs, core2p2p.AdaptStateDiff(c.address, c.classHash, c.nonce, c.storageDiffs))
+		contractDiffs = append(contractDiffs, core2p2p.AdaptStateDiff(c.address, c.nonce, c.storageDiffs))
 	}
 
 	return &spec.BlockBodiesResponse{
-		Id: core2p2p.AdaptBlockID(b.header),
+		Id: b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Diff{
 			Diff: &spec.StateDiff{
-				Domain:        0,
-				ContractDiffs: contractDiffs,
+				Domain:            0,
+				ContractDiffs:     contractDiffs,
+				ReplacedClasses:   utils.ToSlice(diff.ReplacedClasses, core2p2p.AdaptAddressClassHashPair),
+				DeployedContracts: utils.ToSlice(diff.DeployedContracts, core2p2p.AdaptAddressClassHashPair),
 			},
 		},
 	}, true
@@ -229,7 +197,7 @@ func (b *blockBodyIterator) fin() (proto.Message, bool) {
 		b.log.Errorw("Call to state closer failed", "err", err)
 	}
 	return &spec.BlockBodiesResponse{
-		Id:          core2p2p.AdaptBlockID(b.header),
+		Id:          b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Fin{},
 	}, true
 }
@@ -244,11 +212,15 @@ func (b *blockBodyIterator) proof() (proto.Message, bool) {
 	}
 
 	return &spec.BlockBodiesResponse{
-		Id: core2p2p.AdaptBlockID(b.header),
+		Id: b.blockID(),
 		BodyMessage: &spec.BlockBodiesResponse_Proof{
 			Proof: &spec.BlockProof{
 				Proof: proof,
 			},
 		},
 	}, true
+}
+
+func (b *blockBodyIterator) blockID() *spec.BlockID {
+	return core2p2p.AdaptBlockID(b.header)
 }
