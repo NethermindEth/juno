@@ -223,18 +223,31 @@ func TestBlockHash(t *testing.T) {
 		assert.Nil(t, commitments)
 	})
 
-	t.Run("error if hash of transaction doesn't match corresponding receipt hash",
-		func(t *testing.T) {
-			mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
-			require.NoError(t, err)
+	t.Run("error if hash of transaction doesn't match corresponding receipt hash", func(t *testing.T) {
+		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
 
-			mainnetBlock1.Receipts[1].TransactionHash = h1
-			expectedErr := fmt.Sprintf(
-				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
-				mainnetBlock1.Transactions[1].Hash().String(), 1,
-				mainnetBlock1.Receipts[1].TransactionHash)
-			commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
-			assert.EqualError(t, err, expectedErr)
-			assert.Nil(t, commitments)
-		})
+		mainnetBlock1.Receipts[1].TransactionHash = h1
+		expectedErr := fmt.Sprintf(
+			"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
+			mainnetBlock1.Transactions[1].Hash().String(), 1,
+			mainnetBlock1.Receipts[1].TransactionHash)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
+		assert.EqualError(t, err, expectedErr)
+		assert.Nil(t, commitments)
+	})
+}
+
+func TestBlockHashP2P(t *testing.T) {
+	mainnetGW := adaptfeeder.New(feeder.NewTestClient(t, &utils.Mainnet))
+
+	t.Run("error if block.SequencerAddress is nil", func(t *testing.T) {
+		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+
+		mainnetBlock1.SequencerAddress = nil
+
+		_, err = core.BlockHash(mainnetBlock1)
+		assert.EqualError(t, err, "block.SequencerAddress is nil")
+	})
 }
