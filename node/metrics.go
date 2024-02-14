@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -260,4 +261,43 @@ func makeGatewayMetrics() gateway.EventListener {
 			requestLatencies.WithLabelValues(urlPath, statusString).Observe(took.Seconds())
 		},
 	}
+}
+
+func makePebbleMetrics(nodeDB db.DB) {
+	pebbleDB, ok := nodeDB.Impl().(*pebble.DB)
+	if !ok {
+		return
+	}
+
+	blockCacheSize := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "pebble",
+		Subsystem: "block_cache",
+		Name:      "size",
+	}, func() float64 {
+		return float64(pebbleDB.Metrics().BlockCache.Size)
+	})
+	blockHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "pebble",
+		Subsystem: "block_cache",
+		Name:      "hit_rate",
+	}, func() float64 {
+		metrics := pebbleDB.Metrics()
+		return float64(metrics.BlockCache.Hits) / float64(metrics.BlockCache.Hits+metrics.BlockCache.Misses)
+	})
+	tableCacheSize := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "pebble",
+		Subsystem: "table_cache",
+		Name:      "size",
+	}, func() float64 {
+		return float64(pebbleDB.Metrics().TableCache.Size)
+	})
+	tableHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "pebble",
+		Subsystem: "table_cache",
+		Name:      "hit_rate",
+	}, func() float64 {
+		metrics := pebbleDB.Metrics()
+		return float64(metrics.TableCache.Hits) / float64(metrics.TableCache.Hits+metrics.TableCache.Misses)
+	})
+	prometheus.MustRegister(blockCacheSize, blockHitRate, tableCacheSize, tableHitRate)
 }
