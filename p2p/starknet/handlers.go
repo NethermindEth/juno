@@ -3,8 +3,11 @@ package starknet
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sync"
+
+	"github.com/NethermindEth/juno/utils/iter"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -18,6 +21,7 @@ import (
 
 type Handler struct {
 	bcReader blockchain.Reader
+	ctx      context.Context
 	log      utils.SimpleLogger
 }
 
@@ -25,6 +29,7 @@ func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
 	return &Handler{
 		bcReader: bcReader,
 		log:      log,
+		ctx:      context.Background(),
 	}
 }
 
@@ -41,8 +46,8 @@ func getBuffer() *bytes.Buffer {
 	return buffer
 }
 
-func streamHandler[ReqT proto.Message](stream network.Stream,
-	reqHandler func(req ReqT) (Stream[proto.Message], error), log utils.SimpleLogger,
+func streamHandler[ReqT proto.Message](ctx context.Context, stream network.Stream,
+	reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
 ) {
 	defer func() {
 		if err := stream.Close(); err != nil {
@@ -71,35 +76,41 @@ func streamHandler[ReqT proto.Message](stream network.Stream,
 		return
 	}
 
-	for msg, valid := response(); valid; msg, valid = response() {
+	response(func(msg proto.Message) bool {
+		if ctx.Err() != nil {
+			return false
+		}
+
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
 			log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
 		}
-	}
+
+		return true
+	})
 }
 
 func (h *Handler) BlockHeadersHandler(stream network.Stream) {
-	streamHandler[*spec.BlockHeadersRequest](stream, h.onBlockHeadersRequest, h.log)
+	streamHandler[*spec.BlockHeadersRequest](h.ctx, stream, h.onBlockHeadersRequest, h.log)
 }
 
 func (h *Handler) BlockBodiesHandler(stream network.Stream) {
-	streamHandler[*spec.BlockBodiesRequest](stream, h.onBlockBodiesRequest, h.log)
+	streamHandler[*spec.BlockBodiesRequest](h.ctx, stream, h.onBlockBodiesRequest, h.log)
 }
 
 func (h *Handler) EventsHandler(stream network.Stream) {
-	streamHandler[*spec.EventsRequest](stream, h.onEventsRequest, h.log)
+	streamHandler[*spec.EventsRequest](h.ctx, stream, h.onEventsRequest, h.log)
 }
 
 func (h *Handler) ReceiptsHandler(stream network.Stream) {
-	streamHandler[*spec.ReceiptsRequest](stream, h.onReceiptsRequest, h.log)
+	streamHandler[*spec.ReceiptsRequest](h.ctx, stream, h.onReceiptsRequest, h.log)
 }
 
 func (h *Handler) TransactionsHandler(stream network.Stream) {
-	streamHandler[*spec.TransactionsRequest](stream, h.onTransactionsRequest, h.log)
+	streamHandler[*spec.TransactionsRequest](h.ctx, stream, h.onTransactionsRequest, h.log)
 }
 
 func (h *Handler) CurrentBlockHeaderHandler(stream network.Stream) {
-	streamHandler[*spec.CurrentBlockHeaderRequest](stream, h.onCurrentBlockHeaderRequest, h.log)
+	streamHandler[*spec.CurrentBlockHeaderRequest](h.ctx, stream, h.onCurrentBlockHeaderRequest, h.log)
 }
 
 func (h *Handler) onCurrentBlockHeaderRequest(req *spec.CurrentBlockHeaderRequest) (Stream[proto.Message], error) {
@@ -115,7 +126,7 @@ func (h *Handler) onCurrentBlockHeaderRequest(req *spec.CurrentBlockHeaderReques
 	return h.blockHeaders(it, blockHeadersRequestFin()), nil
 }
 
-func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[proto.Message], error) {
+func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(req.Iteration)
 	if err != nil {
 		return nil, err
@@ -123,8 +134,8 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (Stream[p
 	return h.blockHeaders(it, blockHeadersRequestFin()), nil
 }
 
-func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) Stream[proto.Message] {
-	return func() (proto.Message, bool) {
+func (h *Handler) blockHeaders(it *iterator, fin Stream[proto.Message]) iter.Seq[proto.Message] {
+	return func(yield func(proto.Message) bool) {
 		if !it.Valid() {
 			return fin()
 		}
