@@ -321,3 +321,23 @@ func TestMessageHash(t *testing.T) {
 		assert.Equal(t, test.expected, hex.EncodeToString(test.tx.MessageHash()))
 	}
 }
+
+func TestDeclareV0TransactionHash(t *testing.T) {
+	network := utils.Goerli
+	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
+	ctx := context.Background()
+
+	b, err := gw.BlockByNumber(ctx, 231579)
+	require.NoError(t, err)
+
+	decTx, ok := b.Transactions[30].(*core.DeclareTransaction)
+	require.True(t, ok)
+
+	expectedHash := decTx.Hash()
+
+	decTx.TransactionHash = nil
+
+	got, err := core.TransactionHash(decTx, &network)
+	require.NoError(t, err)
+	assert.Equal(t, expectedHash, got)
+}
