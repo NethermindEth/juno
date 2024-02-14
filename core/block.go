@@ -106,6 +106,18 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 	return nil, errors.New("can not verify hash in block header")
 }
 
+// BlockHash assumes block.SequencerAddress is not nil as this is called with post v0.12.0
+// and by then issues with unverifiable block hash were resolved.
+// In future, this may no longer be required.
+func BlockHash(b *Block) (*felt.Felt, error) {
+	if b.SequencerAddress == nil {
+		return nil, errors.New("block.SequencerAddress is nil")
+	}
+
+	h, _, err := post07Hash(b, nil)
+	return h, err
+}
+
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo
