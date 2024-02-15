@@ -312,3 +312,19 @@ func makeJeMallocMetrics() {
 	})
 	prometheus.MustRegister(active)
 }
+
+func makeVMThrottlerMetrics(throttledVM *ThrottledVM) {
+	vmJobs := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "vm",
+		Name:      "jobs",
+	}, func() float64 {
+		return float64(throttledVM.JobsRunning())
+	})
+	vmQueue := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "vm",
+		Name:      "queue",
+	}, func() float64 {
+		return float64(throttledVM.QueueLen())
+	})
+	prometheus.MustRegister(vmJobs, vmQueue)
+}
