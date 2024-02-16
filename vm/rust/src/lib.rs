@@ -1,39 +1,36 @@
 pub mod jsonrpc;
 mod juno_state_reader;
-
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use std::num::NonZeroU128;
+use crate::juno_state_reader::{ptr_to_felt,ptr_to_u128, JunoStateReader};
 use std::{
-    collections::HashMap,
     ffi::{c_char, c_uchar, c_ulonglong, c_void, c_longlong, CStr, CString},
     slice,
 };
+use std::sync::Arc;
 
+use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use blockifier::{
-    abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE, MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX},
-    block_context::{BlockContext, GasPrices, FeeTokenAddresses},
+    block::{BlockInfo,GasPrices}, 
+    context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, 
     execution::{
         common_hints::ExecutionMode,
-        contract_class::ContractClass,
-        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
-    },
-    fee::fee_utils::calculate_tx_fee,
-    state::cached_state::{CachedState, GlobalContractCache},
+        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
+    }, 
+    fee::fee_utils::calculate_tx_fee, 
+    state::cached_state::{CachedState, GlobalContractCache}, 
     transaction::{
-        objects::{AccountTransactionContext, DeprecatedAccountTransactionContext, HasRelatedFeeType},
-        transaction_execution::Transaction,
-        transactions::ExecutableTransaction,
         errors::TransactionExecutionError::{
             ContractConstructorExecutionFailed,
             ExecutionError,
             ValidateTransactionError,
-        },
+        }, objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo}, 
+        transaction_execution::Transaction, 
+        transactions::{ExecutableTransaction,ClassInfo}
     },
+    
+    versioned_constants::VersionedConstants
 };
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
-    OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
-    SEGMENT_ARENA_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
-};
+
 use juno_state_reader::{contract_class_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash};
@@ -55,7 +52,19 @@ extern "C" {
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
 }
 
-const N_STEPS_FEE_WEIGHT: f64 = 0.005;
+const GLOBAL_CONTRACT_CACHE_SIZE: usize= 100; // Todo ? default used to set this to 100.
+
+
+
+use lazy_static::lazy_static;
+extern crate serde_json;
+use std::sync::Mutex;
+const VERSIONED_CONSTANTS_JSON: &'static str = include_str!("../versioned_constants.json");
+lazy_static! {
+    static ref VERSIONED_CONSTANTS: Mutex<Result<VersionedConstants, serde_json::Error>> = Mutex::new(serde_json::from_str(VERSIONED_CONSTANTS_JSON));
+}
+
+
 
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
@@ -68,8 +77,17 @@ pub extern "C" fn cairoVMCall(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
-    max_steps: c_ulonglong,
+    _max_steps: c_ulonglong,
 ) {
+    let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
+    let versioned_constants = match &*versioned_constants {
+        Ok(constants) => constants,
+        Err(e) => {
+            println!("Failed to load versioned constants: {}", e);
+            return;
+        }
+    };
+
     let reader = JunoStateReader::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
     let class_hash = if class_hash.is_null() {
@@ -98,25 +116,36 @@ pub extern "C" fn cairoVMCall(
         class_hash: class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: INITIAL_GAS_COST,
+        initial_gas: versioned_constants.gas_cost("initial_gas_cost"),
     };
 
-    const GAS_PRICES: GasPrices = GasPrices {
-        eth_l1_gas_price: 1,
-        strk_l1_gas_price: 1,
-    };
-    let mut state = CachedState::new(reader, GlobalContractCache::default());
+    let mut state = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
     let mut resources = ExecutionResources::default();
+    
+    let fee_token_addresses: FeeTokenAddresses = FeeTokenAddresses { // both addresses are the same for all networks
+        eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
+        strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
+    };
+
+    let gas_prices: GasPrices = GasPrices {
+        eth_l1_gas_price: NonZeroU128::new(1).unwrap(),
+        strk_l1_gas_price: NonZeroU128::new(1).unwrap(),
+        eth_l1_data_gas_price:NonZeroU128::new(1).unwrap(),
+        strk_l1_data_gas_price: NonZeroU128::new(1).unwrap(),
+    };
+
+    let use_kzg_da = false;
+    let block_info = build_block_info(block_number,block_timestamp,StarkFelt::default(),gas_prices,use_kzg_da);
+    let chain_info = build_chain_info(chain_id_str, fee_token_addresses);
+    let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
+    
+    let tx_context = TransactionContext {
+        block_context:block_context,
+        tx_info:TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
+    };
+
     let context = EntryPointExecutionContext::new(
-        &build_block_context(
-            chain_id_str,
-            block_number,
-            block_timestamp,
-            StarkFelt::default(),
-            GAS_PRICES,
-            Some(max_steps),
-        ),
-        &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
+        Arc::new(tx_context),
         ExecutionMode::Execute,
         false,
     );
@@ -124,6 +153,7 @@ pub extern "C" fn cairoVMCall(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
+
     match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
@@ -159,7 +189,17 @@ pub extern "C" fn cairoVMExecute(
     gas_price_wei: *const c_uchar,
     gas_price_strk: *const c_uchar,
     legacy_json: c_uchar,
+    use_kzg_da: bool // Todo: new parameter? Hardcode to true/false?
 ) {
+    let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
+    let versioned_constants = match &*versioned_constants {
+        Ok(constants) => constants,
+        Err(e) => {
+            println!("Failed to load versioned constants: {}", e);
+            return;
+        }
+    };
+
     let reader = JunoStateReader::new(reader_handle, block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
@@ -195,20 +235,26 @@ pub extern "C" fn cairoVMExecute(
     let mut classes = classes.unwrap();
 
     let sequencer_address_felt = ptr_to_felt(sequencer_address);
-    let gas_price_wei_felt = ptr_to_felt(gas_price_wei);
-    let gas_price_strk_felt = ptr_to_felt(gas_price_strk);
-    let block_context: BlockContext = build_block_context(
-        chain_id_str,
-        block_number,
-        block_timestamp,
-        sequencer_address_felt,
-        GasPrices {
-            eth_l1_gas_price: felt_to_u128(gas_price_wei_felt),
-            strk_l1_gas_price: felt_to_u128(gas_price_strk_felt),
-        },
-        None
-    );
-    let mut state = CachedState::new(reader, GlobalContractCache::default());
+    let gas_price_wei_u128 = ptr_to_u128(gas_price_wei);
+    let gas_price_strk_u128 = ptr_to_u128(gas_price_strk);
+
+    let fee_token_addresses: FeeTokenAddresses = FeeTokenAddresses { // both addresses are the same for all networks
+        eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
+        strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
+    };
+
+    let gas_prices: GasPrices = GasPrices {
+        eth_l1_gas_price: NonZeroU128::new(gas_price_wei_u128).unwrap(),
+        strk_l1_gas_price: NonZeroU128::new(gas_price_strk_u128).unwrap(),
+        eth_l1_data_gas_price:NonZeroU128::new(1).unwrap(),         // Todo: Should be a new parameter?
+        strk_l1_data_gas_price: NonZeroU128::new(1).unwrap(),       // Todo: Should be a new parameter?
+    };
+
+    let block_info = build_block_info(block_number,block_timestamp,sequencer_address_felt,gas_prices,use_kzg_da);
+    let chain_info = build_chain_info(chain_id_str,fee_token_addresses);
+    let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
+
+    let mut state = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -244,10 +290,19 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
+
+        let sierra_program_length = 0;                  // Todo: Should be a new parameter?
+        let abi_length = 0;                             // Todo: Should be a new parameter?
+        let class_info = ClassInfo {
+            contract_class: contract_class.unwrap(),
+            sierra_program_length,
+            abi_length,
+        };
+        
         let txn = transaction_from_api(
             txn_and_query_bit.txn.clone(),
             txn_and_query_bit.txn_hash,
-            contract_class,
+            Some(class_info),
             paid_fee_on_l1,
             txn_and_query_bit.query_bit,
         );
@@ -334,19 +389,10 @@ pub extern "C" fn cairoVMExecute(
     }
 }
 
-fn felt_to_u128(felt: StarkFelt) -> u128 {
-    let bytes = felt.bytes();
-    let mut arr = [0u8; 16];
-    arr.copy_from_slice(&bytes[16..32]);
-
-    // felts are encoded in big-endian order
-    u128::from_be_bytes(arr)
-}
-
 fn transaction_from_api(
     tx: StarknetApiTransaction,
     tx_hash: TransactionHash,
-    contract_class: Option<ContractClass>,
+    class_info: Option<ClassInfo>,
     paid_fee_on_l1: Option<Fee>,
     query_bit: bool,
 ) -> Result<Transaction, String> {
@@ -357,7 +403,7 @@ fn transaction_from_api(
                 tx_hash,
             ))
         }
-        StarknetApiTransaction::Declare(_) if contract_class.is_none() => {
+        StarknetApiTransaction::Declare(_) if class_info.is_none() => {
             return Err(format!(
                 "Declare transaction must be created with a ContractClass (transaction_hash={})",
                 tx_hash,
@@ -366,7 +412,7 @@ fn transaction_from_api(
         _ => {} // all ok
     };
 
-    Transaction::from_api(tx, tx_hash, contract_class, paid_fee_on_l1, None, query_bit)
+    Transaction::from_api(tx, tx_hash, class_info, paid_fee_on_l1, None, query_bit)
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
@@ -393,51 +439,29 @@ fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
     };
 }
 
-fn build_block_context(
-    chain_id_str: &str,
+
+fn build_block_info(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     sequencer_address: StarkFelt,
     gas_prices: GasPrices,
-    max_steps: Option<c_ulonglong>,
-) -> BlockContext {
-    BlockContext {
-        chain_id: ChainId(chain_id_str.into()),
+    use_kzg_da: bool,
+) -> BlockInfo {
+    BlockInfo {
         block_number: BlockNumber(block_number),
         block_timestamp: BlockTimestamp(block_timestamp),
+        sequencer_address:ContractAddress::try_from(sequencer_address).unwrap(),
+        gas_prices,
+        use_kzg_da,
+    }
+}
 
-        sequencer_address: ContractAddress::try_from(sequencer_address).unwrap(),
-        // https://github.com/starknet-io/starknet-addresses/blob/df19b17d2c83f11c30e65e2373e8a0c65446f17c/bridged_tokens/mainnet.json
-        fee_token_addresses: FeeTokenAddresses {
-            // both addresses are the same for all networks
-            eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
-            strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
-        },
-        gas_prices, // fixed gas price, so that we can return "consumed gas" to Go side
-        vm_resource_fee_cost: HashMap::from([
-            (N_STEPS_RESOURCE.to_string(), N_STEPS_FEE_WEIGHT),
-            (OUTPUT_BUILTIN_NAME.to_string(), 0.0),
-            (HASH_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 32.0),
-            (
-                RANGE_CHECK_BUILTIN_NAME.to_string(),
-                N_STEPS_FEE_WEIGHT * 16.0,
-            ),
-            (
-                SIGNATURE_BUILTIN_NAME.to_string(),
-                N_STEPS_FEE_WEIGHT * 2048.0,
-            ),
-            (BITWISE_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 64.0),
-            (EC_OP_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 1024.0),
-            (POSEIDON_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 32.0),
-            (
-                SEGMENT_ARENA_BUILTIN_NAME.to_string(),
-                N_STEPS_FEE_WEIGHT * 10.0,
-            ),
-            (KECCAK_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 2048.0),
-        ])
-        .into(),
-        invoke_tx_max_n_steps: max_steps.unwrap_or(MAX_STEPS_PER_TX as u64).try_into().unwrap(),
-        validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
-        max_recursion_depth: 50,
+fn build_chain_info(
+    chain_id: &str,
+    fee_token_addresses: FeeTokenAddresses,
+) -> ChainInfo {
+    ChainInfo {
+        chain_id:ChainId(chain_id.to_string()),
+        fee_token_addresses,
     }
 }

@@ -2,6 +2,7 @@ use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
     slice,
     sync::Mutex,
+    mem,
 };
 
 use blockifier::execution::contract_class::ContractClass;
@@ -117,9 +118,9 @@ impl StateReader for JunoStateReader {
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(
         &mut self,
-        class_hash: &ClassHash,
+        class_hash: ClassHash,
     ) -> StateResult<ContractClass> {
-        if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(class_hash) {
+        if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
             //
@@ -140,13 +141,13 @@ impl StateReader for JunoStateReader {
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
         let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
-            Err(StateError::UndeclaredClassHash(*class_hash))
+            Err(StateError::UndeclaredClassHash(class_hash))
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
             let contract_class = contract_class_from_json_str(json_str);
             if let Ok(class) = &contract_class {
                 CLASS_CACHE.lock().unwrap().cache_set(
-                    *class_hash,
+                    class_hash,
                     CachedContractClass {
                         definition: class.clone(),
                         cached_on_height: self.height,
@@ -182,6 +183,13 @@ pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
     let slice = unsafe { slice::from_raw_parts(bytes, 32) };
     StarkFelt::new(slice.try_into().expect("Juno felt not [u8; 32]"))
         .expect("cannot new Starkfelt from Juno bytes")
+}
+
+pub fn ptr_to_u128(bytes: *const u8) -> u128 {
+    assert!(!bytes.is_null(), "Null pointer provided");
+    let slice = unsafe { slice::from_raw_parts(bytes, mem::size_of::<u128>()) };
+    let array: [u8; mem::size_of::<u128>()] = slice.try_into().expect("Slice not [u8; 16]");
+    u128::from_le_bytes(array)
 }
 
 pub fn contract_class_from_json_str(raw_json: &str) -> Result<ContractClass, String> {
