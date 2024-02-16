@@ -72,6 +72,7 @@ const (
 	maxEventChunkSize  = 10240
 	maxEventFilterKeys = 1024
 	traceCacheSize     = 128
+	throttledVMErr     = "VM throughput limit reached"
 )
 
 type traceCacheKey struct {
@@ -1262,7 +1263,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		call.Calldata, header.Number, header.Timestamp, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(throttledVMErr)
 		}
 		return nil, makeContractError(err)
 	}
@@ -1507,7 +1508,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		header.GasPriceSTRK, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(throttledVMErr)
 		}
 		var txnExecutionError vm.TransactionExecutionError
 		if errors.As(err, &txnExecutionError) {
@@ -1650,7 +1651,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		block.Header.GasPriceSTRK, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(err.Error())
+			return nil, ErrInternal.CloneWithData(throttledVMErr)
 		}
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
 		// report them as unexpected errors
