@@ -244,8 +244,8 @@ pub extern "C" fn cairoVMExecute(
     };
 
     let gas_prices: GasPrices = GasPrices {
-        eth_l1_gas_price: NonZeroU128::new(gas_price_wei_u128).unwrap(),
-        strk_l1_gas_price: NonZeroU128::new(gas_price_strk_u128).unwrap(),
+        eth_l1_gas_price: NonZeroU128::new(1).unwrap(), // Tdo: use gas_price_wei_u128
+        strk_l1_gas_price: NonZeroU128::new(1).unwrap(), // Todo: use gas_price_strk_u128
         eth_l1_data_gas_price:NonZeroU128::new(1).unwrap(),         // Todo: Should be a new parameter?
         strk_l1_data_gas_price: NonZeroU128::new(1).unwrap(),       // Todo: Should be a new parameter?
     };
