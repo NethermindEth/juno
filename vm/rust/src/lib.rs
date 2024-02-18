@@ -77,7 +77,7 @@ pub extern "C" fn cairoVMCall(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
-    _max_steps: c_ulonglong,
+    max_steps: c_ulonglong,
 ) {
     let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
     let versioned_constants = match &*versioned_constants {
@@ -188,8 +188,8 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     gas_price_wei: *const c_uchar,
     gas_price_strk: *const c_uchar,
-    legacy_json: c_uchar,
-    use_kzg_da: bool // Todo: new parameter? Hardcode to true/false?
+    legacy_json: c_uchar
+    // use_kzg_da: bool // Todo: new parameter? Hardcode to true/false?
 ) {
     let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
     let versioned_constants = match &*versioned_constants {
@@ -250,6 +250,7 @@ pub extern "C" fn cairoVMExecute(
         strk_l1_data_gas_price: NonZeroU128::new(1).unwrap(),       // Todo: Should be a new parameter?
     };
 
+    let use_kzg_da = false; // Todo : Need to include this as a new parameter?
     let block_info = build_block_info(block_number,block_timestamp,sequencer_address_felt,gas_prices,use_kzg_da);
     let chain_info = build_chain_info(chain_id_str,fee_token_addresses);
     let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
