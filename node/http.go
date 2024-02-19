@@ -57,8 +57,6 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 			Addr:              net.JoinHostPort(host, portStr),
 			Handler:           handler,
 			ReadHeaderTimeout: 30 * time.Second,
-			IdleTimeout:       30 * time.Second,
-			ReadTimeout:       time.Minute,
 		},
 	}
 }
