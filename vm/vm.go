@@ -104,12 +104,6 @@ func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
 	return new(felt.Felt).SetBytes(C.GoBytes(ptr, felt.Bytes))
 }
 
-func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
-	feltBytes := val.Bytes()
-	//nolint:gocritic
-	return C.CBytes(feltBytes[:])
-}
-
 func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 	blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
 ) ([]*felt.Felt, error) {
