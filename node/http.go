@@ -9,7 +9,6 @@ import (
 	"net/http/pprof"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/NethermindEth/juno/db"
 	junogrpc "github.com/NethermindEth/juno/grpc"
@@ -54,11 +53,8 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 	portStr := strconv.FormatUint(uint64(port), 10)
 	return &httpService{
 		srv: &http.Server{
-			Addr:              net.JoinHostPort(host, portStr),
-			Handler:           handler,
-			ReadHeaderTimeout: 30 * time.Second,
-			IdleTimeout:       30 * time.Second,
-			ReadTimeout:       time.Minute,
+			Addr:    net.JoinHostPort(host, portStr),
+			Handler: handler,
 		},
 	}
 }
