@@ -1,7 +1,7 @@
 pub mod jsonrpc;
 mod juno_state_reader;
 use std::num::NonZeroU128;
-use crate::juno_state_reader::{ptr_to_felt,ptr_to_u128, JunoStateReader};
+use crate::juno_state_reader::{ptr_to_felt,felt_ptr_to_u128, JunoStateReader};
 use std::{
     ffi::{c_char, c_uchar, c_ulonglong, c_void, c_longlong, CStr, CString},
     slice,
@@ -188,7 +188,9 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     gas_price_wei: *const c_uchar,
     gas_price_strk: *const c_uchar,
-    legacy_json: c_uchar
+    legacy_json: c_uchar,
+    da_gas_price_wei: *const c_uchar,
+    da_gas_price_fri: *const c_uchar
     // use_kzg_da: bool // Todo: new parameter? Hardcode to true/false?
 ) {
     let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
@@ -235,8 +237,6 @@ pub extern "C" fn cairoVMExecute(
     let mut classes = classes.unwrap();
 
     let sequencer_address_felt = ptr_to_felt(sequencer_address);
-    let gas_price_wei_u128 = ptr_to_u128(gas_price_wei);
-    let gas_price_strk_u128 = ptr_to_u128(gas_price_strk);
 
     let fee_token_addresses: FeeTokenAddresses = FeeTokenAddresses { // both addresses are the same for all networks
         eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
@@ -244,10 +244,10 @@ pub extern "C" fn cairoVMExecute(
     };
 
     let gas_prices: GasPrices = GasPrices {
-        eth_l1_gas_price: NonZeroU128::new(1).unwrap(), // Tdo: use gas_price_wei_u128
-        strk_l1_gas_price: NonZeroU128::new(1).unwrap(), // Todo: use gas_price_strk_u128
-        eth_l1_data_gas_price:NonZeroU128::new(1).unwrap(),         // Todo: Should be a new parameter?
-        strk_l1_data_gas_price: NonZeroU128::new(1).unwrap(),       // Todo: Should be a new parameter?
+        eth_l1_gas_price: NonZeroU128::new(felt_ptr_to_u128(gas_price_wei)).unwrap(), 
+        strk_l1_gas_price: NonZeroU128::new(felt_ptr_to_u128(gas_price_strk)).unwrap(), 
+        eth_l1_data_gas_price: NonZeroU128::new(felt_ptr_to_u128(da_gas_price_wei)).unwrap(),
+        strk_l1_data_gas_price: NonZeroU128::new(felt_ptr_to_u128(da_gas_price_fri)).unwrap(),
     };
 
     let use_kzg_da = false; // Todo : Need to include this as a new parameter?

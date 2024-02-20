@@ -10,7 +10,7 @@ package vm
 // extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
 //					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
 //					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert, char* gas_price_wei,
-//					char* gas_price_strk, unsigned char legacy_json);
+//					char* gas_price_strk, unsigned char legacy_json, char* da_gas_price_wei, char* da_gas_price_fri);
 //
 // #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
 // #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
@@ -36,6 +36,7 @@ type VM interface {
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
 		skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
+		daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt,
 	) ([]*felt.Felt, []TransactionTrace, error)
 }
 
@@ -166,7 +167,8 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 	sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
-	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
+	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt,
+	legacyTraceJSON bool, daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt,
 ) ([]*felt.Felt, []TransactionTrace, error) {
 	context := &callContext{
 		state: state,
@@ -190,12 +192,15 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	classesJSONCStr := cstring(classesJSON)
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
-	gasPriceWEIBytes := gasPriceWEI.Bytes()
 
-	if gasPriceSTRK == nil {
-		gasPriceSTRK = &felt.Zero
+	gasPriceWEIBytes := getBytesOrSetDefault(gasPriceWEI)
+	gasPriceSTRKBytes := getBytesOrSetDefault(gasPriceSTRK)
+	daGasPriceWEIBytes := getBytesOrSetDefault(daGasPriceWEI)
+	daGasPriceFRIBytes := getBytesOrSetDefault(daGasPriceFRI)
+
+	if gasPriceWEI.IsZero() || gasPriceSTRK.IsZero() || daGasPriceWEI.IsZero() || daGasPriceFRI.IsZero() {
+		return nil, nil, errors.New("gas prices must be non-zero")
 	}
-	gasPriceSTRKBytes := gasPriceSTRK.Bytes()
 
 	var skipChargeFeeByte byte
 	if skipChargeFee {
@@ -231,6 +236,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		(*C.char)(unsafe.Pointer(&gasPriceWEIBytes[0])),
 		(*C.char)(unsafe.Pointer(&gasPriceSTRKBytes[0])),
 		C.uchar(legacyTraceJSONByte),
+		(*C.char)(unsafe.Pointer(&daGasPriceWEIBytes[0])),
+		(*C.char)(unsafe.Pointer(&daGasPriceFRIBytes[0])),
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -256,6 +263,13 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	}
 
 	return context.actualFees, traces, nil
+}
+
+func getBytesOrSetDefault(value *felt.Felt) [32]byte {
+	if value == nil {
+		value = new(felt.Felt).SetUint64(1)
+	}
+	return value.Bytes()
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

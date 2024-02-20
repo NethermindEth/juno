@@ -143,17 +143,17 @@ func TestExecute(t *testing.T) {
 
 	state := core.NewState(txn)
 
-	t.Run("empty transaction list", func(t *testing.T) {
+	t.Run("empty transaction   list", func(t *testing.T) {
 		// data from 0 block
 		var (
 			address   = utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 			timestamp = uint64(1666877926)
 		)
-		_, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, 0, timestamp, address, state, &network, []*felt.Felt{}, false, false, false, &felt.Zero, &felt.Zero, false)
+		_, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, 0, timestamp, address, state, &network, []*felt.Felt{}, false, false, false, new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(1), false, new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(1))
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, _, err := New(nil).Execute(nil, nil, 0, 0, &felt.Zero, state, &network, []*felt.Felt{}, false, false, false, &felt.Zero, &felt.Zero, false)
+		_, _, err := New(nil).Execute(nil, nil, 0, 0, &felt.Zero, state, &network, []*felt.Felt{}, false, false, false, new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(1), false, new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(1))
 		require.NoError(t, err)
 	})
 }

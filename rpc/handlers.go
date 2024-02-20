@@ -1505,7 +1505,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, sequencerAddress,
 		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
-		header.GasPriceSTRK, legacyTraceJSON)
+		header.GasPriceSTRK, legacyTraceJSON, nil, nil)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1648,7 +1648,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, block.Number, block.Header.Timestamp,
 		sequencerAddress, state, network, paidFeesOnL1, false, false, false, block.Header.GasPrice,
-		block.Header.GasPriceSTRK, legacyJSON)
+		block.Header.GasPriceSTRK, legacyJSON, nil, nil)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)

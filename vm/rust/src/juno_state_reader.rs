@@ -185,11 +185,12 @@ pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
         .expect("cannot new Starkfelt from Juno bytes")
 }
 
-pub fn ptr_to_u128(bytes: *const u8) -> u128 {
+// Note: we only consider the last 16 bytes because `GasPrices` are `NonZeroU128`
+pub fn felt_ptr_to_u128(bytes: *const c_uchar) -> u128 {
     assert!(!bytes.is_null(), "Null pointer provided");
-    let slice = unsafe { slice::from_raw_parts(bytes, mem::size_of::<u128>()) };
-    let array: [u8; mem::size_of::<u128>()] = slice.try_into().expect("Slice not [u8; 16]");
-    u128::from_le_bytes(array)
+    let slice = unsafe { slice::from_raw_parts(bytes, 32) };
+    let array: [u8; 16] = slice[16..32].try_into().expect("Slice with incorrect length");
+    u128::from_be_bytes(array)
 }
 
 pub fn contract_class_from_json_str(raw_json: &str) -> Result<ContractClass, String> {
