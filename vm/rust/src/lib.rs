@@ -190,8 +190,8 @@ pub extern "C" fn cairoVMExecute(
     gas_price_strk: *const c_uchar,
     legacy_json: c_uchar,
     da_gas_price_wei: *const c_uchar,
-    da_gas_price_fri: *const c_uchar
-    // use_kzg_da: bool // Todo: new parameter? Hardcode to true/false?
+    da_gas_price_fri: *const c_uchar,
+    use_kzg_da: c_uchar 
 ) {
     let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
     let versioned_constants = match &*versioned_constants {
@@ -250,14 +250,15 @@ pub extern "C" fn cairoVMExecute(
         strk_l1_data_gas_price: NonZeroU128::new(felt_ptr_to_u128(da_gas_price_fri)).unwrap(),
     };
 
-    let use_kzg_da = false; // Todo : Need to include this as a new parameter?
-    let block_info = build_block_info(block_number,block_timestamp,sequencer_address_felt,gas_prices,use_kzg_da);
+    let use_kzg_da_bool = use_kzg_da != 0;
+    let block_info = build_block_info(block_number,block_timestamp,sequencer_address_felt,gas_prices, use_kzg_da_bool);
     let chain_info = build_chain_info(chain_id_str,fee_token_addresses);
     let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
+    let mut state: CachedState<JunoStateReader> = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
+    
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
