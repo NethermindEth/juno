@@ -7,10 +7,11 @@ package vm
 //					 size_t len_calldata, uintptr_t readerHandle, unsigned long long block_number,
 //					 unsigned long long block_timestamp, char* chain_id, unsigned long long max_steps);
 //
-// extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
-//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
-//					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert, char* gas_price_wei,
-//					char* gas_price_strk, unsigned char legacy_json, char* da_gas_price_wei, char* da_gas_price_fri,  unsigned char usd_kzg_da);
+// extern void cairoVMExecute(char* txns_json, char* classes_json, char* contract_infos, uintptr_t readerHandle,
+//					unsigned long long block_number, unsigned long long block_timestamp, char* chain_id, char* sequencer_address,
+//					char* paid_fees_on_l1_json,	unsigned char skip_charge_fee, unsigned char skip_validate,
+//					unsigned char err_on_revert, char* gas_price_wei, char* gas_price_strk, unsigned char legacy_json,
+//					char* da_gas_price_wei, char* da_gas_price_fri,  unsigned char usd_kzg_da);
 //
 // #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
 // #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
@@ -182,6 +183,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, err
 	}
 
+	contractInfoJSON, err := marshalContractInfos(declaredClasses)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
 		return nil, nil, err
@@ -190,6 +196,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
 	txnsJSONCstr := cstring(txnsJSON)
 	classesJSONCStr := cstring(classesJSON)
+	contractInfoJSONCStr := cstring(contractInfoJSON)
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
 
@@ -211,6 +218,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
+		contractInfoJSONCStr,
 		C.uintptr_t(handle),
 		C.ulonglong(blockNumber),
 		C.ulonglong(blockTimestamp),
@@ -296,4 +304,22 @@ func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []co
 	}
 
 	return txnsJSON, classesJSON, nil
+}
+
+func marshalContractInfos(declaredClasses []core.Class) (json.RawMessage, error) {
+	contractInfoJSONs := []json.RawMessage{}
+	for _, declaredClass := range declaredClasses {
+		contractInfoJSON, cErr := marshalContractInfo(declaredClass)
+		if cErr != nil {
+			return nil, cErr
+		}
+		contractInfoJSONs = append(contractInfoJSONs, contractInfoJSON)
+	}
+
+	contractInfosJSON, err := json.Marshal(contractInfoJSONs)
+	if err != nil {
+		return nil, err
+	}
+
+	return contractInfosJSON, nil
 }

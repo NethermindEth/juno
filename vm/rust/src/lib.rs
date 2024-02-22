@@ -15,6 +15,7 @@ use blockifier::{
     execution::{
         common_hints::ExecutionMode,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
+        contract_class::ClassInfo,
     }, 
     fee::fee_utils::calculate_tx_fee, 
     state::cached_state::{CachedState, GlobalContractCache}, 
@@ -25,7 +26,7 @@ use blockifier::{
             ValidateTransactionError,
         }, objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo}, 
         transaction_execution::Transaction, 
-        transactions::{ExecutableTransaction,ClassInfo}
+        transactions::ExecutableTransaction
     },
     
     versioned_constants::VersionedConstants
@@ -173,10 +174,17 @@ pub struct TxnAndQueryBit {
     pub query_bit: bool,
 }
 
+#[derive(Deserialize)]
+pub struct ClassInformation {
+    pub abi_length :usize,
+    pub sierra_program_length: usize,
+}
+
 #[no_mangle]
 pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
     classes_json: *const c_char,
+    contract_info_json: *const c_char,
     reader_handle: usize,
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
@@ -205,6 +213,7 @@ pub extern "C" fn cairoVMExecute(
     let reader = JunoStateReader::new(reader_handle, block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
+    let contract_info_json_str = unsafe { CStr::from_ptr(contract_info_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
     if let Err(e) = txns_and_query_bits {
@@ -222,6 +231,13 @@ pub extern "C" fn cairoVMExecute(
         return;
     }
 
+    let contract_infos: Result<Vec<ClassInformation>, serde_json::Error> =
+        serde_json::from_str(contract_info_json_str);
+    if let Err(e) = contract_infos {
+        report_error(reader_handle, e.to_string().as_str(), -1);
+        return;
+    }
+
     let paid_fees_on_l1_json_str = unsafe { CStr::from_ptr(paid_fees_on_l1_json) }
         .to_str()
         .unwrap();
@@ -235,6 +251,7 @@ pub extern "C" fn cairoVMExecute(
 
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
+    let mut contract_infos = contract_infos.unwrap();
 
     let sequencer_address_felt = ptr_to_felt(sequencer_address);
 
@@ -263,6 +280,8 @@ pub extern "C" fn cairoVMExecute(
     let mut trace_buffer = Vec::with_capacity(10_000);
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
+
+
         let contract_class = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
@@ -281,6 +300,31 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
+        let class_info = match txn_and_query_bit.txn.clone() {
+            StarknetApiTransaction::Declare(_) => {
+               
+                if contract_infos.is_empty(){
+                    report_error(reader_handle, "missing contract info", txn_index as i64);
+                    return;
+                }
+
+                let contract_info = contract_infos.remove(0);
+                let contract_class_unwrap = contract_class.unwrap();
+                
+                let maybe_class_info = ClassInfo::new(
+                    &contract_class_unwrap,
+                    contract_info.sierra_program_length,
+                    contract_info.abi_length,
+                );
+                if let Err(e) = maybe_class_info {
+                    report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
+                    return;
+                }
+                Some(maybe_class_info.unwrap())
+            }
+            _ => None,
+        };
+
         let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {
@@ -291,20 +335,11 @@ pub extern "C" fn cairoVMExecute(
             }
             _ => None,
         };
-
-
-        let sierra_program_length = 0;                  // Todo: Should be a new parameter?
-        let abi_length = 0;                             // Todo: Should be a new parameter?
-        let class_info = ClassInfo {
-            contract_class: contract_class.unwrap(),
-            sierra_program_length,
-            abi_length,
-        };
         
         let txn = transaction_from_api(
             txn_and_query_bit.txn.clone(),
             txn_and_query_bit.txn_hash,
-            Some(class_info),
+            class_info,
             paid_fee_on_l1,
             txn_and_query_bit.query_bit,
         );
