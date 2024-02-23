@@ -55,7 +55,23 @@ extern "C" {
 
 const GLOBAL_CONTRACT_CACHE_SIZE: usize= 100; // Todo ? default used to set this to 100.
 
+use std::convert::TryInto;
+lazy_static! {
+    pub static ref FEE_TOKEN_ADDRESSES: FeeTokenAddresses = {
+        let eth_fee_token_address = StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+            .and_then(|hash| ContractAddress::try_from(hash))
+            .unwrap();
 
+        let strk_fee_token_address = StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+            .and_then(|hash| ContractAddress::try_from(hash))
+            .unwrap();
+
+        FeeTokenAddresses {
+            eth_fee_token_address,
+            strk_fee_token_address,
+        }
+    };
+}
 
 use lazy_static::lazy_static;
 extern crate serde_json;
@@ -122,11 +138,6 @@ pub extern "C" fn cairoVMCall(
 
     let mut state = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
     let mut resources = ExecutionResources::default();
-    
-    let fee_token_addresses: FeeTokenAddresses = FeeTokenAddresses { // both addresses are the same for all networks
-        eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
-        strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
-    };
 
     let gas_prices: GasPrices = GasPrices {
         eth_l1_gas_price: NonZeroU128::new(1).unwrap(),
@@ -137,7 +148,7 @@ pub extern "C" fn cairoVMCall(
 
     let use_kzg_da = false;
     let block_info = build_block_info(block_number,block_timestamp,StarkFelt::default(),gas_prices,use_kzg_da);
-    let chain_info = build_chain_info(chain_id_str, fee_token_addresses);
+    let chain_info = build_chain_info(chain_id_str, (*FEE_TOKEN_ADDRESSES).clone());
     let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
     
     let tx_context = TransactionContext {
@@ -255,11 +266,6 @@ pub extern "C" fn cairoVMExecute(
 
     let sequencer_address_felt = ptr_to_felt(sequencer_address);
 
-    let fee_token_addresses: FeeTokenAddresses = FeeTokenAddresses { // both addresses are the same for all networks
-        eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
-        strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
-    };
-
     let gas_prices: GasPrices = GasPrices {
         eth_l1_gas_price: NonZeroU128::new(felt_ptr_to_u128(gas_price_wei)).unwrap(), 
         strk_l1_gas_price: NonZeroU128::new(felt_ptr_to_u128(gas_price_strk)).unwrap(), 
@@ -269,7 +275,7 @@ pub extern "C" fn cairoVMExecute(
 
     let use_kzg_da_bool = use_kzg_da != 0;
     let block_info = build_block_info(block_number,block_timestamp,sequencer_address_felt,gas_prices, use_kzg_da_bool);
-    let chain_info = build_chain_info(chain_id_str,fee_token_addresses);
+    let chain_info = build_chain_info(chain_id_str,(*FEE_TOKEN_ADDRESSES).clone());
     let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
 
     let mut state: CachedState<JunoStateReader> = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
@@ -282,35 +288,28 @@ pub extern "C" fn cairoVMExecute(
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
 
 
-        let contract_class = match txn_and_query_bit.txn.clone() {
+        let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
                     report_error(reader_handle, "missing declared class", txn_index as i64);
                     return;
                 }
                 let class_json_str = classes.remove(0);
-
+        
                 let maybe_cc = contract_class_from_json_str(class_json_str.get());
                 if let Err(e) = maybe_cc {
                     report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
                     return;
                 }
-                Some(maybe_cc.unwrap())
-            }
-            _ => None,
-        };
-
-        let class_info = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::Declare(_) => {
-               
+                let contract_class_unwrap = maybe_cc.unwrap();
+        
                 if contract_infos.is_empty(){
                     report_error(reader_handle, "missing contract info", txn_index as i64);
                     return;
                 }
-
+        
                 let contract_info = contract_infos.remove(0);
-                let contract_class_unwrap = contract_class.unwrap();
-                
+        
                 let maybe_class_info = ClassInfo::new(
                     &contract_class_unwrap,
                     contract_info.sierra_program_length,
@@ -492,6 +491,7 @@ fn build_block_info(
         use_kzg_da,
     }
 }
+
 
 fn build_chain_info(
     chain_id: &str,
