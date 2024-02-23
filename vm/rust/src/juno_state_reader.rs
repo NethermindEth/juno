@@ -2,7 +2,6 @@ use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
     slice,
     sync::Mutex,
-    mem,
 };
 
 use blockifier::execution::contract_class::ContractClass;

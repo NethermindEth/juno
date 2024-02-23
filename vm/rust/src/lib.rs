@@ -45,6 +45,9 @@ use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
 };
+use lazy_static::lazy_static;
+use std::convert::TryInto;
+use std::collections::HashMap;
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -55,7 +58,7 @@ extern "C" {
 
 const GLOBAL_CONTRACT_CACHE_SIZE: usize= 100; // Todo ? default used to set this to 100.
 
-use std::convert::TryInto;
+
 lazy_static! {
     pub static ref FEE_TOKEN_ADDRESSES: FeeTokenAddresses = {
         let eth_fee_token_address = StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
@@ -73,18 +76,23 @@ lazy_static! {
     };
 }
 
-use lazy_static::lazy_static;
-extern crate serde_json;
-use std::sync::Mutex;
-const VERSIONED_CONSTANTS_JSON: &'static str = include_str!("../versioned_constants.json");
 lazy_static! {
-    static ref VERSIONED_CONSTANTS: Mutex<Result<VersionedConstants, serde_json::Error>> = Mutex::new(serde_json::from_str(VERSIONED_CONSTANTS_JSON));
+    static ref VERSIONED_CONSTANTS: HashMap<String, VersionedConstants> = {
+        let mut m = HashMap::new();
+        m.insert("0.13.0".to_string(), serde_json::from_str(include_str!("../versioned_constants_13_0.json")).unwrap());
+        m.insert("".to_string(), serde_json::from_str(include_str!("../versioned_constants_13_0.json")).unwrap()); // use this by default
+        m
+    };
 }
 
+fn get_versioned_constants(version: &str) -> &'static VersionedConstants {
+    VERSIONED_CONSTANTS.get(version).unwrap_or(&VERSIONED_CONSTANTS[""])
+}
 
 
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
+    block_info_json: *const c_char,
     contract_address: *const c_uchar,
     class_hash: *const c_uchar,
     entry_point_selector: *const c_uchar,
@@ -94,16 +102,19 @@ pub extern "C" fn cairoVMCall(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
-    max_steps: c_ulonglong,
+    _max_steps: c_ulonglong,
 ) {
-    let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
-    let versioned_constants = match &*versioned_constants {
-        Ok(constants) => constants,
-        Err(e) => {
-            println!("Failed to load versioned constants: {}", e);
-            return;
-        }
-    };
+    
+    let block_info_json_str = unsafe { CStr::from_ptr(block_info_json) }.to_str().unwrap();
+    let block_info: Result<BlockInfoJuno, serde_json::Error> =
+    serde_json::from_str(block_info_json_str);
+    if let Err(e) = block_info {
+        report_error(reader_handle, e.to_string().as_str(), -1);
+        return;
+    }
+    let block_info = block_info.unwrap();
+    let block_version : &str = &block_info.block_version.unwrap();
+    let versioned_constants = get_versioned_constants(block_version);
 
     let reader = JunoStateReader::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
@@ -191,14 +202,21 @@ pub struct ClassInformation {
     pub sierra_program_length: usize,
 }
 
+#[derive(Deserialize)]
+pub struct BlockInfoJuno {
+    block_number: c_ulonglong,
+    block_timestamp: c_ulonglong,
+    block_version:  Option<String>,
+}
+
+
 #[no_mangle]
 pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
     classes_json: *const c_char,
     contract_info_json: *const c_char,
     reader_handle: usize,
-    block_number: c_ulonglong,
-    block_timestamp: c_ulonglong,
+    block_info_json: *const c_char,
     chain_id: *const c_char,
     sequencer_address: *const c_uchar,
     paid_fees_on_l1_json: *const c_char,
@@ -212,19 +230,23 @@ pub extern "C" fn cairoVMExecute(
     da_gas_price_fri: *const c_uchar,
     use_kzg_da: c_uchar 
 ) {
-    let versioned_constants = VERSIONED_CONSTANTS.lock().unwrap();
-    let versioned_constants = match &*versioned_constants {
-        Ok(constants) => constants,
-        Err(e) => {
-            println!("Failed to load versioned constants: {}", e);
-            return;
-        }
-    };
 
-    let reader = JunoStateReader::new(reader_handle, block_number);
+    let block_info_json_str = unsafe { CStr::from_ptr(block_info_json) }.to_str().unwrap();
+    let block_info: Result<BlockInfoJuno, serde_json::Error> =
+    serde_json::from_str(block_info_json_str);
+    if let Err(e) = block_info {
+        report_error(reader_handle, e.to_string().as_str(), -1);
+        return;
+    }
+    let block_info = block_info.unwrap();
+    let block_version : &str = &block_info.block_version.unwrap();
+    let versioned_constants = get_versioned_constants(block_version);
+
+    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let contract_info_json_str = unsafe { CStr::from_ptr(contract_info_json) }.to_str().unwrap();
+    
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
     if let Err(e) = txns_and_query_bits {
@@ -274,7 +296,7 @@ pub extern "C" fn cairoVMExecute(
     };
 
     let use_kzg_da_bool = use_kzg_da != 0;
-    let block_info = build_block_info(block_number,block_timestamp,sequencer_address_felt,gas_prices, use_kzg_da_bool);
+    let block_info = build_block_info(block_info.block_number,block_info.block_timestamp,sequencer_address_felt,gas_prices, use_kzg_da_bool);
     let chain_info = build_chain_info(chain_id_str,(*FEE_TOKEN_ADDRESSES).clone());
     let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
 

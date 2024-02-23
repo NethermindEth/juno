@@ -3,12 +3,12 @@ package vm
 //#include <stdint.h>
 //#include <stdlib.h>
 //#include <stddef.h>
-// extern void cairoVMCall(char* contract_address, char* class_hash, char* entry_point_selector, char** calldata,
+// extern void cairoVMCall(char* block_info_json, char* contract_address, char* class_hash, char* entry_point_selector, char** calldata,
 //					 size_t len_calldata, uintptr_t readerHandle, unsigned long long block_number,
 //					 unsigned long long block_timestamp, char* chain_id, unsigned long long max_steps);
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, char* contract_infos, uintptr_t readerHandle,
-//					unsigned long long block_number, unsigned long long block_timestamp, char* chain_id, char* sequencer_address,
+//					char* block_info_json, char* chain_id, char* sequencer_address,
 //					char* paid_fees_on_l1_json,	unsigned char skip_charge_fee, unsigned char skip_validate,
 //					unsigned char err_on_revert, char* gas_price_wei, char* gas_price_strk, unsigned char legacy_json,
 //					char* da_gas_price_wei, char* da_gas_price_fri,  unsigned char usd_kzg_da);
@@ -32,12 +32,12 @@ import (
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-		blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
+		blockTimestamp uint64, blockVersion string, state core.StateReader, network *utils.Network, maxSteps uint64,
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-		sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
-		skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-		daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt, useKzgDA bool,
+		blockVersion string, sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network,
+		paidFeesOnL1 []*felt.Felt, skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt,
+		gasPriceSTRK *felt.Felt, legacyTraceJSON bool, daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt, useKzgDA bool,
 	) ([]*felt.Felt, []TransactionTrace, error)
 }
 
@@ -113,7 +113,7 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 }
 
 func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
+	blockTimestamp uint64, blockVersion string, state core.StateReader, network *utils.Network, maxSteps uint64,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -142,7 +142,16 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 		classHashPtr = &classHashBytes[0]
 	}
 	chainID := C.CString(network.L2ChainID)
-	C.cairoVMCall((*C.char)(unsafe.Pointer(&addrBytes[0])),
+
+	blockInfoJSON, err := marshalBlockInfos(blockNumber, blockTimestamp, blockVersion)
+	if err != nil {
+		return nil, err
+	}
+	blockInfoJSONCStr := cstring(blockInfoJSON)
+
+	C.cairoVMCall(
+		blockInfoJSONCStr,
+		(*C.char)(unsafe.Pointer(&addrBytes[0])),
 		(*C.char)(unsafe.Pointer(classHashPtr)),
 		(*C.char)(unsafe.Pointer(&selectorBytes[0])),
 		(**C.char)(calldataArrPtr),
@@ -167,9 +176,10 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-	sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
-	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt,
-	legacyTraceJSON bool, daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt, useKzgDA bool,
+	blockVersion string, sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network,
+	paidFeesOnL1 []*felt.Felt, skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt,
+	gasPriceSTRK *felt.Felt, legacyTraceJSON bool, daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt,
+	useKzgDA bool,
 ) ([]*felt.Felt, []TransactionTrace, error) {
 	context := &callContext{
 		state: state,
@@ -188,6 +198,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		return nil, nil, err
 	}
 
+	blockInfoJSON, err := marshalBlockInfos(blockNumber, blockTimestamp, blockVersion)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
 		return nil, nil, err
@@ -197,6 +212,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	txnsJSONCstr := cstring(txnsJSON)
 	classesJSONCStr := cstring(classesJSON)
 	contractInfoJSONCStr := cstring(contractInfoJSON)
+	blockInfoJSONCStr := cstring(blockInfoJSON)
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
 
@@ -216,12 +232,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	useKzgDAByte := boolToByte(useKzgDA)
 
 	chainID := C.CString(network.L2ChainID)
-	C.cairoVMExecute(txnsJSONCstr,
+	C.cairoVMExecute(
+		txnsJSONCstr,
 		classesJSONCStr,
 		contractInfoJSONCStr,
 		C.uintptr_t(handle),
-		C.ulonglong(blockNumber),
-		C.ulonglong(blockTimestamp),
+		blockInfoJSONCStr,
 		chainID,
 		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])),
 		paidFeesOnL1CStr,
@@ -322,4 +338,22 @@ func marshalContractInfos(declaredClasses []core.Class) (json.RawMessage, error)
 	}
 
 	return contractInfosJSON, nil
+}
+
+func marshalBlockInfos(blockNumber, blockTimestamp uint64, blockVersion string) (json.RawMessage, error) {
+	blockInfo := struct {
+		BlockNumber    uint64 `json:"block_number"`
+		BlockTimestamp uint64 `json:"block_timestamp"`
+		BlockVersion   string `json:"block_version"`
+	}{
+		BlockNumber:    blockNumber,
+		BlockTimestamp: blockTimestamp,
+		BlockVersion:   blockVersion,
+	}
+
+	result, err := json.Marshal(blockInfo)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

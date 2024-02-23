@@ -43,24 +43,24 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(arg0, arg1, arg2 *felt.Felt, arg3 []felt.Felt, arg4, arg5 uint64, arg6 core.StateReader, arg7 *utils.Network, arg8 uint64) ([]*felt.Felt, error) {
+func (m *MockVM) Call(arg0, arg1, arg2 *felt.Felt, arg3 []felt.Felt, arg4, arg5 uint64, arg6 string, arg7 core.StateReader, arg8 *utils.Network, arg9 uint64) ([]*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Call", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret := m.ctrl.Call(m, "Call", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 	ret0, _ := ret[0].([]*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Call indicates an expected call of Call.
-func (mr *MockVMMockRecorder) Call(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *gomock.Call {
+func (mr *MockVMMockRecorder) Call(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockVM)(nil).Call), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockVM)(nil).Call), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2, arg3 uint64, arg4 *felt.Felt, arg5 core.StateReader, arg6 *utils.Network, arg7 []*felt.Felt, arg8, arg9, arg10 bool, arg11, arg12 *felt.Felt, arg13 bool, arg14, arg15 *felt.Felt, arg16 bool) ([]*felt.Felt, []vm.TransactionTrace, error) {
+func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2, arg3 uint64, arg4 string, arg5 *felt.Felt, arg6 core.StateReader, arg7 *utils.Network, arg8 []*felt.Felt, arg9, arg10, arg11 bool, arg12, arg13 *felt.Felt, arg14 bool, arg15, arg16 *felt.Felt, arg17 bool) ([]*felt.Felt, []vm.TransactionTrace, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16)
+	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17)
 	ret0, _ := ret[0].([]*felt.Felt)
 	ret1, _ := ret[1].([]vm.TransactionTrace)
 	ret2, _ := ret[2].(error)
@@ -68,7 +68,7 @@ func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2, arg3 
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockVMMockRecorder) Execute(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16 any) *gomock.Call {
+func (mr *MockVMMockRecorder) Execute(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17)
 }

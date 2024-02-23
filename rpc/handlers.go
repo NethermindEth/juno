@@ -1260,7 +1260,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	}
 
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, header.Number, header.Timestamp, state, h.bcReader.Network(), h.callMaxSteps)
+		call.Calldata, header.Number, header.Timestamp, header.ProtocolVersion, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1503,9 +1503,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if sequencerAddress == nil {
 		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
-	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, sequencerAddress,
-		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
-		header.GasPriceSTRK, legacyTraceJSON, nil, nil, false)
+	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, header.ProtocolVersion,
+		sequencerAddress, state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate,
+		errOnRevert, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON, nil, nil, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1647,8 +1647,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	_, traces, err := h.vm.Execute(block.Transactions, classes, block.Number, block.Header.Timestamp,
-		sequencerAddress, state, network, paidFeesOnL1, false, false, false, block.Header.GasPrice,
-		block.Header.GasPriceSTRK, legacyJSON, nil, nil, false)
+		block.Header.ProtocolVersion, sequencerAddress, state, network, paidFeesOnL1, false, false,
+		false, block.Header.GasPrice, block.Header.GasPriceSTRK, legacyJSON, nil, nil, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
