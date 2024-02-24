@@ -49,3 +49,8 @@ func (t *Throttler[T]) Do(doer func(resource *T) error) error {
 func (t *Throttler[T]) QueueLen() int {
 	return int(t.queue.Load())
 }
+
+// JobsRunning returns the number of Do calls that are running at the moment
+func (t *Throttler[T]) JobsRunning() int {
+	return len(t.sem)
+}

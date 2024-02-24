@@ -102,6 +102,7 @@ func NewNopZapLogger() *ZapLogger {
 
 func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
+	config.Sampling = nil
 	config.Encoding = "console"
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	if !colour {

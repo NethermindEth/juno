@@ -1,4 +1,5 @@
 * Goals: consensus, scale, validator-fullnode separation, cleanup
+* whenever 'bytes' is used to encode large numbers (felts), big endian is used, without storing leading zeros in the number as bytes (so 0x11 is stored as [0x11] not [0x00, 0x00,...,0x11]
 * requests are responded to with a stream of messages that are varint message delimited.
 * When a stream returnes several logical objects, each in several messages, then each object messages should end with a Fin message
 * Responses to events, receipts and transactions also include block hash for cases of reorg.

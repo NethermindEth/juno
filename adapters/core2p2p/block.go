@@ -30,7 +30,7 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.BlockHeader {
 	return &spec.BlockHeader{
-		ParentHeader:     AdaptHash(header.ParentHash),
+		ParentHash:       AdaptHash(header.ParentHash),
 		Number:           header.Number,
 		Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
 		SequencerAddress: AdaptAddress(header.SequencerAddress),
@@ -49,17 +49,20 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.
 			NLeaves: uint32(header.EventCount),
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
+		ProtocolVersion: header.ProtocolVersion,
+		GasPrice:        AdaptFelt(header.GasPrice),
 	}
 }
 
-func AdaptEvent(e *core.Event) *spec.Event {
+func AdaptEvent(e *core.Event, txH *felt.Felt) *spec.Event {
 	if e == nil {
 		return nil
 	}
 
 	return &spec.Event{
-		FromAddress: AdaptFelt(e.From),
-		Keys:        utils.Map(e.Keys, AdaptFelt),
-		Data:        utils.Map(e.Data, AdaptFelt),
+		TransactionHash: AdaptHash(txH),
+		FromAddress:     AdaptFelt(e.From),
+		Keys:            utils.Map(e.Keys, AdaptFelt),
+		Data:            utils.Map(e.Data, AdaptFelt),
 	}
 }

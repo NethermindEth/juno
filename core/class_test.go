@@ -18,7 +18,7 @@ import (
 )
 
 func TestClassV0Hash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Goerli)
 
 	gw := adaptfeeder.New(client)
 	tests := []struct {
@@ -52,7 +52,7 @@ func TestClassV0Hash(t *testing.T) {
 }
 
 func TestClassV1Hash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 	tests := []struct {
 		classHash       string
@@ -82,7 +82,7 @@ func TestClassV1Hash(t *testing.T) {
 }
 
 func TestCompiledClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
 	hash := utils.HexToFelt(t, "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc")
@@ -169,7 +169,7 @@ func TestVerifyClassHash(t *testing.T) {
 		wantErr   error
 	}
 
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
 	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")

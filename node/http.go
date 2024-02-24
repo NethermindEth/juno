@@ -54,10 +54,9 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 	portStr := strconv.FormatUint(uint64(port), 10)
 	return &httpService{
 		srv: &http.Server{
-			Addr:    net.JoinHostPort(host, portStr),
-			Handler: handler,
-			// ReadTimeout also sets ReadHeaderTimeout and IdleTimeout.
-			ReadTimeout: 30 * time.Second,
+			Addr:              net.JoinHostPort(host, portStr),
+			Handler:           handler,
+			ReadHeaderTimeout: 30 * time.Second,
 		},
 	}
 }
@@ -73,7 +72,7 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 }
 
 func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log utils.SimpleLogger, metricsEnabled bool,
+	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -88,11 +87,16 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 		}
 		mux.Handle(path, exactPathServer(path, httpHandler))
 	}
-	return makeHTTPService(host, port, cors.Default().Handler(mux))
+
+	var handler http.Handler = mux
+	if corsEnabled {
+		handler = cors.Default().Handler(handler)
+	}
+	return makeHTTPService(host, port, handler)
 }
 
 func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log utils.SimpleLogger, metricsEnabled bool,
+	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -109,7 +113,12 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 		wsPrefixedPath := strings.TrimSuffix("/ws"+path, "/")
 		mux.Handle(wsPrefixedPath, exactPathServer(wsPrefixedPath, wsHandler))
 	}
-	return makeHTTPService(host, port, cors.Default().Handler(mux))
+
+	var handler http.Handler = mux
+	if corsEnabled {
+		handler = cors.Default().Handler(handler)
+	}
+	return makeHTTPService(host, port, handler)
 }
 
 func makeMetrics(host string, port uint16) *httpService {

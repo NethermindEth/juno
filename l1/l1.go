@@ -28,7 +28,7 @@ type Client struct {
 	l1                    Subscriber
 	l2Chain               *blockchain.Blockchain
 	log                   utils.SimpleLogger
-	network               utils.Network
+	network               *utils.Network
 	resubscribeDelay      time.Duration
 	pollFinalisedInterval time.Duration
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
@@ -88,14 +88,14 @@ func (c *Client) checkChainID(ctx context.Context) error {
 		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
 	}
 
-	wantChainID := c.network.DefaultL1ChainID()
+	wantChainID := c.network.L1ChainID
 	if gotChainID.Cmp(wantChainID) == 0 {
 		return nil
 	}
 
 	// NOTE: for now we return an error. If we want to support users who fork
 	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
-	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network)
+	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network.String())
 }
 
 func (c *Client) Run(ctx context.Context) error {

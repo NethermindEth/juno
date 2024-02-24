@@ -49,7 +49,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 	network := utils.Mainnet
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 
@@ -62,7 +62,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 	subscriber.
 		EXPECT().
 		ChainID(gomock.Any()).
-		Return(network.DefaultL1ChainID(), nil).
+		Return(network.L1ChainID, nil).
 		Times(1)
 
 	subscriber.EXPECT().Close().Times(1)
@@ -80,7 +80,7 @@ func TestMismatchedChainID(t *testing.T) {
 	network := utils.Mainnet
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 
@@ -105,7 +105,7 @@ func TestEventListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
-	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 	subscriber.
@@ -130,7 +130,7 @@ func TestEventListener(t *testing.T) {
 	subscriber.
 		EXPECT().
 		ChainID(gomock.Any()).
-		Return(network.DefaultL1ChainID(), nil).
+		Return(network.L1ChainID, nil).
 		Times(1)
 
 	subscriber.EXPECT().Close().Times(1)

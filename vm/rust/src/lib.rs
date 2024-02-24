@@ -9,11 +9,11 @@ use std::{
 };
 
 use blockifier::{
-    abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE},
+    abi::constants::{INITIAL_GAS_COST, N_STEPS_RESOURCE, MAX_STEPS_PER_TX, MAX_VALIDATE_STEPS_PER_TX},
     block_context::{BlockContext, GasPrices, FeeTokenAddresses},
     execution::{
         common_hints::ExecutionMode,
-        contract_class::{ContractClass, ContractClassV1},
+        contract_class::ContractClass,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext, ExecutionResources},
     },
     fee::fee_utils::calculate_tx_fee,
@@ -29,8 +29,6 @@ use blockifier::{
         },
     },
 };
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
-use cairo_lang_starknet::contract_class::ContractClass as SierraContractClass;
 use cairo_vm::vm::runners::builtin_runner::{
     BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
     OUTPUT_BUILTIN_NAME, POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME,
@@ -48,7 +46,6 @@ use starknet_api::{
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
-    transaction::TransactionVersion,
 };
 
 extern "C" {
@@ -71,6 +68,7 @@ pub extern "C" fn cairoVMCall(
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     chain_id: *const c_char,
+    max_steps: c_ulonglong,
 ) {
     let reader = JunoStateReader::new(reader_handle, block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
@@ -116,6 +114,7 @@ pub extern "C" fn cairoVMCall(
             block_timestamp,
             StarkFelt::default(),
             GAS_PRICES,
+            Some(max_steps),
         ),
         &AccountTransactionContext::Deprecated(DeprecatedAccountTransactionContext::default()),
         ExecutionMode::Execute,
@@ -207,6 +206,7 @@ pub extern "C" fn cairoVMExecute(
             eth_l1_gas_price: felt_to_u128(gas_price_wei_felt),
             strk_l1_gas_price: felt_to_u128(gas_price_strk_felt),
         },
+        None
     );
     let mut state = CachedState::new(reader, GlobalContractCache::default());
     let charge_fee = skip_charge_fee == 0;
@@ -216,19 +216,14 @@ pub extern "C" fn cairoVMExecute(
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
         let contract_class = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::Declare(declare) => {
+            StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
                     report_error(reader_handle, "missing declared class", txn_index as i64);
                     return;
                 }
                 let class_json_str = classes.remove(0);
 
-                let mut maybe_cc = contract_class_from_json_str(class_json_str.get());
-                if declare.version() >= TransactionVersion(2u32.into()) && maybe_cc.is_err() {
-                    // class json could be sierra
-                    maybe_cc = contract_class_from_sierra_json(class_json_str.get())
-                };
-
+                let maybe_cc = contract_class_from_json_str(class_json_str.get());
                 if let Err(e) = maybe_cc {
                     report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
                     return;
@@ -404,6 +399,7 @@ fn build_block_context(
     block_timestamp: c_ulonglong,
     sequencer_address: StarkFelt,
     gas_prices: GasPrices,
+    max_steps: Option<c_ulonglong>,
 ) -> BlockContext {
     BlockContext {
         chain_id: ChainId(chain_id_str.into()),
@@ -440,18 +436,8 @@ fn build_block_context(
             (KECCAK_BUILTIN_NAME.to_string(), N_STEPS_FEE_WEIGHT * 2048.0),
         ])
         .into(),
-        invoke_tx_max_n_steps: 3_000_000,
-        validate_max_n_steps: 3_000_000,
+        invoke_tx_max_n_steps: max_steps.unwrap_or(MAX_STEPS_PER_TX as u64).try_into().unwrap(),
+        validate_max_n_steps: MAX_VALIDATE_STEPS_PER_TX as u32,
         max_recursion_depth: 50,
     }
-}
-
-fn contract_class_from_sierra_json(sierra_json: &str) -> Result<ContractClass, String> {
-    let sierra_class: SierraContractClass =
-        serde_json::from_str(sierra_json).map_err(|err| err.to_string())?;
-    let casm_class = CasmContractClass::from_contract_class(sierra_class, true)
-        .map_err(|err| err.to_string())?;
-    let contract_class_v1 = ContractClassV1::try_from(casm_class).map_err(|err| err.to_string())?;
-
-    Ok(contract_class_v1.into())
 }

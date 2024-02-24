@@ -38,7 +38,7 @@ var (
 type Client struct {
 	url       string
 	client    *http.Client
-	timeout   time.Duration
+	listener  EventListener
 	log       utils.SimpleLogger
 	userAgent string
 	apiKey    string
@@ -51,6 +51,11 @@ func (c *Client) WithUserAgent(ua string) *Client {
 
 func (c *Client) WithAPIKey(key string) *Client {
 	c.apiKey = key
+	return c
+}
+
+func (c *Client) WithListener(l EventListener) *Client {
+	c.listener = l
 	return c
 }
 
@@ -97,22 +102,21 @@ func newTestServer(t *testing.T) *httptest.Server {
 func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {
 	gatewayURL = strings.TrimSuffix(gatewayURL, "/")
 	return &Client{
-		url:     gatewayURL,
-		timeout: time.Minute,
-		client:  http.DefaultClient,
-		log:     log,
+		url: gatewayURL,
+		client: &http.Client{
+			Timeout: time.Minute,
+		},
+		listener: &SelectiveListener{},
+		log:      log,
 	}
 }
 
-func (c *Client) AddTransaction(txn json.RawMessage) (json.RawMessage, error) {
-	return c.post(c.url+"/add_transaction", txn)
+func (c *Client) AddTransaction(ctx context.Context, txn json.RawMessage) (json.RawMessage, error) {
+	return c.post(ctx, c.url+"/add_transaction", txn)
 }
 
 // post performs additional utility function over doPost method
-func (c *Client) post(url string, data any) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
-
+func (c *Client) post(ctx context.Context, url string, data any) ([]byte, error) {
 	resp, err := c.doPost(ctx, url, data)
 	if err != nil {
 		return nil, err
@@ -156,7 +160,13 @@ func (c *Client) doPost(ctx context.Context, url string, data any) (*http.Respon
 	if c.apiKey != "" {
 		req.Header.Set("X-Throttling-Bypass", c.apiKey)
 	}
-	return c.client.Do(req)
+	reqTimer := time.Now()
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	c.listener.OnResponse(req.URL.Path, resp.StatusCode, time.Since(reqTimer))
+	return resp, nil
 }
 
 type ErrorCode string

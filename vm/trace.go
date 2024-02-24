@@ -1,8 +1,10 @@
 package vm
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -105,6 +107,61 @@ type TransactionTrace struct {
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 }
 
+func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
+	var executeInvocation *FunctionInvocation
+	if t.ExecuteInvocation != nil {
+		executeInvocation = t.ExecuteInvocation.FunctionInvocation
+	}
+	return slices.DeleteFunc([]*FunctionInvocation{
+		t.ConstructorInvocation,
+		t.ValidateInvocation,
+		t.FeeTransferInvocation,
+		executeInvocation,
+		t.FunctionInvocation,
+	}, func(i *FunctionInvocation) bool { return i == nil })
+}
+
+func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
+	total := new(ExecutionResources)
+	for _, invocation := range t.allInvocations() {
+		r := invocation.ExecutionResources
+		total.Pedersen += r.Pedersen
+		total.RangeCheck += r.RangeCheck
+		total.Bitwise += r.Bitwise
+		total.Ecdsa += r.Ecdsa
+		total.EcOp += r.EcOp
+		total.Keccak += r.Keccak
+		total.Poseidon += r.Poseidon
+		total.SegmentArena += r.SegmentArena
+		total.MemoryHoles += r.MemoryHoles
+		total.Steps += r.Steps
+	}
+	return total
+}
+
+func (t *TransactionTrace) RevertReason() string {
+	if t.ExecuteInvocation == nil {
+		return ""
+	}
+	return t.ExecuteInvocation.RevertReason
+}
+
+func (t *TransactionTrace) AllEvents() []OrderedEvent {
+	events := make([]OrderedEvent, 0)
+	for _, invocation := range t.allInvocations() {
+		events = append(events, invocation.allEvents()...)
+	}
+	return events
+}
+
+func (t *TransactionTrace) AllMessages() []OrderedL2toL1Message {
+	messages := make([]OrderedL2toL1Message, 0)
+	for _, invocation := range t.allInvocations() {
+		messages = append(messages, invocation.allMessages()...)
+	}
+	return messages
+}
+
 type FunctionInvocation struct {
 	ContractAddress    felt.Felt              `json:"contract_address"`
 	EntryPointSelector *felt.Felt             `json:"entry_point_selector,omitempty"`
@@ -120,9 +177,33 @@ type FunctionInvocation struct {
 	ExecutionResources *ExecutionResources    `json:"execution_resources,omitempty"`
 }
 
+func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
+	events := make([]OrderedEvent, 0)
+	for i := range invocation.Calls {
+		events = append(events, invocation.Calls[i].allEvents()...)
+	}
+	return append(events, invocation.Events...)
+}
+
+func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
+	messages := make([]OrderedL2toL1Message, 0)
+	for i := range invocation.Calls {
+		messages = append(messages, invocation.Calls[i].allMessages()...)
+	}
+	return append(messages, invocation.Messages...)
+}
+
 type ExecuteInvocation struct {
-	RevertReason        string `json:"revert_reason,omitempty"`
+	RevertReason        string `json:"revert_reason"`
 	*FunctionInvocation `json:",omitempty"`
+}
+
+func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+	if e.FunctionInvocation != nil {
+		return json.Marshal(e.FunctionInvocation)
+	}
+	type alias ExecuteInvocation
+	return json.Marshal(alias(e))
 }
 
 type OrderedEvent struct {
@@ -145,7 +226,7 @@ type ExecutionResources struct {
 	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
 	RangeCheck   uint64 `json:"range_check_builtin_applications,omitempty"`
 	Bitwise      uint64 `json:"bitwise_builtin_applications,omitempty"`
-	Ecsda        uint64 `json:"ecdsa_builtin_applications,omitempty"`
+	Ecdsa        uint64 `json:"ecdsa_builtin_applications,omitempty"`
 	EcOp         uint64 `json:"ec_op_builtin_applications,omitempty"`
 	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
 	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`

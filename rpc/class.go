@@ -48,7 +48,11 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 
 	switch {
 	case feederClass.V1 != nil:
-		return sn2core.AdaptCairo1Class(feederClass.V1, nil)
+		compiledClass, cErr := starknet.Compile(feederClass.V1)
+		if cErr != nil {
+			return nil, cErr
+		}
+		return sn2core.AdaptCairo1Class(feederClass.V1, compiledClass)
 	case feederClass.V0 != nil:
 		// strip the quotes
 		base64Program := string(feederClass.V0.Program[1 : len(feederClass.V0.Program)-1])

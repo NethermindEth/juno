@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"fmt"
 	"io"
 )
 
@@ -11,10 +12,10 @@ func Gzip64Encode(data []byte) (string, error) {
 	var compressedBuffer bytes.Buffer
 	gzipWriter := gzip.NewWriter(&compressedBuffer)
 	if _, err := gzipWriter.Write(data); err != nil {
-		return "", err
+		return "", fmt.Errorf("gzip data: %v", err)
 	}
 	if err := gzipWriter.Close(); err != nil {
-		return "", err
+		return "", fmt.Errorf("close gzip writer: %v", err)
 	}
 	return base64.StdEncoding.EncodeToString(compressedBuffer.Bytes()), nil
 }

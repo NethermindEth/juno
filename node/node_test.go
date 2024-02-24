@@ -26,7 +26,7 @@ func TestNewNode(t *testing.T) {
 		GRPC:                true,
 		GRPCPort:            0,
 		DatabasePath:        t.TempDir(),
-		Network:             utils.Mainnet,
+		Network:             utils.Sepolia, // P2P will only work with Sepolia (for the time being)
 		EthNode:             "",
 		Pprof:               true,
 		PprofPort:           0,
@@ -36,7 +36,7 @@ func TestNewNode(t *testing.T) {
 		MetricsPort:         0,
 		P2P:                 true,
 		P2PAddr:             "",
-		P2PBootPeers:        "",
+		P2PPeers:            "",
 	}
 
 	n, err := node.New(config, "v0.3")
@@ -69,8 +69,8 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			database, err := pebble.New(dbPath, 1, 1, log)
 			require.NoError(t, err)
-			chain := blockchain.New(database, network, log)
-			syncer := sync.New(chain, adaptfeeder.New(feeder.NewTestClient(t, network)), log, 0, false)
+			chain := blockchain.New(database, &network)
+			syncer := sync.New(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)), log, 0, false)
 			ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 			require.NoError(t, syncer.Run(ctx))
 			cancel()

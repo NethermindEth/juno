@@ -105,7 +105,7 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 		Pedersen:     builtins.Pedersen,
 		RangeCheck:   builtins.RangeCheck,
 		Bitwise:      builtins.Bitwise,
-		Ecsda:        builtins.Ecsda,
+		Ecdsa:        builtins.Ecsda,
 		EcOp:         builtins.EcOp,
 		Keccak:       builtins.Keccak,
 		Poseidon:     builtins.Poseidon,
