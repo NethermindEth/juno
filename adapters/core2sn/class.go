@@ -7,6 +7,13 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+func AdaptSegmentLengths(l core.SegmentLengths) starknet.SegmentLengths {
+	return starknet.SegmentLengths{
+		Length:   l.Length,
+		Children: utils.Map(l.Children, AdaptSegmentLengths),
+	}
+}
+
 func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.CompiledClass {
 	var feederCompiledClass starknet.CompiledClass
 	feederCompiledClass.Bytecode = coreCompiledClass.Bytecode
@@ -14,6 +21,7 @@ func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.Compiled
 	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
 	feederCompiledClass.Hints = coreCompiledClass.Hints
 	feederCompiledClass.Prime = "0x" + coreCompiledClass.Prime.Text(felt.Base16)
+	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCompiledClass.BytecodeSegmentLengths)
 
 	adapt := func(ep core.CompiledEntryPoint) starknet.CompiledEntryPoint {
 		return starknet.CompiledEntryPoint{

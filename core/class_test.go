@@ -84,12 +84,37 @@ func TestClassV1Hash(t *testing.T) {
 func TestCompiledClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
+	tests := []struct {
+		classHash                 string
+		expectedCompiledClassHash string
+	}{
+		{
+			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc
+			classHash:                 "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
+			expectedCompiledClassHash: "0x18f95714044fd5408d3bf812bcd249ddec098ab3cd201b7916170cfbfa59e05",
+		},
+		{
+			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d
+			classHash:                 "0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d",
+			expectedCompiledClassHash: "0x603dd72504d8b0bc54df4f1102fdcf87fc3b2b94750a9083a5876913eec08e4",
+		},
+		{
+			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89
+			classHash:                 "0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89",
+			expectedCompiledClassHash: "0x260f0d9862f0dd76ac1f9c93e6ce0c2536f7c0275c87061e73abce321bfd4ad",
+		},
+	}
 
-	hash := utils.HexToFelt(t, "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc")
-	class, err := gw.Class(context.Background(), hash)
-	require.NoError(t, err)
-	got := class.(*core.Cairo1Class).Compiled.Hash()
-	assert.Equal(t, "0x18f95714044fd5408d3bf812bcd249ddec098ab3cd201b7916170cfbfa59e05", got.String())
+	for _, tt := range tests {
+		t.Run("ClassHash", func(t *testing.T) {
+			hash := utils.HexToFelt(t, tt.classHash)
+			class, err := gw.Class(context.Background(), hash)
+			require.NoError(t, err)
+			got := class.(*core.Cairo1Class).Compiled.Hash()
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCompiledClassHash, got.String())
+		})
+	}
 }
 
 func TestClassEncoding(t *testing.T) {
@@ -215,4 +240,28 @@ func TestVerifyClassHash(t *testing.T) {
 
 		assert.NoError(t, core.VerifyClassHashes(classMap))
 	})
+}
+
+func TestSegmentedBytecodeHash(t *testing.T) {
+	// nested case that is not covered by class hash tests
+	require.Equal(t, "0x7cdd91b70b76e3deb1d334d76ba08eebd26f8c06af82117b79bcf1386c8e736",
+		core.SegmentedBytecodeHash([]*felt.Felt{
+			new(felt.Felt).SetUint64(1),
+			new(felt.Felt).SetUint64(2),
+			new(felt.Felt).SetUint64(3),
+		}, []core.SegmentLengths{
+			{
+				Length: 1,
+			},
+			{
+				Children: []core.SegmentLengths{
+					{
+						Length: 1,
+					},
+					{
+						Length: 1,
+					},
+				},
+			},
+		}).String())
 }
