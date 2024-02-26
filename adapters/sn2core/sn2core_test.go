@@ -23,6 +23,8 @@ func TestAdaptBlock(t *testing.T) {
 		sig             *starknet.Signature
 		gasPriceWEI     *felt.Felt
 		gasPriceSTRK    *felt.Felt
+		l1DAGasPriceWEI *felt.Felt
+		l1DAGasPriceFRI *felt.Felt
 	}{
 		{
 			number:      147,
@@ -56,6 +58,21 @@ func TestAdaptBlock(t *testing.T) {
 			},
 			gasPriceWEI:  utils.HexToFelt(t, "0x3b9aca08"),
 			gasPriceSTRK: utils.HexToFelt(t, "0x2540be400"),
+		},
+		{
+			number:          330363,
+			network:         utils.Integration,
+			protocolVersion: "0.13.1",
+			sig: &starknet.Signature{
+				Signature: []*felt.Felt{
+					utils.HexToFelt(t, "0x7685fbcd4bacae7554ad17c6962221143911d894d7b8794d29234623f392562"),
+					utils.HexToFelt(t, "0x343e605de3957e664746ba8ef82f2b0f9d53cda3d75dcb078290b8edd010165"),
+				},
+			},
+			gasPriceWEI:     utils.HexToFelt(t, "0x3b9aca0a"),
+			gasPriceSTRK:    utils.HexToFelt(t, "0x2b6fdb70"),
+			l1DAGasPriceWEI: utils.HexToFelt(t, "0x5265a14ef"),
+			l1DAGasPriceFRI: utils.HexToFelt(t, "0x3c0c00c87"),
 		},
 	}
 
@@ -101,6 +118,12 @@ func TestAdaptBlock(t *testing.T) {
 
 			assert.Equal(t, test.gasPriceSTRK, block.GasPriceSTRK)
 			assert.Equal(t, test.gasPriceWEI, block.GasPrice)
+			if test.l1DAGasPriceFRI != nil {
+				assert.Equal(t, test.l1DAGasPriceFRI, block.L1DataGasPrice.PriceInFri)
+			}
+			if test.l1DAGasPriceFRI != nil {
+				assert.Equal(t, test.l1DAGasPriceWEI, block.L1DataGasPrice.PriceInWei)
+			}
 		})
 	}
 }
