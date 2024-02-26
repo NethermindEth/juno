@@ -330,6 +330,8 @@ func TestBlockHeaderV0131Unmarshal(t *testing.T) {
 	require.Equal(t, utils.HexToFelt(t, "0x3c0c00c87"), block.L1DataGasPrice.PriceInFri)
 	require.Equal(t, starknet.Blob, block.L1DAMode)
 	require.Equal(t, "0.13.1", block.Version)
+	require.Equal(t, uint64(0), block.Receipts[0].ExecutionResources.DataAvailability.L1Gas)
+	require.Equal(t, uint64(128), block.Receipts[0].ExecutionResources.DataAvailability.L1DataGas)
 }
 
 func TestClassV0Unmarshal(t *testing.T) {

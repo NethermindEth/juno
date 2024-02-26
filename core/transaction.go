@@ -99,6 +99,12 @@ type ExecutionResources struct {
 	BuiltinInstanceCounter BuiltinInstanceCounter
 	MemoryHoles            uint64
 	Steps                  uint64
+	DataAvailability       *DataAvailability
+}
+
+type DataAvailability struct {
+	L1Gas     uint64
+	L1DataGas uint64
 }
 
 type BuiltinInstanceCounter struct {
