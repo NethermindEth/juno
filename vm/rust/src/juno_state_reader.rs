@@ -192,6 +192,18 @@ pub fn felt_ptr_to_u128(bytes: *const c_uchar) -> u128 {
     u128::from_be_bytes(array)
 }
 
+use std::ffi::CString;
+
+pub fn convert_to_c_uchar(opt_str: Option<String>) -> *const c_uchar {
+    match opt_str {
+        Some(str) => {
+            let c_str = CString::new(str).unwrap();
+            c_str.into_raw() as *const c_uchar
+        }
+        None => std::ptr::null(),
+    }
+}
+
 pub fn contract_class_from_json_str(raw_json: &str) -> Result<ContractClass, String> {
     let v0_class = ContractClassV0::try_from_json_string(raw_json);
     if let Ok(class) = v0_class {

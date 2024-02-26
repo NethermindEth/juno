@@ -20,29 +20,30 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 }
 
 func (tvm *ThrottledVM) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, blockVersion string, state core.StateReader, network *utils.Network, maxSteps uint64,
+	blockTimestamp uint64, blockVersion string, blockHash *felt.Felt, state core.StateReader,
+	network *utils.Network, maxSteps uint64,
 ) ([]*felt.Felt, error) {
 	var ret []*felt.Felt
 	return ret, tvm.Do(func(vm *vm.VM) error {
 		var err error
 		ret, err = (*vm).Call(contractAddr, classHash, selector, calldata, blockNumber, blockTimestamp,
-			blockVersion, state, network, maxSteps)
+			blockVersion, blockHash, state, network, maxSteps)
 		return err
 	})
 }
 
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-	blockVersion string, sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
-	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
-	daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt, useKzgDA bool,
+	blockVersion string, blockHash *felt.Felt, sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network,
+	paidFeesOnL1 []*felt.Felt, skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt,
+	legacyTraceJSON bool, daGasPriceWEI *felt.Felt, daGasPriceFRI *felt.Felt, useKzgDA bool,
 ) ([]*felt.Felt, []vm.TransactionTrace, error) {
 	var ret []*felt.Felt
 	var traces []vm.TransactionTrace
 	return ret, traces, tvm.Do(func(vm *vm.VM) error {
 		var err error
-		ret, traces, err = (*vm).Execute(txns, declaredClasses, blockNumber, blockTimestamp, blockVersion, sequencerAddress,
-			state, network, paidFeesOnL1, skipChargeFee, skipValidate, errOnRevert, gasPriceWEI, gasPriceSTRK, legacyTraceJSON,
-			daGasPriceWEI, daGasPriceFRI, useKzgDA)
+		ret, traces, err = (*vm).Execute(txns, declaredClasses, blockNumber, blockTimestamp, blockVersion, blockHash,
+			sequencerAddress, state, network, paidFeesOnL1, skipChargeFee, skipValidate, errOnRevert, gasPriceWEI,
+			gasPriceSTRK, legacyTraceJSON, daGasPriceWEI, daGasPriceFRI, useKzgDA)
 		return err
 	})
 }

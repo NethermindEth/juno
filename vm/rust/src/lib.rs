@@ -1,7 +1,7 @@
 pub mod jsonrpc;
 mod juno_state_reader;
-use std::num::NonZeroU128;
-use crate::juno_state_reader::{ptr_to_felt,felt_ptr_to_u128, JunoStateReader};
+use std::{borrow::BorrowMut, num::NonZeroU128};
+use crate::juno_state_reader::{ptr_to_felt,felt_ptr_to_u128, convert_to_c_uchar,JunoStateReader};
 use std::{
     ffi::{c_char, c_uchar, c_ulonglong, c_void, c_longlong, CStr, CString},
     slice,
@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use blockifier::{
-    block::{BlockInfo,GasPrices}, 
-    context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, 
+    block::{BlockInfo,GasPrices,pre_process_block,BlockNumberHashPair}, 
+    context::{ ChainInfo, FeeTokenAddresses, TransactionContext}, 
     execution::{
         common_hints::ExecutionMode,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
@@ -99,8 +99,6 @@ pub extern "C" fn cairoVMCall(
     calldata: *const *const c_uchar,
     len_calldata: usize,
     reader_handle: usize,
-    block_number: c_ulonglong,
-    block_timestamp: c_ulonglong,
     chain_id: *const c_char,
     _max_steps: c_ulonglong,
 ) {
@@ -112,11 +110,11 @@ pub extern "C" fn cairoVMCall(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
-    let block_info = block_info.unwrap();
-    let block_version : &str = &block_info.block_version.unwrap();
+    let block_info_juno = block_info.unwrap();
+    let block_version : &str = &block_info_juno.block_version.unwrap();
     let versioned_constants = get_versioned_constants(block_version);
 
-    let reader = JunoStateReader::new(reader_handle, block_number);
+    let reader = JunoStateReader::new(reader_handle, block_info_juno.block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
     let class_hash = if class_hash.is_null() {
         None
@@ -146,7 +144,7 @@ pub extern "C" fn cairoVMCall(
         caller_address: ContractAddress::default(),
         initial_gas: versioned_constants.gas_cost("initial_gas_cost"),
     };
-
+    
     let mut state = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
     let mut resources = ExecutionResources::default();
 
@@ -158,12 +156,17 @@ pub extern "C" fn cairoVMCall(
     };
 
     let use_kzg_da = false;
-    let block_info = build_block_info(block_number,block_timestamp,StarkFelt::default(),gas_prices,use_kzg_da);
+    let block_info = build_block_info(block_info_juno.block_number, block_info_juno.block_timestamp,StarkFelt::default(),gas_prices,use_kzg_da);
     let chain_info = build_chain_info(chain_id_str, (*FEE_TOKEN_ADDRESSES).clone());
-    let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
+
     
+    let block_hash_u128 = felt_ptr_to_u128(convert_to_c_uchar(block_info_juno.block_hash));
+    let block_hash_and_number = Some(BlockNumberHashPair::new(block_info_juno.block_number, StarkFelt::from_u128(block_hash_u128)));
+
+    let block_context = pre_process_block(state.borrow_mut(),block_hash_and_number,block_info,chain_info,versioned_constants.clone());
+
     let tx_context = TransactionContext {
-        block_context:block_context,
+        block_context:block_context.unwrap(),
         tx_info:TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
     };
 
@@ -207,6 +210,7 @@ pub struct BlockInfoJuno {
     block_number: c_ulonglong,
     block_timestamp: c_ulonglong,
     block_version:  Option<String>,
+    block_hash:   Option<String>,
 }
 
 
@@ -232,17 +236,17 @@ pub extern "C" fn cairoVMExecute(
 ) {
 
     let block_info_json_str = unsafe { CStr::from_ptr(block_info_json) }.to_str().unwrap();
-    let block_info: Result<BlockInfoJuno, serde_json::Error> =
+    let block_info_juno: Result<BlockInfoJuno, serde_json::Error> =
     serde_json::from_str(block_info_json_str);
-    if let Err(e) = block_info {
+    if let Err(e) = block_info_juno {
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
-    let block_info = block_info.unwrap();
-    let block_version : &str = &block_info.block_version.unwrap();
+    let block_info_juno = block_info_juno.unwrap();
+    let block_version : &str = &block_info_juno.block_version.unwrap();
     let versioned_constants = get_versioned_constants(block_version);
 
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let reader = JunoStateReader::new(reader_handle, block_info_juno.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let contract_info_json_str = unsafe { CStr::from_ptr(contract_info_json) }.to_str().unwrap();
@@ -296,14 +300,18 @@ pub extern "C" fn cairoVMExecute(
     };
 
     let use_kzg_da_bool = use_kzg_da != 0;
-    let block_info = build_block_info(block_info.block_number,block_info.block_timestamp,sequencer_address_felt,gas_prices, use_kzg_da_bool);
+    let block_info = build_block_info(block_info_juno.block_number,block_info_juno.block_timestamp,sequencer_address_felt,gas_prices, use_kzg_da_bool);
     let chain_info = build_chain_info(chain_id_str,(*FEE_TOKEN_ADDRESSES).clone());
-    let block_context = BlockContext::new_unchecked(&block_info, &chain_info, &versioned_constants);
 
     let mut state: CachedState<JunoStateReader> = CachedState::new(reader, GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE));
+
+    let block_hash_u128 = felt_ptr_to_u128(convert_to_c_uchar(block_info_juno.block_hash));
+    let block_hash_and_number = Some(BlockNumberHashPair::new(block_info_juno.block_number, StarkFelt::from_u128(block_hash_u128)));
+
+    let block_context = pre_process_block(state.borrow_mut(),block_hash_and_number,block_info,chain_info,versioned_constants.clone()).unwrap();
+
     let charge_fee = skip_charge_fee == 0;
-    let validate = skip_validate == 0;
-    
+    let validate = skip_validate == 0;    
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
