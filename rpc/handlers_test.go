@@ -3035,7 +3035,7 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockReader.EXPECT().Network().Return(&utils.Mainnet)
 		mockVM.EXPECT().Call(contractAddr, classHash, selector, calldata, uint64(100),
-			uint64(101), "", nil, gomock.Any(), &utils.Mainnet, uint64(1337)).Return(expectedRes, nil)
+			uint64(101), "", nil, gomock.Any(), &utils.Mainnet).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpc.FunctionCall{
 			ContractAddress:    *contractAddr,

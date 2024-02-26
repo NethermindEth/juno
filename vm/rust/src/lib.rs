@@ -100,7 +100,6 @@ pub extern "C" fn cairoVMCall(
     len_calldata: usize,
     reader_handle: usize,
     chain_id: *const c_char,
-    _max_steps: c_ulonglong,
 ) {
     
     let block_info_json_str = unsafe { CStr::from_ptr(block_info_json) }.to_str().unwrap();
