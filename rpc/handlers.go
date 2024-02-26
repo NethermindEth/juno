@@ -1462,12 +1462,72 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 	return res, err
 }
 
+func (h *Handler) getBlockHashMinus10(blockID BlockID) (*felt.Felt, *jsonrpc.Error) {
+	curBlockHashAndNumber, errRPC := h.BlockHashAndNumber()
+	if errRPC != nil {
+		return nil, errRPC
+	}
+	if blockID.Latest {
+		return curBlockHashAndNumber.Hash, nil
+	}
+
+	if blockID.Hash != nil {
+		if curBlockHashAndNumber.Number < 10 { //nolint:gomnd
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "block number must be greater than 10")
+		}
+		blockIDMinus10 := BlockID{
+			Number: curBlockHashAndNumber.Number - 10,
+		}
+		header, err := h.blockHeaderByID(&blockIDMinus10)
+		if err != nil {
+			return nil, err
+		}
+		return header.Hash, nil
+	}
+
+	if blockID.Pending {
+		pending, err := h.bcReader.Pending()
+		if err != nil {
+			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+		bNum := pending.Block.Header.Number
+		blockIDMinus10 := BlockID{
+			Number: bNum - 10,
+		}
+		header, errRPC := h.blockHeaderByID(&blockIDMinus10)
+		if errRPC != nil {
+			return nil, errRPC
+		}
+		return header.Hash, nil
+	}
+
+	if blockID.Number > 10 { //nolint:gomnd
+		blockIDMinus10 := BlockID{
+			Number: curBlockHashAndNumber.Number - 10,
+		}
+		header, err := h.blockHeaderByID(&blockIDMinus10)
+		if err != nil {
+			return nil, err
+		}
+		return header.Hash, nil
+	} else if blockID.Number < 10 { //nolint:gomnd
+		return nil, jsonrpc.Err(jsonrpc.InvalidParams, "block number must be greater than 10")
+	}
+
+	return nil, jsonrpc.Err(jsonrpc.InternalError, "unexpected error in GetBlockHashMinus10")
+}
+
+//nolint:gocyclo
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, legacyTraceJSON, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
+	blockHashMinus10, rpcErr := h.getBlockHashMinus10(id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -1504,7 +1564,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, header.ProtocolVersion,
-		header.Hash, sequencerAddress, state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate,
+		blockHashMinus10, sequencerAddress, state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate,
 		errOnRevert, header.GasPrice, header.GasPriceSTRK, legacyTraceJSON, nil, nil, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {

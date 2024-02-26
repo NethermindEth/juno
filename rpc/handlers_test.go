@@ -3065,6 +3065,8 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	t.Run("block not found", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil).Times(2)
 		_, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpc.ErrBlockNotFound, err)
 	})
@@ -3147,6 +3149,8 @@ func TestLegacyEstimateMessageFee(t *testing.T) {
 
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
+	blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+	mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil).Times(1)
 
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
@@ -3269,7 +3273,9 @@ func TestSimulateTransactions(t *testing.T) {
 	sequencerAddress := network.BlockHashMetaInfo.FallBackSequencerAddress
 
 	t.Run("ok with zero values, skip fee", func(t *testing.T) { //nolint:dupl
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, true, false, false, nil, nil, false, nil, nil, false).
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil)
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, true, false, false, nil, nil, false, nil, nil, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
@@ -3277,7 +3283,9 @@ func TestSimulateTransactions(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) { //nolint:dupl
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, false, true, false, nil, nil, false, nil, nil, false).
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil)
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, false, true, false, nil, nil, false, nil, nil, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
@@ -3285,7 +3293,9 @@ func TestSimulateTransactions(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, false, true, false, nil, nil, false, nil, nil, false).
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil).Times(2)
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, false, true, false, nil, nil, false, nil, nil, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -3297,7 +3307,7 @@ func TestSimulateTransactions(t *testing.T) {
 			ExecutionError:   "oops",
 		}), err)
 
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, false, true, true, nil, nil, true, nil, nil, false).
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, false, true, true, nil, nil, true, nil, nil, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -3757,6 +3767,8 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("simulate", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil)
 		_, rpcErr := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
@@ -3826,7 +3838,9 @@ func TestEstimateFee(t *testing.T) {
 	sequencerAddress := network.BlockHashMetaInfo.FallBackSequencerAddress
 
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, true, false, true, nil, nil, false, nil, nil, false).
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil).Times(1)
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, true, false, true, nil, nil, false, nil, nil, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
@@ -3834,7 +3848,9 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, true, true, true, nil, nil, false, nil, nil, false).
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil).Times(1)
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, true, true, true, nil, nil, false, nil, nil, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
@@ -3842,7 +3858,9 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, true, true, true, nil, nil, false, nil, nil, false).
+		blockHeader := core.Header{Hash: new(felt.Felt).SetUint64(1)}
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &blockHeader}, nil).Times(2)
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, true, true, true, nil, nil, false, nil, nil, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -3854,7 +3872,7 @@ func TestEstimateFee(t *testing.T) {
 			ExecutionError:   "oops",
 		}), err)
 
-		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", nil, sequencerAddress, mockState, &network, []*felt.Felt{}, true, false, true, nil, nil, true, nil, nil, false).
+		mockVM.EXPECT().Execute(nil, nil, uint64(0), uint64(0), "", blockHeader.Hash, sequencerAddress, mockState, &network, []*felt.Felt{}, true, false, true, nil, nil, true, nil, nil, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
