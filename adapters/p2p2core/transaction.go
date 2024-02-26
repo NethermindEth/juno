@@ -2,6 +2,7 @@ package p2p2core
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -9,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-//nolint:funlen
+//nolint:funlen,gocyclo
 func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transaction {
 	if t == nil {
 		return nil
@@ -57,7 +58,6 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_DeclareV2_:
 		tx := t.GetDeclareV2()
 		declareTx := &core.DeclareTransaction{
-			TransactionHash:      nil, // todo where to get it?
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -71,13 +71,34 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		return declareTx
 	case *spec.Transaction_DeclareV3_:
 		tx := t.GetDeclareV3()
+
+		nDAMode, err := strconv.ParseUint(tx.GetNonceDomain(), 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.GetNonceDomain()))
+		}
+
+		fDAMode, err := strconv.ParseUint(tx.GetFeeDomain(), 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.GetFeeDomain()))
+		}
+
 		declareTx := &core.DeclareTransaction{
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
+			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
-			Version:              txVerion(2),
+			Version:              txVerion(3),
 			CompiledClassHash:    AdaptFelt(tx.CompiledClassHash),
+			Tip:                  AdaptFelt(tx.Tip).Uint64(),
+			ResourceBounds: map[core.Resource]core.ResourceBounds{
+				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
+				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
+			},
+			PaymasterData:         nil, // Todo: P2P needs to change the pay master data to a list
+			AccountDeploymentData: nil, // Todo: update p2p spec to include this
+			NonceDAMode:           core.DataAvailabilityMode(nDAMode),
+			FeeDAMode:             core.DataAvailabilityMode(fDAMode),
 		}
 		declareTx.TransactionHash = hash(declareTx)
 
@@ -122,6 +143,16 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_DeployAccountV3_:
 		tx := t.GetDeployAccountV3()
 
+		nDAMode, err := strconv.ParseUint(tx.GetNonceDomain(), 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.GetNonceDomain()))
+		}
+
+		fDAMode, err := strconv.ParseUint(tx.GetFeeDomain(), 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.GetFeeDomain()))
+		}
+
 		addressSalt := AdaptFelt(tx.AddressSalt)
 		classHash := AdaptHash(tx.ClassHash)
 		callData := utils.Map(tx.Calldata, AdaptFelt)
@@ -133,8 +164,17 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				ConstructorCallData: callData,
 				Version:             txVerion(3),
 			},
+			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
+			Tip:                  AdaptFelt(tx.Tip).Uint64(),
+			ResourceBounds: map[core.Resource]core.ResourceBounds{
+				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
+				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
+			},
+			PaymasterData: nil, // Todo: P2P needs to change the pay master data to a list
+			NonceDAMode:   core.DataAvailabilityMode(nDAMode),
+			FeeDAMode:     core.DataAvailabilityMode(fDAMode),
 		}
 		deployAccTx.DeployTransaction.TransactionHash = hash(deployAccTx)
 
@@ -171,18 +211,34 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		return invTx
 	case *spec.Transaction_InvokeV3_:
 		tx := t.GetInvokeV3()
+
+		nDAMode, err := strconv.ParseUint(tx.GetNonceDomain(), 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.GetNonceDomain()))
+		}
+
+		fDAMode, err := strconv.ParseUint(tx.GetFeeDomain(), 10, 32)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.GetFeeDomain()))
+		}
+
 		invTx := &core.InvokeTransaction{
 			ContractAddress:      nil, // is it ok?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
+			MaxFee:               AdaptFelt(tx.MaxFee),
 			Version:              txVerion(3),
 			Nonce:                AdaptFelt(tx.Nonce),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			EntryPointSelector:   nil,
+			Tip:                  AdaptFelt(tx.Tip).Uint64(),
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
 				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
 			},
+			PaymasterData: nil, // Todo: P2P needs to change the pay master data to a list
+			NonceDAMode:   core.DataAvailabilityMode(nDAMode),
+			FeeDAMode:     core.DataAvailabilityMode(fDAMode),
 		}
 		invTx.TransactionHash = hash(invTx)
 
