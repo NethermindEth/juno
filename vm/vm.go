@@ -214,15 +214,6 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
 
-	gasPriceWEIBytes := getBytesOrSetDefault(gasPriceWEI)
-	gasPriceSTRKBytes := getBytesOrSetDefault(gasPriceSTRK)
-	daGasPriceWEIBytes := getBytesOrSetDefault(daGasPriceWEI)
-	daGasPriceFRIBytes := getBytesOrSetDefault(daGasPriceFRI)
-
-	if gasPriceWEI.IsZero() || gasPriceSTRK.IsZero() || daGasPriceWEI.IsZero() || daGasPriceFRI.IsZero() {
-		return nil, nil, errors.New("gas prices must be non-zero")
-	}
-
 	skipChargeFeeByte := boolToByte(skipChargeFee)
 	skipValidateByte := boolToByte(skipValidate)
 	errOnRevertByte := boolToByte(errOnRevert)
@@ -242,11 +233,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte),
-		(*C.char)(unsafe.Pointer(&gasPriceWEIBytes[0])),
-		(*C.char)(unsafe.Pointer(&gasPriceSTRKBytes[0])),
+		feltToCChar(gasPriceWEI),
+		feltToCChar(gasPriceSTRK),
 		C.uchar(legacyTraceJSONByte),
-		(*C.char)(unsafe.Pointer(&daGasPriceWEIBytes[0])),
-		(*C.char)(unsafe.Pointer(&daGasPriceFRIBytes[0])),
+		feltToCChar(daGasPriceWEI),
+		feltToCChar(daGasPriceFRI),
 		C.uchar(useKzgDAByte),
 	)
 
@@ -275,11 +266,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	return context.actualFees, traces, nil
 }
 
-func getBytesOrSetDefault(value *felt.Felt) [32]byte {
+func feltToCChar(value *felt.Felt) *C.char {
 	if value == nil {
 		value = new(felt.Felt).SetUint64(1)
 	}
-	return value.Bytes()
+	bytes := value.Bytes()
+	return (*C.char)(unsafe.Pointer(&bytes[0]))
 }
 
 func boolToByte(b bool) byte {
