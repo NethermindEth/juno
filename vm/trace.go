@@ -97,6 +97,11 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type DAGas struct {
+	L1Gas     felt.Felt `json:"l1_gas"`
+	L1DataGas felt.Felt `json:"l1_data_gas"`
+}
+
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type,omitempty"`
 	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
@@ -105,6 +110,7 @@ type TransactionTrace struct {
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
+	DAGas                 *DAGas              `json:"da_gas,omitempty"`
 }
 
 func (t *TransactionTrace) allInvocations() []*FunctionInvocation {

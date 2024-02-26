@@ -45,6 +45,13 @@ pub struct TransactionTrace {
     function_invocation: Option<FunctionInvocation>,
     r#type: TransactionType,
     state_diff: StateDiff,
+    da_gas: GasVector, 
+}
+
+#[derive(Serialize, Default)]
+struct GasVector {
+    l1_gas: StarkFelt,
+    l1_data_gas: StarkFelt,
 }
 
 #[derive(Serialize, Default)]
@@ -127,6 +134,13 @@ pub fn new_transaction_trace(
     state: &mut TransactionalState<JunoStateReader>,
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
+    
+
+    trace.da_gas = GasVector{
+        l1_gas: StarkFelt::from_u128( info.da_gas.l1_gas),
+        l1_data_gas: StarkFelt::from_u128( info.da_gas.l1_data_gas),
+    };
+
     let mut deprecated_declared_class: Option<ClassHash> = None;
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
