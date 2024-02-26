@@ -218,6 +218,12 @@ type ExecutionResources struct {
 	Steps                  uint64                 `json:"n_steps"`
 	BuiltinInstanceCounter BuiltinInstanceCounter `json:"builtin_instance_counter"`
 	MemoryHoles            uint64                 `json:"n_memory_holes"`
+	DataAvailability       *DataAvailability      `json:"data_availability"`
+}
+
+type DataAvailability struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
 }
 
 type BuiltinInstanceCounter struct {

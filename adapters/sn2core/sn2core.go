@@ -109,6 +109,7 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter(response.BuiltinInstanceCounter),
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
+		DataAvailability:       (*core.DataAvailability)(response.DataAvailability),
 	}
 }
 

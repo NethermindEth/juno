@@ -104,6 +104,10 @@ func TestAdaptBlock(t *testing.T) {
 				for i, feederReceipt := range response.Receipts {
 					assert.Equal(t, feederReceipt.ExecutionStatus == starknet.Reverted, block.Receipts[i].Reverted)
 					assert.Equal(t, feederReceipt.RevertError, block.Receipts[i].RevertReason)
+					if feederReceipt.ExecutionResources != nil {
+						assert.Equal(t, (*core.DataAvailability)(feederReceipt.ExecutionResources.DataAvailability),
+							block.Receipts[i].ExecutionResources.DataAvailability)
+					}
 				}
 			}
 			assert.Equal(t, expectedEventCount, block.EventCount)
