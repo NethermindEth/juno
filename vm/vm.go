@@ -4,7 +4,7 @@ package vm
 //#include <stdlib.h>
 //#include <stddef.h>
 // extern void cairoVMCall(char* block_info_json, char* contract_address, char* class_hash, char* entry_point_selector, char** calldata,
-//					 size_t len_calldata, uintptr_t readerHandle, char* chain_id);
+//					 size_t len_calldata, uintptr_t readerHandle, char* chain_id,unsigned long long max_steps);
 //
 // extern void cairoVMExecute(char* txns_json, char* classes_json, char* contract_infos, uintptr_t readerHandle,
 //					char* block_info_json, char* chain_id, char* sequencer_address,
@@ -32,7 +32,7 @@ import (
 type VM interface {
 	Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 		blockTimestamp uint64, blockVersion string, blockHash *felt.Felt,
-		state core.StateReader, network *utils.Network,
+		state core.StateReader, network *utils.Network, maxSteps uint64,
 	) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
 		blockVersion string, blockHash *felt.Felt, sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network,
@@ -114,6 +114,7 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 
 func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
 	blockTimestamp uint64, blockVersion string, blockHash *felt.Felt, state core.StateReader, network *utils.Network,
+	maxSteps uint64,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -158,6 +159,7 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 		C.size_t(len(calldataPtrs)),
 		C.uintptr_t(handle),
 		chainID,
+		C.ulonglong(maxSteps),
 	)
 
 	for _, ptr := range calldataPtrs {

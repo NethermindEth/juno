@@ -100,6 +100,7 @@ pub extern "C" fn cairoVMCall(
     len_calldata: usize,
     reader_handle: usize,
     chain_id: *const c_char,
+    max_steps: c_ulonglong,
 ) {
     
     let block_info_json_str = unsafe { CStr::from_ptr(block_info_json) }.to_str().unwrap();
@@ -111,7 +112,9 @@ pub extern "C" fn cairoVMCall(
     }
     let block_info_juno = block_info.unwrap();
     let block_version : &str = &block_info_juno.block_version.unwrap();
-    let versioned_constants = get_versioned_constants(block_version);
+    let mut versioned_constants = get_versioned_constants(block_version).clone();
+
+    versioned_constants.invoke_tx_max_n_steps = max_steps as u32;
 
     let reader = JunoStateReader::new(reader_handle, block_info_juno.block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);

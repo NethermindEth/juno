@@ -1260,7 +1260,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	}
 
 	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, header.Number, header.Timestamp, header.ProtocolVersion, header.Hash, state, h.bcReader.Network())
+		call.Calldata, header.Number, header.Timestamp, header.ProtocolVersion, header.Hash, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)

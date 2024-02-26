@@ -3,7 +3,7 @@ use std::{
     slice,
     sync::Mutex,
 };
-
+use std::ffi::CString;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::{
@@ -192,7 +192,7 @@ pub fn felt_ptr_to_u128(bytes: *const c_uchar) -> u128 {
     u128::from_be_bytes(array)
 }
 
-use std::ffi::CString;
+
 
 pub fn convert_to_c_uchar(opt_str: Option<String>) -> *const c_uchar {
     match opt_str {
