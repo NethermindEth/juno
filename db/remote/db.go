@@ -3,6 +3,7 @@ package remote
 import (
 	"context"
 	"math"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -52,6 +53,8 @@ func (d *DB) Update(fn func(txn db.Transaction) error) error {
 }
 
 func (d *DB) WithListener(listener db.EventListener) db.DB {
+	start := time.Now()
+	defer func() { listener.OnCommit(time.Since(start)) }()
 	return d
 }
 
