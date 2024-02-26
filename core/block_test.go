@@ -163,6 +163,12 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.Goerli2,
 			name:   "Block 110238 with version 0.11.1",
 		},
+		// https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=330363
+		{
+			number: 330363,
+			chain:  utils.Integration,
+			name:   "Block 330363 with version 0.13.1",
+		},
 	}
 
 	for _, testcase := range tests {

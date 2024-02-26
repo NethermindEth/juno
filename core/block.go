@@ -39,6 +39,22 @@ type Header struct {
 	Signatures [][]*felt.Felt
 	// Amount of STRK charged per Gas spent
 	GasPriceSTRK *felt.Felt
+	// The mode of the L1 data availability
+	L1DAMode L1DAMode
+	// The gas price for L1 data availability
+	L1DataGasPrice *GasPrice
+}
+
+type L1DAMode uint
+
+const (
+	Calldata L1DAMode = iota
+	Blob
+)
+
+type GasPrice struct {
+	PriceInWei *felt.Felt
+	PriceInFri *felt.Felt
 }
 
 type Block struct {
