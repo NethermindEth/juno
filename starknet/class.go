@@ -75,6 +75,13 @@ func (n *SegmentLengths) UnmarshalJSON(data []byte) error {
 	return err
 }
 
+func (n SegmentLengths) MarshalJSON() ([]byte, error) {
+	if len(n.Children) > 0 {
+		return json.Marshal(n.Children)
+	}
+	return json.Marshal(n.Length)
+}
+
 type CompiledClass struct {
 	Prime                  string          `json:"prime"`
 	Bytecode               []*felt.Felt    `json:"bytecode"`

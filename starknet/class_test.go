@@ -14,7 +14,7 @@ func TestSegmentLengthsUnmarshal(t *testing.T) {
 		expected []SegmentLengths
 	}{
 		"flat": {
-			json: "[1 ,2 ,3]",
+			json: "[1,2,3]",
 			expected: []SegmentLengths{
 				{
 					Length: 1,
@@ -28,7 +28,7 @@ func TestSegmentLengthsUnmarshal(t *testing.T) {
 			},
 		},
 		"one level nesting": {
-			json: "[1 ,[2 ,3]]",
+			json: "[1,[2,3]]",
 			expected: []SegmentLengths{
 				{
 					Length: 1,
@@ -46,7 +46,7 @@ func TestSegmentLengthsUnmarshal(t *testing.T) {
 			},
 		},
 		"multiple level nesting": {
-			json: "[1 ,[2 ,3], [4, [5, 6]]]",
+			json: "[1,[2,3],[4,[5,6]]]",
 			expected: []SegmentLengths{
 				{
 					Length: 1,
@@ -87,6 +87,10 @@ func TestSegmentLengthsUnmarshal(t *testing.T) {
 			var unmarshaled []SegmentLengths
 			require.NoError(t, json.Unmarshal([]byte(test.json), &unmarshaled))
 			assert.Equal(t, test.expected, unmarshaled)
+
+			marshaledJSON, err := json.Marshal(test.expected)
+			require.NoError(t, err)
+			require.Equal(t, test.json, string(marshaledJSON))
 		})
 	}
 }
