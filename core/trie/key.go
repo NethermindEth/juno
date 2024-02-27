@@ -15,10 +15,12 @@ type Key struct {
 }
 
 func NewKey(length uint8, keyBytes []byte) Key {
+	// length should be less than 32 ? otherwise bytesNeeded() return wrong index
 	k := Key{len: length}
 	if len(keyBytes) > len(k.bitset) {
 		panic("bytes does not fit in bitset")
 	}
+	// so bitset will be zero prefixed in case len(keyBytes) < 32 ?
 	copy(k.bitset[len(k.bitset)-len(keyBytes):], keyBytes)
 	return k
 }
@@ -72,9 +74,11 @@ func (k *Key) Equal(other *Key) bool {
 	} else if k == nil || other == nil {
 		return false
 	}
+	// I think we can compare k.bitset directly to other.bitset without creating slice and call to bytes.Equal, wdyt?
 	return k.len == other.len && bytes.Equal(k.bitset[:], other.bitset[:])
 }
 
+// could you please explain what is going on here?
 func (k *Key) Test(bit uint8) bool {
 	const LSB = uint8(0x1)
 	byteIdx := bit / 8
@@ -87,6 +91,7 @@ func (k *Key) String() string {
 	return fmt.Sprintf("(%d) %s", k.len, hex.EncodeToString(k.bitset[:]))
 }
 
+// also hard to understand
 // DeleteLSB right shifts and shortens the key
 func (k *Key) DeleteLSB(n uint8) {
 	if k.len < n {

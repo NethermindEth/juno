@@ -58,6 +58,14 @@
 3 core/trie/node.go
 3 core/state_snapshot.go
 3 core/history.go
+
+
+### SMALL TODOS ###
+* sep. definition for common SI values (i.e. megabyte)
+* decorators for metrics
+* remove unnecessary UnmarshalJSON for text (if UnmarshalText is presented)
+
+### REVIEWED ###
 3 core/crypto/pedersen_hash_test.go
 2 vm/state_reader.go
 2 utils/network.go
@@ -67,14 +75,6 @@
 2 core/trie/trie_pkg_test.go
 2 core/trie/transaction_storage_test.go
 1 vm/transaction_pkg_test.go
-
-
-### SMALL TODOS ###
-* sep. definition for common SI values (i.e. megabyte)
-* decorators for metrics
-* remove unnecessary UnmarshalJSON for text (if UnmarshalText is presented)
-
-### REVIEWED ###
 1 starknet/trace.go
 1 vm/trace_test.go
 1 vm/trace.go

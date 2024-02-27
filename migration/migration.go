@@ -30,6 +30,7 @@ type schemaMetadata struct {
 }
 
 type Migration interface {
+	// this parameter is not used, do we still need it?
 	Before(intermediateState []byte) error
 	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
 	Migrate(context.Context, db.Transaction, *utils.Network) ([]byte, error)

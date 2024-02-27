@@ -15,6 +15,8 @@ type (
 	BucketMigratorKeyFilter func([]byte) (bool, error)
 )
 
+// AFAIK right now bucket migration is not transactional across buckets, any ideas how to improve that?
+// the only idea I came up with is to store some incremental number corresponding to migrated bucket in the same migration step
 type BucketMigrator struct {
 	target db.Bucket
 
