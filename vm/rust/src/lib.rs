@@ -55,34 +55,52 @@ extern "C" {
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
 }
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CallInfo {
+    pub contract_address: [c_uchar; 32],
+    pub class_hash: [c_uchar; 32],
+    pub entry_point_selector: [c_uchar; 32],
+    pub calldata: *const *const c_uchar,
+    pub len_calldata: usize
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct BlockInfo {
+    pub block_number: c_ulonglong,
+    pub block_timestamp: c_ulonglong,
+    pub sequencer_address: [c_uchar; 32],
+    pub gas_price_wei: [c_uchar; 32],
+    pub gas_price_fri: [c_uchar; 32]
+}
+
 const N_STEPS_FEE_WEIGHT: f64 = 0.005;
 
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
-    contract_address: *const c_uchar,
-    class_hash: *const c_uchar,
-    entry_point_selector: *const c_uchar,
-    calldata: *const *const c_uchar,
-    len_calldata: usize,
+    call_info_ptr: *const CallInfo,
+    block_info_ptr: *const BlockInfo,
     reader_handle: usize,
-    block_number: c_ulonglong,
-    block_timestamp: c_ulonglong,
     chain_id: *const c_char,
     max_steps: c_ulonglong,
 ) {
-    let reader = JunoStateReader::new(reader_handle, block_number);
-    let contract_addr_felt = ptr_to_felt(contract_address);
-    let class_hash = if class_hash.is_null() {
+    let block_info = unsafe { *block_info_ptr };
+    let call_info = unsafe { *call_info_ptr };
+
+    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let contract_addr_felt = StarkFelt::new(call_info.contract_address).unwrap();
+    let class_hash = if call_info.class_hash == [0; 32] {
         None
     } else {
-        Some(ClassHash(ptr_to_felt(class_hash)))
+        Some(ClassHash(StarkFelt::new(call_info.class_hash).unwrap()))
     };
-    let entry_point_selector_felt = ptr_to_felt(entry_point_selector);
+    let entry_point_selector_felt = StarkFelt::new(call_info.entry_point_selector).unwrap();
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
     let mut calldata_vec: Vec<StarkFelt> = vec![];
-    if len_calldata > 0 {
-        let calldata_slice = unsafe { slice::from_raw_parts(calldata, len_calldata) };
+    if call_info.len_calldata > 0 {
+        let calldata_slice = unsafe { slice::from_raw_parts(call_info.calldata, call_info.len_calldata) };
         for ptr in calldata_slice {
             let data = ptr_to_felt(ptr.cast());
             calldata_vec.push(data);
@@ -110,8 +128,8 @@ pub extern "C" fn cairoVMCall(
     let context = EntryPointExecutionContext::new(
         &build_block_context(
             chain_id_str,
-            block_number,
-            block_timestamp,
+            block_info.block_number,
+            block_info.block_timestamp,
             StarkFelt::default(),
             GAS_PRICES,
             Some(max_steps),
@@ -147,20 +165,17 @@ pub struct TxnAndQueryBit {
 pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
     classes_json: *const c_char,
-    reader_handle: usize,
-    block_number: c_ulonglong,
-    block_timestamp: c_ulonglong,
-    chain_id: *const c_char,
-    sequencer_address: *const c_uchar,
     paid_fees_on_l1_json: *const c_char,
+    block_info_ptr: *const BlockInfo,
+    reader_handle: usize,
+    chain_id: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
     err_on_revert: c_uchar,
-    gas_price_wei: *const c_uchar,
-    gas_price_strk: *const c_uchar,
     legacy_json: c_uchar,
 ) {
-    let reader = JunoStateReader::new(reader_handle, block_number);
+    let block_info = unsafe { *block_info_ptr };
+    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
@@ -194,13 +209,13 @@ pub extern "C" fn cairoVMExecute(
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
 
-    let sequencer_address_felt = ptr_to_felt(sequencer_address);
-    let gas_price_wei_felt = ptr_to_felt(gas_price_wei);
-    let gas_price_strk_felt = ptr_to_felt(gas_price_strk);
+    let sequencer_address_felt = StarkFelt::new(block_info.sequencer_address).unwrap();
+    let gas_price_wei_felt = StarkFelt::new(block_info.gas_price_wei).unwrap();
+    let gas_price_strk_felt = StarkFelt::new(block_info.gas_price_fri).unwrap();
     let block_context: BlockContext = build_block_context(
         chain_id_str,
-        block_number,
-        block_timestamp,
+        block_info.block_number,
+        block_info.block_timestamp,
         sequencer_address_felt,
         GasPrices {
             eth_l1_gas_price: felt_to_u128(gas_price_wei_felt),

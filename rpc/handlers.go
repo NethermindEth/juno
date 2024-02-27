@@ -1258,9 +1258,14 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
-
-	res, err := h.vm.Call(&call.ContractAddress, classHash, &call.EntryPointSelector,
-		call.Calldata, header.Number, header.Timestamp, state, h.bcReader.Network(), h.callMaxSteps)
+	res, err := h.vm.Call(&vm.CallInfo{
+		ContractAddress: &call.ContractAddress,
+		Selector:        &call.EntryPointSelector,
+		Calldata:        call.Calldata,
+		ClassHash:       classHash,
+	}, &vm.BlockInfo{
+		Header: header,
+	}, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1499,13 +1504,11 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 	}
 
-	sequencerAddress := header.SequencerAddress
-	if sequencerAddress == nil {
-		sequencerAddress = h.bcReader.Network().BlockHashMetaInfo.FallBackSequencerAddress
+	blockInfo := vm.BlockInfo{
+		Header: header,
 	}
-	overallFees, traces, err := h.vm.Execute(txns, classes, header.Number, header.Timestamp, sequencerAddress,
-		state, h.bcReader.Network(), paidFeesOnL1, skipFeeCharge, skipValidate, errOnRevert, header.GasPrice,
-		header.GasPriceSTRK, legacyTraceJSON)
+	overallFees, traces, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
+		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1641,14 +1644,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	network := h.bcReader.Network()
-	sequencerAddress := block.Header.SequencerAddress
-	if sequencerAddress == nil {
-		sequencerAddress = network.BlockHashMetaInfo.FallBackSequencerAddress
+	blockInfo := vm.BlockInfo{
+		Header: block.Header,
 	}
-
-	_, traces, err := h.vm.Execute(block.Transactions, classes, block.Number, block.Header.Timestamp,
-		sequencerAddress, state, network, paidFeesOnL1, false, false, false, block.Header.GasPrice,
-		block.Header.GasPriceSTRK, legacyJSON)
+	_, traces, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false, false, false, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
