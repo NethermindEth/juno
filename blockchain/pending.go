@@ -38,6 +38,7 @@ func (p *PendingState) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 	if nonce, found := p.stateDiff.Nonces[*addr]; found {
 		return nonce, nil
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
+		// why it's zero value for deployed contract?
 		return &felt.Felt{}, nil
 	}
 	return p.head.ContractNonce(addr)
