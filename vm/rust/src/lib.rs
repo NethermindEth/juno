@@ -1,9 +1,12 @@
 pub mod jsonrpc;
 mod juno_state_reader;
 
+#[macro_use]
+extern crate lazy_static;
+
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
-    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
+    collections::HashMap, ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
 };
 
 use blockifier::{
@@ -56,7 +59,8 @@ pub struct BlockInfo {
     pub block_timestamp: c_ulonglong,
     pub sequencer_address: [c_uchar; 32],
     pub gas_price_wei: [c_uchar; 32],
-    pub gas_price_fri: [c_uchar; 32]
+    pub gas_price_fri: [c_uchar; 32],
+    pub version: *const c_char,
 }
 
 #[no_mangle]
@@ -98,7 +102,7 @@ pub extern "C" fn cairoVMCall(
         class_hash: class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: VersionedConstants::latest_constants().gas_cost("initial_gas_cost"),
+        initial_gas: get_versioned_constants(block_info.version).gas_cost("initial_gas_cost"),
     };
 
     let mut state = CachedState::new(reader, GlobalContractCache::new(1));
@@ -394,5 +398,19 @@ fn build_block_context(
             eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
             strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
         },
-    }, VersionedConstants::latest_constants().to_owned()).unwrap() // todo: use versioned constraint
+    }, get_versioned_constants(block_info.version)).unwrap()
+}
+
+
+lazy_static! {
+    static ref CONSTANTS: HashMap<String, VersionedConstants> = {
+        let mut m = HashMap::new();
+        m.insert("0.13.0".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap());
+        m
+    };
+}
+
+fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
+    let version_str = unsafe { CStr::from_ptr(version) }.to_str().unwrap();
+    CONSTANTS.get(&version_str.to_string()).unwrap_or(VersionedConstants::latest_constants()).to_owned()
 }
