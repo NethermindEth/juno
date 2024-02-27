@@ -18,6 +18,7 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legac
 	}
 	traces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
+		// why not index, feederTrace := range above ?
 		feederTrace := &blockTrace.Traces[index]
 		trace := vm.TransactionTrace{}
 		trace.Type = vm.TransactionType(block.Transactions[index].Type)
@@ -78,6 +79,7 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacy
 		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index], legacyJSON))
 	}
 	for index := range snFnInvocation.Events {
+		// same question
 		snEvent := &snFnInvocation.Events[index]
 		fnInvocation.Events = append(fnInvocation.Events, vm.OrderedEvent{
 			Order: snEvent.Order,

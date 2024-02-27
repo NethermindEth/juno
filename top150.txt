@@ -54,29 +54,19 @@
 3 p2p/starknet/starknet_test.go
 3 p2p/starknet/handlers.go
 3 jsonrpc/websocket.go
-3 db/pebble/db.go
 3 db/buckets_test.go
 3 core/trie/node.go
 3 core/state_snapshot.go
 3 core/history.go
 3 core/crypto/pedersen_hash_test.go
-3 .github/workflows/juno-lint.yml
 2 vm/state_reader.go
 2 utils/network.go
-2 starknetdata/starknetdata.go
-2 rpc/block_test.go
 2 migration/migration_test.go
 2 migration/bucket_migrator_test.go
 2 migration/bucket_migrator.go
-2 db/sync_transaction.go
-2 db/remote/transaction.go
 2 core/trie/trie_pkg_test.go
 2 core/trie/transaction_storage_test.go
 1 vm/transaction_pkg_test.go
-1 vm/trace_test.go
-1 vm/trace.go
-1 starknet/trace.go
-1 rpc/trace.go
 
 
 ### SMALL TODOS ###
@@ -85,6 +75,16 @@
 * remove unnecessary UnmarshalJSON for text (if UnmarshalText is presented)
 
 ### REVIEWED ###
+1 starknet/trace.go
+1 vm/trace_test.go
+1 vm/trace.go
+2 db/remote/transaction.go
+3 .github/workflows/juno-lint.yml
+2 rpc/block_test.go
+3 db/pebble/db.go
+2 db/sync_transaction.go
+2 starknetdata/starknetdata.go
+1 rpc/trace.go
 7 db/db.go
 4 p2p/p2p.go
 4 .github/workflows/juno-test.yml
