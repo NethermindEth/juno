@@ -1258,13 +1258,20 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
+
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
+
 	res, err := h.vm.Call(&vm.CallInfo{
 		ContractAddress: &call.ContractAddress,
 		Selector:        &call.EntryPointSelector,
 		Calldata:        call.Calldata,
 		ClassHash:       classHash,
 	}, &vm.BlockInfo{
-		Header: header,
+		Header:                header,
+		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -1504,8 +1511,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 	}
 
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
 	blockInfo := vm.BlockInfo{
-		Header: header,
+		Header:                header,
+		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 	overallFees, traces, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, legacyTraceJSON)
@@ -1569,17 +1581,17 @@ func (h *Handler) LegacyTraceBlockTransactions(ctx context.Context, id BlockID) 
 
 var traceFallbackVersion = semver.MustParse("0.12.3")
 
-func prependBlockHashToState(bc blockchain.Reader, blockNumber uint64, state core.StateReader) (core.StateReader, error) {
-	stateDiffWithBlockHash, err := blockchain.MakeStateDiffForEmptyBlock(bc, blockNumber)
+func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
+	const blockHashLag = 10
+	if blockNumber < blockHashLag {
+		return nil, nil
+	}
+
+	header, err := h.bcReader.BlockHeaderByNumber(blockNumber - blockHashLag)
 	if err != nil {
 		return nil, err
 	}
-
-	return blockchain.NewPendingState(
-		stateDiffWithBlockHash,
-		make(map[felt.Felt]core.Class, 0),
-		state,
-	), nil
+	return header.Hash, nil
 }
 
 func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo
@@ -1607,10 +1619,6 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		return nil, ErrBlockNotFound
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
-
-	if state, err = prependBlockHashToState(h.bcReader, block.Number, state); err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
 
 	var (
 		headState       core.StateReader
@@ -1643,9 +1651,14 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 	}
 
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(block.Number)
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
 	network := h.bcReader.Network()
 	blockInfo := vm.BlockInfo{
-		Header: block.Header,
+		Header:                block.Header,
+		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 	_, traces, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false, false, false, legacyJSON)
 	if err != nil {

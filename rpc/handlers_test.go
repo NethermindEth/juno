@@ -3028,7 +3028,7 @@ func TestCall(t *testing.T) {
 		}
 
 		headsHeader := &core.Header{
-			Number:    100,
+			Number:    9,
 			Timestamp: 101,
 		}
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
@@ -3075,7 +3075,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	})
 
 	latestHeader := &core.Header{
-		Number:    123,
+		Number:    9,
 		Timestamp: 456,
 		GasPrice:  new(felt.Felt).SetUint64(42),
 	}
@@ -3139,7 +3139,7 @@ func TestLegacyEstimateMessageFee(t *testing.T) {
 	}
 
 	latestHeader := &core.Header{
-		Number:    123,
+		Number:    9,
 		Timestamp: 456,
 		GasPrice:  new(felt.Felt).SetUint64(42),
 	}
