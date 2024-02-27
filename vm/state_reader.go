@@ -82,7 +82,7 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		return nil
 	}
 
-	compiledClass, err := marshalCompiledClass(val.Class)
+	compiledClass, err := marshalClassInfo(val.Class)
 	if err != nil {
 		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class", "err", err)
 		return nil

@@ -7,11 +7,12 @@ use std::{
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::{
-    execution::contract_class::{ContractClassV0, ContractClassV1},
+    execution::contract_class::{ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1},
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
 use once_cell::sync::Lazy;
+use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
@@ -143,12 +144,12 @@ impl StateReader for JunoStateReader {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
-            let contract_class = contract_class_from_json_str(json_str);
-            if let Ok(class) = &contract_class {
+            let class_info_res = class_info_from_json_str(json_str);
+            if let Ok(class_info) = &class_info_res {
                 CLASS_CACHE.lock().unwrap().cache_set(
                     class_hash,
                     CachedContractClass {
-                        definition: class.clone(),
+                        definition: class_info.contract_class(),
                         cached_on_height: self.height,
                     },
                 );
@@ -156,10 +157,10 @@ impl StateReader for JunoStateReader {
 
             unsafe { JunoFree(ptr as *const c_void) };
 
-            contract_class.map_err(|_| {
+            class_info_res.map(| ci | ci.contract_class()).map_err(| err | {
                 StateError::StateReadError(format!(
-                    "error parsing JSON string for class hash {}",
-                    class_hash.0
+                    "parsing JSON string for class hash {}: {}",
+                    class_hash.0, err
                 ))
             })
         }
@@ -184,15 +185,23 @@ pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
         .expect("cannot new Starkfelt from Juno bytes")
 }
 
-pub fn contract_class_from_json_str(raw_json: &str) -> Result<ContractClass, String> {
-    let v0_class = ContractClassV0::try_from_json_string(raw_json);
-    if let Ok(class) = v0_class {
-        return Ok(class.into());
-    }
-    let v1_class = ContractClassV1::try_from_json_string(raw_json);
-    if let Ok(class) = v1_class {
-        Ok(class.into())
+#[derive(Deserialize)]
+pub struct ClassInfo {
+    contract_class: Box<serde_json::value::RawValue>,
+    sierra_program_length: usize,
+    abi_length: usize,
+}
+
+pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
+    let class_info: ClassInfo = serde_json::from_str(raw_json).map_err(|err| format!("failed parsing class info: {:?}", err))?;
+    let class_def = class_info.contract_class.to_string();    
+    
+    let class: ContractClass = if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
+        class.into()
+    } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
+        class.into()
     } else {
-        Err(format!("not a valid contract class: {}", v1_class.err().unwrap()))
-    }
+        return Err("not a valid contract class".to_string())
+    };
+    return Ok(BlockifierClassInfo::new(&class.into(), class_info.sierra_program_length, class_info.abi_length).unwrap());
 }
