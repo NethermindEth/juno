@@ -21,6 +21,9 @@ cairo-lang-starknet = "=2.6.0-rc.1"
 cairo-lang-utils = "=2.6.0-rc.1"
 
 lazy_static = "1.4.0"
+semver = "1.0.4"  
+anyhow = "1.0.75"
+
 
 
 [lib]

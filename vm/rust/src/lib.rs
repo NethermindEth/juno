@@ -1,13 +1,14 @@
 pub mod jsonrpc;
 mod juno_state_reader;
+mod juno_versioned_constants;
 use std::{borrow::BorrowMut, num::NonZeroU128};
 use crate::juno_state_reader::{ptr_to_felt,felt_ptr_to_u128, convert_to_c_uchar,JunoStateReader};
+use crate::juno_versioned_constants::{versioned_constants,StarknetVersion};
 use std::{
     ffi::{c_char, c_uchar, c_ulonglong, c_void, c_longlong, CStr, CString},
     slice,
 };
 use std::sync::Arc;
-
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use blockifier::{
     block::{BlockInfo,GasPrices,pre_process_block,BlockNumberHashPair}, 
@@ -28,8 +29,6 @@ use blockifier::{
         transaction_execution::Transaction, 
         transactions::ExecutableTransaction
     },
-    
-    versioned_constants::VersionedConstants
 };
 
 use juno_state_reader::{contract_class_from_json_str, felt_to_byte_array};
@@ -47,7 +46,6 @@ use starknet_api::{
 };
 use lazy_static::lazy_static;
 use std::convert::TryInto;
-use std::collections::HashMap;
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -57,7 +55,6 @@ extern "C" {
 }
 
 const GLOBAL_CONTRACT_CACHE_SIZE: usize= 100; // Todo ? default used to set this to 100.
-
 
 lazy_static! {
     pub static ref FEE_TOKEN_ADDRESSES: FeeTokenAddresses = {
@@ -76,18 +73,6 @@ lazy_static! {
     };
 }
 
-lazy_static! {
-    static ref VERSIONED_CONSTANTS: HashMap<String, VersionedConstants> = {
-        let mut m = HashMap::new();
-        m.insert("0.13.0".to_string(), serde_json::from_str(include_str!("../versioned_constants_13_0.json")).unwrap());
-        m.insert("".to_string(), serde_json::from_str(include_str!("../versioned_constants_13_0.json")).unwrap()); // use this by default
-        m
-    };
-}
-
-fn get_versioned_constants(version: &str) -> &'static VersionedConstants {
-    VERSIONED_CONSTANTS.get(version).unwrap_or(&VERSIONED_CONSTANTS[""])
-}
 
 
 #[no_mangle]
@@ -104,17 +89,19 @@ pub extern "C" fn cairoVMCall(
 ) {
     
     let block_info_json_str = unsafe { CStr::from_ptr(block_info_json) }.to_str().unwrap();
-    let block_info: Result<BlockInfoJuno, serde_json::Error> =
+    let block_info_json: Result<BlockInfoJuno, serde_json::Error> =
     serde_json::from_str(block_info_json_str);
-    if let Err(e) = block_info {
+    if let Err(e) = block_info_json {
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
-    let block_info_juno = block_info.unwrap();
-    let block_version : &str = &block_info_juno.block_version.unwrap();
-    let mut versioned_constants = get_versioned_constants(block_version).clone();
+    let block_info_juno = block_info_json.unwrap();
 
-    versioned_constants.invoke_tx_max_n_steps = max_steps as u32;
+    let block_version_str : &str = &block_info_juno.block_version.unwrap();
+    let block_version =StarknetVersion::from_str(block_version_str);
+    let mut versioned_constants = versioned_constants::for_version(&block_version).unwrap().clone();
+
+    versioned_constants.invoke_tx_max_n_steps = max_steps as u32; // Todo ?
 
     let reader = JunoStateReader::new(reader_handle, block_info_juno.block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
@@ -245,8 +232,10 @@ pub extern "C" fn cairoVMExecute(
         return;
     }
     let block_info_juno = block_info_juno.unwrap();
-    let block_version : &str = &block_info_juno.block_version.unwrap();
-    let versioned_constants = get_versioned_constants(block_version);
+    
+    let block_version_str : &str = &block_info_juno.block_version.unwrap();
+    let block_version =StarknetVersion::from_str(block_version_str);
+    let versioned_constants = versioned_constants::for_version(&block_version).unwrap().clone();
 
     let reader = JunoStateReader::new(reader_handle, block_info_juno.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
