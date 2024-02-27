@@ -310,7 +310,7 @@ func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []co
 
 	classJSONs := []json.RawMessage{}
 	for _, declaredClass := range declaredClasses {
-		declaredClassJSON, cErr := marshalCompiledClass(declaredClass)
+		declaredClassJSON, cErr := marshalClassInfo(declaredClass)
 		if cErr != nil {
 			return nil, nil, cErr
 		}

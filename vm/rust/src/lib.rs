@@ -8,7 +8,7 @@ use std::{
 
 use blockifier::{
     block::{pre_process_block, BlockInfo as BlockifierBlockInfo, GasPrices}, context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, execution::{
-        contract_class::{ClassInfo, ContractClass},
+        contract_class::ClassInfo,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     }, fee::fee_utils::calculate_tx_fee, state::{cached_state::{CachedState, GlobalContractCache}, state_api::State}, transaction::{
         errors::TransactionExecutionError::{
@@ -19,7 +19,7 @@ use blockifier::{
     }, versioned_constants::VersionedConstants
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use juno_state_reader::{contract_class_from_json_str, felt_to_byte_array};
+use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::{core::PatriciaKey, transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash}};
 use starknet_api::{
@@ -188,7 +188,7 @@ pub extern "C" fn cairoVMExecute(
     let mut trace_buffer = Vec::with_capacity(10_000);
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
-        let contract_class = match txn_and_query_bit.txn.clone() {
+        let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
                     report_error(reader_handle, "missing declared class", txn_index as i64);
@@ -196,7 +196,7 @@ pub extern "C" fn cairoVMExecute(
                 }
                 let class_json_str = classes.remove(0);
 
-                let maybe_cc = contract_class_from_json_str(class_json_str.get());
+                let maybe_cc = class_info_from_json_str(class_json_str.get());
                 if let Err(e) = maybe_cc {
                     report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
                     return;
@@ -220,7 +220,7 @@ pub extern "C" fn cairoVMExecute(
         let txn = transaction_from_api(
             txn_and_query_bit.txn.clone(),
             txn_and_query_bit.txn_hash,
-            contract_class,
+            class_info,
             paid_fee_on_l1,
             txn_and_query_bit.query_bit,
         );
@@ -319,7 +319,7 @@ fn felt_to_u128(felt: StarkFelt) -> u128 {
 fn transaction_from_api(
     tx: StarknetApiTransaction,
     tx_hash: TransactionHash,
-    contract_class: Option<ContractClass>,
+    class_info: Option<ClassInfo>,
     paid_fee_on_l1: Option<Fee>,
     query_bit: bool,
 ) -> Result<Transaction, String> {
@@ -330,7 +330,7 @@ fn transaction_from_api(
                 tx_hash,
             ))
         }
-        StarknetApiTransaction::Declare(_) if contract_class.is_none() => {
+        StarknetApiTransaction::Declare(_) if class_info.is_none() => {
             return Err(format!(
                 "Declare transaction must be created with a ContractClass (transaction_hash={})",
                 tx_hash,
@@ -339,11 +339,6 @@ fn transaction_from_api(
         _ => {} // all ok
     };
 
-    let class_info = if let Some(class) = contract_class {
-        Some(ClassInfo::new(&class, 0, 0).unwrap()) //todo: set proper lengths
-    } else {
-        None
-    };
     Transaction::from_api(tx, tx_hash, class_info, paid_fee_on_l1, None, query_bit)
         .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
