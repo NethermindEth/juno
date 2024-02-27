@@ -72,7 +72,7 @@ func (k *Key) Equal(other *Key) bool {
 	} else if k == nil || other == nil {
 		return false
 	}
-	return k.len == other.len && bytes.Equal(k.bitset[:], other.bitset[:])
+	return k.len == other.len && k.bitset == other.bitset
 }
 
 func (k *Key) Test(bit uint8) bool {
@@ -104,11 +104,8 @@ func (k *Key) DeleteLSB(n uint8) {
 func (k *Key) Truncate(length uint8) {
 	k.len = length
 
-	// clear unused bytes
 	unusedBytes := k.unusedBytes()
-	for idx := range unusedBytes {
-		unusedBytes[idx] = 0
-	}
+	clear(unusedBytes)
 
 	// clear upper bits on the last used byte
 	inUseBytes := k.inUseBytes()
