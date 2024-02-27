@@ -214,6 +214,10 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	blockInfoJSONCStr := cstring(blockInfoJSON)
 
 	sequencerAddressBytes := sequencerAddress.Bytes()
+	gasPriceWEIBytes := gasPriceWEI.Bytes()
+	gasPriceSTRKBytes := gasPriceSTRK.Bytes()
+	daGasPriceWEIBytes := daGasPriceWEI.Bytes()
+	daGasPriceSTRKBytes := daGasPriceFRI.Bytes()
 
 	skipChargeFeeByte := boolToByte(skipChargeFee)
 	skipValidateByte := boolToByte(skipValidate)
@@ -234,11 +238,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte),
-		feltToCChar(gasPriceWEI),
-		feltToCChar(gasPriceSTRK),
+		(*C.char)(unsafe.Pointer(&gasPriceWEIBytes[0])),
+		(*C.char)(unsafe.Pointer(&gasPriceSTRKBytes[0])),
 		C.uchar(legacyTraceJSONByte),
-		feltToCChar(daGasPriceWEI),
-		feltToCChar(daGasPriceFRI),
+		(*C.char)(unsafe.Pointer(&daGasPriceWEIBytes[0])),
+		(*C.char)(unsafe.Pointer(&daGasPriceSTRKBytes[0])),
 		C.uchar(useKzgDAByte),
 	)
 
@@ -265,14 +269,6 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	}
 
 	return context.actualFees, traces, nil
-}
-
-func feltToCChar(value *felt.Felt) *C.char {
-	if value == nil {
-		value = new(felt.Felt).SetUint64(1)
-	}
-	bytes := value.Bytes()
-	return (*C.char)(unsafe.Pointer(&bytes[0]))
 }
 
 func boolToByte(b bool) byte {

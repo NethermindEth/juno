@@ -101,7 +101,7 @@ pub extern "C" fn cairoVMCall(
     let block_version =StarknetVersion::from_str(block_version_str);
     let mut versioned_constants = versioned_constants::for_version(&block_version).unwrap().clone();
 
-    versioned_constants.invoke_tx_max_n_steps = max_steps as u32; // Todo ?
+    versioned_constants.invoke_tx_max_n_steps = max_steps as u32; 
 
     let reader = JunoStateReader::new(reader_handle, block_info_juno.block_number);
     let contract_addr_felt = ptr_to_felt(contract_address);
