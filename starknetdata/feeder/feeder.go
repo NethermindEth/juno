@@ -61,6 +61,7 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 
 	var sig *starknet.Signature
 	if blockID != pendingID {
+		// btw it should work for all networks, right?
 		sig, err = f.client.Signature(ctx, blockID)
 		if err != nil {
 			return nil, fmt.Errorf("get signature for block %q: %v", blockID, err)

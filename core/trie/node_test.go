@@ -22,6 +22,7 @@ func TestNodeHash(t *testing.T) {
 	node := trie.Node{
 		Value: new(felt.Felt).SetBytes(valueBytes),
 	}
+	// it's 6 because 2^5 is 32 which is not sufficient to store 42 ?
 	path := trie.NewKey(6, []byte{42})
 
 	assert.Equal(t, expected, node.Hash(&path, crypto.Pedersen), "TestTrieNode_Hash failed")

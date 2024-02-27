@@ -160,6 +160,7 @@ type ResourceBounds struct {
 }
 
 // Transaction object returned by the feeder in JSON format for multiple endpoints
+// can we have just map[Resource]ResourceBounds instead of *map
 type Transaction struct {
 	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty" copier:"must,nopanic"`
 	Version               *felt.Felt                   `json:"version,omitempty"`

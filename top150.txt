@@ -1,60 +1,59 @@
-* All todos
-* why []*felt.Felt vs []felt.Felt
-
-67 rpc/handlers.go
-50 rpc/handlers_test.go
 48 blockchain/blockchain.go
 43 node/node.go
-24 core/state.go
 23 blockchain/blockchain_test.go
-20 vm/rust/src/lib.rs
 20 core/transaction.go
-19 rpc/transaction.go
 18 sync/sync.go
-13 starknetdata/feeder/feeder.go
-13 clients/feeder/feeder.go
-12 core/trie/trie_test.go
 12 core/contract_test.go
-12 cmd/juno/juno.go
 12 clients/feeder/feeder_test.go
 11 sync/sync_test.go
 11 starknetdata/feeder/feeder_test.go
-11 core/trie/trie.go
 11 core/contract.go
-10 rpc/block.go
 10 core/state_test.go
-10 core/felt/felt.go
-9 jsonrpc/server.go
-8 vm/vm.go
-8 vm/rust/src/jsonrpc.rs
-8 node/http.go
-8 migration/migration.go
 8 core/trie/transaction_storage.go
-8 core/block.go
-8 cmd/juno/juno_test.go
-7 vm/vm_test.go
+
+### RECHECK ###
 7 migration/migration_pkg_test.go
-7 core/transaction_test.go
-6 vm/rust/src/juno_state_reader.rs
-6 core/felt/felt_test.go
-6 core/block_test.go
-5 vm/transaction.go
-4 jsonrpc/websocket_test.go
-4 db/pebble/db_test.go
-4 core/trie/node_test.go
 4 core/state_snapshot_test.go
-4 blockchain/event_filter.go
-3 p2p/starknet/starknet_test.go
-3 core/trie/node.go
 3 core/history.go
+6 vm/rust/src/juno_state_reader.rs
+12 core/trie/trie_test.go
+67 rpc/handlers.go
+11 core/trie/trie.go
+20 vm/rust/src/lib.rs
+24 core/state.go
+8 migration/migration.go
+3 core/trie/node.go
+4 blockchain/event_filter.go
+8 vm/vm.go
 
-
-### SMALL TODOS ###
+### SMALL TODOS (later) ###
+5 vm/transaction.go
+8 cmd/juno/juno_test.go
 * sep. definition for common SI values (i.e. megabyte)
 * decorators for metrics
 * remove unnecessary UnmarshalJSON for text (if UnmarshalText is presented)
 
 ### REVIEWED ###
+13 starknetdata/feeder/feeder.go
+7 core/transaction_test.go
+4 core/trie/node_test.go
+13 clients/feeder/feeder.go
+4 jsonrpc/websocket_test.go
+3 p2p/starknet/starknet_test.go
+50 rpc/handlers_test.go
+4 db/pebble/db_test.go
+12 cmd/juno/juno.go
+19 rpc/transaction.go
+10 rpc/block.go
+9 jsonrpc/server.go
+8 node/http.go
+7 vm/vm_test.go
+10 core/felt/felt.go
+8 vm/rust/src/jsonrpc.rs
+6 core/felt/felt_test.go
+6 core/block_test.go
+8 core/block.go
+* All todos
 10 node/metrics.go
 3 jsonrpc/websocket.go
 4 blockchain/pending_test.go

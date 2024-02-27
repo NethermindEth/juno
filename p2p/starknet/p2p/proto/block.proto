@@ -15,7 +15,7 @@ message Signatures {
 // hash of block header sent to L1
 message BlockHeader {
     Hash                      parent_hash       = 1;
-    uint64                    number            = 2;
+    uint64                    number            = 2;   // Check this todo please
     google.protobuf.Timestamp time              = 3;   // TODO: see if this needs to be Felt252 or can be converted
     Address                   sequencer_address = 4;
     Merkle                    state_diffs       = 5;   //  By order of (contract, key), taking last in case of duplicates.
