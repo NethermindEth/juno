@@ -493,6 +493,7 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
+
 	switch {
 	case id.Latest:
 		header, err = h.bcReader.HeadsHeader()
@@ -1503,6 +1504,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
