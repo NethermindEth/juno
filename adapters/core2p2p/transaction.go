@@ -44,10 +44,9 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 					L1Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
 					L2Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
 					Tip:         AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					// todo fill rest of V3 fields:
 					Paymaster:   nil,
-					NonceDomain: "",
-					FeeDomain:   "",
+					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
+					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
 				},
 			}
 		default:
@@ -97,10 +96,9 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 					L1Gas:             adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
 					L2Gas:             adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
 					Tip:               AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					// todo fill rest of V3 fields:
-					Paymaster:   nil,
-					NonceDomain: "",
-					FeeDomain:   "",
+					Paymaster:         nil,
+					NonceDomain:       fmt.Sprintf("%v", tx.NonceDAMode),
+					FeeDomain:         fmt.Sprintf("%v", tx.FeeDAMode),
 				},
 			}
 		default:
@@ -131,18 +129,17 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 		case tx.Version.Is(3):
 			specTx.Txn = &spec.Transaction_InvokeV3_{
 				InvokeV3: &spec.Transaction_InvokeV3{
-					Sender:    AdaptAddress(tx.SenderAddress),
-					MaxFee:    AdaptFelt(tx.MaxFee),
-					Signature: AdaptAccountSignature(tx.Signature()),
-					Calldata:  AdaptFeltSlice(tx.CallData),
-					Nonce:     AdaptFelt(tx.Nonce),
-					L1Gas:     adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
-					L2Gas:     adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
-					Tip:       AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					// todo fill rest of V3 fields:
+					Sender:      AdaptAddress(tx.SenderAddress),
+					MaxFee:      AdaptFelt(tx.MaxFee),
+					Signature:   AdaptAccountSignature(tx.Signature()),
+					Calldata:    AdaptFeltSlice(tx.CallData),
+					Nonce:       AdaptFelt(tx.Nonce),
+					L1Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
+					L2Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
+					Tip:         AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
 					Paymaster:   nil,
-					NonceDomain: "",
-					FeeDomain:   "",
+					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
+					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
 				},
 			}
 		default:
