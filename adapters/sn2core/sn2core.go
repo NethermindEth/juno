@@ -51,7 +51,9 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
 			GasPrice:         response.GasPriceETH(),
-			GasPriceSTRK:     response.GasPriceSTRK,
+			GasPriceSTRK:     response.GasPriceSTRK(),
+			L1DAMode:         core.L1DAMode(response.L1DAMode),
+			L1DataGasPrice:   (*core.GasPrice)(response.L1DataGasPrice),
 			Signatures:       sigs,
 		},
 		Transactions: txns,
@@ -296,6 +298,7 @@ func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledCl
 	compiled.PythonicHints = compiledClass.PythonicHints
 	compiled.CompilerVersion = compiledClass.CompilerVersion
 	compiled.Hints = compiledClass.Hints
+	compiled.BytecodeSegmentLengths = AdaptSegmentLengths(compiledClass.BytecodeSegmentLengths)
 
 	var ok bool
 	compiled.Prime, ok = new(big.Int).SetString(compiledClass.Prime, 0)
@@ -309,6 +312,13 @@ func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledCl
 	compiled.Constructor = utils.Map(entryPoints.Constructor, adaptCompiledEntryPoint)
 
 	return &compiled, nil
+}
+
+func AdaptSegmentLengths(l starknet.SegmentLengths) core.SegmentLengths {
+	return core.SegmentLengths{
+		Length:   l.Length,
+		Children: utils.Map(l.Children, AdaptSegmentLengths),
+	}
 }
 
 func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {

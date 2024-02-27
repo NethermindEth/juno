@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"encoding/json"
+	"strconv"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -46,25 +47,6 @@ type ClassDefinition struct {
 	V1 *SierraDefinition
 }
 
-type CompiledClass struct {
-	Prime           string          `json:"prime"`
-	Bytecode        []*felt.Felt    `json:"bytecode"`
-	Hints           json.RawMessage `json:"hints"`
-	PythonicHints   json.RawMessage `json:"pythonic_hints"`
-	CompilerVersion string          `json:"compiler_version"`
-	EntryPoints     struct {
-		External    []CompiledEntryPoint `json:"EXTERNAL"`
-		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
-		Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
-	} `json:"entry_points_by_type"`
-}
-
-type CompiledEntryPoint struct {
-	Selector *felt.Felt `json:"selector"`
-	Offset   uint64     `json:"offset"`
-	Builtins []string   `json:"builtins"`
-}
-
 func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	jsonMap := make(map[string]any)
 	if err := json.Unmarshal(data, &jsonMap); err != nil {
@@ -77,6 +59,40 @@ func (c *ClassDefinition) UnmarshalJSON(data []byte) error {
 	}
 	c.V0 = new(Cairo0Definition)
 	return json.Unmarshal(data, c.V0)
+}
+
+type SegmentLengths struct {
+	Children []SegmentLengths
+	Length   uint64
+}
+
+func (n *SegmentLengths) UnmarshalJSON(data []byte) error {
+	var err error
+	n.Length, err = strconv.ParseUint(string(data), 10, 64)
+	if err != nil {
+		return json.Unmarshal(data, &n.Children)
+	}
+	return err
+}
+
+type CompiledClass struct {
+	Prime                  string          `json:"prime"`
+	Bytecode               []*felt.Felt    `json:"bytecode"`
+	Hints                  json.RawMessage `json:"hints"`
+	PythonicHints          json.RawMessage `json:"pythonic_hints"`
+	CompilerVersion        string          `json:"compiler_version"`
+	BytecodeSegmentLengths SegmentLengths  `json:"bytecode_segment_lengths"`
+	EntryPoints            struct {
+		External    []CompiledEntryPoint `json:"EXTERNAL"`
+		L1Handler   []CompiledEntryPoint `json:"L1_HANDLER"`
+		Constructor []CompiledEntryPoint `json:"CONSTRUCTOR"`
+	} `json:"entry_points_by_type"`
+}
+
+type CompiledEntryPoint struct {
+	Selector *felt.Felt `json:"selector"`
+	Offset   uint64     `json:"offset"`
+	Builtins []string   `json:"builtins"`
 }
 
 func IsDeprecatedCompiledClassDefinition(definition json.RawMessage) (bool, error) {
