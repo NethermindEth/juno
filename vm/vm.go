@@ -22,6 +22,7 @@ typedef struct BlockInfo {
 	unsigned char gas_price_wei[FELT_SIZE];
 	unsigned char gas_price_fri[FELT_SIZE];
 	char* version;
+	unsigned char block_hash_to_be_revealed[FELT_SIZE];
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
@@ -137,7 +138,8 @@ type CallInfo struct {
 }
 
 type BlockInfo struct {
-	Header *core.Header
+	Header                *core.Header
+	BlockHashToBeRevealed *felt.Felt
 }
 
 func copyFeltIntoCArray(felt *felt.Felt, cArrPtr *C.uchar) {
@@ -185,6 +187,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	copyFeltIntoCArray(blockInfo.Header.GasPrice, &cBlockInfo.gas_price_wei[0])
 	copyFeltIntoCArray(blockInfo.Header.GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
 	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
+	copyFeltIntoCArray(blockInfo.BlockHashToBeRevealed, &cBlockInfo.block_hash_to_be_revealed[0])
 	return cBlockInfo
 }
 

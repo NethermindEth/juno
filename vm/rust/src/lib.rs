@@ -10,7 +10,7 @@ use std::{
 };
 
 use blockifier::{
-    block::{pre_process_block, BlockInfo as BlockifierBlockInfo, GasPrices}, context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, execution::{
+    block::{pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices}, context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, execution::{
         contract_class::ClassInfo,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     }, fee::fee_utils::calculate_tx_fee, state::{cached_state::{CachedState, GlobalContractCache}, state_api::State}, transaction::{
@@ -24,7 +24,7 @@ use blockifier::{
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
-use starknet_api::{core::PatriciaKey, transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash}};
+use starknet_api::{block::BlockHash, core::PatriciaKey, transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash}};
 use starknet_api::{
     deprecated_contract_class::EntryPointType,
     hash::StarkFelt,
@@ -61,6 +61,7 @@ pub struct BlockInfo {
     pub gas_price_wei: [c_uchar; 32],
     pub gas_price_fri: [c_uchar; 32],
     pub version: *const c_char,
+    pub block_hash_to_be_revealed: [c_uchar; 32],
 }
 
 #[no_mangle]
@@ -380,7 +381,14 @@ fn build_block_context(
     let gas_price_fri_felt = StarkFelt::new(block_info.gas_price_fri).unwrap();
     let default_gas_price = NonZeroU128::new(1).unwrap();
 
-    pre_process_block(state, None, BlockifierBlockInfo{
+    let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
+    if block_info.block_number >= 10 {
+        old_block_number_and_hash = Some(BlockNumberHashPair{
+            number: starknet_api::block::BlockNumber(block_info.block_number - 10),
+            hash: BlockHash(StarkFelt::new(block_info.block_hash_to_be_revealed).unwrap()),
+        })
+    }
+    pre_process_block(state, old_block_number_and_hash, BlockifierBlockInfo{
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_addr).unwrap()),
