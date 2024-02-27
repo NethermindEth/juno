@@ -24,6 +24,7 @@ func TestThrottler(t *testing.T) {
 		return nil
 	}
 	do := func() {
+		// go require.NoError(t, throttledRes.Do(doer)) ?
 		go func() {
 			require.NoError(t, throttledRes.Do(doer))
 		}()

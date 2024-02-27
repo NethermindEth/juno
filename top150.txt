@@ -1,0 +1,159 @@
+* All todos
+* why []*felt.Felt vs []felt.Felt
+
+67 rpc/handlers.go
+50 rpc/handlers_test.go
+48 blockchain/blockchain.go
+43 node/node.go
+24 core/state.go
+23 blockchain/blockchain_test.go
+20 vm/rust/src/lib.rs
+20 core/transaction.go
+19 rpc/transaction.go
+18 sync/sync.go
+13 starknetdata/feeder/feeder.go
+13 clients/feeder/feeder.go
+12 core/trie/trie_test.go
+12 core/contract_test.go
+12 cmd/juno/juno.go
+12 clients/feeder/feeder_test.go
+11 sync/sync_test.go
+11 starknetdata/feeder/feeder_test.go
+11 core/trie/trie.go
+11 core/contract.go
+10 rpc/block.go
+10 node/metrics.go
+10 core/state_test.go
+10 core/felt/felt.go
+9 jsonrpc/server.go
+8 vm/vm.go
+8 vm/rust/src/jsonrpc.rs
+8 node/http.go
+8 migration/migration.go
+8 core/trie/transaction_storage.go
+8 core/block.go
+8 cmd/juno/juno_test.go
+7 vm/vm_test.go
+7 migration/migration_pkg_test.go
+7 core/transaction_test.go
+6 vm/rust/src/juno_state_reader.rs
+6 jsonrpc/server_test.go
+6 core/state_update.go
+6 core/felt/felt_test.go
+6 core/block_test.go
+5 vm/transaction.go
+4 jsonrpc/websocket_test.go
+4 db/pebble/db_test.go
+4 core/trie/node_test.go
+4 core/state_snapshot_test.go
+4 core/class_test.go
+4 core/class.go
+4 blockchain/pending_test.go
+4 blockchain/pending.go
+4 blockchain/event_filter.go
+3 p2p/starknet/starknet_test.go
+3 p2p/starknet/handlers.go
+3 jsonrpc/websocket.go
+3 db/pebble/db.go
+3 db/buckets_test.go
+3 core/trie/node.go
+3 core/state_snapshot.go
+3 core/history.go
+3 core/crypto/pedersen_hash_test.go
+3 .github/workflows/juno-lint.yml
+2 vm/state_reader.go
+2 utils/network.go
+2 starknetdata/starknetdata.go
+2 rpc/block_test.go
+2 migration/migration_test.go
+2 migration/bucket_migrator_test.go
+2 migration/bucket_migrator.go
+2 db/sync_transaction.go
+2 db/remote/transaction.go
+2 core/trie/trie_pkg_test.go
+2 core/trie/transaction_storage_test.go
+1 vm/transaction_pkg_test.go
+1 vm/trace_test.go
+1 vm/trace.go
+1 starknet/trace.go
+1 rpc/trace.go
+
+
+### SMALL TODOS ###
+* sep. definition for common SI values (i.e. megabyte)
+* decorators for metrics
+* remove unnecessary UnmarshalJSON for text (if UnmarshalText is presented)
+
+### REVIEWED ###
+7 db/db.go
+4 p2p/p2p.go
+4 .github/workflows/juno-test.yml
+5 db/pebble/transaction.go
+4 p2p/p2p_test.go
+3 node/node_test.go
+2 p2p/starknet/client.go
+2 core/crypto/poseidon_hash_test.go
+2 core/crypto/poseidon_hash.go
+3 encoder/encoder.go
+5 clients/gateway/gateway.go
+6 node/throttled_vm.go
+17 db/buckets.go
+4 rpc/class.go
+12 vm/rust/Cargo.toml
+7 mocks/mock_blockchain.go
+5 mocks/mock_vm.go
+4 jsonrpc/http_test.go
+6 jsonrpc/http.go
+1 utils/throttler_test.go
+4 vm/class.go
+2 .golangci.yaml
+3 grpc/handlers.go
+4 rpc/events.go
+3 db/event_listener.go
+3 rpc/state_update.go
+2 utils/throttler.go
+2 grpc/handlers_test.go
+2 utils/compression_test.go
+2 utils/compression.go
+2 clients/gateway/gateway_test.go
+2 blockchain/encoder_initializer.go
+2 grpc/gen/kv.pb.go
+1 utils/network_test.go
+1 starknet/transaction_test.go
+1 starknet/transaction.go
+1 starknet/state_update.go
+1 starknet/signature.go
+2 starknet/rust/Cargo.toml
+2 grpc/kv.proto
+5 README.md
+4 Makefile
+1 utils/log.go
+1 validator/validator.go
+2 .github/codecov.yml
+1 starknet/compiler_test.go
+1 starknet/compiler.go
+sync/event_listener.go
+vm/errors.go
+1 starknet/class.go
+1 starknet/block.go
+service/service.go
+1 starknet/rust/src/lib.rs
+1 starknet/rust/Makefile
+1 starknet/rust/.gitignore
+rpc/sync.go
+1 l1/l1.go
+2 mocks/mock_state.go
+2 mocks/mock_starknetdata.go
+1 p2p/starknet/spec/transaction.pb.go
+1 p2p/starknet/spec/state.pb.go
+1 p2p/starknet/spec/snapshot.pb.go
+1 p2p/starknet/spec/receipt.pb.go
+1 p2p/starknet/spec/event.pb.go
+1 p2p/starknet/spec/common.pb.go
+1 p2p/starknet/spec/block.pb.go
+X mocks/mock_gateway_handler.go
+X jsonrpc/event_listener_test.go
+X jsonrpc/event_listener.go
+X jemalloc/jemalloc.go
+X grpc/tx.go
+X grpc/gen/kv_grpc.pb.go

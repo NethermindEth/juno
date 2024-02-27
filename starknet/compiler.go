@@ -1,5 +1,7 @@
 package starknet
 
+// why it's in separate package (not in VM), is it because of cyclic dependencies ?
+
 //#include <stdint.h>
 //#include <stdlib.h>
 //#include <stddef.h>
@@ -33,6 +35,7 @@ func Compile(sierra *SierraDefinition) (*CompiledClass, error) {
 
 	casmJSONOrErrorCstr := C.compileSierraToCasm(sierraJSONCstr)
 	casmJSONOrError := C.GoString(casmJSONOrErrorCstr)
+	// can we replace it with C.free call?
 	C.freeCstr(casmJSONOrErrorCstr)
 
 	var casmClass CompiledClass

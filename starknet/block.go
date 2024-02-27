@@ -16,6 +16,7 @@ type Block struct {
 	SequencerAddress *felt.Felt            `json:"sequencer_address"`
 	GasPriceSTRK     *felt.Felt            `json:"strk_l1_gas_price"`
 
+	// Can we remove GasPriceLegacy now? and we can keep GasPriceWEI I guess
 	// TODO we can remove the GasPrice method and the GasPriceLegacy field
 	// once v0.13 lands on mainnet. In the meantime, we include both to support
 	// pre-v0.13 jsons, where `eth_l1_gas_price` was called `gas_price`.

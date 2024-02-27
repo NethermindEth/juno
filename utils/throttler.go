@@ -16,6 +16,14 @@ type Throttler[T any] struct {
 	maxQueueLen int32
 }
 
+// Question regarding the whole architecture, why buffered channel with limited number
+// of workers is not used? resource busy can be implemented with
+//
+//	select {
+//	  case <- dataChannel: ...
+//	  default:
+//	     err = ErrResourceBusy
+//	 }
 func NewThrottler[T any](concurrencyBudget uint, resource *T) *Throttler[T] {
 	return &Throttler[T]{
 		resource:    resource,

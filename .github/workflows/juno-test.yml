@@ -29,6 +29,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
+            # do we need to add starknet/rust here?
+            # and what is there real benefit of using rust-cache?
             vm/rust
             core/rust
       - name: Install deps

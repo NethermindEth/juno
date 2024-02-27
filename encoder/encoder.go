@@ -62,6 +62,7 @@ func Unmarshal(b []byte, v any) error {
 	return decMode.Unmarshal(b, v)
 }
 
+// why it's in not test package
 // TestSymmetry checks if a type can be marshalled and unmarshalled with no issues
 func TestSymmetry(t *testing.T, value any) {
 	t.Helper()

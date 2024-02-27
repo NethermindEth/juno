@@ -51,6 +51,7 @@ func (d *StateDiff) Commitment() *felt.Felt {
 	for addr := range d.ReplacedClasses {
 		deployedReplacedAddresses = append(deployedReplacedAddresses, addr)
 	}
+	// this will insert number_of_deployed_contracts into slice which then will be moved to the beginning by this sorting, right?
 	hashOfDeployedContracts.Update(tmpFelt.SetUint64(uint64(len(deployedReplacedAddresses))))
 	sort.Slice(deployedReplacedAddresses, func(i, j int) bool {
 		switch deployedReplacedAddresses[i].Cmp(&deployedReplacedAddresses[j]) {
@@ -59,6 +60,7 @@ func (d *StateDiff) Commitment() *felt.Felt {
 		case 1:
 			return false
 		default:
+			// Is it somewhere in the docs or it was in slack conversations?
 			// The sequencer guarantees that a contract cannot be:
 			// - deployed twice,
 			// - deployed and have its class replaced in the same state diff, or
