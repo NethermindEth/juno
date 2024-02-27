@@ -292,7 +292,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
                     ordered_message
                 })
                 .collect(),
-            execution_resources: Some(val.vm_resources.into()),
+            execution_resources: Some(val.resources.into()),
         }
     }
 }
