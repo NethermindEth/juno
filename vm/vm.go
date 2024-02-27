@@ -1,25 +1,46 @@
 package vm
 
-//#include <stdint.h>
-//#include <stdlib.h>
-//#include <stddef.h>
-// extern void cairoVMCall(char* contract_address, char* class_hash, char* entry_point_selector, char** calldata,
-//					 size_t len_calldata, uintptr_t readerHandle, unsigned long long block_number,
-//					 unsigned long long block_timestamp, char* chain_id, unsigned long long max_steps);
-//
-// extern void cairoVMExecute(char* txns_json, char* classes_json, uintptr_t readerHandle, unsigned long long block_number,
-//					unsigned long long block_timestamp, char* chain_id, char* sequencer_address, char* paid_fees_on_l1_json,
-//					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert, char* gas_price_wei,
-//					char* gas_price_strk, unsigned char legacy_json);
-//
-// #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
-// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
+/*
+#include <stdint.h>
+#include <stdlib.h>
+#include <stddef.h>
+
+#define FELT_SIZE 32
+
+typedef struct CallInfo {
+	unsigned char contract_address[FELT_SIZE];
+	unsigned char class_hash[FELT_SIZE];
+	unsigned char entry_point_selector[FELT_SIZE];
+	unsigned char** calldata;
+	size_t len_calldata;
+} CallInfo;
+
+typedef struct BlockInfo {
+	unsigned long long block_number;
+	unsigned long long block_timestamp;
+	unsigned char sequencer_address[FELT_SIZE];
+	unsigned char gas_price_wei[FELT_SIZE];
+	unsigned char gas_price_fri[FELT_SIZE];
+} BlockInfo;
+
+extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
+	unsigned long long max_steps);
+
+extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
+					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
+					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
+					unsigned char legacy_json);
+
+#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
+#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
+*/
 import "C"
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime"
 	"runtime/cgo"
 	"unsafe"
 
@@ -30,12 +51,9 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-		blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
-	) ([]*felt.Felt, error)
-	Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-		sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
-		skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
+	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64) ([]*felt.Felt, error)
+	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
+		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, legacyTraceJSON bool,
 	) ([]*felt.Felt, []TransactionTrace, error)
 }
 
@@ -110,9 +128,65 @@ func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
 	return C.CBytes(feltBytes[:])
 }
 
-func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.Felt, blockNumber,
-	blockTimestamp uint64, state core.StateReader, network *utils.Network, maxSteps uint64,
-) ([]*felt.Felt, error) {
+type CallInfo struct {
+	ContractAddress *felt.Felt
+	ClassHash       *felt.Felt
+	Selector        *felt.Felt
+	Calldata        []felt.Felt
+}
+
+type BlockInfo struct {
+	Header *core.Header
+}
+
+func copyFeltIntoCArray(felt *felt.Felt, cArrPtr *C.uchar) {
+	if felt == nil {
+		return
+	}
+
+	feltBytes := felt.Bytes()
+	cArr := unsafe.Slice(cArrPtr, len(feltBytes))
+	for index := range feltBytes {
+		cArr[index] = C.uchar(feltBytes[index])
+	}
+}
+
+func makeCCallInfo(callInfo *CallInfo) (C.CallInfo, runtime.Pinner) {
+	var cCallInfo C.CallInfo
+	var pinner runtime.Pinner
+
+	copyFeltIntoCArray(callInfo.ContractAddress, &cCallInfo.contract_address[0])
+	copyFeltIntoCArray(callInfo.ClassHash, &cCallInfo.class_hash[0])
+	copyFeltIntoCArray(callInfo.Selector, &cCallInfo.entry_point_selector[0])
+
+	if len(callInfo.Calldata) > 0 {
+		// prepare calldata in Go heap.
+		cCallInfo.len_calldata = C.ulong(len(callInfo.Calldata))
+		calldataPtrs := make([]*C.uchar, 0, len(callInfo.Calldata))
+		for _, data := range callInfo.Calldata {
+			cArr := make([]C.uchar, felt.Bytes)
+			copyFeltIntoCArray(&data, &cArr[0])
+			pinner.Pin(&cArr[0])
+			calldataPtrs = append(calldataPtrs, &cArr[0])
+		}
+		pinner.Pin(&calldataPtrs[0])
+		cCallInfo.calldata = &calldataPtrs[0]
+	}
+	return cCallInfo, pinner
+}
+
+func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
+	var cBlockInfo C.BlockInfo
+
+	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
+	cBlockInfo.block_timestamp = C.ulonglong(blockInfo.Header.Timestamp)
+	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
+	copyFeltIntoCArray(blockInfo.Header.GasPrice, &cBlockInfo.gas_price_wei[0])
+	copyFeltIntoCArray(blockInfo.Header.GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
+	return cBlockInfo
+}
+
+func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
@@ -121,40 +195,17 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
-	addrBytes := contractAddr.Bytes()
-	selectorBytes := selector.Bytes()
-	calldataPtrs := []*C.char{}
-	for _, data := range calldata {
-		bytes := data.Bytes()
-		//nolint:gocritic
-		calldataPtrs = append(calldataPtrs, (*C.char)(C.CBytes(bytes[:])))
-	}
-	calldataArrPtr := unsafe.Pointer(nil)
-	if len(calldataPtrs) > 0 {
-		calldataArrPtr = unsafe.Pointer(&calldataPtrs[0])
-	}
-
-	classHashPtr := (*byte)(nil)
-	if classHash != nil {
-		classHashBytes := classHash.Bytes()
-		classHashPtr = &classHashBytes[0]
-	}
+	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
+	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
-	C.cairoVMCall((*C.char)(unsafe.Pointer(&addrBytes[0])),
-		(*C.char)(unsafe.Pointer(classHashPtr)),
-		(*C.char)(unsafe.Pointer(&selectorBytes[0])),
-		(**C.char)(calldataArrPtr),
-		C.size_t(len(calldataPtrs)),
+	C.cairoVMCall(
+		&cCallInfo,
+		&cBlockInfo,
 		C.uintptr_t(handle),
-		C.ulonglong(blockNumber),
-		C.ulonglong(blockTimestamp),
 		chainID,
 		C.ulonglong(maxSteps),
 	)
-
-	for _, ptr := range calldataPtrs {
-		C.free(unsafe.Pointer(ptr))
-	}
+	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
 
 	if len(context.err) > 0 {
@@ -164,9 +215,9 @@ func (v *vm) Call(contractAddr, classHash, selector *felt.Felt, calldata []felt.
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, blockNumber, blockTimestamp uint64,
-	sequencerAddress *felt.Felt, state core.StateReader, network *utils.Network, paidFeesOnL1 []*felt.Felt,
-	skipChargeFee, skipValidate, errOnRevert bool, gasPriceWEI *felt.Felt, gasPriceSTRK *felt.Felt, legacyTraceJSON bool,
+func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+	skipChargeFee, skipValidate, errOnRevert, legacyTraceJSON bool,
 ) ([]*felt.Felt, []TransactionTrace, error) {
 	context := &callContext{
 		state: state,
@@ -189,14 +240,6 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 	txnsJSONCstr := cstring(txnsJSON)
 	classesJSONCStr := cstring(classesJSON)
 
-	sequencerAddressBytes := sequencerAddress.Bytes()
-	gasPriceWEIBytes := gasPriceWEI.Bytes()
-
-	if gasPriceSTRK == nil {
-		gasPriceSTRK = &felt.Zero
-	}
-	gasPriceSTRKBytes := gasPriceSTRK.Bytes()
-
 	var skipChargeFeeByte byte
 	if skipChargeFee {
 		skipChargeFeeByte = 1
@@ -216,20 +259,17 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, bloc
 		legacyTraceJSONByte = 1
 	}
 
+	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
-		C.uintptr_t(handle),
-		C.ulonglong(blockNumber),
-		C.ulonglong(blockTimestamp),
-		chainID,
-		(*C.char)(unsafe.Pointer(&sequencerAddressBytes[0])),
 		paidFeesOnL1CStr,
+		&cBlockInfo,
+		C.uintptr_t(handle),
+		chainID,
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte),
-		(*C.char)(unsafe.Pointer(&gasPriceWEIBytes[0])),
-		(*C.char)(unsafe.Pointer(&gasPriceSTRKBytes[0])),
 		C.uchar(legacyTraceJSONByte),
 	)
 
