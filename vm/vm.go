@@ -21,6 +21,7 @@ typedef struct BlockInfo {
 	unsigned char sequencer_address[FELT_SIZE];
 	unsigned char gas_price_wei[FELT_SIZE];
 	unsigned char gas_price_fri[FELT_SIZE];
+	char* version;
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
@@ -183,6 +184,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
 	copyFeltIntoCArray(blockInfo.Header.GasPrice, &cBlockInfo.gas_price_wei[0])
 	copyFeltIntoCArray(blockInfo.Header.GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
+	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
 	return cBlockInfo
 }
 
@@ -207,6 +209,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
+	C.free(unsafe.Pointer(cBlockInfo.version))
 
 	if len(context.err) > 0 {
 		return nil, errors.New(context.err)
@@ -277,6 +280,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	C.free(unsafe.Pointer(paidFeesOnL1CStr))
 	C.free(unsafe.Pointer(txnsJSONCstr))
 	C.free(unsafe.Pointer(chainID))
+	C.free(unsafe.Pointer(cBlockInfo.version))
 
 	if len(context.err) > 0 {
 		if context.errTxnIndex >= 0 {
