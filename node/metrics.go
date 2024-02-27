@@ -61,6 +61,7 @@ func makeDBMetrics() db.EventListener {
 			300000,
 			500000,
 			1000000,
+			// is it analogue of maximum?
 			math.Inf(0),
 		},
 	})

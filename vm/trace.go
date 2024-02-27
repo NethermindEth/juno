@@ -199,6 +199,8 @@ type ExecuteInvocation struct {
 }
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+	// in this case RevertReason will be ignored, right?
+	// I don't remember exactly but it's either RevertReason or FunctionInvocation data?
 	if e.FunctionInvocation != nil {
 		return json.Marshal(e.FunctionInvocation)
 	}

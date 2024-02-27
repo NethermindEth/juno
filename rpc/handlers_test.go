@@ -1770,6 +1770,7 @@ func TestStateUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	mainnetGw := adaptfeeder.New(client)
 
+	// were there something special in 21656 block on mainnet or it could be any blockNumber
 	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)
 	require.NoError(t, err)
 

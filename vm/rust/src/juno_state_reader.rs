@@ -41,6 +41,7 @@ struct CachedContractClass {
     pub cached_on_height: u64,
 }
 
+// why Lazy?
 static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
     Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
 

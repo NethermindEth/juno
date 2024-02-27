@@ -15,6 +15,7 @@ import (
 )
 
 type Handler struct {
+	// why do we need this?
 	gen.UnimplementedKVServer
 	db      db.DB
 	version string

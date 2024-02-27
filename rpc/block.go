@@ -17,6 +17,7 @@ const (
 	BlockRejected
 )
 
+// any objections to use MarshalText() instead ?
 func (s BlockStatus) MarshalJSON() ([]byte, error) {
 	switch s {
 	case BlockPending:

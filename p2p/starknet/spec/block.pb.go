@@ -87,6 +87,7 @@ type BlockHeader struct {
 
 	ParentHash       *Hash                  `protobuf:"bytes,1,opt,name=parent_hash,json=parentHash,proto3" json:"parent_hash,omitempty"`
 	Number           uint64                 `protobuf:"varint,2,opt,name=number,proto3" json:"number,omitempty"`
+	// same
 	Time             *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=time,proto3" json:"time,omitempty"` // TODO: see if this needs to be Felt252 or can be converted
 	SequencerAddress *Address               `protobuf:"bytes,4,opt,name=sequencer_address,json=sequencerAddress,proto3" json:"sequencer_address,omitempty"`
 	StateDiffs       *Merkle                `protobuf:"bytes,5,opt,name=state_diffs,json=stateDiffs,proto3" json:"state_diffs,omitempty"` //  By order of (contract, key), taking last in case of duplicates.

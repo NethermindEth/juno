@@ -17,6 +17,15 @@ type Sync struct {
 	HighestBlockNumber  *uint64    `json:"highest_block_num,omitempty"`
 }
 
+// Why did we start using uint64 instead of NumHex, I think the latter is closer to the spec (https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L862C55-L862C65)
+/*
+type NumAsHex uint64
+
+func (n NumAsHex) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"0x%x"`, n)), nil
+}
+*/
+
 func (s Sync) MarshalJSON() ([]byte, error) {
 	if s.Syncing != nil && !*s.Syncing {
 		return json.Marshal(false)

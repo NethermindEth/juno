@@ -24,6 +24,7 @@ type Block struct {
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
 
+	// Can we remove GasPriceLegacy now? and we can keep GasPriceWEI I guess
 	// TODO we can remove the GasPrice method and the GasPriceLegacy field
 	// once v0.13 lands on mainnet. In the meantime, we include both to support
 	// pre-v0.13 jsons, where `eth_l1_gas_price` was called `gas_price`.

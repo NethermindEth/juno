@@ -10,6 +10,7 @@ import (
 
 var once sync.Once
 
+// seems like we always run this code, any objections to replace it with init() ?
 func RegisterCoreTypesToEncoder() {
 	once.Do(func() {
 		types := []reflect.Type{

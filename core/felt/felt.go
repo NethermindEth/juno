@@ -56,6 +56,7 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	if len(s) > fp.Bits*3 {
 		return errors.New("value too large (max = Element.Bits * 3)")
 	}
+	// suggestion to create string only when we pass it to .SetString(...)
 
 	// we accept numbers and strings, remove leading and trailing quotes if any
 	if len(s) > 0 && s[0] == '"' {

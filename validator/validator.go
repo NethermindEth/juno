@@ -14,6 +14,7 @@ var (
 	v    *validator.Validate
 )
 
+// do you think it's safe to replace once with func init()?
 // Validator returns a singleton that can be used to validate various objects
 func Validator() *validator.Validate {
 	once.Do(func() {

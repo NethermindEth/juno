@@ -218,6 +218,8 @@ type ResourceBounds struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
+// Sorry, I think I already asked you why there are *[]*felt.Felt instead of []*felf.Felt, but I can't remember
+//
 //nolint:lll
 type Transaction struct {
 	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`

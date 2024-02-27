@@ -60,7 +60,8 @@ func (m *grpcStreamMock) RecvToClient() (*gen.Pair, error) {
 
 func (m *grpcStreamMock) Close() {
 	close(m.recvToServer) // signal server that we are done
-	<-m.sentFromServer    // wait for server to shutdown
+	// why RecvToClient() is not enough?
+	<-m.sentFromServer // wait for server to shutdown
 }
 
 func TestHandlers_Version(t *testing.T) {

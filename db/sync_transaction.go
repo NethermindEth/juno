@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// why do we need this abstraction?
 type SyncTransaction struct {
 	lock sync.RWMutex
 	txn  Transaction

@@ -1,6 +1,7 @@
 use std::ffi::{c_char, CStr, CString};
 use cairo_lang_starknet::casm_contract_class::CasmContractClass;
 
+// why return type is mutable ?
 #[no_mangle]
 pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char) -> *mut c_char {
     let sierra_json_str = unsafe { CStr::from_ptr(sierra_json) }.to_str().unwrap();
@@ -34,6 +35,7 @@ pub extern "C" fn freeCstr(ptr: *mut c_char) {
         if ptr.is_null() {
             return;
         }
+        // is it force destruction to deallocate memory?
         let _ = CString::from_raw(ptr);
     };
 }

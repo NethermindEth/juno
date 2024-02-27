@@ -1,5 +1,6 @@
 package jemalloc
 
+// Does it mean that Jemalloc will be used as default allocator in Rust?
 /*
 // This cgo directive is what actually causes jemalloc to be linked in to the
 // final Go executable
@@ -22,6 +23,8 @@ unsigned long long _get_jemalloc_active() {
 */
 import "C"
 
+// So jemalloc is turned on by default? do we need to specify somewhere that jemalloc library is required
+// And could you explain shortly what benefits we found by using jemalloc
 func GetActive() C.ulonglong {
 	C._refresh_jemalloc_stats()
 	return C._get_jemalloc_active()

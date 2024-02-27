@@ -115,6 +115,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.DB
+	// do we use it in RPC btw?
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {

@@ -47,6 +47,7 @@ func (t *Transaction) Discard() error {
 // Commit : see db.Transaction.Commit
 func (t *Transaction) Commit() error {
 	start := time.Now()
+	// is it ok that it will count metrics for failed Commit() calls as well?
 	defer func() { t.listener.OnCommit(time.Since(start)) }()
 	if t.batch != nil {
 		return utils.RunAndWrapOnError(t.Discard, t.batch.Commit(pebble.Sync))

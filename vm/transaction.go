@@ -17,6 +17,7 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	t := adaptTransaction(txn)
 	version := (*core.TransactionVersion)(t.Version)
 	txnAndQueryBit := struct {
+		// what is query bit?
 		QueryBit bool           `json:"query_bit"`
 		Txn      map[string]any `json:"txn"`
 		TxnHash  *felt.Felt     `json:"txn_hash"`
@@ -37,6 +38,7 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 		txnAndQueryBit.Txn["Declare"] = map[string]any{
 			"V" + t.Version.Text(felt.Base10): t,
 		}
+	// why stored value in Txn is different for these two ?
 	case *core.L1HandlerTransaction:
 		txnAndQueryBit.Txn["L1Handler"] = t
 	case *core.DeployTransaction:
@@ -122,6 +124,7 @@ type ResourceBounds struct {
 }
 
 func adaptTransaction(txn core.Transaction) *Transaction {
+	// can we safely replace .Uint64() == 3 with .Is(3) call ?
 	var tx *Transaction
 	switch t := txn.(type) {
 	case *core.DeclareTransaction:
