@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/uint128"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -117,8 +118,8 @@ func (r Resource) MarshalJSON() ([]byte, error) {
 }
 
 type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
+	MaxAmount       *felt.Felt   `json:"max_amount"`
+	MaxPricePerUnit *uint128.Int `json:"max_price_per_unit"`
 }
 
 func adaptTransaction(txn core.Transaction) *Transaction {

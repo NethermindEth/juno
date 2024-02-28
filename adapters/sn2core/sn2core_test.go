@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/uint128"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -393,11 +394,11 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+					MaxPricePerUnit: utils.HexToUint128(t, "0x5af3107a4000"),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
-					MaxPricePerUnit: new(felt.Felt),
+					MaxPricePerUnit: new(uint128.Int),
 				},
 			},
 			Tip:           0,
@@ -436,11 +437,11 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
+					MaxPricePerUnit: utils.HexToUint128(t, "0x2540be400"),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
-					MaxPricePerUnit: new(felt.Felt),
+					MaxPricePerUnit: new(uint128.Int),
 				},
 			},
 			Tip:                   0,
@@ -468,11 +469,11 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+					MaxPricePerUnit: utils.HexToUint128(t, "0x5af3107a4000"),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
-					MaxPricePerUnit: new(felt.Felt),
+					MaxPricePerUnit: new(uint128.Int),
 				},
 			},
 			TransactionSignature: []*felt.Felt{

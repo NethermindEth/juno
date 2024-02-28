@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/uint128"
 )
 
 type ExecutionStatus uint8
@@ -155,8 +156,8 @@ const (
 )
 
 type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
+	MaxAmount       *felt.Felt   `json:"max_amount"`
+	MaxPricePerUnit *uint128.Int `json:"max_price_per_unit"`
 }
 
 // Transaction object returned by the feeder in JSON format for multiple endpoints
