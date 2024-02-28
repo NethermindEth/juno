@@ -62,6 +62,9 @@ pub struct BlockInfo {
     pub gas_price_fri: [c_uchar; 32],
     pub version: *const c_char,
     pub block_hash_to_be_revealed: [c_uchar; 32],
+    pub data_gas_price_wei: [c_uchar; 32],
+    pub data_gas_price_fri: [c_uchar; 32],
+    pub use_blob_data: c_uchar,
 }
 
 #[no_mangle]
@@ -379,6 +382,8 @@ fn build_block_context(
     let sequencer_addr =  StarkFelt::new(block_info.sequencer_address).unwrap();
     let gas_price_wei_felt = StarkFelt::new(block_info.gas_price_wei).unwrap();
     let gas_price_fri_felt = StarkFelt::new(block_info.gas_price_fri).unwrap();
+    let data_gas_price_wei_felt = StarkFelt::new(block_info.data_gas_price_wei).unwrap();
+    let data_gas_price_fri_felt = StarkFelt::new(block_info.data_gas_price_fri).unwrap();
     let default_gas_price = NonZeroU128::new(1).unwrap();
 
     let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
@@ -395,10 +400,10 @@ fn build_block_context(
         gas_prices: GasPrices {
             eth_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_wei_felt)).unwrap_or(default_gas_price),
             strk_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_fri_felt)).unwrap_or(default_gas_price),
-            eth_l1_data_gas_price: default_gas_price,
-            strk_l1_data_gas_price: default_gas_price,
+            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_wei_felt)).unwrap_or(default_gas_price),
+            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_fri_felt)).unwrap_or(default_gas_price),
         },
-        use_kzg_da: false,
+        use_kzg_da: block_info.use_blob_data == 1,
     }, ChainInfo{
         chain_id: ChainId(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
