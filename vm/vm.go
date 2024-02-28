@@ -142,12 +142,12 @@ type BlockInfo struct {
 	BlockHashToBeRevealed *felt.Felt
 }
 
-func copyFeltIntoCArray(felt *felt.Felt, cArrPtr *C.uchar) {
-	if felt == nil {
+func copyFeltIntoCArray(f *felt.Felt, cArrPtr *C.uchar) {
+	if f == nil {
 		return
 	}
 
-	feltBytes := felt.Bytes()
+	feltBytes := f.Bytes()
 	cArr := unsafe.Slice(cArrPtr, len(feltBytes))
 	for index := range feltBytes {
 		cArr[index] = C.uchar(feltBytes[index])
@@ -191,7 +191,9 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	return cBlockInfo
 }
 
-func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64) ([]*felt.Felt, error) {
+func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
+	network *utils.Network, maxSteps uint64,
+) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
@@ -208,7 +210,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.ulonglong(maxSteps),
+		C.ulonglong(maxSteps), //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -276,7 +278,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte),
-		C.uchar(legacyTraceJSONByte),
+		C.uchar(legacyTraceJSONByte), //nolint:gocritic
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -305,7 +307,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	return context.actualFees, traces, nil
 }
 
-func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
+func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll
 	txnJSONs := []json.RawMessage{}
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)
