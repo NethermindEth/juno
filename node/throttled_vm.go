@@ -19,7 +19,9 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 	}
 }
 
-func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64) ([]*felt.Felt, error) {
+func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader,
+	network *utils.Network, maxSteps uint64,
+) ([]*felt.Felt, error) {
 	var ret []*felt.Felt
 	return ret, tvm.Do(func(vm *vm.VM) error {
 		var err error
