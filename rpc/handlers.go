@@ -335,10 +335,16 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		return nil, rpcErr
 	}
 
+	finalityStatus, rpcErr := h.finalityStatus(block.Hash, block.Number)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
 	txs := make([]TransactionWithReceipt, len(block.Transactions))
 	for index, txn := range block.Transactions {
 		r := block.Receipts[index]
-		receipt, rpcErr := h.transactionReceipt(r, txn, block.Hash, block.Number)
+		// block_hash, block_number are optional in BlockWithReceipts response
+		receipt, rpcErr := h.transactionReceipt(r, txn, finalityStatus, nil, 0)
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -656,16 +662,39 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
+
 	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
 
-	return h.transactionReceipt(receipt, txn, blockHash, blockNumber)
+	status, jsonErr := h.finalityStatus(blockHash, blockNumber)
+	if jsonErr != nil {
+		return nil, jsonErr
+	}
+
+	return h.transactionReceipt(receipt, txn, status, blockHash, blockNumber)
+}
+
+func (h *Handler) finalityStatus(blockHash *felt.Felt, blockNumber uint64) (TxnFinalityStatus, *jsonrpc.Error) {
+	status := TxnAcceptedOnL2
+
+	if blockHash != nil {
+		l1H, jsonErr := h.l1Head()
+		if jsonErr != nil {
+			return 0, jsonErr
+		}
+
+		if isL1Verified(blockNumber, l1H) {
+			status = TxnAcceptedOnL1
+		}
+	}
+
+	return status, nil
 }
 
 func (h *Handler) transactionReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
-	blockHash *felt.Felt, blockNumber uint64,
+	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
 ) (*TransactionReceipt, *jsonrpc.Error) {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
@@ -697,19 +726,8 @@ func (h *Handler) transactionReceipt(receipt *core.TransactionReceipt, txn core.
 	}
 
 	var receiptBlockNumber *uint64
-	status := TxnAcceptedOnL2
-
 	if blockHash != nil {
 		receiptBlockNumber = &blockNumber
-
-		l1H, jsonErr := h.l1Head()
-		if jsonErr != nil {
-			return nil, jsonErr
-		}
-
-		if isL1Verified(blockNumber, l1H) {
-			status = TxnAcceptedOnL1
-		}
 	}
 
 	var es TxnExecutionStatus
@@ -720,7 +738,7 @@ func (h *Handler) transactionReceipt(receipt *core.TransactionReceipt, txn core.
 	}
 
 	return &TransactionReceipt{
-		FinalityStatus:  status,
+		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
 		Type:            AdaptTransaction(txn).Type,
 		Hash:            txn.Hash(),
