@@ -1494,6 +1494,123 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	})
 }
 
+func TestBlockWithReceipts(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
+
+	t.Run("transaction not found", func(t *testing.T) {
+		blockID := rpc.BlockID{Number: 777}
+
+		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(nil, db.ErrKeyNotFound)
+
+		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		assert.Nil(t, resp)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+	t.Run("l1head failure", func(t *testing.T) {
+		blockID := rpc.BlockID{Number: 777}
+		block := &core.Block{
+			Header: &core.Header{},
+		}
+
+		err := errors.New("l1 failure")
+		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(block, nil)
+		mockReader.EXPECT().L1Head().Return(nil, err)
+
+		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		assert.Nil(t, resp)
+		assert.Equal(t, rpc.ErrInternal.CloneWithData(err.Error()), rpcErr)
+	})
+
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	mainnetGw := adaptfeeder.New(client)
+
+	t.Run("pending block", func(t *testing.T) {
+		block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+		require.NoError(t, err)
+
+		blockID := rpc.BlockID{Pending: true}
+
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{Block: block0}, nil)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
+
+		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		header := resp.BlockHeader
+
+		var transactions []rpc.TransactionWithReceipt
+		for i, tx := range block0.Transactions {
+			receipt := block0.Receipts[i]
+			adaptedTx := rpc.AdaptTransaction(tx)
+
+			transactions = append(transactions, rpc.TransactionWithReceipt{
+				Transaction: adaptedTx,
+				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL2, nil, 0),
+			})
+		}
+
+		assert.Nil(t, rpcErr)
+		assert.Equal(t, &rpc.BlockWithReceipts{
+			Status: rpc.BlockPending,
+			BlockHeader: rpc.BlockHeader{
+				Hash:             header.Hash,
+				ParentHash:       header.ParentHash,
+				Number:           header.Number,
+				NewRoot:          header.NewRoot,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1GasPrice:       header.L1GasPrice,
+				StarknetVersion:  header.StarknetVersion,
+			},
+			Transactions: transactions,
+		}, resp)
+	})
+
+	t.Run("accepted L1 block", func(t *testing.T) {
+		block1, err := mainnetGw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+
+		blockID := rpc.BlockID{Number: block1.Number}
+
+		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(block1, nil)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+			BlockNumber: block1.Number + 1,
+		}, nil)
+
+		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		header := resp.BlockHeader
+
+		var transactions []rpc.TransactionWithReceipt
+		for i, tx := range block1.Transactions {
+			receipt := block1.Receipts[i]
+			adaptedTx := rpc.AdaptTransaction(tx)
+
+			transactions = append(transactions, rpc.TransactionWithReceipt{
+				Transaction: adaptedTx,
+				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL1, nil, 0),
+			})
+		}
+
+		assert.Nil(t, rpcErr)
+		assert.Equal(t, &rpc.BlockWithReceipts{
+			Status: rpc.BlockAcceptedL1,
+			BlockHeader: rpc.BlockHeader{
+				Hash:             header.Hash,
+				ParentHash:       header.ParentHash,
+				Number:           header.Number,
+				NewRoot:          header.NewRoot,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1GasPrice:       header.L1GasPrice,
+				StarknetVersion:  header.StarknetVersion,
+			},
+			Transactions: transactions,
+		}, resp)
+	})
+}
+
 //nolint:dupl
 func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

@@ -335,33 +335,29 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		return nil, rpcErr
 	}
 
-	finalityStatus, rpcErr := h.finalityStatus(block.Hash, block.Number)
+	blockStatus, rpcErr := h.blockStatus(id, block)
 	if rpcErr != nil {
 		return nil, rpcErr
+	}
+
+	finalityStatus := TxnAcceptedOnL2
+	if blockStatus == BlockAcceptedL1 {
+		finalityStatus = TxnAcceptedOnL1
 	}
 
 	txs := make([]TransactionWithReceipt, len(block.Transactions))
 	for index, txn := range block.Transactions {
 		r := block.Receipts[index]
-		// block_hash, block_number are optional in BlockWithReceipts response
-		receipt, rpcErr := h.transactionReceipt(r, txn, finalityStatus, nil, 0)
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
 
 		txs[index] = TransactionWithReceipt{
 			Transaction: AdaptTransaction(txn),
-			Receipt:     receipt,
+			// block_hash, block_number are optional in BlockWithReceipts response
+			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
 		}
 	}
 
-	status, rpcErr := h.blockStatus(id, block)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
 	return &BlockWithReceipts{
-		Status:       status,
+		Status:       blockStatus,
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
@@ -381,6 +377,70 @@ func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error)
 		}
 	}
 	return block, nil
+}
+
+func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
+	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
+) *TransactionReceipt {
+	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
+	for idx, msg := range receipt.L2ToL1Message {
+		messages[idx] = &MsgToL1{
+			To:      msg.To,
+			Payload: msg.Payload,
+			From:    msg.From,
+		}
+	}
+
+	events := make([]*Event, len(receipt.Events))
+	for idx, event := range receipt.Events {
+		events[idx] = &Event{
+			From: event.From,
+			Keys: event.Keys,
+			Data: event.Data,
+		}
+	}
+
+	var messageHash string
+	var contractAddress *felt.Felt
+	switch v := txn.(type) {
+	case *core.DeployTransaction:
+		contractAddress = v.ContractAddress
+	case *core.DeployAccountTransaction:
+		contractAddress = v.ContractAddress
+	case *core.L1HandlerTransaction:
+		messageHash = "0x" + hex.EncodeToString(v.MessageHash())
+	}
+
+	var receiptBlockNumber *uint64
+	if blockHash != nil {
+		receiptBlockNumber = &blockNumber
+	}
+
+	var es TxnExecutionStatus
+	if receipt.Reverted {
+		es = TxnFailure
+	} else {
+		es = TxnSuccess
+	}
+
+	return &TransactionReceipt{
+		FinalityStatus:  finalityStatus,
+		ExecutionStatus: es,
+		Type:            AdaptTransaction(txn).Type,
+		Hash:            txn.Hash(),
+		ActualFee: &FeePayment{
+			Amount: receipt.Fee,
+			Unit:   feeUnit(txn),
+		},
+		BlockHash:          blockHash,
+		BlockNumber:        receiptBlockNumber,
+		MessagesSent:       messages,
+		Events:             events,
+		ContractAddress:    contractAddress,
+		RevertReason:       receipt.RevertReason,
+		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
+		MessageHash:        messageHash,
+	}
 }
 
 func AdaptTransaction(t core.Transaction) *Transaction {
@@ -668,21 +728,12 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		return nil, ErrTxnHashNotFound
 	}
 
-	status, jsonErr := h.finalityStatus(blockHash, blockNumber)
-	if jsonErr != nil {
-		return nil, jsonErr
-	}
-
-	return h.transactionReceipt(receipt, txn, status, blockHash, blockNumber)
-}
-
-func (h *Handler) finalityStatus(blockHash *felt.Felt, blockNumber uint64) (TxnFinalityStatus, *jsonrpc.Error) {
 	status := TxnAcceptedOnL2
 
 	if blockHash != nil {
 		l1H, jsonErr := h.l1Head()
 		if jsonErr != nil {
-			return 0, jsonErr
+			return nil, jsonErr
 		}
 
 		if isL1Verified(blockNumber, l1H) {
@@ -690,71 +741,7 @@ func (h *Handler) finalityStatus(blockHash *felt.Felt, blockNumber uint64) (TxnF
 		}
 	}
 
-	return status, nil
-}
-
-func (h *Handler) transactionReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
-	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
-) (*TransactionReceipt, *jsonrpc.Error) {
-	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
-	for idx, msg := range receipt.L2ToL1Message {
-		messages[idx] = &MsgToL1{
-			To:      msg.To,
-			Payload: msg.Payload,
-			From:    msg.From,
-		}
-	}
-
-	events := make([]*Event, len(receipt.Events))
-	for idx, event := range receipt.Events {
-		events[idx] = &Event{
-			From: event.From,
-			Keys: event.Keys,
-			Data: event.Data,
-		}
-	}
-
-	var messageHash string
-	var contractAddress *felt.Felt
-	switch v := txn.(type) {
-	case *core.DeployTransaction:
-		contractAddress = v.ContractAddress
-	case *core.DeployAccountTransaction:
-		contractAddress = v.ContractAddress
-	case *core.L1HandlerTransaction:
-		messageHash = "0x" + hex.EncodeToString(v.MessageHash())
-	}
-
-	var receiptBlockNumber *uint64
-	if blockHash != nil {
-		receiptBlockNumber = &blockNumber
-	}
-
-	var es TxnExecutionStatus
-	if receipt.Reverted {
-		es = TxnFailure
-	} else {
-		es = TxnSuccess
-	}
-
-	return &TransactionReceipt{
-		FinalityStatus:  finalityStatus,
-		ExecutionStatus: es,
-		Type:            AdaptTransaction(txn).Type,
-		Hash:            txn.Hash(),
-		ActualFee: &FeePayment{
-			Amount: receipt.Fee,
-			Unit:   feeUnit(txn),
-		},
-		BlockHash:          blockHash,
-		BlockNumber:        receiptBlockNumber,
-		MessagesSent:       messages,
-		Events:             events,
-		ContractAddress:    contractAddress,
-		RevertReason:       receipt.RevertReason,
-		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
-		MessageHash:        messageHash,
-	}, nil
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
 }
 
 func (h *Handler) LegacyTransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
