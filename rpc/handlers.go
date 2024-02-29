@@ -213,9 +213,22 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		txnHashes[index] = txn.Hash()
 	}
 
+	status, rpcErr := h.blockStatus(id, block)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	return &BlockWithTxHashes{
+		Status:      status,
+		BlockHeader: adaptBlockHeader(block.Header),
+		TxnHashes:   txnHashes,
+	}, nil
+}
+
+func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
-		return nil, jsonErr
+		return 0, jsonErr
 	}
 
 	status := BlockAcceptedL2
@@ -225,11 +238,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		status = BlockAcceptedL1
 	}
 
-	return &BlockWithTxHashes{
-		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
-		TxnHashes:   txnHashes,
-	}, nil
+	return status, nil
 }
 
 func (h *Handler) LegacyBlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
@@ -308,19 +317,44 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		txs[index] = AdaptTransaction(txn)
 	}
 
-	l1H, jsonErr := h.l1Head()
-	if jsonErr != nil {
-		return nil, jsonErr
-	}
-
-	status := BlockAcceptedL2
-	if id.Pending {
-		status = BlockPending
-	} else if isL1Verified(block.Number, l1H) {
-		status = BlockAcceptedL1
+	status, rpcErr := h.blockStatus(id, block)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	return &BlockWithTxs{
+		Status:       status,
+		BlockHeader:  adaptBlockHeader(block.Header),
+		Transactions: txs,
+	}, nil
+}
+
+func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txs := make([]TransactionWithReceipt, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		r := block.Receipts[index]
+		receipt, rpcErr := h.transactionReceipt(r, txn, block.Hash, block.Number)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+
+		txs[index] = TransactionWithReceipt{
+			Transaction: AdaptTransaction(txn),
+			Receipt:     receipt,
+		}
+	}
+
+	status, rpcErr := h.blockStatus(id, block)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	return &BlockWithReceipts{
 		Status:       status,
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
@@ -627,6 +661,12 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		return nil, ErrTxnHashNotFound
 	}
 
+	return h.transactionReceipt(receipt, txn, blockHash, blockNumber)
+}
+
+func (h *Handler) transactionReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
+	blockHash *felt.Felt, blockNumber uint64,
+) (*TransactionReceipt, *jsonrpc.Error) {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = &MsgToL1{
@@ -1949,7 +1989,12 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
 		},
-	}, "/v0_6"
+		{
+			Name:    "starknet_getBlockWithReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithReceipts,
+		},
+	}, "/v0_7"
 }
 
 func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
@@ -1969,22 +2014,22 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.LegacyBlockWithTxHashes,
+			Handler: h.BlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.LegacyBlockWithTxs,
+			Handler: h.BlockWithTxs,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.LegacyTransactionByHash,
+			Handler: h.TransactionByHash,
 		},
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.LegacyTransactionReceiptByHash,
+			Handler: h.TransactionReceiptByHash,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -1994,7 +2039,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionByBlockIdAndIndex",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
-			Handler: h.LegacyTransactionByBlockIDAndIndex,
+			Handler: h.TransactionByBlockIDAndIndex,
 		},
 		{
 			Name:    "starknet_getStateUpdate",
@@ -2066,32 +2111,32 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_estimateFee",
-			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.LegacyEstimateFee,
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
+			Handler: h.EstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.LegacyEstimateMessageFee,
+			Handler: h.EstimateMessageFee,
 		},
 		{
 			Name:    "starknet_traceTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.LegacyTraceTransaction,
+			Handler: h.TraceTransaction,
 		},
 		{
 			Name:    "starknet_simulateTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.LegacySimulateTransactions,
+			Handler: h.SimulateTransactions,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.LegacyTraceBlockTransactions,
+			Handler: h.TraceBlockTransactions,
 		},
 		{
 			Name:    "starknet_specVersion",
-			Handler: h.LegacySpecVersion,
+			Handler: h.SpecVersion,
 		},
 		{
 			Name:    "juno_subscribeNewHeads",
@@ -2102,5 +2147,5 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
 		},
-	}, "/v0_5"
+	}, "/v0_6"
 }

@@ -103,3 +103,14 @@ type BlockWithTxHashes struct {
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
+
+type TransactionWithReceipt struct {
+	Transaction *Transaction        `json:"transaction"`
+	Receipt     *TransactionReceipt `json:"receipt"`
+}
+
+type BlockWithReceipts struct {
+	Status BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	Transactions []TransactionWithReceipt `json:"transactions"`
+}
