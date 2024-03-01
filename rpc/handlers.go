@@ -379,6 +379,7 @@ func (h *Handler) LegacyBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	return block, nil
 }
 
+// todo(Kirill): try to replace core.Transaction with rpc.Transaction type
 func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
 ) *TransactionReceipt {
