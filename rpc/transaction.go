@@ -386,10 +386,12 @@ type BroadcastedTransaction struct {
 }
 
 type FeeEstimate struct {
-	GasConsumed *felt.Felt `json:"gas_consumed"`
-	GasPrice    *felt.Felt `json:"gas_price"`
-	OverallFee  *felt.Felt `json:"overall_fee"`
-	Unit        *FeeUnit   `json:"unit,omitempty"`
+	GasConsumed     *felt.Felt `json:"gas_consumed"`
+	GasPrice        *felt.Felt `json:"gas_price"`
+	DataGasConsumed *felt.Felt `json:"data_gas_consumed"`
+	DataGasPrice    *felt.Felt `json:"data_gas_price"`
+	OverallFee      *felt.Felt `json:"overall_fee"`
+	Unit            *FeeUnit   `json:"unit,omitempty"`
 }
 
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,

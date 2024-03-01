@@ -300,9 +300,8 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InFri: nilToZero(header.GasPriceSTRK), // Old block headers will be nil.
 		},
 		L1DataGasPrice: &ResourcePrice{
-			InWei:   header.L1DataGasPrice.PriceInWei,
-			InFri:   nilToZero(header.L1DataGasPrice.PriceInFri),
-			InStark: nil, // don't know what to set here
+			InWei: header.L1DataGasPrice.PriceInWei,
+			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
 		},
 		L1DAMode:        l1DAMode,
 		StarknetVersion: header.ProtocolVersion,
@@ -1604,10 +1603,20 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
+		var dataGasPrice *felt.Felt
+		switch feeUnit {
+		case FRI:
+			dataGasPrice = header.L1DataGasPrice.PriceInFri
+		case WEI:
+			dataGasPrice = header.L1DataGasPrice.PriceInWei
+		}
+
 		estimate := FeeEstimate{
-			GasConsumed: new(felt.Felt).Div(overallFee, gasPrice),
-			GasPrice:    gasPrice,
-			OverallFee:  overallFee,
+			GasConsumed:     new(felt.Felt).Div(overallFee, gasPrice),
+			GasPrice:        gasPrice,
+			DataGasConsumed: new(felt.Felt).Div(overallFee, dataGasPrice), // please double check that
+			DataGasPrice:    dataGasPrice,
+			OverallFee:      overallFee,
 		}
 
 		if !legacyTraceJSON {
