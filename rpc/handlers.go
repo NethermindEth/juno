@@ -412,6 +412,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 	}
 
 	var receiptBlockNumber *uint64
+	// case for pending blocks: they don't have blockHash and therefore no block number
 	if blockHash != nil {
 		receiptBlockNumber = &blockNumber
 	}
