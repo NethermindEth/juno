@@ -280,6 +280,14 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		sequencerAddress = &felt.Zero
 	}
 
+	var l1DAMode L1DAMode
+	switch header.L1DAMode {
+	case core.Blob:
+		l1DAMode = Blob
+	case core.Calldata:
+		l1DAMode = Calldata
+	}
+
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
@@ -291,6 +299,12 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InWei: header.GasPrice,
 			InFri: nilToZero(header.GasPriceSTRK), // Old block headers will be nil.
 		},
+		L1DataGasPrice: &ResourcePrice{
+			InWei:   header.L1DataGasPrice.PriceInWei,
+			InFri:   nilToZero(header.L1DataGasPrice.PriceInFri),
+			InStark: nil, // don't know what to set here
+		},
+		L1DAMode:        l1DAMode,
 		StarknetVersion: header.ProtocolVersion,
 	}
 }

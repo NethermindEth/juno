@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -29,6 +30,24 @@ func (s BlockStatus) MarshalJSON() ([]byte, error) {
 		return []byte(`"REJECTED"`), nil
 	default:
 		return nil, errors.New("unknown block status")
+	}
+}
+
+type L1DAMode uint8
+
+const (
+	Blob L1DAMode = iota
+	Calldata
+)
+
+func (l L1DAMode) MarshalJSON() ([]byte, error) {
+	switch l {
+	case Blob:
+		return []byte("BLOB"), nil
+	case Calldata:
+		return []byte("CALLDATA"), nil
+	default:
+		return nil, fmt.Errorf("unknown L1DAMode value = %v", l)
 	}
 }
 
@@ -87,6 +106,8 @@ type BlockHeader struct {
 	Timestamp        uint64         `json:"timestamp"`
 	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
 	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
+	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price"`
+	L1DAMode         L1DAMode       `json:"l1_da_mode"`
 	StarknetVersion  string         `json:"starknet_version"`
 }
 
