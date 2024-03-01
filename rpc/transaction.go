@@ -299,7 +299,7 @@ func (n NumAsHex) MarshalJSON() ([]byte, error) {
 	return []byte(`"0x` + strconv.FormatUint(uint64(n), 16) + `"`), nil
 }
 
-type ExecutionResources struct {
+type ComputationResources struct {
 	Steps        uint64 `json:"steps"`
 	MemoryHoles  uint64 `json:"memory_holes,omitempty"`
 	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
@@ -313,7 +313,17 @@ type ExecutionResources struct {
 	isLegacy     bool
 }
 
-func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
+type DataAvailability struct {
+	L1Gas     int `json:"l1_gas"`
+	L1DataGas int `json:"l1_data_gas"`
+}
+
+type ExecutionResources struct {
+	ComputationResources
+	DataAvailability DataAvailability `json:"data_availability"`
+}
+
+func (r *ComputationResources) MarshalJSON() ([]byte, error) {
 	if r.isLegacy {
 		return json.Marshal(struct {
 			Steps       NumAsHex `json:"steps"`
@@ -337,25 +347,25 @@ func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
 			Poseidon:    NumAsHex(r.Poseidon),
 		})
 	}
-	type resources ExecutionResources // Avoid infinite recursion with MarshalJSON.
+	type resources ComputationResources // Avoid infinite recursion with MarshalJSON.
 	return json.Marshal(resources(*r))
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType     `json:"type"`
-	Hash               *felt.Felt          `json:"transaction_hash"`
-	ActualFee          *FeePayment         `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
-	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
-	BlockNumber        *uint64             `json:"block_number,omitempty"`
-	MessagesSent       []*MsgToL1          `json:"messages_sent"`
-	Events             []*Event            `json:"events"`
-	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
-	RevertReason       string              `json:"revert_reason,omitempty"`
-	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
-	MessageHash        string              `json:"message_hash,omitempty"`
+	Type               TransactionType       `json:"type"`
+	Hash               *felt.Felt            `json:"transaction_hash"`
+	ActualFee          *FeePayment           `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus    `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus     `json:"finality_status"`
+	BlockHash          *felt.Felt            `json:"block_hash,omitempty"`
+	BlockNumber        *uint64               `json:"block_number,omitempty"`
+	MessagesSent       []*MsgToL1            `json:"messages_sent"`
+	Events             []*Event              `json:"events"`
+	ContractAddress    *felt.Felt            `json:"contract_address,omitempty"`
+	RevertReason       string                `json:"revert_reason,omitempty"`
+	ExecutionResources *ComputationResources `json:"execution_resources,omitempty"`
+	MessageHash        string                `json:"message_hash,omitempty"`
 }
 
 type FeePayment struct {

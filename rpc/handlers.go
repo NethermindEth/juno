@@ -769,11 +769,11 @@ func (h *Handler) LegacyTransactionReceiptByHash(hash felt.Felt) (*TransactionRe
 	return receipt, nil
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
+func adaptExecutionResources(resources *core.ExecutionResources) *ComputationResources {
 	if resources == nil {
-		return &ExecutionResources{}
+		return &ComputationResources{}
 	}
-	return &ExecutionResources{
+	return &ComputationResources{
 		Steps:        resources.Steps,
 		MemoryHoles:  resources.MemoryHoles,
 		Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
