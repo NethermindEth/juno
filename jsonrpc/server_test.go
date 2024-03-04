@@ -594,7 +594,7 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 			w, ok := jsonrpc.ConnFromContext(ctx)
 			require.True(t, ok)
 			wg.Go(func() {
-				for i := 0; i < 3; i++ {
+				for range 3 {
 					_, err := w.Write([]byte("test"))
 					require.ErrorIs(t, err, io.ErrClosedPipe)
 					require.ErrorContains(t, err, "there was an error while writing the initial response")

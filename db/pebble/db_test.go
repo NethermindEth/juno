@@ -199,11 +199,11 @@ func TestConcurrentUpdate(t *testing.T) {
 	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 		return txn.Set(key, []byte{0})
 	}))
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				assert.NoError(t, testDB.Update(func(txn db.Transaction) error {
 					var next byte
 					err := txn.Get(key, func(bytes []byte) error {
@@ -219,11 +219,11 @@ func TestConcurrentUpdate(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i := 0; i < 10; i++ {
+			for range 10 {
 				txn, err := testDB.NewTransaction(true)
 				require.NoError(t, err)
 				var next byte

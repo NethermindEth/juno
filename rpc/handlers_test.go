@@ -2335,7 +2335,7 @@ func TestEvents(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Goerli2)
 	gw := adaptfeeder.New(client)
 
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		b, err := gw.BlockByNumber(context.Background(), uint64(i))
 		require.NoError(t, err)
 		s, err := gw.StateUpdate(context.Background(), uint64(i))

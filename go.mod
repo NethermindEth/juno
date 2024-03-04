@@ -1,6 +1,6 @@
 module github.com/NethermindEth/juno
 
-go 1.21
+go 1.22
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -8,7 +8,6 @@ require (
 	github.com/bits-and-blooms/bloom/v3 v3.6.0
 	github.com/cockroachdb/pebble v1.0.0
 	github.com/consensys/gnark-crypto v0.12.1
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/ethereum/go-ethereum v1.13.10
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/go-playground/validator/v10 v10.17.0
@@ -50,6 +49,7 @@ require (
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/crate-crypto/go-kzg-4844 v0.7.0 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
