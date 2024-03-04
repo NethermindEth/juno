@@ -236,7 +236,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			return nil, ctx.Err()
 		case <-time.After(wait):
 			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, "GET", queryURL, http.NoBody)
+			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
 			if err != nil {
 				return nil, err
 			}

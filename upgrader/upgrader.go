@@ -55,7 +55,7 @@ func (u *Upgrader) Run(ctx context.Context) error {
 			return nil
 		case <-timer.C:
 			var req *http.Request
-			req, err := http.NewRequestWithContext(ctx, "GET", u.apiURL, http.NoBody)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.apiURL, http.NoBody)
 			if err != nil {
 				u.log.Debugw("Failed to create new request with context")
 				continue
