@@ -40,7 +40,7 @@ const (
 	Calldata
 )
 
-func (l L1DAMode) MarshalJSON() ([]byte, error) {
+func (l L1DAMode) MarshalText() ([]byte, error) {
 	switch l {
 	case Blob:
 		return []byte("BLOB"), nil
