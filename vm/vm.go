@@ -127,7 +127,7 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 //export JunoAppendDataGasConsumed
 func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.dataGasConsumed = append(context.actualFees, makeFeltFromPtr(ptr))
+	context.dataGasConsumed = append(context.dataGasConsumed, makeFeltFromPtr(ptr))
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {

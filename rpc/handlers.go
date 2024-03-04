@@ -1539,6 +1539,7 @@ func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []Broadcas
 	return res, err
 }
 
+//nolint:funlen,gocyclo
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, legacyTraceJSON, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
