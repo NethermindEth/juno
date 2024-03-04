@@ -15,6 +15,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
+use blockifier::transaction::objects::ResourcesMapping;
 
 use crate::juno_state_reader::JunoStateReader;
 
@@ -43,6 +44,8 @@ pub struct TransactionTrace {
     constructor_invocation: Option<FunctionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     function_invocation: Option<FunctionInvocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    execution_resources: Option<ResourcesMapping>,
     r#type: TransactionType,
     state_diff: StateDiff,
 }
@@ -137,6 +140,7 @@ pub fn new_transaction_trace(
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.constructor_invocation = info.execute_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.execution_resources = Some(info.actual_resources);
             trace.r#type = TransactionType::DeployAccount;
         }
         StarknetApiTransaction::Invoke(_) => {
@@ -148,11 +152,13 @@ pub fn new_transaction_trace(
                     .map(|v| ExecuteInvocation::Ok(v.into())),
             };
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.execution_resources = Some(info.actual_resources);
             trace.r#type = TransactionType::Invoke;
         }
         StarknetApiTransaction::Declare(declare_txn) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.execution_resources = Some(info.actual_resources);
             trace.r#type = TransactionType::Declare;
             deprecated_declared_class = if info.revert_error.is_none() {
                 match declare_txn {

@@ -40,6 +40,7 @@ extern "C" {
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
+    fn JunoAppendDataGasConsumed(reader_handle: usize, ptr: *const c_uchar);
 }
 
 #[repr(C)]
@@ -287,6 +288,8 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 let actual_fee = t.actual_fee.0.into();
+                let data_gas_consumed = t.da_gas.l1_data_gas.into();
+
                 let mut trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
                 if trace.is_err() {
@@ -304,6 +307,7 @@ pub extern "C" fn cairoVMExecute(
 
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
+                    JunoAppendDataGasConsumed(reader_handle, felt_to_byte_array(&data_gas_consumed).as_ptr());
                 }
                 if legacy_json == 1 {
                     trace.as_mut().unwrap().make_legacy()

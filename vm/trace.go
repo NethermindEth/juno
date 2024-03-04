@@ -105,6 +105,7 @@ type TransactionTrace struct {
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
 func (t *TransactionTrace) allInvocations() []*FunctionInvocation {

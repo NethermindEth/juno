@@ -288,6 +288,14 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		l1DAMode = Calldata
 	}
 
+	var l1DataGasPrice ResourcePrice
+	if header.L1DataGasPrice != nil {
+		l1DataGasPrice = ResourcePrice{
+			InWei: nilToZero(header.L1DataGasPrice.PriceInWei),
+			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
+		}
+	}
+
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
@@ -299,10 +307,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InWei: header.GasPrice,
 			InFri: nilToZero(header.GasPriceSTRK), // Old block headers will be nil.
 		},
-		L1DataGasPrice: &ResourcePrice{
-			InWei: header.L1DataGasPrice.PriceInWei,
-			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
-		},
+		L1DataGasPrice:  &l1DataGasPrice,
 		L1DAMode:        l1DAMode,
 		StarknetVersion: header.ProtocolVersion,
 	}
@@ -1579,7 +1584,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
-	overallFees, traces, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
+	overallFees, dataGasConsumed, traces, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, legacyTraceJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -1611,10 +1616,14 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			dataGasPrice = header.L1DataGasPrice.PriceInWei
 		}
 
+		dataGasFee := new(felt.Felt).Mul(dataGasConsumed[i], dataGasPrice)
+		gasConsumed := new(felt.Felt).Sub(overallFee, dataGasFee)
+		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
+
 		estimate := FeeEstimate{
-			GasConsumed:     new(felt.Felt).Div(overallFee, gasPrice),
+			GasConsumed:     gasConsumed,
 			GasPrice:        gasPrice,
-			DataGasConsumed: new(felt.Felt).Div(overallFee, dataGasPrice), // please double check that
+			DataGasConsumed: dataGasConsumed[i],
 			DataGasPrice:    dataGasPrice,
 			OverallFee:      overallFee,
 		}
@@ -1730,7 +1739,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		Header:                block.Header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
-	_, traces, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false, false, false, legacyJSON)
+	_, _, traces, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false, false, false, legacyJSON)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
