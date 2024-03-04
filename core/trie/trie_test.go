@@ -164,7 +164,7 @@ func TestPutZero(t *testing.T) {
 		var keys []*felt.Felt
 
 		// put random 64 keys and record roots
-		for i := 0; i < 64; i++ {
+		for range 64 {
 			key, value := new(felt.Felt), new(felt.Felt)
 
 			_, err = key.SetRandom()
@@ -202,7 +202,7 @@ func TestPutZero(t *testing.T) {
 		t.Run("remove keys one by one, check roots", func(t *testing.T) {
 			var gotRoot *felt.Felt
 			// put zero in reverse order and check roots still match
-			for i := 0; i < 64; i++ {
+			for i := range 64 {
 				root := roots[len(roots)-1-i]
 
 				gotRoot, err = tempTrie.Root()
