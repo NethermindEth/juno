@@ -2,15 +2,6 @@ package utils
 
 import "slices"
 
-func Flatten[T any](sl ...[]T) []T {
-	var result []T
-	for _, slice := range sl {
-		result = append(result, slice...)
-	}
-
-	return result
-}
-
 func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
 	if slice == nil {
 		return nil
