@@ -1,8 +1,6 @@
 package db
 
-import (
-	"slices"
-)
+import "slices"
 
 type Bucket byte
 
