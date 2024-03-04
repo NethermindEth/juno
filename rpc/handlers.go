@@ -1609,12 +1609,14 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		var dataGasPrice *felt.Felt
-		switch feeUnit {
-		case FRI:
-			dataGasPrice = header.L1DataGasPrice.PriceInFri
-		case WEI:
-			dataGasPrice = header.L1DataGasPrice.PriceInWei
+		dataGasPrice := &felt.Zero
+		if header.L1DataGasPrice != nil {
+			switch feeUnit {
+			case FRI:
+				dataGasPrice = header.L1DataGasPrice.PriceInFri
+			case WEI:
+				dataGasPrice = header.L1DataGasPrice.PriceInWei
+			}
 		}
 
 		dataGasFee := new(felt.Felt).Mul(dataGasConsumed[i], dataGasPrice)
