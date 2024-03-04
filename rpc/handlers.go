@@ -1416,7 +1416,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true)
+	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1426,10 +1426,12 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), nil
 }
 
-func (h *Handler) LegacyEstimateFee(broadcastedTxns []BroadcastedTransaction, id BlockID) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.simulateTransactions(id, broadcastedTxns, []SimulationFlag{SkipFeeChargeFlag}, true, true)
-	if err != nil && err.Code == ErrTransactionExecutionError.Code {
-		return nil, makeContractError(errors.New(err.Data.(TransactionExecutionErrorData).ExecutionError))
+func (h *Handler) OldEstimateFee(broadcastedTxns []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, id BlockID,
+) ([]FeeEstimate, *jsonrpc.Error) {
+	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true, true)
+	if err != nil {
+		return nil, err
 	}
 
 	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
@@ -1466,6 +1468,16 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 		return nil, rpcErr
 	}
 	return &estimates[0], nil
+}
+
+func (h *Handler) OldEstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+	feeEstimate, err := h.EstimateMessageFee(msg, id)
+	if err != nil {
+		return nil, err
+	}
+
+	feeEstimate.oldResponse = true
+	return feeEstimate, nil
 }
 
 func (h *Handler) LegacyEstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
@@ -1526,22 +1538,19 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, legacyT
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false, false)
+	return h.simulateTransactions(id, transactions, simulationFlags, false, false, false)
 }
 
-func (h *Handler) LegacySimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+// pre 13.1
+func (h *Handler) OldSimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	res, err := h.simulateTransactions(id, transactions, simulationFlags, true, true)
-	if err != nil && err.Code == ErrTransactionExecutionError.Code {
-		return nil, makeContractError(errors.New(err.Data.(TransactionExecutionErrorData).ExecutionError))
-	}
-	return res, err
+	return h.simulateTransactions(id, transactions, simulationFlags, false, true, true)
 }
 
 //nolint:funlen,gocyclo
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, legacyTraceJSON, errOnRevert bool,
+	simulationFlags []SimulationFlag, legacyTraceJSON, oldResponse, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -1629,6 +1638,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			DataGasConsumed: dataGasConsumed[i],
 			DataGasPrice:    dataGasPrice,
 			OverallFee:      overallFee,
+			oldResponse:     oldResponse,
 		}
 
 		if !legacyTraceJSON {
@@ -2154,12 +2164,12 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
-			Handler: h.EstimateFee,
+			Handler: h.OldEstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.EstimateMessageFee,
+			Handler: h.OldEstimateMessageFee,
 		},
 		{
 			Name:    "starknet_traceTransaction",
@@ -2169,7 +2179,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_simulateTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.SimulateTransactions,
+			Handler: h.OldSimulateTransactions,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",

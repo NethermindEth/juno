@@ -3429,7 +3429,7 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: errors.New("oops"),
 			})
 
-		_, err = handler.LegacySimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err = handler.OldSimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
 			RevertError: "oops",
 		}), err)
@@ -3982,10 +3982,5 @@ func TestEstimateFee(t *testing.T) {
 				Index: 44,
 				Cause: errors.New("oops"),
 			})
-
-		_, err = handler.LegacyEstimateFee([]rpc.BroadcastedTransaction{}, rpc.BlockID{Latest: true})
-		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
-			RevertError: "oops",
-		}), err)
 	})
 }
