@@ -58,10 +58,10 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	}
 
 	// we accept numbers and strings, remove leading and trailing quotes if any
-	if len(s) > 0 && s[0] == '"' {
+	if s != "" && s[0] == '"' {
 		s = s[1:]
 	}
-	if len(s) > 0 && s[len(s)-1] == '"' {
+	if s != "" && s[len(s)-1] == '"' {
 		s = s[:len(s)-1]
 	}
 
