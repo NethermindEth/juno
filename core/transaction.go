@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 
@@ -67,7 +68,7 @@ func (rb ResourceBounds) Bytes(resource Resource) []byte {
 	maxAmountBytes := make([]byte, eight)
 	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
 	maxPriceBytes := rb.MaxPricePerUnit.Bytes()
-	return utils.Flatten(
+	return slices.Concat(
 		[]byte{0},
 		[]byte(resource.String()),
 		maxAmountBytes,
