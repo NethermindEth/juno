@@ -1069,7 +1069,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events")
 
 	var cToken *blockchain.ContinuationToken
-	if len(args.ContinuationToken) > 0 {
+	if args.ContinuationToken != "" {
 		cToken = new(blockchain.ContinuationToken)
 		if err = cToken.FromString(args.ContinuationToken); err != nil {
 			return nil, ErrInvalidContinuationToken
