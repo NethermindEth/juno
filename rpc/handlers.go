@@ -225,6 +225,17 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
+func (h *Handler) OldBlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	resp, err := h.BlockWithTxHashes(id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.L1DAMode = nil
+	resp.L1DataGasPrice = nil
+	return resp, nil
+}
+
 func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
@@ -308,7 +319,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InFri: nilToZero(header.GasPriceSTRK), // Old block headers will be nil.
 		},
 		L1DataGasPrice:  &l1DataGasPrice,
-		L1DAMode:        l1DAMode,
+		L1DAMode:        &l1DAMode,
 		StarknetVersion: header.ProtocolVersion,
 	}
 }
@@ -345,6 +356,17 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
+}
+
+func (h *Handler) OldBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	resp, err := h.BlockWithTxs(id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.L1DAMode = nil
+	resp.L1DataGasPrice = nil
+	return resp, nil
 }
 
 func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
@@ -2066,12 +2088,12 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxHashes,
+			Handler: h.OldBlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxs,
+			Handler: h.OldBlockWithTxs,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
