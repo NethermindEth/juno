@@ -1540,12 +1540,12 @@ func TestBlockWithReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithReceipts(blockID)
 		header := resp.BlockHeader
 
-		var transactions []rpc.TransactionWithReceipt
+		var txsWithReceipt []rpc.TransactionWithReceipt
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpc.AdaptTransaction(tx)
 
-			transactions = append(transactions, rpc.TransactionWithReceipt{
+			txsWithReceipt = append(txsWithReceipt, rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
 				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL2, nil, 0),
 			})
@@ -1564,7 +1564,7 @@ func TestBlockWithReceipts(t *testing.T) {
 				L1GasPrice:       header.L1GasPrice,
 				StarknetVersion:  header.StarknetVersion,
 			},
-			Transactions: transactions,
+			Transactions: txsWithReceipt,
 		}, resp)
 	})
 

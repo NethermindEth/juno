@@ -363,11 +363,11 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		finalityStatus = TxnAcceptedOnL1
 	}
 
-	txs := make([]TransactionWithReceipt, len(block.Transactions))
+	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
 	for index, txn := range block.Transactions {
 		r := block.Receipts[index]
 
-		txs[index] = TransactionWithReceipt{
+		txsWithReceipts[index] = TransactionWithReceipt{
 			Transaction: AdaptTransaction(txn),
 			// block_hash, block_number are optional in BlockWithReceipts response
 			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
@@ -377,7 +377,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 	return &BlockWithReceipts{
 		Status:       blockStatus,
 		BlockHeader:  adaptBlockHeader(block.Header),
-		Transactions: txs,
+		Transactions: txsWithReceipts,
 	}, nil
 }
 
