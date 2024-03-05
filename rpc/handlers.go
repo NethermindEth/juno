@@ -1444,6 +1444,9 @@ func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimat
 	}
 
 	feeEstimate.v0_6Response = true
+	feeEstimate.DataGasPrice = nil
+	feeEstimate.DataGasConsumed = nil
+
 	return feeEstimate, nil
 }
 
