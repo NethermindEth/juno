@@ -3201,10 +3201,10 @@ func TestEstimateMessageFee(t *testing.T) {
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), &vm.BlockInfo{
 		Header: latestHeader,
-	}, gomock.Any(), &utils.Mainnet, gomock.Any(), gomock.Any(), false).DoAndReturn(
+	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
-			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, legacyTraceJSON bool,
-		) ([]*felt.Felt, []vm.TransactionTrace, error) {
+			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
+		) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
 
@@ -3212,7 +3212,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			assert.Len(t, paidFeesOnL1, 1)
 
 			actualFee := new(felt.Felt).Mul(expectedGasConsumed, blockInfo.Header.GasPrice)
-			return []*felt.Felt{actualFee}, []vm.TransactionTrace{{
+			return []*felt.Felt{actualFee}, []*felt.Felt{&felt.Zero}, []vm.TransactionTrace{{
 				StateDiff: &vm.StateDiff{
 					StorageDiffs:              []vm.StorageDiff{},
 					Nonces:                    []vm.Nonce{},
@@ -3225,7 +3225,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		},
 	)
 
-	estimateFee, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
+	estimateFee, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 	require.Nil(t, err)
 	feeUnit := rpc.WEI
 	require.Equal(t, rpc.FeeEstimate{

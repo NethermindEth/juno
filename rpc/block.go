@@ -93,7 +93,7 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 
 type ResourcePrice struct {
 	InStark *felt.Felt `json:"price_in_strk,omitempty"`
-	InFri   *felt.Felt `json:"price_in_fri,omitempty"`
+	InFri   *felt.Felt `json:"price_in_fri"`
 	InWei   *felt.Felt `json:"price_in_wei"`
 }
 

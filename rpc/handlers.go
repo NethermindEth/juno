@@ -293,6 +293,11 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InWei: nilToZero(header.L1DataGasPrice.PriceInWei),
 			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
 		}
+	} else {
+		l1DataGasPrice = ResourcePrice{
+			InWei: &felt.Zero,
+			InFri: &felt.Zero,
+		}
 	}
 
 	return BlockHeader{
