@@ -225,7 +225,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
-func (h *Handler) OldBlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxHashesV0_6(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
 	resp, err := h.BlockWithTxHashes(id)
 	if err != nil {
 		return nil, err
@@ -358,7 +358,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}, nil
 }
 
-func (h *Handler) OldBlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxsV0_6(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	resp, err := h.BlockWithTxs(id)
 	if err != nil {
 		return nil, err
@@ -1448,7 +1448,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), nil
 }
 
-func (h *Handler) OldEstimateFee(broadcastedTxns []BroadcastedTransaction,
+func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, *jsonrpc.Error) {
 	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true, true)
@@ -1492,7 +1492,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 	return &estimates[0], nil
 }
 
-func (h *Handler) OldEstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	feeEstimate, err := h.EstimateMessageFee(msg, id)
 	if err != nil {
 		return nil, err
@@ -1564,7 +1564,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 }
 
 // pre 13.1
-func (h *Handler) OldSimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions, simulationFlags, false, true, true)
@@ -1834,11 +1834,11 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.6.0", nil
+	return "0.7.0", nil
 }
 
-func (h *Handler) LegacySpecVersion() (string, *jsonrpc.Error) {
-	return "0.5.1", nil
+func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
+	return "0.6.0", nil
 }
 
 func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error) {
@@ -2088,12 +2088,12 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.OldBlockWithTxHashes,
+			Handler: h.BlockWithTxHashesV0_6,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.OldBlockWithTxs,
+			Handler: h.BlockWithTxsV0_6,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
@@ -2186,12 +2186,12 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
-			Handler: h.OldEstimateFee,
+			Handler: h.EstimateFeeV0_6,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.OldEstimateMessageFee,
+			Handler: h.EstimateMessageFeeV0_6,
 		},
 		{
 			Name:    "starknet_traceTransaction",
@@ -2201,7 +2201,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_simulateTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.OldSimulateTransactions,
+			Handler: h.SimulateTransactionsV0_6,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
@@ -2210,7 +2210,7 @@ func (h *Handler) LegacyMethods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_specVersion",
-			Handler: h.SpecVersion,
+			Handler: h.SpecVersionV0_6,
 		},
 		{
 			Name:    "juno_subscribeNewHeads",

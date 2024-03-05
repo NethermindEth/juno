@@ -3429,7 +3429,7 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: errors.New("oops"),
 			})
 
-		_, err = handler.OldSimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err = handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
 			RevertError: "oops",
 		}), err)
@@ -3924,11 +3924,11 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpc.New(nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.6.0", version)
+	require.Equal(t, "0.7.0", version)
 
-	legacyVersion, rpcErr := handler.LegacySpecVersion()
+	legacyVersion, rpcErr := handler.SpecVersionV0_6()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.5.1", legacyVersion)
+	require.Equal(t, "0.6.0", legacyVersion)
 }
 
 func TestEstimateFee(t *testing.T) {
