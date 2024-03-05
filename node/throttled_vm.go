@@ -31,8 +31,7 @@ func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, sta
 }
 
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
-	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate,
-	errOnRevert, legacyTraceJSON bool,
+	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
 ) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, error) {
 	var ret []*felt.Felt
 	var traces []vm.TransactionTrace
@@ -40,7 +39,7 @@ func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.
 	return ret, dataGasConsumed, traces, tvm.Do(func(vm *vm.VM) error {
 		var err error
 		ret, dataGasConsumed, traces, err = (*vm).Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network,
-			skipChargeFee, skipValidate, errOnRevert, legacyTraceJSON)
+			skipChargeFee, skipValidate, errOnRevert)
 		return err
 	})
 }

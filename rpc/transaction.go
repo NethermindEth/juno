@@ -282,8 +282,8 @@ type ComputationResources struct {
 }
 
 type DataAvailability struct {
-	L1Gas     int `json:"l1_gas"`
-	L1DataGas int `json:"l1_data_gas"`
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
 }
 
 type ExecutionResources struct {

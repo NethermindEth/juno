@@ -152,8 +152,7 @@ pub extern "C" fn cairoVMExecute(
     chain_id: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
-    err_on_revert: c_uchar,
-    legacy_json: c_uchar,
+    err_on_revert: c_uchar
 ) {
     let block_info = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
@@ -290,7 +289,7 @@ pub extern "C" fn cairoVMExecute(
                 let actual_fee = t.actual_fee.0.into();
                 let data_gas_consumed = t.da_gas.l1_data_gas.into();
 
-                let mut trace =
+                let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
                 if trace.is_err() {
                     report_error(
@@ -308,9 +307,6 @@ pub extern "C" fn cairoVMExecute(
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
                     JunoAppendDataGasConsumed(reader_handle, felt_to_byte_array(&data_gas_consumed).as_ptr());
-                }
-                if legacy_json == 1 {
-                    trace.as_mut().unwrap().make_legacy()
                 }
                 append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
             }

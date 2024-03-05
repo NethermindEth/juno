@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legacyJSON bool) ([]TracedBlockTransaction, error) {
+func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
@@ -22,10 +22,10 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legac
 		trace := vm.TransactionTrace{}
 		trace.Type = vm.TransactionType(block.Transactions[index].Type)
 
-		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation, legacyJSON)
-		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation, legacyJSON)
+		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation)
+		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation)
 
-		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation, legacyJSON)
+		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation)
 		switch block.Transactions[index].Type {
 		case TxnDeploy:
 			trace.ConstructorInvocation = fnInvocation
@@ -50,7 +50,7 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace, legac
 	return traces, nil
 }
 
-func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacyJSON bool) *vm.FunctionInvocation {
+func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.FunctionInvocation {
 	if snFnInvocation == nil {
 		return nil
 	}
@@ -70,12 +70,8 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacy
 		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
 	}
 
-	if legacyJSON {
-		fnInvocation.ExecutionResources = nil
-	}
-
 	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index], legacyJSON))
+		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index]))
 	}
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
@@ -100,15 +96,17 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation, legacy
 func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.ExecutionResources {
 	builtins := &resources.BuiltinInstanceCounter
 	return &vm.ExecutionResources{
-		Steps:        resources.Steps,
-		MemoryHoles:  resources.MemoryHoles,
-		Pedersen:     builtins.Pedersen,
-		RangeCheck:   builtins.RangeCheck,
-		Bitwise:      builtins.Bitwise,
-		Ecdsa:        builtins.Ecsda,
-		EcOp:         builtins.EcOp,
-		Keccak:       builtins.Keccak,
-		Poseidon:     builtins.Poseidon,
-		SegmentArena: builtins.SegmentArena,
+		ComputationResources: vm.ComputationResources{
+			Steps:        resources.Steps,
+			MemoryHoles:  resources.MemoryHoles,
+			Pedersen:     builtins.Pedersen,
+			RangeCheck:   builtins.RangeCheck,
+			Bitwise:      builtins.Bitwise,
+			Ecdsa:        builtins.Ecsda,
+			EcOp:         builtins.EcOp,
+			Keccak:       builtins.Keccak,
+			Poseidon:     builtins.Poseidon,
+			SegmentArena: builtins.SegmentArena,
+		},
 	}
 }

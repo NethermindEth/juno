@@ -33,8 +33,7 @@ extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uint
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
-					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
-					unsigned char legacy_json);
+					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert);
 
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
@@ -58,7 +57,7 @@ import (
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, legacyTraceJSON bool,
+		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
 	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error)
 }
 
@@ -240,7 +239,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert, legacyTraceJSON bool,
+	skipChargeFee, skipValidate, errOnRevert bool,
 ) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error) {
 	context := &callContext{
 		state: state,
@@ -277,10 +276,6 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	if errOnRevert {
 		errOnRevertByte = 1
 	}
-	var legacyTraceJSONByte byte
-	if legacyTraceJSON {
-		legacyTraceJSONByte = 1
-	}
 
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
@@ -293,7 +288,6 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte),
-		C.uchar(legacyTraceJSONByte), //nolint:gocritic
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -317,6 +311,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshal trace: %v", err)
 		}
+		//
 	}
 
 	return context.actualFees, context.dataGasConsumed, traces, nil

@@ -15,7 +15,6 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
-use blockifier::transaction::objects::ResourcesMapping;
 
 use crate::juno_state_reader::JunoStateReader;
 
@@ -44,8 +43,6 @@ pub struct TransactionTrace {
     constructor_invocation: Option<FunctionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     function_invocation: Option<FunctionInvocation>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    execution_resources: Option<ResourcesMapping>,
     r#type: TransactionType,
     state_diff: StateDiff,
 }
@@ -96,26 +93,6 @@ struct DeclaredClass {
     compiled_class_hash: StarkFelt,
 }
 
-impl TransactionTrace {
-    pub fn make_legacy(&mut self) {
-        if let Some(invocation) = &mut self.validate_invocation {
-            invocation.make_legacy()
-        }
-        if let Some(ExecuteInvocation::Ok(fn_invocation)) = &mut self.execute_invocation {
-            fn_invocation.make_legacy()
-        }
-        if let Some(invocation) = &mut self.fee_transfer_invocation {
-            invocation.make_legacy()
-        }
-        if let Some(invocation) = &mut self.constructor_invocation {
-            invocation.make_legacy()
-        }
-        if let Some(invocation) = &mut self.function_invocation {
-            invocation.make_legacy()
-        }
-    }
-}
-
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum ExecuteInvocation {
@@ -140,7 +117,6 @@ pub fn new_transaction_trace(
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.constructor_invocation = info.execute_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.execution_resources = Some(info.actual_resources);
             trace.r#type = TransactionType::DeployAccount;
         }
         StarknetApiTransaction::Invoke(_) => {
@@ -152,13 +128,11 @@ pub fn new_transaction_trace(
                     .map(|v| ExecuteInvocation::Ok(v.into())),
             };
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.execution_resources = Some(info.actual_resources);
             trace.r#type = TransactionType::Invoke;
         }
         StarknetApiTransaction::Declare(declare_txn) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
-            trace.execution_resources = Some(info.actual_resources);
             trace.r#type = TransactionType::Declare;
             deprecated_declared_class = if info.revert_error.is_none() {
                 match declare_txn {
@@ -197,7 +171,7 @@ impl From<BlockifierOrderedEvent> for OrderedEvent {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct ExecutionResources {
     pub steps: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -257,15 +231,6 @@ pub struct FunctionInvocation {
     pub messages: Vec<OrderedMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution_resources: Option<ExecutionResources>,
-}
-
-impl FunctionInvocation {
-    fn make_legacy(&mut self) {
-        self.execution_resources = None;
-        for call in self.calls.iter_mut() {
-            call.make_legacy();
-        }
-    }
 }
 
 use blockifier::execution::call_info::CallInfo as BlockifierCallInfo;
