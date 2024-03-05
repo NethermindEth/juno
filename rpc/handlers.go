@@ -793,7 +793,7 @@ func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bo
 		},
 	}
 	if !v0_6Response && resources.DataAvailability != nil {
-		res.DataAvailability = DataAvailability{
+		res.DataAvailability = &DataAvailability{
 			L1Gas:     resources.DataAvailability.L1Gas,
 			L1DataGas: resources.DataAvailability.L1DataGas,
 		}
