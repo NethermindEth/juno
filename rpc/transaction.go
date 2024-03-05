@@ -403,11 +403,11 @@ type FeeEstimate struct {
 	OverallFee      *felt.Felt `json:"overall_fee"`
 	Unit            *FeeUnit   `json:"unit,omitempty"`
 	// pre 13.1 response
-	oldResponse bool
+	v0_6Response bool
 }
 
 func (f FeeEstimate) MarshalJSON() ([]byte, error) {
-	if f.oldResponse {
+	if f.v0_6Response {
 		return json.Marshal(struct {
 			GasConsumed *felt.Felt `json:"gas_consumed"`
 			GasPrice    *felt.Felt `json:"gas_price"`

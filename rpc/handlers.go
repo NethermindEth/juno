@@ -1498,7 +1498,7 @@ func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimat
 		return nil, err
 	}
 
-	feeEstimate.oldResponse = true
+	feeEstimate.v0_6Response = true
 	return feeEstimate, nil
 }
 
@@ -1572,7 +1572,7 @@ func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []Broadcaste
 
 //nolint:funlen,gocyclo
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, legacyTraceJSON, oldResponse, errOnRevert bool,
+	simulationFlags []SimulationFlag, legacyTraceJSON, v0_6Response, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -1660,7 +1660,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			DataGasConsumed: dataGasConsumed[i],
 			DataGasPrice:    dataGasPrice,
 			OverallFee:      overallFee,
-			oldResponse:     oldResponse,
+			v0_6Response:    v0_6Response,
 		}
 
 		if !legacyTraceJSON {
