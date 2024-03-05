@@ -49,6 +49,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	resp, err := h.rpc.HandleReader(req.Context(), req.Body)
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {
+		h.log.Errorw("Handler failure", "err", err)
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {

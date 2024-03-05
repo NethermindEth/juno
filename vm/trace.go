@@ -105,6 +105,7 @@ type TransactionTrace struct {
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
 func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
@@ -220,7 +221,7 @@ type OrderedL2toL1Message struct {
 	Payload []*felt.Felt `json:"payload"`
 }
 
-type ExecutionResources struct {
+type ComputationResources struct {
 	Steps        uint64 `json:"steps"`
 	MemoryHoles  uint64 `json:"memory_holes,omitempty"`
 	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
@@ -231,4 +232,14 @@ type ExecutionResources struct {
 	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
 	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`
 	SegmentArena uint64 `json:"segment_arena_builtin,omitempty"`
+}
+
+type DataAvailability struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+}
+
+type ExecutionResources struct {
+	ComputationResources
+	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }

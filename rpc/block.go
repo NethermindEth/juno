@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -29,6 +30,24 @@ func (s BlockStatus) MarshalJSON() ([]byte, error) {
 		return []byte(`"REJECTED"`), nil
 	default:
 		return nil, errors.New("unknown block status")
+	}
+}
+
+type L1DAMode uint8
+
+const (
+	Blob L1DAMode = iota
+	Calldata
+)
+
+func (l L1DAMode) MarshalText() ([]byte, error) {
+	switch l {
+	case Blob:
+		return []byte("BLOB"), nil
+	case Calldata:
+		return []byte("CALLDATA"), nil
+	default:
+		return nil, fmt.Errorf("unknown L1DAMode value = %v", l)
 	}
 }
 
@@ -73,9 +92,8 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 }
 
 type ResourcePrice struct {
-	InStark *felt.Felt `json:"price_in_strk,omitempty"`
-	InFri   *felt.Felt `json:"price_in_fri,omitempty"`
-	InWei   *felt.Felt `json:"price_in_wei"`
+	InFri *felt.Felt `json:"price_in_fri"`
+	InWei *felt.Felt `json:"price_in_wei"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
@@ -87,6 +105,8 @@ type BlockHeader struct {
 	Timestamp        uint64         `json:"timestamp"`
 	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
 	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
+	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
+	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
 	StarknetVersion  string         `json:"starknet_version"`
 }
 
@@ -102,4 +122,15 @@ type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
+}
+
+type TransactionWithReceipt struct {
+	Transaction *Transaction        `json:"transaction"`
+	Receipt     *TransactionReceipt `json:"receipt"`
+}
+
+type BlockWithReceipts struct {
+	Status BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	Transactions []TransactionWithReceipt `json:"transactions"`
 }

@@ -29,3 +29,4 @@ jobs:
           cd ../starknet-accounts && cargo test jsonrpc
         env:
           STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
+          RUST_BACKTRACE: full
