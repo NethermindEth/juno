@@ -76,7 +76,8 @@ const (
 )
 
 type traceCacheKey struct {
-	blockHash felt.Felt
+	blockHash    felt.Felt
+	v0_6Response bool
 }
 
 type Handler struct {
@@ -1702,7 +1703,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 
 		if trace, hit := h.blockTraceCache.Get(traceCacheKey{
-			blockHash: *block.Hash,
+			blockHash:    *block.Hash,
+			v0_6Response: v0_6Response,
 		}); hit {
 			return trace, nil
 		}
@@ -1808,7 +1810,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	if !isPending {
 		h.blockTraceCache.Add(traceCacheKey{
-			blockHash: *block.Hash,
+			blockHash:    *block.Hash,
+			v0_6Response: v0_6Response,
 		}, result)
 	}
 
