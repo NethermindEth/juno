@@ -85,15 +85,17 @@ func TestAdaptExecutionResources(t *testing.T) {
 		MemoryHoles: 9,
 		Steps:       10,
 	}, vm2core.AdaptExecutionResources(&vm.ExecutionResources{
-		Steps:        10,
-		MemoryHoles:  9,
-		Pedersen:     1,
-		RangeCheck:   2,
-		Bitwise:      3,
-		Ecdsa:        4,
-		EcOp:         5,
-		Keccak:       6,
-		Poseidon:     7,
-		SegmentArena: 8,
+		ComputationResources: vm.ComputationResources{
+			Steps:        10,
+			MemoryHoles:  9,
+			Pedersen:     1,
+			RangeCheck:   2,
+			Bitwise:      3,
+			Ecdsa:        4,
+			EcOp:         5,
+			Keccak:       6,
+			Poseidon:     7,
+			SegmentArena: 8,
+		},
 	}))
 }
