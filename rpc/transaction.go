@@ -242,30 +242,6 @@ type Transaction struct {
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
 }
 
-func (tx *Transaction) ToPreV3() error {
-	if tx.Version.Uint64() != 3 {
-		return nil
-	}
-	switch tx.Type {
-	case TxnDeclare:
-		tx.Version.SetUint64(2)
-	case TxnInvoke, TxnDeployAccount:
-		tx.Version.SetUint64(1)
-	default:
-		return fmt.Errorf("unexpected transaction type %s", tx.Type)
-	}
-	l1Resources := (*tx.ResourceBounds)[ResourceL1Gas]
-	tx.MaxFee = new(felt.Felt).Mul(l1Resources.MaxAmount, l1Resources.MaxPricePerUnit)
-
-	tx.ResourceBounds = nil
-	tx.Tip = nil
-	tx.PaymasterData = nil
-	tx.AccountDeploymentData = nil
-	tx.NonceDAMode = nil
-	tx.FeeDAMode = nil
-	return nil
-}
-
 type TransactionStatus struct {
 	Finality  TxnStatus          `json:"finality_status"`
 	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
