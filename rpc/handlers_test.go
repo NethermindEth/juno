@@ -3063,7 +3063,6 @@ func TestTraceTransaction(t *testing.T) {
 
 func TestSimulateTransactions(t *testing.T) {
 	t.Skip()
-
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
