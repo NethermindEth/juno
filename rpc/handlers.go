@@ -385,7 +385,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		txsWithReceipts[index] = TransactionWithReceipt{
 			Transaction: AdaptTransaction(txn),
 			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
+			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
 		}
 	}
 
@@ -399,6 +399,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
 func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
+	v0_6Response bool,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
@@ -457,7 +458,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 		Events:             events,
 		ContractAddress:    contractAddress,
 		RevertReason:       receipt.RevertReason,
-		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
+		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources, v0_6Response),
 		MessageHash:        messageHash,
 	}
 }
@@ -714,7 +715,7 @@ func feeUnit(txn core.Transaction) FeeUnit {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) { //nolint:dupl
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
@@ -738,25 +739,67 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, false), nil
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ComputationResources {
+// TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
+func (h *Handler) TransactionReceiptByHashV0_6(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) { //nolint:dupl
+	txn, err := h.bcReader.TransactionByHash(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	status := TxnAcceptedOnL2
+
+	if blockHash != nil {
+		l1H, jsonErr := h.l1Head()
+		if jsonErr != nil {
+			return nil, jsonErr
+		}
+
+		if isL1Verified(blockNumber, l1H) {
+			status = TxnAcceptedOnL1
+		}
+	}
+
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, true), nil
+}
+
+func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bool) *ExecutionResources {
 	if resources == nil {
-		return &ComputationResources{}
+		return &ExecutionResources{}
 	}
-	return &ComputationResources{
-		Steps:        resources.Steps,
-		MemoryHoles:  resources.MemoryHoles,
-		Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
-		RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
-		Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
-		Ecsda:        resources.BuiltinInstanceCounter.Ecsda,
-		EcOp:         resources.BuiltinInstanceCounter.EcOp,
-		Keccak:       resources.BuiltinInstanceCounter.Keccak,
-		Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
-		SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
+
+	res := &ExecutionResources{
+		ComputationResources: ComputationResources{
+			Steps:        resources.Steps,
+			MemoryHoles:  resources.MemoryHoles,
+			Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
+			RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
+			Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
+			Ecsda:        resources.BuiltinInstanceCounter.Ecsda,
+			EcOp:         resources.BuiltinInstanceCounter.EcOp,
+			Keccak:       resources.BuiltinInstanceCounter.Keccak,
+			Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
+			SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
+		},
 	}
+	if !v0_6Response && resources.DataAvailability != nil {
+		res.DataAvailability = DataAvailability{
+			L1Gas:     resources.DataAvailability.L1Gas,
+			L1DataGas: resources.DataAvailability.L1DataGas,
+		}
+	}
+
+	return res
 }
 
 // StateUpdate returns the state update identified by the given BlockID.
@@ -2073,7 +2116,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionReceiptByHash,
+			Handler: h.TransactionReceiptByHashV0_6,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",

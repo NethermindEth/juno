@@ -293,19 +293,19 @@ type ExecutionResources struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType       `json:"type"`
-	Hash               *felt.Felt            `json:"transaction_hash"`
-	ActualFee          *FeePayment           `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus    `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus     `json:"finality_status"`
-	BlockHash          *felt.Felt            `json:"block_hash,omitempty"`
-	BlockNumber        *uint64               `json:"block_number,omitempty"`
-	MessagesSent       []*MsgToL1            `json:"messages_sent"`
-	Events             []*Event              `json:"events"`
-	ContractAddress    *felt.Felt            `json:"contract_address,omitempty"`
-	RevertReason       string                `json:"revert_reason,omitempty"`
-	ExecutionResources *ComputationResources `json:"execution_resources,omitempty"`
-	MessageHash        string                `json:"message_hash,omitempty"`
+	Type               TransactionType     `json:"type"`
+	Hash               *felt.Felt          `json:"transaction_hash"`
+	ActualFee          *FeePayment         `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
+	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
+	BlockNumber        *uint64             `json:"block_number,omitempty"`
+	MessagesSent       []*MsgToL1          `json:"messages_sent"`
+	Events             []*Event            `json:"events"`
+	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
+	RevertReason       string              `json:"revert_reason,omitempty"`
+	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
+	MessageHash        string              `json:"message_hash,omitempty"`
 }
 
 type FeePayment struct {
