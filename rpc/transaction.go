@@ -42,8 +42,8 @@ func (t TransactionType) String() string {
 	}
 }
 
-func (t TransactionType) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", t.String())), nil
+func (t TransactionType) MarshalText() ([]byte, error) {
+	return []byte(t.String()), nil
 }
 
 func (t *TransactionType) UnmarshalJSON(data []byte) error {
@@ -71,14 +71,14 @@ const (
 	FRI
 )
 
-func (u FeeUnit) MarshalJSON() ([]byte, error) {
+func (u FeeUnit) MarshalText() ([]byte, error) {
 	switch u {
 	case WEI:
-		return []byte(`"WEI"`), nil
+		return []byte("WEI"), nil
 	case FRI:
-		return []byte(`"FRI"`), nil
+		return []byte("FRI"), nil
 	default:
-		return nil, errors.New("unknown FeeUnit")
+		return nil, fmt.Errorf("unknown FeeUnit %v", u)
 	}
 }
 
@@ -91,18 +91,18 @@ const (
 	TxnStatusRejected
 )
 
-func (s TxnStatus) MarshalJSON() ([]byte, error) {
+func (s TxnStatus) MarshalText() ([]byte, error) {
 	switch s {
 	case TxnStatusReceived:
-		return []byte(`"RECEIVED"`), nil
+		return []byte("RECEIVED"), nil
 	case TxnStatusRejected:
-		return []byte(`"REJECTED"`), nil
+		return []byte("REJECTED"), nil
 	case TxnStatusAcceptedOnL1:
-		return []byte(`"ACCEPTED_ON_L1"`), nil
+		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnStatusAcceptedOnL2:
-		return []byte(`"ACCEPTED_ON_L2"`), nil
+		return []byte("ACCEPTED_ON_L2"), nil
 	default:
-		return nil, errors.New("unknown ExecutionStatus")
+		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
 	}
 }
 
@@ -113,14 +113,14 @@ const (
 	TxnFailure
 )
 
-func (es TxnExecutionStatus) MarshalJSON() ([]byte, error) {
+func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 	switch es {
 	case TxnSuccess:
-		return []byte(`"SUCCEEDED"`), nil
+		return []byte("SUCCEEDED"), nil
 	case TxnFailure:
-		return []byte(`"REVERTED"`), nil
+		return []byte("REVERTED"), nil
 	default:
-		return nil, errors.New("unknown ExecutionStatus")
+		return nil, fmt.Errorf("unknown ExecutionStatus %v", es)
 	}
 }
 
@@ -131,14 +131,14 @@ const (
 	TxnAcceptedOnL2
 )
 
-func (fs TxnFinalityStatus) MarshalJSON() ([]byte, error) {
+func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 	switch fs {
 	case TxnAcceptedOnL1:
-		return []byte(`"ACCEPTED_ON_L1"`), nil
+		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnAcceptedOnL2:
-		return []byte(`"ACCEPTED_ON_L2"`), nil
+		return []byte("ACCEPTED_ON_L2"), nil
 	default:
-		return nil, errors.New("unknown FinalityStatus")
+		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
 }
 
@@ -149,14 +149,14 @@ const (
 	DAModeL2
 )
 
-func (m DataAvailabilityMode) MarshalJSON() ([]byte, error) {
+func (m DataAvailabilityMode) MarshalText() ([]byte, error) {
 	switch m {
 	case DAModeL1:
-		return []byte(`"L1"`), nil
+		return []byte("L1"), nil
 	case DAModeL2:
-		return []byte(`"L2"`), nil
+		return []byte("L2"), nil
 	default:
-		return nil, errors.New("unknown DataAvailabilityMode")
+		return nil, fmt.Errorf("unknown DataAvailabilityMode %v", m)
 	}
 }
 
@@ -179,19 +179,15 @@ const (
 	ResourceL2Gas
 )
 
-func (r Resource) MarshalJSON() ([]byte, error) {
+func (r Resource) MarshalText() ([]byte, error) {
 	switch r {
 	case ResourceL1Gas:
 		return []byte("l1_gas"), nil
 	case ResourceL2Gas:
 		return []byte("l2_gas"), nil
 	default:
-		return nil, errors.New("unknown Resource")
+		return nil, fmt.Errorf("unknown Resource %v", r)
 	}
-}
-
-func (r Resource) MarshalText() ([]byte, error) {
-	return r.MarshalJSON()
 }
 
 func (r *Resource) UnmarshalJSON(data []byte) error {

@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -132,8 +131,8 @@ func (n *Network) MarshalYAML() (any, error) {
 	return n.String(), nil
 }
 
-func (n *Network) MarshalJSON() ([]byte, error) {
-	return json.RawMessage(`"` + n.String() + `"`), nil
+func (n *Network) MarshalText() ([]byte, error) {
+	return []byte(n.String()), nil
 }
 
 func (n *Network) Set(s string) error {

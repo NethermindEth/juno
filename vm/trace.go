@@ -3,7 +3,6 @@ package vm
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -75,8 +74,8 @@ func (t TransactionType) String() string {
 	}
 }
 
-func (t TransactionType) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", t.String())), nil
+func (t TransactionType) MarshalText() ([]byte, error) {
+	return []byte(t.String()), nil
 }
 
 func (t *TransactionType) UnmarshalJSON(data []byte) error {
