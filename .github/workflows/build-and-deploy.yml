@@ -78,7 +78,7 @@ jobs:
     needs: [deploy_to_dev]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.DEV_GOERLI_URL }}/v0_5
+      TEST_RPC_URL: ${{ secrets.DEV_GOERLI_URL }}/v0_6
       TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
             
@@ -116,7 +116,7 @@ jobs:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.STAGING_GOERLI_URL }}/v0_5
+      TEST_RPC_URL: ${{ secrets.STAGING_GOERLI_URL }}/v0_6
       TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
 
@@ -154,6 +154,6 @@ jobs:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.PROD_GOERLI_URL }}/v0_5
+      TEST_RPC_URL: ${{ secrets.PROD_GOERLI_URL }}/v0_6
       TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}

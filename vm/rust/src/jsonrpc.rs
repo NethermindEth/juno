@@ -93,26 +93,6 @@ struct DeclaredClass {
     compiled_class_hash: StarkFelt,
 }
 
-impl TransactionTrace {
-    pub fn make_legacy(&mut self) {
-        if let Some(invocation) = &mut self.validate_invocation {
-            invocation.make_legacy()
-        }
-        if let Some(ExecuteInvocation::Ok(fn_invocation)) = &mut self.execute_invocation {
-            fn_invocation.make_legacy()
-        }
-        if let Some(invocation) = &mut self.fee_transfer_invocation {
-            invocation.make_legacy()
-        }
-        if let Some(invocation) = &mut self.constructor_invocation {
-            invocation.make_legacy()
-        }
-        if let Some(invocation) = &mut self.function_invocation {
-            invocation.make_legacy()
-        }
-    }
-}
-
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum ExecuteInvocation {
@@ -191,7 +171,7 @@ impl From<BlockifierOrderedEvent> for OrderedEvent {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub struct ExecutionResources {
     pub steps: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -251,15 +231,6 @@ pub struct FunctionInvocation {
     pub messages: Vec<OrderedMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution_resources: Option<ExecutionResources>,
-}
-
-impl FunctionInvocation {
-    fn make_legacy(&mut self) {
-        self.execution_resources = None;
-        for call in self.calls.iter_mut() {
-            call.make_legacy();
-        }
-    }
 }
 
 use blockifier::execution::call_info::CallInfo as BlockifierCallInfo;

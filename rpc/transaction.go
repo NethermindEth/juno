@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
@@ -242,30 +241,6 @@ type Transaction struct {
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
 }
 
-func (tx *Transaction) ToPreV3() error {
-	if tx.Version.Uint64() != 3 {
-		return nil
-	}
-	switch tx.Type {
-	case TxnDeclare:
-		tx.Version.SetUint64(2)
-	case TxnInvoke, TxnDeployAccount:
-		tx.Version.SetUint64(1)
-	default:
-		return fmt.Errorf("unexpected transaction type %s", tx.Type)
-	}
-	l1Resources := (*tx.ResourceBounds)[ResourceL1Gas]
-	tx.MaxFee = new(felt.Felt).Mul(l1Resources.MaxAmount, l1Resources.MaxPricePerUnit)
-
-	tx.ResourceBounds = nil
-	tx.Tip = nil
-	tx.PaymasterData = nil
-	tx.AccountDeploymentData = nil
-	tx.NonceDAMode = nil
-	tx.FeeDAMode = nil
-	return nil
-}
-
 type TransactionStatus struct {
 	Finality  TxnStatus          `json:"finality_status"`
 	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
@@ -293,13 +268,7 @@ type Event struct {
 	Data []*felt.Felt `json:"data"`
 }
 
-type NumAsHex uint64
-
-func (n NumAsHex) MarshalJSON() ([]byte, error) {
-	return []byte(`"0x` + strconv.FormatUint(uint64(n), 16) + `"`), nil
-}
-
-type ExecutionResources struct {
+type ComputationResources struct {
 	Steps        uint64 `json:"steps"`
 	MemoryHoles  uint64 `json:"memory_holes,omitempty"`
 	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
@@ -310,35 +279,16 @@ type ExecutionResources struct {
 	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
 	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`
 	SegmentArena uint64 `json:"segment_arena_builtin,omitempty"`
-	isLegacy     bool
 }
 
-func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
-	if r.isLegacy {
-		return json.Marshal(struct {
-			Steps       NumAsHex `json:"steps"`
-			MemoryHoles NumAsHex `json:"memory_holes"`
-			Pedersen    NumAsHex `json:"pedersen_builtin_applications"`
-			RangeCheck  NumAsHex `json:"range_check_builtin_applications"`
-			Bitwise     NumAsHex `json:"bitwise_builtin_applications"`
-			Ecsda       NumAsHex `json:"ecdsa_builtin_applications"`
-			EcOp        NumAsHex `json:"ec_op_builtin_applications"`
-			Keccak      NumAsHex `json:"keccak_builtin_applications"`
-			Poseidon    NumAsHex `json:"poseidon_builtin_applications"`
-		}{
-			Steps:       NumAsHex(r.Steps),
-			MemoryHoles: NumAsHex(r.MemoryHoles),
-			Pedersen:    NumAsHex(r.Pedersen),
-			RangeCheck:  NumAsHex(r.RangeCheck),
-			Bitwise:     NumAsHex(r.Bitwise),
-			Ecsda:       NumAsHex(r.Ecsda),
-			EcOp:        NumAsHex(r.EcOp),
-			Keccak:      NumAsHex(r.Keccak),
-			Poseidon:    NumAsHex(r.Poseidon),
-		})
-	}
-	type resources ExecutionResources // Avoid infinite recursion with MarshalJSON.
-	return json.Marshal(resources(*r))
+type DataAvailability struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+}
+
+type ExecutionResources struct {
+	ComputationResources
+	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
@@ -359,17 +309,8 @@ type TransactionReceipt struct {
 }
 
 type FeePayment struct {
-	Amount   *felt.Felt `json:"amount"`
-	Unit     FeeUnit    `json:"unit"`
-	isLegacy bool
-}
-
-func (f *FeePayment) MarshalJSON() ([]byte, error) {
-	if f.isLegacy {
-		return json.Marshal(f.Amount)
-	}
-	type fee FeePayment // Avoid infinite recursion with MarshalJSON.
-	return json.Marshal(fee(*f))
+	Amount *felt.Felt `json:"amount"`
+	Unit   FeeUnit    `json:"unit"`
 }
 
 type AddTxResponse struct {
@@ -386,10 +327,33 @@ type BroadcastedTransaction struct {
 }
 
 type FeeEstimate struct {
-	GasConsumed *felt.Felt `json:"gas_consumed"`
-	GasPrice    *felt.Felt `json:"gas_price"`
-	OverallFee  *felt.Felt `json:"overall_fee"`
-	Unit        *FeeUnit   `json:"unit,omitempty"`
+	GasConsumed     *felt.Felt `json:"gas_consumed"`
+	GasPrice        *felt.Felt `json:"gas_price"`
+	DataGasConsumed *felt.Felt `json:"data_gas_consumed"`
+	DataGasPrice    *felt.Felt `json:"data_gas_price"`
+	OverallFee      *felt.Felt `json:"overall_fee"`
+	Unit            *FeeUnit   `json:"unit,omitempty"`
+	// pre 13.1 response
+	v0_6Response bool
+}
+
+func (f FeeEstimate) MarshalJSON() ([]byte, error) {
+	if f.v0_6Response {
+		return json.Marshal(struct {
+			GasConsumed *felt.Felt `json:"gas_consumed"`
+			GasPrice    *felt.Felt `json:"gas_price"`
+			OverallFee  *felt.Felt `json:"overall_fee"`
+			Unit        *FeeUnit   `json:"unit,omitempty"`
+		}{
+			GasConsumed: f.GasConsumed,
+			GasPrice:    f.GasPrice,
+			OverallFee:  f.OverallFee,
+			Unit:        f.Unit,
+		})
+	} else {
+		type alias FeeEstimate // avoid infinite recursion
+		return json.Marshal(alias(f))
+	}
 }
 
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,

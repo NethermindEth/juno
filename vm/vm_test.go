@@ -161,7 +161,7 @@ func TestExecute(t *testing.T) {
 	state := core.NewState(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
-		_, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
+		_, _, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
@@ -169,17 +169,17 @@ func TestExecute(t *testing.T) {
 				GasPriceSTRK:     &felt.Zero,
 			},
 		}, state,
-			&network, false, false, false, false)
+			&network, false, false, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, _, err := New(nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
+		_, _, _, err := New(nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
 				GasPrice:         &felt.Zero,
 				GasPriceSTRK:     &felt.Zero,
 			},
-		}, state, &network, false, false, false, false)
+		}, state, &network, false, false, false)
 		require.NoError(t, err)
 	})
 }

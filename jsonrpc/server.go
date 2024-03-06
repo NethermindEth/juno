@@ -71,7 +71,7 @@ func Err(code int, data any) *Error {
 	case InvalidParams:
 		return &Error{Code: InvalidParams, Message: "Invalid Params", Data: data}
 	default:
-		return &Error{Code: InternalError, Message: "Internal Error", Data: data}
+		return &Error{Code: InternalError, Message: "Internal error", Data: data}
 	}
 }
 

@@ -140,16 +140,18 @@ func TestAllMessages(t *testing.T) {
 
 func TestTotalExecutionResources(t *testing.T) {
 	resources := &vm.ExecutionResources{
-		Steps:        1,
-		MemoryHoles:  2,
-		Pedersen:     3,
-		RangeCheck:   4,
-		Bitwise:      5,
-		Ecdsa:        6,
-		EcOp:         7,
-		Keccak:       8,
-		Poseidon:     9,
-		SegmentArena: 10,
+		ComputationResources: vm.ComputationResources{
+			Steps:        1,
+			MemoryHoles:  2,
+			Pedersen:     3,
+			RangeCheck:   4,
+			Bitwise:      5,
+			Ecdsa:        6,
+			EcOp:         7,
+			Keccak:       8,
+			Poseidon:     9,
+			SegmentArena: 10,
+		},
 	}
 	tests := map[string]struct {
 		multiplier uint64
@@ -211,16 +213,18 @@ func TestTotalExecutionResources(t *testing.T) {
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
 			require.Equal(t, &vm.ExecutionResources{
-				Steps:        resources.Steps * test.multiplier,
-				MemoryHoles:  resources.MemoryHoles * test.multiplier,
-				Pedersen:     resources.Pedersen * test.multiplier,
-				RangeCheck:   resources.RangeCheck * test.multiplier,
-				Bitwise:      resources.Bitwise * test.multiplier,
-				Ecdsa:        resources.Ecdsa * test.multiplier,
-				EcOp:         resources.EcOp * test.multiplier,
-				Keccak:       resources.Keccak * test.multiplier,
-				Poseidon:     resources.Poseidon * test.multiplier,
-				SegmentArena: resources.SegmentArena * test.multiplier,
+				ComputationResources: vm.ComputationResources{
+					Steps:        resources.Steps * test.multiplier,
+					MemoryHoles:  resources.MemoryHoles * test.multiplier,
+					Pedersen:     resources.Pedersen * test.multiplier,
+					RangeCheck:   resources.RangeCheck * test.multiplier,
+					Bitwise:      resources.Bitwise * test.multiplier,
+					Ecdsa:        resources.Ecdsa * test.multiplier,
+					EcOp:         resources.EcOp * test.multiplier,
+					Keccak:       resources.Keccak * test.multiplier,
+					Poseidon:     resources.Poseidon * test.multiplier,
+					SegmentArena: resources.SegmentArena * test.multiplier,
+				},
 			}, test.trace.TotalExecutionResources())
 		})
 	}

@@ -32,14 +32,14 @@ func (h *HTTP) WithListener(listener NewRequestListener) *HTTP {
 
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
-	if req.Method == "GET" {
+	if req.Method == http.MethodGet {
 		status := http.StatusNotFound
 		if req.URL.Path == "/" {
 			status = http.StatusOK
 		}
 		writer.WriteHeader(status)
 		return
-	} else if req.Method != "POST" {
+	} else if req.Method != http.MethodPost {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -49,6 +49,7 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	resp, err := h.rpc.HandleReader(req.Context(), req.Body)
 	writer.Header().Set("Content-Type", "application/json")
 	if err != nil {
+		h.log.Errorw("Handler failure", "err", err)
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {

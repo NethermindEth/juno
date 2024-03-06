@@ -461,7 +461,7 @@ func TestHandle(t *testing.T) {
 		},
 		"fails internally": {
 			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,
-			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal Error"},"id":1}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":1}`,
 			checkFailedEvent: true,
 		},
 	}
