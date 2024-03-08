@@ -1487,7 +1487,7 @@ func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimat
 		return nil, err
 	}
 
-	feeEstimate.v0_6Response = true
+	feeEstimate.V0_6Response = true
 	feeEstimate.DataGasPrice = nil
 	feeEstimate.DataGasConsumed = nil
 
@@ -1542,7 +1542,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true, true)
+	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
 }
 
 //nolint:funlen,gocyclo
@@ -1636,7 +1636,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			DataGasPrice:    dataGasPrice,
 			OverallFee:      overallFee,
 			Unit:            utils.Ptr(feeUnit),
-			v0_6Response:    v0_6Response,
+			V0_6Response:    v0_6Response,
 		}
 
 		if !v0_6Response {
