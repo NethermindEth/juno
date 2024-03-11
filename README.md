@@ -63,6 +63,8 @@
     sudo apt-get install -y libjemalloc-dev
     ```
 
+- To ensure a successful build, you either need to synchronize the tags from the upstream repository or create a new tag.
+
 ### Build and Run
 
 ```shell
