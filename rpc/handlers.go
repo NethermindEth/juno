@@ -1318,7 +1318,7 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic,dupl
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -1349,6 +1349,46 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}, state, h.bcReader.Network(), h.callMaxSteps, true)
+	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return nil, ErrInternal.CloneWithData(throttledVMErr)
+		}
+		return nil, makeContractError(err)
+	}
+	return res, nil
+}
+
+func (h *Handler) CallV0_6(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic,dupl
+	state, closer, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
+
+	header, rpcErr := h.blockHeaderByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	classHash, err := state.ContractClassHash(&call.ContractAddress)
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
+
+	res, err := h.vm.Call(&vm.CallInfo{
+		ContractAddress: &call.ContractAddress,
+		Selector:        &call.EntryPointSelector,
+		Calldata:        call.Calldata,
+		ClassHash:       classHash,
+	}, &vm.BlockInfo{
+		Header:                header,
+		BlockHashToBeRevealed: blockHashToBeRevealed,
+	}, state, h.bcReader.Network(), h.callMaxSteps, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1482,11 +1522,35 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 }
 
 func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
-	feeEstimate, err := h.EstimateMessageFee(msg, id)
-	if err != nil {
-		return nil, err
+	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
+	// The order of the calldata parameters matters. msg.From must be prepended.
+	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
+	for payloadIdx := range msg.Payload {
+		calldata = append(calldata, &msg.Payload[payloadIdx])
+	}
+	tx := BroadcastedTransaction{
+		Transaction: Transaction{
+			Type:               TxnL1Handler,
+			ContractAddress:    &msg.To,
+			EntryPointSelector: &msg.Selector,
+			CallData:           &calldata,
+			Version:            &felt.Zero, // Needed for transaction hash calculation.
+			Nonce:              &felt.Zero, // Needed for transaction hash calculation.
+		},
+		// Needed to marshal to blockifier type.
+		// Must be greater than zero to successfully execute transaction.
+		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
+	}
+	estimates, rpcErr := h.EstimateFeeV0_6([]BroadcastedTransaction{tx}, nil, id)
+	if rpcErr != nil {
+		if rpcErr.Code == ErrTransactionExecutionError.Code {
+			data := rpcErr.Data.(TransactionExecutionErrorData)
+			return nil, makeContractError(errors.New(data.ExecutionError))
+		}
+		return nil, rpcErr
 	}
 
+	feeEstimate := &estimates[0]
 	feeEstimate.v0_6Response = true
 	feeEstimate.DataGasPrice = nil
 	feeEstimate.DataGasConsumed = nil
@@ -2204,7 +2268,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_call",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.Call,
+			Handler: h.CallV0_6,
 		},
 		{
 			Name:    "starknet_estimateFee",
