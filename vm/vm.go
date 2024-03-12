@@ -55,7 +55,7 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
+	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, useBlobData bool) ([]*felt.Felt, error) //nolint:lll
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
 	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error)
