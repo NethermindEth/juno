@@ -2711,6 +2711,13 @@ func TestVersion(t *testing.T) {
 	assert.Equal(t, version, ver)
 }
 
+func TestMe2(t *testing.T) {
+	gasConsumed := utils.HexToFelt(t)
+	gasPrice := utils.HexToFelt(t, "0x440852d1099a")
+
+	gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
+}
+
 func TestTransactionStatus(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

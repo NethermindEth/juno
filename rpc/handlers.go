@@ -1626,12 +1626,12 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		dataGasFee := new(felt.Felt).Mul(dataGasConsumed[i], dataGasPrice)
 		var gasConsumed *felt.Felt
 		if !v0_6Response {
+			dataGasFee := new(felt.Felt).Mul(dataGasConsumed[i], dataGasPrice)
 			gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
 		} else {
-			gasConsumed = overallFee
+			gasConsumed = overallFee.Clone()
 		}
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
