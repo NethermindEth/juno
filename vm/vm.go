@@ -234,7 +234,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	C.free(unsafe.Pointer(chainID))
 	C.free(unsafe.Pointer(cBlockInfo.version))
 
-	if len(context.err) > 0 {
+	if context.err != "" {
 		return nil, errors.New(context.err)
 	}
 	return context.response, nil
