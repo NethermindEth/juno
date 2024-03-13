@@ -1,6 +1,7 @@
 package pebble
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -94,6 +95,7 @@ func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
 
 // Close : see io.Closer.Close
 func (d *DB) Close() error {
+	fmt.Println("PEBBLE CLOSED")
 	return d.pebble.Close()
 }
 
