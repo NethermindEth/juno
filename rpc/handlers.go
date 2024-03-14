@@ -1664,10 +1664,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		if !v0_6Response {
 			trace := traces[i]
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = &vm.DataAvailability{
-				L1Gas:     gasConsumed.Uint64(),
-				L1DataGas: dataGasConsumed[i].Uint64(),
-			}
+			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, dataGasConsumed[i], header.L1DAMode)
 			traces[i].ExecutionResources = executionResources
 		}
 
@@ -1819,10 +1816,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 			gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = &vm.DataAvailability{
-				L1Gas:     gasConsumed.Uint64(),
-				L1DataGas: dataGasConsumed[index].Uint64(),
-			}
+			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, dataGasConsumed[index],
+				header.L1DAMode)
 			traces[index].ExecutionResources = executionResources
 		}
 		result = append(result, TracedBlockTransaction{

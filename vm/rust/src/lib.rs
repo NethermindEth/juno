@@ -282,7 +282,7 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 // we are estimating fee, override actual fee calculation
-                if t.actual_fee.0 == 0 {
+                if  t.actual_fee.0 == 0 {
                     t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context, &fee_type).unwrap();
                 }
 
