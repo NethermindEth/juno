@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
-
 	"github.com/NethermindEth/juno/core/felt"
 )
 
