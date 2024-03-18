@@ -21,10 +21,7 @@ func (s Sync) MarshalJSON() ([]byte, error) {
 	if s.Syncing != nil && !*s.Syncing {
 		return json.Marshal(false)
 	}
-	type Alias Sync
-	return json.Marshal(&struct {
-		Alias
-	}{
-		Alias: Alias(s),
-	})
+
+	type alias Sync
+	return json.Marshal(alias(s))
 }

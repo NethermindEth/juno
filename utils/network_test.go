@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -130,7 +131,7 @@ func TestNetworkUnmarshalText(t *testing.T) {
 func TestNetworkMarshalJSON(t *testing.T) {
 	for network, str := range networkStrings {
 		t.Run("network "+str, func(t *testing.T) {
-			nb, err := network.MarshalJSON()
+			nb, err := json.Marshal(&network)
 			require.NoError(t, err)
 
 			expectedStr := `"` + str + `"`

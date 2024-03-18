@@ -1318,7 +1318,15 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	return h.call(funcCall, id, true)
+}
+
+func (h *Handler) CallV0_6(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	return h.call(call, id, false)
+}
+
+func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -1330,7 +1338,7 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 		return nil, rpcErr
 	}
 
-	classHash, err := state.ContractClassHash(&call.ContractAddress)
+	classHash, err := state.ContractClassHash(&funcCall.ContractAddress)
 	if err != nil {
 		return nil, ErrContractNotFound
 	}
@@ -1341,14 +1349,14 @@ func (h *Handler) Call(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Er
 	}
 
 	res, err := h.vm.Call(&vm.CallInfo{
-		ContractAddress: &call.ContractAddress,
-		Selector:        &call.EntryPointSelector,
-		Calldata:        call.Calldata,
+		ContractAddress: &funcCall.ContractAddress,
+		Selector:        &funcCall.EntryPointSelector,
+		Calldata:        funcCall.Calldata,
 		ClassHash:       classHash,
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps)
+	}, state, h.bcReader.Network(), h.callMaxSteps, useBlobData)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1451,6 +1459,27 @@ func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
 }
 
 func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+	return h.estimateMessageFee(msg, id, h.EstimateFee)
+}
+
+func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+	feeEstimate, rpcErr := h.estimateMessageFee(msg, id, h.EstimateFeeV0_6)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	feeEstimate.v0_6Response = true
+	feeEstimate.DataGasPrice = nil
+	feeEstimate.DataGasConsumed = nil
+
+	return feeEstimate, nil
+}
+
+type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, id BlockID,
+) ([]FeeEstimate, *jsonrpc.Error)
+
+func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
@@ -1470,7 +1499,7 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
-	estimates, rpcErr := h.EstimateFee([]BroadcastedTransaction{tx}, nil, id)
+	estimates, rpcErr := f([]BroadcastedTransaction{tx}, nil, id)
 	if rpcErr != nil {
 		if rpcErr.Code == ErrTransactionExecutionError.Code {
 			data := rpcErr.Data.(TransactionExecutionErrorData)
@@ -1479,19 +1508,6 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 		return nil, rpcErr
 	}
 	return &estimates[0], nil
-}
-
-func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
-	feeEstimate, err := h.EstimateMessageFee(msg, id)
-	if err != nil {
-		return nil, err
-	}
-
-	feeEstimate.v0_6Response = true
-	feeEstimate.DataGasPrice = nil
-	feeEstimate.DataGasConsumed = nil
-
-	return feeEstimate, nil
 }
 
 // TraceTransaction returns the trace for a given executed transaction, including internal calls
@@ -1591,8 +1607,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
+	useBlobData := !v0_6Response
 	overallFees, dataGasConsumed, traces, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
+		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, useBlobData)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1625,8 +1642,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		dataGasFee := new(felt.Felt).Mul(dataGasConsumed[i], dataGasPrice)
-		gasConsumed := new(felt.Felt).Sub(overallFee, dataGasFee)
+		var gasConsumed *felt.Felt
+		if !v0_6Response {
+			dataGasFee := new(felt.Felt).Mul(dataGasConsumed[i], dataGasPrice)
+			gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
+		} else {
+			gasConsumed = overallFee.Clone()
+		}
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 		estimate := FeeEstimate{
@@ -1642,10 +1664,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		if !v0_6Response {
 			trace := traces[i]
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = &vm.DataAvailability{
-				L1Gas:     gasConsumed.Uint64(),
-				L1DataGas: dataGasConsumed[i].Uint64(),
-			}
+			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, dataGasConsumed[i], header.L1DAMode)
 			traces[i].ExecutionResources = executionResources
 		}
 
@@ -1758,8 +1777,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
+	useBlobData := !v0_6Response
 	overallFees, dataGasConsumed, traces, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
-		false, false)
+		false, false, useBlobData)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -1796,10 +1816,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 			gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = &vm.DataAvailability{
-				L1Gas:     gasConsumed.Uint64(),
-				L1DataGas: dataGasConsumed[index].Uint64(),
-			}
+			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, dataGasConsumed[index],
+				header.L1DAMode)
 			traces[index].ExecutionResources = executionResources
 		}
 		result = append(result, TracedBlockTransaction{
@@ -2197,7 +2215,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_call",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.Call,
+			Handler: h.CallV0_6,
 		},
 		{
 			Name:    "starknet_estimateFee",

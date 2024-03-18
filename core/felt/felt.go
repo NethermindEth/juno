@@ -52,20 +52,19 @@ func (z *Felt) Impl() *fp.Element {
 //
 // [gnark-crypto]: https://github.com/ConsenSys/gnark-crypto/blob/master/ecc/stark-curve/fp/element.go
 func (z *Felt) UnmarshalJSON(data []byte) error {
-	s := string(data)
-	if len(s) > fp.Bits*3 {
+	if len(data) > fp.Bits*3 {
 		return errors.New("value too large (max = Element.Bits * 3)")
 	}
 
 	// we accept numbers and strings, remove leading and trailing quotes if any
-	if s != "" && s[0] == '"' {
-		s = s[1:]
+	if len(data) > 0 && data[0] == '"' {
+		data = data[1:]
 	}
-	if s != "" && s[len(s)-1] == '"' {
-		s = s[:len(s)-1]
+	if len(data) > 0 && data[len(data)-1] == '"' {
+		data = data[:len(data)-1]
 	}
 
-	_, err := z.SetString(s)
+	_, err := z.SetString(string(data))
 	return err
 }
 
