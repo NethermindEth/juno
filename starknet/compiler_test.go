@@ -43,7 +43,6 @@ func TestCompile(t *testing.T) {
 	t.Run("declare cairo2 class", func(t *testing.T) {
 		// tests https://github.com/NethermindEth/juno/issues/1748
 		_, err := starknet.Compile(&starknet.SierraDefinition{
-			Abi: "",
 			EntryPoints: starknet.SierraEntryPoints{
 				Constructor: []starknet.SierraEntryPoint{},
 				External: []starknet.SierraEntryPoint{

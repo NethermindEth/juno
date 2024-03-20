@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-# version should be in sync with other cargo-lang-* packages in vm/rust/Cargo.toml
 cairo-lang-starknet-classes = "=2.6.0-rc.1"
 
 [lib]

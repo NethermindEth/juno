@@ -16,11 +16,5 @@ cached = "0.46.1"
 once_cell = "1.18.0"
 lazy_static = "1.4.0"
 
-# cairo-lang-* packages version should be in sync with starknet/rust/Cargo.toml cairo-lang-classes package
-cairo-lang-casm = "=2.6.0-rc.1"
-cairo-lang-runner = "=2.6.0-rc.1"
-cairo-lang-starknet = "=2.6.0-rc.1"
-cairo-lang-utils = "=2.6.0-rc.1"
-
 [lib]
 crate-type = ["staticlib"]
