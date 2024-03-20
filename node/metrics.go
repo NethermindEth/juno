@@ -128,7 +128,8 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 	}, []string{"method", "version"})
 	prometheus.MustRegister(requests, failedRequests, requestLatencies)
 
-	return &jsonrpc.SelectiveListener{
+	createListener := func(version string) *jsonrpc.SelectiveListener {
+		return &jsonrpc.SelectiveListener{
 			OnNewRequestCb: func(method string) {
 				requests.WithLabelValues(method, version).Inc()
 			},
@@ -143,22 +144,10 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 
 				failedRequests.WithLabelValues(method, version, errorCode).Inc()
 			},
-		}, &jsonrpc.SelectiveListener{
-			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, legacyVersion).Inc()
-			},
-			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, legacyVersion).Observe(took.Seconds())
-			},
-			OnRequestFailedCb: func(method string, data any) {
-				var errorCode string
-				if rpcErr, ok := data.(*jsonrpc.Error); ok {
-					errorCode = strconv.Itoa(rpcErr.Code)
-				}
-
-				failedRequests.WithLabelValues(method, legacyVersion, errorCode).Inc()
-			},
 		}
+	}
+
+	return createListener(version), createListener(legacyVersion)
 }
 
 func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {
