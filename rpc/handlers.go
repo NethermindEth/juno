@@ -1042,7 +1042,9 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 			Abi:     c.Abi,
 			Program: c.Program,
 			EntryPoints: EntryPoints{
-				// todo check for non nil
+				// Note that utils.Map returns nil if provided slice is nil
+				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
+				// if it's nil. In the API spec these fields are required.
 				Constructor: utils.Map(c.Constructors, adaptEntryPoint),
 				External:    utils.Map(c.Externals, adaptEntryPoint),
 				L1Handler:   utils.Map(c.L1Handlers, adaptEntryPoint),
@@ -1061,7 +1063,9 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 			SierraProgram:        c.Program,
 			ContractClassVersion: c.SemanticVersion,
 			EntryPoints: EntryPoints{
-				// todo check for nil
+				// Note that utils.Map returns nil if provided slice is nil
+				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
+				// if it's nil. In the API spec these fields are required.
 				Constructor: utils.Map(c.EntryPoints.Constructor, adaptEntryPoint),
 				External:    utils.Map(c.EntryPoints.External, adaptEntryPoint),
 				L1Handler:   utils.Map(c.EntryPoints.L1Handler, adaptEntryPoint),
