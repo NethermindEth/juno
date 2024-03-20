@@ -120,7 +120,7 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "failed_requests",
-	}, []string{"method", "version"})
+	}, []string{"method", "version", "error_code"})
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
@@ -136,7 +136,12 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 				requestLatencies.WithLabelValues(method, version).Observe(took.Seconds())
 			},
 			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, version).Inc()
+				var errorCode string
+				if rpcErr, ok := data.(*jsonrpc.Error); ok {
+					errorCode = strconv.Itoa(rpcErr.Code)
+				}
+
+				failedRequests.WithLabelValues(method, version, errorCode).Inc()
 			},
 		}, &jsonrpc.SelectiveListener{
 			OnNewRequestCb: func(method string) {
@@ -146,7 +151,12 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 				requestLatencies.WithLabelValues(method, legacyVersion).Observe(took.Seconds())
 			},
 			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, legacyVersion).Inc()
+				var errorCode string
+				if rpcErr, ok := data.(*jsonrpc.Error); ok {
+					errorCode = strconv.Itoa(rpcErr.Code)
+				}
+
+				failedRequests.WithLabelValues(method, legacyVersion, errorCode).Inc()
 			},
 		}
 }
