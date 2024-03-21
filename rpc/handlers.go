@@ -1031,71 +1031,46 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 	var rpcClass *Class
 	switch c := declared.Class.(type) {
 	case *core.Cairo0Class:
+		adaptEntryPoint := func(ep core.EntryPoint) EntryPoint {
+			return EntryPoint{
+				Offset:   ep.Offset,
+				Selector: ep.Selector,
+			}
+		}
+
 		rpcClass = &Class{
-			Abi:         c.Abi,
-			Program:     c.Program,
-			EntryPoints: EntryPoints{},
+			Abi:     c.Abi,
+			Program: c.Program,
+			EntryPoints: EntryPoints{
+				// Note that utils.Map returns nil if provided slice is nil
+				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
+				// if it's nil. In the API spec these fields are required.
+				Constructor: utils.Map(c.Constructors, adaptEntryPoint),
+				External:    utils.Map(c.Externals, adaptEntryPoint),
+				L1Handler:   utils.Map(c.L1Handlers, adaptEntryPoint),
+			},
 		}
-
-		rpcClass.EntryPoints.Constructor = make([]EntryPoint, 0, len(c.Constructors))
-		for _, entryPoint := range c.Constructors {
-			rpcClass.EntryPoints.Constructor = append(rpcClass.EntryPoints.Constructor, EntryPoint{
-				Offset:   entryPoint.Offset,
-				Selector: entryPoint.Selector,
-			})
-		}
-
-		rpcClass.EntryPoints.L1Handler = make([]EntryPoint, 0, len(c.L1Handlers))
-		for _, entryPoint := range c.L1Handlers {
-			rpcClass.EntryPoints.L1Handler = append(rpcClass.EntryPoints.L1Handler, EntryPoint{
-				Offset:   entryPoint.Offset,
-				Selector: entryPoint.Selector,
-			})
-		}
-
-		rpcClass.EntryPoints.External = make([]EntryPoint, 0, len(c.Externals))
-		for _, entryPoint := range c.Externals {
-			rpcClass.EntryPoints.External = append(rpcClass.EntryPoints.External, EntryPoint{
-				Offset:   entryPoint.Offset,
-				Selector: entryPoint.Selector,
-			})
-		}
-
 	case *core.Cairo1Class:
+		adaptEntryPoint := func(ep core.SierraEntryPoint) EntryPoint {
+			return EntryPoint{
+				Index:    &ep.Index,
+				Selector: ep.Selector,
+			}
+		}
+
 		rpcClass = &Class{
 			Abi:                  c.Abi,
 			SierraProgram:        c.Program,
 			ContractClassVersion: c.SemanticVersion,
-			EntryPoints:          EntryPoints{},
+			EntryPoints: EntryPoints{
+				// Note that utils.Map returns nil if provided slice is nil
+				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
+				// if it's nil. In the API spec these fields are required.
+				Constructor: utils.Map(c.EntryPoints.Constructor, adaptEntryPoint),
+				External:    utils.Map(c.EntryPoints.External, adaptEntryPoint),
+				L1Handler:   utils.Map(c.EntryPoints.L1Handler, adaptEntryPoint),
+			},
 		}
-
-		rpcClass.EntryPoints.Constructor = make([]EntryPoint, 0, len(c.EntryPoints.Constructor))
-		for _, entryPoint := range c.EntryPoints.Constructor {
-			index := entryPoint.Index
-			rpcClass.EntryPoints.Constructor = append(rpcClass.EntryPoints.Constructor, EntryPoint{
-				Index:    &index,
-				Selector: entryPoint.Selector,
-			})
-		}
-
-		rpcClass.EntryPoints.L1Handler = make([]EntryPoint, 0, len(c.EntryPoints.L1Handler))
-		for _, entryPoint := range c.EntryPoints.L1Handler {
-			index := entryPoint.Index
-			rpcClass.EntryPoints.L1Handler = append(rpcClass.EntryPoints.L1Handler, EntryPoint{
-				Index:    &index,
-				Selector: entryPoint.Selector,
-			})
-		}
-
-		rpcClass.EntryPoints.External = make([]EntryPoint, 0, len(c.EntryPoints.External))
-		for _, entryPoint := range c.EntryPoints.External {
-			index := entryPoint.Index
-			rpcClass.EntryPoints.External = append(rpcClass.EntryPoints.External, EntryPoint{
-				Index:    &index,
-				Selector: entryPoint.Selector,
-			})
-		}
-
 	default:
 		return nil, ErrClassHashNotFound
 	}
