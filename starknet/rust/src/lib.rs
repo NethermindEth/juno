@@ -1,5 +1,5 @@
 use std::ffi::{c_char, CStr, CString};
-use cairo_lang_starknet::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 
 #[no_mangle]
 pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char) -> *mut c_char {
@@ -11,7 +11,7 @@ pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char) -> *mut c_char
         return raw_cstr(e)
     }
 
-    let casm_class = CasmContractClass::from_contract_class(sierra_class.unwrap(), true)
+    let casm_class = CasmContractClass::from_contract_class(sierra_class.unwrap(), true, usize::MAX)
         .map_err(|err| err.to_string());
     if let Err(e) = casm_class {
         return raw_cstr(e)
