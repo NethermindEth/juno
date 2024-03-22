@@ -3,6 +3,7 @@ package starknet_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -42,18 +43,18 @@ func TestCompile(t *testing.T) {
 
 	t.Run("declare cairo2 class", func(t *testing.T) {
 		// tests https://github.com/NethermindEth/juno/issues/1748
-		definition := loadTestData[starknet.SierraDefinition](t, "./loadTestData/declare_cairo2_definition.json")
+		definition := loadTestData[starknet.SierraDefinition](t, "declare_cairo2_definition.json")
 
 		_, err := starknet.Compile(&definition)
 		require.NoError(t, err)
 	})
 }
 
-// loadTestData loads json file located relative to a test package
-// and unmarshal it to provided type
-func loadTestData[T any](t *testing.T, file string) T {
+// loadTestData loads json file located relative to a test package and unmarshal it to provided type
+func loadTestData[T any](t *testing.T, filename string) T {
 	t.Helper()
 
+	file := fmt.Sprintf("./testdata/%s", filename)
 	buff, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", file, err)
