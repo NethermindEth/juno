@@ -1,5 +1,6 @@
 module github.com/NethermindEth/juno
 
+// if version specified as "1.22" (without bugfix) it breaks CodeQL github build
 go 1.22.0
 
 require (
