@@ -74,7 +74,7 @@ pub extern "C" fn cairoVMCall(
     block_info_ptr: *const BlockInfo,
     reader_handle: usize,
     chain_id: *const c_char,
-    _max_steps: c_ulonglong, //todo: enforce this
+    max_steps: c_ulonglong,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
@@ -114,7 +114,7 @@ pub extern "C" fn cairoVMCall(
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
-            block_context: build_block_context(&mut state, &block_info, chain_id_str),
+            block_context: build_block_context(&mut state, &block_info, chain_id_str, Some(max_steps)),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
         false,
@@ -189,7 +189,7 @@ pub extern "C" fn cairoVMExecute(
     let mut state = CachedState::new(reader, GlobalContractCache::new(1));
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
-    let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id_str);
+    let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id_str, None);
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -378,6 +378,7 @@ fn build_block_context(
     state: &mut dyn State,
     block_info: &BlockInfo,
     chain_id_str: &str,
+    max_steps: Option<c_ulonglong>,
 ) -> BlockContext {
     let sequencer_addr =  StarkFelt::new(block_info.sequencer_address).unwrap();
     let gas_price_wei_felt = StarkFelt::new(block_info.gas_price_wei).unwrap();
@@ -393,6 +394,11 @@ fn build_block_context(
             hash: BlockHash(StarkFelt::new(block_info.block_hash_to_be_revealed).unwrap()),
         })
     }
+    let mut constants = get_versioned_constants(block_info.version);
+    if let Some(max_steps) = max_steps {
+        constants.invoke_tx_max_n_steps = max_steps as u32;
+    }
+
     pre_process_block(state, old_block_number_and_hash, BlockifierBlockInfo{
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
@@ -411,7 +417,7 @@ fn build_block_context(
             eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
             strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
         },
-    }, get_versioned_constants(block_info.version)).unwrap()
+    }, constants).unwrap()
 }
 
 
