@@ -76,6 +76,14 @@ func TestV0Call(t *testing.T) {
 	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, true)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
+
+	// checks that max_steps took into account
+	_, err = New(nil).Call(&CallInfo{
+		ContractAddress: contractAddr,
+		ClassHash:       classHash,
+		Selector:        entryPoint,
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1, true)
+	require.Error(t, err)
 }
 
 func TestV1Call(t *testing.T) {
