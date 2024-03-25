@@ -43,7 +43,13 @@ jobs:
           platforms: 'linux/amd64'
           push: true
           tags: nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }}
-    
+
+  p2p-sync-test:
+    needs: [docker_build_and_publish]
+    uses: ./.github/workflows/p2p-sync-test.yml
+    with:
+      JUNO_VERSION: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
+
   deploy_to_dev:
     permissions:
       id-token: write
