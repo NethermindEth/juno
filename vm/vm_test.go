@@ -76,14 +76,6 @@ func TestV0Call(t *testing.T) {
 	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, true)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
-
-	// checks that max_steps took into account
-	_, err = New(nil).Call(&CallInfo{
-		ContractAddress: contractAddr,
-		ClassHash:       classHash,
-		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1, true)
-	require.Error(t, err)
 }
 
 func TestV1Call(t *testing.T) {
@@ -154,6 +146,47 @@ func TestV1Call(t *testing.T) {
 	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, true)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
+}
+
+func TestCall_MaxSteps(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
+	classHash := utils.HexToFelt(t, "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
+	simpleClass, err := gw.Class(context.Background(), classHash)
+	require.NoError(t, err)
+
+	require.NoError(t, encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{})))
+
+	testState := core.NewState(txn)
+	require.NoError(t, testState.Update(0, &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
+		StateDiff: &core.StateDiff{
+			DeployedContracts: map[felt.Felt]*felt.Felt{
+				*contractAddr: classHash,
+			},
+		},
+	}, map[felt.Felt]core.Class{
+		*classHash: simpleClass,
+	}))
+
+	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
+
+	_, err = New(nil).Call(&CallInfo{
+		ContractAddress: contractAddr,
+		ClassHash:       classHash,
+		Selector:        entryPoint,
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, true)
+	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
 func TestExecute(t *testing.T) {
