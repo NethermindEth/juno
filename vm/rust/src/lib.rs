@@ -89,7 +89,7 @@ pub extern "C" fn cairoVMCall(
     let entry_point_selector_felt = StarkFelt::new(call_info.entry_point_selector).unwrap();
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
-    let mut calldata_vec: Vec<StarkFelt> = vec![];
+    let mut calldata_vec: Vec<StarkFelt> = Vec::with_capacity(call_info.len_calldata);
     if call_info.len_calldata > 0 {
         let calldata_slice = unsafe { slice::from_raw_parts(call_info.calldata, call_info.len_calldata) };
         for ptr in calldata_slice {

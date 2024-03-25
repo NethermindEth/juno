@@ -31,6 +31,7 @@ jobs:
           workspaces: |
             vm/rust
             core/rust
+            starknet/rust
       - name: Install deps
         run: make install-deps
       - name: Install Jemalloc (Ubuntu or self-hosted)
