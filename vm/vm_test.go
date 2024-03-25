@@ -164,7 +164,7 @@ func TestCall_MaxSteps(t *testing.T) {
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
 
-	encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{}))
+	encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{})) //nolint:errcheck
 
 	testState := core.NewState(txn)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
