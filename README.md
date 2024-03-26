@@ -49,6 +49,21 @@
   the official Golang [download](https://go.dev/doc/install) page.
 - [Rust](https://www.rust-lang.org/tools/install).
 - A C compiler: `gcc` or `clang`.
+- Install `jemalloc` on your system:
+  
+  - macOS
+
+    ```bash
+    brew install jemalloc
+    ```
+
+  - Ubuntu
+
+    ```bash
+    sudo apt-get install -y libjemalloc-dev
+    ```
+
+- To ensure a successful build, you either need to synchronize the tags from the upstream repository or create a new tag.
 
 ### Build and Run
 
