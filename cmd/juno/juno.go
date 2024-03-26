@@ -190,7 +190,10 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		fmt.Printf(greeting, Version)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), greeting, Version)
+		if err != nil {
+			return err
+		}
 
 		n, err := node.New(config, Version)
 		if err != nil {
@@ -361,7 +364,7 @@ func GenP2PKeyPair() *cobra.Command {
 	return &cobra.Command{
 		Use:   "genp2pkeypair",
 		Short: "Generate private key pair for p2p.",
-		RunE: func(*cobra.Command, []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			priv, pub, id, err := p2p.GenKeyPair()
 			if err != nil {
 				return err
@@ -374,7 +377,10 @@ func GenP2PKeyPair() *cobra.Command {
 
 			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
 			hex.Encode(privHex, rawPriv)
-			fmt.Println("P2P Private Key:", string(privHex))
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P Private Key:", string(privHex))
+			if err != nil {
+				return err
+			}
 
 			rawPub, err := pub.Raw()
 			if err != nil {
@@ -383,10 +389,13 @@ func GenP2PKeyPair() *cobra.Command {
 
 			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
 			hex.Encode(pubHex, rawPub)
-			fmt.Println("P2P Public Key:", string(pubHex))
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P Public Key:", string(pubHex))
+			if err != nil {
+				return err
+			}
 
-			fmt.Println("P2P PeerID:", id)
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P PeerID:", id)
+			return err
 		},
 	}
 }
