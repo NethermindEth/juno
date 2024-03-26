@@ -350,7 +350,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
+
 	junoCmd.AddCommand(GenP2PKeyPair())
+	junoCmd.AddCommand(DBSize())
 
 	return junoCmd
 }
@@ -387,4 +389,31 @@ func GenP2PKeyPair() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func DBSize() *cobra.Command {
+	dbSizeCmd := &cobra.Command{
+		Use:   "db-size",
+		Short: "Calculate's Juno's DB size.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dbPath, err := cmd.Flags().GetString(dbPathF)
+			if err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), dbPath)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	// Persistent Flag was not used from the Juno command because GenP2PKeyPair would also inherit it while PersistentPreRun was not used
+	// because none of the subcommand required access to the node.Config.
+	defaultDBPath, dbPathShort := "", "p"
+	dbSizeCmd.Flags().StringP(dbPathF, dbPathShort, defaultDBPath, dbPathUsage)
+
+	return dbSizeCmd
 }
