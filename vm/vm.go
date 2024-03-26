@@ -300,7 +300,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	C.free(unsafe.Pointer(chainID))
 	C.free(unsafe.Pointer(cBlockInfo.version))
 
-	if len(context.err) > 0 {
+	if context.err != "" {
 		if context.errTxnIndex >= 0 {
 			return nil, nil, nil, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),

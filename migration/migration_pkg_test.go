@@ -123,7 +123,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		require.NoError(t, txn.Set(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}))
 
 		for _, bucket := range buckets {
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				n.Value = new(felt.Felt).SetUint64(uint64(i))
 
 				encodedNode, err := encoder.Marshal(n)
@@ -149,7 +149,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		for _, bucket := range buckets {
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				var coreNode trie.Node
 				err := txn.Get(bucket.Key([]byte{byte(i)}), coreNode.UnmarshalBinary)
 				if err != nil {

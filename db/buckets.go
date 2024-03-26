@@ -1,6 +1,6 @@
 package db
 
-import "bytes"
+import "slices"
 
 type Bucket byte
 
@@ -36,5 +36,5 @@ const (
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
 func (b Bucket) Key(key ...[]byte) []byte {
-	return append([]byte{byte(b)}, bytes.Join(key, []byte{})...)
+	return append([]byte{byte(b)}, slices.Concat(key...)...)
 }
