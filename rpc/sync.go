@@ -2,9 +2,9 @@ package rpc
 
 import (
 	"encoding/json"
-	"github.com/NethermindEth/juno/jsonrpc"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/jsonrpc"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L852

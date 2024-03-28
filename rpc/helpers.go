@@ -144,3 +144,27 @@ func feeUnit(txn core.Transaction) FeeUnit {
 
 	return feeUnit
 }
+
+func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
+	var reader core.StateReader
+	var closer blockchain.StateCloser
+	var err error
+	switch {
+	case id.Latest:
+		reader, closer, err = h.bcReader.HeadState()
+	case id.Hash != nil:
+		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
+	case id.Pending:
+		reader, closer, err = h.bcReader.PendingState()
+	default:
+		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
+	}
+
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, nil, ErrBlockNotFound
+		}
+		return nil, nil, ErrInternal.CloneWithData(err)
+	}
+	return reader, closer, nil
+}

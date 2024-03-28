@@ -3,7 +3,7 @@ package rpc_test
 import (
 	"context"
 	"testing"
-	
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"

@@ -354,3 +354,10 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		StarknetVersion: header.ProtocolVersion,
 	}
 }
+
+func nilToZero(f *felt.Felt) *felt.Felt {
+	if f == nil {
+		return &felt.Zero
+	}
+	return f
+}
