@@ -425,6 +425,7 @@ lazy_static! {
     static ref CONSTANTS: HashMap<String, VersionedConstants> = {
         let mut m = HashMap::new();
         m.insert("0.13.0".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap());
+
         m
     };
 }
