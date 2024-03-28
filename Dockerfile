@@ -1,5 +1,5 @@
 # Stage 1: Build golang dependencies and binaries
-FROM ubuntu:24.04 AS build
+FROM ubuntu:23.10 AS build
 
 ARG VM_DEBUG
 
@@ -19,7 +19,7 @@ RUN VM_DEBUG=${VM_DEBUG} make juno
 RUN upx-ucl /app/build/juno
 
 # Stage 2: Build Docker image
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:23.10 AS runtime
 
 RUN apt-get update && apt-get install -y ca-certificates curl gawk grep libjemalloc-dev libjemalloc2
 
