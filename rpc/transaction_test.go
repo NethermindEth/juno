@@ -488,6 +488,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 }
 
+// TODO[Pawel]: The following 2 tests `Test[Legacy]TransactionReceiptByHash` are skipped
+// but we still keep them here. I have a doubt whether they test anything useful.
+//
 //nolint:dupl
 func TestTransactionReceiptByHash(t *testing.T) {
 	t.Skip()
@@ -747,6 +750,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	t.Skip()
 	mockCtrl := gomock.NewController(t)
