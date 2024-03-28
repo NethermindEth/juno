@@ -3,6 +3,7 @@ package rpc_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -305,5 +306,89 @@ func TestTraceBlockTransactions(t *testing.T) {
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, expectedResult, result)
+	})
+}
+
+func TestCall(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+
+	t.Run("empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block hash", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Hash: &felt.Zero})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("non-existent block number", func(t *testing.T) {
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Number: 0})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	t.Run("call - unknown contract", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
+	})
+
+	t.Run("ok", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337)
+
+		contractAddr := new(felt.Felt).SetUint64(1)
+		selector := new(felt.Felt).SetUint64(2)
+		classHash := new(felt.Felt).SetUint64(3)
+		calldata := []felt.Felt{
+			*new(felt.Felt).SetUint64(4),
+			*new(felt.Felt).SetUint64(5),
+		}
+		expectedRes := []*felt.Felt{
+			new(felt.Felt).SetUint64(6),
+			new(felt.Felt).SetUint64(7),
+		}
+
+		headsHeader := &core.Header{
+			Number:    9,
+			Timestamp: 101,
+		}
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockReader.EXPECT().Network().Return(&utils.Mainnet)
+		mockVM.EXPECT().Call(&vm.CallInfo{
+			ContractAddress: contractAddr,
+			ClassHash:       classHash,
+			Selector:        selector,
+			Calldata:        calldata,
+		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), true).Return(expectedRes, nil)
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{
+			ContractAddress:    *contractAddr,
+			EntryPointSelector: *selector,
+			Calldata:           calldata,
+		}, rpc.BlockID{Latest: true})
+		require.Nil(t, rpcErr)
+		require.Equal(t, expectedRes, res)
 	})
 }

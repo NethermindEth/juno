@@ -329,3 +329,52 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 
 	return traces, nil
 }
+
+// https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
+func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	return h.call(funcCall, id, true)
+}
+
+func (h *Handler) CallV0_6(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	return h.call(call, id, false)
+}
+
+func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	state, closer, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
+
+	header, rpcErr := h.blockHeaderByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	classHash, err := state.ContractClassHash(&funcCall.ContractAddress)
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
+
+	res, err := h.vm.Call(&vm.CallInfo{
+		ContractAddress: &funcCall.ContractAddress,
+		Selector:        &funcCall.EntryPointSelector,
+		Calldata:        funcCall.Calldata,
+		ClassHash:       classHash,
+	}, &vm.BlockInfo{
+		Header:                header,
+		BlockHashToBeRevealed: blockHashToBeRevealed,
+	}, state, h.bcReader.Network(), h.callMaxSteps, useBlobData)
+	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return nil, ErrInternal.CloneWithData(throttledVMErr)
+		}
+		return nil, makeContractError(err)
+	}
+	return res, nil
+}
