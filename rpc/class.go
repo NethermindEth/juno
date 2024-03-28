@@ -72,25 +72,6 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 		Class Handlers
 *****************************************************/
 
-// Nonce returns the nonce associated with the given address in the given block number
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
-func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getNonce")
-
-	nonce, err := stateReader.ContractNonce(&address)
-	if err != nil {
-		return nil, ErrContractNotFound
-	}
-
-	return nonce, nil
-}
-
 // Class gets the contract class definition in the given block associated with the given hash
 //
 // It follows the specification defined here:
