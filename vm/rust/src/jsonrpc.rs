@@ -1,16 +1,16 @@
 use blockifier;
-use blockifier::execution::entry_point::CallType;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME,
-    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
-    SEGMENT_ARENA_BUILTIN_NAME,
-};
+use blockifier::execution::entry_point::CallType;
 use blockifier::state::cached_state::TransactionalState;
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::state_api::StateReader;
+use cairo_vm::vm::runners::builtin_runner::{
+    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
+    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SEGMENT_ARENA_BUILTIN_NAME,
+    SIGNATURE_BUILTIN_NAME,
+};
 use serde::Serialize;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey, EthAddress};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
@@ -22,7 +22,8 @@ use crate::juno_state_reader::JunoStateReader;
 #[serde(rename_all = "UPPERCASE")]
 pub enum TransactionType {
     // dummy type for implementing Default trait
-    #[default] Unknown,
+    #[default]
+    Unknown,
     Invoke,
     Declare,
     #[serde(rename = "DEPLOY_ACCOUNT")]
@@ -205,14 +206,38 @@ impl From<VmExecutionResources> for ExecutionResources {
             } else {
                 None
             },
-            range_check_builtin_applications: val.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).cloned(),
-            pedersen_builtin_applications: val.builtin_instance_counter.get(HASH_BUILTIN_NAME).cloned(),
-            poseidon_builtin_applications: val.builtin_instance_counter.get(POSEIDON_BUILTIN_NAME).cloned(),
-            ec_op_builtin_applications: val.builtin_instance_counter.get(EC_OP_BUILTIN_NAME).cloned(),
-            ecdsa_builtin_applications: val.builtin_instance_counter.get(SIGNATURE_BUILTIN_NAME).cloned(),
-            bitwise_builtin_applications: val.builtin_instance_counter.get(BITWISE_BUILTIN_NAME).cloned(),
-            keccak_builtin_applications: val.builtin_instance_counter.get(KECCAK_BUILTIN_NAME).cloned(),
-            segment_arena_builtin: val.builtin_instance_counter.get(SEGMENT_ARENA_BUILTIN_NAME).cloned(),
+            range_check_builtin_applications: val
+                .builtin_instance_counter
+                .get(RANGE_CHECK_BUILTIN_NAME)
+                .cloned(),
+            pedersen_builtin_applications: val
+                .builtin_instance_counter
+                .get(HASH_BUILTIN_NAME)
+                .cloned(),
+            poseidon_builtin_applications: val
+                .builtin_instance_counter
+                .get(POSEIDON_BUILTIN_NAME)
+                .cloned(),
+            ec_op_builtin_applications: val
+                .builtin_instance_counter
+                .get(EC_OP_BUILTIN_NAME)
+                .cloned(),
+            ecdsa_builtin_applications: val
+                .builtin_instance_counter
+                .get(SIGNATURE_BUILTIN_NAME)
+                .cloned(),
+            bitwise_builtin_applications: val
+                .builtin_instance_counter
+                .get(BITWISE_BUILTIN_NAME)
+                .cloned(),
+            keccak_builtin_applications: val
+                .builtin_instance_counter
+                .get(KECCAK_BUILTIN_NAME)
+                .cloned(),
+            segment_arena_builtin: val
+                .builtin_instance_counter
+                .get(SEGMENT_ARENA_BUILTIN_NAME)
+                .cloned(),
         }
     }
 }

@@ -7,7 +7,9 @@ use std::{
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
 use blockifier::{
-    execution::contract_class::{ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1},
+    execution::contract_class::{
+        ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1,
+    },
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
@@ -58,7 +60,7 @@ impl JunoStateReader {
 
 impl StateReader for JunoStateReader {
     fn get_storage_at(
-        &mut self,
+        &self,
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
@@ -82,7 +84,7 @@ impl StateReader for JunoStateReader {
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let ptr = unsafe { JunoStateGetNonceAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
@@ -99,7 +101,7 @@ impl StateReader for JunoStateReader {
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let ptr = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
@@ -116,10 +118,7 @@ impl StateReader for JunoStateReader {
     }
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: ClassHash,
-    ) -> StateResult<ContractClass> {
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
@@ -157,7 +156,7 @@ impl StateReader for JunoStateReader {
 
             unsafe { JunoFree(ptr as *const c_void) };
 
-            class_info_res.map(| ci | ci.contract_class()).map_err(| err | {
+            class_info_res.map(|ci| ci.contract_class()).map_err(|err| {
                 StateError::StateReadError(format!(
                     "parsing JSON string for class hash {}: {}",
                     class_hash.0, err
@@ -167,10 +166,7 @@ impl StateReader for JunoStateReader {
     }
 
     /// Returns the compiled class hash of the given class hash.
-    fn get_compiled_class_hash(
-        &mut self,
-        _class_hash: ClassHash,
-    ) -> StateResult<CompiledClassHash> {
+    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         unimplemented!()
     }
 }
@@ -193,15 +189,22 @@ pub struct ClassInfo {
 }
 
 pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
-    let class_info: ClassInfo = serde_json::from_str(raw_json).map_err(|err| format!("failed parsing class info: {:?}", err))?;
-    let class_def = class_info.contract_class.to_string();    
-    
-    let class: ContractClass = if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
-        class.into()
-    } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
-        class.into()
-    } else {
-        return Err("not a valid contract class".to_string())
-    };
-    return Ok(BlockifierClassInfo::new(&class.into(), class_info.sierra_program_length, class_info.abi_length).unwrap());
+    let class_info: ClassInfo = serde_json::from_str(raw_json)
+        .map_err(|err| format!("failed parsing class info: {:?}", err))?;
+    let class_def = class_info.contract_class.to_string();
+
+    let class: ContractClass =
+        if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
+            class.into()
+        } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
+            class.into()
+        } else {
+            return Err("not a valid contract class".to_string());
+        };
+    return Ok(BlockifierClassInfo::new(
+        &class.into(),
+        class_info.sierra_program_length,
+        class_info.abi_length,
+    )
+    .unwrap());
 }
