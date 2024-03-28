@@ -137,6 +137,32 @@ func TestClass(t *testing.T) {
 		cairo0Class := coreClass.(*core.Cairo0Class)
 		assertEqualCairo0Class(t, cairo0Class, class)
 	})
+
+	t.Run("state by id error", func(t *testing.T) {
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+
+		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+
+		_, rpcErr := handler.Class(latest, felt.Zero)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("class hash not found error", func(t *testing.T) {
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+
+		mockReader.EXPECT().HeadState().Return(mockState, func() error {
+			return nil
+		}, nil)
+		mockState.EXPECT().Class(gomock.Any()).Return(nil, errors.New("class hash not found"))
+
+		_, rpcErr := handler.Class(latest, felt.Zero)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, rpc.ErrClassHashNotFound, rpcErr)
+	})
 }
 
 func TestClassAt(t *testing.T) {

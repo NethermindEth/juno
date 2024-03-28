@@ -356,6 +356,9 @@ func (f FeeEstimate) MarshalJSON() ([]byte, error) {
 	}
 }
 
+// Dirty hack for testing
+func (f *FeeEstimate) FromV0_6() { f.v0_6Response = true }
+
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
