@@ -1,6 +1,7 @@
 package pebble
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -107,4 +108,33 @@ func (d *DB) Update(fn func(txn db.Transaction) error) error {
 // Impl : see db.DB.Impl
 func (d *DB) Impl() any {
 	return d.pebble
+}
+
+func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (uint, error) {
+	var (
+		err  error
+		size uint
+		v    []byte
+	)
+
+	const upperBoundofPrefix = 0xff
+	pebbleDB := pDB.Impl().(*pebble.DB)
+	it, err := pebbleDB.NewIter(&pebble.IterOptions{LowerBound: prefix, UpperBound: append(prefix, upperBoundofPrefix)})
+	if err != nil {
+		// No need to call utils.RunAndWrapOnError() since iterator couldn't be created
+		return 0, err
+	}
+
+	for it.First(); it.Valid(); it.Next() {
+		if ctx.Err() != nil {
+			return size, utils.RunAndWrapOnError(it.Close, ctx.Err())
+		}
+		v, err = it.ValueAndErr()
+		if err != nil {
+			return 0, utils.RunAndWrapOnError(it.Close, err)
+		}
+		size += uint(len(it.Key()) + len(v))
+	}
+
+	return size, utils.RunAndWrapOnError(it.Close, err)
 }
