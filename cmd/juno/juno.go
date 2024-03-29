@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/p2p"
@@ -410,12 +412,63 @@ func DBSize() *cobra.Command {
 				return err
 			}
 
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), dbPath)
+			if dbPath == "" {
+				return fmt.Errorf("--%v cannot be empty", dbPathF)
+			}
+
+			pebbleDB, err := pebble.New(dbPath)
 			if err != nil {
 				return err
 			}
 
-			return nil
+			var totalSize, stateSizeWithoutHistory, stateSizeWithHistory uint
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "Total number of DB buckets:", len(db.BucketValues()))
+			if err != nil {
+				return err
+			}
+
+			var bucketSize uint
+			for _, b := range db.BucketValues() {
+				bucketSize, err = pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)})
+				if err != nil {
+					return err
+				}
+
+				_, err = fmt.Fprintln(cmd.OutOrStdout(), uint(b)+1, "Size of", b, "=", bucketSize)
+				if err != nil {
+					return err
+				}
+
+				totalSize += bucketSize
+
+				if utils.AnyOf(db.StateTrie, db.ContractStorage, db.Class, db.ContractNonce,
+					db.ContractDeploymentHeight, b) {
+					stateSizeWithoutHistory += bucketSize
+					stateSizeWithHistory += bucketSize
+				}
+
+				if utils.AnyOf(db.ContractStorageHistory, db.ContractNonceHistory, db.ContractClassHashHistory, b) {
+					stateSizeWithHistory += bucketSize
+				}
+			}
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout())
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "State size without history =", stateSizeWithoutHistory)
+			if err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "State size with history =", stateSizeWithHistory)
+			if err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "Total DB size =", totalSize)
+			return err
 		},
 	}
 
