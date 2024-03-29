@@ -405,6 +405,7 @@ func GenP2PKeyPair() *cobra.Command {
 	}
 }
 
+//nolint:gocyclo
 func DBSize() *cobra.Command {
 	dbSizeCmd := &cobra.Command{
 		Use:   "db-size",
@@ -431,28 +432,28 @@ func DBSize() *cobra.Command {
 				return err
 			}
 
+			var bucketSize uint
 			for i := db.StateTrie; i <= db.SchemaIntermediateState; i++ {
-				s, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(i)})
+				bucketSize, err = pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(i)})
 				if err != nil {
 					return err
 				}
 
-				_, err = fmt.Fprintln(cmd.OutOrStdout(), uint(i)+1, "Size of", i, "=", s)
-
+				_, err = fmt.Fprintln(cmd.OutOrStdout(), uint(i)+1, "Size of", i, "=", bucketSize)
 				if err != nil {
 					return err
 				}
 
-				totalSize += s
+				totalSize += bucketSize
 
 				if i == db.StateTrie || i == db.ContractStorage || i == db.Class || i == db.ContractNonce || i == db.ClassesTrie ||
 					i == db.ContractDeploymentHeight {
-					stateSizeWithoutHistory += s
-					stateSizeWithHistory += s
+					stateSizeWithoutHistory += bucketSize
+					stateSizeWithHistory += bucketSize
 				}
 
 				if i == db.ContractStorageHistory || i == db.ContractNonceHistory || i == db.ContractClassHashHistory {
-					stateSizeWithHistory += s
+					stateSizeWithHistory += bucketSize
 				}
 			}
 

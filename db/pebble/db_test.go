@@ -440,9 +440,9 @@ func TestCalculatePrefixSize(t *testing.T) {
 
 	t.Run("size of all key value pair with the same prefix", func(t *testing.T) {
 		p := []byte("0")
-		k1, v1 := append(p, []byte("key1")...), []byte("value1")
-		k2, v2 := append(p, []byte("key2")...), []byte("value2")
-		k3, v3 := append(p, []byte("key3")...), []byte("value3")
+		k1, v1 := append(p, []byte("key1")...), []byte("value1") //nolint: gocritic
+		k2, v2 := append(p, []byte("key2")...), []byte("value2") //nolint: gocritic
+		k3, v3 := append(p, []byte("key3")...), []byte("value3") //nolint: gocritic
 		expectedSize := uint(len(k1) + len(v1) + len(k2) + len(v2) + len(k3) + len(v3))
 
 		testDB := pebble.NewMemTest(t)

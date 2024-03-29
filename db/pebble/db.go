@@ -118,14 +118,16 @@ func (d *DB) Impl() any {
 	return d.pebble
 }
 
-func CalculatePrefixSize(ctx context.Context, db *DB, prefix []byte) (uint, error) {
+func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (uint, error) {
 	var (
 		err  error
 		size uint
+		v    []byte
 	)
 
-	pebbleDB := db.Impl().(*pebble.DB)
-	it, err := pebbleDB.NewIter(&pebble.IterOptions{LowerBound: prefix, UpperBound: append(prefix, 0xff)})
+	const upperBoundofPrefix = 0xff
+	pebbleDB := pDB.Impl().(*pebble.DB)
+	it, err := pebbleDB.NewIter(&pebble.IterOptions{LowerBound: prefix, UpperBound: append(prefix, upperBoundofPrefix)})
 	if err != nil {
 		// No need to call utils.RunAndWrapOnError() size iterator couldn't be created
 		return 0, err
@@ -135,7 +137,7 @@ func CalculatePrefixSize(ctx context.Context, db *DB, prefix []byte) (uint, erro
 		if ctx.Err() != nil {
 			return size, utils.RunAndWrapOnError(it.Close, ctx.Err())
 		}
-		v, err := it.ValueAndErr()
+		v, err = it.ValueAndErr()
 		if err != nil {
 			return 0, utils.RunAndWrapOnError(it.Close, err)
 		}
