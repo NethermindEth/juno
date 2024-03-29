@@ -2,6 +2,7 @@ package pebble
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -13,7 +14,8 @@ import (
 
 const (
 	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
-	minCache = 8
+	// This is also pebble's default value.
+	minCacheSizeMB = 8
 )
 
 var _ db.DB = (*DB)(nil)
@@ -24,19 +26,25 @@ type DB struct {
 	listener db.EventListener
 }
 
-// New opens a new database at the given path
-func New(path string, cache uint, maxOpenFiles int, logger pebble.Logger) (db.DB, error) {
+// New opens a new database at the given path with default options
+func New(path string) (db.DB, error) {
+	return newPebble(path, nil)
+}
+
+func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLogger bool) (db.DB, error) {
 	// Ensure that the specified cache size meets a minimum threshold.
-	cache = max(minCache, cache)
-	pDB, err := newPebble(path, &pebble.Options{
-		Logger:       logger,
-		Cache:        pebble.NewCache(int64(cache * utils.Megabyte)),
+	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
+
+	dbLog, err := utils.NewZapLogger(utils.ERROR, colouredLogger)
+	if err != nil {
+		return nil, fmt.Errorf("create DB logger: %w", err)
+	}
+
+	return newPebble(path, &pebble.Options{
+		Logger:       dbLog,
+		Cache:        pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
 		MaxOpenFiles: maxOpenFiles,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return pDB, nil
 }
 
 // NewMem opens a new in-memory database
