@@ -1,6 +1,7 @@
 package pebble_test
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"sync"
@@ -415,5 +416,53 @@ func TestPanic(t *testing.T) {
 			require.NoError(t, txn.Set([]byte{0}, []byte{0}))
 			panic("update")
 		}))
+	})
+}
+
+func TestCalculatePrefixSize(t *testing.T) {
+	t.Run("empty db", func(t *testing.T) {
+		testDB := pebble.NewMemTest(t).(*pebble.DB)
+
+		s, err := pebble.CalculatePrefixSize(context.Background(), testDB, []byte("0"))
+		require.NoError(t, err)
+		assert.Equal(t, uint(0), s)
+	})
+
+	t.Run("non empty db but empty prefix", func(t *testing.T) {
+		testDB := pebble.NewMemTest(t)
+		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+			return txn.Set(append([]byte("0"), []byte("randomKey")...), []byte("someValue"))
+		}))
+		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), []byte("1"))
+		require.NoError(t, err)
+		assert.Equal(t, uint(0), s)
+	})
+
+	t.Run("size of all key value pair with the same prefix", func(t *testing.T) {
+		p := []byte("0")
+		k1, v1 := append(p, []byte("key1")...), []byte("value1")
+		k2, v2 := append(p, []byte("key2")...), []byte("value2")
+		k3, v3 := append(p, []byte("key3")...), []byte("value3")
+		expectedSize := uint(len(k1) + len(v1) + len(k2) + len(v2) + len(k3) + len(v3))
+
+		testDB := pebble.NewMemTest(t)
+		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+			require.NoError(t, txn.Set(k1, v1))
+			require.NoError(t, txn.Set(k2, v2))
+			return txn.Set(k3, v3)
+		}))
+
+		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), p)
+		require.NoError(t, err)
+		assert.Equal(t, expectedSize, s)
+
+		t.Run("exit when context is cancelled", func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			s, err := pebble.CalculatePrefixSize(ctx, testDB.(*pebble.DB), p)
+			assert.EqualError(t, err, context.Canceled.Error())
+			assert.Equal(t, uint(0), s)
+		})
 	})
 }
