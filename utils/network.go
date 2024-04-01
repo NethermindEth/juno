@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -13,7 +12,9 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var errUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+var errUnknownNetwork = fmt.Errorf("unknown network (known: %s)",
+	strings.Join(knownNetworkNames(), ", "),
+)
 
 type Network struct {
 	Name                string             `json:"name" validate:"required"`
@@ -166,4 +167,12 @@ func (n *Network) L2ChainIDFelt() *felt.Felt {
 
 func (n *Network) ProtocolID() protocol.ID {
 	return protocol.ID(fmt.Sprintf("/starknet/%s", n.String()))
+}
+
+func knownNetworkNames() []string {
+	networks := []Network{Mainnet, Goerli, Goerli2, Integration, Sepolia, SepoliaIntegration}
+
+	return Map(networks, func(n Network) string {
+		return n.String()
+	})
 }
