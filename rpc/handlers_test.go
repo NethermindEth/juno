@@ -37,7 +37,7 @@ import (
 func nopCloser() error { return nil }
 
 func TestChainId(t *testing.T) {
-	for _, n := range []utils.Network{utils.Mainnet, utils.Goerli, utils.Goerli2, utils.Integration} {
+	for _, n := range []utils.Network{utils.Mainnet, utils.Sepolia, utils.SepoliaIntegration} {
 		t.Run(n.String(), func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
