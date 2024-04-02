@@ -1,3 +1,4 @@
+
 <p align="center">
   <a href="https://github.com/NethermindEth/juno">
     <img alt="Juno Logo" height="125" src="./.github/Juno_Light.png">
@@ -162,6 +163,37 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.
 
+
+## Suggested Steps for Update
+
+1. **Stopping the Old Juno Node:**
+   Users need to stop the currently running Juno container. This can be done using the command:
+   ```bash
+   docker stop juno
+   ```
+
+2. **Removing the Old Container:**
+   After stopping the container, it should be removed. This ensures that the new container can be started without naming conflicts. The command for this step is:
+   ```bash
+   docker rm juno
+   ```
+
+3. **Running the New Juno Node:**
+   Finally, users can run a new Juno Node container using the latest Docker image. The command is similar to the initial run command but ensures the latest image is used:
+   ```bash
+   docker run -d \
+     --name juno \
+     -p 6060:6060 \
+     -v $HOME/juno:/var/lib/juno \
+     nethermind/juno:latest \
+     --http \
+     --http-port 6060 \
+     --http-host 0.0.0.0 \
+     --db-path /var/lib/juno \
+     --eth-node <YOUR-ETH-NODE>
+   ```
+
+   
 ## ✔ Supported Features
 
 - Starknet [v0.13.1](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
