@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: starknet-io/starknet.js
-          ref: v6.1.5
+          ref: v6.6.6
   
       - name: Setup Node.js
         uses: actions/setup-node@v3

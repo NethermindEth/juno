@@ -79,8 +79,8 @@ jobs:
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.DEV_GOERLI_URL }}/v0_6
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
             
   deploy_to_staging:
     needs: [docker_build_and_publish, deploy_to_dev]
@@ -110,15 +110,15 @@ jobs:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.STAGING_GOERLI_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_6
       
   staging-starknet-js-tests:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.STAGING_GOERLI_URL }}/v0_6
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
+      TEST_RPC_URL: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_7
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   deploy_to_production:
     needs: [docker_build_and_publish, deploy_to_staging]
@@ -148,12 +148,12 @@ jobs:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.PROD_GOERLI_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_6
       
   prod-starknet-js-tests:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.PROD_GOERLI_URL }}/v0_6
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
+      TEST_RPC_URL: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
