@@ -2,7 +2,7 @@ name: Docker Build, Publish and Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, wojciechos/e2e-tests-sepolia]
     tags: ['v*']
   workflow_dispatch:
 
@@ -27,133 +27,133 @@ jobs:
           echo "DOCKER_IMAGE_TAG=$(git describe --tags)" >> $GITHUB_ENV
           echo "IMAGE_TAG=$(git describe --tags)" >> "$GITHUB_OUTPUT"
       
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Setup Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
       
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with: 
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+  #     - name: Login to Docker Hub
+  #       uses: docker/login-action@v3
+  #       with: 
+  #         username: ${{ secrets.DOCKER_USERNAME }}
+  #         password: ${{ secrets.DOCKER_PASSWORD }}
       
-      - name: Build and Push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: 'linux/amd64'
-          push: true
-          tags: nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }}
+  #     - name: Build and Push
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: .
+  #         platforms: 'linux/amd64'
+  #         push: true
+  #         tags: nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }}
     
-  deploy_to_dev:
-    permissions:
-      id-token: write
-      contents: write
-    needs: [docker_build_and_publish]
-    runs-on: ubuntu-latest
-    environment: 
-      name: Development
-    steps:
-      - name: Repository Dispatch Dev
-        env:
-          EVENT_NAME: juno-dev
-          IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
-          GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
-          INTEGRATION: apps/juno-dev/overlays/dev-integration/config.yaml
-        run: |
-          curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+  # deploy_to_dev:
+  #   permissions:
+  #     id-token: write
+  #     contents: write
+  #   needs: [docker_build_and_publish]
+  #   runs-on: ubuntu-latest
+  #   environment: 
+  #     name: Development
+  #   steps:
+  #     - name: Repository Dispatch Dev
+  #       env:
+  #         EVENT_NAME: juno-dev
+  #         IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
+  #         GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
+  #         INTEGRATION: apps/juno-dev/overlays/dev-integration/config.yaml
+  #       run: |
+  #         curl -L \
+  #         -X POST \
+  #         -H "Accept: application/vnd.github+json" \
+  #         -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+  #         -H "X-GitHub-Api-Version: 2022-11-28" \
+  #         https://api.github.com/repos/NethermindEth/argo/dispatches \
+  #         -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
   
-  dev-starknet-rs-tests:
-    needs: [deploy_to_dev]
-    uses: ./.github/workflows/starknet-rs-tests.yml
-    secrets:
-      STARKNET_RPC: ${{ secrets.DEV_GOERLI_URL }}/v0_6
+  # dev-starknet-rs-tests:
+  #   needs: [deploy_to_dev]
+  #   uses: ./.github/workflows/starknet-rs-tests.yml
+  #   secrets:
+  #     STARKNET_RPC: ${{ secrets.DEV_GOERLI_URL }}/v0_6
       
-  dev-starknet-js-tests:
-    needs: [deploy_to_dev]
-    uses: ./.github/workflows/starknet-js-tests.yml
-    secrets:
-      TEST_RPC_URL: ${{ secrets.DEV_GOERLI_URL }}/v0_6
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+  # dev-starknet-js-tests:
+  #   needs: [deploy_to_dev]
+  #   uses: ./.github/workflows/starknet-js-tests.yml
+  #   secrets:
+  #     TEST_RPC_URL: ${{ secrets.DEV_GOERLI_URL }}/v0_6
+  #     TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+  #     TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
             
-  deploy_to_staging:
-    needs: [docker_build_and_publish, deploy_to_dev]
-    runs-on: ubuntu-latest
-    environment: 
-      name: Staging
-    steps:         
-    - name: Repository Dispatch Staging
-      env:
-          EVENT_NAME: juno-staging
-          IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
-          GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
-          INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
-          MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
-          SEPOLIA: apps/juno-staging/overlays/staging-sepolia/config.yaml
-          SEPOLIA_INTEGRATION: apps/juno-staging/overlays/staging-sepolia-integration/config.yaml
-      run: |
-          curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION}}", "tag": "${{ env.IMAGE_TAG }}"}}'
+  # deploy_to_staging:
+  #   needs: [docker_build_and_publish, deploy_to_dev]
+  #   runs-on: ubuntu-latest
+  #   environment: 
+  #     name: Staging
+  #   steps:         
+  #   - name: Repository Dispatch Staging
+  #     env:
+  #         EVENT_NAME: juno-staging
+  #         IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
+  #         GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
+  #         INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
+  #         MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
+  #         SEPOLIA: apps/juno-staging/overlays/staging-sepolia/config.yaml
+  #         SEPOLIA_INTEGRATION: apps/juno-staging/overlays/staging-sepolia-integration/config.yaml
+  #     run: |
+  #         curl -L \
+  #         -X POST \
+  #         -H "Accept: application/vnd.github+json" \
+  #         -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+  #         -H "X-GitHub-Api-Version: 2022-11-28" \
+  #         https://api.github.com/repos/NethermindEth/argo/dispatches \
+  #         -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION}}", "tag": "${{ env.IMAGE_TAG }}"}}'
 
   staging-starknet-rs-tests:
-    needs: [deploy_to_staging]
+    #needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
       STARKNET_RPC: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_6
       
   staging-starknet-js-tests:
-    needs: [deploy_to_staging]
+    #needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_7
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
-  deploy_to_production:
-    needs: [docker_build_and_publish, deploy_to_staging]
-    runs-on: ubuntu-latest
-    environment:
-      name: Production
-    steps:
-      - name: Repository Dispatch Prod
-        env: 
-          EVENT_NAME: juno-prod
-          IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
-          GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
-          INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
-          MAINNET: apps/juno-prod/overlays/prod-mainnet/config.yaml
-          SEPOLIA: apps/juno-prod/overlays/prod-sepolia/config.yaml
-          SEPOLIA_INTEGRATION: apps/juno-prod/overlays/prod-sepolia-integration/config.yaml
-        run: |
-          curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+  # deploy_to_production:
+  #   needs: [docker_build_and_publish, deploy_to_staging]
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: Production
+  #   steps:
+  #     - name: Repository Dispatch Prod
+  #       env: 
+  #         EVENT_NAME: juno-prod
+  #         IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
+  #         GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
+  #         INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
+  #         MAINNET: apps/juno-prod/overlays/prod-mainnet/config.yaml
+  #         SEPOLIA: apps/juno-prod/overlays/prod-sepolia/config.yaml
+  #         SEPOLIA_INTEGRATION: apps/juno-prod/overlays/prod-sepolia-integration/config.yaml
+  #       run: |
+  #         curl -L \
+  #         -X POST \
+  #         -H "Accept: application/vnd.github+json" \
+  #         -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
+  #         -H "X-GitHub-Api-Version: 2022-11-28" \
+  #         https://api.github.com/repos/NethermindEth/argo/dispatches \
+  #         -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
           
-  prod-starknet-rs-tests:
-    needs: [deploy_to_production]
-    uses: ./.github/workflows/starknet-rs-tests.yml
-    secrets:
-      STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_6
+  # prod-starknet-rs-tests:
+  #   needs: [deploy_to_production]
+  #   uses: ./.github/workflows/starknet-rs-tests.yml
+  #   secrets:
+  #     STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_6
       
-  prod-starknet-js-tests:
-    needs: [deploy_to_production]
-    uses: ./.github/workflows/starknet-js-tests.yml
-    secrets:
-      TEST_RPC_URL: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+  # prod-starknet-js-tests:
+  #   needs: [deploy_to_production]
+  #   uses: ./.github/workflows/starknet-js-tests.yml
+  #   secrets:
+  #     TEST_RPC_URL: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
+  #     TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+  #     TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
