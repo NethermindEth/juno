@@ -57,7 +57,6 @@ type Config struct {
 	GRPCPort            uint16         `mapstructure:"grpc-port"`
 	DatabasePath        string         `mapstructure:"db-path"`
 	Network             utils.Network  `mapstructure:"network"`
-	CustomNetwork       string         `mapstructure:"custom-network"`
 	EthNode             string         `mapstructure:"eth-node"`
 	Pprof               bool           `mapstructure:"pprof"`
 	PprofHost           string         `mapstructure:"pprof-host"`
