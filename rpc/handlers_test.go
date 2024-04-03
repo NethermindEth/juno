@@ -118,7 +118,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", nil)
 
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(485004)
