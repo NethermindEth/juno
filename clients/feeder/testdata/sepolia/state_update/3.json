@@ -1,0 +1,24 @@
+{
+  "block_hash": "0x37644818236ee05b7e3b180bed64ea70ee3dd1553ca334a5c2a290ee276f380",
+  "new_root": "0x1801be8c1f95003d643eb1601adad68585bae7536b7f28f7f3bd600adc39082",
+  "old_root": "0xe005205a1327f3dff98074e528f7b96f30e0624a1dfcf571bdc81948d150a0",
+  "state_diff": {
+    "storage_diffs": {},
+    "nonces": {
+      "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8": "0x7"
+    },
+    "deployed_contracts": [
+      {
+        "address": "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5",
+        "class_hash": "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"
+      },
+      {
+        "address": "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379",
+        "class_hash": "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1"
+      }
+    ],
+    "old_declared_contracts": [],
+    "declared_classes": [],
+    "replaced_classes": []
+  }
+}
