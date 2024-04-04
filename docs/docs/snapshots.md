@@ -13,11 +13,11 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 | ------- | ---- | ----- | ------------- |
 | **>=v0.6.0**  | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
 
-## Goerli
+### Sepolia
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
+| **>=v0.9.2** | **2.9 GB** | **55984** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.4_55984.tar) |
 
 ## Goerli2
 
