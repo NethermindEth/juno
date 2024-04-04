@@ -11,7 +11,7 @@ else
 endif
 
 ifeq ($(shell uname -s),Darwin)
-	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration -lc++ -lz -lncurses -lcairo -v
+	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration -lc++ -lz -lncurses -lcairo
 endif
 
 rustdeps: vm core-rust compiler
