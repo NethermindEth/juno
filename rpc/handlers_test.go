@@ -121,7 +121,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
-	latestBlockNumber := uint64(485004)
+	latestBlockNumber := uint64(56377)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
