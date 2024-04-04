@@ -3,7 +3,7 @@ package trie
 import (
 	"bytes"
 	"sync"
-
+	
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -28,13 +28,13 @@ func getBuffer() *bytes.Buffer {
 }
 
 // TransactionStorage is a database transaction on a trie.
-type TransactionStorage struct {
+type Storage struct {
 	txn    db.Transaction
 	prefix []byte
 }
 
-func NewTransactionStorage(txn db.Transaction, prefix []byte) *TransactionStorage {
-	return &TransactionStorage{
+func NewStorage(txn db.Transaction, prefix []byte) *Storage {
+	return &Storage{
 		txn:    txn,
 		prefix: prefix,
 	}
@@ -42,7 +42,7 @@ func NewTransactionStorage(txn db.Transaction, prefix []byte) *TransactionStorag
 
 // dbKey creates a byte array to be used as a key to our KV store
 // it simply appends the given key to the configured prefix
-func (t *TransactionStorage) dbKey(key *Key, buffer *bytes.Buffer) (int64, error) {
+func (t *Storage) dbKey(key *Key, buffer *bytes.Buffer) (int64, error) {
 	_, err := buffer.Write(t.prefix)
 	if err != nil {
 		return 0, err
@@ -52,7 +52,7 @@ func (t *TransactionStorage) dbKey(key *Key, buffer *bytes.Buffer) (int64, error
 	return int64(len(t.prefix)) + keyLen, err
 }
 
-func (t *TransactionStorage) Put(key *Key, value *Node) error {
+func (t *Storage) Put(key *Key, value *Node) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	keyLen, err := t.dbKey(key, buffer)
@@ -69,7 +69,7 @@ func (t *TransactionStorage) Put(key *Key, value *Node) error {
 	return t.txn.Set(encodedBytes[:keyLen], encodedBytes[keyLen:])
 }
 
-func (t *TransactionStorage) Get(key *Key) (*Node, error) {
+func (t *Storage) Get(key *Key) (*Node, error) {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := t.dbKey(key, buffer)
@@ -87,7 +87,7 @@ func (t *TransactionStorage) Get(key *Key) (*Node, error) {
 	return node, err
 }
 
-func (t *TransactionStorage) Delete(key *Key) error {
+func (t *Storage) Delete(key *Key) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := t.dbKey(key, buffer)
@@ -97,7 +97,7 @@ func (t *TransactionStorage) Delete(key *Key) error {
 	return t.txn.Delete(buffer.Bytes())
 }
 
-func (t *TransactionStorage) RootKey() (*Key, error) {
+func (t *Storage) RootKey() (*Key, error) {
 	var rootKey *Key
 	if err := t.txn.Get(t.prefix, func(val []byte) error {
 		rootKey = new(Key)
@@ -108,7 +108,7 @@ func (t *TransactionStorage) RootKey() (*Key, error) {
 	return rootKey, nil
 }
 
-func (t *TransactionStorage) PutRootKey(newRootKey *Key) error {
+func (t *Storage) PutRootKey(newRootKey *Key) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := newRootKey.WriteTo(buffer)
@@ -118,17 +118,17 @@ func (t *TransactionStorage) PutRootKey(newRootKey *Key) error {
 	return t.txn.Set(t.prefix, buffer.Bytes())
 }
 
-func (t *TransactionStorage) DeleteRootKey() error {
+func (t *Storage) DeleteRootKey() error {
 	return t.txn.Delete(t.prefix)
 }
 
-func (t *TransactionStorage) SyncedStorage() *TransactionStorage {
-	return &TransactionStorage{
+func (t *Storage) SyncedStorage() *Storage {
+	return &Storage{
 		txn:    db.NewSyncTransaction(t.txn),
 		prefix: t.prefix,
 	}
 }
 
-func newMemStorage() *TransactionStorage {
-	return NewTransactionStorage(db.NewMemTransaction(), nil)
+func newMemStorage() *Storage {
+	return NewStorage(db.NewMemTransaction(), nil)
 }
