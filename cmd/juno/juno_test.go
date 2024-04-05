@@ -58,7 +58,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
-	defaultPendingPollInterval := time.Duration(0)
+	defaultPendingPollInterval := time.Duration(5_000_000_000)
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(8)
@@ -340,32 +340,33 @@ http-port: 4576
 				"--db-path", "/home/.juno", "--network", "goerli", "--pprof", "--db-cache-size", "8",
 			},
 			expectedConfig: &node.Config{
-				LogLevel:        utils.DEBUG,
-				HTTP:            defaultHTTP,
-				HTTPHost:        "0.0.0.0",
-				HTTPPort:        4576,
-				Websocket:       defaultWS,
-				WebsocketHost:   defaultHost,
-				WebsocketPort:   defaultWSPort,
-				GRPC:            defaultGRPC,
-				GRPCHost:        defaultHost,
-				GRPCPort:        defaultGRPCPort,
-				Metrics:         defaultMetrics,
-				MetricsHost:     defaultHost,
-				MetricsPort:     defaultMetricsPort,
-				DatabasePath:    "/home/.juno",
-				Network:         utils.Goerli,
-				Pprof:           true,
-				PprofHost:       defaultHost,
-				PprofPort:       defaultPprofPort,
-				Colour:          defaultColour,
-				MaxVMs:          defaultMaxVMs,
-				MaxVMQueue:      2 * defaultMaxVMs,
-				RPCMaxBlockScan: defaultRPCMaxBlockScan,
-				DBCacheSize:     defaultMaxCacheSize,
-				DBMaxHandles:    defaultMaxHandles,
-				RPCCallMaxSteps: defaultCallMaxSteps,
-				GatewayTimeout:  defaultGwTimeout,
+				LogLevel:            utils.DEBUG,
+				HTTP:                defaultHTTP,
+				HTTPHost:            "0.0.0.0",
+				HTTPPort:            4576,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/.juno",
+				Network:             utils.Goerli,
+				Pprof:               true,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				PendingPollInterval: defaultPendingPollInterval,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some flags without config file": {
@@ -601,7 +602,12 @@ network: goerli
 		},
 		"some setting set in both env variables and config file": {
 			cfgFileContents: `db-path: /home/file/.juno`,
-			env:             []string{"JUNO_DB_PATH", "/home/env/.juno", "JUNO_GW_API_KEY", "apikey"},
+			env: []string{
+				"JUNO_DB_PATH",
+				"/home/env/.juno",
+				"JUNO_GW_API_KEY",
+				"apikey",
+			},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
 				HTTP:                defaultHTTP,
@@ -644,7 +650,11 @@ network: goerli
 				tc.inputArgs = append(tc.inputArgs, "--config", fileN)
 			}
 
-			require.True(t, len(tc.env)%2 == 0, "The number of env variables should be an even number")
+			require.True(
+				t,
+				len(tc.env)%2 == 0,
+				"The number of env variables should be an even number",
+			)
 
 			if len(tc.env) > 0 {
 				for i := 0; i < len(tc.env)/2; i++ {

@@ -93,7 +93,7 @@ const (
 	defaultPprof                    = false
 	defaultPprofPort                = 6062
 	defaultColour                   = true
-	defaultPendingPollInterval      = time.Duration(0)
+	defaultPendingPollInterval      = time.Duration(5_000_000_000)
 	defaultP2p                      = false
 	defaultP2pAddr                  = ""
 	defaultP2pPeers                 = ""
@@ -262,7 +262,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 			unverifRange := v.GetIntSlice(cnUnverifiableRangeF)
 			if len(unverifRange) != 2 || unverifRange[0] < 0 || unverifRange[1] < 0 {
-				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
+				return fmt.Errorf(
+					"invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)",
+					cnUnverifiableRangeF,
+					unverifRange,
+				)
 			}
 
 			config.Network = utils.Network{
@@ -313,14 +317,17 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
 	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
 	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
-	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
-	junoCmd.Flags().IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
+	junoCmd.Flags().
+		String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
+	junoCmd.Flags().
+		IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
-	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
+	junoCmd.Flags().
+		Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
 	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
@@ -339,7 +346,15 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
 	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
 	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
-	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
+	junoCmd.MarkFlagsRequiredTogether(
+		cnNameF,
+		cnFeederURLF,
+		cnGatewayURLF,
+		cnL1ChainIDF,
+		cnL2ChainIDF,
+		cnCoreContractAddressF,
+		cnUnverifiableRangeF,
+	) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
