@@ -678,13 +678,13 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Goerli)
+	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
-	latestBlockNumber := uint64(485004)
+	latestBlockNumber := uint64(4850)
 
 	t.Run("default sequencer address", func(t *testing.T) {
 		latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
