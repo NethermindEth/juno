@@ -51,7 +51,7 @@ jobs:
         run: make benchmarks
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4.2.0
         if: matrix.os == 'ubuntu-latest'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
