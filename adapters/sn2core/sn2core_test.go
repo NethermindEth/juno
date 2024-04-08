@@ -220,13 +220,13 @@ func TestStateUpdate(t *testing.T) {
 
 func TestClassV0(t *testing.T) {
 	classHashes := []string{
-		"0x79e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
-		"0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0",
-		"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
-		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
+		"0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+		"0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+		"0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
+		"0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
 	}
 
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
 	ctx := context.Background()
 
 	for _, hashString := range classHashes {
