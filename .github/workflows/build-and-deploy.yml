@@ -57,8 +57,7 @@ jobs:
         env:
           EVENT_NAME: juno-dev
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
-          GOERLI: apps/juno-dev/overlays/dev-goerli-1/config.yaml
-          INTEGRATION: apps/juno-dev/overlays/dev-integration/config.yaml
+          SEPOLIA: apps/juno-dev/overlays/dev-sepolia/config.yaml
         run: |
           curl -L \
           -X POST \
@@ -66,21 +65,21 @@ jobs:
           -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "sepolia_config": "${{ env.SEPOLIA }}", "tag": "${{ env.IMAGE_TAG }}"}}'
   
   dev-starknet-rs-tests:
     needs: [deploy_to_dev]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.DEV_GOERLI_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_6
       
   dev-starknet-js-tests:
     needs: [deploy_to_dev]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.DEV_GOERLI_URL }}/v0_6
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
+      TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
             
   deploy_to_staging:
     needs: [docker_build_and_publish, deploy_to_dev]
@@ -92,8 +91,6 @@ jobs:
       env:
           EVENT_NAME: juno-staging
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
-          GOERLI: apps/juno-staging/overlays/staging-goerli-1/config.yaml
-          INTEGRATION: apps/juno-staging/overlays/staging-integration/config.yaml
           MAINNET: apps/juno-staging/overlays/staging-mainnet/config.yaml
           SEPOLIA: apps/juno-staging/overlays/staging-sepolia/config.yaml
           SEPOLIA_INTEGRATION: apps/juno-staging/overlays/staging-sepolia-integration/config.yaml
@@ -104,21 +101,21 @@ jobs:
           -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION}}", "tag": "${{ env.IMAGE_TAG }}"}}'
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION}}", "tag": "${{ env.IMAGE_TAG }}"}}'
 
   staging-starknet-rs-tests:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.STAGING_GOERLI_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_6
       
   staging-starknet-js-tests:
     needs: [deploy_to_staging]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.STAGING_GOERLI_URL }}/v0_6
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
+      TEST_RPC_URL: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_7
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   deploy_to_production:
     needs: [docker_build_and_publish, deploy_to_staging]
@@ -130,8 +127,6 @@ jobs:
         env: 
           EVENT_NAME: juno-prod
           IMAGE_TAG: ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
-          GOERLI: apps/juno-prod/overlays/prod-goerli-1/config.yaml
-          INTEGRATION: apps/juno-prod/overlays/prod-integration/config.yaml
           MAINNET: apps/juno-prod/overlays/prod-mainnet/config.yaml
           SEPOLIA: apps/juno-prod/overlays/prod-sepolia/config.yaml
           SEPOLIA_INTEGRATION: apps/juno-prod/overlays/prod-sepolia-integration/config.yaml
@@ -142,18 +137,18 @@ jobs:
           -H "Authorization: token ${{ secrets.ACCESS_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
-          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "goerli_config": "${{ env.GOERLI }}", "integration_config": "${{ env.INTEGRATION }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
+          -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION }}", "tag": "${{ env.IMAGE_TAG }}"}}'
           
   prod-starknet-rs-tests:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.PROD_GOERLI_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_6
       
   prod-starknet-js-tests:
     needs: [deploy_to_production]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
-      TEST_RPC_URL: ${{ secrets.PROD_GOERLI_URL }}/v0_6
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.GOERLI_TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.GOERLI_TEST_ACCOUNT_PRIVATE_KEY }}
+      TEST_RPC_URL: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
