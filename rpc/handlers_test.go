@@ -3624,7 +3624,7 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpc.New(nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.7.0", version)
+	require.Equal(t, "0.7.1", version)
 
 	legacyVersion, rpcErr := handler.SpecVersionV0_6()
 	require.Nil(t, rpcErr)

@@ -1843,7 +1843,7 @@ func (h *Handler) callAndLogErr(f func() error, msg string) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.7.0", nil
+	return "0.7.1", nil
 }
 
 func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
