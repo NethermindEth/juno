@@ -1,0 +1,11 @@
+{
+    "block_number": 56377,
+    "signature": [
+        "0x27901a327fc1b9990874ed5d06f16f02440b6a1ef605e13943f9fb32743faa8",
+        "0x186003cc2cea1204343e62bc160ec3ac5ea6eb563d487f87a866ec0f477b57e"
+    ],
+    "signature_input": {
+        "block_hash": "0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce",
+        "state_diff_commitment": "0x240ef4af65887caa96298e2820bb0e0884fcc4f2d5770a9b3aafdab118cd571"
+    }
+}
