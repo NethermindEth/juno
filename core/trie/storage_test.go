@@ -39,7 +39,7 @@ func TestStorage(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, node, got)
 			return err
-		})) 
+		}))
 	})
 
 	t.Run("roll back on error", func(t *testing.T) {

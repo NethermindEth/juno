@@ -3,7 +3,7 @@ package trie
 import (
 	"bytes"
 	"sync"
-	
+
 	"github.com/NethermindEth/juno/db"
 )
 
