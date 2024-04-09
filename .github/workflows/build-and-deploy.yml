@@ -53,6 +53,9 @@ jobs:
     environment: 
       name: Development
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Repository Dispatch Dev
         env:
           EVENT_NAME: juno-dev
@@ -66,7 +69,10 @@ jobs:
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
           -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "sepolia_config": "${{ env.SEPOLIA }}", "tag": "${{ env.IMAGE_TAG }}"}}'
-  
+
+      - name: Verify Deployment Version (Dev)
+        run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}        
+        
   dev-starknet-rs-tests:
     needs: [deploy_to_dev]
     uses: ./.github/workflows/starknet-rs-tests.yml
@@ -87,6 +93,9 @@ jobs:
     environment: 
       name: Staging
     steps:         
+    - name: Checkout
+      uses: actions/checkout@v4
+
     - name: Repository Dispatch Staging
       env:
           EVENT_NAME: juno-staging
@@ -102,6 +111,9 @@ jobs:
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/NethermindEth/argo/dispatches \
           -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION}}", "tag": "${{ env.IMAGE_TAG }}"}}'
+    
+    - name: Verify Deployment Version (Staging)
+      run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
 
   staging-starknet-rs-tests:
     needs: [deploy_to_staging]
