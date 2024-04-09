@@ -207,6 +207,6 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 // storage of the contract.
 func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
-	trieTxn := trie.NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
+	trieTxn := trie.NewStorage(txn, db.ContractStorage.Key(addrBytes))
 	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight)
 }
