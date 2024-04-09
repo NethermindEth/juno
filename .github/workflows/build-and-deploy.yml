@@ -2,7 +2,7 @@ name: Docker Build, Publish and Deploy
 
 on:
   push:
-    branches: [main, wojciechos/pipeline_fix]
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -68,7 +68,7 @@ jobs:
           -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "sepolia_config": "${{ env.SEPOLIA }}", "tag": "${{ env.IMAGE_TAG }}"}}'
       
       - name: Verify Deployment Version (Dev)
-        run: bash ${GITHUB_WORKSPACE}/.github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}        
+        run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}        
         
   dev-starknet-rs-tests:
     needs: [deploy_to_dev]
@@ -107,7 +107,7 @@ jobs:
           -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION}}", "tag": "${{ env.IMAGE_TAG }}"}}'
     
     - name: Verify Deployment Version (Staging)
-      run: bash ${GITHUB_WORKSPACE}/.github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
+      run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
 
   staging-starknet-rs-tests:
     needs: [deploy_to_staging]
