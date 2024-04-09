@@ -515,8 +515,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
 			L1GasPrice: &rpc.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x33e15e69c8"),
-				InWei: utils.HexToFelt(t, "0x530230a94"),
+				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
+				InWei: utils.HexToFelt(t, "0x3b9aca10"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,

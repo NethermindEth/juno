@@ -1,11 +1,11 @@
 {
     "block_number": 16350,
     "signature": [
-        "0x7ae6b8775a5a6c5deffae75689996898c2abfa4c8b46d0f98545c572053072e",
-        "0x59e42d1f131004f447cec9a1ac8861f65fe55638490ef022d7dad0faf7265b7"
+        "0x10fe667903a11a659d5cf95ab3ca441ef6888833b4e2036d0c6761e6498faf4",
+        "0x334061004caf8145136479b44112611fe9c90b3251189094c6e453d29bd6973"
     ],
     "signature_input": {
-        "block_hash": "0x51073bae95e1aaaaf28fb5fb52fa556c5e6b7ba242a2c13ffd4994ee26b187e",
-        "state_diff_commitment": "0x3b65b2eb1ab127f4cf3be3359967c61113d81424086bf5c72892f3a321ab635"
+        "block_hash": "0x660be3d095f36ffebf314c8bdea6823ba5e1f02fec2db61c84eb6faa859195",
+        "state_diff_commitment": "0x62c1b2056ff46e764b1103523ac104c0b9377593a4458e574b73133d00221e5"
     }
 }
