@@ -54,7 +54,7 @@ func TestHeight(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
-		chain := blockchain.New(pebble.NewMemTest(t), &utils.Goerli)
+		chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
