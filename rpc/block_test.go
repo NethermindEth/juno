@@ -251,14 +251,14 @@ func TestBlockWithTxHashes(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Goerli)
+	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
-	latestBlockNumber := uint64(485004)
+	latestBlockNumber := uint64(56377)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
@@ -488,13 +488,13 @@ func TestBlockWithTxs(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	n := utils.Ptr(utils.Integration)
+	n := utils.Ptr(utils.SepoliaIntegration)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
-	blockNumber := uint64(319132)
+	blockNumber := uint64(16350)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	coreBlock, err := gw.BlockByNumber(context.Background(), blockNumber)
 	require.NoError(t, err)
@@ -515,8 +515,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
 			L1GasPrice: &rpc.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x2540be400"),
-				InWei: utils.HexToFelt(t, "0x3b9aca08"),
+				InFri: utils.HexToFelt(t, "0x33e15e69c8"),
+				InWei: utils.HexToFelt(t, "0x530230a94"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
