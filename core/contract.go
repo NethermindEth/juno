@@ -164,11 +164,7 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 		}
 	}
 
-	if err = cStorage.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return cStorage.Commit()
 }
 
 func ContractStorage(addr, key *felt.Felt, txn db.Transaction) (*felt.Felt, error) {

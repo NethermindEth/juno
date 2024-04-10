@@ -461,11 +461,7 @@ func StoreBlockHeader(txn db.Transaction, header *core.Header) error {
 		return err
 	}
 
-	if err = txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes); err != nil {
-		return err
-	}
-
-	return nil
+	return txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes)
 }
 
 // blockHeaderByNumber retrieves a block header from database by its number
