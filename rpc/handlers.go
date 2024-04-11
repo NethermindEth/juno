@@ -11,6 +11,7 @@ import (
 	"math"
 	"slices"
 	stdsync "sync"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
@@ -1376,7 +1377,10 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			break
 		}
 
-		txStatus, err := h.feederClient.Transaction(ctx, &hash)
+		const timeout = 5 * time.Second
+		ctxChild, cancelChild := context.WithTimeout(ctx, timeout)
+		txStatus, err := h.feederClient.Transaction(ctxChild, &hash)
+		cancelChild()
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
