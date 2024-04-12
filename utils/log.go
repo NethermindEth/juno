@@ -2,19 +2,16 @@ package utils
 
 import (
 	"encoding"
-	"fmt"
 	"time"
-
+     "errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-var ErrUnknownLogLevel = fmt.Errorf(
-	"unknown log level (known: %s, %s, %s, %s)",
-	DEBUG, INFO, WARN, ERROR,
-)
+var ErrUnknownLogLevel = errors.New("unknown log level (known: debug, info, warn, error, trace)")
+
 
 type LogLevel int
 
@@ -30,6 +27,7 @@ const (
 	INFO
 	WARN
 	ERROR
+	TRACE
 )
 
 func (l LogLevel) String() string {
@@ -42,6 +40,8 @@ func (l LogLevel) String() string {
 		return "warn"
 	case ERROR:
 		return "error"
+	case TRACE:
+		return "trace"
 	default:
 		// Should not happen.
 		panic(ErrUnknownLogLevel)
@@ -62,6 +62,8 @@ func (l *LogLevel) Set(s string) error {
 		*l = WARN
 	case "ERROR", "error":
 		*l = ERROR
+	case "TRACE", "trace":  // Adding the TRACE case
+        *l = TRACE
 	default:
 		return ErrUnknownLogLevel
 	}
@@ -90,13 +92,20 @@ type SimpleLogger interface {
 	Infow(msg string, keysAndValues ...any)
 	Warnw(msg string, keysAndValues ...any)
 	Errorw(msg string, keysAndValues ...any)
+	Tracew(msg string, keysAndValues ...any)
 }
 
 type ZapLogger struct {
 	*zap.SugaredLogger
 }
 
-var _ Logger = (*ZapLogger)(nil)
+func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
+    l.Debugw("[TRACE] "+msg, keysAndValues...)
+}
+
+
+
+var _ SimpleLogger = (*ZapLogger)(nil)
 
 func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}
@@ -117,7 +126,12 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	if err != nil {
 		return nil, err
 	}
+	if logLevel == TRACE {
+        config.Level.SetLevel(zapcore.DebugLevel)  // Adjust according to how you define TRACE
+    } else {
 	config.Level.SetLevel(level)
+	}
+	
 	log, err := config.Build()
 	if err != nil {
 		return nil, err
@@ -129,3 +143,4 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 func (l *ZapLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args)
 }
+

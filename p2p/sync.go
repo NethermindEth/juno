@@ -195,14 +195,18 @@ func (s *syncService) logError(msg string, err error) {
 	if !errors.Is(err, context.Canceled) {
 		var log utils.SimpleLogger
 		if v, ok := s.log.(*utils.ZapLogger); ok {
-			log = v.WithOptions(zap.AddCallerSkip(1))
+			enhancedLogger := v.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
+            log = &utils.ZapLogger{SugaredLogger: enhancedLogger}
 		} else {
 			log = s.log
 		}
 
-		log.Errorw(msg, "err", err)
+		log.Tracew("Logging error", "msg", msg, "error", err.Error())
+        // Log the error
+        log.Errorw(msg, "err", err)
 	}
 }
+
 
 // blockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
 type blockBody struct {
