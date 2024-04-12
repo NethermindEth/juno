@@ -397,14 +397,13 @@ func isNil(i any) bool {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
-	reqJSON, _ := json.Marshal(req) // Serialize the request early for use in logging
-    s.log.Tracew("Received request", "req", string(reqJSON))
-	
+	reqJSON, _ := json.Marshal(req) // Serialise the request early for use in logging
+	s.log.Tracew("Received request", "req", string(reqJSON))
+
 	if err := req.isSane(); err != nil {
 		s.log.Tracew("Request sanity check failed", "error", err.Error())
 		return nil, err
 	}
-	
 
 	res := &response{
 		Version: "2.0",
@@ -450,8 +449,8 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 		return res, nil
 	}
 	res.Result = tuple[0].Interface()
-	resJSON, _ := json.Marshal(res) // Serialize response for logging
-    s.log.Tracew("Successfully handled RPC request", "res", string(resJSON))
+	resJSON, _ := json.Marshal(res) // Serialise response for logging
+	s.log.Tracew("Successfully handled RPC request", "res", string(resJSON))
 	return res, nil
 }
 

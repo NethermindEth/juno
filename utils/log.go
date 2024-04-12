@@ -62,8 +62,8 @@ func (l *LogLevel) Set(s string) error {
 		*l = WARN
 	case "ERROR", "error":
 		*l = ERROR
-	case "TRACE", "trace":  // Adding the TRACE case
-        *l = TRACE
+	case "TRACE", "trace": // Adding the TRACE case
+		*l = TRACE
 	default:
 		return ErrUnknownLogLevel
 	}
@@ -100,10 +100,8 @@ type ZapLogger struct {
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
-    l.Debugw("[TRACE] "+msg, keysAndValues...)
+	l.Debugw("[TRACE] "+msg, keysAndValues...)
 }
-
-
 
 var _ SimpleLogger = (*ZapLogger)(nil)
 
@@ -127,11 +125,11 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 		return nil, err
 	}
 	if logLevel == TRACE {
-        config.Level.SetLevel(zapcore.DebugLevel)  // Adjust according to how you define TRACE
-    } else {
-	config.Level.SetLevel(level)
+		config.Level.SetLevel(zapcore.DebugLevel) // Adjust according to how you define TRACE
+	} else {
+		config.Level.SetLevel(level)
 	}
-	
+
 	log, err := config.Build()
 	if err != nil {
 		return nil, err
@@ -143,4 +141,3 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 func (l *ZapLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args)
 }
-
