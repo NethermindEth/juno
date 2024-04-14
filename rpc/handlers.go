@@ -12,8 +12,6 @@ import (
 	"slices"
 	stdsync "sync"
 
-	"github.com/hashicorp/go-set/v2"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -28,6 +26,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/hashicorp/go-set/v2"
 	"github.com/sourcegraph/conc"
 )
 
@@ -111,7 +110,7 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network utils.Network,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network *utils.Network,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
@@ -1169,6 +1168,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 }
 
 func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, latestHeight uint64) error {
+	//nolint:gocritic
 	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
 		if id == nil {
 			return nil
