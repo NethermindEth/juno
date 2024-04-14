@@ -12,6 +12,8 @@ import (
 	"slices"
 	stdsync "sync"
 
+	"github.com/hashicorp/go-set/v2"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -87,7 +89,9 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
-	version       string
+
+	version                    string
+	forceFeederTracesForBlocks *set.Set[uint64]
 
 	newHeads *feed.Feed[*core.Header]
 
@@ -107,7 +111,9 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, logger utils.Logger) *Handler {
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network utils.Network,
+	logger utils.Logger,
+) *Handler {
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
@@ -119,9 +125,10 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:       version,
-		newHeads:      feed.New[*core.Header](),
-		subscriptions: make(map[uint64]*subscription),
+		version:                    version,
+		forceFeederTracesForBlocks: set.From(network.BlockHashMetaInfo.ForceFetchingTracesForBlocks),
+		newHeads:                   feed.New[*core.Header](),
+		subscriptions:              make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -1691,8 +1698,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
-		} else if blockVer.Compare(traceFallbackVersion) != 1 {
-			// version <= 0.12.3
+		} else if blockVer.Compare(traceFallbackVersion) != 1 || h.forceFeederTracesForBlocks.Contains(block.Number) {
+			// version <= 0.12.3 or forcing fetch some blocks from feeder gateway
 			return h.fetchTraces(ctx, block.Hash)
 		}
 
