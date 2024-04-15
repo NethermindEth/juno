@@ -56,13 +56,13 @@ func TestLogLevelSet(t *testing.T) {
 
 func TestLogLevelUnmarshalText(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run("level "+str, func(t *testing.T) {
+		t.Run(levelLabel+str, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.UnmarshalText([]byte(str)))
 			assert.Equal(t, level, *l)
 		})
 		uppercase := strings.ToUpper(str)
-		t.Run("level "+uppercase, func(t *testing.T) {
+		t.Run(levelLabel+uppercase, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.UnmarshalText([]byte(uppercase)))
 			assert.Equal(t, level, *l)
@@ -93,7 +93,7 @@ func TestLogLevelType(t *testing.T) {
 
 func TestZapWithColour(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run("level: "+str, func(t *testing.T) {
+		t.Run(levelLabel+": "+str, func(t *testing.T) {
 			_, err := utils.NewZapLogger(level, true)
 			assert.NoError(t, err)
 		})
@@ -102,7 +102,7 @@ func TestZapWithColour(t *testing.T) {
 
 func TestZapWithoutColour(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run("level: "+str, func(t *testing.T) {
+		t.Run(levelLabel+": "+str, func(t *testing.T) {
 			_, err := utils.NewZapLogger(level, false)
 			assert.NoError(t, err)
 		})
