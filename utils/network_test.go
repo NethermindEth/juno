@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+const networkLabel = "network "
 
 var networkStrings = map[utils.Network]string{
 	utils.Mainnet:            "mainnet",
@@ -89,19 +90,19 @@ func TestNetwork(t *testing.T) {
 //nolint:dupl // see comment in utils/log_test.go
 func TestNetworkSet(t *testing.T) {
 	for network, str := range networkStrings {
-		t.Run("network "+str, func(t *testing.T) {
+		t.Run(networkLabel + str, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.Set(str))
 			assert.Equal(t, network, *n)
 		})
 		uppercase := strings.ToUpper(str)
-		t.Run("network "+uppercase, func(t *testing.T) {
+		t.Run(networkLabel + uppercase, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.Set(uppercase))
 			assert.Equal(t, network, *n)
 		})
 	}
-	t.Run("unknown network", func(t *testing.T) {
+	t.Run("unknown " + networkLabel, func(t *testing.T) {
 		n := utils.Network{}
 		require.Error(t, n.Set("blah"))
 	})
@@ -109,13 +110,13 @@ func TestNetworkSet(t *testing.T) {
 
 func TestNetworkUnmarshalText(t *testing.T) {
 	for network, str := range networkStrings {
-		t.Run("network "+str, func(t *testing.T) {
+		t.Run(networkLabel +str, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.UnmarshalText([]byte(str)))
 			assert.Equal(t, network, *n)
 		})
 		uppercase := strings.ToUpper(str)
-		t.Run("network "+uppercase, func(t *testing.T) {
+		t.Run(networkLabel + uppercase, func(t *testing.T) {
 			n := new(utils.Network)
 			require.NoError(t, n.UnmarshalText([]byte(uppercase)))
 			assert.Equal(t, network, *n)
