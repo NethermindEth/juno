@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const levelLabel = "level "
+
 var levelStrings = map[utils.LogLevel]string{
 	utils.DEBUG: "debug",
 	utils.INFO:  "info",
@@ -19,7 +21,7 @@ var levelStrings = map[utils.LogLevel]string{
 
 func TestLogLevelString(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run("level "+str, func(t *testing.T) {
+		t.Run(levelLabel+str, func(t *testing.T) {
 			assert.Equal(t, str, level.String())
 		})
 	}
@@ -29,15 +31,17 @@ func TestLogLevelString(t *testing.T) {
 // both implement the pflag.Value and encoding.TextUnmarshaller interfaces.
 // We can open a PR on github.com/thediveo/enumflag to add TextUnmarshaller
 // support.
+//
+//nolint:dupl
 func TestLogLevelSet(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run("level "+str, func(t *testing.T) {
+		t.Run(levelLabel+str, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.Set(str))
 			assert.Equal(t, level, *l)
 		})
 		uppercase := strings.ToUpper(str)
-		t.Run("level "+uppercase, func(t *testing.T) {
+		t.Run(levelLabel+uppercase, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.Set(uppercase))
 			assert.Equal(t, level, *l)
