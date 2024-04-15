@@ -537,3 +537,9 @@ func TestClassV1(t *testing.T) {
 		assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
 	}
 }
+
+func TestAdaptCompiledClass(t *testing.T) {
+	result, err := sn2core.AdaptCompiledClass(nil)
+	require.NoError(t, err)
+	assert.Nil(t, result)
+}

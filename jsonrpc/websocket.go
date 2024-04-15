@@ -101,7 +101,7 @@ type WebsocketConnParams struct {
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
-		ReadLimit:     32 * utils.MB,
+		ReadLimit:     32 * utils.Megabyte,
 		WriteDuration: 5 * time.Second,
 	}
 }

@@ -4,9 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/NethermindEth/juno/utils"
-
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 )
@@ -30,7 +29,7 @@ func New(path string, cache uint, maxOpenFiles int, logger pebble.Logger) (db.DB
 	cache = max(minCache, cache)
 	pDB, err := newPebble(path, &pebble.Options{
 		Logger:       logger,
-		Cache:        pebble.NewCache(int64(cache * utils.MB)),
+		Cache:        pebble.NewCache(int64(cache * utils.Megabyte)),
 		MaxOpenFiles: maxOpenFiles,
 	})
 	if err != nil {
