@@ -19,7 +19,7 @@ var levelStrings = map[utils.LogLevel]string{
 
 func TestLogLevelString(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run("level "+str, func(t *testing.T) { // goconst
+		t.Run("level "+str, func(t *testing.T) { //golint:goconst
 			assert.Equal(t, str, level.String())
 		})
 	}
