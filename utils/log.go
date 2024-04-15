@@ -62,7 +62,7 @@ func (l *LogLevel) Set(s string) error {
 		*l = WARN
 	case "ERROR", "error":
 		*l = ERROR
-	case "TRACE", "trace": // Adding the TRACE case
+	case "TRACE", "trace":
 		*l = TRACE
 	default:
 		return ErrUnknownLogLevel

@@ -46,6 +46,15 @@ linters-settings:
     ignored-functions:
       - strings.SplitN
 
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
   lll:
     line-length: 140
   misspell:
@@ -90,7 +99,7 @@ linters:
     - whitespace
     - tparallel
     - gci
-    
+
 
   # don't enable:
   # - asciicheck
@@ -139,3 +148,4 @@ issues:
       text: "rangeValCopy: each iteration copies 160 bytes \\(consider pointers or indexing\\)"
 
 
+  
