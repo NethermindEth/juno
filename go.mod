@@ -12,6 +12,7 @@ require (
 	github.com/ethereum/go-ethereum v1.13.10
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/go-playground/validator/v10 v10.17.0
+	github.com/hashicorp/go-set/v2 v2.1.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/libp2p/go-libp2p v0.32.2
 	github.com/libp2p/go-libp2p-kad-dht v0.25.2

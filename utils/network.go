@@ -33,6 +33,8 @@ type BlockHashMetaInfo struct {
 	First07Block uint64 `json:"first_07_block" validate:"required"`
 	// Range of blocks that are not verifiable
 	UnverifiableRange []uint64 `json:"unverifiable_range" validate:"required"`
+	// Block ids for which we fetch traces from feeder gateway instead of getting them from blockifier
+	ForceFetchingTracesForBlocks []uint64 `json:"force_fetching_traces_for_blocks"`
 }
 
 var (
@@ -53,6 +55,13 @@ var (
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             833,
 			FallBackSequencerAddress: fallBackSequencerAddressMainnet,
+			ForceFetchingTracesForBlocks: []uint64{
+				631040, 631041, 631091, 631136, 631142, 631144, 631149, 631155,
+				631204, 631269, 631368, 631602, 631685, 631739, 631741, 631760,
+				631811, 631861, 631927, 632072, 632073, 632074, 632075, 632076,
+				632077, 632078, 632079, 632081, 632202, 632206, 632237, 632241,
+				632271, 632845,
+			},
 		},
 	}
 	Goerli = Network{
