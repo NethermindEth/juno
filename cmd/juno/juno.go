@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/p2p"
@@ -186,7 +188,10 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		fmt.Printf(greeting, Version)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), greeting, Version)
+		if err != nil {
+			return err
+		}
 
 		n, err := node.New(config, Version)
 		if err != nil {
@@ -213,7 +218,7 @@ func main() {
 //nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
-		Use:     "juno [flags]",
+		Use:     "juno",
 		Short:   "Starknet client implementation in Go.",
 		Version: Version,
 		RunE:    run,
@@ -345,7 +350,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
+
 	junoCmd.AddCommand(GenP2PKeyPair())
+	junoCmd.AddCommand(DBSize())
 
 	return junoCmd
 }
@@ -354,7 +361,7 @@ func GenP2PKeyPair() *cobra.Command {
 	return &cobra.Command{
 		Use:   "genp2pkeypair",
 		Short: "Generate private key pair for p2p.",
-		RunE: func(*cobra.Command, []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			priv, pub, id, err := p2p.GenKeyPair()
 			if err != nil {
 				return err
@@ -367,7 +374,10 @@ func GenP2PKeyPair() *cobra.Command {
 
 			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
 			hex.Encode(privHex, rawPriv)
-			fmt.Println("P2P Private Key:", string(privHex))
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P Private Key:", string(privHex))
+			if err != nil {
+				return err
+			}
 
 			rawPub, err := pub.Raw()
 			if err != nil {
@@ -376,10 +386,99 @@ func GenP2PKeyPair() *cobra.Command {
 
 			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
 			hex.Encode(pubHex, rawPub)
-			fmt.Println("P2P Public Key:", string(pubHex))
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P Public Key:", string(pubHex))
+			if err != nil {
+				return err
+			}
 
-			fmt.Println("P2P PeerID:", id)
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P PeerID:", id)
+			if err != nil {
+				return err
+			}
 			return nil
 		},
 	}
+}
+
+//nolint:gocyclo
+func DBSize() *cobra.Command {
+	dbSizeCmd := &cobra.Command{
+		Use:   "db-size",
+		Short: "Calculate's Juno's DB size.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dbPath, err := cmd.Flags().GetString(dbPathF)
+			if err != nil {
+				return err
+			}
+
+			if dbPath == "" {
+				return fmt.Errorf("--%v cannot be empty", dbPathF)
+			}
+
+			pebbleDB, err := pebble.New(dbPath)
+			if err != nil {
+				return err
+			}
+
+			var totalSize, stateSizeWithoutHistory, stateSizeWithHistory uint
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "Total number of DB buckets:", uint(db.SchemaIntermediateState)+1)
+			if err != nil {
+				return err
+			}
+
+			var bucketSize uint
+			for i := db.StateTrie; i <= db.SchemaIntermediateState; i++ {
+				bucketSize, err = pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(i)})
+				if err != nil {
+					return err
+				}
+
+				_, err = fmt.Fprintln(cmd.OutOrStdout(), uint(i)+1, "Size of", i, "=", bucketSize)
+				if err != nil {
+					return err
+				}
+
+				totalSize += bucketSize
+
+				if i == db.StateTrie || i == db.ContractStorage || i == db.Class || i == db.ContractNonce || i == db.ClassesTrie ||
+					i == db.ContractDeploymentHeight {
+					stateSizeWithoutHistory += bucketSize
+					stateSizeWithHistory += bucketSize
+				}
+
+				if i == db.ContractStorageHistory || i == db.ContractNonceHistory || i == db.ContractClassHashHistory {
+					stateSizeWithHistory += bucketSize
+				}
+			}
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout())
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "State size without history =", stateSizeWithoutHistory)
+			if err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "State size with history =", stateSizeWithHistory)
+			if err != nil {
+				return err
+			}
+
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "Total DB size =", totalSize)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	// Persistent Flag was not used from the Juno command because GenP2PKeyPair would also inherit it while PersistentPreRun was not used
+	// because none of the subcommand required access to the node.Config.
+	defaultDBPath, dbPathShort := "", "p"
+	dbSizeCmd.Flags().StringP(dbPathF, dbPathShort, defaultDBPath, dbPathUsage)
+
+	return dbSizeCmd
 }

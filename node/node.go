@@ -107,17 +107,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
-	if err != nil {
-		return nil, fmt.Errorf("create DB logger: %w", err)
-	}
-
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.DB
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
+		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
