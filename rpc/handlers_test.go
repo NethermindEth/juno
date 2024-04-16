@@ -981,8 +981,6 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 //nolint:dupl
 func TestTransactionReceiptByHash(t *testing.T) {
-	t.Skip()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -1239,8 +1237,6 @@ func TestTransactionReceiptByHash(t *testing.T) {
 }
 
 func TestBlockWithReceipts(t *testing.T) {
-	t.Skip()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -1275,6 +1271,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 
 	t.Run("pending block", func(t *testing.T) {
+		t.Skip()
 		block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
@@ -1315,6 +1312,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	t.Run("accepted L1 block", func(t *testing.T) {
+		t.Skip()
 		block1, err := mainnetGw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
 
