@@ -62,16 +62,16 @@ func (c *Client) WithListener(l EventListener) *Client {
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T) *Client {
 	srv := newTestServer(t)
+
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	apiKey := "API_KEY"
-	t.Cleanup(srv.Close)
 
 	return NewClient(srv.URL, utils.NewNopZapLogger()).WithUserAgent(ua).WithAPIKey(apiKey)
 }
 
 func newTestServer(t *testing.T) *httptest.Server {
 	// As this is a test sever we are mimic response for one good and one bad request.
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
 		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
@@ -97,6 +97,9 @@ func newTestServer(t *testing.T) *httptest.Server {
 		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}", hash.String(), hash.String())
 		w.Write([]byte(resp)) //nolint:errcheck
 	}))
+	t.Cleanup(srv.Close)
+
+	return srv
 }
 
 func NewClient(gatewayURL string, log utils.SimpleLogger) *Client {

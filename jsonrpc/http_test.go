@@ -32,6 +32,7 @@ func TestHTTP(t *testing.T) {
 
 	// Server
 	srv := httptest.NewServer(jsonrpc.NewHTTP(rpc, log))
+	t.Cleanup(srv.Close)
 
 	// Client
 	client := new(http.Client)

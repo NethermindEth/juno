@@ -21,6 +21,7 @@ func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, li
 
 	// Server
 	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, utils.NewNopZapLogger()))
+	t.Cleanup(srv.Close)
 
 	// Client
 	conn, resp, err := websocket.Dial(ctx, srv.URL, nil) //nolint:bodyclose // websocket package closes resp.Body for us.

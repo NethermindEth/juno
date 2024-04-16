@@ -3459,6 +3459,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	}))
 	ws := jsonrpc.NewWebsocket(server, log)
 	httpSrv := httptest.NewServer(ws)
+	t.Cleanup(httpSrv.Close)
 	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
 	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
