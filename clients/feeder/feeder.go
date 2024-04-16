@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -94,7 +97,7 @@ func NopBackoff(d time.Duration) time.Duration {
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T, network *utils.Network) *Client {
 	srv := newTestServer(t, network)
-	t.Cleanup(srv.Close)
+
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	apiKey := "API_KEY"
 
@@ -118,7 +121,7 @@ func NewTestClient(t *testing.T, network *utils.Network) *Client {
 }
 
 func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -181,6 +184,9 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 		}
 		w.Write(read) //nolint:errcheck
 	}))
+	t.Cleanup(srv.Close)
+
+	return srv
 }
 
 func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
@@ -188,7 +194,7 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
 	// instead of 404 as per real test server behaviour.
 	if dir == "transaction" && queryArg == "transactionHash" {
-		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
+		w.Write([]byte(`{"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}`)) //nolint:errcheck
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 	}
@@ -447,4 +453,86 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 		return nil, err
 	}
 	return traces, nil
+}
+
+func NewClientToReorgProxy(t *testing.T, network utils.Network, latestBlockNumber uint64, updatePeriod time.Duration) *Client {
+	srv := newReorgProxy(t, network, latestBlockNumber, updatePeriod)
+
+	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0)
+	c.client = &http.Client{}
+
+	return c
+}
+
+func newReorgProxy(t *testing.T, network utils.Network, latestBlockNumber uint64, updatePeriod time.Duration) *httptest.Server {
+	type errResponse struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+
+	blockNotFoundErr := func(blockNumber int) errResponse {
+		return errResponse{
+			Code:    "StarknetErrorCode.BLOCK_NOT_FOUND",
+			Message: fmt.Sprintf("Block number %d was not found.", blockNumber),
+		}
+	}
+
+	go func() {
+		tick := time.NewTicker(updatePeriod)
+		t.Cleanup(tick.Stop)
+
+		for range tick.C {
+			atomic.AddUint64(&latestBlockNumber, 1)
+		}
+	}()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		queryStr := req.URL.RawQuery
+		if strings.HasSuffix(req.URL.Path, "/get_block") {
+			query := req.URL.Query()
+			blockNumberStr := query.Get("blockNumber")
+
+			switch blockNumberStr {
+			case "latest":
+				// pretend that latest block is different
+				query.Set("blockNumber", strconv.Itoa(int(latestBlockNumber)))
+				queryStr = query.Encode()
+			case "pending":
+				// don't modify request - proxy as is
+			default:
+				blockNumber, err := strconv.Atoi(blockNumberStr)
+				require.NoError(t, err)
+
+				if uint64(blockNumber) > latestBlockNumber {
+					notFoundErr := blockNotFoundErr(blockNumber)
+					bytes, err := json.Marshal(notFoundErr)
+					require.NoError(t, err)
+
+					http.Error(rw, string(bytes), http.StatusBadRequest)
+					return
+				}
+			}
+		}
+
+		url := strings.TrimSuffix(network.FeederURL, "/") + req.URL.Path
+		if queryStr != "" {
+			url += "?" + queryStr
+		}
+
+		// proxy
+		t.Logf("request URL %q from feeder gateway", url)
+		resp, err := http.Get(url)
+		if err != nil {
+			require.NoError(t, err)
+		}
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		_, err = io.Copy(rw, resp.Body)
+		assert.NoError(t, err)
+	}))
+	t.Cleanup(srv.Close)
+
+	return srv
 }

@@ -2,6 +2,7 @@ package feeder_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -661,4 +662,26 @@ func TestEventListener(t *testing.T) {
 	_, err := client.Block(context.Background(), "0")
 	require.NoError(t, err)
 	require.True(t, isCalled)
+}
+
+func TestMe(t *testing.T) {
+	client := feeder.NewClientToReorgProxy(t, utils.Mainnet, 997, time.Second)
+
+	sleepDuration := time.Second
+	ctx := context.Background()
+
+	for {
+		block, err := client.Block(ctx, "999")
+		if !assert.NoError(t, err) {
+			latestBlock, err := client.Block(ctx, "latest")
+			require.NoError(t, err)
+
+			fmt.Printf("Latest block is %d\n", latestBlock.Number)
+			time.Sleep(sleepDuration)
+			continue
+		}
+
+		fmt.Printf("Reorg reached to %d block\n", block.Number)
+		break
+	}
 }
