@@ -488,6 +488,7 @@ func newReorgProxy(t *testing.T, network utils.Network, latestBlockNumber uint64
 
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		queryStr := req.URL.RawQuery
+		// rewrite requests only for /get_block method
 		if strings.HasSuffix(req.URL.Path, "/get_block") {
 			query := req.URL.Query()
 			blockNumberStr := query.Get("blockNumber")
@@ -503,11 +504,15 @@ func newReorgProxy(t *testing.T, network utils.Network, latestBlockNumber uint64
 				blockNumber, err := strconv.Atoi(blockNumberStr)
 				require.NoError(t, err)
 
+				// if requested block is greater than specified latest block number
+				// we return not found error which our client code should handle
 				if uint64(blockNumber) > latestBlockNumber {
 					notFoundErr := blockNotFoundErr(blockNumber)
 					bytes, err := json.Marshal(notFoundErr)
 					require.NoError(t, err)
 
+					// response is taken from feeder gateway for non-existing block:
+					// same response body and http response code (400)
 					http.Error(rw, string(bytes), http.StatusBadRequest)
 					return
 				}
@@ -519,7 +524,7 @@ func newReorgProxy(t *testing.T, network utils.Network, latestBlockNumber uint64
 			url += "?" + queryStr
 		}
 
-		// proxy
+		// just proxy request to a feeder
 		t.Logf("request URL %q from feeder gateway", url)
 		resp, err := http.Get(url)
 		if err != nil {
