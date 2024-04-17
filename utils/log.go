@@ -2,7 +2,7 @@ package utils
 
 import (
 	"encoding"
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -11,7 +11,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var ErrUnknownLogLevel = errors.New("unknown log level (known: debug, info, warn, error)")
+var ErrUnknownLogLevel = fmt.Errorf(
+	"unknown log level (known: %s, %s, %s, %s)",
+	DEBUG, INFO, WARN, ERROR,
+)
 
 type LogLevel int
 
