@@ -48,7 +48,6 @@ const (
 	wsPortF                = "ws-port"
 	dbPathF                = "db-path"
 	networkF               = "network"
-	customNetworkF         = "custom-network"
 	ethNodeF               = "eth-node"
 	pprofF                 = "pprof"
 	pprofHostF             = "pprof-host"

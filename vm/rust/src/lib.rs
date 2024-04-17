@@ -47,9 +47,11 @@ use starknet_api::{
 };
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
-    hash::StarkHash,
+    deprecated_contract_class::EntryPointType,
+    hash::{StarkFelt, StarkHash},
+    transaction::Fee,
 };
-use starknet_api::{deprecated_contract_class::EntryPointType, hash::StarkFelt, transaction::Fee};
+use std::str::FromStr;
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -475,15 +477,57 @@ lazy_static! {
             "0.13.0".to_string(),
             serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap(),
         );
+        m.insert(
+            "0.13.1".to_string(),
+            serde_json::from_slice(include_bytes!("../versioned_constants_13_1.json")).unwrap(),
+        );
         m
     };
 }
 
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
     let version_str = unsafe { CStr::from_ptr(version) }.to_str().unwrap();
-    CONSTANTS
-        .get(&version_str.to_string())
-        .unwrap_or(VersionedConstants::latest_constants())
-        .to_owned()
+    let version = StarknetVersion::from_str(&version_str)
+        .unwrap_or(StarknetVersion::from_str(&"0.0.0").unwrap());
+
+    if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
+        CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
+        CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
+    } else {
+        VersionedConstants::latest_constants().to_owned()
+    }
 }
 
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StarknetVersion(u8, u8, u8, u8);
+
+impl StarknetVersion {
+    pub const fn new(a: u8, b: u8, c: u8, d: u8) -> Self {
+        StarknetVersion(a, b, c, d)
+    }
+}
+
+impl FromStr for StarknetVersion {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.is_empty() {
+            return Ok(StarknetVersion::new(0, 0, 0, 0));
+        }
+
+        let parts: Vec<_> = s.split('.').collect();
+        anyhow::ensure!(
+            parts.len() == 3 || parts.len() == 4,
+            "Invalid version string, expected 3 or 4 parts but got {}",
+            parts.len()
+        );
+
+        let a = parts[0].parse()?;
+        let b = parts[1].parse()?;
+        let c = parts[2].parse()?;
+        let d = parts.get(3).map(|x| x.parse()).transpose()?.unwrap_or(0);
+
+        Ok(StarknetVersion(a, b, c, d))
+    }
+}
