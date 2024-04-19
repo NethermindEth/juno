@@ -93,7 +93,7 @@ const (
 	defaultPprof                    = false
 	defaultPprofPort                = 6062
 	defaultColour                   = true
-	defaultPendingPollInterval      = time.Duration(0)
+	defaultPendingPollInterval      = 5 * time.Second
 	defaultP2p                      = false
 	defaultP2pAddr                  = ""
 	defaultP2pPeers                 = ""
@@ -141,7 +141,7 @@ const (
 	colourUsage                           = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)."
+	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
 	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p source address as multiaddr."
 	p2pPeersUsage            = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
