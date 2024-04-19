@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const levelLabel = "level "
-
 var levelStrings = map[utils.LogLevel]string{
 	utils.DEBUG: "debug",
 	utils.INFO:  "info",
@@ -21,7 +19,7 @@ var levelStrings = map[utils.LogLevel]string{
 
 func TestLogLevelString(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run(levelLabel+str, func(t *testing.T) {
+		t.Run("level "+str, func(t *testing.T) { //nolint:goconst
 			assert.Equal(t, str, level.String())
 		})
 	}
@@ -35,13 +33,13 @@ func TestLogLevelString(t *testing.T) {
 //nolint:dupl
 func TestLogLevelSet(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run(levelLabel+str, func(t *testing.T) {
+		t.Run("level "+str, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.Set(str))
 			assert.Equal(t, level, *l)
 		})
 		uppercase := strings.ToUpper(str)
-		t.Run(levelLabel+uppercase, func(t *testing.T) {
+		t.Run("level "+uppercase, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.Set(uppercase))
 			assert.Equal(t, level, *l)
@@ -56,13 +54,13 @@ func TestLogLevelSet(t *testing.T) {
 
 func TestLogLevelUnmarshalText(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run(levelLabel+str, func(t *testing.T) {
+		t.Run("level "+str, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.UnmarshalText([]byte(str)))
 			assert.Equal(t, level, *l)
 		})
 		uppercase := strings.ToUpper(str)
-		t.Run(levelLabel+uppercase, func(t *testing.T) {
+		t.Run("level "+uppercase, func(t *testing.T) {
 			l := new(utils.LogLevel)
 			require.NoError(t, l.UnmarshalText([]byte(uppercase)))
 			assert.Equal(t, level, *l)
@@ -93,7 +91,7 @@ func TestLogLevelType(t *testing.T) {
 
 func TestZapWithColour(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run(levelLabel+": "+str, func(t *testing.T) {
+		t.Run("level: "+str, func(t *testing.T) {
 			_, err := utils.NewZapLogger(level, true)
 			assert.NoError(t, err)
 		})
@@ -102,7 +100,7 @@ func TestZapWithColour(t *testing.T) {
 
 func TestZapWithoutColour(t *testing.T) {
 	for level, str := range levelStrings {
-		t.Run(levelLabel+": "+str, func(t *testing.T) {
+		t.Run("level: "+str, func(t *testing.T) {
 			_, err := utils.NewZapLogger(level, false)
 			assert.NoError(t, err)
 		})
