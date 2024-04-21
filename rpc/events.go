@@ -192,6 +192,7 @@ func (h *Handler) unsubscribe(sub *subscription, id uint64) {
 }
 
 func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, latestHeight uint64) error {
+	//nolint:gocritic
 	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
 		if id == nil {
 			return nil

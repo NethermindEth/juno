@@ -19,24 +19,24 @@ func TestSimulateTransactions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	network := utils.Mainnet
+	n := utils.Ptr(utils.Mainnet)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(&network).AnyTimes()
+	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
 	headsHeader := &core.Header{
-		SequencerAddress: network.BlockHashMetaInfo.FallBackSequencerAddress,
+		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 	}
 	mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil).AnyTimes()
 
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, &network, true, false, false, false).
+		}, mockState, n, true, false, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
@@ -46,7 +46,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, &network, false, false, false, false).
+		}, mockState, n, false, false, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
@@ -56,7 +56,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("transaction execution error", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, &network, false, false, false, false).
+		}, mockState, n, false, false, false, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -70,7 +70,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, &network, false, true, true, false).
+		}, mockState, n, false, true, true, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),

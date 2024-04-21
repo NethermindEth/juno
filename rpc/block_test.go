@@ -95,7 +95,7 @@ func TestBlockNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		expectedHeight := uint64(0)
@@ -120,8 +120,9 @@ func TestBlockHashAndNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
@@ -132,7 +133,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	})
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Mainnet)
+		client := feeder.NewTestClient(t, n)
 		gw := adaptfeeder.New(client)
 
 		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
@@ -152,13 +153,14 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
-	latestBlockNumber := uint64(485004)
+	latestBlockNumber := uint64(56377)
 	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
@@ -236,9 +238,9 @@ func TestBlockWithTxHashes(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			network := utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), &network)
-			handler := rpc.New(chain, nil, nil, "", log)
+			n := utils.Ptr(utils.Mainnet)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
+			handler := rpc.New(chain, nil, nil, "", n, log)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
 			assert.Nil(t, block)
@@ -249,10 +251,11 @@ func TestBlockWithTxHashes(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Goerli)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(485004)
@@ -354,9 +357,9 @@ func TestBlockWithTxs(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			network := utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), &network)
-			handler := rpc.New(chain, nil, nil, "", log)
+			n := utils.Ptr(utils.Mainnet)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
+			handler := rpc.New(chain, nil, nil, "", n, log)
 
 			block, rpcErr := handler.BlockWithTxs(id)
 			assert.Nil(t, block)
@@ -367,10 +370,11 @@ func TestBlockWithTxs(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(16697)
@@ -484,14 +488,14 @@ func TestBlockWithTxs(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	network := utils.Integration
+	n := utils.Ptr(utils.Integration)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	blockNumber := uint64(319132)
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
+	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	coreBlock, err := gw.BlockByNumber(context.Background(), blockNumber)
 	require.NoError(t, err)
 	tx, ok := coreBlock.Transactions[0].(*core.InvokeTransaction)
@@ -551,13 +555,12 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 }
 
 func TestBlockWithReceipts(t *testing.T) {
-	t.Skip()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
@@ -583,10 +586,11 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Equal(t, rpc.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
 	t.Run("pending block", func(t *testing.T) {
+		t.Skip()
 		block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
@@ -627,6 +631,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	t.Run("accepted L1 block", func(t *testing.T) {
+		t.Skip()
 		block1, err := mainnetGw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
 
@@ -673,10 +678,11 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Goerli)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 	latestBlockNumber := uint64(485004)
 

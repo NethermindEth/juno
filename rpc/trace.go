@@ -185,8 +185,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
-		} else if blockVer.Compare(traceFallbackVersion) != 1 {
-			// version <= 0.12.3
+		} else if blockVer.Compare(traceFallbackVersion) != 1 || h.forceFeederTracesForBlocks.Contains(block.Number) {
+			// version <= 0.12.3 or forcing fetch some blocks from feeder gateway
 			return h.fetchTraces(ctx, block.Hash)
 		}
 

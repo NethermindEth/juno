@@ -27,10 +27,11 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 
+	n := utils.Ptr(utils.Mainnet)
 	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
 
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	tx, rpcErr := handler.TransactionByHash(*txHash)
 	assert.Nil(t, tx)
@@ -40,12 +41,12 @@ func TestTransactionByHashNotFound(t *testing.T) {
 func TestTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
 		hash     string
-		network  utils.Network
+		network  *utils.Network
 		expected string
 	}{
 		"DECLARE v1": {
 			hash:    "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
 			"type": "DECLARE",
 			"transaction_hash": "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
@@ -63,7 +64,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DECLARE v0": {
 			hash:    "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
 				"transaction_hash": "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
 				"type": "DECLARE",
@@ -77,7 +78,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"L1 Handler v0 with nonce": {
 			hash:    "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
        "type": "L1_HANDLER",
        "transaction_hash": "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
@@ -96,7 +97,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"L1 Handler v0 without nonce": {
 			hash:    "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
 				"type": "L1_HANDLER",
 				"transaction_hash":  "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
@@ -115,7 +116,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"Invoke v1": {
 			hash:    "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
@@ -151,7 +152,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DEPLOY v0": {
 			hash:    "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
        "type": "DEPLOY",
        "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
@@ -170,7 +171,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"DEPLOY ACCOUNT v1": {
 			hash:    "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
        "type": "DEPLOY_ACCOUNT",
        "transaction_hash": "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
@@ -191,7 +192,7 @@ func TestTransactionByHash(t *testing.T) {
 
 		"INVOKE v0": {
 			hash:    "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
-			network: utils.Mainnet,
+			network: utils.Ptr(utils.Mainnet),
 			expected: `{
        "type": "INVOKE",
        "transaction_hash": "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
@@ -210,7 +211,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DECLARE v3": {
 			hash:    "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
-			network: utils.Integration,
+			network: utils.Ptr(utils.Integration),
 			expected: `{
 		"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 		"type": "DECLARE",
@@ -239,7 +240,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"INVOKE v3": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network: utils.Integration,
+			network: utils.Ptr(utils.Integration),
 			expected: `{
 				"type": "INVOKE",
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -283,7 +284,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DEPLOY ACCOUNT v3": {
 			hash:    "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
-			network: utils.Integration,
+			network: utils.Ptr(utils.Integration),
 			expected: `{
 				"transaction_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 				"version": "0x3",
@@ -315,14 +316,14 @@ func TestTransactionByHash(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gw := adaptfeeder.New(feeder.NewTestClient(t, &test.network))
+			gw := adaptfeeder.New(feeder.NewTestClient(t, test.network))
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 				return gw.Transaction(context.Background(), hash)
 			}).Times(1)
-			handler := rpc.New(mockReader, nil, nil, "", nil)
+			handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
 			hash, err := new(felt.Felt).SetString(test.hash)
 			require.NoError(t, err)
@@ -346,9 +347,9 @@ func TestTransactionByHash(t *testing.T) {
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
 	latestBlockNumber := 19199
@@ -356,7 +357,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
@@ -498,8 +499,9 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -510,7 +512,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
 	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
@@ -756,8 +758,9 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -768,7 +771,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
 	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
@@ -1047,8 +1050,8 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 }
 
 func TestAddTransaction(t *testing.T) {
-	network := utils.Integration
-	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
+	n := utils.Ptr(utils.Integration)
+	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(context.Background(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
@@ -1313,7 +1316,7 @@ func TestAddTransaction(t *testing.T) {
 				}`), nil).
 				Times(1)
 
-			handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger())
+			handler := rpc.New(nil, nil, nil, "", n, utils.NewNopZapLogger())
 			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
 			require.Equal(t, rpcErr.Code, rpc.ErrInternal.Code)
 
@@ -1334,19 +1337,19 @@ func TestTransactionStatus(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	tests := []struct {
-		network           utils.Network
+		network           *utils.Network
 		verifiedTxHash    *felt.Felt
 		nonVerifiedTxHash *felt.Felt
 		notFoundTxHash    *felt.Felt
 	}{
 		{
-			network:           utils.Mainnet,
+			network:           utils.Ptr(utils.Mainnet),
 			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
 			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
-			network:           utils.Integration,
+			network:           utils.Ptr(utils.Integration),
 			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
 			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
@@ -1360,7 +1363,7 @@ func TestTransactionStatus(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 
-			client := feeder.NewTestClient(t, &test.network)
+			client := feeder.NewTestClient(t, test.network)
 
 			t.Run("tx found in db", func(t *testing.T) {
 				gw := adaptfeeder.New(client)
@@ -1376,7 +1379,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
 					mockReader.EXPECT().L1Head().Return(nil, nil)
 
-					handler := rpc.New(mockReader, nil, nil, "", nil)
+					handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL2,
@@ -1394,7 +1397,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, "", nil)
+					handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1424,7 +1427,7 @@ func TestTransactionStatus(t *testing.T) {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						handler := rpc.New(mockReader, nil, nil, "", nil)
+						handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpc.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1441,7 +1444,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, nil, nil, "", nil).WithFeeder(client)
+				handler := rpc.New(mockReader, nil, nil, "", test.network, nil).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)

@@ -23,11 +23,12 @@ func TestEstimateMessageFee(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
+	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
-	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
 	msg := rpc.MsgFromL1{
 		From:     common.HexToAddress("0xDEADBEEF"),
 		To:       *new(felt.Felt).SetUint64(1337),
@@ -95,13 +96,13 @@ func TestEstimateFee(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	network := utils.Mainnet
+	n := utils.Ptr(utils.Mainnet)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(&network).AnyTimes()
+	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, nil, mockVM, "", n, log)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
@@ -109,7 +110,7 @@ func TestEstimateFee(t *testing.T) {
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, &network, true, true, false, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
@@ -117,7 +118,7 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, &network, true, true, false, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
@@ -125,7 +126,7 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, &network, true, true, false, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -137,7 +138,7 @@ func TestEstimateFee(t *testing.T) {
 			ExecutionError:   "oops",
 		}), err)
 
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, &network, false, true, true, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, false, true, true, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),

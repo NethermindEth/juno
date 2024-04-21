@@ -26,9 +26,10 @@ import (
 
 func TestEvents(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, &utils.Goerli2)
+	n := utils.Ptr(utils.Goerli2)
+	chain := blockchain.New(testDB, n)
 
-	client := feeder.NewTestClient(t, &utils.Goerli2)
+	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
 	for i := range 7 {
@@ -49,7 +50,7 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	handler := rpc.New(chain, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(chain, nil, nil, "", n, utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	args := rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
@@ -226,14 +227,14 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Skip()
 	t.Parallel()
 	log := utils.NewNopZapLogger()
-	network := utils.Mainnet
-	client := feeder.NewTestClient(t, &network)
+	n := utils.Ptr(utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(pebble.NewMemTest(t), n)
 	syncer := sync.New(chain, gw, log, 0, false)
-	handler := rpc.New(chain, syncer, nil, "", log)
+	handler := rpc.New(chain, syncer, nil, "", n, log)
 
 	go func() {
 		require.NoError(t, handler.Run(ctx))
@@ -308,14 +309,14 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Skip()
 	t.Parallel()
 	log := utils.NewNopZapLogger()
-	network := utils.Mainnet
-	feederClient := feeder.NewTestClient(t, &network)
+	n := utils.Ptr(utils.Mainnet)
+	feederClient := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(feederClient)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(pebble.NewMemTest(t), n)
 	syncer := sync.New(chain, gw, log, 0, false)
-	handler := rpc.New(chain, syncer, nil, "", log)
+	handler := rpc.New(chain, syncer, nil, "", n, log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))
 	}()
