@@ -16,6 +16,7 @@ import (
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/pool"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -396,15 +397,35 @@ func isNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
+//nolint:govet
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
-	reqJSON, _ := json.Marshal(req) // Serialise the request early for use in logging
-	s.log.Tracew("Received request", "req", string(reqJSON))
+	// Declare necessary variables at the beginning
+	var reqJSON, resJSON, errJSON []byte
+	var err error
+
+	// Check if s.log is initialised and call IsLogLevel
+	if s.log == nil {
+		return nil, fmt.Errorf("logger not initialised")
+	}
+
+	// Check log level for conditional logging
+	if utils.IsLogLevel(s.log, zapcore.DebugLevel) {
+		reqJSON, err = json.Marshal(req) // Only serialise if the level is Debug or above
+		if err != nil {
+			s.log.Errorw("Error marshalling request", "error", err)      // Log error
+			return nil, fmt.Errorf("failed to marshal request: %w", err) // Handle error properly
+		}
+		s.log.Debugw("Received request", "req", string(reqJSON)) // Log at Debug level
+	}
+
+	s.log.Tracew("Received request", "req", req) // Continue with trace-level logging
 
 	if err := req.isSane(); err != nil {
 		s.log.Tracew("Request sanity check failed", "error", err.Error())
 		return nil, err
 	}
 
+	// Initialise response object
 	res := &response{
 		Version: "2.0",
 		ID:      req.ID,
@@ -427,12 +448,14 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 		s.log.Tracew("Error building arguments for RPC call", "error", err.Error())
 		return res, nil
 	}
+
 	defer func() {
 		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
 	}()
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
-	if res.ID == nil { // notification
+
+	if res.ID == nil { // Notification, no response expected
 		s.log.Tracew("Notification received, no response expected")
 		return nil, nil
 	}
@@ -440,17 +463,26 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	if errAny := tuple[1].Interface(); !isNil(errAny) {
 		res.Error = errAny.(*Error)
 		if res.Error.Code == InternalError {
+			errJSON, err = json.Marshal(res.Error) // Serialise error
+			if err != nil {
+				s.log.Errorw("Error marshalling error response", "error", err) // Handle marshalling error
+			}
 			s.listener.OnRequestFailed(req.Method, res.Error)
-			reqJSON, _ := json.Marshal(req)
-			errJSON, _ := json.Marshal(res.Error)
-			s.log.Debugw("Failed handing RPC request", "req", string(reqJSON), "res", string(errJSON))
-			s.log.Tracew("Internal error during RPC handling", "req", string(reqJSON), "error", string(errJSON))
+			s.log.Debugw("Failed handling RPC request", "req", string(reqJSON), "res", string(errJSON))
 		}
 		return res, nil
 	}
+
 	res.Result = tuple[0].Interface()
-	resJSON, _ := json.Marshal(res) // Serialise response for logging
-	s.log.Tracew("Successfully handled RPC request", "res", string(resJSON))
+
+	// Serialise the response for logging
+	resJSON, err = json.Marshal(res)
+	if err != nil {
+		s.log.Errorw("Error marshalling response", "error", err)      // Log marshalling error
+		return nil, fmt.Errorf("failed to marshal response: %w", err) // Return error
+	}
+
+	s.log.Tracew("Successfully handled RPC request", "res", string(resJSON)) // Log successful handling
 	return res, nil
 }
 

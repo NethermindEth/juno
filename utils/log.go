@@ -2,8 +2,10 @@ package utils
 
 import (
 	"encoding"
+	"errors"
+	"fmt"
 	"time"
-     "errors"
+
 	"github.com/cockroachdb/pebble"
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -11,8 +13,6 @@ import (
 )
 
 var ErrUnknownLogLevel = errors.New("unknown log level (known: debug, info, warn, error, trace)")
-
-
 type LogLevel int
 
 // The following are necessary for Cobra and Viper, respectively, to unmarshal log level
@@ -30,6 +30,7 @@ const (
 	TRACE
 )
 
+//nolint:goconst
 func (l LogLevel) String() string {
 	switch l {
 	case DEBUG:
@@ -120,13 +121,14 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
-	level, err := zapcore.ParseLevel(logLevel.String())
-	if err != nil {
-		return nil, err
-	}
-	if logLevel == TRACE {
-		config.Level.SetLevel(zapcore.DebugLevel) // Adjust according to how you define TRACE
+	levelStr := logLevel.String()
+	if levelStr == "trace" {
+		config.Level.SetLevel(zapcore.DebugLevel) // Custom handling for TRACE, maps to Debug level
 	} else {
+		level, err := zapcore.ParseLevel(levelStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse log level '%s': %w", levelStr, err) // More descriptive error
+		}
 		config.Level.SetLevel(level)
 	}
 
@@ -140,4 +142,19 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 
 func (l *ZapLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args)
+}
+
+// IsLogLevel checks if a logger has a specific log level enabled
+func IsLogLevel(logger interface{}, targetLevel zapcore.Level) bool {
+	switch l := logger.(type) {
+	case *zap.SugaredLogger:
+		// Check the underlying logger's core
+		return l.Desugar().Core().Enabled(targetLevel) // Handle SugaredLogger
+	case *zap.Logger:
+		// Check if the core has the specified level
+		return l.Core().Enabled(targetLevel) // Handle basic Zap Logger
+	default:
+		// If logger type is unknown, return false
+		return false
+	}
 }
