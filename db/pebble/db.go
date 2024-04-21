@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 )
@@ -12,8 +13,6 @@ import (
 const (
 	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
 	minCache = 8
-
-	megabyte = 1 << 20
 )
 
 var _ db.DB = (*DB)(nil)
@@ -27,12 +26,10 @@ type DB struct {
 // New opens a new database at the given path
 func New(path string, cache uint, maxOpenFiles int, logger pebble.Logger) (db.DB, error) {
 	// Ensure that the specified cache size meets a minimum threshold.
-	if cache < minCache {
-		cache = minCache
-	}
+	cache = max(minCache, cache)
 	pDB, err := newPebble(path, &pebble.Options{
 		Logger:       logger,
-		Cache:        pebble.NewCache(int64(cache * megabyte)),
+		Cache:        pebble.NewCache(int64(cache * utils.Megabyte)),
 		MaxOpenFiles: maxOpenFiles,
 	})
 	if err != nil {

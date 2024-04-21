@@ -44,7 +44,7 @@ func sendAndCloseWrite(stream network.Stream, req proto.Message) error {
 
 func receiveInto(stream network.Stream, res proto.Message) error {
 	unmarshaller := protodelim.UnmarshalOptions{
-		MaxSize: 10 << 20, // 10 MB
+		MaxSize: 10 * utils.Megabyte,
 	}
 	return unmarshaller.UnmarshalFrom(&byteReader{stream}, res)
 }

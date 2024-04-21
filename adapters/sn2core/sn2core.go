@@ -66,23 +66,13 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 		return nil
 	}
 
-	events := make([]*core.Event, len(response.Events))
-	for i, event := range response.Events {
-		events[i] = AdaptEvent(event)
-	}
-
-	l2ToL1Messages := make([]*core.L2ToL1Message, len(response.L2ToL1Message))
-	for i, msg := range response.L2ToL1Message {
-		l2ToL1Messages[i] = AdaptL2ToL1Message(msg)
-	}
-
 	return &core.TransactionReceipt{
 		Fee:                response.ActualFee,
 		TransactionHash:    response.TransactionHash,
-		Events:             events,
+		Events:             utils.Map(utils.NonNilSlice(response.Events), AdaptEvent),
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
-		L2ToL1Message:      l2ToL1Messages,
+		L2ToL1Message:      utils.Map(utils.NonNilSlice(response.L2ToL1Message), AdaptL2ToL1Message),
 		Reverted:           response.ExecutionStatus == starknet.Reverted,
 		RevertReason:       response.RevertError,
 	}
@@ -270,30 +260,27 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 		return nil, err
 	}
 
-	class.EntryPoints.External = make([]core.SierraEntryPoint, len(response.EntryPoints.External))
-	for index, v := range response.EntryPoints.External {
-		class.EntryPoints.External[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
-	}
-	class.EntryPoints.L1Handler = make([]core.SierraEntryPoint, len(response.EntryPoints.L1Handler))
-	for index, v := range response.EntryPoints.L1Handler {
-		class.EntryPoints.L1Handler[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
-	}
-	class.EntryPoints.Constructor = make([]core.SierraEntryPoint, len(response.EntryPoints.Constructor))
-	for index, v := range response.EntryPoints.Constructor {
-		class.EntryPoints.Constructor[index] = core.SierraEntryPoint{Index: v.Index, Selector: v.Selector}
+	adapt := func(ep starknet.SierraEntryPoint) core.SierraEntryPoint {
+		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
 	}
 
-	if compiledClass != nil {
-		class.Compiled, err = AdaptCompiledClass(compiledClass)
-		if err != nil {
-			return nil, err
-		}
+	class.EntryPoints.External = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
+	class.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
+	class.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)
+
+	class.Compiled, err = AdaptCompiledClass(compiledClass)
+	if err != nil {
+		return nil, err
 	}
 
 	return class, nil
 }
 
 func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {
+	if compiledClass == nil {
+		return nil, nil
+	}
+
 	var compiled core.CompiledClass
 	compiled.Bytecode = compiledClass.Bytecode
 	compiled.PythonicHints = compiledClass.PythonicHints
@@ -326,20 +313,13 @@ func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
 	class := new(core.Cairo0Class)
 	class.Abi = response.Abi
 
-	class.Externals = make([]core.EntryPoint, 0, len(response.EntryPoints.External))
-	for _, v := range response.EntryPoints.External {
-		class.Externals = append(class.Externals, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
+	adapt := func(ep starknet.EntryPoint) core.EntryPoint {
+		return core.EntryPoint{Selector: ep.Selector, Offset: ep.Offset}
 	}
 
-	class.L1Handlers = make([]core.EntryPoint, 0, len(response.EntryPoints.L1Handler))
-	for _, v := range response.EntryPoints.L1Handler {
-		class.L1Handlers = append(class.L1Handlers, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
-	}
-
-	class.Constructors = make([]core.EntryPoint, 0, len(response.EntryPoints.Constructor))
-	for _, v := range response.EntryPoints.Constructor {
-		class.Constructors = append(class.Constructors, core.EntryPoint{Selector: v.Selector, Offset: v.Offset})
-	}
+	class.Externals = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
+	class.L1Handlers = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
+	class.Constructors = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)
 
 	var err error
 	class.Program, err = utils.Gzip64Encode(response.Program)

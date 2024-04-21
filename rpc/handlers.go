@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/hashicorp/go-set/v2"
 	"github.com/sourcegraph/conc"
 )
 
@@ -79,7 +80,9 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
-	version       string
+
+	version                    string
+	forceFeederTracesForBlocks *set.Set[uint64]
 
 	newHeads *feed.Feed[*core.Header]
 
@@ -99,7 +102,9 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, logger utils.Logger) *Handler {
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network *utils.Network,
+	logger utils.Logger,
+) *Handler {
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
@@ -111,9 +116,10 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:       version,
-		newHeads:      feed.New[*core.Header](),
-		subscriptions: make(map[uint64]*subscription),
+		version:                    version,
+		forceFeederTracesForBlocks: set.From(network.BlockHashMetaInfo.ForceFetchingTracesForBlocks),
+		newHeads:                   feed.New[*core.Header](),
+		subscriptions:              make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -162,7 +168,7 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.7.0", nil
+	return "0.7.1", nil
 }
 
 func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {

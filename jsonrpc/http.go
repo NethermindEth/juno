@@ -6,7 +6,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
+const MaxRequestBodySize = 10 * utils.Megabyte
 
 type HTTP struct {
 	rpc *Server

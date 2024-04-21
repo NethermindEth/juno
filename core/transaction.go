@@ -64,8 +64,7 @@ type ResourceBounds struct {
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
-	const eight = 8
-	maxAmountBytes := make([]byte, eight)
+	maxAmountBytes := make([]byte, 8) //nolint:gomnd
 	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
 	maxPriceBytes := rb.MaxPricePerUnit.Bytes()
 	return slices.Concat(
