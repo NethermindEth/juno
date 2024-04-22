@@ -1511,17 +1511,20 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 	}
 
 	var block *core.Block
-	pendingBlock := blockHash == nil
-	if pendingBlock {
-		pending, err := h.bcReader.Pending()
+	isPendingBlock := blockHash == nil
+	if isPendingBlock {
+		var pending blockchain.Pending
+		pending, err = h.bcReader.Pending()
 		if err != nil {
-			return nil, ErrInternal
+			// for traceTransaction handlers there is no block not found error
+			return nil, ErrTxnHashNotFound
 		}
 		block = pending.Block
 	} else {
 		block, err = h.bcReader.BlockByHash(blockHash)
 		if err != nil {
-			return nil, ErrBlockNotFound
+			// for traceTransaction handlers there is no block not found error
+			return nil, ErrTxnHashNotFound
 		}
 	}
 
