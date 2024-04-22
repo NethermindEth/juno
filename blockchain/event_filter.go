@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -32,6 +33,7 @@ type EventFilter struct {
 	contractAddress *felt.Felt
 	keys            [][]felt.Felt
 	maxScanned      uint // maximum number of scanned blocks in single call.
+	pending         *atomic.Pointer[Pending]
 }
 
 type EventFilterRange uint
@@ -41,7 +43,9 @@ const (
 	EventFilterTo
 )
 
-func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64) *EventFilter {
+func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64,
+	pending *atomic.Pointer[Pending],
+) *EventFilter {
 	return &EventFilter{
 		txn:             txn,
 		contractAddress: contractAddress,
@@ -49,6 +53,7 @@ func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]fel
 		fromBlock:       fromBlock,
 		toBlock:         toBlock,
 		maxScanned:      math.MaxUint,
+		pending:         pending,
 	}
 }
 
@@ -113,14 +118,13 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		return nil, nil, err
 	}
 
-	var pending Pending
+	var pending *Pending
 	if e.toBlock > latest {
 		e.toBlock = latest + 1
-		pending, err = pendingBlock(e.txn)
-		if errors.Is(err, db.ErrKeyNotFound) {
+
+		pending = e.pending.Load()
+		if pending == nil {
 			e.toBlock = latest
-		} else if err != nil {
-			return nil, nil, err
 		}
 	}
 

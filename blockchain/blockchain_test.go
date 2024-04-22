@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -12,13 +11,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 )
 
 var emptyCommitments = core.BlockCommitments{}
@@ -356,7 +353,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetTransactionByHash returns error if transaction does not exist", func(t *testing.T) {
 		tx, err := chain.TransactionByHash(new(felt.Felt).SetUint64(345))
 		assert.Nil(t, tx)
-		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+		assert.EqualError(t, err, blockchain.ErrPendingBlockNotFound.Error())
 	})
 
 	t.Run("GetTransactionReceipt returns error if receipt does not exist", func(t *testing.T) {
@@ -723,63 +720,6 @@ func TestPending(t *testing.T) {
 	b.GasPriceSTRK = utils.HexToFelt(t, "0xDEADBEEF")
 	require.NoError(t, chain.Store(b, &emptyCommitments, su, nil))
 
-	t.Run("no pending block means pending state matches head state", func(t *testing.T) {
-		pending, pErr := chain.Pending()
-		require.NoError(t, pErr)
-
-		require.LessOrEqual(t, pending.Block.Timestamp, uint64(time.Now().Unix()))
-		require.GreaterOrEqual(t, pending.Block.Timestamp, b.Timestamp)
-		receipts := make([]*core.TransactionReceipt, 0)
-		require.Equal(t, blockchain.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash:       b.Hash,
-					SequencerAddress: b.SequencerAddress,
-					Number:           b.Number + 1,
-					Timestamp:        pending.Block.Timestamp, // Tested above.
-					ProtocolVersion:  b.ProtocolVersion,
-					EventsBloom:      core.EventsBloom(receipts),
-					GasPrice:         b.GasPrice,
-					GasPriceSTRK:     b.GasPriceSTRK,
-				},
-				Transactions: make([]core.Transaction, 0),
-				Receipts:     receipts,
-			},
-			StateUpdate: &core.StateUpdate{
-				OldRoot:   su.NewRoot,
-				StateDiff: core.EmptyStateDiff(),
-			},
-			NewClasses: make(map[felt.Felt]core.Class, 0),
-		}, pending)
-
-		// PendingState matches head state.
-		require.NoError(t, pErr)
-		reader, closer, pErr := chain.PendingState()
-		require.NoError(t, pErr)
-		t.Cleanup(func() {
-			require.NoError(t, closer())
-		})
-
-		for addr, diff := range su.StateDiff.StorageDiffs {
-			for key, diffVal := range diff {
-				value, csErr := reader.ContractStorage(&addr, &key)
-				require.NoError(t, csErr)
-				require.Equal(t, diffVal, value)
-			}
-		}
-
-		for address, nonce := range su.StateDiff.Nonces {
-			got, cnErr := reader.ContractNonce(&address)
-			require.NoError(t, cnErr)
-			require.Equal(t, nonce, got)
-		}
-
-		for _, hash := range su.StateDiff.DeclaredV0Classes {
-			_, err = reader.Class(hash)
-			require.NoError(t, err)
-		}
-	})
-
 	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
 		b, err = gw.BlockByNumber(context.Background(), 2)
 		require.NoError(t, err)
@@ -870,31 +810,4 @@ func TestStorePendingIncludesNumber(t *testing.T) {
 	pending, err = chain.Pending()
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), pending.Block.Number)
-}
-
-func TestMakeStateDiffForEmptyBlock(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	t.Run("earlier blocks shouldnt have block hash in state", func(t *testing.T) {
-		for i := uint64(0); i < 10; i++ {
-			sd, err := blockchain.MakeStateDiffForEmptyBlock(mockReader, i)
-			require.NoError(t, err)
-			assert.Equal(t, core.EmptyStateDiff(), sd)
-		}
-	})
-
-	t.Run("should have block hash in state", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0xDEADBEEF")
-		storageContractAddr := utils.HexToFelt(t, "0x1")
-
-		mockReader.EXPECT().BlockHeaderByNumber(uint64(0)).Return(&core.Header{
-			Number: 0,
-			Hash:   blockHash,
-		}, nil)
-		sd, err := blockchain.MakeStateDiffForEmptyBlock(mockReader, 10)
-		require.NoError(t, err)
-		assert.Equal(t, blockHash, sd.StorageDiffs[*storageContractAddr][felt.Zero])
-	})
 }

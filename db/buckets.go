@@ -29,7 +29,7 @@ const (
 	ContractDeploymentHeight
 	L1Height
 	SchemaVersion
-	Pending
+	Unused // Previously used for storing Pending Block
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState

@@ -86,7 +86,7 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 		update, err = h.bcReader.StateUpdateByNumber(id.Number)
 	}
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, blockchain.ErrPendingBlockNotFound) {
 			return nil, ErrBlockNotFound
 		}
 		return nil, ErrInternal.CloneWithData(err)
