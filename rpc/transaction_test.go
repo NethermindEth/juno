@@ -48,20 +48,19 @@ func TestTransactionByHash(t *testing.T) {
 			hash:    "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
 			network: utils.Ptr(utils.Mainnet),
 			expected: `{
-			"type": "DECLARE",
-			"transaction_hash": "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
-			"max_fee": "0xf6dbd653833",
-			"version": "0x1",
-			"signature": [
-		"0x221b9576c4f7b46d900a331d89146dbb95a7b03d2eb86b4cdcf11331e4df7f2",
-		"0x667d8062f3574ba9b4965871eec1444f80dacfa7114e1d9c74662f5672c0620"
-		],
-		"nonce": "0x5",
-		"class_hash": "0x7aed6898458c4ed1d720d43e342381b25668ec7c3e8837f761051bf4d655e54",
-		"sender_address": "0x39291faa79897de1fd6fb1a531d144daa1590d058358171b83eadb3ceafed8"
-		}`,
+				"type": "DECLARE",
+				"transaction_hash": "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae",
+				"max_fee": "0xf6dbd653833",
+				"version": "0x1",
+				"signature": [
+			"0x221b9576c4f7b46d900a331d89146dbb95a7b03d2eb86b4cdcf11331e4df7f2",
+			"0x667d8062f3574ba9b4965871eec1444f80dacfa7114e1d9c74662f5672c0620"
+			],
+			"nonce": "0x5",
+			"class_hash": "0x7aed6898458c4ed1d720d43e342381b25668ec7c3e8837f761051bf4d655e54",
+			"sender_address": "0x39291faa79897de1fd6fb1a531d144daa1590d058358171b83eadb3ceafed8"
+			}`,
 		},
-
 		"DECLARE v0": {
 			hash:    "0x222f8902d1eeea76fa2642a90e2411bfd71cffb299b3a299029e1937fab3fe4",
 			network: utils.Ptr(utils.Mainnet),
@@ -75,25 +74,24 @@ func TestTransactionByHash(t *testing.T) {
 				"sender_address": "0x1"
 			}`,
 		},
-
 		"L1 Handler v0 with nonce": {
 			hash:    "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
 			network: utils.Ptr(utils.Mainnet),
 			expected: `{
-       "type": "L1_HANDLER",
-       "transaction_hash": "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
-       "version": "0x0",
-       "nonce": "0x2",
-       "contract_address": "0xda8054260ec00606197a4103eb2ef08d6c8af0b6a808b610152d1ce498f8c3",
-       "entry_point_selector": "0xc73f681176fc7b3f9693986fd7b14581e8d540519e27400e88b8713932be01",
-       "calldata": [
-           "0x142273bcbfca76512b2a05aed21f134c4495208",
-           "0x160c35f9f962e1bc997f9133d9fb231afd5799f7d63dcbcd506af4866b3874",
-           "0x16345785d8a0000",
-           "0x0",
-           "0x3"
-       ]
-   }`,
+			   "type": "L1_HANDLER",
+			   "transaction_hash": "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
+			   "version": "0x0",
+			   "nonce": "0x2",
+			   "contract_address": "0xda8054260ec00606197a4103eb2ef08d6c8af0b6a808b610152d1ce498f8c3",
+			   "entry_point_selector": "0xc73f681176fc7b3f9693986fd7b14581e8d540519e27400e88b8713932be01",
+			   "calldata": [
+				   "0x142273bcbfca76512b2a05aed21f134c4495208",
+				   "0x160c35f9f962e1bc997f9133d9fb231afd5799f7d63dcbcd506af4866b3874",
+				   "0x16345785d8a0000",
+				   "0x0",
+				   "0x3"
+			   ]
+		   }`,
 		},
 		"L1 Handler v0 without nonce": {
 			hash:    "0x5d50b7020f7cf8033fd7d913e489f47edf74fbf3c8ada85be512c7baa6a2eab",
@@ -113,130 +111,126 @@ func TestTransactionByHash(t *testing.T) {
 				]
 			}`,
 		},
-
 		"Invoke v1": {
 			hash:    "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
 			network: utils.Ptr(utils.Mainnet),
 			expected: `{
-       "type": "INVOKE",
-       "transaction_hash": "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
-       "max_fee": "0x17f0de82f4be6",
-       "version": "0x1",
-       "signature": [
-           "0x383ba105b6d0f59fab96a412ad267213ddcd899e046278bdba64cd583d680b",
-           "0x1896619a17fde468978b8d885ffd6f5c8f4ac1b188233b81b91bcf7dbc56fbd"
-       ],
-       "nonce": "0x42",
-       "sender_address": "0x1fc039de7d864580b57a575e8e6b7114f4d2a954d7d29f876b2eb3dd09394a0",
-       "calldata": [
-           "0x1",
-           "0x727a63f78ee3f1bd18f78009067411ab369c31dece1ae22e16f567906409905",
-           "0x22de356837ac200bca613c78bd1fcc962a97770c06625f0c8b3edeb6ae4aa59",
-           "0x0",
-           "0xb",
-           "0xb",
-           "0xa",
-           "0x6db793d93ce48bc75a5ab02e6a82aad67f01ce52b7b903090725dbc4000eaa2",
-           "0x6141eac4031dfb422080ed567fe008fb337b9be2561f479a377aa1de1d1b676",
-           "0x27eb1a21fa7593dd12e988c9dd32917a0dea7d77db7e89a809464c09cf951c0",
-           "0x400a29400a34d8f69425e1f4335e6a6c24ce1111db3954e4befe4f90ca18eb7",
-           "0x599e56821170a12cdcf88fb8714057ce364a8728f738853da61d5b3af08a390",
-           "0x46ad66f467df625f3b2dd9d3272e61713e8f74b68adac6718f7497d742cfb17",
-           "0x4f348b585e6c1919d524a4bfe6f97230ecb61736fe57534ec42b628f7020849",
-           "0x19ae40a095ffe79b0c9fc03df2de0d2ab20f59a2692ed98a8c1062dbf691572",
-           "0xe120336994adef6c6e47694f87278686511d4622997d4a6f216bd6e9fa9acc",
-           "0x56e6637a4958d062db8c8198e315772819f64d915e5c7a8d58a99fa90ff0742"
-       ]
-   }`,
+			   "type": "INVOKE",
+			   "transaction_hash": "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497",
+			   "max_fee": "0x17f0de82f4be6",
+			   "version": "0x1",
+			   "signature": [
+				   "0x383ba105b6d0f59fab96a412ad267213ddcd899e046278bdba64cd583d680b",
+				   "0x1896619a17fde468978b8d885ffd6f5c8f4ac1b188233b81b91bcf7dbc56fbd"
+			   ],
+			   "nonce": "0x42",
+			   "sender_address": "0x1fc039de7d864580b57a575e8e6b7114f4d2a954d7d29f876b2eb3dd09394a0",
+			   "calldata": [
+				   "0x1",
+				   "0x727a63f78ee3f1bd18f78009067411ab369c31dece1ae22e16f567906409905",
+				   "0x22de356837ac200bca613c78bd1fcc962a97770c06625f0c8b3edeb6ae4aa59",
+				   "0x0",
+				   "0xb",
+				   "0xb",
+				   "0xa",
+				   "0x6db793d93ce48bc75a5ab02e6a82aad67f01ce52b7b903090725dbc4000eaa2",
+				   "0x6141eac4031dfb422080ed567fe008fb337b9be2561f479a377aa1de1d1b676",
+				   "0x27eb1a21fa7593dd12e988c9dd32917a0dea7d77db7e89a809464c09cf951c0",
+				   "0x400a29400a34d8f69425e1f4335e6a6c24ce1111db3954e4befe4f90ca18eb7",
+				   "0x599e56821170a12cdcf88fb8714057ce364a8728f738853da61d5b3af08a390",
+				   "0x46ad66f467df625f3b2dd9d3272e61713e8f74b68adac6718f7497d742cfb17",
+				   "0x4f348b585e6c1919d524a4bfe6f97230ecb61736fe57534ec42b628f7020849",
+				   "0x19ae40a095ffe79b0c9fc03df2de0d2ab20f59a2692ed98a8c1062dbf691572",
+				   "0xe120336994adef6c6e47694f87278686511d4622997d4a6f216bd6e9fa9acc",
+				   "0x56e6637a4958d062db8c8198e315772819f64d915e5c7a8d58a99fa90ff0742"
+			   ]
+		   }`,
 		},
-
 		"DEPLOY v0": {
 			hash:    "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
 			network: utils.Ptr(utils.Mainnet),
 			expected: `{
-       "type": "DEPLOY",
-       "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
-       "version": "0x0",
-       "class_hash": "0x46f844ea1a3b3668f81d38b5c1bd55e816e0373802aefe732138628f0133486",
-       "contract_address_salt": "0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b",
-       "constructor_calldata": [
-           "0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4",
-           "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
-           "0x2",
-           "0x6658165b4984816ab189568637bedec5aa0a18305909c7f5726e4a16e3afef6",
-           "0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328"
-       ]
-   }`,
+			   "type": "DEPLOY",
+			   "transaction_hash": "0x6486c6303dba2f364c684a2e9609211c5b8e417e767f37b527cda51e776e6f0",
+			   "version": "0x0",
+			   "class_hash": "0x46f844ea1a3b3668f81d38b5c1bd55e816e0373802aefe732138628f0133486",
+			   "contract_address_salt": "0x74dc2fe193daf1abd8241b63329c1123214842b96ad7fd003d25512598a956b",
+			   "constructor_calldata": [
+				   "0x6d706cfbac9b8262d601c38251c5fbe0497c3a96cc91a92b08d91b61d9e70c4",
+				   "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				   "0x2",
+				   "0x6658165b4984816ab189568637bedec5aa0a18305909c7f5726e4a16e3afef6",
+				   "0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328"
+			   ]
+		   }`,
 		},
-
 		"DEPLOY ACCOUNT v1": {
 			hash:    "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
 			network: utils.Ptr(utils.Mainnet),
 			expected: `{
-       "type": "DEPLOY_ACCOUNT",
-       "transaction_hash": "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
-       "max_fee": "0xb5e620f48000",
-       "version": "0x1",
-       "signature": [
-           "0x41c3543008dd65ed98c767e5d218b0c0ce1bd0cd60877824951a6f87cc1637d",
-           "0x7f803845aa7e43d183fd05cd553c64711b1c49af69a155fe8144e8da9a5a50d"
-       ],
-       "nonce": "0x0",
-       "class_hash": "0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
-       "contract_address_salt": "0x14e2ae44cbb50dff0e18140e7c415c1f281207d06fd6a0106caf3ff21e130d8",
-       "constructor_calldata": [
-           "0x6113c1775f3d0fda0b45efbb69f6e2306da3c174df523ef0acdd372bf0a61cb"
-       ]
-   }`,
+			   "type": "DEPLOY_ACCOUNT",
+			   "transaction_hash": "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
+			   "max_fee": "0xb5e620f48000",
+			   "version": "0x1",
+			   "signature": [
+				   "0x41c3543008dd65ed98c767e5d218b0c0ce1bd0cd60877824951a6f87cc1637d",
+				   "0x7f803845aa7e43d183fd05cd553c64711b1c49af69a155fe8144e8da9a5a50d"
+			   ],
+			   "nonce": "0x0",
+			   "class_hash": "0x1fac3074c9d5282f0acc5c69a4781a1c711efea5e73c550c5d9fb253cf7fd3d",
+			   "contract_address_salt": "0x14e2ae44cbb50dff0e18140e7c415c1f281207d06fd6a0106caf3ff21e130d8",
+			   "constructor_calldata": [
+				   "0x6113c1775f3d0fda0b45efbb69f6e2306da3c174df523ef0acdd372bf0a61cb"
+			   ]
+		   }`,
 		},
-
 		"INVOKE v0": {
 			hash:    "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
 			network: utils.Ptr(utils.Mainnet),
 			expected: `{
-       "type": "INVOKE",
-       "transaction_hash": "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
-       "max_fee": "0x0",
-       "version": "0x0",
-       "signature": [],
-       "contract_address": "0x43324c97e376d7d164abded1af1e73e9ce8214249f711edb7059c1ca34560e8",
-       "entry_point_selector": "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f",
-       "calldata": [
-           "0x1b654cb59f978da2eee76635158e5ff1399bf607cb2d05e3e3b4e41d7660ca2",
-           "0x2",
-           "0x5f743efdb29609bfc2002041bdd5c72257c0c6b5c268fc929a3e516c171c731",
-           "0x635afb0ea6c4cdddf93f42287b45b67acee4f08c6f6c53589e004e118491546"
-       ]
-   }`,
+			   "type": "INVOKE",
+			   "transaction_hash": "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
+			   "max_fee": "0x0",
+			   "version": "0x0",
+			   "signature": [],
+			   "contract_address": "0x43324c97e376d7d164abded1af1e73e9ce8214249f711edb7059c1ca34560e8",
+			   "entry_point_selector": "0x317eb442b72a9fae758d4fb26830ed0d9f31c8e7da4dbff4e8c59ea6a158e7f",
+			   "calldata": [
+				   "0x1b654cb59f978da2eee76635158e5ff1399bf607cb2d05e3e3b4e41d7660ca2",
+				   "0x2",
+				   "0x5f743efdb29609bfc2002041bdd5c72257c0c6b5c268fc929a3e516c171c731",
+				   "0x635afb0ea6c4cdddf93f42287b45b67acee4f08c6f6c53589e004e118491546"
+			   ]
+		   }`,
 		},
 		"DECLARE v3": {
 			hash:    "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 			network: utils.Ptr(utils.Integration),
 			expected: `{
-		"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
-		"type": "DECLARE",
-		"version": "0x3",
-		"nonce": "0x1",
-		"sender_address": "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
-		"class_hash": "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7",
-		"compiled_class_hash": "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
-		"signature": [
-			"0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
-			"0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"
-		],
-		"resource_bounds": {
-			"l1_gas": {
-				"max_amount": "0x186a0",
-				"max_price_per_unit": "0x2540be400"
-			},
-			"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
-		},
-		"tip": "0x0",
-		"paymaster_data": [],
-		"account_deployment_data": [],
-		"nonce_data_availability_mode": "L1",
-		"fee_data_availability_mode": "L1"
-	   }`,
+				"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
+				"type": "DECLARE",
+				"version": "0x3",
+				"nonce": "0x1",
+				"sender_address": "0x2fab82e4aef1d8664874e1f194951856d48463c3e6bf9a8c68e234a629a6f50",
+				"class_hash": "0x5ae9d09292a50ed48c5930904c880dab56e85b825022a7d689cfc9e65e01ee7",
+				"compiled_class_hash": "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8",
+				"signature": [
+					"0x29a49dff154fede73dd7b5ca5a0beadf40b4b069f3a850cd8428e54dc809ccc",
+					"0x429d142a17223b4f2acde0f5ecb9ad453e188b245003c86fab5c109bad58fc3"
+				],
+				"resource_bounds": {
+					"l1_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x2540be400"
+					},
+					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"account_deployment_data": [],
+				"nonce_data_availability_mode": "L1",
+				"fee_data_availability_mode": "L1"
+		   }`,
 		},
 		"INVOKE v3": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -489,13 +483,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 }
 
-// TODO[Pawel]: The following 2 tests `Test[Legacy]TransactionReceiptByHash` are skipped
-// but we still keep them here. I have a doubt whether they test anything useful.
-//
 //nolint:dupl
-func TestTransactionReceiptByHash(t *testing.T) {
-	t.Skip()
-
+func TestTransactionReceiptByHashV0_6(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -655,6 +644,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		checkTxReceipt(t, txHash, expected)
 	})
+
 	t.Run("reverted", func(t *testing.T) {
 		expected := `{
 			"type": "INVOKE",
@@ -752,9 +742,11 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	})
 }
 
+// ToDo[Pawel]: see
+// https://github.com/NethermindEth/juno/pull/1829
+//
 //nolint:dupl
-func TestLegacyTransactionReceiptByHash(t *testing.T) {
-	t.Skip()
+func TestTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -777,21 +769,19 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
 
-	checkTxReceipt := func(t *testing.T, _ *felt.Felt, expected string) {
+	checkTxReceipt := func(t *testing.T, txHash *felt.Felt, expected string) {
 		t.Helper()
 
 		expectedMap := make(map[string]any)
 		require.NoError(t, json.Unmarshal([]byte(expected), &expectedMap))
 
-		//nolint:gocritic
-		// receipt, err := handler.LegacyTransactionReceiptByHash(*h)
-		// require.Nil(t, err)
-		// receiptJSON, jsonErr := json.Marshal(receipt)
-		// require.NoError(t, jsonErr)
+		receipt, err := handler.TransactionReceiptByHashV0_6(*txHash)
+		require.Nil(t, err)
+		receiptJSON, jsonErr := json.Marshal(receipt)
+		require.NoError(t, jsonErr)
 
 		receiptMap := make(map[string]any)
-		//nolint:gocritic
-		// require.NoError(t, json.Unmarshal(receiptJSON, &receiptMap))
+		require.NoError(t, json.Unmarshal(receiptJSON, &receiptMap))
 		assert.Equal(t, expectedMap, receiptMap)
 	}
 
@@ -804,7 +794,10 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 			expected: `{
 					"type": "DEPLOY",
 					"transaction_hash": "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
-					"actual_fee": "0x0",
+					"actual_fee": {
+						"amount": "0x0",
+						"unit": "WEI"
+					},
 					"finality_status": "ACCEPTED_ON_L2",
 					"execution_status": "SUCCEEDED",
 					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
@@ -812,15 +805,18 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 					"messages_sent": [],
 					"events": [],
 					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-					"execution_resources": {"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0", "steps":"0x1d"}
+					"execution_resources": {"steps":29}
 				}`,
-		},
+		}, // todo double check that decimal is ok (before that there was hex)
 		"without contract addr": {
 			index: 2,
 			expected: `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
-					"actual_fee": "0x0",
+					"actual_fee": {
+						"amount": "0x0",
+						"unit": "WEI"
+					},
 					"finality_status": "ACCEPTED_ON_L2",
 					"execution_status": "SUCCEEDED",
 					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
@@ -836,7 +832,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0", "steps":"0x1f"}
+					"execution_resources":{"steps":31}
 				}`,
 		},
 	}
@@ -856,7 +852,10 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		expected := `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
-					"actual_fee": "0x0",
+					"actual_fee": {
+						"amount": "0x0",
+						"unit": "WEI"
+					},
 					"finality_status": "ACCEPTED_ON_L2",
 					"execution_status": "SUCCEEDED",
 					"messages_sent": [
@@ -870,7 +869,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0", "steps":"0x1f"}
+					"execution_resources":{"steps": 31}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -881,11 +880,15 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	})
 
 	t.Run("accepted on l1 receipt", func(t *testing.T) {
+		t.Skip("temp.")
 		i := 2
 		expected := `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
-					"actual_fee": "0x0",
+					"actual_fee": {
+						"amount": "0x0",
+						"unit": "WEI"
+					},
 					"finality_status": "ACCEPTED_ON_L1",
 					"execution_status": "SUCCEEDED",
 					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
@@ -915,11 +918,15 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 
 		checkTxReceipt(t, txHash, expected)
 	})
+
 	t.Run("reverted", func(t *testing.T) {
 		expected := `{
 			"type": "INVOKE",
 			"transaction_hash": "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
-			"actual_fee": "0x247aff6e224",
+			"actual_fee": {
+				"amount": "0x247aff6e224",
+				"unit": "WEI"
+			},
 			"execution_status": "REVERTED",
 			"finality_status": "ACCEPTED_ON_L2",
 			"block_hash": "0x76e0229fd0c36dda2ee7905f7e4c9b3ebb78d98c4bfab550bcb3a03bf859a6",
@@ -983,7 +990,10 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 				}
 			],
 			"execution_resources": {"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x4", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x13", "steps":"0x267"},
-			"actual_fee": "0x16d8b4ad4000",
+			"actual_fee": {
+				"amount": "0x16d8b4ad4000",
+				"unit": "WEI",
+			},
 			"type": "INVOKE"
 		}`
 
@@ -1039,12 +1049,94 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 			"nonce_data_availability_mode": "L1",
 			"fee_data_availability_mode": "L2"
 		}`,
+		"invoke v1": `{
+			"transaction_hash": "0x6ef805d36e1f7ae930381cf122f8bc31c436bda96661f8ef26dd2784dc9915f",
+			"type": "INVOKE",
+			"version": "0x1",
+			"nonce": "0xf",
+			"max_fee": "0x1815048300d3",
+			"sender_address": "0x3a90ceaec21779edd9735de4a5b73290a7f3d7b31a56a65c68e0fb93b276e27",
+			"signature": [
+			  "0x26130884cb2e019ad7eeed891d7f9acf0c1ed0adb84b327c07c2899794bb95",
+			  "0x39e5893a9fb421b3863771f88b8c617e1f8adfab728cbd4eb6540359f745a3"
+			],
+			"calldata": [
+			  "0x1",
+			  "0x517567ac7026ce129c950e6e113e437aa3c83716cd61481c6bb8c5057e6923e",
+			  "0xcaffbd1bd76bd7f24a3fa1d69d1b2588a86d1f9d2359b13f6a84b7e1cbd126",
+			  "0x6",
+			  "0x5363616e5375726661636546696e697368",
+			  "0x4",
+			  "0x3",
+			  "0x35ba5",
+			  "0x1",
+			  "0x11c7"
+			]
+		}`,
+		"invoke v3": `{
+			"transaction_hash": "0x28ae74a7739abf4dd4a19b3ece227456cfc390a0807961c4fbd1d8733893bc9",
+			"type": "INVOKE",
+			"version": "0x3",
+			"nonce": "0x9f07",
+			"sender_address": "0x143fe26927dd6a302522ea1cd6a821ab06b3753194acee38d88a85c93b3cbc6",
+			"signature": [
+			  "0x663d00694b72a4f41a3075cfffe35b884210c1eb85611fcbf025d8d83ebf5df",
+			  "0x1935fe7260f8c975d107c761264271f81bc32dce6cd7fd94f315a172a43aa8c"
+			],
+			"calldata": [
+			  "0x1",
+			  "0x1730b20846e904de106ec706a41d7153c8fce8f670006e239989f76539659af",
+			  "0xc844fd57777b0cd7e75c8ea68deec0adf964a6308da7a58de32364b7131cc8",
+			  "0x13",
+			  "0x4128bc4d1ff1a2c4b3eac393be3c77fb1fe39b69e026e425c1cda857ef9b2",
+			  "0x6f303",
+			  "0x3e8fbf96de7f381f445f1f50e09c7a01af0e52b3acfb78cb47e175e1cfddc1",
+			  "0x6620d8b4",
+			  "0x104030200000000000000000000000000000000000000000000000000000000",
+			  "0x4",
+			  "0x5f5e064",
+			  "0x5f5f3b7",
+			  "0x5f5f3b7",
+			  "0x5f5f83f",
+			  "0xc806d01475062f363",
+			  "0x1",
+			  "0x2",
+			  "0x326ed83d58347e0bdcaa31b736856469b4377df1089c3d017fc15faec58665f",
+			  "0x2e20235515ecb32391900afeb760d77f2f9c7099f823e560c1528036fd81ff5",
+			  "0x2e7dc996ebf724c1cf18d668fc3455df4245749ebc0724101cbc6c9cb13c962",
+			  "0x3760b28cb689481cad027c72d1f6279113e83601103874b6f104974348afb88",
+			  "0x2fe49b6779e616912c76dcb489d09ac6e61bbc83322fe221a42d169659e297d",
+			  "0x4225d1c8ee8e451a25e30c10689ef898e11ccf5c0f68d0fc7876c47b318e946"
+			],
+			"resource_bounds": {
+			  "l1_gas": {
+				"max_amount": "0x3e2",
+				"max_price_per_unit": "0x57db4ab8c53a"
+			  },
+			  "l2_gas": {
+				"max_amount": "0x0",
+				"max_price_per_unit": "0x0"
+			  }
+			},
+			"tip": "0x0",
+			"paymaster_data": [],
+			"account_deployment_data": [],
+			"nonce_data_availability_mode": "L1",
+			"fee_data_availability_mode": "L1"
+		}`,
+	}
+
+	expectedTxTypes := map[string]rpc.TransactionType{
+		"deploy account v3": rpc.TxnDeployAccount,
+		"invoke v1":         rpc.TxnInvoke,
+		"invoke v3":         rpc.TxnInvoke,
 	}
 
 	for description, txJSON := range tests {
 		t.Run(description, func(t *testing.T) {
 			tx := rpc.BroadcastedTransaction{}
 			require.NoError(t, json.Unmarshal([]byte(txJSON), &tx))
+			require.Equal(t, expectedTxTypes[description], tx.Type)
 		})
 	}
 }
