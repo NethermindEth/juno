@@ -18,6 +18,13 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+type unknownClass struct{}
+
+func (u *unknownClass) Hash() (*felt.Felt, error) { return nil, nil }
+func (u *unknownClass) Version() uint64           { return 111 }
+
+var _ core.Class = (*unknownClass)(nil)
+
 func TestClass(t *testing.T) {
 	n := utils.Ptr(utils.Integration)
 	integrationClient := feeder.NewTestClient(t, n)
@@ -91,6 +98,22 @@ func TestClass(t *testing.T) {
 		require.NotNil(t, rpcErr)
 		require.Equal(t, rpc.ErrClassHashNotFound, rpcErr)
 	})
+
+	t.Run("unsupported class type", func(t *testing.T) {
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		handler := rpc.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
+
+		mockReader.EXPECT().HeadState().Return(mockState, func() error {
+			return nil
+		}, nil)
+		mockState.EXPECT().Class(gomock.Any()).Return(
+			&core.DeclaredClass{Class: &unknownClass{}, At: 0}, nil)
+
+		_, rpcErr := handler.Class(latest, felt.Zero)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, rpc.ErrClassHashNotFound, rpcErr)
+	})
 }
 
 func TestClassAt(t *testing.T) {
@@ -143,6 +166,22 @@ func TestClassAt(t *testing.T) {
 
 		cairo0Class := coreClass.(*core.Cairo0Class)
 		assertEqualCairo0Class(t, cairo0Class, class)
+	})
+
+	t.Run("class hash not found error", func(t *testing.T) {
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		handler := rpc.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
+
+		mockReader.EXPECT().HeadState().Return(mockState, func() error {
+			return nil
+		}, nil).AnyTimes()
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, errors.New("class hash not found"))
+
+		class, rpcErr := handler.ClassAt(latest, felt.Zero)
+		require.Nil(t, class)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, rpc.ErrContractNotFound, rpcErr)
 	})
 }
 

@@ -3,6 +3,8 @@ package rpc_test
 import (
 	"context"
 	"errors"
+	"github.com/NethermindEth/juno/jsonrpc"
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -344,6 +346,16 @@ func TestBlockWithTxHashes(t *testing.T) {
 		require.Nil(t, rpcErr)
 		checkLatestBlock(t, block)
 	})
+
+	t.Run("block status error", func(t *testing.T) {
+		mockReader.EXPECT().Head().Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, errors.New("unexpected error"))
+
+		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
+		require.Nil(t, block)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, jsonrpc.InternalError, rpcErr.Code)
+	})
 }
 
 func TestBlockWithTxs(t *testing.T) {
@@ -484,6 +496,16 @@ func TestBlockWithTxs(t *testing.T) {
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
+	})
+
+	t.Run("block status error", func(t *testing.T) {
+		mockReader.EXPECT().Head().Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, errors.New("unexpected error"))
+
+		blkRes, rpcErr := handler.BlockWithTxs(rpc.BlockID{Latest: true})
+		require.Nil(t, blkRes)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, jsonrpc.InternalError, rpcErr.Code)
 	})
 }
 
@@ -700,5 +722,51 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Latest: true})
 		require.NoError(t, err, rpcErr)
 		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
+	})
+}
+
+func TestBlockStatusMarshalText(t *testing.T) {
+	tests := map[rpc.BlockStatus]string{
+		rpc.BlockPending:    "PENDING",
+		rpc.BlockAcceptedL1: "ACCEPTED_ON_L1",
+		rpc.BlockAcceptedL2: "ACCEPTED_ON_L2",
+		rpc.BlockRejected:   "REJECTED",
+	}
+
+	for status, expected := range tests {
+		t.Run(expected, func(t *testing.T) {
+			b, err := status.MarshalText()
+			require.NoError(t, err)
+			require.Equal(t, expected, string(b))
+		})
+	}
+
+	t.Run("unknown status", func(t *testing.T) {
+		status := rpc.BlockStatus(111)
+		_, err := status.MarshalText()
+		require.Error(t, err)
+		require.True(t, strings.HasPrefix(err.Error(), "unknown block status"))
+	})
+}
+
+func TestL1DAModeMarshalText(t *testing.T) {
+	tests := map[rpc.L1DAMode]string{
+		rpc.Blob:     "BLOB",
+		rpc.Calldata: "CALLDATA",
+	}
+
+	for mode, expected := range tests {
+		t.Run(expected, func(t *testing.T) {
+			b, err := mode.MarshalText()
+			require.NoError(t, err)
+			require.Equal(t, expected, string(b))
+		})
+	}
+
+	t.Run("unknown mode", func(t *testing.T) {
+		mode := rpc.L1DAMode(111)
+		_, err := mode.MarshalText()
+		require.Error(t, err)
+		require.True(t, strings.HasPrefix(err.Error(), "unknown L1DAMode value"))
 	})
 }
