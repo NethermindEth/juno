@@ -46,7 +46,7 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, blockchain.ErrPendingBlockNotFound) {
 			return nil, ErrBlockNotFound
 		}
 		return nil, ErrInternal.CloneWithData(err)
@@ -76,7 +76,7 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, blockchain.ErrPendingBlockNotFound) {
 			return nil, ErrBlockNotFound
 		}
 		return nil, ErrInternal.CloneWithData(err)
@@ -164,7 +164,7 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, blockchain.ErrPendingBlockNotFound) {
 			return nil, nil, ErrBlockNotFound
 		}
 		return nil, nil, ErrInternal.CloneWithData(err)
