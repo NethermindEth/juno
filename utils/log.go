@@ -13,6 +13,7 @@ import (
 )
 
 var ErrUnknownLogLevel = errors.New("unknown log level (known: debug, info, warn, error, trace)")
+
 type LogLevel int
 
 // The following are necessary for Cobra and Viper, respectively, to unmarshal log level
