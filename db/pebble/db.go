@@ -31,7 +31,7 @@ func New(path string, cache uint, maxOpenFiles int, logger pebble.Logger) (db.DB
 		Logger:       logger,
 		Cache:        pebble.NewCache(int64(cache * utils.Megabyte)),
 		MaxOpenFiles: maxOpenFiles,
-		Levels:       []pebble.LevelOptions{{Compression: pebble.DefaultCompression}},
+		Levels:       []pebble.LevelOptions{{Compression: pebble.NoCompression}},
 	})
 	if err != nil {
 		return nil, err
