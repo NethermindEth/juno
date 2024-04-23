@@ -29,7 +29,7 @@ jobs:
         run: npm ci
   
       - name: Run tests
-        run: npm test -- rpcProvider.test.ts transactionReceipt.test.ts rpcChannel.test.ts defaultProvider.test.ts contract.test.ts cairo1v2.test.ts cairo1v2_typed.test.ts cairo1.test.ts account.test.ts account.starknetId.test.ts --testNamePattern="^(?!.*traceTransaction|.*declare Sierra 1.5.0).*$"
+        run: npm test -- rpcProvider.test.ts transactionReceipt.test.ts rpcChannel.test.ts defaultProvider.test.ts contract.test.ts cairo1v2.test.ts cairo1v2_typed.test.ts cairo1.test.ts account.test.ts account.starknetId.test.ts --testNamePattern="^(?!.*declare Sierra 1.5.0).*$"
         env:
           TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
           TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}

@@ -136,14 +136,27 @@ func (h *Handler) TraceTransactionV0_6(ctx context.Context, hash felt.Felt) (*vm
 }
 
 func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, *jsonrpc.Error) {
-	_, _, blockNumber, err := h.bcReader.Receipt(hash)
+	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
 
-	block, err := h.bcReader.BlockByNumber(blockNumber)
-	if err != nil {
-		return nil, ErrBlockNotFound
+	var block *core.Block
+	isPendingBlock := blockHash == nil
+	if isPendingBlock {
+		var pending blockchain.Pending
+		pending, err = h.bcReader.Pending()
+		if err != nil {
+			// for traceTransaction handlers there is no block not found error
+			return nil, ErrTxnHashNotFound
+		}
+		block = pending.Block
+	} else {
+		block, err = h.bcReader.BlockByHash(blockHash)
+		if err != nil {
+			// for traceTransaction handlers there is no block not found error
+			return nil, ErrTxnHashNotFound
+		}
 	}
 
 	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
