@@ -3,7 +3,6 @@ package rpc_test
 import (
 	"context"
 	"errors"
-	"github.com/NethermindEth/juno/jsonrpc"
 	"strings"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"

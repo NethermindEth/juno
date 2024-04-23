@@ -23,6 +23,11 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+const (
+	enumToStringTestNamePrefix   = "✏️ "
+	enumFromStringTestNamePrefix = "🔍 "
+)
+
 func TestTransactionTypeStringMarshalling(t *testing.T) {
 	tests := map[rpc.TransactionType]string{
 		rpc.TxnDeclare:       "DECLARE",
@@ -33,7 +38,7 @@ func TestTransactionTypeStringMarshalling(t *testing.T) {
 	}
 
 	for typ, expected := range tests {
-		t.Run("✏️ "+expected, func(t *testing.T) {
+		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
 			require.Equal(t, expected, typ.String())
 		})
 	}
@@ -44,7 +49,7 @@ func TestTransactionTypeStringMarshalling(t *testing.T) {
 
 	typeH := rpc.TransactionType(0)
 	for expected, name := range tests {
-		t.Run("🔍 "+name, func(t *testing.T) {
+		t.Run(enumFromStringTestNamePrefix+name, func(t *testing.T) {
 			err := typeH.UnmarshalJSON([]byte(`"` + name + `"`))
 			require.NoError(t, err)
 			require.Equal(t, expected, typeH)
@@ -66,7 +71,7 @@ func TestTransactionStatusStringMarshalling(t *testing.T) {
 	}
 
 	for status, expected := range tests {
-		t.Run("✏️ "+expected, func(t *testing.T) {
+		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
 			bstr, err := status.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
@@ -80,6 +85,7 @@ func TestTransactionStatusStringMarshalling(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestTxnExecutionStatusStringMarshalling(t *testing.T) {
 	tests := map[rpc.TxnExecutionStatus]string{
 		rpc.TxnSuccess: "SUCCEEDED",
@@ -87,7 +93,7 @@ func TestTxnExecutionStatusStringMarshalling(t *testing.T) {
 	}
 
 	for status, expected := range tests {
-		t.Run("✏️ "+expected, func(t *testing.T) {
+		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
 			bstr, err := status.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
@@ -101,6 +107,7 @@ func TestTxnExecutionStatusStringMarshalling(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestTxnFinalityStatusStringMarshalling(t *testing.T) {
 	tests := map[rpc.TxnFinalityStatus]string{
 		rpc.TxnAcceptedOnL1: "ACCEPTED_ON_L1",
@@ -108,7 +115,7 @@ func TestTxnFinalityStatusStringMarshalling(t *testing.T) {
 	}
 
 	for status, expected := range tests {
-		t.Run("✏️ "+expected, func(t *testing.T) {
+		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
 			bstr, err := status.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
@@ -122,6 +129,7 @@ func TestTxnFinalityStatusStringMarshalling(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestDataAvailabilityModeStringMarshalling(t *testing.T) {
 	tests := map[rpc.DataAvailabilityMode]string{
 		rpc.DAModeL1: "L1",
@@ -129,7 +137,7 @@ func TestDataAvailabilityModeStringMarshalling(t *testing.T) {
 	}
 
 	for mode, expected := range tests {
-		t.Run("✏️ "+expected, func(t *testing.T) {
+		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
 			bstr, err := mode.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
@@ -144,7 +152,7 @@ func TestDataAvailabilityModeStringMarshalling(t *testing.T) {
 
 	typeH := rpc.DataAvailabilityMode(0)
 	for expected, name := range tests {
-		t.Run("🔍 "+name, func(t *testing.T) {
+		t.Run(enumFromStringTestNamePrefix+name, func(t *testing.T) {
 			err := typeH.UnmarshalJSON([]byte(`"` + name + `"`))
 			require.NoError(t, err)
 			require.Equal(t, expected, typeH)
@@ -157,6 +165,7 @@ func TestDataAvailabilityModeStringMarshalling(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestResourceStringMarshalling(t *testing.T) {
 	tests := map[rpc.Resource]string{
 		rpc.ResourceL1Gas: "l1_gas",
@@ -164,7 +173,7 @@ func TestResourceStringMarshalling(t *testing.T) {
 	}
 
 	for mode, expected := range tests {
-		t.Run("✏️ "+expected, func(t *testing.T) {
+		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
 			bstr, err := mode.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
@@ -179,7 +188,7 @@ func TestResourceStringMarshalling(t *testing.T) {
 
 	typeH := rpc.Resource(0)
 	for expected, name := range tests {
-		t.Run("🔍 "+name, func(t *testing.T) {
+		t.Run(enumFromStringTestNamePrefix+name, func(t *testing.T) {
 			err := typeH.UnmarshalJSON([]byte(`"` + name + `"`))
 			require.NoError(t, err)
 			require.Equal(t, expected, typeH)
