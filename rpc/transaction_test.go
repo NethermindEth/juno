@@ -78,7 +78,7 @@ func TestTransactionStatusStringMarshalling(t *testing.T) {
 	t.Run("unknown marshalled", func(t *testing.T) {
 		_, err := rpc.TxnStatus(100).MarshalText()
 		require.Error(t, err)
-		require.True(t, strings.HasPrefix(err.Error(), "unknown ExecutionStatus"))
+		require.True(t, strings.HasPrefix(err.Error(), "unknown TransactionStatus"))
 	})
 }
 

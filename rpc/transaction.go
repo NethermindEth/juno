@@ -88,7 +88,7 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 	case TxnStatusAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
 	default:
-		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
+		return nil, fmt.Errorf("unknown TransactionStatus %v", s)
 	}
 }
 
