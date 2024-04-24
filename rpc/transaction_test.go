@@ -23,11 +23,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-const (
-	enumToStringTestNamePrefix   = "✏️ "
-	enumFromStringTestNamePrefix = "🔍 "
-)
-
 func TestTransactionTypeStringMarshalling(t *testing.T) {
 	tests := map[rpc.TransactionType]string{
 		rpc.TxnDeclare:       "DECLARE",
@@ -38,25 +33,27 @@ func TestTransactionTypeStringMarshalling(t *testing.T) {
 	}
 
 	for typ, expected := range tests {
-		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
+		//nolint:goconst
+		t.Run("marshalling "+expected, func(t *testing.T) {
 			require.Equal(t, expected, typ.String())
 		})
 	}
 
-	t.Run("Unknown marshalled", func(t *testing.T) {
+	t.Run("unknown marshalled", func(t *testing.T) {
 		require.Equal(t, "<unknown>", rpc.TransactionType(100).String())
 	})
 
 	typeH := rpc.TransactionType(0)
 	for expected, name := range tests {
-		t.Run(enumFromStringTestNamePrefix+name, func(t *testing.T) {
+		//nolint:goconst
+		t.Run("unmarshalling "+name, func(t *testing.T) {
 			err := typeH.UnmarshalJSON([]byte(`"` + name + `"`))
 			require.NoError(t, err)
 			require.Equal(t, expected, typeH)
 		})
 	}
 
-	t.Run("Unknown unmarshalled", func(t *testing.T) {
+	t.Run("unknown unmarshalled", func(t *testing.T) {
 		err := typeH.UnmarshalJSON([]byte(`"unknown"`))
 		require.Equal(t, errors.New("unknown TransactionType"), err)
 	})
@@ -71,14 +68,14 @@ func TestTransactionStatusStringMarshalling(t *testing.T) {
 	}
 
 	for status, expected := range tests {
-		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
+		t.Run("marshalling "+expected, func(t *testing.T) {
 			bstr, err := status.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
 		})
 	}
 
-	t.Run("Unknown marshalled", func(t *testing.T) {
+	t.Run("unknown marshalled", func(t *testing.T) {
 		_, err := rpc.TxnStatus(100).MarshalText()
 		require.Error(t, err)
 		require.True(t, strings.HasPrefix(err.Error(), "unknown ExecutionStatus"))
@@ -93,14 +90,14 @@ func TestTxnExecutionStatusStringMarshalling(t *testing.T) {
 	}
 
 	for status, expected := range tests {
-		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
+		t.Run("marshalling "+expected, func(t *testing.T) {
 			bstr, err := status.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
 		})
 	}
 
-	t.Run("Unknown marshalled", func(t *testing.T) {
+	t.Run("unknown marshalled", func(t *testing.T) {
 		_, err := rpc.TxnExecutionStatus(100).MarshalText()
 		require.Error(t, err)
 		require.True(t, strings.HasPrefix(err.Error(), "unknown ExecutionStatus"))
@@ -115,14 +112,14 @@ func TestTxnFinalityStatusStringMarshalling(t *testing.T) {
 	}
 
 	for status, expected := range tests {
-		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
+		t.Run("marshalling "+expected, func(t *testing.T) {
 			bstr, err := status.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
 		})
 	}
 
-	t.Run("Unknown marshalled", func(t *testing.T) {
+	t.Run("unknown marshalled", func(t *testing.T) {
 		_, err := rpc.TxnFinalityStatus(100).MarshalText()
 		require.Error(t, err)
 		require.True(t, strings.HasPrefix(err.Error(), "unknown FinalityStatus"))
@@ -137,14 +134,14 @@ func TestDataAvailabilityModeStringMarshalling(t *testing.T) {
 	}
 
 	for mode, expected := range tests {
-		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
+		t.Run("marshalling "+expected, func(t *testing.T) {
 			bstr, err := mode.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
 		})
 	}
 
-	t.Run("Unknown marshalled", func(t *testing.T) {
+	t.Run("unknown marshalled", func(t *testing.T) {
 		_, err := rpc.DataAvailabilityMode(100).MarshalText()
 		require.Error(t, err)
 		require.True(t, strings.HasPrefix(err.Error(), "unknown DataAvailabilityMode"))
@@ -152,14 +149,14 @@ func TestDataAvailabilityModeStringMarshalling(t *testing.T) {
 
 	typeH := rpc.DataAvailabilityMode(0)
 	for expected, name := range tests {
-		t.Run(enumFromStringTestNamePrefix+name, func(t *testing.T) {
+		t.Run("unmarshalling "+name, func(t *testing.T) {
 			err := typeH.UnmarshalJSON([]byte(`"` + name + `"`))
 			require.NoError(t, err)
 			require.Equal(t, expected, typeH)
 		})
 	}
 
-	t.Run("Unknown unmarshalled", func(t *testing.T) {
+	t.Run("unknown unmarshalled", func(t *testing.T) {
 		err := typeH.UnmarshalJSON([]byte(`"unknown"`))
 		require.True(t, strings.HasPrefix(err.Error(), "unknown DataAvailabilityMode"))
 	})
@@ -173,14 +170,14 @@ func TestResourceStringMarshalling(t *testing.T) {
 	}
 
 	for mode, expected := range tests {
-		t.Run(enumToStringTestNamePrefix+expected, func(t *testing.T) {
+		t.Run("marshalling "+expected, func(t *testing.T) {
 			bstr, err := mode.MarshalText()
 			require.NoError(t, err)
 			require.Equal(t, expected, string(bstr))
 		})
 	}
 
-	t.Run("Unknown marshalled", func(t *testing.T) {
+	t.Run("unknown marshalled", func(t *testing.T) {
 		_, err := rpc.Resource(100).MarshalText()
 		require.Error(t, err)
 		require.True(t, strings.HasPrefix(err.Error(), "unknown Resource"))
@@ -188,14 +185,14 @@ func TestResourceStringMarshalling(t *testing.T) {
 
 	typeH := rpc.Resource(0)
 	for expected, name := range tests {
-		t.Run(enumFromStringTestNamePrefix+name, func(t *testing.T) {
+		t.Run("unmarshalling "+name, func(t *testing.T) {
 			err := typeH.UnmarshalJSON([]byte(`"` + name + `"`))
 			require.NoError(t, err)
 			require.Equal(t, expected, typeH)
 		})
 	}
 
-	t.Run("Unknown unmarshalled", func(t *testing.T) {
+	t.Run("unknown unmarshalled", func(t *testing.T) {
 		err := typeH.UnmarshalJSON([]byte(`"unknown"`))
 		require.True(t, strings.HasPrefix(err.Error(), "unknown Resource"))
 	})
