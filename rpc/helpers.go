@@ -38,9 +38,11 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	case id.Hash != nil:
 		block, err = h.bcReader.BlockByHash(id.Hash)
 	case id.Pending:
-		var pending blockchain.Pending
+		var pending *blockchain.Pending
 		pending, err = h.bcReader.Pending()
-		block = pending.Block
+		if err == nil {
+			block = pending.Block
+		}
 	default:
 		block, err = h.bcReader.BlockByNumber(id.Number)
 	}
@@ -66,9 +68,9 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	case id.Hash != nil:
 		header, err = h.bcReader.BlockHeaderByHash(id.Hash)
 	case id.Pending:
-		var pending blockchain.Pending
+		var pending *blockchain.Pending
 		pending, err = h.bcReader.Pending()
-		if pending.Block != nil {
+		if err == nil {
 			header = pending.Block.Header
 		}
 	default:

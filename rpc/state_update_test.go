@@ -139,7 +139,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pending", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+		mockReader.EXPECT().Pending().Return(&blockchain.Pending{
 			StateUpdate: update21656,
 		}, nil)
 
