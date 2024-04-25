@@ -127,7 +127,7 @@ const (
 	wsHostUsage                           = "The interface on which the Websocket RPC server will listen for requests."
 	wsPortUsage                           = "The port on which the websocket server will listen for requests."
 	dbPathUsage                           = "Location of the database files."
-	networkUsage                          = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
+	networkUsage                          = "Options: mainnet, sepolia, sepolia-integration."
 	networkCustomName                     = "Custom network name."
 	networkCustomFeederUsage              = "Custom network feeder URL."
 	networkCustomGatewayUsage             = "Custom network gateway URL."

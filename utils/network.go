@@ -148,9 +148,6 @@ func (n *Network) MarshalText() ([]byte, error) {
 func (n *Network) Set(s string) error {
 	predefinedNetworks := map[string]Network{
 		"mainnet":             Mainnet,
-		"goerli":              Goerli,
-		"goerli2":             Goerli2,
-		"integration":         Integration,
 		"sepolia":             Sepolia,
 		"sepolia-integration": SepoliaIntegration,
 	}
@@ -179,7 +176,7 @@ func (n *Network) ProtocolID() protocol.ID {
 }
 
 func knownNetworkNames() []string {
-	networks := []Network{Mainnet, Goerli, Goerli2, Integration, Sepolia, SepoliaIntegration}
+	networks := []Network{Mainnet, Sepolia, SepoliaIntegration}
 
 	return Map(networks, func(n Network) string {
 		return n.String()
