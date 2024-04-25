@@ -706,11 +706,11 @@ func TestPending(t *testing.T) {
 	})
 
 	t.Run("store genesis as pending", func(t *testing.T) {
-		pendingGenesis := blockchain.Pending{
+		pendingGenesis := &blockchain.Pending{
 			Block:       b,
 			StateUpdate: su,
 		}
-		require.NoError(t, chain.StorePending(&pendingGenesis))
+		require.NoError(t, chain.StorePending(pendingGenesis))
 
 		gotPending, pErr := chain.Pending()
 		require.NoError(t, pErr)
@@ -739,11 +739,11 @@ func TestPending(t *testing.T) {
 		su, err = gw.StateUpdate(context.Background(), 1)
 		require.NoError(t, err)
 
-		expectedPending := blockchain.Pending{
+		expectedPending := &blockchain.Pending{
 			Block:       b,
 			StateUpdate: su,
 		}
-		require.NoError(t, chain.StorePending(&expectedPending))
+		require.NoError(t, chain.StorePending(expectedPending))
 
 		gotPending, pErr := chain.Pending()
 		require.NoError(t, pErr)

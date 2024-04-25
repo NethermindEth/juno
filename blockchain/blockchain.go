@@ -45,7 +45,7 @@ type Reader interface {
 
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error)
 
-	Pending() (Pending, error)
+	Pending() (*Pending, error)
 
 	Network() *utils.Network
 }
@@ -269,7 +269,7 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 
 		// not found in the canonical blocks, try pending
 		if errors.Is(err, db.ErrKeyNotFound) {
-			var pending Pending
+			var pending *Pending
 			pending, err = pendingBlock(txn)
 			if err != nil {
 				return err
@@ -302,7 +302,7 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 
 		// not found in the canonical blocks, try pending
 		if errors.Is(err, db.ErrKeyNotFound) {
-			var pending Pending
+			var pending *Pending
 			pending, err = pendingBlock(txn)
 			if err != nil {
 				if !errors.Is(err, ErrPendingBlockNotFound) {
@@ -1009,12 +1009,10 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 	})
 }
 
-// Todo:
-// 2. Consider returning reference to Pending instead of Pending
-func pendingBlock(txn db.Transaction) (Pending, error) {
+func pendingBlock(txn db.Transaction) (*Pending, error) {
 	pending := cachedPending.Load()
 	if pending == nil {
-		return Pending{}, ErrPendingBlockNotFound
+		return nil, ErrPendingBlockNotFound
 	}
 
 	expectedParentHash := &felt.Zero
@@ -1022,19 +1020,19 @@ func pendingBlock(txn db.Transaction) (Pending, error) {
 		expectedParentHash = head.Hash
 	}
 	if pending.Block.ParentHash.Equal(expectedParentHash) {
-		return *pending, nil
+		return pending, nil
 	}
 
 	// Since the pending block in the cache is outdated remove it
 	cachedPending.Store(nil)
 
-	return Pending{}, ErrPendingBlockNotFound
+	return nil, ErrPendingBlockNotFound
 }
 
 // Pending returns the pending block from the database
-func (b *Blockchain) Pending() (Pending, error) {
+func (b *Blockchain) Pending() (*Pending, error) {
 	b.listener.OnRead("Pending")
-	var pending Pending
+	var pending *Pending
 	return pending, b.database.View(func(txn db.Transaction) error {
 		var err error
 		pending, err = pendingBlock(txn)
@@ -1055,9 +1053,5 @@ func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return NewPendingState(
-		pending.StateUpdate.StateDiff,
-		pending.NewClasses,
-		core.NewState(txn),
-	), txn.Discard, nil
+	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
 }

@@ -239,10 +239,10 @@ func (mr *MockReaderMockRecorder) Network() *gomock.Call {
 }
 
 // Pending mocks base method.
-func (m *MockReader) Pending() (blockchain.Pending, error) {
+func (m *MockReader) Pending() (*blockchain.Pending, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Pending")
-	ret0, _ := ret[0].(blockchain.Pending)
+	ret0, _ := ret[0].(*blockchain.Pending)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

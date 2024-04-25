@@ -470,7 +470,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+		mockReader.EXPECT().Pending().Return(&blockchain.Pending{
 			Block: latestBlock,
 		}, nil)
 		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
