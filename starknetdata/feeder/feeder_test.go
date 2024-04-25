@@ -23,10 +23,11 @@ func TestBlockByNumber(t *testing.T) {
 	ctx := context.Background()
 
 	for _, number := range numbers {
-		t.Run("mainnet block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.Block(ctx, strconv.FormatUint(number, 10))
+		numberStr := strconv.FormatUint(number, 10)
+		t.Run("mainnet block number "+numberStr, func(t *testing.T) {
+			response, err := client.Block(ctx, numberStr)
 			require.NoError(t, err)
-			sig, err := client.Signature(ctx, strconv.FormatUint(number, 10))
+			sig, err := client.Signature(ctx, numberStr)
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
@@ -61,8 +62,9 @@ func TestStateUpdate(t *testing.T) {
 	ctx := context.Background()
 
 	for _, number := range numbers {
-		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.StateUpdate(ctx, strconv.FormatUint(number, 10))
+		numberStr := strconv.FormatUint(number, 10)
+		t.Run("number "+numberStr, func(t *testing.T) {
+			response, err := client.StateUpdate(ctx, numberStr)
 			require.NoError(t, err)
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
@@ -227,10 +229,11 @@ func TestStateUpdateWithBlock(t *testing.T) {
 	ctx := context.Background()
 
 	for _, number := range numbers {
-		t.Run("integration block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.StateUpdateWithBlock(ctx, strconv.FormatUint(number, 10))
+		numberStr := strconv.FormatUint(number, 10)
+		t.Run("integration block number "+numberStr, func(t *testing.T) {
+			response, err := client.StateUpdateWithBlock(ctx, numberStr)
 			require.NoError(t, err)
-			sig, err := client.Signature(ctx, strconv.FormatUint(number, 10))
+			sig, err := client.Signature(ctx, numberStr)
 			require.NoError(t, err)
 			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
 			require.NoError(t, err)
