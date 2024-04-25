@@ -5,8 +5,7 @@ ARG VM_DEBUG
 
 # Install Alpine Dependencies
 # removal is temp. to fix https://github.com/orgs/community/discussions/120966
-RUN rm /etc/apt/sources.list.d/microsoft-prod.list && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install build-essential cargo git golang upx-ucl libjemalloc-dev libjemalloc2 -y
 
 WORKDIR /app
