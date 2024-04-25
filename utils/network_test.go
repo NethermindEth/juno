@@ -16,9 +16,6 @@ import (
 
 var networkStrings = map[utils.Network]string{
 	utils.Mainnet:            "mainnet",
-	utils.Goerli:             "goerli",
-	utils.Goerli2:            "goerli2",
-	utils.Integration:        "integration",
 	utils.Sepolia:            "sepolia",
 	utils.SepoliaIntegration: "sepolia-integration",
 }
