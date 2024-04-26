@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/sync"
 )
 
 func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
@@ -38,8 +39,8 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	case id.Hash != nil:
 		block, err = h.bcReader.BlockByHash(id.Hash)
 	case id.Pending:
-		var pending *blockchain.Pending
-		pending, err = h.bcReader.Pending()
+		var pending *sync.Pending
+		pending, err = h.syncReader.Pending()
 		if err == nil {
 			block = pending.Block
 		}
@@ -48,7 +49,7 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, blockchain.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
 			return nil, ErrBlockNotFound
 		}
 		return nil, ErrInternal.CloneWithData(err)
@@ -68,8 +69,8 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	case id.Hash != nil:
 		header, err = h.bcReader.BlockHeaderByHash(id.Hash)
 	case id.Pending:
-		var pending *blockchain.Pending
-		pending, err = h.bcReader.Pending()
+		var pending *sync.Pending
+		pending, err = h.syncReader.Pending()
 		if err == nil {
 			header = pending.Block.Header
 		}
@@ -78,7 +79,7 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, blockchain.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
 			return nil, ErrBlockNotFound
 		}
 		return nil, ErrInternal.CloneWithData(err)
@@ -160,13 +161,13 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 	case id.Hash != nil:
 		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		reader, closer, err = h.bcReader.PendingState()
+		reader, closer, err = h.syncReader.PendingState()
 	default:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
 	}
 
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, blockchain.ErrPendingBlockNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
 			return nil, nil, ErrBlockNotFound
 		}
 		return nil, nil, ErrInternal.CloneWithData(err)
