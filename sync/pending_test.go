@@ -1,12 +1,12 @@
-package blockchain_test
+package sync_test
 
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -29,7 +29,7 @@ func TestPendingState(t *testing.T) {
 	replacedClassHash, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	pending := blockchain.Pending{
+	pending := sync.Pending{
 		Block: nil,
 		StateUpdate: &core.StateUpdate{
 			BlockHash: nil,
@@ -57,7 +57,7 @@ func TestPendingState(t *testing.T) {
 			*deployedClassHash: &core.Cairo0Class{},
 		},
 	}
-	state := blockchain.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
+	state := sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {

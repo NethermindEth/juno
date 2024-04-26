@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
@@ -79,9 +80,10 @@ func TestTraceTransaction(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xBBBB")
@@ -208,14 +210,14 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
 			Block: block,
 		}, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		executionResources := `{
 			"pedersen": 0,
@@ -283,8 +285,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
 			handler := rpc.New(chain, nil, nil, "", log)
+
+			if description == "pending" {
+				mockCtrl := gomock.NewController(t)
+				t.Cleanup(mockCtrl.Finish)
+
+				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+
+				handler = rpc.New(chain, mockSyncReader, nil, "", log)
+			}
 
 			update, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
 			assert.Nil(t, update)
@@ -298,11 +310,12 @@ func TestTraceBlockTransactions(t *testing.T) {
 	n := utils.Ptr(utils.Mainnet)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
-	handler := rpc.New(mockReader, nil, mockVM, "", log)
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", log)
 
 	t.Run("pending block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
@@ -334,7 +347,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
 		vmTraceJSON := json.RawMessage(`{
