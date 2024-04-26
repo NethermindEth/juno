@@ -81,8 +81,8 @@ func copyWithoutPatch(v *semver.Version) *semver.Version {
 
 var _ Reader = (*Blockchain)(nil)
 
-// Todo: Remove after cachedPending is moved to sychcroniser
-var cachedPending atomic.Pointer[Pending]
+// Todo: Remove after pending is moved to sychcroniser
+var pending atomic.Pointer[Pending]
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
@@ -865,7 +865,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	return newEventFilter(txn, from, keys, 0, latest, &cachedPending), nil
+	return newEventFilter(txn, from, keys, 0, latest, &pending), nil
 }
 
 // RevertHead reverts the head block
@@ -977,8 +977,8 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 }
 
 // StorePending stores a pending block given that it is for the next height
-func (b *Blockchain) StorePending(pending *Pending) error {
-	err := checkBlockVersion(pending.Block.ProtocolVersion)
+func (b *Blockchain) StorePending(p *Pending) error {
+	err := checkBlockVersion(p.Block.ProtocolVersion)
 	if err != nil {
 		return err
 	}
@@ -991,12 +991,12 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 			expectedParentHash = h.Hash
 		}
 
-		if !expectedParentHash.Equal(pending.Block.ParentHash) {
+		if !expectedParentHash.Equal(p.Block.ParentHash) {
 			return ErrParentDoesNotMatchHead
 		}
 
 		if existingPending, err := pendingBlock(txn); err == nil {
-			if existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
+			if existingPending.Block.TransactionCount >= p.Block.TransactionCount {
 				// ignore the incoming pending if it has fewer transactions than the one we already have
 				return nil
 			}
@@ -1005,17 +1005,17 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 		}
 
 		if h != nil {
-			pending.Block.Number = h.Number + 1
+			p.Block.Number = h.Number + 1
 		}
-		cachedPending.Store(pending)
+		pending.Store(p)
 
 		return nil
 	})
 }
 
 func pendingBlock(txn db.Transaction) (*Pending, error) {
-	pending := cachedPending.Load()
-	if pending == nil {
+	p := pending.Load()
+	if p == nil {
 		return nil, ErrPendingBlockNotFound
 	}
 
@@ -1023,12 +1023,12 @@ func pendingBlock(txn db.Transaction) (*Pending, error) {
 	if head, err := headsHeader(txn); err == nil {
 		expectedParentHash = head.Hash
 	}
-	if pending.Block.ParentHash.Equal(expectedParentHash) {
-		return pending, nil
+	if p.Block.ParentHash.Equal(expectedParentHash) {
+		return p, nil
 	}
 
 	// Since the pending block in the cache is outdated remove it
-	cachedPending.Store(nil)
+	pending.Store(nil)
 
 	return nil, ErrPendingBlockNotFound
 }
