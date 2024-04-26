@@ -978,6 +978,10 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 
 // StorePending stores a pending block given that it is for the next height
 func (b *Blockchain) StorePending(pending *Pending) error {
+	err := checkBlockVersion(pending.Block.ProtocolVersion)
+	if err != nil {
+		return err
+	}
 	return b.database.View(func(txn db.Transaction) error {
 		expectedParentHash := new(felt.Felt)
 		h, err := headsHeader(txn)

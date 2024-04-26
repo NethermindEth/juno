@@ -705,6 +705,11 @@ func TestPending(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("cannot store unsupported pending block version", func(t *testing.T) {
+		pending := &blockchain.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+		require.Error(t, chain.StorePending(pending))
+	})
+
 	t.Run("store genesis as pending", func(t *testing.T) {
 		pendingGenesis := &blockchain.Pending{
 			Block:       b,
