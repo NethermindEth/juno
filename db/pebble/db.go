@@ -2,7 +2,6 @@ package pebble
 
 import (
 	"sync"
-	"testing"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
@@ -42,19 +41,27 @@ func New(path string, cache uint, maxOpenFiles int, logger pebble.Logger) (db.DB
 // NewMem opens a new in-memory database
 func NewMem() (db.DB, error) {
 	return newPebble("", &pebble.Options{
-		FS: vfs.NewMem(),
+		FS:     vfs.NewMem(),
+		Levels: []pebble.LevelOptions{{Compression: pebble.SnappyCompression}},
 	})
 }
 
+type TestBench interface {
+	Fatalf(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
+	Cleanup(func())
+	FailNow()
+}
+
 // NewMemTest opens a new in-memory database, panics on error
-func NewMemTest(t *testing.T) db.DB {
+func NewMemTest(tb TestBench) db.DB {
 	memDB, err := NewMem()
 	if err != nil {
-		t.Fatalf("create in-memory db: %v", err)
+		tb.Fatalf("create in-memory db: %v", err)
 	}
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		if err := memDB.Close(); err != nil {
-			t.Errorf("close in-memory db: %v", err)
+			tb.Errorf("close in-memory db: %v", err)
 		}
 	})
 	return memDB
