@@ -511,7 +511,7 @@ func testTrieGenerateProof(t *testing.T, gapGen func() int64) {
 			assert.NoError(t, err)
 
 			for _, proof := range proofs {
-				assert.NotEqual(t, tr1root, proof.Hash)
+				assert.NotEqual(t, tr1root, proof.Value)
 			}
 
 			hasNext, err := trie.VerifyTrie(tr1root, paths, values, proofs, 251, crypto.Pedersen)
@@ -573,7 +573,7 @@ func TestTrie_GenerateProof_SingleValue(t *testing.T) {
 		proof, err := tr1.RangeProof(new(felt.Felt).SetUint64(0), new(felt.Felt).SetUint64(10))
 		assert.NoError(t, err)
 		for _, node := range proof {
-			err = tr2.SetProofNode(*node.Key, node.Hash)
+			err = tr2.SetProofNode(*node.Key, node.Value)
 			assert.NoError(t, err)
 		}
 

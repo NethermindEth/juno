@@ -501,21 +501,21 @@ func (t *Trie) dump(level int, parentP *Key) {
 }
 
 type ProofNode struct {
-	Key  *Key
-	Hash *felt.Felt
+	Key   *Key
+	Value *felt.Felt
 }
 
 func (t *Trie) RangeProof(from, to *felt.Felt) ([]*ProofNode, error) {
 	if from.Equal(to) {
-		return t.proofTo(from)
+		return t.proofsFromRoot(from)
 	}
 
-	leftProofs, err := t.proofTo(from)
+	leftProofs, err := t.proofsFromRoot(from)
 	if err != nil {
 		return nil, err
 	}
 
-	rightProofs, err := t.proofTo(to)
+	rightProofs, err := t.proofsFromRoot(to)
 	if err != nil {
 		return nil, err
 	}
@@ -541,38 +541,38 @@ func (t *Trie) RangeProof(from, to *felt.Felt) ([]*ProofNode, error) {
 	return combinedProofs, err
 }
 
-func (t *Trie) proofTo(key *felt.Felt) ([]*ProofNode, error) {
-	nodeKey := t.feltToKey(key)
-	nodes, err := t.nodesFromRoot(&nodeKey)
+func (t *Trie) proofsFromRoot(keyFelt *felt.Felt) ([]*ProofNode, error) {
+	key := t.feltToKey(keyFelt)
+	nodesFromRoot, err := t.nodesFromRoot(&key)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*ProofNode, 0, len(nodes))
-	for i, curnode := range nodes[:len(nodes)-1] {
-		nextKey := nodes[i+1].key
+	proofsFromRoot := make([]*ProofNode, 0, len(nodesFromRoot))
+	for i, curnode := range nodesFromRoot[:len(nodesFromRoot)-1] {
+		nextKey := nodesFromRoot[i+1].key
 		if curnode.node.Left.Equal(nextKey) {
 			othernode, err := t.storage.Get(curnode.node.Right)
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, &ProofNode{
-				Key:  curnode.node.Right,
-				Hash: othernode.Value,
+			proofsFromRoot = append(proofsFromRoot, &ProofNode{
+				Key:   curnode.node.Right,
+				Value: othernode.Value,
 			})
 		} else {
 			othernode, err := t.storage.Get(curnode.node.Left)
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, &ProofNode{
-				Key:  curnode.node.Left,
-				Hash: othernode.Value,
+			proofsFromRoot = append(proofsFromRoot, &ProofNode{
+				Key:   curnode.node.Left,
+				Value: othernode.Value,
 			})
 		}
 	}
 
-	return result, nil
+	return proofsFromRoot, nil
 }
 
 func (t *Trie) SetProofNode(key Key, value *felt.Felt) error {
@@ -714,7 +714,7 @@ func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []*P
 		if proof.Key.CmpAligned(&lastPath) > 0 {
 			hasNext = true
 		}
-		err = tr.SetProofNode(*proof.Key, proof.Hash)
+		err = tr.SetProofNode(*proof.Key, proof.Value)
 		if err != nil {
 			return false, err
 		}
