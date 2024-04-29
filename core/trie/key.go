@@ -135,5 +135,6 @@ func (k Key) CmpAligned(other *Key) int {
 
 	b1i := alignedBitInt(k, height)
 	b2i := alignedBitInt(*other, height)
+
 	return b1i.Cmp(b2i)
 }

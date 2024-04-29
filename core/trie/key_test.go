@@ -153,3 +153,17 @@ func TestTruncate(t *testing.T) {
 		})
 	}
 }
+
+func TestCmpAligned(t *testing.T) {
+
+	key1 := trie.NewKey(1, []byte{0x1})
+	key2 := trie.NewKey(1, []byte{0x2})
+	result := key1.CmpAligned(&key2)
+	require.Equal(t, -1, result)
+
+	key3 := trie.NewKey(1, []byte{0x1})
+	key4 := trie.NewKey(2, []byte{0x1})
+	result2 := key3.CmpAligned(&key4)
+	require.Equal(t, 1, result2)
+
+}
