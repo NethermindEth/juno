@@ -42,7 +42,7 @@ func New(path string, cache uint, maxOpenFiles int, logger pebble.Logger) (db.DB
 func NewMem() (db.DB, error) {
 	return newPebble("", &pebble.Options{
 		FS:     vfs.NewMem(),
-		Levels: []pebble.LevelOptions{{Compression: pebble.SnappyCompression}},
+		Levels: []pebble.LevelOptions{{Compression: pebble.ZstdCompression}},
 	})
 }
 
