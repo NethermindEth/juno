@@ -273,58 +273,6 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode
 	return nil
 }
 
-// Put updates the corresponding `value` for a `key`
-func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
-	if key.Cmp(t.maxKey) > 0 {
-		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
-	}
-
-	old := felt.Zero
-	nodeKey := t.feltToKey(key)
-	node := &Node{
-		Value: value,
-	}
-
-	oldValue, err := t.updateLeaf(nodeKey, node, value)
-	// xor operation, because we don't want to return result if the error is nil and the old value is nil
-	if (err != nil) != (oldValue != nil) {
-		return oldValue, err
-	}
-
-	nodes, err := t.nodesFromRoot(&nodeKey)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		for _, n := range nodes {
-			nodePool.Put(n.node)
-		}
-	}()
-
-	// empty trie, make new value root
-	if len(nodes) == 0 {
-		return t.handleEmptyTrie(old, nodeKey, node, value)
-	} else {
-		// Since we short-circuit in leaf updates, we will only end up here for deletions
-		// Delete if key already exist
-		sibling := nodes[len(nodes)-1]
-		oldValue, err = t.deleteExistingKey(sibling, nodeKey, nodes)
-		// xor operation, because we don't want to return if the error is nil and the old value is nil
-		if (err != nil) != (oldValue != nil) {
-			return oldValue, err
-		} else if value.IsZero() {
-			// trying to insert 0 to a key that does not exist
-			return nil, nil // no-op
-		}
-
-		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling)
-		if err != nil {
-			return nil, err
-		}
-		return &old, nil
-	}
-}
-
 func (t *Trie) setRootKey(newRootKey *Key) {
 	t.rootKey = newRootKey
 	t.rootKeyIsDirty = true
@@ -550,4 +498,236 @@ func (t *Trie) dump(level int, parentP *Key) {
 		rootKey: root.Right,
 		storage: t.storage,
 	}).dump(level+1, t.rootKey)
+}
+
+type ProofNode struct {
+	Key  *Key
+	Hash *felt.Felt
+}
+
+func (t *Trie) RangeProof(from, to *felt.Felt) ([]*ProofNode, error) {
+	if from.Equal(to) {
+		return t.proofTo(from)
+	}
+
+	leftProofs, err := t.proofTo(from)
+	if err != nil {
+		return nil, err
+	}
+
+	rightProofs, err := t.proofTo(to)
+	if err != nil {
+		return nil, err
+	}
+
+	fromKey := t.feltToKey(from)
+	toKey := t.feltToKey(to)
+
+	// Trim the proof from inner node or there might be cases where verification passes even with missing leaf
+	combinedProofs := make([]*ProofNode, 0, len(leftProofs)+len(rightProofs))
+	for _, proof := range leftProofs {
+		if proof.Key.CmpAligned(&fromKey) > 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, proof)
+	}
+	for _, proof := range rightProofs {
+		if proof.Key.CmpAligned(&toKey) < 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, proof)
+	}
+
+	return combinedProofs, err
+}
+
+func (t *Trie) proofTo(key *felt.Felt) ([]*ProofNode, error) {
+	nodeKey := t.feltToKey(key)
+	nodes, err := t.nodesFromRoot(&nodeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*ProofNode, 0, len(nodes))
+	for i, curnode := range nodes[:len(nodes)-1] {
+		nextKey := nodes[i+1].key
+		if curnode.node.Left.Equal(nextKey) {
+			othernode, err := t.storage.Get(curnode.node.Right)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, &ProofNode{
+				Key:  curnode.node.Right,
+				Hash: othernode.Value,
+			})
+		} else {
+			othernode, err := t.storage.Get(curnode.node.Left)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, &ProofNode{
+				Key:  curnode.node.Left,
+				Hash: othernode.Value,
+			})
+		}
+	}
+
+	return result, nil
+}
+
+func (t *Trie) SetProofNode(key Key, value *felt.Felt) error {
+	_, err := t.put(key, value)
+	return err
+}
+
+// Put updates the corresponding `value` for a `key`
+func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
+	if key.Cmp(t.maxKey) > 0 {
+		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
+	}
+
+	nodeKey := t.feltToKey(key)
+	return t.put(nodeKey, value)
+}
+
+//nolint:gocyclo
+func (t *Trie) put(nodeKey Key, value *felt.Felt) (*felt.Felt, error) {
+	old := felt.Zero
+	node := &Node{
+		Value: value,
+	}
+
+	nodes, err := t.nodesFromRoot(&nodeKey)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		for _, n := range nodes {
+			nodePool.Put(n.node)
+		}
+	}()
+
+	// empty trie, make new value root
+	if len(nodes) == 0 {
+		if value.IsZero() {
+			return nil, nil // no-op
+		}
+
+		if err = t.storage.Put(&nodeKey, node); err != nil {
+			return nil, err
+		}
+		t.setRootKey(&nodeKey)
+		return &old, nil
+	} else {
+		// Replace if key already exist
+		sibling := nodes[len(nodes)-1]
+		if nodeKey.Equal(sibling.key) {
+			// we have to deference the Value, since the Node can released back
+			// to the NodePool and be reused anytime
+			old = *sibling.node.Value // record old value to return to caller
+			if value.IsZero() {
+				if err = t.deleteLast(nodes); err != nil {
+					return nil, err
+				}
+				return &old, nil
+			}
+
+			if err = t.storage.Put(&nodeKey, node); err != nil {
+				return nil, err
+			}
+			t.dirtyNodes = append(t.dirtyNodes, &nodeKey)
+			return &old, nil
+		} else if value.IsZero() {
+			// trying to insert 0 to a key that does not exist
+			return nil, nil // no-op
+		}
+
+		var commonKey Key
+		if nodeKey.Len() > sibling.key.Len() {
+			commonKey, _ = findCommonKey(&nodeKey, sibling.key)
+		} else {
+			commonKey, _ = findCommonKey(sibling.key, &nodeKey)
+		}
+
+		newParent := &Node{}
+		var leftChild, rightChild *Node
+		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+			newParent.Left, newParent.Right = sibling.key, &nodeKey
+			leftChild, rightChild = sibling.node, node
+		} else {
+			newParent.Left, newParent.Right = &nodeKey, sibling.key
+			leftChild, rightChild = node, sibling.node
+		}
+
+		leftPath := path(newParent.Left, &commonKey)
+		rightPath := path(newParent.Right, &commonKey)
+
+		newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
+		if err = t.storage.Put(&commonKey, newParent); err != nil {
+			return nil, err
+		}
+
+		if len(nodes) > 1 { // sibling has a parent
+			siblingParent := nodes[len(nodes)-2]
+
+			// replace the link to our sibling with the new parent
+			if siblingParent.node.Left.Equal(sibling.key) {
+				*siblingParent.node.Left = commonKey
+			} else {
+				*siblingParent.node.Right = commonKey
+			}
+
+			if err = t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
+				return nil, err
+			}
+			t.dirtyNodes = append(t.dirtyNodes, &commonKey)
+		} else {
+			t.setRootKey(&commonKey)
+		}
+
+		if err = t.storage.Put(&nodeKey, node); err != nil {
+			return nil, err
+		}
+		return &old, nil
+	}
+}
+
+// VerifyTrie recalculate a trie root and throw error if it does not match the expected root.
+// Return true if the proofs shows the existence of more nodes to after the last path.
+// TODO: In context of snap sync, this does not store the calculated inner nodes, which is a waste of CPU cycle.
+func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []*ProofNode, height uint8, hash hashFunc) (bool, error) {
+	tr, err := newTrie(newMemStorage(), height, hash)
+	if err != nil {
+		return false, err
+	}
+
+	for i, path := range paths {
+		_, err = tr.Put(path, hashes[i])
+		if err != nil {
+			return false, err
+		}
+	}
+
+	hasNext := false
+	lastPath := tr.feltToKey(paths[len(paths)-1])
+	for _, proof := range proofs {
+		if proof.Key.CmpAligned(&lastPath) > 0 {
+			hasNext = true
+		}
+		err = tr.SetProofNode(*proof.Key, proof.Hash)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	root, err := tr.Root()
+	if err != nil {
+		return false, nil
+	}
+
+	if !root.Equal(expectedRoot) {
+		return false, fmt.Errorf("hash mismatch %s vs %s", root.String(), expectedRoot.String())
+	}
+
+	return hasNext, nil
 }
