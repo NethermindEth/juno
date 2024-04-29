@@ -35,7 +35,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
-			Version:              txVerion(0),
+			Version:              txVersion(0),
 			CompiledClassHash:    nil,
 		}
 		declareTx.TransactionHash = hash(declareTx)
@@ -49,7 +49,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
-			Version:              txVerion(1),
+			Version:              txVersion(1),
 			CompiledClassHash:    nil,
 		}
 		declareTx.TransactionHash = hash(declareTx)
@@ -63,7 +63,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
-			Version:              txVerion(2),
+			Version:              txVersion(2),
 			CompiledClassHash:    AdaptFelt(tx.CompiledClassHash),
 		}
 		declareTx.TransactionHash = hash(declareTx)
@@ -88,7 +88,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
-			Version:              txVerion(3),
+			Version:              txVersion(3),
 			CompiledClassHash:    AdaptFelt(tx.CompiledClassHash),
 			Tip:                  AdaptFelt(tx.Tip).Uint64(),
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
@@ -114,7 +114,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			ContractAddressSalt: addressSalt,
 			ClassHash:           classHash,
 			ConstructorCallData: callData,
-			Version:             txVerion(0),
+			Version:             txVersion(0),
 		}
 		deployTx.TransactionHash = hash(deployTx)
 
@@ -131,7 +131,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 				ClassHash:           classHash,
 				ConstructorCallData: callData,
-				Version:             txVerion(1),
+				Version:             txVersion(1),
 			},
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -162,7 +162,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 				ClassHash:           classHash,
 				ConstructorCallData: callData,
-				Version:             txVerion(3),
+				Version:             txVersion(3),
 			},
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -188,7 +188,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			ContractAddress:      AdaptAddress(tx.Address),
-			Version:              txVerion(0),
+			Version:              txVersion(0),
 			EntryPointSelector:   AdaptFelt(tx.EntryPointSelector),
 		}
 		invTx.TransactionHash = hash(invTx)
@@ -203,7 +203,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
-			Version:              txVerion(1),
+			Version:              txVersion(1),
 			EntryPointSelector:   nil,
 		}
 		invTx.TransactionHash = hash(invTx)
@@ -227,7 +227,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
-			Version:              txVerion(3),
+			Version:              txVersion(3),
 			Nonce:                AdaptFelt(tx.Nonce),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			EntryPointSelector:   nil,
@@ -250,7 +250,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
 			Nonce:              AdaptFelt(tx.Nonce),
 			CallData:           utils.Map(tx.Calldata, AdaptFelt),
-			Version:            txVerion(0),
+			Version:            txVersion(0),
 		}
 		l1Tx.TransactionHash = hash(l1Tx)
 
@@ -271,6 +271,6 @@ func adaptAccountSignature(s *spec.AccountSignature) []*felt.Felt {
 	return utils.Map(s.Parts, AdaptFelt)
 }
 
-func txVerion(v uint64) *core.TransactionVersion {
+func txVersion(v uint64) *core.TransactionVersion {
 	return new(core.TransactionVersion).SetUint64(v)
 }
