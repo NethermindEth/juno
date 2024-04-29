@@ -505,6 +505,40 @@ type ProofNode struct {
 	Value *felt.Felt
 }
 
+func (t *Trie) proofsFromRoot(keyFelt *felt.Felt) ([]*ProofNode, error) {
+	key := t.feltToKey(keyFelt)
+	nodesFromRoot, err := t.nodesFromRoot(&key)
+	if err != nil {
+		return nil, err
+	}
+
+	proofsFromRoot := make([]*ProofNode, 0, len(nodesFromRoot))
+	for i, curnode := range nodesFromRoot[:len(nodesFromRoot)-1] {
+		nextKey := nodesFromRoot[i+1].key
+		if curnode.node.Left.Equal(nextKey) {
+			othernode, err := t.storage.Get(curnode.node.Right)
+			if err != nil {
+				return nil, err
+			}
+			proofsFromRoot = append(proofsFromRoot, &ProofNode{
+				Key:   curnode.node.Right,
+				Value: othernode.Value,
+			})
+		} else {
+			othernode, err := t.storage.Get(curnode.node.Left)
+			if err != nil {
+				return nil, err
+			}
+			proofsFromRoot = append(proofsFromRoot, &ProofNode{
+				Key:   curnode.node.Left,
+				Value: othernode.Value,
+			})
+		}
+	}
+
+	return proofsFromRoot, nil
+}
+
 func (t *Trie) RangeProof(from, to *felt.Felt) ([]*ProofNode, error) {
 	if from.Equal(to) {
 		return t.proofsFromRoot(from)
@@ -539,40 +573,6 @@ func (t *Trie) RangeProof(from, to *felt.Felt) ([]*ProofNode, error) {
 	}
 
 	return combinedProofs, err
-}
-
-func (t *Trie) proofsFromRoot(keyFelt *felt.Felt) ([]*ProofNode, error) {
-	key := t.feltToKey(keyFelt)
-	nodesFromRoot, err := t.nodesFromRoot(&key)
-	if err != nil {
-		return nil, err
-	}
-
-	proofsFromRoot := make([]*ProofNode, 0, len(nodesFromRoot))
-	for i, curnode := range nodesFromRoot[:len(nodesFromRoot)-1] {
-		nextKey := nodesFromRoot[i+1].key
-		if curnode.node.Left.Equal(nextKey) {
-			othernode, err := t.storage.Get(curnode.node.Right)
-			if err != nil {
-				return nil, err
-			}
-			proofsFromRoot = append(proofsFromRoot, &ProofNode{
-				Key:   curnode.node.Right,
-				Value: othernode.Value,
-			})
-		} else {
-			othernode, err := t.storage.Get(curnode.node.Left)
-			if err != nil {
-				return nil, err
-			}
-			proofsFromRoot = append(proofsFromRoot, &ProofNode{
-				Key:   curnode.node.Left,
-				Value: othernode.Value,
-			})
-		}
-	}
-
-	return proofsFromRoot, nil
 }
 
 func (t *Trie) SetProofNode(key Key, value *felt.Felt) error {

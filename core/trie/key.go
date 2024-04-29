@@ -123,17 +123,17 @@ func (k Key) CmpAligned(other *Key) int {
 		height = other.len
 	}
 
-	b1i := k.alignedBitInt(height)
-	b2i := other.alignedBitInt(height)
-	return b1i.Cmp(b2i)
-}
+	alignedBitInt := func(k Key, height uint8) *big.Int {
+		theint := &big.Int{}
+		theint = theint.SetBytes(k.bitset[:])
+		if k.len < height {
+			theint = theint.Lsh(theint, uint(height-k.len))
+		}
 
-func (k Key) alignedBitInt(height uint8) *big.Int {
-	theint := &big.Int{}
-	theint = theint.SetBytes(k.bitset[:])
-	if k.len < height {
-		theint = theint.Lsh(theint, uint(height-k.len))
+		return theint
 	}
 
-	return theint
+	b1i := alignedBitInt(k, height)
+	b2i := alignedBitInt(*other, height)
+	return b1i.Cmp(b2i)
 }
