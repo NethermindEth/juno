@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+// contract storage has fixed height at 251
 const ContractStorageTrieHeight = 251
 
 var (
