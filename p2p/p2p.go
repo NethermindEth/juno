@@ -184,7 +184,6 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
 func (s *Service) Run(ctx context.Context) error {
-	defer fmt.Println("P2P service done")
 	defer s.host.Close()
 
 	err := s.dht.Bootstrap(ctx)
@@ -214,7 +213,6 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
-	fmt.Println("Done received")
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
