@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"math"
 	stdsync "sync"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
@@ -175,6 +177,19 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
 }
 
+func (h *Handler) GetNodesFromRoot(key *felt.Felt) (string, *jsonrpc.Error) {
+	// TODO: Implement this method
+	// Implement a new rpc method “juno_getNodesFromRoot(key felt.Felt)” 
+	// that returns the set of nodes from the root to the key for the classes Trie. 
+	// See nodesFromRoot(). Remember to implement tests for the new logic
+
+	// trie :=
+	// key_ := trie.feltToKey(key)
+	// storageNodes, _ := trie.nodesFromRoot(key_)
+
+	return "0x1", nil
+}
+
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
@@ -329,6 +344,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
+		},
+		{
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.GetNodesFromRoot,
 		},
 	}, "/v0_7"
 }
