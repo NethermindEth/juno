@@ -4,7 +4,7 @@
 const sidebars = {
   main: [
     "intro",
-    "config",
+    "configure",
     "snapshots",
     "hardware-requirements",
     "installing-on-gcp",

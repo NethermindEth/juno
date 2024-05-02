@@ -1,5 +1,5 @@
 ---
-title: Example Configuration
+title: Configure Juno
 ---
 
 The Juno binary uses reasonable defaults and can be used without configuration.

@@ -96,6 +96,10 @@ const config = {
                 label: "Quick Start",
                 to: "/",
               },
+              {
+                label: "Configure Juno",
+                to: "/configure",
+              },
             ],
           },
           {
