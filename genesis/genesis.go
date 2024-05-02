@@ -36,8 +36,9 @@ func Read(path string) (*GenesisConfig, error) {
 }
 
 type GenesisContractData struct {
-	ClassHash       felt.Felt   `json:"class_hash"`
-	ConstructorArgs []felt.Felt `json:"constructor_args"`
+	ClassHash           felt.Felt   `json:"class_hash"`
+	ConstructorArgs     []felt.Felt `json:"constructor_args"`
+	ConstructorSelector felt.Felt   `json:"constructor_entry_point_selector"`
 }
 
 type FunctionCall struct {
@@ -78,11 +79,6 @@ func GenesisStateDiff(
 		}
 	}
 
-	constructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
-	if err != nil {
-		return nil, nil, fmt.Errorf("convert string to felt: %v", err)
-	}
-
 	for addressFelt, contractData := range config.Contracts {
 		classHash := contractData.ClassHash
 		if err = genesisState.SetClassHash(&addressFelt, &classHash); err != nil {
@@ -91,13 +87,18 @@ func GenesisStateDiff(
 
 		if contractData.ConstructorArgs != nil {
 			// Call the constructors
-			blockInfo := vm.BlockInfo{} // Todo
+			blockInfo := vm.BlockInfo{
+				Header: &core.Header{
+					Number: 0,
+				},
+			}
 			calInfo := vm.CallInfo{
 				ContractAddress: &addressFelt,
 				ClassHash:       &classHash,
-				Selector:        constructorSelector,
+				Selector:        &contractData.ConstructorSelector,
 				Calldata:        contractData.ConstructorArgs,
 			}
+			fmt.Println("classHash", classHash.String(), contractData.ConstructorSelector.String()) // Todo: contractData.ConstructorSelector is being overwritten
 			maxSteps := uint64(1000000000)
 			if _, err = v.Call(&calInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
 				return nil, nil, fmt.Errorf("execute function call: %v", err)
@@ -112,7 +113,11 @@ func GenesisStateDiff(
 		if err != nil {
 			return nil, nil, fmt.Errorf("get contract class hash: %v", err)
 		}
-		blockInfo := vm.BlockInfo{} // Todo
+		blockInfo := vm.BlockInfo{
+			Header: &core.Header{
+				Number: 0,
+			},
+		} // Todo
 		calInfo := vm.CallInfo{
 			ContractAddress: &contractAddress,
 			ClassHash:       classHash,

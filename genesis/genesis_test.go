@@ -58,6 +58,11 @@ func TestGenesisStateDiff(t *testing.T) {
 		udcAddress, err := new(felt.Felt).SetString("0xdeadbeef222")
 		require.NoError(t, err)
 
+		defaultConstructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
+		require.NoError(t, err)
+		udcConstructorSelector, err := new(felt.Felt).SetString("0x1987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d")
+		require.NoError(t, err)
+
 		genesisConfig := genesis.GenesisConfig{
 			Classes: []string{
 				"./testdata/simpleStore.json",
@@ -66,11 +71,13 @@ func TestGenesisStateDiff(t *testing.T) {
 			},
 			Contracts: map[felt.Felt]genesis.GenesisContractData{
 				*simpleStoreAddress: {
-					ClassHash:       *simpleStoreClassHash,
-					ConstructorArgs: []felt.Felt{*new(felt.Felt).SetUint64(1)},
+					ClassHash:           *simpleStoreClassHash,
+					ConstructorArgs:     []felt.Felt{*new(felt.Felt).SetUint64(1)},
+					ConstructorSelector: *defaultConstructorSelector,
 				},
 				*udcAddress: {
-					ClassHash: *udcClassHash,
+					ClassHash:           *udcClassHash,
+					ConstructorSelector: *udcConstructorSelector,
 				},
 			},
 			FunctionCalls: []genesis.FunctionCall{
