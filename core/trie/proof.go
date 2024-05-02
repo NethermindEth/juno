@@ -59,7 +59,7 @@ func VerifyProof(root *felt.Felt, leafPath *Key, leafHash felt.Felt, proofNodes 
 			return errors.New("proof node does not have the expected hash")
 		}
 
-		if leafPath.Test(leafPath.Len() - uint8(i) - 1) { // Todo: are we selecting the correct child here??
+		if leafPath.Test(leafPath.Len() - uint8(i) - 1) {
 			expectedHash = pNode.RightHash
 		} else {
 			expectedHash = pNode.LeftHash
