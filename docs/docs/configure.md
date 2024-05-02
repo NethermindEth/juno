@@ -2,61 +2,68 @@
 title: Configure Juno
 ---
 
-The Juno binary uses reasonable defaults and can be used without configuration.
-For basic fine-tuning, the `--db-path` and `--http-port` options are usually sufficient.
+You can configure Juno using a combination of the following methods, listed by priority:
 
-All available options are in the YAML file below with their default values.
-Provide the config using the `--config <filename>` option (Juno looks in `$XDG_CONFIG_HOME` by default).
+1. [Command line params (flags)](#command-line-params)
+2. [Configuration file](#configuration-file)
+3. [Default settings](#default-settings)
 
-Juno can also be configured using command line params by prepending `--` to the option name (e.g., `--log-level info`).
-Command line params override values in the configuration file.
+## Command line params
 
-```yaml
-# Enable colored logs
-colour: true
+To configure Juno using command line parameters, prepend `--` to each option name. These parameters will override values set in the configuration file. For example:
 
-# Path to the database.
-# Juno uses `$XDG_DATA_HOME/juno` by default, which is usually something like the value below on Linux.
-db-path: /home/<user>/.local/share/juno
-
-# Websocket endpoint of the Ethereum node used to verify the L2 chain.
-# If using Infura, it looks something like `wss://mainnet.infura.io/ws/v3/your-infura-project-id`
-eth-node: ""
-
-# Enables the HTTP RPC server.
-http: false
-# Interface on which the HTTP RPC server will listen for requests.
-http-host: localhost
-# Port on which the HTTP RPC server will listen for requests.
-http-port: 6060
-
-# The options below are similar to the HTTP RPC options above.
-ws: false # Websocket RPC server
-ws-host: localhost
-ws-port: 6061
-pprof: false
-pprof-host: localhost
-pprof-port: 6062
-metrics: false
-metrics-host: localhost
-metrics-port: 9090
-grpc: false
-grpc-host: localhost
-grpc-port: 6064
-
-# Options: debug, info, warn, error
-log-level: info
-
-# Options: mainnet, goerli, goerli2, integration
-network: mainnet
-
-# How often to fetch the pending block when synced to the head of the chain.
-# Provide a duration like 5s (five seconds) or 10m (10 minutes).
-# Disabled by default.
-pending-poll-interval: 0s
-
-# Experimental p2p options; there is currently no standardized Starknet p2p testnet.
-p2p: false # Enable the p2p server
-p2p-addr: "" # Source address
-p2p-boot-peers: "" # Boot nodes
+```shell
+juno --db-path=/juno --http=true --http-port=6060
 ```
+
+When using Docker, append the command line parameters after the image name to configure Juno:
+
+```shell
+docker run nethermind/juno --db-path=/juno --network=mainnet
+```
+
+To list all available command line options, you can use the `--help` parameter:
+
+```shell
+# Standalone Binaries
+juno --help
+
+# Docker Container
+docker run nethermind/juno --help
+```
+
+## Configuration file
+
+You can configure Juno using a [YAML-formatted](https://en.wikipedia.org/wiki/YAML) configuration file:
+
+```yaml title="Sample YAML File" showLineNumbers
+log-level: info
+db-path: /juno
+network: mainnet
+http: true
+http-port: 6060
+metrics: true
+metrics-port: 9090
+```
+
+To run Juno with a configuration file, use the `--config` parameter and specify the path of the configuration file:
+
+```shell
+# Standalone Binaries
+juno --config=[CONFIG FILE PATH]
+
+# Docker Container
+docker run nethermind/juno --config=[CONFIG FILE PATH]
+```
+
+:::info
+By default, Juno searches in the `$XDG_CONFIG_HOME` directory for the configuration file.
+:::
+
+## Default settings
+
+Juno runs well with its default settings, removing the need for additional configurations. The `--db-path` and `--http-port` options are enough for basic fine-tuning.
+
+## Configuration options
+
+Below is a list of available configuration options for Juno, along with their default values and descriptions:
