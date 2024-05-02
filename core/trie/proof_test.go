@@ -85,9 +85,6 @@ func TestVerifyProofs(t *testing.T) {
 		proofNodes := []trie.ProofNode{rootNodeProof}
 		root := crypto.Pedersen(rootNodeProof.LeftHash, rootNodeProof.RightHash)
 
-		verifiedKey1, err := trie.VerifyProof(root, &key1Key, *rootNodeProof.LeftHash, proofNodes, crypto.Pedersen)
-		assert.NoError(t, err)
-
-		assert.Equal(t, trie.Member, verifiedKey1)
+		assert.NoError(t, trie.VerifyProof(root, &key1Key, *rootNodeProof.LeftHash, proofNodes, crypto.Pedersen))
 	})
 }

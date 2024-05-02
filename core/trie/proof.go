@@ -7,13 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-type Membership int
-
-const (
-	Member Membership = iota
-	NonMember
-)
-
 type ProofNode struct {
 	LeftHash  *felt.Felt
 	RightHash *felt.Felt
@@ -57,13 +50,13 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-func VerifyProof(root *felt.Felt, leafPath *Key, leafHash felt.Felt, proofNodes []ProofNode, hashFunc hashFunc) (Membership, error) {
+func VerifyProof(root *felt.Felt, leafPath *Key, leafHash felt.Felt, proofNodes []ProofNode, hashFunc hashFunc) error {
 	expectedHash := root
 
 	for i, pNode := range proofNodes {
 		pNodeHash := hashFunc(pNode.LeftHash, pNode.RightHash)
 		if !expectedHash.Equal(pNodeHash) {
-			return NonMember, errors.New("proof node does not have expected hash")
+			return errors.New("proof node does not have the expected hash")
 		}
 
 		if leafPath.Test(leafPath.Len() - uint8(i) - 1) { // Todo: are we selecting the correct child here??
@@ -74,8 +67,8 @@ func VerifyProof(root *felt.Felt, leafPath *Key, leafHash felt.Felt, proofNodes 
 	}
 
 	if !expectedHash.Equal(&leafHash) {
-		return NonMember, errors.New("value does not match")
+		return errors.New("leafHash does not have the expected hash")
 	}
 
-	return Member, nil
+	return nil
 }
