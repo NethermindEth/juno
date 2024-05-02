@@ -1,5 +1,5 @@
 {
-  "name": "my-website",
+  "name": "juno-docs",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -30,11 +30,7 @@
     "typescript": "^5.3.3"
   },
   "browserslist": {
-    "production": [
-      ">0.5%",
-      "not dead",
-      "not op_mini all"
-    ],
+    "production": [">0.5%", "not dead", "not op_mini all"],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",
