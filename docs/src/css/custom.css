@@ -5,21 +5,21 @@
  */
 
 /* You can override the default Infima variables here. */
-@import url('https://fonts.googleapis.com/css2?family=Exo:ital,wght@0,400;0,600;1,400;1,600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,600;1,400;1,600&display=swap");
 
 :root {
-  --ifm-color-primary: #ff4a04;
-  --ifm-code-font-size: 95%;
+    --ifm-color-primary: #ff4a04;
+    --ifm-code-font-size: 95%;
 }
 
 * {
-  font-family: 'Exo', sans-serif;
+    font-family: "DM Sans", sans-serif;
 }
 
 h1 {
-  font-weight: 600;
+    font-weight: 600;
 }
 /* For readability concerns, you should choose a lighter palette in dark mode. */
-[data-theme='dark'] {
-  --ifm-color-primary: #ff4a04;
+[data-theme="dark"] {
+    --ifm-color-primary: #ff4a04;
 }
