@@ -26,9 +26,10 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	proofNodes := make([]ProofNode, len(nodesToLeaf)-1)
+	nodesExcludingLeaf := nodesToLeaf[:len(nodesToLeaf)-1]
+	proofNodes := make([]ProofNode, len(nodesExcludingLeaf))
 
-	getHash := func(tri *Trie, key *Key) (*felt.Felt, error) {
+	getHash := func(key *Key) (*felt.Felt, error) {
 		keyFelt := key.Felt()
 		node, err := tri.GetNode(&keyFelt)
 		if err != nil {
@@ -37,12 +38,12 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		return node.Hash(key, crypto.Pedersen), nil
 	}
 
-	for i, sNode := range nodesToLeaf[:len(nodesToLeaf)-1] {
-		leftHash, err := getHash(tri, sNode.node.Left)
+	for i, sNode := range nodesExcludingLeaf {
+		leftHash, err := getHash(sNode.node.Left)
 		if err != nil {
 			return nil, err
 		}
-		rightHash, err := getHash(tri, sNode.node.Right)
+		rightHash, err := getHash(sNode.node.Right)
 		if err != nil {
 			return nil, err
 		}
