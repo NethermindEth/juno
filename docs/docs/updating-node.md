@@ -1,6 +1,4 @@
 ---
-slug: /updating_node
-sidebar_position: 7
 title: Updating Juno Node
 ---
 
@@ -10,7 +8,7 @@ Updating your Juno node is crucial to access new features, improvements, and sec
 
 1. **Pull the Latest Juno Docker Image**
 
-   First, pull the latest Juno Docker image from Nethermind's Docker repository. As an example, to update to `v0.11.0-rc1`, use the following command:
+First, pull the latest Juno Docker image from Nethermind's Docker repository. As an example, to update to `v0.11.0-rc1`, use the following command:
 
 ```
 docker pull nethermind/juno:v0.11.0-rc1
@@ -35,6 +33,7 @@ docker rm juno
 4. **Start a New Container with the Updated Image**
 
 Run a new container using the updated Docker image. Here's an example command, adjust it according to your setup (ports, volumes, version etc.):
+
 ```
 docker run -d \
   --name juno \
@@ -59,5 +58,3 @@ docker logs juno
 ### Conclusion
 
 You have successfully updated your Juno node to the latest version. It is now ready to be used. For more information on managing your node, visit [Nethermind's official GitHub repository](https://github.com/NethermindEth/juno).
-
-

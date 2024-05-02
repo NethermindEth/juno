@@ -1,6 +1,4 @@
 ---
-slug: /config
-sidebar_position: 3
 title: Example Configuration
 ---
 
@@ -11,7 +9,7 @@ All available options are in the YAML file below with their default values.
 Provide the config using the `--config <filename>` option (Juno looks in `$XDG_CONFIG_HOME` by default).
 
 Juno can also be configured using command line params by prepending `--` to the option name (e.g., `--log-level info`).
-Command line params override values in the configuration file. 
+Command line params override values in the configuration file.
 
 ```yaml
 # Enable colored logs

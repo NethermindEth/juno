@@ -1,6 +1,4 @@
 ---
-slug: /hardware-requirements
-sidebar_position: 5
 title: Juno Full Node Hardware Requirements
 ---
 

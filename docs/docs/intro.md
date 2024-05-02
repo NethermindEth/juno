@@ -1,10 +1,9 @@
 ---
 slug: /
-sidebar_position: 1
 title: Quick Start
 ---
 
-*Juno is your fast and featureful Starknet client implementation.*
+_Juno is your fast and featureful Starknet client implementation._
 
 Suitable for casual setups, production-grade indexers, and everything in between.
 
@@ -24,13 +23,13 @@ mkdir -p junodb
 docker run -d --name juno -p 6060:6060 -v junodb:/var/lib/juno nethermind/juno:latest --db-path /var/lib/juno --http
 ```
 
-For a complete list of options and their explanations, see the [Example Configuration](example_config.md) or run:
+For a complete list of options and their explanations, see the [Example Configuration](config.md) or run:
 
 ```shell
 docker run nethermind/juno --help
 ```
 
-# Looking for a Starknet RPC Provider? 
+# Looking for a Starknet RPC Provider?
 
 Access Nethermind's Starknet RPC service for free at [data.voyager.online](https://data.voyager.online).
 

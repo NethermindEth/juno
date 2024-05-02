@@ -106,8 +106,8 @@ const config = {
                 href: "https://discord.gg/SZkKcmmChJ", // #juno channel in Nethermind server.
               },
               {
-                label: "Twitter",
-                href: "https://twitter.com/NethermindStark", // NethermindStark account.
+                label: "X (Twitter)",
+                href: "https://x.com/NethermindStark", // NethermindStark account.
               },
               {
                 label: "Telegram",
@@ -116,11 +116,15 @@ const config = {
             ],
           },
           {
-            title: "More",
+            title: "Resources",
             items: [
               {
                 label: "GitHub",
                 href: "https://github.com/NethermindEth/juno",
+              },
+              {
+                label: "Blog",
+                href: "https://www.nethermind.io/blogs",
               },
             ],
           },

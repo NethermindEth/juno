@@ -1,6 +1,4 @@
 ---
-slug: /snapshots
-sidebar_position: 4
 title: Database Snapshots
 ---
 
@@ -9,20 +7,20 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 
 ## Mainnet
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
+| Version      | Size      | Block      | Download Link                                                                                               |
+| ------------ | --------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| **>=v0.6.0** | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
 
 ### Sepolia
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
+| Version      | Size       | Block     | Download Link                                                                                        |
+| ------------ | ---------- | --------- | ---------------------------------------------------------------------------------------------------- |
 | **>=v0.9.2** | **2.9 GB** | **55984** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.4_55984.tar) |
 
 ## Goerli2
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
+| Version      | Size       | Block      | Download Link                                                                                               |
+| ------------ | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
 | **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
 
 ## Run Juno Using Snapshot
