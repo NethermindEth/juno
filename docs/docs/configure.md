@@ -34,7 +34,7 @@ docker run nethermind/juno --help
 
 ## Configuration file
 
-You can configure Juno using a [YAML-formatted](https://en.wikipedia.org/wiki/YAML) configuration file:
+You can also configure Juno using a [YAML-formatted](https://en.wikipedia.org/wiki/YAML) configuration file:
 
 ```yaml title="Sample YAML File" showLineNumbers
 log-level: info
@@ -67,3 +67,9 @@ Juno runs well with its default settings, removing the need for additional confi
 ## Configuration options
 
 Below is a list of available configuration options for Juno, along with their default values and descriptions:
+
+```mdx-code-block
+import ConfigOptions from "./_config-options.md";
+
+<ConfigOptions />
+```
