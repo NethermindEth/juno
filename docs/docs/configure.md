@@ -2,15 +2,15 @@
 title: Configure Juno
 ---
 
-You can configure Juno using a combination of the following methods, listed by priority:
+Juno can be configured using several methods, with the following order of precedence:
 
-1. [Command line params (flags)](#command-line-params)
+1. [Command line parameters (flags)](#command-line-params)
 2. [Configuration file](#configuration-file)
 3. [Default settings](#default-settings)
 
 ## Command line params
 
-To configure Juno using command line parameters, prepend `--` to each option name. These parameters will override values set in the configuration file. For example:
+You can set configurations directly on the command line. Prepend `--` to each option name. Command line parameters take precedence over the configuration file:
 
 ```shell
 juno --db-path=/juno --http=true --http-port=6060
@@ -34,7 +34,7 @@ docker run nethermind/juno --help
 
 ## Configuration file
 
-You can also configure Juno using a [YAML-formatted](https://en.wikipedia.org/wiki/YAML) configuration file:
+Juno can also be configured using a [YAML](https://en.wikipedia.org/wiki/YAML) file:
 
 ```yaml title="Sample YAML File" showLineNumbers
 log-level: info
@@ -57,16 +57,16 @@ docker run nethermind/juno --config=[CONFIG FILE PATH]
 ```
 
 :::info
-By default, Juno searches in the `$XDG_CONFIG_HOME` directory for the configuration file.
+By default, Juno looks for the configuration file in the `$XDG_CONFIG_HOME` directory.
 :::
 
 ## Default settings
 
-Juno runs well with its default settings, removing the need for additional configurations. The `--db-path` and `--http-port` options are enough for basic fine-tuning.
+Juno runs fine with its default settings, which simplify the configuration process. For basic fine-tuning, setting `--db-path` and `--http-port` may suffice.
 
 ## Configuration options
 
-Below is a list of available configuration options for Juno, along with their default values and descriptions:
+Below is a list of all configuration options available in Juno, along with their default values and descriptions:
 
 ```mdx-code-block
 import ConfigOptions from "./_config-options.md";

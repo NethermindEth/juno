@@ -130,10 +130,14 @@ const config = {
                 label: "Blog",
                 href: "https://www.nethermind.io/blogs",
               },
+              {
+                label: "Release Notes",
+                href: "https://github.com/NethermindEth/juno/releases",
+              },
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Nethermind.`,
+        copyright: `Nethermind © ${new Date().getFullYear()}`,
       },
       prism: {
         theme: lightCodeTheme,
