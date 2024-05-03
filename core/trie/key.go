@@ -114,3 +114,21 @@ func (k *Key) Truncate(length uint8) {
 		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
 	}
 }
+
+func (k *Key) RemoveLastBit() {
+	if k.len == 0 {
+		return
+	}
+
+	k.len--
+
+	unusedBytes := k.unusedBytes()
+	clear(unusedBytes)
+
+	// clear upper bits on the last used byte
+	inUseBytes := k.inUseBytes()
+	unusedBitsCount := 8 - (k.len % 8)
+	if unusedBitsCount != 8 && len(inUseBytes) > 0 {
+		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
+	}
+}

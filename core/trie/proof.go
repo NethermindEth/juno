@@ -1,9 +1,6 @@
 package trie
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -44,62 +41,47 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		return node.Hash(key, crypto.Pedersen), nil
 	}
 
+	// The spec requires Edge nodes. However Juno doesn't have edge nodes.
+	// if Len=250 and have left and right -> create a Binary
+	// if len=250 and only have one child -> create edge
+	// if len!=250, check if child-parent length = 1, if so ,create Binary
+	// if len!=250, check if child-parent length = 1, if not ,create Edge
 	for i, sNode := range nodesExcludingLeaf {
-		// Determind if binary or edge
-		sLeft := sNode.node.Left
-		sRight := sNode.node.Right
-		if sLeft != nil && sRight != nil { // sNode is (edge) Binary Node
-			leftHash, err := getHash(sNode.node.Left)
-			if err != nil {
-				return nil, err
-			}
-			rightHash, err := getHash(sNode.node.Right)
-			if err != nil {
-				return nil, err
-			}
-			proofNodes[i] = ProofNode{
-				Binary: &Binary{
-					LeftHash:  leftHash,
-					RightHash: rightHash,
-				},
-			}
+		// sLeft := sNode.node.Left
+		// sRight := sNode.node.Right
+		nxtNode := nodesToLeaf[i+1]
 
-		} else { // sNode is Edge Node
-			nxtNode := nodesToLeaf[i+1].node
-			nxtKey := nodesToLeaf[i+1].key
-			fmt.Println("sNode", sNode)
-			fmt.Println("sNode", sNode.node)
-			fmt.Println("sNode", sNode.node.Left)
-			fmt.Println("sNode", sNode.node.Right)
-			fmt.Println("nxtNode", nxtNode)
-
-			fmt.Println("nxtNode", nxtNode.Left)
-			fmt.Println("nxtNode", nxtNode.Right)
-
-			// Juno doesn't have a notion of an edge node, so we construct it here
-			edgePath, ok := findCommonKey(nxtKey, sNode.key)
-			if !ok {
-				return nil, errors.New("failed to get edge node path")
-			}
+		if nxtNode.key.len-sNode.key.len > 1 { // split node into edge + child
+			edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
+			edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
 			edgePathFelt := edgePath.Felt()
 
-			var childKey felt.Felt
-			if sNode.key.Test(sNode.key.len - nxtKey.len - 1) { // Todo: double -check
-				childKey = sNode.node.Right.Felt()
-			} else {
-				childKey = sNode.node.Left.Felt()
-			}
+			childKeyFelt := sNode.key.Felt()
 
 			proofNodes[i] = ProofNode{
 				Edge: &Edge{
 					Path:  &edgePathFelt,
-					Child: &childKey,
+					Child: &childKeyFelt,
 					// Value: value, // Todo: ??
 				},
 			}
 		}
-
+		leftHash, err := getHash(sNode.node.Left)
+		if err != nil {
+			return nil, err
+		}
+		rightHash, err := getHash(sNode.node.Right)
+		if err != nil {
+			return nil, err
+		}
+		proofNodes[i] = ProofNode{
+			Binary: &Binary{
+				LeftHash:  leftHash,
+				RightHash: rightHash,
+			},
+		}
 	}
+
 	return proofNodes, nil
 }
 
