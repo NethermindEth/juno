@@ -78,7 +78,7 @@ const extractConfigs = (codebase) => {
           ". Default is set to three times the number of CPU cores";
       }
       if (configName === "max-vm-queue") {
-        description += ". Default is set to double the value of max-vms";
+        description += ". Default is set to double the value of `max-vms`";
       }
 
       configs.push({

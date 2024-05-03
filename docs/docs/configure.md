@@ -22,16 +22,6 @@ When using Docker, append the command line parameters after the image name to co
 docker run nethermind/juno --db-path=/juno --network=mainnet
 ```
 
-To list all available command line options, you can use the `--help` parameter:
-
-```shell
-# Standalone Binaries
-juno --help
-
-# Docker Container
-docker run nethermind/juno --help
-```
-
 ## Configuration file
 
 Juno can also be configured using a [YAML](https://en.wikipedia.org/wiki/YAML) file:
@@ -62,7 +52,17 @@ By default, Juno looks for the configuration file in the `$XDG_CONFIG_HOME` dire
 
 ## Default settings
 
-Juno runs fine with its default settings, which simplify the configuration process. For basic fine-tuning, setting `--db-path` and `--http-port` may suffice.
+Juno runs fine with its default settings, which simplifies the configuration process. Setting `--db-path` and `--http-port` may suffice for basic fine-tuning.
+
+To list all available command line options, you can use the `--help` parameter:
+
+```shell
+# Standalone Binaries
+juno --help
+
+# Docker Container
+docker run nethermind/juno --help
+```
 
 ## Configuration options
 

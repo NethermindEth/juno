@@ -24,7 +24,7 @@
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |
 | `log-level` | `info` | Options: debug, info, warn, error |
-| `max-vm-queue` |  | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets. Default is set to double the value of max-vms |
+| `max-vm-queue` |  | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets. Default is set to double the value of `max-vms` |
 | `max-vms` |  | Maximum number for VM instances to be used for RPC calls concurrently. Default is set to three times the number of CPU cores |
 | `metrics` | `false` | Enables the prometheus metrics endpoint on the default port |
 | `metrics-host` | `localhost` | The interface on which the prometheus endpoint will listen for requests |
