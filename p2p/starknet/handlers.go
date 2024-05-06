@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/NethermindEth/juno/core"
-
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/iter"
@@ -74,7 +73,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, stream network.Strea
 		return
 	}
 
-	response, err := reqHandler(req.(ReqT))
+	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
 		log.Debugw("Error handling request", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
@@ -82,7 +81,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, stream network.Strea
 	}
 
 	// todo add write timeout
-	response(func(msg proto.Message) bool {
+	responseIterator(func(msg proto.Message) bool {
 		if ctx.Err() != nil {
 			return false
 		}
@@ -308,7 +307,9 @@ type iterationProcessor = func(it blockDataAccessor) (proto.Message, error)
 // processIterationRequest is helper function that simplifies data processing for provided spec.Iteration object
 // caller usually passes iteration object from received request, finMsg as final message to a peer
 // and iterationProcessor function that will generate response for each iteration
-func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg proto.Message, f iterationProcessor) (iter.Seq[proto.Message], error) {
+func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg proto.Message,
+	getMsg iterationProcessor,
+) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
 	if err != nil {
 		return nil, err
@@ -319,7 +320,7 @@ func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg prot
 		// while iterator is valid
 		for it.Valid() {
 			// pass it to handler function (some might be interested in header, others in entire block)
-			msg, err := f(it)
+			msg, err := getMsg(it)
 			if err != nil {
 				h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
 				break
