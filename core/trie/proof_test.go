@@ -59,13 +59,13 @@ func getProofNodeBinary(t *testing.T, tri *trie.Trie, node *trie.Node) trie.Proo
 }
 
 func TestGetProofs(t *testing.T) {
-	t.Run("Simple Trie - edge", func(t *testing.T) {
+	t.Run("Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
 
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
-					Path:  &felt.Zero,
+					Path:  &felt.Zero, // Todo: pathfinder returns 0? But shouldn't be zero?...
 					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
 				},
 			},
