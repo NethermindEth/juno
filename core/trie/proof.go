@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -64,7 +65,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	nodesExcludingLeaf := nodesToLeaf[:len(nodesToLeaf)-1]
 	proofNodes := []ProofNode{}
 
-	getHash := func(key *Key) (*felt.Felt, error) {
+	getValue := func(key *Key) (*felt.Felt, error) {
 		node, err := tri.GetNodeFromKey(key)
 		if err != nil {
 			return nil, err
@@ -73,47 +74,44 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		// return node.Hash(key, crypto.Pedersen), nil
 	}
 
-	// Edge nodes are defined as having a child with len greater than 1 from the parent
-	isEdge := func(sNode *storageNode) bool {
-		sNodeLen := sNode.key.len
-		if sNodeLen == 250 { // todo: What about edge leaf??
-			return false
-		}
-		if sNode.node.Right != nil {
-			if sNode.node.Right.len-sNodeLen > 1 {
-				return true
-			}
-		}
-
-		if sNode.node.Left != nil {
-			if sNode.node.Left.len-sNodeLen > 1 {
-				return true
-			}
-		}
-		return false
-	}
-
 	height := uint8(0)
 
-	rootHack := true
-	for _, sNode := range nodesExcludingLeaf {
+	// 1. If it's an edge-node in pathfinders impl, we need to expand the node into an edge + binary
+	// -> Child should be internal node (len<251). Distance between child and parent should be > 1.
+	// 2. If it's a binary-node, we store binary
+	// -> Child should be internal node (len<251). Distance between child and parent should be 1.
+	// 3. If it's a binary leaf, we store binary leaf
+	// -> Child should be leaf (len=251). Distance between child and parent should be 1.
+	// 4. If it's an edge leaf, we store an edge leaf
+	// -> Child should be leaf (len=251). Distance between child and parent should be > 1.
+
+	for i, sNode := range nodesExcludingLeaf {
 		height += uint8(sNode.key.len)
 
-		leftHash, err := getHash(sNode.node.Left)
+		leftHash, err := getValue(sNode.node.Left)
 		if err != nil {
 			return nil, err
 		}
 
-		rightHash, err := getHash(sNode.node.Right)
+		rightHash, err := getValue(sNode.node.Right)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("LeftHash", leftHash.String())
+		fmt.Println("rightHash", rightHash.String())
 
-		if isEdge(&sNode) || rootHack { // Split into Edge + Binary // Todo: always split root??
-			rootHack = false
-			// edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
-			// edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
+		child := nodesToLeaf[i+1]
+		parentChildDistance := child.key.len - sNode.key.len
 
+		if child.key.len < 251 && parentChildDistance == 1 { // Internal Binary
+			proofNodes = append(proofNodes, ProofNode{
+				Binary: &Binary{
+					LeftHash:  leftHash,
+					RightHash: rightHash,
+				},
+			})
+			height++
+		} else if child.key.len < 251 && parentChildDistance > 1 { // Internal Edge
 			proofNodes = append(proofNodes, ProofNode{
 				Edge: &Edge{
 					Path:  sNode.key, // Todo: Path from that node to the leaf?
@@ -121,16 +119,35 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 					// Value: value, // Todo: ??
 				},
 			})
+			height += sNode.key.len
+			proofNodes = append(proofNodes, ProofNode{
+				Binary: &Binary{
+					LeftHash:  leftHash,
+					RightHash: rightHash,
+				},
+			})
+			height++
+		} else if child.key.len == 251 && parentChildDistance == 1 { // Leaf binary
+			proofNodes = append(proofNodes, ProofNode{
+				Binary: &Binary{
+					LeftHash:  leftHash,
+					RightHash: rightHash,
+				},
+			})
+			height++
+		} else if child.key.len == 251 && parentChildDistance > 1 { // lead Edge
+			proofNodes = append(proofNodes, ProofNode{
+				Edge: &Edge{
+					// Path:  sNode.key, // Todo: Path from that node to the leaf?
+					Child: sNode.node.Value,
+					// Value: value, // Todo: ??
+				},
+			})
+			height += sNode.key.len
+		} else {
+			return nil, errors.New("unexpected error in GetProof")
 		}
 
-		fmt.Println("LeftHash", leftHash.String())
-		fmt.Println("rightHash", rightHash.String())
-		proofNodes = append(proofNodes, ProofNode{
-			Binary: &Binary{
-				LeftHash:  leftHash,
-				RightHash: rightHash,
-			},
-		})
 	}
 
 	return proofNodes, nil
