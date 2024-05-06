@@ -89,12 +89,12 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	}, nil
 }
 
-func (c *Client) RequestCurrentBlockHeader(
-	ctx context.Context, req *spec.CurrentBlockHeaderRequest,
-) (iter.Seq[*spec.BlockHeadersResponse], error) {
-	return requestAndReceiveStream[*spec.CurrentBlockHeaderRequest, *spec.BlockHeadersResponse](ctx, c.newStream,
-		CurrentBlockHeaderPID(c.network), req, c.log)
-}
+//func (c *Client) RequestCurrentBlockHeader(
+//	ctx context.Context, req *spec.CurrentBlockHeaderRequest,
+//) (iter.Seq[*spec.BlockHeadersResponse], error) {
+//	return requestAndReceiveStream[*spec.CurrentBlockHeaderRequest, *spec.BlockHeadersResponse](ctx, c.newStream,
+//		CurrentBlockHeaderPID(c.network), req, c.log)
+//}
 
 func (c *Client) RequestBlockHeaders(
 	ctx context.Context, req *spec.BlockHeadersRequest,
@@ -103,10 +103,10 @@ func (c *Client) RequestBlockHeaders(
 		ctx, c.newStream, BlockHeadersPID(c.network), req, c.log)
 }
 
-func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (iter.Seq[*spec.BlockBodiesResponse], error) {
-	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](
-		ctx, c.newStream, BlockBodiesPID(c.network), req, c.log)
-}
+//func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (iter.Seq[*spec.BlockBodiesResponse], error) {
+//	return requestAndReceiveStream[*spec.BlockBodiesRequest, *spec.BlockBodiesResponse](
+//		ctx, c.newStream, BlockBodiesPID(c.network), req, c.log)
+//}
 
 func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (iter.Seq[*spec.EventsResponse], error) {
 	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(c.network), req, c.log)

@@ -108,9 +108,9 @@ func (h *Handler) BlockHeadersHandler(stream network.Stream) {
 	streamHandler[*spec.BlockHeadersRequest](h.ctx, &h.wg, stream, h.onBlockHeadersRequest, h.log)
 }
 
-func (h *Handler) BlockBodiesHandler(stream network.Stream) {
-	streamHandler[*spec.BlockBodiesRequest](h.ctx, &h.wg, stream, h.onBlockBodiesRequest, h.log)
-}
+//func (h *Handler) BlockBodiesHandler(stream network.Stream) {
+//	streamHandler[*spec.BlockBodiesRequest](h.ctx, &h.wg, stream, h.onBlockBodiesRequest, h.log)
+//}
 
 func (h *Handler) EventsHandler(stream network.Stream) {
 	streamHandler[*spec.EventsRequest](h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
@@ -124,35 +124,31 @@ func (h *Handler) TransactionsHandler(stream network.Stream) {
 	streamHandler[*spec.TransactionsRequest](h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
 }
 
-func (h *Handler) CurrentBlockHeaderHandler(stream network.Stream) {
-	streamHandler[*spec.CurrentBlockHeaderRequest](h.ctx, &h.wg, stream, h.onCurrentBlockHeaderRequest, h.log)
-}
+//func (h *Handler) CurrentBlockHeaderHandler(stream network.Stream) {
+//	streamHandler[*spec.CurrentBlockHeaderRequest](h.ctx, &h.wg, stream, h.onCurrentBlockHeaderRequest, h.log)
+//}
 
-func (h *Handler) onCurrentBlockHeaderRequest(*spec.CurrentBlockHeaderRequest) (iter.Seq[proto.Message], error) {
-	curHeight, err := h.bcReader.Height()
-	if err != nil {
-		return nil, err
-	}
-
-	return h.onBlockHeadersRequest(&spec.BlockHeadersRequest{
-		Iteration: &spec.Iteration{
-			Start: &spec.Iteration_BlockNumber{
-				BlockNumber: curHeight,
-			},
-			Direction: spec.Iteration_Forward,
-			Limit:     1,
-			Step:      1,
-		},
-	})
-}
+//func (h *Handler) onCurrentBlockHeaderRequest(*spec.CurrentBlockHeaderRequest) (iter.Seq[proto.Message], error) {
+//	curHeight, err := h.bcReader.Height()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return h.onBlockHeadersRequest(&spec.BlockHeadersRequest{
+//		Iteration: &spec.Iteration{
+//			Start: &spec.Iteration_BlockNumber{
+//				BlockNumber: curHeight,
+//			},
+//			Direction: spec.Iteration_Forward,
+//			Limit:     1,
+//			Step:      1,
+//		},
+//	})
+//}
 
 func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.BlockHeadersResponse{
-		Part: []*spec.BlockHeadersResponsePart{
-			{
-				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
-			},
-		},
+		HeaderMessage: &spec.BlockHeadersResponse_Fin{},
 	}
 
 	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
@@ -188,6 +184,7 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq
 	})
 }
 
+/*
 func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(req.Iteration)
 	if err != nil {
@@ -230,10 +227,11 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (iter.Seq[p
 		yield(finMsg)
 	}, nil
 }
+*/
 
 func (h *Handler) onEventsRequest(req *spec.EventsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.EventsResponse{
-		Responses: &spec.EventsResponse_Fin{},
+		EventMessage: &spec.EventsResponse_Fin{},
 	}
 	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
 		block, err := it.Block()

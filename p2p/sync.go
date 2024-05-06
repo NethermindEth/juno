@@ -47,25 +47,26 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, lo
 }
 
 func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
-	headersIt, err := s.client.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
-	if err != nil {
-		return 0, err
-	}
-
-	var header *spec.BlockHeader
-	headersIt(func(res *spec.BlockHeadersResponse) bool {
-		for _, part := range res.GetPart() {
-			if _, ok := part.HeaderMessage.(*spec.BlockHeadersResponsePart_Header); ok {
-				header = part.GetHeader()
-				// found header - time to stop iterator
-				return false
-			}
-		}
-
-		return true
-	})
-
-	return int(header.Number), nil
+	return 0, nil
+	//headersIt, err := s.client.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
+	//if err != nil {
+	//	return 0, err
+	//}
+	//
+	//var header *spec.BlockHeader
+	//headersIt(func(res *spec.BlockHeadersResponse) bool {
+	//	for _, part := range res.GetPart() {
+	//		if _, ok := part.HeaderMessage.(*spec.BlockHeadersResponsePart_Header); ok {
+	//			header = part.GetHeader()
+	//			// found header - time to stop iterator
+	//			return false
+	//		}
+	//	}
+	//
+	//	return true
+	//})
+	//
+	//return int(header.Number), nil
 }
 
 const retryDuration = 5 * time.Second
@@ -378,7 +379,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				BlockHash: coreBlock.Hash,
 				NewRoot:   coreBlock.GlobalStateRoot,
 				OldRoot:   prevBlockRoot,
-				StateDiff: p2p2core.AdaptStateDiff(diff, classes),
+				StateDiff: p2p2core.AdaptStateDiff(nil, classes),
 			}
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
@@ -442,10 +443,10 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 }
 
 type specBlockBody struct {
-	id        *spec.BlockID
-	proof     *spec.BlockProof
-	classes   *spec.Classes
-	stateDiff *spec.StateDiff
+	id *spec.BlockID
+	// proof     *spec.BlockProof
+	classes   []*spec.Class
+	stateDiff []*spec.ContractDiff
 }
 
 func (s specBlockBody) blockNumber() uint64 {
@@ -532,7 +533,7 @@ func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-ch
 				select {
 				case <-ctx.Done():
 					return false
-				case receiptsCh <- specReceipts{res.GetId(), res.GetReceipts()}:
+					// case receiptsCh <- specReceipts{res.GetId(), res.GetReceipts()}:
 				}
 			case *spec.ReceiptsResponse_Fin:
 				return false
@@ -565,13 +566,13 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 		defer close(eventsCh)
 
 		eventsIt(func(res *spec.EventsResponse) bool {
-			switch res.Responses.(type) {
-			case *spec.EventsResponse_Events:
+			switch res.EventMessage.(type) {
+			case *spec.EventsResponse_Event:
 				select {
 				case <-ctx.Done():
 					return false
-				case eventsCh <- specEvents{res.GetId(), res.GetEvents()}:
-					return true
+					// case eventsCh <- specEvents{res.GetId(), res.GetEvents()}:
+					//	return true
 				}
 			case *spec.EventsResponse_Fin:
 				return false
@@ -609,7 +610,7 @@ func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (
 				select {
 				case <-ctx.Done():
 					return false
-				case txsCh <- specTransactions{res.GetId(), res.GetTransactions()}:
+					// case txsCh <- specTransactions{res.GetId(), res.GetTransactions()}:
 				}
 			case *spec.TransactionsResponse_Fin:
 				return false
