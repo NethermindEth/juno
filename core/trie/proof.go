@@ -3,6 +3,7 @@ package trie
 import (
 	"fmt"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -46,7 +47,15 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		return nil, err
 	}
 	nodesExcludingLeaf := nodesToLeaf[:len(nodesToLeaf)-1]
-	proofNodes := make([]ProofNode, len(nodesExcludingLeaf))
+	proofNodes := []ProofNode{}
+
+	getHash := func(key *Key) (*felt.Felt, error) {
+		node, err := tri.GetNodeFromKey(key)
+		if err != nil {
+			return nil, err
+		}
+		return node.Hash(key, crypto.Pedersen), nil
+	}
 
 	// Edge nodes are defined as having a child with len greater than 1 from the parent
 	isEdge := func(sNode *storageNode) bool {
@@ -63,58 +72,66 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	}
 
 	// The child key may be an edge node. If so, we only take the "edge" section of the path.
-	getChildKey := func(childKey *Key) (*felt.Felt, error) {
-		childNode, err := tri.GetNodeFromKey(childKey)
+	// getChildKey := func(childKey *Key) (*felt.Felt, error) {
+	// 	childNode, err := tri.GetNodeFromKey(childKey)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	childSNode := storageNode{
+	// 		key:  childKey,
+	// 		node: childNode,
+	// 	}
+	// 	childKeyFelt := childKey.Felt()
+	// 	if isEdge(&childSNode) {
+	// 		childEdgePath := NewKey(childSNode.key.len, childSNode.key.bitset[:])
+	// 		childEdgePath.RemoveLastBit()
+	// 		childKeyFelt = childEdgePath.Felt()
+	// 	}
+	// 	return &childKeyFelt, nil
+	// }
+
+	rootKeyFelt := tri.rootKey.Felt()
+	height := uint8(0)
+	for _, sNode := range nodesExcludingLeaf {
+		height += uint8(sNode.key.len)
+
+		leftHash, err := getHash(sNode.node.Left)
 		if err != nil {
 			return nil, err
 		}
-		childSNode := storageNode{
-			key:  childKey,
-			node: childNode,
-		}
-		childKeyFelt := childKey.Felt()
-		if isEdge(&childSNode) {
-			childEdgePath := NewKey(childSNode.key.len, childSNode.key.bitset[:])
-			childEdgePath.RemoveLastBit()
-			childKeyFelt = childEdgePath.Felt()
-		}
-		return &childKeyFelt, nil
-	}
 
-	height := uint8(0)
-	for i, sNode := range nodesExcludingLeaf {
-		height += uint8(sNode.key.len)
+		rightHash, err := getHash(sNode.node.Right)
+		if err != nil {
+			return nil, err
+		}
 
-		fmt.Println(isEdge(&sNode))
-		if isEdge(&sNode) { // Split into Edge + Binary
+		sNodeFelt := sNode.key.Felt()
+		if isEdge(&sNode) || sNodeFelt.Equal(&rootKeyFelt) { // Split into Edge + Binary // Todo: always split root??
 			edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
 			edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
 			edgePathFelt := edgePath.Felt()
 
-			childKey := sNode.key.Felt()
+			// Todo: get childs hash (should be H(H_l, H_r))
+			fmt.Println("edgePathFelt.String()", edgePathFelt.String())
+			fmt.Println("childHash.String()", tri.hash(leftHash, rightHash).String())
 
-			proofNodes[i] = ProofNode{
+			proofNodes = append(proofNodes, ProofNode{
 				Edge: &Edge{
 					Path:  &edgePathFelt,
-					Child: &childKey,
+					Child: tri.hash(leftHash, rightHash),
 					// Value: value, // Todo: ??
 				},
-			}
+			})
 		}
-		leftHash, err := getChildKey(sNode.node.Left)
-		if err != nil {
-			return nil, err
-		}
-		rightHash, err := getChildKey(sNode.node.Right)
-		if err != nil {
-			return nil, err
-		}
-		proofNodes[i] = ProofNode{
+
+		fmt.Println("LeftHash", leftHash.String())
+		fmt.Println("rightHash", rightHash.String())
+		proofNodes = append(proofNodes, ProofNode{
 			Binary: &Binary{
 				LeftHash:  leftHash,
 				RightHash: rightHash,
 			},
-		}
+		})
 	}
 
 	return proofNodes, nil
