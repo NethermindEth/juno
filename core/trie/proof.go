@@ -13,6 +13,21 @@ type ProofNode struct {
 	Edge   *Edge
 }
 
+func (pn *ProofNode) Hash() *felt.Felt {
+	switch {
+	case pn.Binary != nil:
+		return crypto.Pedersen(pn.Binary.LeftHash, pn.Binary.RightHash)
+	case pn.Edge != nil:
+		length := make([]byte, 32)
+		length[31] = pn.Edge.Path.len
+		pathFelt := pn.Edge.Path.Felt()
+		lengthFelt := new(felt.Felt).SetBytes(length)
+		return new(felt.Felt).Add(crypto.Pedersen(pn.Edge.Child, &pathFelt), lengthFelt)
+	default:
+		return nil
+	}
+}
+
 func (pn *ProofNode) PrettyPrint() {
 
 	if pn.Binary != nil {
@@ -35,7 +50,7 @@ type Binary struct {
 
 type Edge struct {
 	Child *felt.Felt
-	Path  *felt.Felt
+	Path  *Key
 	Value *felt.Felt
 }
 
@@ -93,14 +108,14 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		if isEdge(&sNode) || sNodeFelt.Equal(&rootKeyFelt) { // Split into Edge + Binary // Todo: always split root??
 			edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
 			edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
-			edgePathFelt := edgePath.Felt()
 
-			fmt.Println("edgePathFelt.String()", edgePathFelt.String())
+			epf := edgePath.Felt()
+			fmt.Println("edgePathFelt.String()", epf.String())
 			fmt.Println("childHash.String()", tri.hash(leftHash, rightHash).String())
 
 			proofNodes = append(proofNodes, ProofNode{
 				Edge: &Edge{
-					Path:  &edgePathFelt,
+					Path:  &edgePath, // Path from that node to the leaf
 					Child: tri.hash(leftHash, rightHash),
 					// Value: value, // Todo: ??
 				},
@@ -122,26 +137,35 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-// func VerifyProof(root *felt.Felt, leafPath *Key, leafHash felt.Felt, proofNodes []ProofNode, hashFunc hashFunc) error {
-// 	expectedHash := root
+func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode) bool {
 
-// 	for i, pNode := range proofNodes {
-// 		pNodeHash := hashFunc(pNode.LeftHash, pNode.RightHash)
-// 		if !expectedHash.Equal(pNodeHash) {
-// 			return errors.New("proof node does not have the expected hash")
-// 		}
+	if key.Len() != 251 {
+		return false
+	}
 
-// 		if leafPath.Test(leafPath.Len() - uint8(i) - 1) {
-// 			expectedHash = pNode.RightHash
-// 		} else {
-// 			expectedHash = pNode.LeftHash
-// 		}
+	expectedHash := root
+	remainingPath := key
 
-// 	}
-
-// 	if !expectedHash.Equal(&leafHash) {
-// 		return errors.New("leafHash does not have the expected hash")
-// 	}
-
-// 	return nil
-// }
+	for _, proofNode := range proofs {
+		if !proofNode.Hash().Equal(expectedHash) {
+			return false
+		}
+		switch {
+		case proofNode.Binary != nil:
+			if remainingPath.Test(remainingPath.Len() - 1) {
+				expectedHash = proofNode.Binary.RightHash
+			} else {
+				expectedHash = proofNode.Binary.LeftHash
+			}
+			remainingPath.RemoveLastBit()
+		case proofNode.Edge != nil:
+			// The next "proofNode.Edge.len" bits must match
+			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
+				return false
+			}
+			expectedHash = proofNode.Edge.Child
+			remainingPath.Truncate(proofNode.Edge.Path.Len())
+		}
+	}
+	return expectedHash.Equal(value)
+}
