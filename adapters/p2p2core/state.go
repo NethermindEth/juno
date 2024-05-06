@@ -10,6 +10,16 @@ import (
 )
 
 func AdaptStateDiff(s *spec.StateDiff, classes []*spec.Class) *core.StateDiff {
+	/**
+
+	Address    *Address               `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Nonce      *Felt252               `protobuf:"bytes,2,opt,name=nonce,proto3,oneof" json:"nonce,omitempty"`                              // Present only if the nonce was updated
+	ClassHash  *Hash                  `protobuf:"bytes,3,opt,name=class_hash,json=classHash,proto3,oneof" json:"class_hash,omitempty"`     // Present only if the contract was deployed or replaced in this block.
+	IsReplaced *bool                  `protobuf:"varint,4,opt,name=is_replaced,json=isReplaced,proto3,oneof" json:"is_replaced,omitempty"` // Present only if the contract was deployed or replaced, in order to determine whether the contract was deployed or replaced.
+	Values     []*ContractStoredValue `protobuf:"bytes,5,rep,name=values,proto3" json:"values,omitempty"`
+	Domain     uint32
+	*/
+
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)

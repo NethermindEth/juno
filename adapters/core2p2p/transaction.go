@@ -35,16 +35,15 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 		case tx.Version.Is(3):
 			specTx.Txn = &spec.Transaction_DeployAccountV3_{
 				DeployAccountV3: &spec.Transaction_DeployAccountV3{
-					MaxFee:      AdaptFelt(tx.MaxFee),
-					Signature:   AdaptAccountSignature(tx.Signature()),
-					ClassHash:   AdaptHash(tx.ClassHash),
-					Nonce:       AdaptFelt(tx.Nonce),
-					AddressSalt: AdaptFelt(tx.ContractAddressSalt),
-					Calldata:    AdaptFeltSlice(tx.ConstructorCallData),
-					L1Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
-					L2Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
-					Tip:         AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					Paymaster:   nil,
+					// MaxFee:      AdaptFelt(tx.MaxFee), // todo support max_fee?
+					Signature:      AdaptAccountSignature(tx.Signature()),
+					ClassHash:      AdaptHash(tx.ClassHash),
+					Nonce:          AdaptFelt(tx.Nonce),
+					AddressSalt:    AdaptFelt(tx.ContractAddressSalt),
+					Calldata:       AdaptFeltSlice(tx.ConstructorCallData),
+					ResourceBounds: adaptResourceBounds(tx.ResourceBounds),
+					Tip:            AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
+					// Paymaster:   nil, todo support paymaster?
 					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
 					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
 				},
@@ -87,18 +86,17 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 		case tx.Version.Is(3):
 			specTx.Txn = &spec.Transaction_DeclareV3_{
 				DeclareV3: &spec.Transaction_DeclareV3{
-					Sender:            AdaptAddress(tx.SenderAddress),
-					MaxFee:            AdaptFelt(tx.MaxFee),
+					Sender: AdaptAddress(tx.SenderAddress),
+					// MaxFee:            AdaptFelt(tx.MaxFee), // todo support max_fee?
 					Signature:         AdaptAccountSignature(tx.Signature()),
 					ClassHash:         AdaptHash(tx.ClassHash),
 					Nonce:             AdaptFelt(tx.Nonce),
 					CompiledClassHash: AdaptFelt(tx.CompiledClassHash),
-					L1Gas:             adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
-					L2Gas:             adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
+					ResourceBounds:    adaptResourceBounds(tx.ResourceBounds),
 					Tip:               AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					Paymaster:         nil,
-					NonceDomain:       fmt.Sprintf("%v", tx.NonceDAMode),
-					FeeDomain:         fmt.Sprintf("%v", tx.FeeDAMode),
+					// Paymaster:         nil, // todo support paymaster?
+					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
+					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
 				},
 			}
 		default:
@@ -129,15 +127,14 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 		case tx.Version.Is(3):
 			specTx.Txn = &spec.Transaction_InvokeV3_{
 				InvokeV3: &spec.Transaction_InvokeV3{
-					Sender:      AdaptAddress(tx.SenderAddress),
-					MaxFee:      AdaptFelt(tx.MaxFee),
-					Signature:   AdaptAccountSignature(tx.Signature()),
-					Calldata:    AdaptFeltSlice(tx.CallData),
-					Nonce:       AdaptFelt(tx.Nonce),
-					L1Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL1Gas]),
-					L2Gas:       adaptResourceLimits(tx.ResourceBounds[core.ResourceL2Gas]),
-					Tip:         AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					Paymaster:   nil,
+					Sender: AdaptAddress(tx.SenderAddress),
+					// MaxFee:      AdaptFelt(tx.MaxFee), // todo support max_fee?
+					Signature:      AdaptAccountSignature(tx.Signature()),
+					Calldata:       AdaptFeltSlice(tx.CallData),
+					Nonce:          AdaptFelt(tx.Nonce),
+					ResourceBounds: adaptResourceBounds(tx.ResourceBounds),
+					Tip:            AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
+					// Paymaster:   nil, // todo support paymaster?
 					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
 					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
 				},
@@ -160,6 +157,13 @@ func adaptResourceLimits(bounds core.ResourceBounds) *spec.ResourceLimits {
 	}
 }
 
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *spec.ResourceBounds {
+	return &spec.ResourceBounds{
+		L1Gas: adaptResourceLimits(rb[core.ResourceL1Gas]),
+		L2Gas: adaptResourceLimits(rb[core.ResourceL2Gas]),
+	}
+}
+
 func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy_ {
 	return &spec.Transaction_Deploy_{
 		Deploy: &spec.Transaction_Deploy{
@@ -172,7 +176,7 @@ func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy
 
 func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *spec.Transaction_L1Handler {
 	return &spec.Transaction_L1Handler{
-		L1Handler: &spec.Transaction_L1HandlerV1{
+		L1Handler: &spec.Transaction_L1HandlerV0{
 			Nonce:              AdaptFelt(tx.Nonce),
 			Address:            AdaptAddress(tx.ContractAddress),
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),

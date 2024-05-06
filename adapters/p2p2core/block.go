@@ -23,7 +23,8 @@ func AdaptSignature(cs *spec.ConsensusSignature) []*felt.Felt {
 	return []*felt.Felt{AdaptFelt(cs.R), AdaptFelt(cs.S)}
 }
 
-func AdaptBlockHeader(h *spec.BlockHeader) core.Header {
+func AdaptBlockHeader(h *spec.SignedBlockHeader) core.Header {
+	// todo double check all values
 	return core.Header{
 		Hash:             nil, // todo: add this when building the block
 		ParentHash:       AdaptHash(h.ParentHash),
@@ -32,7 +33,7 @@ func AdaptBlockHeader(h *spec.BlockHeader) core.Header {
 		SequencerAddress: AdaptAddress(h.SequencerAddress),
 		TransactionCount: uint64(h.Transactions.NLeaves),
 		EventCount:       uint64(h.Events.NLeaves),
-		Timestamp:        uint64(h.Time.AsTime().Unix()),
+		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,
 		EventsBloom:      nil, // Todo: add this in when building the block
 		GasPrice:         AdaptFelt(h.GasPrice),

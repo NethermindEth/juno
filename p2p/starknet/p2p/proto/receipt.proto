@@ -1,6 +1,8 @@
 syntax = "proto3";
 import "p2p/proto/common.proto";
 
+option go_package = "github.com/NethermindEth/juno/p2p/starknet/spec";
+
 message MessageToL1 {
   Felt252         from_address    = 1;
   repeated        Felt252 payload = 2;
@@ -9,14 +11,6 @@ message MessageToL1 {
 
 message EthereumAddress {
   bytes elements = 1;
-}
-
-message MessageToL2 {
-  EthereumAddress from_address         = 1;
-  repeated        Felt252 payload      = 2;
-  Felt252         to_address           = 3;
-  Felt252         entry_point_selector = 4;
-  Felt252         nonce                = 5;
 }
 
 message Receipt {
@@ -43,7 +37,6 @@ message Receipt {
     repeated           MessageToL1 messages_sent     = 3;
     ExecutionResources execution_resources           = 4;
     string             revert_reason                 = 5;
-    optional           MessageToL2 consumed_message  = 6;
   }
 
 
@@ -84,14 +77,13 @@ message ReceiptsRequest {
 }
 
 message Receipts {
-    repeated Receipt items = 2;
+  repeated Receipt items = 2;
 }
 
+// Responses are sent ordered by the order given in the request.
 message ReceiptsResponse {
-  optional BlockID id = 1; // may not appear if Fin is sent to end the whole response
-
-  oneof responses {
-    Receipts receipts = 2;
-    Fin      fin      = 3;
+  oneof receipt_message {
+    Receipt receipt = 1;
+    Fin     fin     = 2; // Fin is sent after the peer sent all the data or when it encountered a block that it doesn't have its receipts.
   }
 }

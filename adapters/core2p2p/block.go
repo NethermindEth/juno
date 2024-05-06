@@ -1,13 +1,10 @@
 package core2p2p
 
 import (
-	"time"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func AdaptBlockID(header *core.Header) *spec.BlockID {
@@ -28,15 +25,14 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 	}
 }
 
-func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.BlockHeader {
-	return &spec.BlockHeader{
+func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.SignedBlockHeader {
+	// todo revisit
+	return &spec.SignedBlockHeader{
 		ParentHash:       AdaptHash(header.ParentHash),
 		Number:           header.Number,
-		Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
+		Time:             header.Timestamp,
 		SequencerAddress: AdaptAddress(header.SequencerAddress),
-		ProofFact:        nil, // not defined yet
 		Receipts:         nil, // not defined yet
-		StateDiffs:       nil, // not defined yet
 		State: &spec.Patricia{
 			Height: core.ContractStorageTrieHeight,
 			Root:   AdaptHash(header.GlobalStateRoot),

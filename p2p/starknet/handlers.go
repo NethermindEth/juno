@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/NethermindEth/juno/core"
-
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/iter"
@@ -22,15 +21,21 @@ import (
 
 type Handler struct {
 	bcReader blockchain.Reader
-	ctx      context.Context
 	log      utils.SimpleLogger
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Handler{
 		bcReader: bcReader,
 		log:      log,
-		ctx:      context.Background(),
+		ctx:      ctx,
+		cancel:   cancel,
+		wg:       sync.WaitGroup{},
 	}
 }
 
@@ -47,9 +52,12 @@ func getBuffer() *bytes.Buffer {
 	return buffer
 }
 
-func streamHandler[ReqT proto.Message](ctx context.Context, stream network.Stream,
-	reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
+func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
+	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
 ) {
+	wg.Add(1)
+	defer wg.Done()
+
 	defer func() {
 		if err := stream.Close(); err != nil {
 			log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
@@ -97,27 +105,27 @@ func streamHandler[ReqT proto.Message](ctx context.Context, stream network.Strea
 }
 
 func (h *Handler) BlockHeadersHandler(stream network.Stream) {
-	streamHandler[*spec.BlockHeadersRequest](h.ctx, stream, h.onBlockHeadersRequest, h.log)
+	streamHandler[*spec.BlockHeadersRequest](h.ctx, &h.wg, stream, h.onBlockHeadersRequest, h.log)
 }
 
 func (h *Handler) BlockBodiesHandler(stream network.Stream) {
-	streamHandler[*spec.BlockBodiesRequest](h.ctx, stream, h.onBlockBodiesRequest, h.log)
+	streamHandler[*spec.BlockBodiesRequest](h.ctx, &h.wg, stream, h.onBlockBodiesRequest, h.log)
 }
 
 func (h *Handler) EventsHandler(stream network.Stream) {
-	streamHandler[*spec.EventsRequest](h.ctx, stream, h.onEventsRequest, h.log)
+	streamHandler[*spec.EventsRequest](h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
 }
 
 func (h *Handler) ReceiptsHandler(stream network.Stream) {
-	streamHandler[*spec.ReceiptsRequest](h.ctx, stream, h.onReceiptsRequest, h.log)
+	streamHandler[*spec.ReceiptsRequest](h.ctx, &h.wg, stream, h.onReceiptsRequest, h.log)
 }
 
 func (h *Handler) TransactionsHandler(stream network.Stream) {
-	streamHandler[*spec.TransactionsRequest](h.ctx, stream, h.onTransactionsRequest, h.log)
+	streamHandler[*spec.TransactionsRequest](h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
 }
 
 func (h *Handler) CurrentBlockHeaderHandler(stream network.Stream) {
-	streamHandler[*spec.CurrentBlockHeaderRequest](h.ctx, stream, h.onCurrentBlockHeaderRequest, h.log)
+	streamHandler[*spec.CurrentBlockHeaderRequest](h.ctx, &h.wg, stream, h.onCurrentBlockHeaderRequest, h.log)
 }
 
 func (h *Handler) onCurrentBlockHeaderRequest(*spec.CurrentBlockHeaderRequest) (iter.Seq[proto.Message], error) {
@@ -305,10 +313,12 @@ type blockDataAccessor interface {
 // given block data for current iteration through blockDataAccessor
 type iterationProcessor = func(it blockDataAccessor) (proto.Message, error)
 
-// processIterationRequest is helper function that simplifies data processing for provided spec.Iteration object
+// processIterationRequest is helper method that simplifies data processing for provided spec.Iteration object
 // caller usually passes iteration object from received request, finMsg as final message to a peer
 // and iterationProcessor function that will generate response for each iteration
-func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg proto.Message, f iterationProcessor) (iter.Seq[proto.Message], error) {
+func (h *Handler) processIterationRequest(
+	iteration *spec.Iteration, finMsg proto.Message, f iterationProcessor,
+) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
 	if err != nil {
 		return nil, err
@@ -352,4 +362,12 @@ func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)
 	}
+}
+
+func (h *Handler) Close() {
+	fmt.Println("Canceling")
+	h.cancel()
+	fmt.Println("Waiting")
+	h.wg.Wait()
+	fmt.Println("Done")
 }

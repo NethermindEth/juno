@@ -83,17 +83,17 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		declareTx := &core.DeclareTransaction{
-			ClassHash:            AdaptHash(tx.ClassHash),
-			SenderAddress:        AdaptAddress(tx.Sender),
-			MaxFee:               AdaptFelt(tx.MaxFee),
+			ClassHash:     AdaptHash(tx.ClassHash),
+			SenderAddress: AdaptAddress(tx.Sender),
+			// MaxFee:               AdaptFelt(tx.MaxFee), todo either remove or add support for max_fee
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
 			Version:              txVersion(3),
 			CompiledClassHash:    AdaptFelt(tx.CompiledClassHash),
 			Tip:                  AdaptFelt(tx.Tip).Uint64(),
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
-				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
+				core.ResourceL1Gas: adaptResourceLimits(tx.ResourceBounds.L1Gas),
+				core.ResourceL2Gas: adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			},
 			PaymasterData:         nil, // Todo: P2P needs to change the pay master data to a list
 			AccountDeploymentData: nil, // Todo: update p2p spec to include this
@@ -164,13 +164,13 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				ConstructorCallData: callData,
 				Version:             txVersion(3),
 			},
-			MaxFee:               AdaptFelt(tx.MaxFee),
+			// MaxFee:               AdaptFelt(tx.MaxFee), // todo support max_fee?
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
 			Tip:                  AdaptFelt(tx.Tip).Uint64(),
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
-				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
+				core.ResourceL1Gas: adaptResourceLimits(tx.ResourceBounds.L1Gas),
+				core.ResourceL2Gas: adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			},
 			PaymasterData: nil, // Todo: P2P needs to change the pay master data to a list
 			NonceDAMode:   core.DataAvailabilityMode(nDAMode),
@@ -226,15 +226,15 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			ContractAddress:      nil, // is it ok?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
-			MaxFee:               AdaptFelt(tx.MaxFee),
-			Version:              txVersion(3),
-			Nonce:                AdaptFelt(tx.Nonce),
-			SenderAddress:        AdaptAddress(tx.Sender),
-			EntryPointSelector:   nil,
-			Tip:                  AdaptFelt(tx.Tip).Uint64(),
+			// MaxFee:               AdaptFelt(tx.MaxFee), todo support max_fee?
+			Version:            txVersion(3),
+			Nonce:              AdaptFelt(tx.Nonce),
+			SenderAddress:      AdaptAddress(tx.Sender),
+			EntryPointSelector: nil,
+			Tip:                AdaptFelt(tx.Tip).Uint64(),
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
-				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
+				core.ResourceL1Gas: adaptResourceLimits(tx.ResourceBounds.L1Gas),
+				core.ResourceL2Gas: adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			},
 			PaymasterData: nil, // Todo: P2P needs to change the pay master data to a list
 			NonceDAMode:   core.DataAvailabilityMode(nDAMode),
