@@ -71,12 +71,14 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress unsafe.Po
 
 //export JunoStateGetCompiledClass
 func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointer) unsafe.Pointer {
+	println("executing JunoStateGetCompiledClass(Go)")
 	context := unwrapContext(readerHandle)
 
 	classHashFelt := makeFeltFromPtr(classHash)
 	val, err := context.state.Class(classHashFelt)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
+			println("JunoStateGetCompiledClass: failed to read class")
 			context.log.Errorw("JunoStateGetCompiledClass failed to read class", "err", err)
 		}
 		return nil
@@ -84,9 +86,11 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 
 	compiledClass, err := marshalClassInfo(val.Class)
 	if err != nil {
+		println("JunoStateGetCompiledClass: failed to marshall class")
 		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class", "err", err)
 		return nil
 	}
 
+	println("executing JunoStateGetCompiledClass(Go) -> SUCCESS")
 	return unsafe.Pointer(cstring(compiledClass))
 }

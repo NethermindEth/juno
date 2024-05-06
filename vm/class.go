@@ -24,15 +24,18 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 			return nil, err
 		}
 		classInfo.AbiLength = uint32(len(c.Abi))
+		println("Marshalling Cairo0 class")
 	case *core.Cairo1Class:
 		if c.Compiled == nil {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
 
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
-		classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
+		// classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
+		classInfo.Class = core2sn.AdaptSierraClass(c)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
+		print("Marshalling sierra class")
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
