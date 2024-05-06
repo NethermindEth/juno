@@ -12,14 +12,14 @@ Juno can be configured using several methods, with the following order of preced
 
 You can set configurations directly on the command line. Prepend `--` to each option name. Command line parameters take precedence over the configuration file:
 
-```shell
-juno --db-path=/juno --http=true --http-port=6060
+```bash
+juno --db-path=/var/lib/juno --network=mainnet
 ```
 
 When using Docker, append the command line parameters after the image name to configure Juno:
 
-```shell
-docker run nethermind/juno --db-path=/juno --network=mainnet
+```bash
+docker run nethermind/juno --db-path=/var/lib/juno --network=mainnet
 ```
 
 ## Configuration file
@@ -28,7 +28,7 @@ Juno can also be configured using a [YAML](https://en.wikipedia.org/wiki/YAML) f
 
 ```yaml title="Sample YAML File" showLineNumbers
 log-level: info
-db-path: /juno
+db-path: /var/lib/juno
 network: mainnet
 http: true
 http-port: 6060
@@ -38,12 +38,12 @@ metrics-port: 9090
 
 To run Juno with a configuration file, use the `--config` parameter and specify the path of the configuration file:
 
-```shell
+```bash
 # Standalone Binaries
-juno --config=[CONFIG FILE PATH]
+juno --config=<CONFIG FILE PATH>
 
 # Docker Container
-docker run nethermind/juno --config=[CONFIG FILE PATH]
+docker run nethermind/juno --config=<CONFIG FILE PATH>
 ```
 
 :::info
@@ -56,7 +56,7 @@ Juno runs fine with its default settings, which simplifies the configuration pro
 
 To list all available command line options, you can use the `--help` parameter:
 
-```shell
+```bash
 # Standalone Binaries
 juno --help
 

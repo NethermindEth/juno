@@ -2,65 +2,65 @@
 title: Database Snapshots
 ---
 
-To decrease sync times, users may opt to download a Juno database snapshot.
-After downloading a snapshot and starting a Juno node, only recent blocks must be synced.
+You can download a snapshot of the Juno database to shorten the network syncing time. Only the blocks added after the snapshot will be synced when running the Juno node.
 
 ## Mainnet
 
-| Version      | Size      | Block      | Download Link                                                                                               |
-| ------------ | --------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| **>=v0.6.0** | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
+| Version      | Size       | Block      | Download Link                                                                                        |
+| ------------ | ---------- | ---------- | ---------------------------------------------------------------------------------------------------- |
+| **>=v0.9.2** | **156 GB** | **519634** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar) |
 
-### Sepolia
+## Sepolia
 
 | Version      | Size       | Block     | Download Link                                                                                        |
 | ------------ | ---------- | --------- | ---------------------------------------------------------------------------------------------------- |
 | **>=v0.9.2** | **2.9 GB** | **55984** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.4_55984.tar) |
 
-## Goerli2
+## Running Juno with a snapshot
 
-| Version      | Size       | Block      | Download Link                                                                                               |
-| ------------ | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+#### 1. Download the snapshot
 
-## Run Juno Using Snapshot
+First, download a snapshot from one of the provided URLs:
 
-1. **Download Snapshot**
+```bash
+curl -o juno_mainnet_519634.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar
+```
 
-   Fetch a snapshot from one of the provided URLs:
+#### 2. Prepare a directory
 
-   ```bash
-   curl -o juno_mainnet_247401.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar
-   ```
+Ensure you have a directory to store the snapshots. We will use the `$HOME/snapshots` directory:
 
-2. **Prepare Directory**
+```bash
+mkdir -p $HOME/snapshots
+```
 
-   Ensure you have a directory where you will store the snapshots. We will use `$HOME/snapshots`.
+#### 3. Extract the snapshot
 
-   ```bash
-   mkdir -p $HOME/snapshots
-   ```
+Extract the contents of the downloaded `.tar` file into the directory:
 
-3. **Extract Tarball**
+```bash
+tar -xvf juno_mainnet_519634.tar -C $HOME/snapshots
+```
 
-   Extract the contents of the `.tar` file:
+#### 4. Run Juno
 
-   ```bash
-   tar -xvf juno_mainnet_247401.tar -C $HOME/snapshots
-   ```
+Run the Docker command to start Juno, ensuring to specify the correct path to the snapshot:
 
-4. **Run Juno**
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --db-path /var/lib/juno \
+  --eth-node <YOUR ETH NODE>
+```
 
-   Execute the Docker command to run Juno, ensuring that you're using the correct snapshot path `$HOME/snapshots/juno_mainnet`:
+:::info
+Replace \<YOUR ETH NODE\> with the WebSocket endpoint of your Ethereum node.
+:::
 
-   ```bash
-   docker run -d \
-     --name juno \
-     -p 6060:6060 \
-     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
-     nethermind/juno \
-     --http \
-     --db-path /var/lib/juno
-   ```
-
-After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.
+After completing these steps, Juno should be up and running on your system using the snapshot.
