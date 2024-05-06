@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -32,45 +31,57 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	nodesExcludingLeaf := nodesToLeaf[:len(nodesToLeaf)-1]
 	proofNodes := make([]ProofNode, len(nodesExcludingLeaf))
 
-	getHash := func(key *Key) (*felt.Felt, error) {
-		keyFelt := key.Felt()
-		node, err := tri.GetNode(&keyFelt)
+	// Edge nodes are defined as having a child with len greater than 1 from the parent
+	isEdge := func(sNode *storageNode) bool {
+		sNodeLen := sNode.key.len
+		lNodeLen := sNode.node.Right.len
+		rNodeLen := sNode.node.Left.len
+		return (lNodeLen-sNodeLen > 1) || (rNodeLen-sNodeLen > 1)
+	}
+
+	// The child key may be an edge node. If so, we only take the "edge" section of the path.
+	getChildKey := func(childKey *Key) (*felt.Felt, error) {
+		childNode, err := tri.GetNodeFromKey(childKey)
 		if err != nil {
 			return nil, err
 		}
-		return node.Hash(key, crypto.Pedersen), nil
+		childSNode := storageNode{
+			key:  childKey,
+			node: childNode,
+		}
+		childKeyFelt := childKey.Felt()
+		if isEdge(&childSNode) {
+			childEdgePath := NewKey(childSNode.key.len, childSNode.key.bitset[:])
+			childEdgePath.RemoveLastBit()
+			childKeyFelt = childEdgePath.Felt()
+		}
+		return &childKeyFelt, nil
 	}
 
-	// The spec requires Edge nodes. However Juno doesn't have edge nodes.
-	// if Len=250 and have left and right -> create a Binary
-	// if len=250 and only have one child -> create edge
-	// if len!=250, check if child-parent length = 1, if so ,create Binary
-	// if len!=250, check if child-parent length = 1, if not ,create Edge
+	height := uint8(0)
 	for i, sNode := range nodesExcludingLeaf {
-		// sLeft := sNode.node.Left
-		// sRight := sNode.node.Right
-		nxtNode := nodesToLeaf[i+1]
+		height += uint8(sNode.key.len)
 
-		if nxtNode.key.len-sNode.key.len > 1 { // split node into edge + child
+		if isEdge(&sNode) { // Split into Edge + Binary
 			edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
 			edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
 			edgePathFelt := edgePath.Felt()
 
-			childKeyFelt := sNode.key.Felt()
+			childKey := sNode.key.Felt()
 
 			proofNodes[i] = ProofNode{
 				Edge: &Edge{
 					Path:  &edgePathFelt,
-					Child: &childKeyFelt,
+					Child: &childKey,
 					// Value: value, // Todo: ??
 				},
 			}
 		}
-		leftHash, err := getHash(sNode.node.Left)
+		leftHash, err := getChildKey(sNode.node.Left)
 		if err != nil {
 			return nil, err
 		}
-		rightHash, err := getHash(sNode.node.Right)
+		rightHash, err := getChildKey(sNode.node.Right)
 		if err != nil {
 			return nil, err
 		}

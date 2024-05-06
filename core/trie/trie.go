@@ -186,6 +186,11 @@ func (t *Trie) GetRootNode() (*Node, error) {
 	return t.storage.Get(t.rootKey)
 }
 
+// GetNodeFromKey returns the node for a given key.
+func (t *Trie) GetNodeFromKey(key *Key) (*Node, error) {
+	return t.storage.Get(key)
+}
+
 // GetNode returns the node for a given key. Note: it doesn't work for root nodes.
 func (t *Trie) GetNode(key *felt.Felt) (*Node, error) {
 	storageKey := t.feltToKey(key)
