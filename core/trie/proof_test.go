@@ -132,6 +132,104 @@ func TestGetProofs(t *testing.T) {
 		}
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
+
+	t.Run("Simple Trie - simple double binary", func(t *testing.T) {
+		tempTrie := buildSimpleDoubleBinaryTrie(t)
+
+		zero := trie.NewKey(249, []byte{0})
+		expectedProofNodes := []trie.ProofNode{
+			{
+				Edge: &trie.Edge{
+					Path:  &zero, // Todo: 0x7469c4000fe0 ???
+					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
+				},
+			},
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+					RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
+				},
+			},
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+				},
+			},
+		}
+
+		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
+		require.NoError(t, err)
+
+		// Better inspection
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, len(expectedProofNodes), len(proofNodes))
+		for i, proof := range expectedProofNodes {
+			if proof.Binary != nil {
+				fmt.Println(proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
+				fmt.Println(proof.Binary.RightHash.String(), expectedProofNodes[i].Binary.RightHash.String())
+				require.Equal(t, proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
+				require.Equal(t, proof.Binary.RightHash, expectedProofNodes[i].Binary.RightHash)
+			} else {
+				fmt.Println(proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
+				fmt.Println(proof.Edge.Path.String(), expectedProofNodes[i].Edge.Path.String())
+				require.Equal(t, proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
+				require.Equal(t, proof.Edge.Path, expectedProofNodes[i].Edge.Path)
+			}
+		}
+		require.Equal(t, expectedProofNodes, proofNodes)
+	})
+
+	t.Run("Simple Trie - simple double binary 2", func(t *testing.T) {
+		tempTrie := buildSimpleDoubleBinaryTrie(t)
+
+		zero := trie.NewKey(249, []byte{0})
+		value3 := new(felt.Felt).SetUint64(5)
+		expectedProofNodes := []trie.ProofNode{
+			{
+				Edge: &trie.Edge{
+					Path:  &zero, // Todo: 0x7469c4000fe0 ???
+					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
+				},
+			},
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+					RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
+				},
+			},
+			{
+				Edge: &trie.Edge{
+					Child: value3,
+				},
+			},
+		}
+
+		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(3), tempTrie)
+		require.NoError(t, err)
+
+		// Better inspection
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, len(expectedProofNodes), len(proofNodes))
+		for i, proof := range expectedProofNodes {
+			if proof.Binary != nil {
+				fmt.Println(proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
+				fmt.Println(proof.Binary.RightHash.String(), expectedProofNodes[i].Binary.RightHash.String())
+				require.Equal(t, proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
+				require.Equal(t, proof.Binary.RightHash, expectedProofNodes[i].Binary.RightHash)
+			} else {
+				fmt.Println(proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
+				fmt.Println(proof.Edge.Path.String(), expectedProofNodes[i].Edge.Path.String())
+				require.Equal(t, proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
+				require.Equal(t, proof.Edge.Path, expectedProofNodes[i].Edge.Path)
+			}
+		}
+		require.Equal(t, expectedProofNodes, proofNodes)
+	})
 }
 
 func TestVerifyProofs(t *testing.T) {

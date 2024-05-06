@@ -76,6 +76,9 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	// Edge nodes are defined as having a child with len greater than 1 from the parent
 	isEdge := func(sNode *storageNode) bool {
 		sNodeLen := sNode.key.len
+		if sNodeLen == 250 { // todo: What about edge leaf??
+			return false
+		}
 		if sNode.node.Right != nil {
 			if sNode.node.Right.len-sNodeLen > 1 {
 				return true
@@ -90,8 +93,9 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		return false
 	}
 
-	rootKeyFelt := tri.rootKey.Felt()
 	height := uint8(0)
+
+	rootHack := true
 	for _, sNode := range nodesExcludingLeaf {
 		height += uint8(sNode.key.len)
 
@@ -105,8 +109,8 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 			return nil, err
 		}
 
-		sNodeFelt := sNode.key.Felt()
-		if isEdge(&sNode) || sNodeFelt.Equal(&rootKeyFelt) { // Split into Edge + Binary // Todo: always split root??
+		if isEdge(&sNode) || rootHack { // Split into Edge + Binary // Todo: always split root??
+			rootHack = false
 			// edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
 			// edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
 
