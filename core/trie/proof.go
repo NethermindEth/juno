@@ -69,7 +69,8 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		if err != nil {
 			return nil, err
 		}
-		return node.Hash(key, crypto.Pedersen), nil
+		return node.Value, nil
+		// return node.Hash(key, crypto.Pedersen), nil
 	}
 
 	// Edge nodes are defined as having a child with len greater than 1 from the parent
@@ -106,17 +107,13 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 		sNodeFelt := sNode.key.Felt()
 		if isEdge(&sNode) || sNodeFelt.Equal(&rootKeyFelt) { // Split into Edge + Binary // Todo: always split root??
-			edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
-			edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
-
-			epf := edgePath.Felt()
-			fmt.Println("edgePathFelt.String()", epf.String())
-			fmt.Println("childHash.String()", tri.hash(leftHash, rightHash).String())
+			// edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
+			// edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
 
 			proofNodes = append(proofNodes, ProofNode{
 				Edge: &Edge{
-					Path:  &edgePath, // Path from that node to the leaf
-					Child: tri.hash(leftHash, rightHash),
+					Path:  sNode.key, // Todo: Path from that node to the leaf?
+					Child: sNode.node.Value,
 					// Value: value, // Todo: ??
 				},
 			})
@@ -160,7 +157,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 			remainingPath.RemoveLastBit()
 		case proofNode.Edge != nil:
 			// The next "proofNode.Edge.len" bits must match
-			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
+			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) { // Todo: Isn't edge.path from root? and remaining from edge to leaf??
 				return false
 			}
 			expectedHash = proofNode.Edge.Child

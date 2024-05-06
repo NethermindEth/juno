@@ -1,6 +1,7 @@
 package trie_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -91,6 +92,7 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie {
 func TestGetProofs(t *testing.T) {
 	t.Run("Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
+
 		zero := trie.NewKey(250, []byte{0})
 		expectedProofNodes := []trie.ProofNode{
 			{
@@ -109,10 +111,25 @@ func TestGetProofs(t *testing.T) {
 
 		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
 		require.NoError(t, err)
+
+		// Better inspection
 		for _, pNode := range proofNodes {
 			pNode.PrettyPrint()
 		}
 		require.Equal(t, len(expectedProofNodes), len(proofNodes))
+		for i, proof := range expectedProofNodes {
+			if proof.Binary != nil {
+				fmt.Println(proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
+				fmt.Println(proof.Binary.RightHash.String(), expectedProofNodes[i].Binary.RightHash.String())
+				require.Equal(t, proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
+				require.Equal(t, proof.Binary.RightHash, expectedProofNodes[i].Binary.RightHash)
+			} else {
+				fmt.Println(proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
+				fmt.Println(proof.Edge.Path.String(), expectedProofNodes[i].Edge.Path.String())
+				require.Equal(t, proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
+				require.Equal(t, proof.Edge.Path, expectedProofNodes[i].Edge.Path)
+			}
+		}
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 }
