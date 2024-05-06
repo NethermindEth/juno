@@ -16,7 +16,7 @@ You can download a snapshot of the Juno database to shorten the network syncing 
 | ------------ | ---------- | --------- | ---------------------------------------------------------------------------------------------------- |
 | **>=v0.9.2** | **2.9 GB** | **55984** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.4_55984.tar) |
 
-## Running Juno with a snapshot
+## Run Juno with a snapshot
 
 #### 1. Download the snapshot
 

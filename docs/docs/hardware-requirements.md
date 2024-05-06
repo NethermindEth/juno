@@ -1,19 +1,21 @@
 ---
-title: Juno Full Node Hardware Requirements
+title: Hardware Requirements
 ---
 
-This outlines the hardware specifications required to run a Juno full node, including both minimal and recommended requirements.
+The following specifications outline the hardware required to run a Juno node. These specifications are categorised into minimal and recommended requirements for different usage scenarios.
 
-## Minimal Hardware Specifications
+## Minimal requirements
 
-- **CPU**: 2+ cores
-- **RAM**: 4GB+
-- **Storage**: 200GiB (SSD recommended; note: storage requirements will increase over time)
+- **CPU**: At least 2 cores
+- **RAM**: 4GB or more
+- **Storage**: 200GB or more (SSD recommended; note: storage needs will grow over time)
 
-## Recommended Hardware Specifications
+## Recommended requirements
 
-- **CPU**: Fast CPU with 4+ cores
+- **CPU**: High-performance CPU with 4 or more cores
 - **RAM**: 8GB or more
-- **Storage**: High-performance SSD with more than 200GiB, to accommodate future growth
+- **Storage**: High-performance SSD with at least 200GB to accommodate future growth
 
-**Note**: The above specifications serve as a guideline. While the minimal requirements are sufficient for basic operations, the recommended specifications ensure optimal performance and future scalability. Always refer to the [official Juno documentation](https://juno.nethermind.io/) for the most current information and updates.
+:::tip
+We intend the above specifications as a guideline. The minimal requirements support basic node operations, and the recommended settings ensure optimal performance and scalability for future needs.
+:::
