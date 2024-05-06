@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,10 +21,10 @@ func buildSimpleTrie(t *testing.T) *trie.Trie {
 	require.NoError(t, err)
 
 	// Update trie
-	key1 := new(felt.Felt).SetUint64(1)
-	key2 := new(felt.Felt).SetUint64(2)
-	value1 := new(felt.Felt).SetUint64(123)
-	value2 := new(felt.Felt).SetUint64(456)
+	key1 := new(felt.Felt).SetUint64(0)
+	key2 := new(felt.Felt).SetUint64(1)
+	value1 := new(felt.Felt).SetUint64(2)
+	value2 := new(felt.Felt).SetUint64(3)
 
 	_, err = tempTrie.Put(key1, value1)
 	require.NoError(t, err)
@@ -61,14 +62,27 @@ func TestGetProofs(t *testing.T) {
 	t.Run("Simple Trie - edge", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
 
-		rootNode, err := tempTrie.GetRootNode()
-		require.NoError(t, err)
-		rootProofNode := getProofNodeBinary(t, tempTrie, rootNode)
-		expectedProofNodes := []trie.ProofNode{rootProofNode}
+		expectedProofNodes := []trie.ProofNode{
+			{
+				Edge: &trie.Edge{
+					Path:  &felt.Zero,
+					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+				},
+			},
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+				},
+			},
+		}
 
-		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(1), tempTrie)
+		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
 		require.NoError(t, err)
-
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, len(expectedProofNodes), len(proofNodes))
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 }

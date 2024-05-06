@@ -1,6 +1,8 @@
 package trie
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -8,6 +10,21 @@ import (
 type ProofNode struct {
 	Binary *Binary
 	Edge   *Edge
+}
+
+func (pn *ProofNode) PrettyPrint() {
+
+	if pn.Binary != nil {
+		fmt.Printf("  Binary:\n")
+		fmt.Printf("    LeftHash: %v\n", pn.Binary.LeftHash)
+		fmt.Printf("    RightHash: %v\n", pn.Binary.RightHash)
+	}
+	if pn.Edge != nil {
+		fmt.Printf("  Edge:\n")
+		fmt.Printf("    Child: %v\n", pn.Edge.Child)
+		fmt.Printf("    Path: %v\n", pn.Edge.Path)
+		fmt.Printf("    Value: %v\n", pn.Edge.Value)
+	}
 }
 
 type Binary struct {
@@ -34,8 +51,14 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	// Edge nodes are defined as having a child with len greater than 1 from the parent
 	isEdge := func(sNode *storageNode) bool {
 		sNodeLen := sNode.key.len
-		lNodeLen := sNode.node.Right.len
-		rNodeLen := sNode.node.Left.len
+		rNodeLen := sNodeLen
+		if sNode.node.Right != nil {
+			rNodeLen = sNode.node.Right.len
+		}
+		lNodeLen := sNodeLen
+		if sNode.node.Left != nil {
+			lNodeLen = sNode.node.Left.len
+		}
 		return (lNodeLen-sNodeLen > 1) || (rNodeLen-sNodeLen > 1)
 	}
 
@@ -62,6 +85,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	for i, sNode := range nodesExcludingLeaf {
 		height += uint8(sNode.key.len)
 
+		fmt.Println(isEdge(&sNode))
 		if isEdge(&sNode) { // Split into Edge + Binary
 			edgePath := NewKey(sNode.key.len, sNode.key.bitset[:])
 			edgePath.RemoveLastBit() // Todo: make sure we remove it from the correct side
