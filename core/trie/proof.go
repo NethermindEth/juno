@@ -55,33 +55,40 @@ type Edge struct {
 	Value *felt.Felt
 }
 
-func isEdge(sNode storageNode, nodeNumFromRoot int) bool {
+func isEdge(parentKey *Key, sNode storageNode) bool {
 	sNodeLen := sNode.key.len
-	leftKey := sNode.node.Left.len
-	rightKey := sNode.node.Right.len
-	if nodeNumFromRoot == 0 { // Is root
+	if parentKey == nil { // Root
 		return sNodeLen != 1
 	}
-	if (leftKey-sNodeLen > 1) || (rightKey-sNodeLen > 1) {
+	if sNodeLen-parentKey.len > 1 {
 		return true
 	}
+
+	// leftKey := sNode.node.Left.len
+	// rightKey := sNode.node.Right.len
+	// if (leftKey-sNodeLen > 1) || (rightKey-sNodeLen > 1) {
+	// 	return true
+	// }
 	return false
 }
 
 // The binary node uses the hash of children. If the child is an edge, we first need to represent it
 // as an edge node, and then take its hash.
-func getChildHash(tri *Trie, sNode storageNode, childKey *Key, nodeNumFromRoot int) (*felt.Felt, error) {
+func getChildHash(tri *Trie, parentKey *Key, childKey *Key) (*felt.Felt, error) {
 	childNode, err := tri.GetNodeFromKey(childKey)
 	if err != nil {
 		return nil, err
 	}
-	leftIsEdgeBool := isEdge(storageNode{node: childNode, key: childKey}, nodeNumFromRoot)
-	if leftIsEdgeBool {
-		leftEdge := ProofNode{Edge: &Edge{
-			Path:  sNode.node.Left,
+
+	childIsEdgeBool := isEdge(parentKey, storageNode{node: childNode, key: childKey})
+	if childIsEdgeBool {
+		fmt.Println("childKey", childKey)
+		fmt.Println("childNode.Value", childNode.Value)
+		edgeNode := ProofNode{Edge: &Edge{
+			Path:  childKey,
 			Child: childNode.Value,
 		}}
-		return leftEdge.Hash(), nil
+		return edgeNode.Hash(), nil
 	}
 	return childNode.Value, nil
 }
@@ -107,19 +114,24 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 	for i, sNode := range nodesExcludingLeaf {
 
-		leftHash, err := getChildHash(tri, sNode, sNode.node.Left, i)
+		leftHash, err := getChildHash(tri, sNode.key, sNode.node.Left)
 		if err != nil {
 			return nil, err
 		}
-		rightHash, err := getChildHash(tri, sNode, sNode.node.Left, i)
+		rightHash, err := getChildHash(tri, sNode.key, sNode.node.Right)
 		if err != nil {
 			return nil, err
 		}
 
-		childIsInternal := nodesToLeaf[i+1].key.len < 251
-		isEdgeBool := isEdge(sNode, i)
+		childIsInternal := nodesToLeaf[i+1].key.len < tri.height
+		var isEdgeBool bool
+		if i == 0 {
+			isEdgeBool = isEdge(nil, sNode)
+		} else {
+			isEdgeBool = isEdge(nodesToLeaf[i-1].key, sNode)
+		}
 
-		if childIsInternal && isEdgeBool { // Internal Edge
+		if (childIsInternal && isEdgeBool) || (isEdgeBool && i == 0) { // Internal Edge
 			// Juno node is split into an edge + binary.
 			proofNodes = append(proofNodes, ProofNode{
 				Edge: &Edge{
