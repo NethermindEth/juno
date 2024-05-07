@@ -84,7 +84,7 @@ func getChildHash(tri *Trie, parentKey *Key, childKey *Key) (*felt.Felt, error) 
 	if childIsEdgeBool {
 		fmt.Println("childKey", childKey)
 		fmt.Println("childNode.Value", childNode.Value)
-		edgeNode := ProofNode{Edge: &Edge{
+		edgeNode := ProofNode{Edge: &Edge{ // Todo: this is wrong for the key3,val 0x5 edge node in the double binary..hash is incorrect..
 			Path:  childKey,
 			Child: childNode.Value,
 		}}
