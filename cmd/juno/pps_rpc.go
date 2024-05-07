@@ -18,62 +18,67 @@ func main() {
 
 // juno_getBlockWithTxsAndReceipts
 func juno_getBlockWithTxsAndReceipts() {
-	exportRPCResponse("starknet_getBlockWithReceipts", "/cmd/juno/rpc_respReceipts.json")
-	exportRPCResponse("starknet_getBlockWithTxs", "/cmd/juno/rpc_respTxs.json")
-}
-
-func exportRPCResponse(method, path string) {
-	// 1. Making Payload
-	reqData := map[string]interface{}{
+	// Define the RPC request payload
+	requestData := map[string]interface{}{
 		"jsonrpc": "2.0",
-		"method":  method,
+		"method":  "starknet_getBlockWithReceipts",
 		"params": map[string]interface{}{
-			"block_id": "latest", // took latest block
+			"block_id": "latest", // Replace with actual block identifier
 		},
 		"id": 1,
 	}
 
-	// Marshalling request body
-	reqBody, err := json.Marshal(reqData)
+	// Convert request data to JSON
+	requestBody, err := json.Marshal(requestData)
 	if err != nil {
-		fmt.Printf("Error marshalling JSON (%s): %v\n", method, err)
+		fmt.Println("Error marshalling JSON:", err)
 		return
 	}
 
-	// Making POST request to port: 6060
-	resp, err := http.Post("http://localhost:6060", "application/json", bytes.NewBuffer(reqBody))
+	// Make POST request to the RPC server
+	response, err := http.Post("http://localhost:6060", "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
 		fmt.Println("Error making POST request:", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer response.Body.Close()
 
-	// Get the directory of the pps_rpc.go fileReceipt
+	// Read the response body
+	var result map[string]interface{}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		fmt.Println("Error decoding JSON:", err)
+		return
+	}
+
+	// Get the directory of the pps_rpc.go file
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Println("Error getting current directory:", err)
 		return
 	}
-	filePathReceipt := filepath.Join(dir, path) // location same as code.
+	fmt.Println("Current directory:", dir)
+	// Create the file path for the JSON file in the same directory
+	filePath := filepath.Join(dir, "/cmd/juno/rpc_response.json")
 
-	// Create a new fileReceipt to write the JSON data
-	file, err := os.Create(filePathReceipt)
+	// Create a new file to write the JSON data
+	file, err := os.Create(filePath)
 	if err != nil {
-		fmt.Println("Error creating file (Receipt):", err)
+		fmt.Println("Error creating file:", err)
 		return
 	}
 	defer file.Close()
 
-	// Marshal the resReceipt + resTxs map into JSON and write it to the fileReceipt
-	jsonData, err := json.MarshalIndent(resp, "", "  ")
+	// Marshal the result map into JSON and write it to the file
+	jsonData, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		fmt.Println("Error marshalling JSON:", err)
 		return
 	}
 	_, err = file.Write(jsonData)
 	if err != nil {
-		fmt.Println("Error writing JSON to file (Receipt):", err)
+		fmt.Println("Error writing JSON to file:", err)
 		return
 	}
-	fmt.Println("RPC <<", method, ">> successfully exported to", filePathReceipt)
+
+	fmt.Println("RPC response successfully exported to", filePath)
 }
