@@ -9,7 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-const contractStorageTrieHeight = 251
+// contract storage has fixed height at 251
+const ContractStorageTrieHeight = 251
 
 var (
 	ErrContractNotDeployed     = errors.New("contract not deployed")
@@ -204,5 +205,5 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	trieTxn := trie.NewStorage(txn, db.ContractStorage.Key(addrBytes))
-	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight)
+	return trie.NewTriePedersen(trieTxn, ContractStorageTrieHeight)
 }
