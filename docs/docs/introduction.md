@@ -1,6 +1,6 @@
 ---
 slug: /
-title: Quick Start
+title: Introduction
 ---
 
 _Juno is your fast and featureful Starknet client implementation._
@@ -23,7 +23,7 @@ mkdir -p junodb
 docker run -d --name juno -p 6060:6060 -v junodb:/var/lib/juno nethermind/juno:latest --db-path /var/lib/juno --http
 ```
 
-For a complete list of options and their explanations, see the [Configure Juno](configure.md) guide or run:
+For a complete list of options and their explanations, see the [Configuring Juno](configuring.md) guide or run:
 
 ```shell
 docker run nethermind/juno --help

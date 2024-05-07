@@ -1,5 +1,5 @@
 ---
-title: Configure Juno
+title: Configuring Juno
 ---
 
 Juno can be configured using several methods, with the following order of precedence:
@@ -63,21 +63,11 @@ metrics-port: 9090
 To run Juno with a configuration file, use the `config` option to specify the path of the configuration file:
 
 ```bash
-# Standalone binaries
+# Standalone binary
 juno --config=<CONFIG FILE PATH>
 
 # Docker container
 docker run nethermind/juno --config=<CONFIG FILE PATH>
-```
-
-You can also specify the configuration file with environment variables:
-
-```bash
-# Environment variables
-JUNO_CONFIG=<CONFIG FILE PATH> juno
-
-# Environment variables with Docker
-docker run -e "JUNO_CONFIG=<CONFIG FILE PATH>" nethermind/juno
 ```
 
 :::info
@@ -93,7 +83,7 @@ Configuration file rank third in configuration precedence. [Command line paramet
 To list all available command line options, you can use the `--help` parameter:
 
 ```bash
-# Standalone binaries
+# Standalone binary
 juno --help
 
 # Docker container

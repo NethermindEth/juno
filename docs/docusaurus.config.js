@@ -63,18 +63,12 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: "Juno",
+        title: "JUNO",
         logo: {
           alt: "Juno logo",
           src: "img/logo.svg",
         },
         items: [
-          {
-            type: "docSidebar",
-            sidebarId: "main",
-            position: "left",
-            label: "Quick Start",
-          },
           {
             type: "docsVersionDropdown",
             position: "right",
@@ -93,12 +87,16 @@ const config = {
             title: "Docs",
             items: [
               {
-                label: "Quick Start",
-                to: "/",
+                label: "Running Juno",
+                to: "/running-juno",
               },
               {
-                label: "Configure Juno",
-                to: "/configure",
+                label: "Configuring Juno",
+                to: "/configuring",
+              },
+              {
+                label: "JSON-RPC Interface",
+                to: "/json-rpc",
               },
             ],
           },

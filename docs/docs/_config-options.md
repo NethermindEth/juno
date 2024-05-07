@@ -1,6 +1,6 @@
 <!-- This file is generated automatically. Any manual modifications will be overwritten. -->
 
-| Config name | Default Value | Description |
+| Config Option | Default Value | Description |
 | - | - | - |
 | `cn-core-contract-address` |  | Custom network core contract address |
 | `cn-feeder-url` |  | Custom network feeder URL |

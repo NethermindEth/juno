@@ -1,5 +1,5 @@
 ---
-title: Updating Juno Node
+title: Updating Juno
 ---
 
 Updating your Juno node is crucial to access new features, improvements, and security patches. Follow these steps to update your node to the latest version using Docker.

@@ -1,5 +1,5 @@
 ---
-title: Installing on the GCP
+title: Running Juno on GCP
 ---
 
 To install the Starknet RPC Node on the Google Cloud Platform, you can use the Juno RPC virtual machine developed by Nethermind.

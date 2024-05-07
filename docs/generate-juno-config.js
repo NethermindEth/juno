@@ -148,7 +148,7 @@ function parseValue(value) {
 
 function generateConfigTable(configs) {
   let configTable =
-    "| Config name | Default Value | Description |\n| - | - | - |\n";
+    "| Config Option | Default Value | Description |\n| - | - | - |\n";
   configs.forEach((config) => {
     let defaultValue = config.defaultValue;
     if (defaultValue !== "") {
