@@ -14,6 +14,7 @@ type ProofNode struct {
 	Edge   *Edge
 }
 
+// Note: does not work for leaves
 func (pn *ProofNode) Hash() *felt.Felt {
 	switch {
 	case pn.Binary != nil:
@@ -85,6 +86,23 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	// 4. If it's an edge leaf, we store an edge leaf
 	// -> Child should be leaf (len=251). Distance between child and parent should be > 1.
 
+	// Edge nodes are defined as having a child with len greater than 1 from the parent
+	isEdge := func(sNode *storageNode, nodeNumFromRoot int) (bool, error) {
+		sNodeLen := sNode.key.len
+		leftKey := sNode.node.Left.len
+		rightKey := sNode.node.Right.len
+		if nodeNumFromRoot == 0 { // Is root
+			if sNodeLen != 1 {
+				return true, nil
+			}
+			return false, nil
+		}
+		if (leftKey-sNodeLen > 1) || (rightKey-sNodeLen > 1) {
+			return true, nil
+		}
+		return false, nil
+	}
+
 	for i, sNode := range nodesExcludingLeaf {
 		height += uint8(sNode.key.len)
 
@@ -103,15 +121,11 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		child := nodesToLeaf[i+1]
 		parentChildDistance := child.key.len - sNode.key.len
 
-		if child.key.len < 251 && parentChildDistance == 1 { // Internal Binary
-			proofNodes = append(proofNodes, ProofNode{
-				Binary: &Binary{
-					LeftHash:  leftHash,
-					RightHash: rightHash,
-				},
-			})
-			height++
-		} else if child.key.len < 251 && parentChildDistance > 1 { // Internal Edge
+		isEdgeBool, err := isEdge(&sNode, i)
+		if err != nil {
+			return nil, err
+		}
+		if child.key.len < 251 && isEdgeBool { // Internal Edge
 			proofNodes = append(proofNodes, ProofNode{
 				Edge: &Edge{
 					Path:  sNode.key, // Todo: Path from that node to the leaf?
@@ -120,6 +134,47 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 				},
 			})
 			height += sNode.key.len
+
+			// Todo: If the child is an edge, we need to the hash of it's edge form. Both children.
+			leftNode, err := tri.GetNodeFromKey(sNode.node.Left)
+			if err != nil {
+				return nil, err
+			}
+			leftIsEdgeBool, err := isEdge(&storageNode{node: leftNode, key: sNode.node.Left}, i)
+			if err != nil {
+				return nil, err
+			}
+			if leftIsEdgeBool {
+				leftEdge := ProofNode{Edge: &Edge{
+					Path:  sNode.node.Left,
+					Child: leftNode.Value,
+				}}
+				leftHash = leftEdge.Hash()
+			}
+			rightNode, err := tri.GetNodeFromKey(sNode.node.Right)
+			if err != nil {
+				return nil, err
+			}
+			rightIsEdgeBool, err := isEdge(&storageNode{node: rightNode, key: sNode.node.Right}, i)
+			if err != nil {
+				return nil, err
+			}
+			if rightIsEdgeBool {
+				rightEdge := ProofNode{Edge: &Edge{
+					Path:  sNode.node.Right,
+					Child: rightNode.Value,
+				}}
+				rightHash = rightEdge.Hash()
+			}
+			proofNodes = append(proofNodes, ProofNode{
+				Binary: &Binary{
+					LeftHash:  leftHash,
+					RightHash: rightHash,
+				},
+			})
+			height++
+
+		} else if child.key.len < 251 && parentChildDistance == 1 { // Internal Binary
 			proofNodes = append(proofNodes, ProofNode{
 				Binary: &Binary{
 					LeftHash:  leftHash,
@@ -135,7 +190,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 				},
 			})
 			height++
-		} else if child.key.len == 251 && parentChildDistance > 1 { // lead Edge
+		} else if child.key.len == 251 && isEdgeBool { // lead Edge
 			proofNodes = append(proofNodes, ProofNode{
 				Edge: &Edge{
 					// Path:  sNode.key, // Todo: Path from that node to the leaf?
