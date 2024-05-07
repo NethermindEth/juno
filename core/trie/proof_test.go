@@ -1,7 +1,6 @@
 package trie_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -67,28 +66,6 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-// func getProofNodeBinary(t *testing.T, tri *trie.Trie, node *trie.Node) trie.ProofNode {
-// 	getHash := func(tri *trie.Trie, key *trie.Key) (*felt.Felt, error) {
-// 		keyFelt := key.Felt()
-// 		node2, err := tri.GetNode(&keyFelt)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		return node2.Hash(key, crypto.Pedersen), nil
-// 	}
-
-// 	left, err := getHash(tri, node.Left)
-// 	require.NoError(t, err)
-// 	right, err := getHash(tri, node.Right)
-// 	require.NoError(t, err)
-
-// 	return trie.ProofNode{
-// 		Binary: &trie.Binary{
-// 			LeftHash: left, RightHash: right},
-// 	}
-
-// }
-
 func TestGetProofs(t *testing.T) {
 	t.Run("Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
@@ -115,20 +92,6 @@ func TestGetProofs(t *testing.T) {
 		// Better inspection
 		for _, pNode := range proofNodes {
 			pNode.PrettyPrint()
-		}
-		require.Equal(t, len(expectedProofNodes), len(proofNodes))
-		for i, proof := range expectedProofNodes {
-			if proof.Binary != nil {
-				fmt.Println(proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
-				fmt.Println(proof.Binary.RightHash.String(), expectedProofNodes[i].Binary.RightHash.String())
-				require.Equal(t, proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
-				require.Equal(t, proof.Binary.RightHash, expectedProofNodes[i].Binary.RightHash)
-			} else {
-				fmt.Println(proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
-				fmt.Println(proof.Edge.Path.String(), expectedProofNodes[i].Edge.Path.String())
-				require.Equal(t, proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
-				require.Equal(t, proof.Edge.Path, expectedProofNodes[i].Edge.Path)
-			}
 		}
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
@@ -165,20 +128,6 @@ func TestGetProofs(t *testing.T) {
 		for _, pNode := range proofNodes {
 			pNode.PrettyPrint()
 		}
-		require.Equal(t, len(expectedProofNodes), len(proofNodes))
-		for i, proof := range expectedProofNodes {
-			if proof.Binary != nil {
-				fmt.Println(proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
-				fmt.Println(proof.Binary.RightHash.String(), expectedProofNodes[i].Binary.RightHash.String())
-				require.Equal(t, proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
-				require.Equal(t, proof.Binary.RightHash, expectedProofNodes[i].Binary.RightHash)
-			} else {
-				fmt.Println(proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
-				fmt.Println(proof.Edge.Path.String(), expectedProofNodes[i].Edge.Path.String())
-				require.Equal(t, proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
-				require.Equal(t, proof.Edge.Path, expectedProofNodes[i].Edge.Path)
-			}
-		}
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 
@@ -213,20 +162,6 @@ func TestGetProofs(t *testing.T) {
 		// Better inspection
 		for _, pNode := range proofNodes {
 			pNode.PrettyPrint()
-		}
-		require.Equal(t, len(expectedProofNodes), len(proofNodes))
-		for i, proof := range expectedProofNodes {
-			if proof.Binary != nil {
-				fmt.Println(proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
-				fmt.Println(proof.Binary.RightHash.String(), expectedProofNodes[i].Binary.RightHash.String())
-				require.Equal(t, proof.Binary.LeftHash.String(), expectedProofNodes[i].Binary.LeftHash.String())
-				require.Equal(t, proof.Binary.RightHash, expectedProofNodes[i].Binary.RightHash)
-			} else {
-				fmt.Println(proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
-				fmt.Println(proof.Edge.Path.String(), expectedProofNodes[i].Edge.Path.String())
-				require.Equal(t, proof.Edge.Child.String(), expectedProofNodes[i].Edge.Child.String())
-				require.Equal(t, proof.Edge.Path, expectedProofNodes[i].Edge.Path)
-			}
 		}
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
