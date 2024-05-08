@@ -2,55 +2,57 @@
 title: Running Juno on GCP
 ---
 
-To install the Starknet RPC Node on the Google Cloud Platform, you can use the Juno RPC virtual machine developed by Nethermind.
+To run Juno on the Google Cloud Platform (GCP), you can use the Starknet RPC Virtual Machine (VM) developed by Nethermind.
 
-**Juno** is a golang [Starknet](https://starknet.io/) node implementation by [Nethermind](https://nethermind.io/) with the aim of decentralizing Starknet.
+## 1. Install the Starknet RPC Node
 
-## Installing Starkent RPC Juno Node VM
+Head to the [Google Marketplace](https://console.cloud.google.com/marketplace/browse?q=Starknet%20RPC%20Node) and search for **"Starknet RPC Node"**. Then, click the **"GET STARTED"** button to begin the deployment process.
 
-To quickly set up a Starkent RPC Juno Node VM environment on the Google Cloud Platform, follow these steps:
+![Starknet RPC Node overview](/img/installing_on_gcp/overview.png)
 
-1. **Search “Starknet RPC Node” in [Google Marketplace](https://console.cloud.google.com/marketplace) and click the LAUNCH button to start the deployment process.**
+## 2. Configure the Juno client
 
-   ![step1](../static/img/installing_on_gcp/step1.png)
+Choose the configuration settings for the Juno client and click the **"DEPLOY"** button.
 
-2. **Select the configuration for the Juno client and click the DEPLOY button.**
+![Starknet RPC Node configuration](/img/installing_on_gcp/config.png)
 
-   ![step2](../static/img/installing_on_gcp/step2.png)
+## 3. Post-configuration and testing
 
-3. **Post-Configuration and testing after deployment.**
+![Starknet RPC Node testing](/img/installing_on_gcp/testing.png)
 
-   ![step3](../static/img/installing_on_gcp/step3.png)
+## 4. Enable Juno during startup
 
-4. **Enable Juno Auto Start During Startup**
-
-   1. Click the newly created VM instance name to view the detail.
-   2. Click the Edit button.
-   3. Go to the "Automation" section to input the startup script as below.
-      ```bash
-      #! /bin/bash
-      sudo /usr/local/bin/run_juno.sh
-      ```
-   4. Click the Save button.
-   5. Restart the VM.
-
-5. **Use Your Starknet RPC Juno Node**
-
-   You can use the Juno node and access it through Rest APIs. The following is an example to verify Juno availability.
-
+1. Click on the name of the newly created VM instance to view its details.
+2. Click the **"Edit"** button.
+3. Head to the **"Automation"** section and enter the following startup script:
    ```bash
-   curl --location 'http://IP_Address:6060' \
-   --header 'Content-Type: application/json' \
-   --data '{"jsonrpc":"2.0","method":"juno_version","params":[],"id":1}'
+   #! /bin/bash
+   sudo /usr/local/bin/run_juno.sh
    ```
+4. Click the **"Save"** button.
+5. Restart the VM.
 
-   The expected result is like this.
+## 5. Interact with the Juno node
 
-   ```{
-      "jsonrpc": "2.0",
-      "result": "v0.9.3",
-      "id": 1
-   }
-   ```
+You can interact with Juno using its [JSON-RPC Interface](/json-rpc). Here's an example to check the availability of Juno:
 
-   You can find more details from https://github.com/NethermindEth/juno
+```bash
+curl --location 'http://<IP ADDRESS>:6060' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "juno_version",
+    "params": [],
+    "id": 1
+}'
+```
+
+The expected result should look like this:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": "v0.9.3",
+  "id": 1
+}
+```

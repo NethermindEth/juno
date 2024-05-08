@@ -15,7 +15,7 @@ Suitable for casual setups, production-grade indexers, and everything in between
 
 # Sync Starknet in Two Commands
 
-```shell
+```bash
 # Juno's database directory. Can be any directory on the machine.
 mkdir -p junodb
 
@@ -25,7 +25,7 @@ docker run -d --name juno -p 6060:6060 -v junodb:/var/lib/juno nethermind/juno:l
 
 For a complete list of options and their explanations, see the [Configuring Juno](configuring.md) guide or run:
 
-```shell
+```bash
 docker run nethermind/juno --help
 ```
 
