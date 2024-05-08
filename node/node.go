@@ -126,7 +126,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	services := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network)
+	var synchronizer *sync.Synchronizer
+	chain := blockchain.New(database, &cfg.Network, synchronizer.PendingBlock)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
@@ -142,7 +143,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
+	synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 	var p2pService *p2p.Service

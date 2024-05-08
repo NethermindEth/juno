@@ -1,4 +1,4 @@
-package blockchain
+package sync
 
 import (
 	"github.com/NethermindEth/juno/core"

@@ -54,6 +54,51 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
 }
 
+// Pending mocks base method.
+func (m *MockSyncReader) Pending() (*sync.Pending, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pending")
+	ret0, _ := ret[0].(*sync.Pending)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Pending indicates an expected call of Pending.
+func (mr *MockSyncReaderMockRecorder) Pending() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pending", reflect.TypeOf((*MockSyncReader)(nil).Pending))
+}
+
+// PendingBlock mocks base method.
+func (m *MockSyncReader) PendingBlock() *core.Block {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingBlock")
+	ret0, _ := ret[0].(*core.Block)
+	return ret0
+}
+
+// PendingBlock indicates an expected call of PendingBlock.
+func (mr *MockSyncReaderMockRecorder) PendingBlock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingBlock", reflect.TypeOf((*MockSyncReader)(nil).PendingBlock))
+}
+
+// PendingState mocks base method.
+func (m *MockSyncReader) PendingState() (core.StateReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingState")
+	ret0, _ := ret[0].(core.StateReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PendingState indicates an expected call of PendingState.
+func (mr *MockSyncReaderMockRecorder) PendingState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingState", reflect.TypeOf((*MockSyncReader)(nil).PendingState))
+}
+
 // StartingBlockNumber mocks base method.
 func (m *MockSyncReader) StartingBlockNumber() (uint64, error) {
 	m.ctrl.T.Helper()

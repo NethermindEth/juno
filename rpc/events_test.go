@@ -25,9 +25,14 @@ import (
 )
 
 func TestEvents(t *testing.T) {
+	var pendingB *core.Block
+	pendingBlockFn := func() *core.Block {
+		return pendingB
+	}
+
 	testDB := pebble.NewMemTest(t)
 	n := utils.Ptr(utils.Goerli2)
-	chain := blockchain.New(testDB, n)
+	chain := blockchain.New(testDB, n, pendingBlockFn)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -43,10 +48,7 @@ func TestEvents(t *testing.T) {
 		} else {
 			b.Hash = nil
 			b.GlobalStateRoot = nil
-			require.NoError(t, chain.StorePending(&blockchain.Pending{
-				Block:       b,
-				StateUpdate: s,
-			}))
+			pendingB = b
 		}
 	}
 
@@ -232,8 +234,9 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), n)
-	syncer := sync.New(chain, gw, log, 0, false)
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+	syncer := sync.New(chain, gw, log, 0, false, testDB)
 	handler := rpc.New(chain, syncer, nil, "", n, log)
 
 	go func() {
@@ -314,8 +317,9 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(feederClient)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), n)
-	syncer := sync.New(chain, gw, log, 0, false)
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(testDB, n, nil)
+	syncer := sync.New(chain, gw, log, 0, false, testDB)
 	handler := rpc.New(chain, syncer, nil, "", n, log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))

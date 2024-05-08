@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -426,7 +427,20 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, ErrInternal.CloneWithData(err)
+		}
+
+		pendingB := h.syncReader.PendingBlock()
+		if pendingB == nil {
+			return nil, ErrTxnHashNotFound
+		}
+
+		for _, t := range pendingB.Transactions {
+			if hash.Equal(t.Hash()) {
+				txn = t
+			}
+		}
 	}
 	return AdaptTransaction(txn), nil
 }
@@ -442,7 +456,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 	}
 
 	if id.Pending {
-		pending, err := h.bcReader.Pending()
+		pending, err := h.syncReader.Pending()
 		if err != nil {
 			return nil, ErrBlockNotFound
 		}
@@ -471,46 +485,57 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) { //nolint:dupl
-	txn, err := h.bcReader.TransactionByHash(&hash)
-	if err != nil {
-		return nil, ErrTxnHashNotFound
-	}
-
-	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
-	if err != nil {
-		return nil, ErrTxnHashNotFound
-	}
-
-	status := TxnAcceptedOnL2
-
-	if blockHash != nil {
-		l1H, jsonErr := h.l1Head()
-		if jsonErr != nil {
-			return nil, jsonErr
-		}
-
-		if isL1Verified(blockNumber, l1H) {
-			status = TxnAcceptedOnL1
-		}
-	}
-
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, false), nil
+func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	return h.transactionReceiptByHash(hash, false)
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHashV0_6(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) { //nolint:dupl
+func (h *Handler) TransactionReceiptByHashV0_6(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	return h.transactionReceiptByHash(hash, true)
+}
+
+func (h *Handler) transactionReceiptByHash(hash felt.Felt, v0_6Response bool) (*TransactionReceipt, *jsonrpc.Error) {
+	var (
+		pendingB      *core.Block
+		pendingBIndex int
+	)
+
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, ErrInternal.CloneWithData(err)
+		}
+
+		pendingB = h.syncReader.PendingBlock()
+		if pendingB == nil {
+			return nil, ErrTxnHashNotFound
+		}
+
+		for i, t := range pendingB.Transactions {
+			pendingBIndex = i
+			if hash.Equal(t.Hash()) {
+				txn = t
+				break
+			}
+		}
 	}
 
-	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
-	if err != nil {
-		return nil, ErrTxnHashNotFound
+	var (
+		receipt     *core.TransactionReceipt
+		blockHash   *felt.Felt
+		blockNumber uint64
+	)
+
+	if pendingB != nil {
+		receipt = pendingB.Receipts[pendingBIndex]
+	} else {
+		receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
+		if err != nil {
+			return nil, ErrTxnHashNotFound
+		}
 	}
 
 	status := TxnAcceptedOnL2
@@ -526,7 +551,7 @@ func (h *Handler) TransactionReceiptByHashV0_6(hash felt.Felt) (*TransactionRece
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, true), nil
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, v0_6Response), nil
 }
 
 // AddTransaction relays a transaction to the gateway.
