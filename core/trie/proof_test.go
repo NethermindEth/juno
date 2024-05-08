@@ -13,6 +13,11 @@ import (
 )
 
 func buildSimpleTrie(t *testing.T) *trie.Trie {
+	//   (250, 0, x1)
+	//        |
+	//     (0,0,x1)
+	//      /    \
+	//     (2)  (3)
 	// Build trie
 	memdb := pebble.NewMemTest(t)
 	txn, err := memdb.NewTransaction(true)
@@ -162,7 +167,7 @@ func TestGetProofs(t *testing.T) {
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 
-	t.Run("Simple Trie - simple double binary 2", func(t *testing.T) {
+	t.Run("Simple Trie - simple double binary edge", func(t *testing.T) {
 		tempTrie := buildSimpleDoubleBinaryTrie(t)
 
 		zero := trie.NewKey(249, []byte{0})
