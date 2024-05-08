@@ -1,0 +1,64 @@
+{
+  "block_hash": "0x445152a69e628774b0f78a952e6f9ba0ffcda1374724b314140928fd2f31f4c",
+  "new_root": "0xe290a369aa37fb11008ffea52cf207cd5e2a66fed9ad4e551aa46ec0ed58b",
+  "old_root": "0x1801be8c1f95003d643eb1601adad68585bae7536b7f28f7f3bd600adc39082",
+  "state_diff": {
+    "storage_diffs": {
+      "0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f": [
+        {
+          "key": "0x5d2e9527cbeb1a51aa084b0de7501f343b7b1bf24a0c427d6204a7b7988970",
+          "value": "0x6d8ff7b212b08760c82e4a8f354f6ebc69d748290fa38e92eb859726a88f379"
+        },
+        {
+          "key": "0x246cebd6689d8c64011118478db0c61a89aa2646c860df401de476fbf378983",
+          "value": "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8"
+        },
+        {
+          "key": "0x2cd2687c06d341ffd0b635e3229e2ca36108201a2112da0d058d03b77eb5092",
+          "value": "0x1"
+        },
+        {
+          "key": "0x313e5e25432fae312f83d275c24a3d7b1413d1b1e5a14be9c9feb7b0e09d076",
+          "value": "0x655b4447"
+        }
+      ],
+      "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": [
+        {
+          "key": "0x5d2e9527cbeb1a51aa084b0de7501f343b7b1bf24a0c427d6204a7b7988970",
+          "value": "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5"
+        },
+        {
+          "key": "0xb6ce5410fca59d078ee9b2a4371a9d684c530d697c64fbef0ae6d5e8f0ac72",
+          "value": "0x455448"
+        },
+        {
+          "key": "0x1390569bb0a3a722eb4228e8700301347da081211d5c2ded2db22ef389551ab",
+          "value": "0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f"
+        },
+        {
+          "key": "0x1f0d4aa99431d246bac9b8e48c33e888245b15e9678f64f9bdfc8823dc8f979",
+          "value": "0x12"
+        },
+        {
+          "key": "0x2cd2687c06d341ffd0b635e3229e2ca36108201a2112da0d058d03b77eb5092",
+          "value": "0x1"
+        },
+        {
+          "key": "0x341c1bdfd89f69748aa00b5742b03adbffd79b8e80cab5c50d91cd8c2a79be1",
+          "value": "0x4574686572"
+        },
+        {
+          "key": "0x47a7f4add7797836a6e7ab22d35a37254d68a478e5d0b0e48698595c7da9ab9",
+          "value": "0x655b4447"
+        }
+      ]
+    },
+    "nonces": {
+      "0x43abaa073c768ebf039c0c4f46db9acc39e9ec165690418060a652aab39e7d8": "0xb"
+    },
+    "deployed_contracts": [],
+    "old_declared_contracts": [],
+    "declared_classes": [],
+    "replaced_classes": []
+  }
+}
