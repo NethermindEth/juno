@@ -103,6 +103,9 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 			Path:  sNode.key,
 			Child: sNode.node.Value,
 		}
+		if sNode.key.len == tri.height {
+			return edge, nil, nil
+		}
 	}
 	if sNode.key.len == tri.height {
 		return edge, nil, nil
@@ -165,8 +168,18 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	// -> Child should be leaf (len=251). Distance between child and parent should be > 1.
 	var parentKey *Key
 	i := 0
-	childIsLeaf := false
-	// for i, sNode := range nodesExcludingLeaf { // Todo: wpould be easier to loop of transformed nodes
+	childIsLeaf := nodesToLeaf[0].key.len == tri.height
+	if nodesToLeaf[0].node.Left != nil {
+		if nodesToLeaf[0].node.Left.len == tri.height {
+			childIsLeaf = true
+		}
+	}
+	if nodesToLeaf[0].node.Right != nil {
+		if nodesToLeaf[0].node.Right.len == tri.height {
+			childIsLeaf = true
+		}
+	}
+	// for i, sNode := range nodesExcludingLeaf { // Todo: would be easier to loop of transformed nodes
 	for i < len(nodesToLeaf) {
 		sNode := nodesToLeaf[i]
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
@@ -183,7 +196,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		} else if sNodeEdge == nil && !childIsLeaf { // Internal Binary
 			proofNodes = append(proofNodes, []ProofNode{{Binary: sNodeBinary}}...)
 		} else if sNodeEdge != nil && childIsLeaf { // pre-leaf Edge
-			proofNodes = append(proofNodes, []ProofNode{{Edge: &Edge{Child: sNodeEdge.Child}}}...)
+			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}}...)
 		} else if sNodeEdge == nil && childIsLeaf { // pre-leaf binary
 			proofNodes = append(proofNodes, []ProofNode{{Binary: sNodeBinary}}...)
 		}
@@ -192,7 +205,6 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 			break
 		}
 		parentKey = nodesToLeaf[i-1].key
-		childIsLeaf = nodesToLeaf[i].key.len == 251
 		// lNode, err := tri.GetNodeFromKey(sNode.node.Left)
 		// if err != nil {
 		// 	return nil, err
