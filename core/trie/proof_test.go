@@ -43,7 +43,6 @@ func buildSimpleTrie(t *testing.T) *trie.Trie {
 }
 
 func buildSimpleBinaryRootTrie(t *testing.T) *trie.Trie {
-
 	//           (0, 0, x)
 	//    /                    \
 	// (250, 0, cc)     (250, 11111.., dd)
@@ -110,7 +109,7 @@ func TestGetProofs(t *testing.T) {
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
-					Path:  &zero, // Todo: pathfinder returns 0? But shouldn't be zero?...
+					Path:  &zero,
 					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
 				},
 			},
@@ -172,6 +171,8 @@ func TestGetProofs(t *testing.T) {
 
 		zero := trie.NewKey(249, []byte{0})
 		value3 := new(felt.Felt).SetUint64(5)
+		key3Bytes := new(felt.Felt).SetUint64(3).Bytes()
+		path3 := trie.NewKey(251, key3Bytes[:])
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
@@ -187,6 +188,7 @@ func TestGetProofs(t *testing.T) {
 			},
 			{
 				Edge: &trie.Edge{
+					Path:  &path3,
 					Child: value3,
 				},
 			},
@@ -204,7 +206,9 @@ func TestGetProofs(t *testing.T) {
 
 	t.Run("Simple Trie - simple binary root", func(t *testing.T) {
 		tempTrie := buildSimpleBinaryRootTrie(t)
-		value := utils.HexToFelt(t, "0xcc")
+
+		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
+		path1 := trie.NewKey(250, key1Bytes[:])
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Binary: &trie.Binary{
@@ -214,7 +218,8 @@ func TestGetProofs(t *testing.T) {
 			},
 			{
 				Edge: &trie.Edge{
-					Child: value,
+					Path:  &path1,
+					Child: utils.HexToFelt(t, "0xcc"),
 				},
 			},
 		}
