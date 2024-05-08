@@ -138,7 +138,7 @@ func TestGetProofs(t *testing.T) {
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
-					Path:  &zero, // Todo: 0x7469c4000fe0 ???
+					Path:  &zero,
 					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
 				},
 			},
@@ -171,12 +171,12 @@ func TestGetProofs(t *testing.T) {
 
 		zero := trie.NewKey(249, []byte{0})
 		value3 := new(felt.Felt).SetUint64(5)
-		key3Bytes := new(felt.Felt).SetUint64(3).Bytes()
-		path3 := trie.NewKey(251, key3Bytes[:])
+		key3Bytes := new(felt.Felt).SetUint64(1).Bytes()
+		path3 := trie.NewKey(1, key3Bytes[:])
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
-					Path:  &zero, // Todo: 0x7469c4000fe0 ???
+					Path:  &zero,
 					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
 				},
 			},

@@ -65,9 +65,9 @@ func isEdge(parentKey *Key, sNode storageNode) bool {
 	return false
 }
 
-// transformNode takes a node and splits it into an edge+binary if it's an edge node
+// Note: we need to account for the fact that Junos Trie has nodes that are Binary AND Edge,
+// whereas the protocol requires nodes that are BINARY XOR Edge
 func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary, error) {
-	// Internal Edge
 	isEdgeBool := isEdge(parentKey, sNode)
 
 	var edge *Edge
@@ -120,8 +120,6 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
-// Note: Juno nodes are Edge AND Binary, whereas pathfinders are Edge XOR Binary, so
-// we need to perform a transformation as we progress along Junos Trie.
 func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	leafKey := tri.feltToKey(leaf)
 	nodesToLeaf, err := tri.nodesFromRoot(&leafKey)
@@ -137,7 +135,6 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 			parentKey = nodesToLeaf[i-1].key
 		}
 		sNode := nodesToLeaf[i]
-		// Todo: should return path from parent, not from root?
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
