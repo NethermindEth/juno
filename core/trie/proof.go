@@ -72,8 +72,9 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 
 	var edge *Edge
 	if isEdgeBool {
+		edgePath := path(sNode.key, parentKey)
 		edge = &Edge{
-			Path:  sNode.key,
+			Path:  &edgePath,
 			Child: sNode.node.Value,
 		}
 		if sNode.key.len == tri.height {
@@ -94,19 +95,21 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 
 	rightHash := rNode.Value
 	if isEdge(sNode.key, storageNode{node: rNode, key: sNode.node.Right}) {
-		edge := ProofNode{Edge: &Edge{
-			Path:  sNode.node.Right,
+		edgePath := path(sNode.node.Right, sNode.key)
+		rEdge := ProofNode{Edge: &Edge{
+			Path:  &edgePath,
 			Child: rNode.Value,
 		}}
-		rightHash = edge.Hash()
+		rightHash = rEdge.Hash()
 	}
 	leftHash := lNode.Value
 	if isEdge(sNode.key, storageNode{node: lNode, key: sNode.node.Left}) {
-		edge := ProofNode{Edge: &Edge{
-			Path:  sNode.node.Left,
+		edgePath := path(sNode.node.Left, sNode.key)
+		lEdge := ProofNode{Edge: &Edge{
+			Path:  &edgePath,
 			Child: lNode.Value,
 		}}
-		leftHash = edge.Hash()
+		leftHash = lEdge.Hash()
 	}
 	binary := &Binary{
 		LeftHash:  leftHash,
@@ -134,6 +137,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 			parentKey = nodesToLeaf[i-1].key
 		}
 		sNode := nodesToLeaf[i]
+		// Todo: should return path from parent, not from root?
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
