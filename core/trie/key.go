@@ -23,6 +23,23 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
+func NewKeyFromBits(bits []int) Key {
+	if len(bits) > len(Key{}.bitset)*8 {
+		panic("bits does not fit in bitset")
+	}
+
+	var keyBytes []byte
+	for i := 0; i < len(bits); i += 8 {
+		var byteVal byte
+		for j := 0; j < 8 && i+j < len(bits); j++ {
+			byteVal |= byte(bits[i+j]) << (7 - j)
+		}
+		keyBytes = append(keyBytes, byteVal)
+	}
+
+	return NewKey(uint8(len(bits)), keyBytes)
+}
+
 func (k *Key) SubKey(n uint8) *Key {
 	if n > k.len {
 		panic("n is greater than the length of the key")

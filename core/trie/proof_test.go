@@ -1,6 +1,7 @@
 package trie_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -25,6 +26,36 @@ func buildSimpleTrie(t *testing.T) *trie.Trie {
 	key2 := new(felt.Felt).SetUint64(1)
 	value1 := new(felt.Felt).SetUint64(2)
 	value2 := new(felt.Felt).SetUint64(3)
+
+	_, err = tempTrie.Put(key1, value1)
+	require.NoError(t, err)
+
+	_, err = tempTrie.Put(key2, value2)
+	require.NoError(t, err)
+
+	require.NoError(t, tempTrie.Commit())
+	return tempTrie
+}
+
+func buildSimpleBinaryRootTrie(t *testing.T) *trie.Trie {
+
+	//           (0, 0, x)
+	//    /                    \
+	// (250, 0, cc)     (250, 11111.., dd)
+	//    |                     |
+	//   (cc)                  (dd)
+	// Build trie
+	memdb := pebble.NewMemTest(t)
+	txn, err := memdb.NewTransaction(true)
+	require.NoError(t, err)
+
+	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{1}), 251)
+	require.NoError(t, err)
+
+	key1 := new(felt.Felt).SetUint64(0)
+	key2 := utils.HexToFelt(t, "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+	value1 := utils.HexToFelt(t, "0xcc")
+	value2 := utils.HexToFelt(t, "0xdd")
 
 	_, err = tempTrie.Put(key1, value1)
 	require.NoError(t, err)
@@ -157,6 +188,82 @@ func TestGetProofs(t *testing.T) {
 		}
 
 		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(3), tempTrie)
+		require.NoError(t, err)
+
+		// Better inspection
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, expectedProofNodes, proofNodes)
+	})
+
+	t.Run("Simple Trie - simple binary root", func(t *testing.T) {
+		tempTrie := buildSimpleBinaryRootTrie(t)
+		value := utils.HexToFelt(t, "0xcc")
+		expectedProofNodes := []trie.ProofNode{
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x06E08BF82793229338CE60B65D1845F836C8E2FBFE2BC59FF24AEDBD8BA219C4"),
+					RightHash: utils.HexToFelt(t, "0x04F9B8E66212FB528C0C1BD02F43309C53B895AA7D9DC91180001BDD28A588FA"),
+				},
+			},
+			{
+				Edge: &trie.Edge{
+					Child: value,
+				},
+			},
+		}
+
+		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
+		require.NoError(t, err)
+
+		// Better inspection
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, expectedProofNodes, proofNodes)
+	})
+
+	t.Run("Simple Trie - left-right edge", func(t *testing.T) {
+		//  (251,0xff,0xaa)
+		//     /
+		//     \
+		//   (0xaa)
+		memdb := pebble.NewMemTest(t)
+		txn, err := memdb.NewTransaction(true)
+		require.NoError(t, err)
+
+		tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{1}), 251)
+		require.NoError(t, err)
+
+		key1 := utils.HexToFelt(t, "0xff")
+		value1 := utils.HexToFelt(t, "0xaa")
+
+		_, err = tempTrie.Put(key1, value1)
+		require.NoError(t, err)
+
+		require.NoError(t, tempTrie.Commit())
+
+		path1 := trie.NewKeyFromBits([]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1})
+		path2 := trie.NewKeyFromBits([]int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1})
+		child := utils.HexToFelt(t, "0x00000000000000000000000000000000000000000000000000000000000000AA")
+		qwe := path2.Felt()
+		fmt.Println(qwe.String())
+		expectedProofNodes := []trie.ProofNode{
+			{
+				Edge: &trie.Edge{
+					Path: &path1,
+				},
+			},
+			{
+				Edge: &trie.Edge{
+					Path:  &path2,
+					Child: child,
+				},
+			},
+		}
+
+		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
 		require.NoError(t, err)
 
 		// Better inspection
