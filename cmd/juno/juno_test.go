@@ -265,7 +265,7 @@ cn-unverifiable-range: [0,10]
 http-host: 0.0.0.0
 http-port: 4576
 db-path: /home/.juno
-network: goerli2
+network: sepolia
 pprof: true
 `,
 			expectedConfig: &node.Config{
@@ -283,7 +283,7 @@ pprof: true
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.Goerli2,
+				Network:             utils.Sepolia,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -337,7 +337,7 @@ http-port: 4576
 		"all flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--network", "goerli", "--pprof", "--db-cache-size", "8",
+				"--db-path", "/home/.juno", "--network", "sepolia-integration", "--pprof", "--db-cache-size", "8",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
@@ -354,7 +354,7 @@ http-port: 4576
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.Goerli,
+				Network:             utils.SepoliaIntegration,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -372,7 +372,7 @@ http-port: 4576
 		"some flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0", "--db-path", "/home/.juno",
-				"--network", "integration",
+				"--network", "sepolia",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
@@ -389,7 +389,7 @@ http-port: 4576
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.Integration,
+				Network:             utils.Sepolia,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -420,7 +420,7 @@ grpc: true
 grpc-host: 0.0.0.0
 grpc-port: 4576
 db-path: /home/config-file/.juno
-network: goerli
+network: sepolia
 pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
@@ -430,7 +430,7 @@ db-cache-size: 8
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
-				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
+				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
 				"--db-cache-size", "9",
 			},
 			expectedConfig: &node.Config{
@@ -448,7 +448,7 @@ db-cache-size: 8
 				GRPCHost:            "127.0.0.1",
 				GRPCPort:            4577,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.Integration,
+				Network:             utils.Mainnet,
 				Pprof:               true,
 				PprofHost:           "0.0.0.0",
 				PprofPort:           6064,
@@ -468,7 +468,7 @@ db-cache-size: 8
 			cfgFileContents: `log-level: warn
 http-host: 0.0.0.0
 http-port: 4576
-network: goerli
+network: sepolia
 `,
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
@@ -486,7 +486,7 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.Goerli,
+				Network:             utils.Sepolia,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -503,7 +503,7 @@ network: goerli
 		},
 		"some setting set in default, config file and flags": {
 			cfgFile:         true,
-			cfgFileContents: `network: goerli2`,
+			cfgFileContents: `network: sepolia-integration`,
 			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
@@ -520,7 +520,7 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.Goerli2,
+				Network:             utils.SepoliaIntegration,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,

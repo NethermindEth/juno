@@ -336,13 +336,8 @@ func (s *Service) SubscribeToTopic(topic string) (chan []byte, func(), error) {
 }
 
 func (s *Service) PublishOnTopic(topic string) error {
-	t, joinErr := s.joinTopic(topic)
-	if joinErr != nil {
-		return joinErr
-	}
-	_ = t
-
-	return nil
+	_, err := s.joinTopic(topic)
+	return err
 }
 
 func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {

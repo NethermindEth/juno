@@ -26,7 +26,7 @@ import (
 
 func TestEvents(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	n := utils.Ptr(utils.Goerli2)
+	n := utils.Ptr(utils.Sepolia)
 	chain := blockchain.New(testDB, n)
 
 	client := feeder.NewTestClient(t, n)
@@ -70,7 +70,7 @@ func TestEvents(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Number: 55}
 			events, err := handler.Events(args)
 			require.Nil(t, err)
-			require.Len(t, events.Events, 3)
+			require.Len(t, events.Events, 5)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestEvents(t *testing.T) {
 			args.Address = from
 			events, err := handler.Events(args)
 			require.Nil(t, err)
-			require.Len(t, events.Events, 2)
+			require.Len(t, events.Events, 4)
 			require.Empty(t, events.ContinuationToken)
 			allEvents = events.Events
 		})
@@ -131,7 +131,7 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with keys", func(t *testing.T) {
-		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+		key := utils.HexToFelt(t, "0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e")
 
 		t.Run("get all events without pagination", func(t *testing.T) {
 			args.ChunkSize = 100
@@ -144,12 +144,18 @@ func TestEvents(t *testing.T) {
 			require.Equal(t, from, events.Events[0].From)
 			require.Equal(t, []*felt.Felt{key}, events.Events[0].Keys)
 			require.Equal(t, []*felt.Felt{
-				utils.HexToFelt(t, "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8"),
-				utils.HexToFelt(t, "0x2ee9bf3da86f3715e8a20429feed8e37fef58004ee5cf52baf2d8fc0d94c9c8"),
+				utils.HexToFelt(t, "0x23be95f90bf41685e18a4356e57b0cfdc1da22bf382ead8b64108353915c1e5"),
+				utils.HexToFelt(t, "0x0"),
+				utils.HexToFelt(t, "0x4"),
+				utils.HexToFelt(t, "0x4574686572"),
+				utils.HexToFelt(t, "0x455448"),
+				utils.HexToFelt(t, "0x12"),
+				utils.HexToFelt(t, "0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f"),
+				utils.HexToFelt(t, "0x0"),
 			}, events.Events[0].Data)
-			require.Equal(t, uint64(5), *events.Events[0].BlockNumber)
-			require.Equal(t, utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14"), events.Events[0].BlockHash)
-			require.Equal(t, utils.HexToFelt(t, "0x6d1431d875ba082365b888c1651e026012a94172b04589c91c2adeb6c1b7ace"), events.Events[0].TransactionHash)
+			require.Equal(t, uint64(4), *events.Events[0].BlockNumber)
+			require.Equal(t, utils.HexToFelt(t, "0x445152a69e628774b0f78a952e6f9ba0ffcda1374724b314140928fd2f31f4c"), events.Events[0].BlockHash)
+			require.Equal(t, utils.HexToFelt(t, "0x3c9dfcd3fe66be18b661ee4ebb62520bb4f13d4182b040b3c2be9a12dbcc09b"), events.Events[0].TransactionHash)
 		})
 	})
 
@@ -170,7 +176,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with limit", func(t *testing.T) {
 		handler = handler.WithFilterLimit(1)
-		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+		key := utils.HexToFelt(t, "0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e")
 		args.ChunkSize = 100
 		args.Keys = make([][]felt.Felt, 0)
 		args.Keys = append(args.Keys, []felt.Felt{*key})
@@ -198,12 +204,12 @@ func TestEvents(t *testing.T) {
 		}
 		events, err := handler.Events(args)
 		require.Nil(t, err)
-		require.Len(t, events.Events, 1)
+		require.Len(t, events.Events, 2)
 		require.Empty(t, events.ContinuationToken)
 
 		assert.Nil(t, events.Events[0].BlockHash)
 		assert.Nil(t, events.Events[0].BlockNumber)
-		assert.Equal(t, utils.HexToFelt(t, "0x5fe34d6903420e489b6faa8804c7a1af311446934bac1ba1e79b53cee61756c"), events.Events[0].TransactionHash)
+		assert.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
 	})
 }
 
