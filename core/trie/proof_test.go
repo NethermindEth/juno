@@ -287,7 +287,7 @@ func TestVerifyProofs(t *testing.T) {
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
-					Path:  &zero, // Todo: pathfinder returns 0? But shouldn't be zero?...
+					Path:  &zero,
 					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
 				},
 			},
@@ -314,7 +314,7 @@ func TestVerifyProofs(t *testing.T) {
 		expectedProofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
-					Path:  &zero, // Todo: 0x7469c4000fe0 ???
+					Path:  &zero,
 					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
 				},
 			},

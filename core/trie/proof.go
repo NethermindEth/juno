@@ -59,14 +59,11 @@ func isEdge(parentKey *Key, sNode storageNode) bool {
 	if parentKey == nil { // Root
 		return sNodeLen != 0
 	}
-	if sNodeLen-parentKey.len > 1 {
-		return true
-	}
-	return false
+	return sNodeLen-parentKey.len > 1
 }
 
 // Note: we need to account for the fact that Junos Trie has nodes that are Binary AND Edge,
-// whereas the protocol requires nodes that are BINARY XOR Edge
+// whereas the protocol requires nodes that are Binary XOR Edge
 func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary, error) {
 	isEdgeBool := isEdge(parentKey, sNode)
 
@@ -77,11 +74,8 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 			Path:  &edgePath,
 			Child: sNode.node.Value,
 		}
-		if sNode.key.len == tri.height {
-			return edge, nil, nil
-		}
 	}
-	if sNode.key.len == tri.height {
+	if sNode.key.len == tri.height { // Leaf
 		return edge, nil, nil
 	}
 	lNode, err := tri.GetNodeFromKey(sNode.node.Left)
@@ -131,27 +125,24 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	var parentKey *Key
 
 	for i := 0; i < len(nodesToLeaf); i++ {
+		sNode := nodesToLeaf[i]
+		isLeaf := sNode.key.len == tri.height
 		if i != 0 {
 			parentKey = nodesToLeaf[i-1].key
 		}
-		sNode := nodesToLeaf[i]
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
 		}
-		if sNodeEdge == nil && sNodeBinary == nil {
-			break
-		}
 
-		isLeaf := sNode.key.len == tri.height
 		if sNodeEdge != nil && !isLeaf { // Internal Edge
 			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}, {Binary: sNodeBinary}}...)
 		} else if sNodeEdge == nil && !isLeaf { // Internal Binary
 			proofNodes = append(proofNodes, []ProofNode{{Binary: sNodeBinary}}...)
-		} else if sNodeEdge != nil && isLeaf { // pre-leaf Edge
+		} else if sNodeEdge != nil && isLeaf { // Leaf Edge
 			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}}...)
-		} else if sNodeEdge == nil && isLeaf { // pre-leaf binary
-			proofNodes = append(proofNodes, []ProofNode{{Binary: sNodeBinary}}...)
+		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
+			break
 		}
 	}
 	return proofNodes, nil
@@ -180,8 +171,6 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 			}
 			remainingPath.RemoveLastBit()
 		case proofNode.Edge != nil:
-			// The next "proofNode.Edge.len" bits must match
-			// Todo: Isn't edge.path from root? and remaining from edge to leaf??
 			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
 				return false
 			}
