@@ -2,7 +2,7 @@ name: Docker Build, Publish and Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, wojciechos/p2p-sync-test] 
     tags: ['v*']
   workflow_dispatch:
 
