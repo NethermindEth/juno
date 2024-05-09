@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding"
-	"errors"
 	"fmt"
 	"time"
 
@@ -12,7 +11,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var ErrUnknownLogLevel = errors.New("unknown log level (known: debug, info, warn, error, trace)")
+var ErrUnknownLogLevel = fmt.Errorf(
+	"unknown log level (known: %s, %s, %s, %s, %s)",
+	DEBUG, INFO, WARN, ERROR, TRACE,
+)
 
 type LogLevel int
 
@@ -31,7 +33,6 @@ const (
 	TRACE
 )
 
-//nolint:goconst
 func (l LogLevel) String() string {
 	switch l {
 	case DEBUG:
@@ -105,7 +106,7 @@ func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
 	l.Debugw("[TRACE] "+msg, keysAndValues...)
 }
 
-var _ SimpleLogger = (*ZapLogger)(nil)
+var _ Logger = (*ZapLogger)(nil)
 
 func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}
@@ -123,16 +124,14 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
 	levelStr := logLevel.String()
-	if levelStr == "trace" {
-		config.Level.SetLevel(zapcore.DebugLevel) // Custom handling for TRACE, maps to Debug level
-	} else {
-		level, err := zapcore.ParseLevel(levelStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse log level '%s': %w", levelStr, err) // More descriptive error
-		}
-		config.Level.SetLevel(level)
+	if levelStr == TRACE.String() {
+		levelStr = DEBUG.String() // Todo: zapcore has no trace level, and we are using debug for both..
 	}
-
+	level, err := zapcore.ParseLevel(levelStr)
+	if err != nil {
+		return nil, err
+	}
+	config.Level.SetLevel(level)
 	log, err := config.Build()
 	if err != nil {
 		return nil, err
@@ -143,19 +142,4 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 
 func (l *ZapLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args)
-}
-
-// IsLogLevel checks if a logger has a specific log level enabled
-func IsLogLevel(logger interface{}, targetLevel zapcore.Level) bool {
-	switch l := logger.(type) {
-	case *zap.SugaredLogger:
-		// Check the underlying logger's core
-		return l.Desugar().Core().Enabled(targetLevel) // Handle SugaredLogger
-	case *zap.Logger:
-		// Check if the core has the specified level
-		return l.Core().Enabled(targetLevel) // Handle basic Zap Logger
-	default:
-		// If logger type is unknown, return false
-		return false
-	}
 }

@@ -101,8 +101,7 @@ func (s *syncService) start(ctx context.Context) {
 		}
 
 		var nextHeight int
-		curHeight, err := s.blockchain.Height()
-		if err == nil {
+		if curHeight, err := s.blockchain.Height(); err == nil { //nolint:govet
 			nextHeight = int(curHeight) + 1
 		} else if !errors.Is(db.ErrKeyNotFound, err) {
 			s.log.Errorw("Failed to get current height", "err", err)
@@ -202,8 +201,6 @@ func (s *syncService) logError(msg string, err error) {
 			log = s.log
 		}
 
-		log.Tracew("Logging error", "msg", msg, "error", err.Error())
-		// Log the error
 		log.Errorw(msg, "err", err)
 	}
 }

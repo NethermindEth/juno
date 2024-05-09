@@ -86,8 +86,7 @@ func TestNetwork(t *testing.T) {
 //nolint:dupl // see comment in utils/log_test.go
 func TestNetworkSet(t *testing.T) {
 	for network, str := range networkStrings {
-		//nolint:goconst
-		t.Run("network "+str, func(t *testing.T) {
+		t.Run("network "+str, func(t *testing.T) { //nolint:goconst
 			n := new(utils.Network)
 			require.NoError(t, n.Set(str))
 			assert.Equal(t, network, *n)
