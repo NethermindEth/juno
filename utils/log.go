@@ -102,8 +102,18 @@ type ZapLogger struct {
 	*zap.SugaredLogger
 }
 
+const (
+	TraceLevel = zapcore.Level(-2)
+)
+
+func (l *ZapLogger) IsTraceEnabled() bool {
+	return l.Desugar().Core().Enabled(TraceLevel)
+}
+
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
-	l.Debugw("[TRACE] "+msg, keysAndValues...)
+	if l.IsTraceEnabled() {
+		l.Debugw("[TRACE] "+msg, keysAndValues...) // Hack: we use Debug for traces
+	}
 }
 
 var _ Logger = (*ZapLogger)(nil)
@@ -123,13 +133,17 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
+
+	var level zapcore.Level
+	var err error
 	levelStr := logLevel.String()
 	if levelStr == TRACE.String() {
-		levelStr = DEBUG.String() // Todo: zapcore has no trace level, and we are using debug for both..
-	}
-	level, err := zapcore.ParseLevel(levelStr)
-	if err != nil {
-		return nil, err
+		level = TraceLevel
+	} else {
+		level, err = zapcore.ParseLevel(levelStr)
+		if err != nil {
+			return nil, err
+		}
 	}
 	config.Level.SetLevel(level)
 	log, err := config.Build()
