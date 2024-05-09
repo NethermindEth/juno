@@ -3,6 +3,7 @@ package blockchain
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 )
 
 type Pending struct {
@@ -64,4 +65,8 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	}
 
 	return p.head.Class(classHash)
+}
+
+func (p *PendingState) GlobalTrie() (*trie.Trie, func() error, error) {
+	return p.head.GlobalTrie()
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -86,4 +87,8 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 		return nil, db.ErrKeyNotFound
 	}
 	return declaredClass, nil
+}
+
+func (s *stateSnapshot) GlobalTrie() (*trie.Trie, func() error, error) {
+	return s.state.GlobalTrie()
 }

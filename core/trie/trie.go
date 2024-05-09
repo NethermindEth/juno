@@ -45,6 +45,32 @@ type Trie struct {
 
 type NewTrieFunc func(*Storage, uint8) (*Trie, error)
 
+type SerializableNode struct {
+    Key   string
+    Value string
+}
+
+func ConvertToSerializableNodes(nodes []storageNode) []SerializableNode {
+    var serializableNodes []SerializableNode
+    for _, node := range nodes {
+        serializableNode := SerializableNode{
+            Key:   fmt.Sprintf("%v", node.key),  // Assuming node.key can be stringified
+            Value: fmt.Sprintf("%v", node.node), // Assuming node.node can be stringified
+        }
+        serializableNodes = append(serializableNodes, serializableNode)
+    }
+    return serializableNodes
+}
+
+
+func (t *Trie) ConvertFeltToKey(f *felt.Felt) Key {
+    return t.feltToKey(f)
+}
+
+func (t *Trie) GetNodesFromRoot(key *Key) ([]storageNode, error){
+	return t.nodesFromRoot(key)
+}
+
 func NewTriePedersen(storage *Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Pedersen)
 }
@@ -184,6 +210,9 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 
 // check if we are updating an existing leaf, if yes avoid traversing the trie
 func (t *Trie) updateLeaf(nodeKey Key, node *Node, value *felt.Felt) (*felt.Felt, error) {
+
+	// fmt.Println("updateLeaf")
+	// fmt.Println("nodeKey", nodeKey.Felt())
 	// Check if we are updating an existing leaf
 	if !value.IsZero() {
 		if existingLeaf, err := t.storage.Get(&nodeKey); err == nil {
