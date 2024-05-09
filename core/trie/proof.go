@@ -126,14 +126,11 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 	for i := 0; i < len(nodesToLeaf); i++ {
 		sNode := nodesToLeaf[i]
-		isLeaf := sNode.key.len == tri.height
-		if i != 0 {
-			parentKey = nodesToLeaf[i-1].key
-		}
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
 		}
+		isLeaf := sNode.key.len == tri.height
 
 		if sNodeEdge != nil && !isLeaf { // Internal Edge
 			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}, {Binary: sNodeBinary}}...)
@@ -144,6 +141,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
 			break
 		}
+		parentKey = nodesToLeaf[i].key
 	}
 	return proofNodes, nil
 }
