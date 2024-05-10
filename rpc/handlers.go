@@ -56,6 +56,7 @@ var (
 	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
+	ErrParsingError                    = &jsonrpc.Error{Code: 64, Message: "Failed to parse"}
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
@@ -484,4 +485,34 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.Unsubscribe,
 		},
 	}, "/v0_6"
+}
+
+func (h *Handler) GetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
+	// TODO: Implement this method
+	// Implement a new rpc method “juno_getNodesFromRoot(key felt.Felt)”
+	// that returns the set of nodes from the root to the key for the classes Trie.
+	// See nodesFromRoot(). Remember to implement tests for the new logic
+
+	stateReader, _, error := h.bcReader.HeadState()
+	if error != nil {
+		return "", ErrBlockNotFound
+	}
+	trie_, _, errTrie := stateReader.NodeFromRoot()
+	if errTrie != nil {
+		return "", ErrBlockNotFound
+	}
+
+	key_ := trie_.FeltToKeyConverter(&key)
+	storageNodes, err := trie_.GetNodesFromRoot(&key_)
+	if err != nil {
+		return "", ErrBlockNotFound
+	}
+
+	parsedNodes := trie_.NodeParser(storageNodes)
+
+	jsonBytes, err := json.Marshal(parsedNodes)
+	if err != nil {
+		return "", ErrParsingError
+	}
+	return string(jsonBytes), nil
 }
