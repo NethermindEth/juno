@@ -92,6 +92,10 @@ func (t *Trie) feltToKey(k *felt.Felt) Key {
 	return NewKey(t.height, kBytes[:])
 }
 
+func (t *Trie) FeltToKeyConverter(key *felt.Felt) Key {
+	return t.feltToKey(key)
+}
+
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
@@ -133,6 +137,27 @@ func path(key, parentKey *Key) Key {
 type storageNode struct {
 	key  *Key
 	node *Node
+}
+
+type ParsedNodes struct {
+	k string
+	v string
+}
+
+func (t *Trie) NodeParser(nodes []storageNode) []ParsedNodes {
+	var parsedNodes []ParsedNodes
+	for _, node := range nodes {
+		parsableNode := ParsedNodes{
+			k: fmt.Sprintf("%v", node.key), // Assuming node.key can be stringified
+			v: fmt.Sprintf("%v", node.node),
+		}
+		parsedNodes = append(parsedNodes, parsableNode)
+	}
+	return parsedNodes
+}
+
+func (t *Trie) GetNodesFromRoot(key *Key) ([]storageNode, error) {
+	return t.nodesFromRoot(key)
 }
 
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
