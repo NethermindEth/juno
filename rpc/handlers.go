@@ -332,9 +332,15 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.BlockWithReceipts,
 		},
 		{
+<<<<<<< HEAD
 			Name:    "juno_getNodesFromRoot",
 			Params:  []jsonrpc.Parameter{{Name: "key"}},
 			Handler: h.JunoGetNodesFromRoot,
+=======
+			Name:    "juno_getBlockWithTxsAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.JunoGetBlockWithTxsAndReceipts,
+>>>>>>> 3fea2be (fix::> added new RPC_meth to methods)
 		},
 	}, "/v0_7"
 }
@@ -490,9 +496,15 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.Unsubscribe,
 		},
 		{
+<<<<<<< HEAD
 			Name:    "juno_getNodesFromRoot",
 			Params:  []jsonrpc.Parameter{{Name: "key"}},
 			Handler: h.JunoGetNodesFromRoot,
+=======
+			Name:    "juno_getBlockWithTxsAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.JunoGetBlockWithTxsAndReceipts,
+>>>>>>> 3fea2be (fix::> added new RPC_meth to methods)
 		},
 	}, "/v0_6"
 }
