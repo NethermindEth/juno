@@ -711,12 +711,12 @@ func TestJunoGetBlockWithTxsAndReceipts(t *testing.T) {
 		"number":  {Number: 1},
 	}
 
+	log := utils.NewNopZapLogger()
+	n := utils.Ptr(utils.Mainnet)
+	chain := blockchain.New(pebble.NewMemTest(t), n)
+	handler := rpc.New(chain, nil, nil, "", n, log)
 	for desc, id := range blockId {
 		t.Run(desc, func(t *testing.T) {
-			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", n, log)
 
 			block, blockReceipt, rpcErr := handler.JunoGetBlockWithTxsAndReceipts(id)
 			assert.Nil(t, block)
@@ -727,10 +727,7 @@ func TestJunoGetBlockWithTxsAndReceipts(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-
-	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	t.Run("transaction DNE", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 420}
