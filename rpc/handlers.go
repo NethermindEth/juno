@@ -497,6 +497,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_6"
 }
 
+<<<<<<< HEAD
 func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 	stateReader, _, err := h.bcReader.HeadState()
 	if err != nil {
@@ -519,6 +520,34 @@ func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 	jsonBytes, err := json.Marshal(parsedNodes)
 	if err != nil {
 		return "", jsonrpc.Err(jsonrpc.InvalidJSON, err.Error())
+=======
+func (h *Handler) GetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
+	// TODO: Implement this method
+	// Implement a new rpc method “juno_getNodesFromRoot(key felt.Felt)”
+	// that returns the set of nodes from the root to the key for the classes Trie.
+	// See nodesFromRoot(). Remember to implement tests for the new logic
+
+	stateReader, _, error := h.bcReader.HeadState()
+	if error != nil {
+		return "", ErrBlockNotFound
+	}
+	trie_, _, errTrie := stateReader.NodeFromRoot()
+	if errTrie != nil {
+		return "", ErrBlockNotFound
+	}
+
+	key_ := trie_.FeltToKeyConverter(&key)
+	storageNodes, err := trie_.GetNodesFromRoot(&key_)
+	if err != nil {
+		return "", ErrBlockNotFound
+	}
+
+	parsedNodes := trie_.NodeParser(storageNodes)
+
+	jsonBytes, err := json.Marshal(parsedNodes)
+	if err != nil {
+		return "", ErrParsingError
+>>>>>>> d472131 (fix::> impl handler JunoGetNodesFromRoot)
 	}
 	return string(jsonBytes), nil
 }
