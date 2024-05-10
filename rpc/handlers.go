@@ -487,12 +487,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_6"
 }
 
-func (h *Handler) GetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
-	// TODO: Implement this method
-	// Implement a new rpc method “juno_getNodesFromRoot(key felt.Felt)”
-	// that returns the set of nodes from the root to the key for the classes Trie.
-	// See nodesFromRoot(). Remember to implement tests for the new logic
-
+func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 	stateReader, _, error := h.bcReader.HeadState()
 	if error != nil {
 		return "", ErrBlockNotFound
