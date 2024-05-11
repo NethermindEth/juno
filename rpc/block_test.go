@@ -717,7 +717,6 @@ func TestJunoGetBlockWithTxsAndReceipts(t *testing.T) {
 	handler := rpc.New(chain, nil, nil, "", n, log)
 	for desc, id := range blockId {
 		t.Run(desc, func(t *testing.T) {
-
 			block, blockReceipt, rpcErr := handler.JunoGetBlockWithTxsAndReceipts(id)
 			assert.Nil(t, block)
 			assert.Nil(t, blockReceipt)
