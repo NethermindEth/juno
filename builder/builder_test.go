@@ -3,6 +3,7 @@ package builder_test
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"testing"
 	"time"
 
@@ -87,18 +88,16 @@ func TestValidateAgainstPendingState(t *testing.T) {
 			Program: "best program",
 		},
 	}
-	blockInfo := vm.BlockInfo{
-		Header: b.Header,
-	}
+
 	paidFeesOnL1 := []*felt.Felt{}
 	mockVM.EXPECT().Execute([]core.Transaction{userTxn.Transaction},
-		[]core.Class{userTxn.DeclaredClass}, paidFeesOnL1, blockInfo, gomock.Any(), utils.Integration, false, false, false, false).Return(nil, nil, nil)
+		[]core.Class{userTxn.DeclaredClass}, paidFeesOnL1, gomock.Any(), gomock.Any(), &utils.Integration, false, false, false, false).Return(nil, nil, nil, nil)
 	assert.NoError(t, testBuilder.ValidateAgainstPendingState(&userTxn))
 
 	require.NoError(t, bc.Store(b, &core.BlockCommitments{}, su, nil))
 
 	mockVM.EXPECT().Execute([]core.Transaction{userTxn.Transaction},
-		[]core.Class{userTxn.DeclaredClass}, paidFeesOnL1, blockInfo, gomock.Any(), utils.Integration, false, false, false, false).Return(nil, nil, nil)
+		[]core.Class{userTxn.DeclaredClass}, paidFeesOnL1, gomock.Any(), gomock.Any(), &utils.Integration, false, false, false, false).Return(nil, nil, nil, errors.New("oops"))
 	assert.EqualError(t, testBuilder.ValidateAgainstPendingState(&userTxn), "oops")
 }
 
