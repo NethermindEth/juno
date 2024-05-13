@@ -182,6 +182,11 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	return &leafValue, nil
 }
 
+// GetNodeFromKey returns the node for a given key.
+func (t *Trie) GetNodeFromKey(key *Key) (*Node, error) {
+	return t.storage.Get(key)
+}
+
 // check if we are updating an existing leaf, if yes avoid traversing the trie
 func (t *Trie) updateLeaf(nodeKey Key, node *Node, value *felt.Felt) (*felt.Felt, error) {
 	// Check if we are updating an existing leaf

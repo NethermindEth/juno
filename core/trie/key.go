@@ -23,6 +23,26 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
+func (k *Key) SubKey(n uint8) *Key {
+	if n > k.len {
+		panic("n is greater than the length of the key")
+	}
+
+	newKey := &Key{len: n}
+	copy(newKey.bitset[:], k.bitset[len(k.bitset)-int((k.len+7)/8):]) //nolint:gomnd
+
+	// Shift right by the number of bits that are not needed
+	shift := k.len - n
+	for i := len(newKey.bitset) - 1; i >= 0; i-- {
+		newKey.bitset[i] >>= shift
+		if i > 0 {
+			newKey.bitset[i] |= newKey.bitset[i-1] << (8 - shift)
+		}
+	}
+
+	return newKey
+}
+
 func (k *Key) bytesNeeded() uint {
 	const byteBits = 8
 	return (uint(k.len) + (byteBits - 1)) / byteBits
@@ -103,6 +123,24 @@ func (k *Key) DeleteLSB(n uint8) {
 // Truncate truncates key to `length` bits by clearing the remaining upper bits
 func (k *Key) Truncate(length uint8) {
 	k.len = length
+
+	unusedBytes := k.unusedBytes()
+	clear(unusedBytes)
+
+	// clear upper bits on the last used byte
+	inUseBytes := k.inUseBytes()
+	unusedBitsCount := 8 - (k.len % 8)
+	if unusedBitsCount != 8 && len(inUseBytes) > 0 {
+		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
+	}
+}
+
+func (k *Key) RemoveLastBit() {
+	if k.len == 0 {
+		return
+	}
+
+	k.len--
 
 	unusedBytes := k.unusedBytes()
 	clear(unusedBytes)
