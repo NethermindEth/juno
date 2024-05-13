@@ -1,0 +1,11 @@
+{
+    "block_number": 2,
+    "signature": [
+        "0x328251965bcf8dc8f870a027eebe73627b8dbd82d6981cfbd4231a197da53ae",
+        "0x75bb4eb017f274f1f6e2a785c921a51baa761dad2d85fe54fd8607d816b829f"
+    ],
+    "signature_input": {
+        "block_hash": "0x7a906dfd1ff77a121b8048e6f750cda9e949d341c4487d4c6a449f183f0e61d",
+        "state_diff_commitment": "0x7d4abf2975cd79627ed1bf8040b7ae2d10e4db59ede80661caedb647da21720"
+    }
+}
