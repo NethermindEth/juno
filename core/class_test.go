@@ -52,19 +52,24 @@ func TestClassV0Hash(t *testing.T) {
 }
 
 func TestClassV1Hash(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	tests := []struct {
 		classHash       string
 		checkNoCompiled bool
 	}{
 		{
-			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5
-			classHash: "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+			// https://alpha-mainnet.starknet.io/feeder_gateway/get_class_by_hash?classHash=<calss_hash>
+			classHash: "0x1efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f",
 		},
 		{
-			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c
-			classHash: "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c",
+			classHash: "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292",
+		},
+		{
+			classHash: "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e",
+		},
+		{
+			classHash: "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
 		},
 	}
 
@@ -82,31 +87,24 @@ func TestClassV1Hash(t *testing.T) {
 }
 
 func TestCompiledClassHash(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	tests := []struct {
 		classHash                 string
 		expectedCompiledClassHash string
 	}{
 		{
-			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc
-			classHash:                 "0x6d8ede036bb4720e6f348643221d8672bf4f0895622c32c11e57460b3b7dffc",
-			expectedCompiledClassHash: "0x18f95714044fd5408d3bf812bcd249ddec098ab3cd201b7916170cfbfa59e05",
+			classHash:                 "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292",
+			expectedCompiledClassHash: "0xf2056a217cc9cabef54d4b1bceea5a3e8625457cb393698ba507259ed6f3c",
 		},
 		{
-			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d
-			classHash:                 "0x6b3da05b352f93912df0593a703f1884c4c607523bb33feaff4940635ef050d",
-			expectedCompiledClassHash: "0x603dd72504d8b0bc54df4f1102fdcf87fc3b2b94750a9083a5876913eec08e4",
-		},
-		{
-			// https://external.integration.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89
-			classHash:                 "0x1fb5f6adb94dd3c0bfda71f7f73957691619ab9fe8f6b9b675da13877086f89",
-			expectedCompiledClassHash: "0x260f0d9862f0dd76ac1f9c93e6ce0c2536f7c0275c87061e73abce321bfd4ad",
+			classHash:                 "0x21c2e8a87c431e8d3e89ecd1a40a0674ef533cce5a1f6c44ba9e60d804ecad2",
+			expectedCompiledClassHash: "0x1199c4832cfea48f452b8ddebaf7e4ceb77bd0e27704efd06753b4878631e39",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run("ClassHash", func(t *testing.T) {
+		t.Run("ClassHash "+tt.classHash[:7], func(t *testing.T) {
 			hash := utils.HexToFelt(t, tt.classHash)
 			class, err := gw.Class(context.Background(), hash)
 			require.NoError(t, err)
@@ -194,10 +192,10 @@ func TestVerifyClassHash(t *testing.T) {
 		wantErr   error
 	}
 
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1ClassHash := utils.HexToFelt(t, "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
 	cairo1Class, err := gw.Class(context.Background(), cairo1ClassHash)
 	require.NoError(t, err)
 
@@ -228,7 +226,7 @@ func TestVerifyClassHash(t *testing.T) {
 		}
 	})
 
-	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0ClassHash := utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8")
 	cairo0Class, err := gw.Class(context.Background(), cairo0ClassHash)
 	require.NoError(t, err)
 

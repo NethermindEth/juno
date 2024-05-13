@@ -1,0 +1,68 @@
+{
+  "block": {
+    "block_hash": "0x78b67b11f8c23850041e11fb0f3b39db0bcb2c99d756d5a81321d1b483d79f6",
+    "parent_block_hash": "0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c",
+    "block_number": 1,
+    "state_root": "0xe005205a1327f3dff98074e528f7b96f30e0624a1dfcf571bdc81948d150a0",
+    "transaction_commitment": "0x301a3e7f3ae29c3463a5f753da62e63dc0b6738c36cb17e3d1696926457a40c",
+    "event_commitment": "0x0",
+    "status": "ACCEPTED_ON_L1",
+    "l1_da_mode": "CALLDATA",
+    "l1_gas_price": {
+      "price_in_wei": "0x3b9ada0f",
+      "price_in_fri": "0x0"
+    },
+    "l1_data_gas_price": {
+      "price_in_wei": "0x1",
+      "price_in_fri": "0x1"
+    },
+    "transactions": [
+      {
+        "transaction_hash": "0x30a541df2547ed9f94602c35daf61ce3a8e179ec75d26cbe34e0ec61f823695",
+        "version": "0x0",
+        "max_fee": "0x0",
+        "signature": [],
+        "nonce": "0x0",
+        "class_hash": "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1",
+        "sender_address": "0x1",
+        "type": "DECLARE"
+      }
+    ],
+    "timestamp": 1700474724,
+    "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+    "transaction_receipts": [
+      {
+        "execution_status": "SUCCEEDED",
+        "transaction_index": 0,
+        "transaction_hash": "0x30a541df2547ed9f94602c35daf61ce3a8e179ec75d26cbe34e0ec61f823695",
+        "l2_to_l1_messages": [],
+        "events": [],
+        "execution_resources": {
+          "n_steps": 2711,
+          "builtin_instance_counter": {
+            "pedersen_builtin": 15,
+            "range_check_builtin": 63
+          },
+          "n_memory_holes": 0
+        },
+        "actual_fee": "0x0"
+      }
+    ],
+    "starknet_version": "0.12.3"
+  },
+  "state_update": {
+    "block_hash": "0x78b67b11f8c23850041e11fb0f3b39db0bcb2c99d756d5a81321d1b483d79f6",
+    "new_root": "0xe005205a1327f3dff98074e528f7b96f30e0624a1dfcf571bdc81948d150a0",
+    "old_root": "0xe005205a1327f3dff98074e528f7b96f30e0624a1dfcf571bdc81948d150a0",
+    "state_diff": {
+      "storage_diffs": {},
+      "nonces": {},
+      "deployed_contracts": [],
+      "old_declared_contracts": [
+        "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"
+      ],
+      "declared_classes": [],
+      "replaced_classes": []
+    }
+  }
+}

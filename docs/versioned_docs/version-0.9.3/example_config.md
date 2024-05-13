@@ -41,7 +41,7 @@ ws-port: 6061
 # Location of the database files
 db-path: /home/<user>/.local/share/juno
 
-# Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration
+# Options: mainnet, sepolia, sepolia-integration
 network: mainnet
 
 # Custom network configuration
