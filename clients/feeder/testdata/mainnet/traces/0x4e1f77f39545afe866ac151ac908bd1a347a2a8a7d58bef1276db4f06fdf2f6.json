@@ -1,0 +1,188 @@
+{
+  "traces": [
+    {
+      "function_invocation": {
+        "caller_address": "0x0",
+        "contract_address": "0x5790719f16afe1450b67a92461db7d0e36298d6a5f8bab4f7fd282050e02f4f",
+        "calldata": [
+          "0x772c29fae85f8321bb38c9c3f6edb0957379abedc75c17f32bcef4e9657911a",
+          "0x6d4ca0f72b553f5338a95625782a939a49b98f82f449c20f49b42ec60ed891c"
+        ],
+        "result": [],
+        "execution_resources": {
+          "n_steps": 29,
+          "builtin_instance_counter": {
+            "pedersen_builtin": 0,
+            "range_check_builtin": 0,
+            "bitwise_builtin": 0,
+            "output_builtin": 0,
+            "ecdsa_builtin": 0,
+            "ec_op_builtin": 0
+          },
+          "n_memory_holes": 0
+        },
+        "internal_calls": [],
+        "events": [],
+        "messages": []
+      },
+      "signature": [],
+      "transaction_hash": "0x723b57825c177d66fdc1ee1b7d22bd937503cd66808edf87294e88ee26601b6"
+    },
+    {
+      "function_invocation": {
+        "caller_address": "0x0",
+        "contract_address": "0x57b973bf2eb26ebb28af5d6184b4a044b24a8dcbf724feb95782c4d1aef1ca9",
+        "calldata": [
+          "0x4f2c206f3f2f1380beeb9fe4302900701e1cb48b9b33cbe1a84a175d7ce8b50",
+          "0x2a614ae71faa2bcdacc5fd66965429c57c4520e38ebc6344f7cf2e78b21bd2f"
+        ],
+        "result": [],
+        "execution_resources": {
+          "n_steps": 29,
+          "builtin_instance_counter": {
+            "pedersen_builtin": 0,
+            "range_check_builtin": 0,
+            "bitwise_builtin": 0,
+            "output_builtin": 0,
+            "ecdsa_builtin": 0,
+            "ec_op_builtin": 0
+          },
+          "n_memory_holes": 0
+        },
+        "internal_calls": [],
+        "events": [],
+        "messages": []
+      },
+      "signature": [],
+      "transaction_hash": "0x4e10133a1ce9255236282b0c060e0054f3fe9c24387e047d6a2dd65febc7ab3"
+    },
+    {
+      "function_invocation": {
+        "caller_address": "0x0",
+        "contract_address": "0x2d6c9569dea5f18628f1ef7c15978ee3093d2d3eec3b893aac08004e678ead3",
+        "calldata": [
+          "0x7f93985c1baa5bd9b2200dd2151821bd90abb87186d0be295d7d4b9bc8ca41f",
+          "0x127cd00a078199381403a33d315061123ce246c8e5f19aa7f66391a9d3bf7c6"
+        ],
+        "result": [],
+        "execution_resources": {
+          "n_steps": 29,
+          "builtin_instance_counter": {
+            "pedersen_builtin": 0,
+            "range_check_builtin": 0,
+            "bitwise_builtin": 0,
+            "output_builtin": 0,
+            "ecdsa_builtin": 0,
+            "ec_op_builtin": 0
+          },
+          "n_memory_holes": 0
+        },
+        "internal_calls": [],
+        "events": [],
+        "messages": []
+      },
+      "signature": [],
+      "transaction_hash": "0x5a8629d7852d3c8f4fda51d83b48cc8b2184763c46383419c1beeadaea1e66e"
+    },
+    {
+      "function_invocation": {
+        "caller_address": "0x0",
+        "contract_address": "0x2d6c9569dea5f18628f1ef7c15978ee3093d2d3eec3b893aac08004e678ead3",
+        "calldata": [
+          "0xdaee7b1ac98d5d3fa7cf5dcfa0dd5f47dc8728fc"
+        ],
+        "result": [],
+        "execution_resources": {
+          "n_steps": 31,
+          "builtin_instance_counter": {
+            "pedersen_builtin": 0,
+            "range_check_builtin": 0,
+            "bitwise_builtin": 0,
+            "output_builtin": 0,
+            "ecdsa_builtin": 0,
+            "ec_op_builtin": 0
+          },
+          "n_memory_holes": 0
+        },
+        "internal_calls": [],
+        "events": [],
+        "messages": [
+          {
+            "order": 0,
+            "to_address": "0xdAee7b1Ac98d5d3fA7Cf5dcFa0DD5f47Dc8728Fc",
+            "payload": [
+              "0xc",
+              "0x22"
+            ]
+          }
+        ]
+      },
+      "signature": [],
+      "transaction_hash": "0x2e530fe2f39ba92380de33cfca060f68c2f50b8af954dae7370c97bf97e1e55"
+    },
+    {
+      "function_invocation": {
+        "caller_address": "0x0",
+        "contract_address": "0x1fb4457f3fe8a976bdb9c04dd21549beeeb87d3867b10effe0c4bd4064a8e4",
+        "calldata": [
+          "0x56c060e7902b3d4ec5a327f1c6e083497e586937db00af37fe803025955678f",
+          "0x75495b43f53bd4b9c9179db113626af7b335be5744d68c6552e3d36a16a747c"
+        ],
+        "result": [],
+        "execution_resources": {
+          "n_steps": 29,
+          "builtin_instance_counter": {
+            "pedersen_builtin": 0,
+            "range_check_builtin": 0,
+            "bitwise_builtin": 0,
+            "output_builtin": 0,
+            "ecdsa_builtin": 0,
+            "ec_op_builtin": 0
+          },
+          "n_memory_holes": 0
+        },
+        "internal_calls": [],
+        "events": [],
+        "messages": []
+      },
+      "signature": [],
+      "transaction_hash": "0x7f3166343d5aa5511582fcc8ad0a16bfb0124e3874085529ce010e2173fb699"
+    },
+    {
+      "function_invocation": {
+        "caller_address": "0x0",
+        "contract_address": "0x5790719f16afe1450b67a92461db7d0e36298d6a5f8bab4f7fd282050e02f4f",
+        "calldata": [
+          "0xd2b87a5bcea9d58af40dfdddfcc2edf66b3c9c8f"
+        ],
+        "result": [],
+        "execution_resources": {
+          "n_steps": 31,
+          "builtin_instance_counter": {
+            "pedersen_builtin": 0,
+            "range_check_builtin": 0,
+            "bitwise_builtin": 0,
+            "output_builtin": 0,
+            "ecdsa_builtin": 0,
+            "ec_op_builtin": 0
+          },
+          "n_memory_holes": 0
+        },
+        "internal_calls": [],
+        "events": [],
+        "messages": [
+          {
+            "order": 0,
+            "to_address": "0xd2B87a5bcea9d58Af40DfDddfcc2edf66B3C9c8f",
+            "payload": [
+              "0xc",
+              "0x22"
+            ]
+          }
+        ]
+      },
+      "signature": [],
+      "transaction_hash": "0x2c68262e46df9ab5144743869d828b88753805ea1d8e6f3145351b7f04b53e6"
+    }
+  ]
+}

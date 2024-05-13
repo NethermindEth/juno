@@ -370,13 +370,13 @@ func TestClass(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0Hash := utils.HexToFelt(t, "0x21c2e8a87c431e8d3e89ecd1a40a0674ef533cce5a1f6c44ba9e60d804ecad2")
 	cairo0Class, err := gw.Class(context.Background(), cairo0Hash)
 	require.NoError(t, err)
-	cairo1Hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1Hash := utils.HexToFelt(t, "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
 	cairo1Class, err := gw.Class(context.Background(), cairo0Hash)
 	require.NoError(t, err)
 

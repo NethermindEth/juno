@@ -33,9 +33,6 @@ func TestNetwork(t *testing.T) {
 			gatewayURL string
 		}{
 			{utils.Mainnet, "https://alpha-mainnet.starknet.io/feeder_gateway/", "https://alpha-mainnet.starknet.io/gateway/"},
-			{utils.Goerli, "https://alpha4.starknet.io/feeder_gateway/", "https://alpha4.starknet.io/gateway/"},
-			{utils.Goerli2, "https://alpha4-2.starknet.io/feeder_gateway/", "https://alpha4-2.starknet.io/gateway/"},
-			{utils.Integration, "https://external.integration.starknet.io/feeder_gateway/", "https://external.integration.starknet.io/gateway/"},
 			{utils.Sepolia, "https://alpha-sepolia.starknet.io/feeder_gateway/", "https://alpha-sepolia.starknet.io/gateway/"},
 			{utils.SepoliaIntegration, "https://integration-sepolia.starknet.io/feeder_gateway/", "https://integration-sepolia.starknet.io/gateway/"},
 		}
@@ -51,12 +48,8 @@ func TestNetwork(t *testing.T) {
 	t.Run("chainId", func(t *testing.T) {
 		for n := range networkStrings {
 			switch n {
-			case utils.Goerli, utils.Integration:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI")), n.L2ChainIDFelt())
 			case utils.Mainnet:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_MAIN")), n.L2ChainIDFelt())
-			case utils.Goerli2:
-				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_GOERLI2")), n.L2ChainIDFelt())
 			case utils.Sepolia:
 				assert.Equal(t, new(felt.Felt).SetBytes([]byte("SN_SEPOLIA")), n.L2ChainIDFelt())
 			case utils.SepoliaIntegration:
@@ -72,8 +65,6 @@ func TestNetwork(t *testing.T) {
 			switch n {
 			case utils.Mainnet:
 				assert.Equal(t, big.NewInt(1), got)
-			case utils.Goerli, utils.Goerli2, utils.Integration:
-				assert.Equal(t, big.NewInt(5), got)
 			case utils.Sepolia, utils.SepoliaIntegration:
 				assert.Equal(t, big.NewInt(11155111), got)
 			default:
@@ -144,9 +135,6 @@ func TestNetworkType(t *testing.T) {
 func TestCoreContractAddress(t *testing.T) {
 	addresses := map[utils.Network]common.Address{
 		utils.Mainnet:            common.HexToAddress("0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4"),
-		utils.Goerli:             common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		utils.Goerli2:            common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		utils.Integration:        common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
 		utils.Sepolia:            common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
 		utils.SepoliaIntegration: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 	}

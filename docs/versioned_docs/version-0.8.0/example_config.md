@@ -49,7 +49,7 @@ grpc-port: 6064
 # Options: debug, info, warn, error
 log-level: info
 
-# Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration
+# Options: mainnet, sepolia, sepolia-integration
 network: mainnet
 
 # How often to fetch the pending block when synced to the head of the chain.

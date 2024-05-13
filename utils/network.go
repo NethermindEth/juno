@@ -54,47 +54,6 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddressMainnet,
 		},
 	}
-	Goerli = Network{
-		Name:       "goerli",
-		FeederURL:  "https://alpha4.starknet.io/feeder_gateway/",
-		GatewayURL: "https://alpha4.starknet.io/gateway/",
-		L2ChainID:  "SN_GOERLI",
-		//nolint:mnd
-		L1ChainID:           big.NewInt(5),
-		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
-		BlockHashMetaInfo: &BlockHashMetaInfo{
-			First07Block:             47028,
-			UnverifiableRange:        []uint64{119802, 148428},
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		},
-	}
-	Goerli2 = Network{
-		Name:       "goerli2",
-		FeederURL:  "https://alpha4-2.starknet.io/feeder_gateway/",
-		GatewayURL: "https://alpha4-2.starknet.io/gateway/",
-		L2ChainID:  "SN_GOERLI2",
-		//nolint:mnd
-		L1ChainID:           big.NewInt(5),
-		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
-		BlockHashMetaInfo: &BlockHashMetaInfo{
-			First07Block:             0,
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		},
-	}
-	Integration = Network{
-		Name:       "integration",
-		FeederURL:  "https://external.integration.starknet.io/feeder_gateway/",
-		GatewayURL: "https://external.integration.starknet.io/gateway/",
-		L2ChainID:  "SN_GOERLI",
-		//nolint:mnd
-		L1ChainID:           big.NewInt(5),
-		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
-		BlockHashMetaInfo: &BlockHashMetaInfo{
-			First07Block:             110511,
-			UnverifiableRange:        []uint64{0, 110511},
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		},
-	}
 	Sepolia = Network{
 		Name:       "sepolia",
 		FeederURL:  "https://alpha-sepolia.starknet.io/feeder_gateway/",

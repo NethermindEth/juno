@@ -83,14 +83,13 @@ func TestV1Call(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Cleanup(func() {
 		require.NoError(t, txn.Discard())
 	})
 
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	// https://goerli.voyager.online/class/0x01338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292
 	classHash := utils.HexToFelt(t, "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
@@ -122,7 +121,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, true)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Sepolia, 1_000_000, true)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -144,7 +143,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, true)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Sepolia, 1_000_000, true)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
 }
@@ -191,7 +190,7 @@ func TestCall_MaxSteps(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	network := utils.Goerli2
+	network := utils.Sepolia
 
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(false)

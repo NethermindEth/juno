@@ -1,0 +1,83 @@
+{
+  "block_hash": "0x2e59a5adbdf53e00fd282a007b59771067870c1c7664ca7878327adfff398b4",
+  "new_root": "0x4604bb7f9ebbf8bf909ba5982b11adf2ed3638f1d736036ddb4154889e139a0",
+  "old_root": "0x2729a9ded030fa182a4802b9accf662d071d23fdfb2011504d1777927c9abaf",
+  "state_diff": {
+    "storage_diffs": {
+      "0x68922eb87daed71fc3099031e178b6534fc39a570022342e8c166024da893f5": [
+        {
+          "key": "0x3b28019ccfdbd30ffc65951d94bb85c9e2b8434111a000b5afd533ce65f57a4",
+          "value": "0x1ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca"
+        }
+      ],
+      "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": [
+        {
+          "key": "0x110e2f729c9c2b988559994a3daccd838cf52faf88e18101373e67dd061455a",
+          "value": "0xe043da617250000"
+        },
+        {
+          "key": "0x3d539ea1ce2715fb83fdcf90500b73ad2631bb17bbb56386bfa43a36c0d94da",
+          "value": "0x1eda606a8f3964"
+        },
+        {
+          "key": "0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a",
+          "value": "0x14e4124892515"
+        },
+        {
+          "key": "0x7e4feecce63daa81e391376af74856dad0fe0b663a1fb6aff9e945c7aba842d",
+          "value": "0x35e50e0a8a187"
+        }
+      ]
+    },
+    "nonces": {
+      "0x68922eb87daed71fc3099031e178b6534fc39a570022342e8c166024da893f5": "0xe",
+      "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d": "0x2"
+    },
+    "deployed_contracts": [
+      {
+        "address": "0x163dd8182a69972b9fc7e95eb0be92b731680212beddfede2eff4ffcfa28bfb",
+        "class_hash": "0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909"
+      },
+      {
+        "address": "0x41a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf",
+        "class_hash": "0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69"
+      },
+      {
+        "address": "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
+        "class_hash": "0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08"
+      },
+      {
+        "address": "0x5754af3760f3356da99aea5c3ec39ccac7783d925a19666ebbeca58ff0087f4",
+        "class_hash": "0x381f14e5e0db5889c981bf050fb034c0fbe0c4f070ee79346a05dbe2bf2af90"
+      },
+      {
+        "address": "0x68922eb87daed71fc3099031e178b6534fc39a570022342e8c166024da893f5",
+        "class_hash": "0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6"
+      }
+    ],
+    "old_declared_contracts": [
+      "0x3ae692aaf1ded26a0b58cf42490f757563850acea887ed57b4894fee8279063",
+      "0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69",
+      "0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+      "0x5aa23d5bb71ddaa783da7ea79d405315bafa7cf0387a74f4593578c3e9e6570",
+      "0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
+      "0x3131fa018d520a037686ce3efddeab8f28895662f019ca3ca18a626650f7d1e",
+      "0x381f14e5e0db5889c981bf050fb034c0fbe0c4f070ee79346a05dbe2bf2af90"
+    ],
+    "declared_classes": [
+      {
+        "class_hash": "0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844",
+        "compiled_class_hash": "0x7e2bc0b8214da5e9506f383ce72dd8e92cf7f09e8cb668522f43e77023c9f52"
+      },
+      {
+        "class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+        "compiled_class_hash": "0x29787a427a423ffc5986d43e630077a176e4391fcef3ebf36014b154069ae4"
+      },
+      {
+        "class_hash": "0x298049830f817974463b6d4186b062b04cc1af2557f98f55e21334739252600",
+        "compiled_class_hash": "0x63a8548e679463cb43c229d688641269ad847d98ead75ed0f93bbb1a9505313"
+      }
+    ],
+    "replaced_classes": []
+  }
+}

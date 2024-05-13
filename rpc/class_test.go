@@ -19,9 +19,9 @@ import (
 )
 
 func TestClass(t *testing.T) {
-	n := utils.Ptr(utils.Integration)
-	integrationClient := feeder.NewTestClient(t, n)
-	integGw := adaptfeeder.New(integrationClient)
+	n := utils.Ptr(utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -30,7 +30,7 @@ func TestClass(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
-		class, err := integGw.Class(context.Background(), classHash)
+		class, err := gw.Class(context.Background(), classHash)
 		return &core.DeclaredClass{Class: class, At: 0}, err
 	}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
@@ -42,9 +42,9 @@ func TestClass(t *testing.T) {
 	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+		hash := utils.HexToFelt(t, "0x21c2e8a87c431e8d3e89ecd1a40a0674ef533cce5a1f6c44ba9e60d804ecad2")
 
-		coreClass, err := integGw.Class(context.Background(), hash)
+		coreClass, err := gw.Class(context.Background(), hash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.Class(latest, *hash)
@@ -54,9 +54,9 @@ func TestClass(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+		hash := utils.HexToFelt(t, "0x1efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 
-		coreClass, err := integGw.Class(context.Background(), hash)
+		coreClass, err := gw.Class(context.Background(), hash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.Class(latest, *hash)
@@ -94,7 +94,7 @@ func TestClass(t *testing.T) {
 }
 
 func TestClassAt(t *testing.T) {
-	n := utils.Ptr(utils.Integration)
+	n := utils.Ptr(utils.Mainnet)
 	integrationClient := feeder.NewTestClient(t, n)
 	integGw := adaptfeeder.New(integrationClient)
 
@@ -105,11 +105,11 @@ func TestClassAt(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	cairo0ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0ClassHash := utils.HexToFelt(t, "0x1efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(cairo0ClassHash, nil)
 
 	cairo1ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1ClassHash := utils.HexToFelt(t, "0x21c2e8a87c431e8d3e89ecd1a40a0674ef533cce5a1f6c44ba9e60d804ecad2")
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(cairo1ClassHash, nil)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
