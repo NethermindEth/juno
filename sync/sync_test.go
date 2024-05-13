@@ -251,10 +251,10 @@ func BenchmarkSync(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		err := synchronizer.Run(ctx)
-		defer cancel()
 		if err != nil {
-			b.Error("failed to synchronize: ", err)
+			b.Error("failed to synchronise: ", err)
 		}
+		cancel()
 	}
 }
 
@@ -286,7 +286,6 @@ func BenchmarkRPC(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, err := handler.BlockTransactionCount(rpc.BlockID{Latest: true})
-
 		if err != nil {
 			b.Error("RPC call failed: ", err)
 		}
