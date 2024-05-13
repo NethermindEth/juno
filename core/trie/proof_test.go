@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -304,7 +305,7 @@ func TestVerifyProofs(t *testing.T) {
 		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
 		key1 := trie.NewKey(251, key1Bytes[:])
 		val1 := new(felt.Felt).SetUint64(2)
-		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes))
+		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
 
 	// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2167
@@ -337,6 +338,6 @@ func TestVerifyProofs(t *testing.T) {
 		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
 		key1 := trie.NewKey(251, key1Bytes[:])
 		val1 := new(felt.Felt).SetUint64(2)
-		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes))
+		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
 }

@@ -3,7 +3,6 @@ package trie
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -148,8 +147,8 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode) bool {
-	if key.Len() != 251 {
+func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
+	if key.Len() != 251 { //nolint:gomnd
 		return false
 	}
 
@@ -157,7 +156,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 	remainingPath := key
 
 	for _, proofNode := range proofs {
-		if !proofNode.Hash(crypto.Pedersen).Equal(expectedHash) {
+		if !proofNode.Hash(hash).Equal(expectedHash) {
 			return false
 		}
 		switch {
