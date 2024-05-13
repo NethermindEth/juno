@@ -14,16 +14,16 @@ type ProofNode struct {
 }
 
 // Note: does not work for leaves
-func (pn *ProofNode) Hash() *felt.Felt {
+func (pn *ProofNode) Hash(hash hashFunc) *felt.Felt {
 	switch {
 	case pn.Binary != nil:
-		return crypto.Pedersen(pn.Binary.LeftHash, pn.Binary.RightHash)
+		return hash(pn.Binary.LeftHash, pn.Binary.RightHash)
 	case pn.Edge != nil:
 		length := make([]byte, len(pn.Edge.Path.bitset))
 		length[len(pn.Edge.Path.bitset)-1] = pn.Edge.Path.len
 		pathFelt := pn.Edge.Path.Felt()
 		lengthFelt := new(felt.Felt).SetBytes(length)
-		return new(felt.Felt).Add(crypto.Pedersen(pn.Edge.Child, &pathFelt), lengthFelt)
+		return new(felt.Felt).Add(hash(pn.Edge.Child, &pathFelt), lengthFelt)
 	default:
 		return nil
 	}
@@ -94,7 +94,7 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 			Path:  &edgePath,
 			Child: rNode.Value,
 		}}
-		rightHash = rEdge.Hash()
+		rightHash = rEdge.Hash(tri.hash)
 	}
 	leftHash := lNode.Value
 	if isEdge(sNode.key, storageNode{node: lNode, key: sNode.node.Left}) {
@@ -103,7 +103,7 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 			Path:  &edgePath,
 			Child: lNode.Value,
 		}}
-		leftHash = lEdge.Hash()
+		leftHash = lEdge.Hash(tri.hash)
 	}
 	binary := &Binary{
 		LeftHash:  leftHash,
@@ -149,7 +149,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode) bool {
-	if key.Len() != key.len {
+	if key.Len() != 251 {
 		return false
 	}
 
@@ -157,7 +157,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 	remainingPath := key
 
 	for _, proofNode := range proofs {
-		if !proofNode.Hash().Equal(expectedHash) {
+		if !proofNode.Hash(crypto.Pedersen).Equal(expectedHash) {
 			return false
 		}
 		switch {
