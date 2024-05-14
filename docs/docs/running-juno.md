@@ -61,3 +61,11 @@ You can view logs from the Docker container using the following command:
 ```bash
 docker logs -f juno
 ```
+
+## Standalone binaries
+
+Standalone binaries are available on [GitHub Releases](https://github.com/NethermindEth/juno/tags) as ZIP archives for Linux (amd64 and arm64) and macOS (amd64).
+
+:::info
+If you wish to run Juno on macOS (arm64) or Windows, consider using a [Docker container](#docker-container) or [building from source](#building-from-source).
+:::
