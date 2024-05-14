@@ -941,8 +941,8 @@ func TestGenesis(t *testing.T) {
 
 func TestCannotRevertGenesisState(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	network := utils.Mainnet
-	chain := blockchain.New(testDB, network, utils.NewNopZapLogger())
+	network := &utils.Mainnet
+	chain := blockchain.New(testDB, network)
 
 	// Initialise genesis state.
 	genesisDiff := core.StateDiff{

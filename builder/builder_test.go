@@ -139,16 +139,18 @@ func TestReceipt(t *testing.T) {
 				},
 			},
 			ExecutionResources: &vm.ExecutionResources{
-				Pedersen:     4,
-				RangeCheck:   4,
-				Bitwise:      4,
-				Ecdsa:        4,
-				EcOp:         4,
-				Keccak:       3,
-				Poseidon:     2,
-				SegmentArena: 1,
-				MemoryHoles:  10,
-				Steps:        400,
+				ComputationResources: vm.ComputationResources{
+					Pedersen:     4,
+					RangeCheck:   4,
+					Bitwise:      4,
+					Ecdsa:        4,
+					EcOp:         4,
+					Keccak:       3,
+					Poseidon:     2,
+					SegmentArena: 1,
+					MemoryHoles:  10,
+					Steps:        400,
+				},
 			},
 			Messages: []vm.OrderedL2toL1Message{
 				{
@@ -162,12 +164,14 @@ func TestReceipt(t *testing.T) {
 			ContractAddress: *utils.HexToFelt(t, "0xDEADBEEF2"),
 			Events:          []vm.OrderedEvent{},
 			ExecutionResources: &vm.ExecutionResources{
-				Pedersen:    2,
-				RangeCheck:  2,
-				Bitwise:     2,
-				Ecdsa:       1,
-				MemoryHoles: 5,
-				Steps:       200,
+				ComputationResources: vm.ComputationResources{
+					Pedersen:    2,
+					RangeCheck:  2,
+					Bitwise:     2,
+					Ecdsa:       1,
+					MemoryHoles: 5,
+					Steps:       200,
+				},
 			},
 			Messages: []vm.OrderedL2toL1Message{
 				{
@@ -184,10 +188,12 @@ func TestReceipt(t *testing.T) {
 			ContractAddress: *utils.HexToFelt(t, "0xe1"),
 			Events:          []vm.OrderedEvent{},
 			ExecutionResources: &vm.ExecutionResources{
-				Pedersen:    1,
-				RangeCheck:  1,
-				MemoryHoles: 2,
-				Steps:       100,
+				ComputationResources: vm.ComputationResources{
+					Pedersen:    1,
+					RangeCheck:  1,
+					MemoryHoles: 2,
+					Steps:       100,
+				},
 			},
 			Messages: []vm.OrderedL2toL1Message{
 				{
