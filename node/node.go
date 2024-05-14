@@ -184,7 +184,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			services = append(services, p2pService)
 		}
 		if cfg.Metrics {
-			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
 			client.WithListener(makeFeederMetrics())
 			gatewayClient.WithListener(makeGatewayMetrics())
 			if synchronizer != nil {
@@ -206,7 +205,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 
 		rpcHandler := rpc.New(chain, syncReader, throttledVM, version, &cfg.Network, log).WithGateway(gatewayClient).WithFeeder(client)
-		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	}
 
 	services = append(services, rpcHandler)
