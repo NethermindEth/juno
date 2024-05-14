@@ -2,6 +2,8 @@
 title: Hardware Requirements
 ---
 
+# Hardware Requirements :computer:
+
 The following specifications outline the hardware required to run a Juno node. These specifications are categorised into minimal and recommended requirements for different usage scenarios.
 
 ## Minimal requirements

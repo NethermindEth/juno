@@ -2,6 +2,8 @@
 title: Configuring Juno
 ---
 
+# Configuring Juno :gear:
+
 Juno can be configured using several methods, with the following order of precedence:
 
 1. [Command line parameters (flags)](#command-line-params)

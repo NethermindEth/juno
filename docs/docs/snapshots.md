@@ -2,6 +2,8 @@
 title: Database Snapshots
 ---
 
+# Database Snapshots :camera_flash:
+
 You can download a snapshot of the Juno database to shorten the network syncing time. Only the blocks added after the snapshot will be synced when running the Juno node.
 
 ## Mainnet

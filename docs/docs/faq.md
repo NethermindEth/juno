@@ -2,6 +2,8 @@
 title: Frequently Asked Questions
 ---
 
+# Frequently Asked Questions :question:
+
 <details>
   <summary>Do node operators receive any rewards, or is participation solely to support the network?</summary>
 

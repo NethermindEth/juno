@@ -2,6 +2,8 @@
 title: Running Juno on GCP
 ---
 
+# Running Juno on GCP :cloud:
+
 To run Juno on the Google Cloud Platform (GCP), you can use the Starknet RPC Virtual Machine (VM) developed by Nethermind.
 
 ## 1. Install the Starknet RPC Node

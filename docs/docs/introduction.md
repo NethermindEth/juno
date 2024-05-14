@@ -3,6 +3,8 @@ slug: /
 title: Introduction
 ---
 
+# Welcome to Juno :wave:
+
 _Juno is your fast and featureful Starknet client implementation._
 
 Suitable for casual setups, production-grade indexers, and everything in between.
