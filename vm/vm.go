@@ -29,11 +29,12 @@ typedef struct BlockInfo {
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps);
+	unsigned long long max_steps, unsigned char mutable_state);
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
-					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert);
+					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
+					unsigned char mutable_state);
 
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
@@ -260,12 +261,16 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
+
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
 		C.ulonglong(maxSteps), //nolint:gocritic
+		C.uchar(mutableStateByte),
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -321,6 +326,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
 		paidFeesOnL1CStr,
@@ -330,6 +337,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte), //nolint:gocritic
+		C.uchar(mutableStateByte),
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))

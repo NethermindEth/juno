@@ -18,7 +18,7 @@ use blockifier::{
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     }, 
     fee::fee_utils::calculate_tx_fee, 
-    state::cached_state::{CachedState, GlobalContractCache}, 
+    state::cached_state::{CachedState, GlobalContractCache,MutRefState}, 
     abi::{
         constants::CONSTRUCTOR_ENTRY_POINT_NAME,
         abi_utils::selector_from_name
@@ -91,11 +91,11 @@ pub extern "C" fn cairoVMCall(
     reader_handle: usize,
     chain_id: *const c_char,
     max_steps: c_ulonglong,
+    mutable_state: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
-    let reader = JunoState::new(reader_handle, block_info.block_number);
     let contract_addr_felt = StarkFelt::new(call_info.contract_address).unwrap();
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -133,7 +133,15 @@ pub extern "C" fn cairoVMCall(
         initial_gas: get_versioned_constants(block_info.version).gas_cost("initial_gas_cost"),
     };
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(1));
+    let mut juno_state = JunoState::new(reader_handle, block_info.block_number);
+    let mut cached_juno_state: CachedState<JunoState>;
+    let mut state: MutRefState<'_, dyn State> = if mutable_state == 0 {
+        cached_juno_state = CachedState::new(juno_state, GlobalContractCache::new(1));
+        MutRefState::new(&mut cached_juno_state)
+    } else {
+        MutRefState::new(&mut juno_state)
+    };
+
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {

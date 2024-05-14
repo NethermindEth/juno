@@ -126,6 +126,9 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 // and by then issues with unverifiable block hash were resolved.
 // In future, this may no longer be required.
 func BlockHash(b *Block) (*felt.Felt, *BlockCommitments, error) {
+	if b.SequencerAddress == nil {
+		return nil, nil, errors.New("block.SequencerAddress is nil")
+	}
 	return post07Hash(b, nil)
 }
 
