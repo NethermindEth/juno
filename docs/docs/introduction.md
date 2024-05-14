@@ -16,6 +16,37 @@ Juno is a Starknet full-node client developed by Nethermind to allow node operat
 
 ## Getting started
 
+Explore the basics of setting up and managing your Juno node with the following resources:
+
+```mdx-code-block
+import DocCardList from '@theme/DocCardList';
+
+<DocCardList
+  items={[
+    {
+      type: "link",
+      href: "running-juno",
+      label: "How to run a Juno node",
+    },
+    {
+      type: "link",
+      href: "configuring",
+      label: "Juno configuration options",
+    },
+    {
+      type: "link",
+      href: "json-rpc",
+      label: "Interact with your Juno node",
+    },
+    {
+      type: "link",
+      href: "snapshots",
+      label: "Download a Juno snapshot",
+    },
+  ]}
+/>
+```
+
 :::tip
 You can access the Nethermind Starknet RPC service for free at https://data.voyager.online
 :::
@@ -32,7 +63,7 @@ Whether you are looking for support, engaging discussions, or staying informed a
 
 Join Juno's open-source efforts and contribute to our improvement. We value community contributions and are eager to support your involvement. Here are ways you can contribute:
 
-- [Operate a Juno node](running-juno.md) to strengthen the Starknet network.
+- [Operate a Juno node](running-juno) to strengthen the Starknet network.
 - Give the Juno project a [Star on GitHub](https://github.com/NethermindEth/juno/stargazers).
 - Share your thoughts about Juno on [X (Twitter)](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum).
 - [Report bugs](https://github.com/NethermindEth/juno/issues/new) and [propose new features](https://github.com/NethermindEth/juno/issues/new) to our development team.

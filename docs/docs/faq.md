@@ -14,7 +14,7 @@ Presently, running a node does not come with direct rewards; its primary purpose
 <details>
   <summary>I noticed a warning in my logs saying: 'Failed storing Block \{"err": "unsupported block version"\}'. How should I proceed?</summary>
 
-You can fix this problem by [updating to the latest version](updating.md) of Juno. Check for updates and install them to maintain compatibility with the latest block versions.
+You can fix this problem by [updating to the latest version](updating) of Juno. Check for updates and install them to maintain compatibility with the latest block versions.
 
 </details>
 

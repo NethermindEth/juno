@@ -62,6 +62,11 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      docs: {
+        sidebar: {
+          hideable: true,
+        },
+      },
       navbar: {
         title: "JUNO",
         logo: {
@@ -95,7 +100,7 @@ const config = {
                 to: "/configuring",
               },
               {
-                label: "JSON-RPC Interface",
+                label: "Interacting with Juno",
                 to: "/json-rpc",
               },
             ],
