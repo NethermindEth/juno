@@ -26,7 +26,7 @@ import DocCardList from '@theme/DocCardList';
     {
       type: "link",
       href: "running-juno",
-      label: "How to run a Juno node",
+      label: "Running a Juno node",
     },
     {
       type: "link",
@@ -36,7 +36,7 @@ import DocCardList from '@theme/DocCardList';
     {
       type: "link",
       href: "json-rpc",
-      label: "Interact with your Juno node",
+      label: "Interacting with Juno",
     },
     {
       type: "link",
@@ -66,7 +66,7 @@ Join Juno's open-source efforts and contribute to our improvement. We value comm
 - [Operate a Juno node](running-juno) to strengthen the Starknet network.
 - Give the Juno project a [Star on GitHub](https://github.com/NethermindEth/juno/stargazers).
 - Share your thoughts about Juno on [X (Twitter)](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum).
-- [Report bugs](https://github.com/NethermindEth/juno/issues/new) and [propose new features](https://github.com/NethermindEth/juno/issues/new) to our development team.
+- [Report bugs](https://github.com/NethermindEth/juno/issues/new) and [suggesting new features](https://github.com/NethermindEth/juno/issues/new) to our development team.
 - Encourage other node operators and developers to explore and use Juno.
 
 :::tip

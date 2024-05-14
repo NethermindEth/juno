@@ -5,9 +5,76 @@ title: Frequently Asked Questions
 # Frequently Asked Questions :question:
 
 <details>
+  <summary>How can I run Juno?</summary>
+
+Check out the [Running Juno](running-juno) guide to learn the simplest and fastest way to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) guide to learn how to run Juno on the Google Cloud Platform (GCP).
+
+</details>
+
+<details>
   <summary>Do node operators receive any rewards, or is participation solely to support the network?</summary>
 
 Presently, running a node does not come with direct rewards; its primary purpose is contributing to the network's functionality and stability. However, operating a node provides valuable educational benefits and deepens your knowledge of the network's operation.
+
+</details>
+
+<details>
+  <summary>What are the hardware requirements for running Juno?</summary>
+
+We recommend running Juno with at least 4GB of RAM and 250GB of SSD storage. Check out the [Hardware Requirements](hardware-requirements) for more information.
+
+</details>
+
+<details>
+  <summary>How can I configure my Juno node?</summary>
+
+You can configure Juno using [command line parameters](configuring#command-line-params), [environment variables](configuring#environment-variables), and [YAML configuration files](configuring#configuration-file). Check out the [Configuring Juno](configuring) guide to learn their usage and precedence.
+
+</details>
+
+<details>
+  <summary>How can I update Juno?</summary>
+
+Check out the [Updating Juno](updating) guide for instructions on updating your node to the latest version.
+
+</details>
+
+<details>
+  <summary>How can I view Juno's logs when running in Docker?</summary>
+
+To view Juno's logs in Docker, use the following command:
+
+```bash
+docker logs -f juno
+```
+
+</details>
+
+<details>
+  <summary>How can I interact with my Juno node?</summary>
+
+You can interact with a running Juno node using the [JSON-RPC](json-rpc), [gRPC](grpc), and [WebSocket](websocket) interfaces.
+
+</details>
+
+<details>
+  <summary>How can I monitor my Juno node?</summary>
+
+Juno exposes its metrics through [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
+
+</details>
+
+<details>
+  <summary>Does Juno provide snapshots to sync with Starknet quickly?</summary>
+
+Yes, Juno provides snapshots for both the Starknet Mainnet and Sepolia networks. Check out the [Database Snapshots](snapshots) guide to get started.
+
+</details>
+
+<details>
+  <summary>How can I contribute to Juno?</summary>
+
+You can contribute to Juno by running a node, starring on GitHub, reporting bugs, and suggesting new features. Check out the [Contributions and Partnerships](/#contributions-and-partnerships) page for more information.
 
 </details>
 
@@ -21,7 +88,7 @@ You can fix this problem by [updating to the latest version](updating) of Juno.Â
 <details>
   <summary>After updating Juno, I receive "error while migrating DB." How should I proceed?</summary>
 
-This error suggests your database is corrupted, likely due to the node being interrupted during migration. This can occur if there are insufficient system resources, such as RAM, to finish the process. The only solution is to resynchronize the node from the beginning. To avoid this issue in the future, ensure your system has adequate resources and that the node remains uninterrupted during upgrades.
+This error suggests your database is corrupted, likely due to the node being interrupted during migration. This can occur if there are insufficient system resources, such as RAM, to finish the process. The only solution is to resynchronise the node from the beginning. To avoid this issue in the future, ensure your system has adequate resources and that the node remains uninterrupted during upgrades.
 
 </details>
 
