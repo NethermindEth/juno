@@ -20,6 +20,7 @@
 | `grpc-port` | `6064` | The port on which the GRPC server will listen for requests |
 | `gw-api-key` |  | API key for gateway endpoints to avoid throttling |
 | `gw-timeout` | `5` | Timeout for requests made to the gateway |
+| `help` |  | help for Juno |
 | `http` | `false` | Enables the HTTP RPC server on the default port and interface |
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |

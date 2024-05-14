@@ -53,7 +53,7 @@ docker logs -f juno
 <details>
   <summary>How can I interact with my Juno node?</summary>
 
-You can interact with a running Juno node using the [JSON-RPC](json-rpc), [gRPC](grpc), and [WebSocket](websocket) interfaces.
+You can interact with a running Juno node using the [JSON-RPC](json-rpc) and [WebSocket](websocket) interfaces.
 
 </details>
 

@@ -11,7 +11,6 @@ Juno is a Starknet full-node client developed by Nethermind to allow node operat
 - :zap: **Ultra-fast synchronisation**: Limited only by your hardware and the sequencer.
 - :100: **Complete [JSON-RPC spec](https://github.com/starkware-libs/starknet-specs/tree/master) compliance**: Everything Starknet, accessible from a single point.
 - :racing_car: **Minimal RPC response latency**: Ensuring your applications run smoothly.
-- :mag_right: **Low-level gRPC database API**: Tailored for the most intensive workloads.
 - :globe_with_meridians: **Websocket interface**: For seamless real-time updates.
 
 ## Getting started

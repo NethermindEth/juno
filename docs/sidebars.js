@@ -20,7 +20,7 @@ const sidebars = {
       type: "category",
       label: "Interacting with Juno",
       collapsed: false,
-      items: ["json-rpc", "grpc", "websocket"],
+      items: ["json-rpc", "websocket"],
     },
     "monitoring",
     "snapshots",

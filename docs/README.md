@@ -20,14 +20,12 @@ This command starts a local development server and opens up a browser window. Mo
 
 ```bash
 npm run build # Runs 'node generate-juno-config.js' and then 'docusaurus build'
-# The 'generate-juno-config.js' script extracts Juno's configuration details and generates a table for the configure.md page
+# The 'generate-juno-config.js' script extracts Juno's configuration details and generates a table for the Configuring Juno guide
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+This command generates static content into the `build` directory and can be served using any static contents hosting service. Deployment is handled using GitHub pages.
 
-Deployment is handled using GitHub pages.
-
-### Troubleshooting
+## Troubleshooting
 
 Docusaurus depends heavily on caching to improve site performance. If you make changes that do not appear in the website, try clearing the cache by running:
 
@@ -35,7 +33,7 @@ Docusaurus depends heavily on caching to improve site performance. If you make c
 npm run clear
 ```
 
-### Versioning
+## Versioning
 
 To generate a new version of the documentation, run the following command:
 
