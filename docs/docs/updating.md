@@ -58,3 +58,17 @@ docker logs juno
 ## Standalone binaries
 
 Download the latest binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/tags) page and replace the existing one.
+
+## Updating from source
+
+```bash
+# Pull the latest updates to the codebase
+git pull
+
+# Rebuild the binary or Docker image
+make juno
+
+# OR
+
+docker build -t nethermind/juno:latest .
+```
