@@ -54,3 +54,7 @@ Verify that the node is running correctly with the updated version:
 ```bash
 docker logs juno
 ```
+
+## Standalone binaries
+
+Download the latest binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/tags) page and replace the existing one.
