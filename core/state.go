@@ -181,6 +181,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 }
 
 func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
+
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
@@ -193,23 +194,16 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 }
 
 // Update applies a StateUpdate to the State object. State is not
-// updated if an error is encountered during the operation. If update's
-// old or new root does not match the state's old or new roots,
-// [ErrMismatchedRoot] is returned.
-func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
-	err := s.verifyStateUpdateRoot(update.OldRoot)
-	if err != nil {
-		return err
-	}
-
+// updated if an error is encountered during the operation.
+func (s *State) Update(blockNumber uint64, diff *StateDiff, declaredClasses map[felt.Felt]Class) error {
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {
-		if err = s.putClass(&cHash, class, blockNumber); err != nil {
+		if err := s.putClass(&cHash, class, blockNumber); err != nil {
 			return err
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
+	if err := s.updateDeclaredClassesTrie(diff.DeclaredV1Classes, declaredClasses); err != nil {
 		return err
 	}
 
@@ -219,21 +213,17 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	}
 
 	// register deployed contracts
-	for addr, classHash := range update.StateDiff.DeployedContracts {
+	for addr, classHash := range diff.DeployedContracts {
 		if err = s.putNewContract(stateTrie, &addr, classHash, blockNumber); err != nil {
 			return err
 		}
 	}
 
-	if err = s.updateContracts(stateTrie, blockNumber, update.StateDiff, true); err != nil {
+	if err = s.updateContracts(stateTrie, blockNumber, diff, true); err != nil {
 		return err
 	}
 
-	if err = storageCloser(); err != nil {
-		return err
-	}
-
-	return s.verifyStateUpdateRoot(update.NewRoot)
+	return storageCloser()
 }
 
 var (

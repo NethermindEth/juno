@@ -340,7 +340,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+		if err := core.NewState(txn).Update(block.Number, stateUpdate.StateDiff, newClasses); err != nil {
 			return err
 		}
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
@@ -1091,7 +1091,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
 			pending.Block.Number = h + 1
 		}
 
-		if err = state.Update(pending.Block.Number, pending.StateUpdate, pending.NewClasses); err != nil {
+		if err = state.Update(pending.Block.Number, pending.StateUpdate.StateDiff, pending.NewClasses); err != nil {
 			return err
 		}
 
