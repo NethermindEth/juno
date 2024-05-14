@@ -4,59 +4,53 @@ title: Updating Juno
 
 # Updating Juno :arrows_counterclockwise:
 
-Updating your Juno node is crucial to access new features, improvements, and security patches. Follow these steps to update your node to the latest version using Docker.
+It is important to run the latest version of Juno as each update brings new features, security patches, and improvements over previous versions. Follow these steps to update Juno:
 
-### Steps to Update
+- [Docker container](#docker-container)
+- [Standalone binaries](#standalone-binaries)
+- [Updating from source](#updating-from-source)
 
-1. **Pull the Latest Juno Docker Image**
+## Docker container
 
-First, pull the latest Juno Docker image from Nethermind's Docker repository. As an example, to update to `v0.11.0-rc1`, use the following command:
+### 1. Get the latest Docker image
 
+Download the latest Juno Docker image from the [nethermind/juno](https://hub.docker.com/r/nethermind/juno) repository:
+
+```bash
+docker pull nethermind/juno:latest
 ```
-docker pull nethermind/juno:v0.11.0-rc1
-```
 
-2. **Stop the Current Juno Container**
+### 2. Stop and remove the current Juno container
 
-Stop your currently running Juno container. If you're unsure of your container's name, you can use `docker ps` to list active containers.
+Stop the currently running Juno container. If you're unsure of the container name, use `docker ps` to view all running containers:
 
-```
+```bash
 docker stop juno
 ```
 
-3. **Remove the Old Container**
+Remove the old container to prevent any conflicts with the new version:
 
-Once the container is stopped, remove it to prevent any conflicts with the new version.
-
-```
+```bash
 docker rm juno
 ```
 
-4. **Start a New Container with the Updated Image**
+### 3. Start a new container with the updated image
 
-Run a new container using the updated Docker image. Here's an example command, adjust it according to your setup (ports, volumes, version etc.):
+Run a new container using the updated Docker image:
 
-```
+```bash
 docker run -d \
   --name juno \
   -p 6060:6060 \
-  -v $HOME/juno:/var/lib/juno \
-  nethermind/juno:v0.11.0-rc1 \
+  nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
-  --db-path /var/lib/juno \
-  --eth-node <YOUR-ETH-NODE>
+  --eth-node <YOUR ETH NODE>
 ```
 
-5. **Verify the Update**
+Verify that the node is running correctly with the updated version:
 
-After starting the new container, verify that the node is running correctly with the updated version.
-
-```
+```bash
 docker logs juno
 ```
-
-### Conclusion
-
-You have successfully updated your Juno node to the latest version. It is now ready to be used. For more information on managing your node, visit [Nethermind's official GitHub repository](https://github.com/NethermindEth/juno).

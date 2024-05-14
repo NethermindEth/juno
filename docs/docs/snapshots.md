@@ -20,7 +20,7 @@ You can download a snapshot of the Juno database to shorten the network syncing 
 
 ## Run Juno with a snapshot
 
-#### 1. Download the snapshot
+### 1. Download the snapshot
 
 First, download a snapshot from one of the provided URLs:
 
@@ -28,7 +28,7 @@ First, download a snapshot from one of the provided URLs:
 curl -o juno_mainnet_519634.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar
 ```
 
-#### 2. Prepare a directory
+### 2. Prepare a directory
 
 Ensure you have a directory to store the snapshots. We will use the `$HOME/snapshots` directory:
 
@@ -36,7 +36,7 @@ Ensure you have a directory to store the snapshots. We will use the `$HOME/snaps
 mkdir -p $HOME/snapshots
 ```
 
-#### 3. Extract the snapshot
+### 3. Extract the snapshot
 
 Extract the contents of the downloaded `.tar` file into the directory:
 
@@ -44,7 +44,7 @@ Extract the contents of the downloaded `.tar` file into the directory:
 tar -xvf juno_mainnet_519634.tar -C $HOME/snapshots
 ```
 
-#### 4. Run Juno
+### 4. Run Juno
 
 Run the Docker command to start Juno, ensuring to specify the correct path to the snapshot:
 
