@@ -93,15 +93,15 @@ const config = {
             items: [
               {
                 label: "Running Juno",
-                to: "/running-juno",
+                to: "running-juno",
               },
               {
                 label: "Configuring Juno",
-                to: "/configuring",
+                to: "configuring",
               },
               {
                 label: "Interacting with Juno",
-                to: "/json-rpc",
+                to: "json-rpc",
               },
             ],
           },

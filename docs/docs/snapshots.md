@@ -62,7 +62,7 @@ docker run -d \
 ```
 
 :::info
-Replace \<YOUR ETH NODE\> with the WebSocket endpoint of your Ethereum node.
+Replace \<YOUR ETH NODE\> with the WebSocket endpoint of your Ethereum node. For Infura users, your address should resemble: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
 :::
 
 After completing these steps, Juno should be up and running on your system using the snapshot.

@@ -40,9 +40,9 @@ Check out the [Updating Juno](updating) guide for instructions on updating your 
 </details>
 
 <details>
-  <summary>How can I view Juno's logs when running in Docker?</summary>
+  <summary>How can I view Juno logs from Docker?</summary>
 
-To view Juno's logs in Docker, use the following command:
+You can view logs from the Docker container using the following command:
 
 ```bash
 docker logs -f juno
