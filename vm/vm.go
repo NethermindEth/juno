@@ -269,8 +269,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.ulonglong(maxSteps), //nolint:gocritic
-		C.uchar(mutableStateByte),
+		C.ulonglong(maxSteps),     //nolint:gocritic
+		C.uchar(mutableStateByte), //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -336,8 +336,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		chainID,
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
-		C.uchar(errOnRevertByte), //nolint:gocritic
-		C.uchar(mutableStateByte),
+		C.uchar(errOnRevertByte),  //nolint:gocritic
+		C.uchar(mutableStateByte), //nolint:gocritic
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))

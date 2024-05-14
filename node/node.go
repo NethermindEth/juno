@@ -10,8 +10,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -35,6 +33,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
@@ -164,7 +163,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, &cfg.Network, log).WithMempool(p)
 		services = append(services, sequencer)
 	} else {
-
 		client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 			WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 		synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
@@ -202,14 +200,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			services = append(services, synchronizer)
 		}
 
-		throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-
 		var syncReader sync.Reader = &sync.NoopSynchronizer{}
 		if synchronizer != nil {
 			syncReader = synchronizer
 		}
 
-		rpcHandler := rpc.New(chain, syncReader, throttledVM, version, &cfg.Network, log).WithGateway(gatewayClient).WithFeeder(client)
+		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, &cfg.Network, log).WithGateway(gatewayClient).WithFeeder(client)
 		rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	}
 
@@ -359,7 +355,7 @@ func (n *Node) Run(ctx context.Context) {
 		})
 	}
 
-	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
+	if err = migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
