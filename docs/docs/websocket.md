@@ -8,7 +8,7 @@ Juno also provides a WebSocket RPC interface to interact with that supports all 
 
 ## Enable the WebSocket server
 
-To enable the WebSocket interface, use the following configuration options:
+To enable the WebSocket RPC server, use the following configuration options:
 
 - `ws`: Enables the Websocket RPC server on the default port (disabled by default).
 - `ws-host`: The interface on which the Websocket RPC server will listen for requests. If skipped, it defaults to `localhost`.
@@ -28,6 +28,26 @@ docker run -d \
 ./build/juno --ws --ws-port=6061 --ws-host=localhost
 ```
 
+## Testing the WebSocket connection
+
+You can test your WebSocket connection using tools like [wscat](https://github.com/websockets/wscat) or [websocat](https://github.com/vi/websocat):
+
+```bash
+# wscat
+$wscat -c ws://localhost:6061
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
+
+# websocat
+$websocat -v ws://localhost:6061
+    [INFO  websocat::lints] Auto-inserting the line mode
+    [INFO  websocat::stdio_threaded_peer] get_stdio_peer (threaded)
+    [INFO  websocat::ws_client_peer] get_ws_client_peer
+    [INFO  websocat::ws_client_peer] Connected to ws
+    {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
+```
+
 ## Making WebSocket requests
 
 You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema[appBar][ui:splitView]=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/master/api/starknet_api_openrpc.json&uiSchema[appBar][ui:input]=false&uiSchema[appBar][ui:darkMode]=true&uiSchema[appBar][ui:examplesDropdown]=false) with Juno. Check the availability of Juno with the `juno_version` method:
@@ -38,7 +58,7 @@ import TabItem from "@theme/TabItem";
 ```
 
 <Tabs>
-<TabItem value="message" label="Message">
+<TabItem value="request" label="Request">
 
 ```json
 {
@@ -66,7 +86,7 @@ import TabItem from "@theme/TabItem";
 Get the most recent accepted block hash and number with the `starknet_blockHashAndNumber` method:
 
 <Tabs>
-<TabItem value="message" label="Message">
+<TabItem value="request" label="Request">
 
 ```json
 {
@@ -99,7 +119,7 @@ Get the most recent accepted block hash and number with the `starknet_blockHashA
 The WebSocket server provides a `juno_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain:
 
 <Tabs>
-<TabItem value="message" label="Message">
+<TabItem value="request" label="Request">
 
 ```json
 {
@@ -157,7 +177,7 @@ When a new block is added, you will receive a message like this:
 Use the `juno_unsubscribe` method with the `result` value from the subscription response or the `subscription` field from any new block event to stop receiving updates for new blocks:
 
 <Tabs>
-<TabItem value="message" label="Message">
+<TabItem value="request" label="Request">
 
 ```json
 {

@@ -33,7 +33,7 @@ You can configure Juno using [command line parameters](configuring#command-line-
 </details>
 
 <details>
-  <summary>How can I update Juno?</summary>
+  <summary>How can I update my Juno node?</summary>
 
 Check out the [Updating Juno](updating) guide for instructions on updating your node to the latest version.
 
@@ -58,9 +58,16 @@ You can interact with a running Juno node using the [JSON-RPC](json-rpc) and [We
 </details>
 
 <details>
+  <summary>How can I get real-time updates of new blocks?</summary>
+
+The [WebSocket](websocket#subscribe-to-newly-created-blocks) interface provides a `juno_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain.
+
+</details>
+
+<details>
   <summary>How can I monitor my Juno node?</summary>
 
-Juno exposes its metrics through [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
+Juno captures metrics using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
 
 </details>
 
