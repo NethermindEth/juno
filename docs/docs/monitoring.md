@@ -6,9 +6,7 @@ title: Monitoring Juno
 
 Juno uses [Prometheus](https://prometheus.io/) and [pprof](https://github.com/google/pprof) to monitor and collect metrics and profiling data, which you can visualise with [Grafana](https://grafana.com/). Insights into your node's performance are useful for debugging, tuning, and understanding what is happening when Juno is running.
 
-## Juno metrics
-
-### Enable the metrics server
+## Enable the metrics server
 
 To enable the metrics server, use the following configuration options:
 
@@ -30,17 +28,15 @@ docker run -d \
 ./build/juno --metrics --metrics-port=9090 --metrics-host=localhost
 ```
 
-### Configure Grafana dashboard
+## Configure Grafana dashboard
 
-#### 1. Follow the official [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to set it up locally
+### 1. Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to set up Grafana locally
 
-#### 2. Download and [set up](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana configuration file](/juno_grafana.json)
+### 2. Download and [set up](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana configuration file](/juno_grafana.json)
 
-#### 3. Configure the data source:
+### 3. Configure the data source:
 
-1. Follow the official [Grafana data sources](https://grafana.com/docs/grafana/latest/datasources/) guide to add a data source.
+1. Follow the [Grafana data sources](https://grafana.com/docs/grafana/latest/datasources/) guide to add a data source.
 2. Choose **Prometheus** as the data source.
 3. Enter `http://localhost:9090/` as the **Prometheus server URL**.
 4. Click the **"Save & Test"** button.
-
-## Juno profiling

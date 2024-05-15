@@ -12,7 +12,7 @@ To enable the WebSocket RPC server, use the following configuration options:
 
 - `ws`: Enables the Websocket RPC server on the default port (disabled by default).
 - `ws-host`: The interface on which the Websocket RPC server will listen for requests. If skipped, it defaults to `localhost`.
-- `ws-port`: The port on which the websocket server will listen for requests. If skipped, it defaults to `6061`.
+- `ws-port`: The port on which the WebSocket server will listen for requests. If skipped, it defaults to `6061`.
 
 ```bash
 # Docker container
