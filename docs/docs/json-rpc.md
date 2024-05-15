@@ -4,7 +4,7 @@ title: JSON-RPC Interface
 
 # JSON-RPC Interface :globe_with_meridians:
 
-Interacting with Juno requires sending requests to specific JSON-RPC API methods. Juno supports all of [Starknet's JSON-RPC API](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json) endpoints over HTTP and [WebSocket](websocket).
+Interacting with Juno requires sending requests to specific JSON-RPC API methods. Juno supports all of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema[appBar][ui:splitView]=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/master/api/starknet_api_openrpc.json&uiSchema[appBar][ui:input]=false&uiSchema[appBar][ui:darkMode]=true&uiSchema[appBar][ui:examplesDropdown]=false) over HTTP and [WebSocket](websocket).
 
 ## Enable the JSON-RPC server
 
