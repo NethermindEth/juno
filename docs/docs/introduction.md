@@ -7,7 +7,7 @@ title: Introduction
 
 Juno is a Starknet full-node client developed by Nethermind to allow node operators to easily and reliably contribute to the Starknet network and advance its decentralisation goals. Juno works for casual node setups, production-grade indexers, and everything in between.
 
-- :cd: **Compact database footprint**: Approximately 156GB on mainnet.
+- :cd: **Compact database footprint**: Approximately 182GB on mainnet.
 - :zap: **Ultra-fast synchronisation**: Limited only by your hardware and the sequencer.
 - :100: **Complete [JSON-RPC spec](https://github.com/starkware-libs/starknet-specs/tree/master) compliance**: Everything Starknet, accessible from a single point.
 - :racing_car: **Minimal RPC response latency**: Ensuring your applications run smoothly.

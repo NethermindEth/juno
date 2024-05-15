@@ -8,15 +8,15 @@ You can download a snapshot of the Juno database to shorten the network syncing 
 
 ## Mainnet
 
-| Version      | Size       | Block      | Download Link                                                                                        |
-| ------------ | ---------- | ---------- | ---------------------------------------------------------------------------------------------------- |
-| **>=v0.9.2** | **156 GB** | **519634** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar) |
+| Version      | Size       | Block      | Download Link                                                                                         |
+| ------------ | ---------- | ---------- | ----------------------------------------------------------------------------------------------------- |
+| **>=v0.9.2** | **182 GB** | **640855** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar) |
 
 ## Sepolia
 
-| Version      | Size       | Block     | Download Link                                                                                        |
-| ------------ | ---------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| **>=v0.9.2** | **2.9 GB** | **55984** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.4_55984.tar) |
+| Version      | Size     | Block     | Download Link                                                                                        |
+| ------------ | -------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| **>=v0.9.2** | **5 GB** | **66477** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.7_66477.tar) |
 
 ## Run Juno with a snapshot
 
@@ -25,7 +25,7 @@ You can download a snapshot of the Juno database to shorten the network syncing 
 First, download a snapshot from one of the provided URLs:
 
 ```bash
-curl -o juno_mainnet_519634.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar
+wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar
 ```
 
 ### 2. Prepare a directory
@@ -41,7 +41,7 @@ mkdir -p $HOME/snapshots
 Extract the contents of the downloaded `.tar` file into the directory:
 
 ```bash
-tar -xvf juno_mainnet_519634.tar -C $HOME/snapshots
+tar -xvf juno_mainnet.tar -C $HOME/snapshots
 ```
 
 ### 4. Run Juno
