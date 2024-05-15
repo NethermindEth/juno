@@ -11,7 +11,7 @@ npm install
 ## Local Development
 
 ```bash
-npm run start # Run 'node generate-juno-config.js' in the root directory to generate the Juno configuration options table
+npm run start # Run 'node generate-config.js' in the root directory to generate the Juno configuration options table
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
@@ -19,8 +19,8 @@ This command starts a local development server and opens up a browser window. Mo
 ## Deployment
 
 ```bash
-npm run build # Runs 'node generate-juno-config.js' and then 'docusaurus build'
-# The 'generate-juno-config.js' script extracts Juno's configuration details and generates a table for the Configuring Juno guide
+npm run build # Runs 'node generate-config.js' and then 'docusaurus build'
+# The 'generate-config.js' script extracts Juno's configuration details and generates a table for the Configuring Juno guide
 ```
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service. Deployment is handled using GitHub pages.

@@ -204,9 +204,11 @@ async function main() {
       "https://raw.githubusercontent.com/NethermindEth/juno/main/cmd/juno/juno.go";
     const codebase = await fetchUrl(url);
     console.log("Fetched Juno's source code");
+
     const preprocessedCode = preprocessCodebase(codebase);
     const configs = extractConfigs(preprocessedCode);
     console.log("Extracted Juno's configuration");
+
     generateConfigTable(configs);
     console.log("Generated the configuration options table");
   } catch (error) {

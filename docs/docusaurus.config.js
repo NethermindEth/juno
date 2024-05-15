@@ -75,6 +75,12 @@ const config = {
         },
         items: [
           {
+            type: "docSidebar",
+            position: "left",
+            sidebarId: "main",
+            label: "Docs",
+          },
+          {
             type: "docsVersionDropdown",
             position: "right",
           },
