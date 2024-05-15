@@ -11,19 +11,14 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
+| **>=v0.9.2**  | **182 GB** | **640855** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar) |
 
-### Sepolia
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2** | **2.9 GB** | **55984** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.4_55984.tar) |
-
-## Goerli2
+## Sepolia
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| **>=v0.9.2** | **5 GB** | **66477** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.7_66477.tar) |
 
 ## Run Juno Using Snapshot
 
@@ -32,7 +27,7 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
    Fetch a snapshot from one of the provided URLs:
 
    ```bash
-   curl -o juno_mainnet_247401.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar
    ```
 
 2. **Prepare Directory**
@@ -48,7 +43,7 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
    Extract the contents of the `.tar` file:
 
    ```bash
-   tar -xvf juno_mainnet_247401.tar -C $HOME/snapshots
+   tar -xvf juno_mainnet.tar -C $HOME/snapshots
    ```
 
 4. **Run Juno**
@@ -57,12 +52,14 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 
    ```bash
    docker run -d \
-     --name juno \
-     -p 6060:6060 \
-     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
-     nethermind/juno \
-     --http \
-     --db-path /var/lib/juno
+      --name juno \
+      -p 6060:6060 \
+      -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
+      nethermind/juno \
+      --http \
+      --http-port 6060 \
+      --http-host 0.0.0.0 \
+      --db-path /var/lib/juno
    ```
 
 After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.
