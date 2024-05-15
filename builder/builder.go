@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -42,6 +43,10 @@ type Builder struct {
 	pendingBlock blockchain.Pending
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
+
+	bootstrap        bool
+	bootstrapToBlock uint64
+	starknetData     starknetdata.StarknetData
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
@@ -66,12 +71,54 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 	return b
 }
 
+func (b *Builder) WithBootstrap(bootstrap bool) *Builder {
+	b.bootstrap = bootstrap
+	return b
+}
+
+func (b *Builder) WithStarknetData(starknetData starknetdata.StarknetData) *Builder {
+	b.starknetData = starknetData
+	return b
+}
+
+func (b *Builder) WithBootstrapToBlock(bootstrapToBlock uint64) *Builder {
+	b.bootstrapToBlock = bootstrapToBlock
+	return b
+}
+
+func (b *Builder) BootstrapSeq(ctx context.Context, toBlockNum uint64) error {
+	var i uint64
+	for i = 0; i < toBlockNum; i++ {
+		b.log.Infow("Sequencer, syncing block", "blockNumber", i)
+		block, su, classes, err := b.getSyncData(i)
+		if err != nil {
+			return err
+		}
+		commitments, err := b.bc.SanityCheckNewHeight(block, su, classes)
+		if err != nil {
+			return err
+		}
+		err = b.bc.Store(block, commitments, su, classes)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *Builder) Run(ctx context.Context) error {
-	if err := b.initPendingBlock(); err != nil {
+	if b.bootstrap {
+		err := b.BootstrapSeq(ctx, b.bootstrapToBlock)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
 	defer func() {
-		if pErr := b.clearPending(); pErr != nil {
+		if pErr := b.ClearPending(); pErr != nil {
 			b.log.Errorw("clearing pending", "err", pErr)
 		}
 	}()
@@ -90,6 +137,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-time.After(b.blockTime):
+			b.log.Debugw("Finalising new block")
 			if err := b.Finalise(); err != nil {
 				return err
 			}
@@ -97,7 +145,7 @@ func (b *Builder) Run(ctx context.Context) error {
 	}
 }
 
-func (b *Builder) initPendingBlock() error {
+func (b *Builder) InitPendingBlock() error {
 	if b.pendingBlock.Block != nil {
 		return nil
 	}
@@ -117,7 +165,7 @@ func (b *Builder) initPendingBlock() error {
 	return err
 }
 
-func (b *Builder) clearPending() error {
+func (b *Builder) ClearPending() error {
 	b.pendingBlock = blockchain.Pending{}
 	if b.headState != nil {
 		if err := b.headCloser(); err != nil {
@@ -141,10 +189,10 @@ func (b *Builder) Finalise() error {
 		b.pendingBlock.Block.Hash.ShortString(), "state", b.pendingBlock.Block.GlobalStateRoot.ShortString())
 	b.listener.OnBlockFinalised(b.pendingBlock.Block.Header)
 
-	if err := b.clearPending(); err != nil {
+	if err := b.ClearPending(); err != nil {
 		return err
 	}
-	return b.initPendingBlock()
+	return b.InitPendingBlock()
 }
 
 // ValidateAgainstPendingState validates a user transaction against the pending state
@@ -261,7 +309,6 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			if !errors.As(err, &txnExecutionError) {
 				return err
 			}
-
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 		}
 
@@ -310,4 +357,29 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
 	return nil
+}
+
+func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdate,
+	map[felt.Felt]core.Class, error,
+) {
+	block, err := b.starknetData.BlockByNumber(context.Background(), blockNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	su, err := b.starknetData.StateUpdate(context.Background(), blockNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	txns := block.Transactions
+	classes := make(map[felt.Felt]core.Class)
+	for _, txn := range txns {
+		if t, ok := txn.(*core.DeclareTransaction); ok {
+			class, err := b.starknetData.Class(context.Background(), t.ClassHash)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			classes[*t.ClassHash] = class
+		}
+	}
+	return block, su, classes, nil
 }

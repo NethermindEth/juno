@@ -378,3 +378,104 @@ func TestBuildBlocks(t *testing.T) {
 	}
 	require.Equal(t, uint64(90), totalTxns)
 }
+
+func TestSepoliaBootstrap(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	bc := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+	snData := mocks.NewMockStarknetData(mockCtrl)
+	p := mempool.New(pebble.NewMemTest(t))
+	vmm := vm.New(utils.NewNopZapLogger())
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	privKey, err := ecdsa.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	blockTime := time.Second
+	testBuilder := builder.New(privKey, seqAddr, bc, vmm, blockTime, p, utils.NewNopZapLogger()).
+		WithBootstrapToBlock(2).
+		WithStarknetData(snData).
+		WithBootstrap(true)
+
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	var i uint64
+	var block *core.Block
+	var err2 error
+	for i = 0; i < 2; i++ {
+		block, err2 = gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err2)
+
+		su, err2 := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err2)
+
+		snData.EXPECT().BlockByNumber(context.Background(), i).Return(block, nil)
+		snData.EXPECT().StateUpdate(context.Background(), i).Return(su, nil)
+	}
+	classHashes := []string{
+		"0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
+		"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3",
+		"0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1",
+	}
+
+	for _, hash := range classHashes {
+		classHash := utils.HexToFelt(t, hash)
+		class, err2 := gw.Class(context.Background(), classHash)
+		require.NoError(t, err2)
+		snData.EXPECT().Class(context.Background(), classHash).Return(class, nil)
+	}
+
+	t.Run("Bootstrap", func(t *testing.T) {
+		err = testBuilder.BootstrapSeq(context.Background(), uint64(2))
+		require.NoError(t, err)
+		head, err := bc.BlockByNumber(1)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), head.Number)
+		require.Equal(t, block.TransactionCount, head.TransactionCount, "TransactionCount diff")
+		require.Equal(t, block.GlobalStateRoot.String(), head.GlobalStateRoot.String(), "GlobalStateRoot diff")
+	})
+
+	t.Run("Bootstrap blocks 0 and 1 + Run block 2", func(t *testing.T) {
+		block, err := gw.BlockByNumber(context.Background(), 2)
+		require.NoError(t, err)
+		txns := block.Transactions
+		var mempoolTxns []*mempool.BroadcastedTransaction
+		for _, txn := range txns {
+			switch tx := txn.(type) {
+			case *core.DeployTransaction, *core.DeployAccountTransaction, *core.InvokeTransaction, *core.L1HandlerTransaction:
+				mempoolTxns = append(mempoolTxns,
+					&mempool.BroadcastedTransaction{
+						Transaction: tx,
+					})
+			case *core.DeclareTransaction:
+				class, err2 := gw.Class(context.Background(), tx.ClassHash)
+				require.NoError(t, err2)
+				mempoolTxns = append(mempoolTxns, &mempool.BroadcastedTransaction{
+					Transaction:   tx,
+					DeclaredClass: class,
+				})
+			default:
+				require.Error(t, errors.New("unknown transaction type"))
+			}
+		}
+
+		for _, txn := range mempoolTxns {
+			err = p.Push(txn)
+			require.NoError(t, err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*blockTime)
+		defer cancel()
+		err = testBuilder.Run(ctx)
+		require.NoError(t, err)
+		head, err := bc.BlockByNumber(1)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), head.Number)
+		require.Equal(t, block.TransactionCount, head.TransactionCount, "TransactionCount diff")
+		require.Equal(t, block.GlobalStateRoot.String(), head.GlobalStateRoot.String(), "GlobalStateRoot diff")
+		head, err = bc.Head()
+		require.NoError(t, err)
+		require.Equal(t, block.Number, head.Number)
+		require.Equal(t, block.TransactionCount, head.TransactionCount)
+		require.Equal(t, head.GlobalStateRoot, head.GlobalStateRoot)
+	})
+}

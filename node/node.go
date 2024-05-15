@@ -91,9 +91,11 @@ type Config struct {
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 
-	Sequencer    bool   `mapstructure:"seq-enable"`
-	SeqBlockTime uint   `mapstructure:"seq-block-time"`
-	GenesisFile  string `mapstructure:"genesis-file"`
+	Sequencer           bool   `mapstructure:"seq-enable"`
+	SeqBlockTime        uint   `mapstructure:"seq-block-time"`
+	SeqBootstrap        bool   `mapstructure:"seq-bootstrap"`
+	SeqBootstrapToBlock uint64 `mapstructure:"seq-bootstrap-to-block"`
+	GenesisFile         string `mapstructure:"genesis-file"`
 }
 
 type Node struct {
@@ -151,22 +153,23 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	nodeVM := vm.New(log)
 	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
+		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
+	starknetData := adaptfeeder.New(client)
 	var rpcHandler *rpc.Handler
 	if cfg.Sequencer {
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader)
 		if kErr != nil {
 			return nil, kErr
 		}
-
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, log) //nolint: gomnd
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
+			log).WithBootstrap(cfg.SeqBootstrap).WithStarknetData(starknetData).WithBootstrapToBlock(cfg.SeqBootstrapToBlock)
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, &cfg.Network, log).WithMempool(p)
 		services = append(services, sequencer)
 	} else {
-		client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
-			WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
-		synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
+		synchronizer := sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
 		gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		var p2pService *p2p.Service
@@ -365,10 +368,11 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
-		n.log.Errorw("Error building genesis state", "err", err)
-		return
-	}
+	// Todo: push to builder?
+	// if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
+	// 	n.log.Errorw("Error building genesis state", "err", err)
+	// 	return
+	// }
 
 	for _, s := range n.services {
 		s := s

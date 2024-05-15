@@ -55,36 +55,6 @@ func (mr *MockStateHistoryReaderMockRecorder) Class(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStateHistoryReader)(nil).Class), arg0)
 }
 
-// CompiledClassHash mocks base method.
-func (m *MockStateHistoryReader) CompiledClassHash(arg0 *felt.Felt) (*felt.Felt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompiledClassHash", arg0)
-	ret0, _ := ret[0].(*felt.Felt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CompiledClassHash indicates an expected call of CompiledClassHash.
-func (mr *MockStateHistoryReaderMockRecorder) CompiledClassHash(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHash", reflect.TypeOf((*MockStateHistoryReader)(nil).CompiledClassHash), arg0)
-}
-
-// CompiledClassHashAt mocks base method.
-func (m *MockStateHistoryReader) CompiledClassHashAt(arg0 *felt.Felt, arg1 uint64) (*felt.Felt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CompiledClassHashAt", arg0, arg1)
-	ret0, _ := ret[0].(*felt.Felt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CompiledClassHashAt indicates an expected call of CompiledClassHashAt.
-func (mr *MockStateHistoryReaderMockRecorder) CompiledClassHashAt(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompiledClassHashAt", reflect.TypeOf((*MockStateHistoryReader)(nil).CompiledClassHashAt), arg0, arg1)
-}
-
 // ContractClassHash mocks base method.
 func (m *MockStateHistoryReader) ContractClassHash(arg0 *felt.Felt) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
