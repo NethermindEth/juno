@@ -1,0 +1,3 @@
+package consensus
+
+// generic container
