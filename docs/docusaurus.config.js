@@ -75,12 +75,6 @@ const config = {
         },
         items: [
           {
-            type: "docSidebar",
-            position: "left",
-            sidebarId: "main",
-            label: "Docs",
-          },
-          {
             type: "docsVersionDropdown",
             position: "right",
           },
@@ -151,7 +145,7 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
-        additionalLanguages: ["bash", "json"],
+        additionalLanguages: ["bash", "json", "go", "rust"],
       },
     }),
 };

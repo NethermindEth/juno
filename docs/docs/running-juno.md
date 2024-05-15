@@ -6,8 +6,8 @@ title: Running Juno
 
 You can run a Juno node using several methods:
 
-- [Docker container](#docker-container) (recommended)
-- [Standalone binaries](#standalone-binaries)
+- [Docker container](#docker-container)
+- [Standalone binary](#standalone-binary)
 - [Building from source](#building-from-source)
 - [Google Cloud Platform (GCP)](running-on-gcp)
 
@@ -59,11 +59,7 @@ You can view logs from the Docker container using the following command:
 docker logs -f juno
 ```
 
-:::tip
-You can access the Nethermind Starknet RPC service for free at https://data.voyager.online.
-:::
-
-## Standalone binaries
+## Standalone binary
 
 Download standalone binaries from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/tags) as ZIP archives for Linux (amd64 and arm64) and macOS (amd64).
 

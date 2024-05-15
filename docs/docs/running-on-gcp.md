@@ -38,8 +38,16 @@ Choose the configuration settings for the Juno client and click the **"DEPLOY"**
 
 You can interact with Juno using its [JSON-RPC Interface](/json-rpc). Here's an example to check the availability of Juno:
 
+```mdx-code-block
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+```
+
+<Tabs>
+<TabItem value="request" label="Request">
+
 ```bash
-curl --location 'http://<IP ADDRESS>:6060' \
+curl --location 'http://localhost:6060' \
 --header 'Content-Type: application/json' \
 --data '{
     "jsonrpc": "2.0",
@@ -49,12 +57,16 @@ curl --location 'http://<IP ADDRESS>:6060' \
 }'
 ```
 
-The expected result should look like this:
+</TabItem>
+<TabItem value="response" label="Response">
 
 ```json
 {
   "jsonrpc": "2.0",
-  "result": "v0.9.3",
+  "result": "v0.11.7",
   "id": 1
 }
 ```
+
+</TabItem>
+</Tabs>

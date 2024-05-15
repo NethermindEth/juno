@@ -7,7 +7,7 @@ title: Updating Juno
 It is important to run the latest version of Juno as each update brings new features, security patches, and improvements over previous versions. Follow these steps to update Juno:
 
 - [Docker container](#docker-container)
-- [Standalone binaries](#standalone-binaries)
+- [Standalone binary](#standalone-binary)
 - [Updating from source](#updating-from-source)
 
 ## Docker container
@@ -45,8 +45,7 @@ docker run -d \
   nethermind/juno \
   --http \
   --http-port 6060 \
-  --http-host 0.0.0.0 \
-  --eth-node <YOUR ETH NODE>
+  --http-host 0.0.0.0
 ```
 
 Verify that the node is running correctly with the updated version:
@@ -55,7 +54,7 @@ Verify that the node is running correctly with the updated version:
 docker logs juno
 ```
 
-## Standalone binaries
+## Standalone binary
 
 Download the latest binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/tags) page and replace the existing one.
 
