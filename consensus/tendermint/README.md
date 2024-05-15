@@ -1,6 +1,8 @@
 # Tendermint Implementation
 This document contains the most recent design for the implementation of Tendermint for the juno client.
 
+[visit here for more detailed explanation with diagrams](https://www.notion.so/nethermind/Tendermint-Consensus-f5f337c7a90046efbcf98fa2eafa8279?pvs=4#dabf0214f3324e5eba186fbe167cf056)
+
 ## Component
 At a higher level the components
 1. Tendermint core
