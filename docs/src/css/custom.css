@@ -19,6 +19,11 @@
 h1 {
     font-weight: 600;
 }
+
+.external-link {
+    margin-top: 0.25rem;
+}
+
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
     --ifm-color-primary: #ff4a04;
