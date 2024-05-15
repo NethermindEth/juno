@@ -91,8 +91,9 @@ type Config struct {
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 
-	Sequencer   bool   `mapstructure:"seq-enable"`
-	GenesisFile string `mapstructure:"genesis-file"`
+	Sequencer    bool   `mapstructure:"seq-enable"`
+	SeqBlockTime uint   `mapstructure:"seq-block-time"`
+	GenesisFile  string `mapstructure:"genesis-file"`
 }
 
 type Node struct {
@@ -159,7 +160,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Minute, p, log) //nolint: gomnd
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, log) //nolint: gomnd
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, &cfg.Network, log).WithMempool(p)
 		services = append(services, sequencer)
 	} else {
