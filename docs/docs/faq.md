@@ -67,7 +67,7 @@ The [WebSocket](websocket#subscribe-to-newly-created-blocks) interface provides 
 <details>
   <summary>How can I monitor my Juno node?</summary>
 
-Juno captures metrics using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
+Juno captures metrics and profiling data using [Prometheus](https://prometheus.io) and [pprof](https://github.com/google/pprof), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
 
 </details>
 
