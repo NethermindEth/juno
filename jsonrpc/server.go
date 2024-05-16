@@ -420,7 +420,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
-		s.log.Tracew("Error building arguments for RPC call", "error", err.Error())
+		s.log.Tracew("Error building arguments for RPC call", "err", err)
 		return res, nil
 	}
 	defer func() {
