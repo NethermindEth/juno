@@ -397,7 +397,9 @@ func isNil(i any) bool {
 }
 
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
+	s.log.Tracew("Received request", "req", req)
 	if err := req.isSane(); err != nil {
+		s.log.Tracew("Request sanity check failed", "err", err)
 		return nil, err
 	}
 
@@ -409,6 +411,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	calledMethod, found := s.methods[req.Method]
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
+		s.log.Tracew("Method not found in request", "method", req.Method)
 		return res, nil
 	}
 
@@ -417,6 +420,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	args, err := s.buildArguments(ctx, req.Params, calledMethod)
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
+		s.log.Tracew("Error building arguments for RPC call", "err", err)
 		return res, nil
 	}
 	defer func() {
@@ -425,6 +429,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
+		s.log.Tracew("Notification received, no response expected")
 		return nil, nil
 	}
 
@@ -439,6 +444,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 		return res, nil
 	}
 	res.Result = tuple[0].Interface()
+
 	return res, nil
 }
 
