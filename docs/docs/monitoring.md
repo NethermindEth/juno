@@ -80,3 +80,7 @@ To have Juno write logs to a file, use the command:
 
 - Enter the URL where Loki is running, e.g., `http://localhost:3100`.
 - Click the **"Save & Test"** button.
+
+![Grafana dashboard](/img/grafana-1.png)
+
+![Grafana dashboard](/img/grafana-2.png)
