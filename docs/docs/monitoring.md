@@ -4,7 +4,7 @@ title: Monitoring Juno
 
 # Monitoring Juno :bar_chart:
 
-Juno uses [Prometheus](https://prometheus.io/) and [pprof](https://github.com/google/pprof) to monitor and collect metrics and profiling data, which you can visualise with [Grafana](https://grafana.com/). Insights into your node's performance are useful for debugging, tuning, and understanding what is happening when Juno is running.
+Juno uses [Prometheus](https://prometheus.io/) to monitor and collect metrics data, which you can visualise with [Grafana](https://grafana.com/). You can use these insights to understand what is happening when Juno is running.
 
 ## Enable the metrics server
 
@@ -30,13 +30,53 @@ docker run -d \
 
 ## Configure Grafana dashboard
 
-### 1. Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to set up Grafana locally
+### 1. Set up Grafana
 
-### 2. Download and [set up](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana configuration file](/juno_grafana.json)
+Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to set up Grafana locally. You also need to download and [configure](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana dashboard file](/juno_grafana.json).
 
-### 3. Configure the data source:
+### 2. Set up Prometheus
 
-1. Follow the [Grafana data sources](https://grafana.com/docs/grafana/latest/datasources/) guide to add a data source.
-2. Choose **Prometheus** as the data source.
-3. Enter `http://localhost:9090/` as the **Prometheus server URL**.
-4. Click the **"Save & Test"** button.
+Follow the [First steps with Prometheus](https://prometheus.io/docs/introduction/first_steps/) guide to install Prometheus for scraping metrics. Then, add the Juno metrics endpoint in the `prometheus.yml` configuration file:
+
+```yaml title="prometheus.yml" showLineNumbers
+scrape_configs:
+  - job_name: "juno"
+    static_configs:
+      - targets: ["localhost:9090"]
+```
+
+### 3. Set up Grafana Loki
+
+Follow the [Get started with Grafana Loki](https://grafana.com/docs/loki/latest/get-started/) guide to set up [Loki](https://grafana.com/oss/loki/) locally. Then, you need to set up Loki to [collect logs](https://grafana.com/docs/loki/latest/send-data/) from Juno.
+
+You might need to configure log paths or use [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) (Loki's agent) to push logs to Loki:
+
+```yaml title="Sample Loki Configuration" showLineNumbers
+scrape_configs:
+  - job_name: "juno-logs"
+    labels:
+      job: "juno"
+      __path__: "/path/to/juno/logs/*"
+```
+
+:::tip
+To have Juno write logs to a file, use the command:
+
+```bash
+./build/juno >> /path/juno.log 2>&1
+```
+
+:::
+
+### 4. Configure the data sources
+
+1. Follow the [Grafana data sources](https://grafana.com/docs/grafana/latest/datasources/) guide to add data sources.
+2. Choose **Prometheus** as a data source:
+
+- Enter the URL where Prometheus is running, e.g., `http://localhost:9090`.
+- Click the **"Save & Test"** button.
+
+3. Choose **Loki** as a data source:
+
+- Enter the URL where Loki is running, e.g., `http://localhost:3100`.
+- Click the **"Save & Test"** button.

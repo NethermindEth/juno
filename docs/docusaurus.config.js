@@ -134,7 +134,7 @@ const config = {
                 href: "https://www.nethermind.io/blogs",
               },
               {
-                label: "Release Notes",
+                label: "Juno Releases",
                 href: "https://github.com/NethermindEth/juno/releases",
               },
             ],

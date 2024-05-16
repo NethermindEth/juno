@@ -4,7 +4,7 @@ title: WebSocket Interface
 
 # WebSocket Interface :globe_with_meridians:
 
-Juno also provides a WebSocket RPC interface to interact with that supports all of [Starknet's JSON-RPC API](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json) endpoints.
+Juno provides a WebSocket RPC interface to interact with that supports all of [Starknet's JSON-RPC API](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json) endpoints.
 
 ## Enable the WebSocket server
 
@@ -34,12 +34,12 @@ You can test your WebSocket connection using tools like [wscat](https://github.c
 
 ```bash
 # wscat
-$wscat -c ws://localhost:6061
+$ wscat -c ws://localhost:6061
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
     < {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
 
 # websocat
-$websocat -v ws://localhost:6061
+$ websocat -v ws://localhost:6061
     [INFO  websocat::lints] Auto-inserting the line mode
     [INFO  websocat::stdio_threaded_peer] get_stdio_peer (threaded)
     [INFO  websocat::ws_client_peer] get_ws_client_peer
