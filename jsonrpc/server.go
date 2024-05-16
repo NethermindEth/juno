@@ -444,7 +444,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 		return res, nil
 	}
 	res.Result = tuple[0].Interface()
-	s.log.Tracew("Successfully handled RPC request", "req", req)
+
 	return res, nil
 }
 
