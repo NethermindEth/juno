@@ -399,7 +399,7 @@ func isNil(i any) bool {
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
 	s.log.Tracew("Received request", "req", req)
 	if err := req.isSane(); err != nil {
-		s.log.Tracew("Request sanity check failed", "error", err.Error())
+		s.log.Tracew("Request sanity check failed", "err", err)
 		return nil, err
 	}
 

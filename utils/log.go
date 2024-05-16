@@ -103,11 +103,11 @@ type ZapLogger struct {
 }
 
 const (
-	TraceLevel = zapcore.Level(-2)
+	traceLevel = zapcore.Level(-2)
 )
 
 func (l *ZapLogger) IsTraceEnabled() bool {
-	return l.Desugar().Core().Enabled(TraceLevel)
+	return l.Desugar().Core().Enabled(traceLevel)
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
@@ -137,8 +137,8 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	var level zapcore.Level
 	var err error
 	levelStr := logLevel.String()
-	if levelStr == TRACE.String() {
-		level = TraceLevel
+	if logLevel == TRACE {
+		level = traceLevel
 	} else {
 		level, err = zapcore.ParseLevel(levelStr)
 		if err != nil {
