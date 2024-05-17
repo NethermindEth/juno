@@ -70,9 +70,9 @@ func (m *MockStateHistoryReader) NodeFromRoot() (*trie.Trie, func() error, error
 				return marshalErr
 			}
 
-			return s.txn.Set(rootKeyDBKey, rootKeyBytes.Bytes())
+			return new_state.txn.Set(rootKeyDBKey, rootKeyBytes.Bytes())
 		}
-		return s.txn.Delete(rootKeyDBKey)
+		return new_state.txn.Delete(rootKeyDBKey)
 	}
 
 	return gTrie, closer, nil
