@@ -10,9 +10,9 @@ Juno uses [Prometheus](https://prometheus.io/) to monitor and collect metrics da
 
 To enable the metrics server, use the following configuration options:
 
-- `metrics`: Enables the prometheus metrics endpoint on the default port (disabled by default).
-- `metrics-host`: The interface on which the prometheus endpoint will listen for requests. If skipped, it defaults to `localhost`.
-- `metrics-port`: The port on which the prometheus endpoint will listen for requests. If skipped, it defaults to `9090`.
+- `metrics`: Enables the Prometheus metrics endpoint on the default port (disabled by default).
+- `metrics-host`: The interface on which the Prometheus endpoint will listen for requests. If skipped, it defaults to `localhost`.
+- `metrics-port`: The port on which the Prometheus endpoint will listen for requests. If skipped, it defaults to `9090`.
 
 ```bash
 # Docker container
@@ -32,7 +32,7 @@ docker run -d \
 
 ### 1. Set up Grafana
 
-Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to set up Grafana locally. You also need to download and [configure](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana dashboard file](/juno_grafana.json).
+Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to set up Grafana. You also need to download and [configure](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana dashboard file](/juno_grafana.json).
 
 ### 2. Set up Prometheus
 
@@ -47,9 +47,9 @@ scrape_configs:
 
 ### 3. Set up Grafana Loki
 
-Follow the [Get started with Grafana Loki](https://grafana.com/docs/loki/latest/get-started/) guide to set up [Loki](https://grafana.com/oss/loki/) locally. Then, you need to set up Loki to [collect logs](https://grafana.com/docs/loki/latest/send-data/) from Juno.
+Follow the [Get started with Grafana Loki](https://grafana.com/docs/loki/latest/get-started/) guide to set up [Loki](https://grafana.com/oss/loki/). Then, you need to configure Loki to [collect logs](https://grafana.com/docs/loki/latest/send-data/) from Juno.
 
-You might need to configure log paths or use [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) (Loki's agent) to push logs to Loki:
+You might need to configure log paths or use [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) (Loki's agent) to send logs to Loki:
 
 ```yaml title="Sample Loki Configuration" showLineNumbers
 scrape_configs:

@@ -48,13 +48,7 @@ const extractConfigs = (codebase) => {
   // Pattern to find flags used in Juno's command-line configurations
   const flagPattern = /junoCmd\.Flags\(\)\.[A-Za-z\d]+\((.*)\)/g;
   const argsPattern = /([^\s,]+)/g;
-  const configs = [
-    {
-      configName: "help",
-      defaultValue: "",
-      description: "help for Juno",
-    },
-  ];
+  const configs = [];
 
   while ((match = flagPattern.exec(codebase)) !== null) {
     const flags = match[1];
