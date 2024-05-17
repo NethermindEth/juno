@@ -194,3 +194,57 @@ async fn main() {
 
 </TabItem>
 </Tabs>
+
+## Supported Starknet API versions
+
+Juno supports the following Starknet API versions:
+
+- **v0.7.0**: Accessible via endpoints `/v0_7`, `/rpc/v0_7`, or the default `/`
+- **v0.6.0**: Accessible via endpoints `/v0_6` or `/rpc/v0_6`
+
+To use a specific API version, specify the version endpoint in your RPC calls:
+
+<Tabs>
+<TabItem value="latest" label="Latest">
+
+```bash
+curl --location 'http://localhost:6060' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+</TabItem>
+<TabItem value="v7" label="v0.7.0">
+
+```bash
+curl --location 'http://localhost:6060/v0_7' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+</TabItem>
+<TabItem value="v6" label="v0.6.0">
+
+```bash
+curl --location 'http://localhost:6060/v0_6' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+</TabItem>
+</Tabs>
