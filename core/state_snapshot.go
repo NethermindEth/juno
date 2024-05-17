@@ -89,6 +89,6 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	return declaredClass, nil
 }
 
-func (s *stateSnapshot) NodeFromRoot() (*trie.Trie, func() error, error) {
-	return s.state.NodeFromRoot()
+func (s *stateSnapshot) GetGlobalTrie() (*trie.Trie, func() error, error) {
+	return s.state.GetGlobalTrie()
 }

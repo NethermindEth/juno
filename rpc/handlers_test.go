@@ -100,11 +100,12 @@ func TestThrottledVMError(t *testing.T) {
 	})
 }
 
-func TestJunoGetBlockFromRoot(t *testing.T) {
+func TestJunoGetNodesFromRoot(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
+
 	log := utils.NewNopZapLogger()
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 

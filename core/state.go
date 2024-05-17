@@ -40,7 +40,7 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
-	NodeFromRoot() (*trie.Trie, func() error, error)
+	GetGlobalTrie() (*trie.Trie, func() error, error)
 }
 
 type State struct {
@@ -123,7 +123,7 @@ func (s *State) Root() (*felt.Felt, error) {
 	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
 }
 
-func (s *State) NodeFromRoot() (*trie.Trie, func() error, error) {
+func (s *State) GetGlobalTrie() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
 }
 

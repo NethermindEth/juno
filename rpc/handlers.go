@@ -502,7 +502,7 @@ func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 	if error != nil {
 		return "", ErrBlockNotFound
 	}
-	try, _, errTry := stateReader.NodeFromRoot()
+	try, _, errTry := stateReader.GetGlobalTrie()
 	if errTry != nil {
 		return "", ErrBlockNotFound
 	}
