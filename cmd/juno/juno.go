@@ -119,7 +119,7 @@ const (
 	defaultCorsEnable               = false
 
 	configFlagUsage                       = "The YAML configuration file."
-	logLevelFlagUsage                     = "Options: debug, info, warn, error, trace."
+	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
 	httpUsage                             = "Enables the HTTP RPC server on the default port and interface."
 	httpHostUsage                         = "The interface on which the HTTP RPC server will listen for requests."
 	httpPortUsage                         = "The port on which the HTTP server will listen for requests."

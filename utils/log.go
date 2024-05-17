@@ -13,7 +13,7 @@ import (
 
 var ErrUnknownLogLevel = fmt.Errorf(
 	"unknown log level (known: %s, %s, %s, %s, %s)",
-	DEBUG, INFO, WARN, ERROR, TRACE,
+	TRACE, DEBUG, INFO, WARN, ERROR,
 )
 
 type LogLevel int
