@@ -77,7 +77,7 @@ By default, Juno looks for the configuration file in the `$XDG_CONFIG_HOME` dire
 :::
 
 :::tip
-Configuration file rank third in configuration precedence. [Command line parameters](#command-line-params) and [Environment variables](#environment-variables) override configuration file.
+Configuration file rank third in configuration precedence. [Command line parameters](#command-line-params) and [environment variables](#environment-variables) override configuration file.
 :::
 
 ## Configuration options

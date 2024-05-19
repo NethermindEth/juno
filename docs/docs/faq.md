@@ -5,16 +5,16 @@ title: Frequently Asked Questions
 # Frequently Asked Questions :question:
 
 <details>
-  <summary>How can I run Juno?</summary>
+  <summary>What is Juno?</summary>
 
-Check out the [Running Juno](running-juno) guide to learn the simplest and fastest way to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) guide to learn how to run Juno on the Google Cloud Platform (GCP).
+Juno is a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals.
 
 </details>
 
 <details>
-  <summary>Do node operators receive any rewards, or is participation solely to support the network?</summary>
+  <summary>How can I run Juno?</summary>
 
-Presently, running a node does not come with direct rewards; its primary purpose is contributing to the network's functionality and stability. However, operating a node provides valuable educational benefits and deepens your knowledge of the network's operation.
+Check out the [Running Juno](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) guide to learn how to run Juno on the Google Cloud Platform (GCP).
 
 </details>
 
@@ -40,6 +40,27 @@ Check out the [Updating Juno](updating) guide for instructions on updating your 
 </details>
 
 <details>
+  <summary>How can I interact with my Juno node?</summary>
+
+You can interact with a running Juno node using the [JSON-RPC](json-rpc) and [WebSocket](websocket) interfaces.
+
+</details>
+
+<details>
+  <summary>How can I monitor my Juno node?</summary>
+
+Juno captures metrics data using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
+
+</details>
+
+<details>
+  <summary>Do node operators receive any rewards, or is participation solely to support the network?</summary>
+
+Presently, running a node does not come with direct rewards; its primary purpose is contributing to the network's functionality and stability. However, operating a node provides valuable educational benefits and deepens your knowledge of the network's operation.
+
+</details>
+
+<details>
   <summary>How can I view Juno logs from Docker?</summary>
 
 You can view logs from the Docker container using the following command:
@@ -51,23 +72,9 @@ docker logs -f juno
 </details>
 
 <details>
-  <summary>How can I interact with my Juno node?</summary>
-
-You can interact with a running Juno node using the [JSON-RPC](json-rpc) and [WebSocket](websocket) interfaces.
-
-</details>
-
-<details>
   <summary>How can I get real-time updates of new blocks?</summary>
 
 The [WebSocket](websocket#subscribe-to-newly-created-blocks) interface provides a `juno_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain.
-
-</details>
-
-<details>
-  <summary>How can I monitor my Juno node?</summary>
-
-Juno captures metrics data using [Prometheus](https://prometheus.io), and you can visualise them using [Grafana](https://grafana.com). Check out the [Monitoring Juno](monitoring) guide to get started.
 
 </details>
 

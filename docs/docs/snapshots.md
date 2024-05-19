@@ -4,7 +4,7 @@ title: Database Snapshots
 
 # Database Snapshots :camera_flash:
 
-You can download a snapshot of the Juno database to shorten the network syncing time. Only the blocks added after the snapshot will be synced when running the Juno node.
+You can download a snapshot of the Juno database to reduce the network syncing time. Only the blocks created after the snapshot will be synced when you run the node.
 
 ## Mainnet
 
@@ -46,7 +46,7 @@ tar -xvf juno_mainnet.tar -C $HOME/snapshots
 
 ### 4. Run Juno
 
-Run the Docker command to start Juno, ensuring to specify the correct path to the snapshot:
+Run the Docker command to start Juno and provide the path to the snapshot using the `db-path` option:
 
 ```bash
 docker run -d \

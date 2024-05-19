@@ -4,7 +4,7 @@ title: WebSocket Interface
 
 # WebSocket Interface :globe_with_meridians:
 
-Juno provides a WebSocket RPC interface to interact with that supports all of [Starknet's JSON-RPC API](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json) endpoints.
+Juno provides a WebSocket RPC interface that supports all of [Starknet's JSON-RPC API](https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json) endpoints and allows you to [subscribe to newly created blocks](#subscribe-to-newly-created-blocks).
 
 ## Enable the WebSocket server
 
@@ -26,26 +26,6 @@ docker run -d \
 
 # Standalone binary
 ./build/juno --ws --ws-port=6061 --ws-host=localhost
-```
-
-## Testing the WebSocket connection
-
-You can test your WebSocket connection using tools like [wscat](https://github.com/websockets/wscat) or [websocat](https://github.com/vi/websocat):
-
-```bash
-# wscat
-$ wscat -c ws://localhost:6061
-    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
-
-# websocat
-$ websocat -v ws://localhost:6061
-    [INFO  websocat::lints] Auto-inserting the line mode
-    [INFO  websocat::stdio_threaded_peer] get_stdio_peer (threaded)
-    [INFO  websocat::ws_client_peer] get_ws_client_peer
-    [INFO  websocat::ws_client_peer] Connected to ws
-    {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
 ```
 
 ## Making WebSocket requests
@@ -174,6 +154,8 @@ When a new block is added, you will receive a message like this:
 }
 ```
 
+## Unsubscribe from newly created blocks
+
 Use the `juno_unsubscribe` method with the `result` value from the subscription response or the `subscription` field from any new block event to stop receiving updates for new blocks:
 
 <Tabs>
@@ -203,3 +185,23 @@ Use the `juno_unsubscribe` method with the `result` value from the subscription 
 
 </TabItem>
 </Tabs>
+
+## Testing the WebSocket connection
+
+You can test your WebSocket connection using tools like [wscat](https://github.com/websockets/wscat) or [websocat](https://github.com/vi/websocat):
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
+
+# websocat
+$ websocat -v ws://localhost:6061
+    [INFO  websocat::lints] Auto-inserting the line mode
+    [INFO  websocat::stdio_threaded_peer] get_stdio_peer (threaded)
+    [INFO  websocat::ws_client_peer] get_ws_client_peer
+    [INFO  websocat::ws_client_peer] Connected to ws
+    {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
+```
