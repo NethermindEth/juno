@@ -47,7 +47,6 @@ type Reader interface {
 	Pending() (Pending, error)
 
 	Network() *utils.Network
-	// JunoGetNodesFromRoot(key *felt.Felt) (core.StateReader /*, StateCloser*/, error)
 }
 
 var (
@@ -109,17 +108,6 @@ func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 		return err
 	})
 }
-
-// func (b *Blockchain) JunoGetNodesFromRoot(key *felt.Felt) (core.StateReader /*, StateCloser*/, error) {
-// 	b.listener.OnRead("JunoGetNodesFromRoot")
-// 	var state core.StateReader
-// 	// var closer StateCloser
-// 	return state, b.database.View(func(txn db.Transaction) error {
-// 		var err error
-// 		state, _, err = core.NewState(txn).NodeFromRoot(key)
-// 		return err
-// 	})
-// }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {

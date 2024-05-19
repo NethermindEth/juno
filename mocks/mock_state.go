@@ -10,9 +10,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-	"errors"
 	"bytes"
+	"errors"
+	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
 	db "github.com/NethermindEth/juno/core/db"
@@ -26,6 +26,11 @@ import (
 type MockStateHistoryReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateHistoryReaderMockRecorder
+}
+
+// GetGlobalTrie implements core.StateReader.
+func (m *MockStateHistoryReader) GetGlobalTrie() (*trie.Trie, func() error, error) {
+	panic("unimplemented")
 }
 
 // NodeFromRoot implements core.StateHistoryReader.
