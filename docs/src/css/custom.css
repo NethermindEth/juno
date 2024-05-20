@@ -24,6 +24,10 @@ h1 {
     margin-top: 0.25rem;
 }
 
+.theme-doc-version-banner {
+    display: none;
+}
+
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme="dark"] {
     --ifm-color-primary: #ff4a04;

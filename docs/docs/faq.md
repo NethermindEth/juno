@@ -14,7 +14,7 @@ Juno is a Starknet full-node client created by Nethermind to allow node operator
 <details>
   <summary>How can I run Juno?</summary>
 
-Check out the [Running Juno](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) guide to learn how to run Juno on the Google Cloud Platform (GCP).
+Check out the [Running Juno](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) and [Running a Juno P2P Node](running-p2p) guides to learn how to run Juno on GCP and configure Juno's peer-to-peer feature.
 
 </details>
 

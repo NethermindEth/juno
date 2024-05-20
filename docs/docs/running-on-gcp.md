@@ -36,7 +36,7 @@ Choose the configuration settings for the Juno client and click the **"DEPLOY"**
 
 ## 5. Interact with the Juno node
 
-You can interact with Juno using its [JSON-RPC Interface](/json-rpc). Here's an example to check the availability of Juno:
+You can interact with Juno using its [JSON-RPC Interface](json-rpc). Here's an example to check the availability of Juno:
 
 ```mdx-code-block
 import Tabs from "@theme/Tabs";

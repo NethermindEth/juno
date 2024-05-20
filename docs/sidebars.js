@@ -11,8 +11,9 @@ const sidebars = {
       items: [
         "hardware-requirements",
         "running-juno",
-        "running-on-gcp",
         "configuring",
+        "running-on-gcp",
+        "running-p2p",
         "updating",
       ],
     },

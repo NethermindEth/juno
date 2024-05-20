@@ -32,11 +32,13 @@ docker run -d \
 
 ### 1. Set up Grafana
 
-Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to set up Grafana. You also need to download and [configure](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana dashboard file](/juno_grafana.json).
+- Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to install Grafana.
+- Download and [configure](https://grafana.com/docs/grafana/latest/setup-grafana/configure-grafana/#configuration-file-location) the [Grafana dashboard file](/juno_grafana.json).
 
 ### 2. Set up Prometheus
 
-Follow the [First steps with Prometheus](https://prometheus.io/docs/introduction/first_steps/) guide to install Prometheus for scraping metrics. Then, add the Juno metrics endpoint in the `prometheus.yml` configuration file:
+- Follow the [First steps with Prometheus](https://prometheus.io/docs/introduction/first_steps/) guide to install Prometheus.
+- Add the Juno metrics endpoint in the `prometheus.yml` configuration file:
 
 ```yaml title="prometheus.yml" showLineNumbers
 scrape_configs:
@@ -47,9 +49,8 @@ scrape_configs:
 
 ### 3. Set up Grafana Loki
 
-Follow the [Get started with Grafana Loki](https://grafana.com/docs/loki/latest/get-started/) guide to set up [Loki](https://grafana.com/oss/loki/). Then, you need to configure Loki to [collect logs](https://grafana.com/docs/loki/latest/send-data/) from Juno.
-
-You might need to configure log paths or use [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) (Loki's agent) to send logs to Loki:
+- Follow the [Get started with Grafana Loki](https://grafana.com/docs/loki/latest/get-started/) guide to install [Loki](https://grafana.com/oss/loki/).
+- Configure Loki to [collect logs](https://grafana.com/docs/loki/latest/send-data/) from Juno. You might need to configure log paths or use [Promtail](https://grafana.com/docs/loki/latest/send-data/promtail/) (Loki's agent) to send logs to Loki:
 
 ```yaml title="Sample Loki Configuration" showLineNumbers
 scrape_configs:
