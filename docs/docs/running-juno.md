@@ -12,7 +12,7 @@ You can run a Juno node using several methods:
 - [Google Cloud Platform (GCP)](running-on-gcp)
 
 :::tip
-You can use a snapshot for fast synchronisation with the Starknet Mainnet/Sepolia networks. Check out the [Database Snapshots](snapshots) guide to get started.
+You can use a snapshot for quickly synchronise your node with the network. Check out the [Database Snapshots](snapshots) guide to get started.
 :::
 
 ## Docker container
@@ -39,19 +39,20 @@ docker build -t nethermind/juno:latest .
 ### 2. Run the Docker container
 
 ```bash
+# Prepare the snapshots directory
+mkdir -p $HOME/snapshots
+
+# Run the container
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
-  --eth-node <YOUR ETH NODE>
+  --db-path /snapshots/juno_mainnet
 ```
-
-:::info
-Replace \<YOUR ETH NODE\> with the WebSocket endpoint of your Ethereum node. For Infura users, your address should be: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
-:::
 
 You can view logs from the Docker container using the following command:
 
@@ -61,9 +62,19 @@ docker logs -f juno
 
 ## Standalone binary
 
-Download standalone binaries from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases) as ZIP archives for Linux (amd64 and arm64) and macOS (amd64).
+Download standalone binaries from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases) as ZIP archives for Linux (amd64 and arm64) and macOS (amd64). For macOS (arm64) or Windows users, consider [running Juno using Docker](#docker-container).
 
-For macOS (arm64) or Windows users, consider [running Juno using Docker](#docker-container).
+```bash
+# Prepare the snapshots directory
+mkdir -p $HOME/snapshots
+
+# Run the binary
+./juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --db-path $HOME/snapshots/juno_mainnet
+```
 
 ## Building from source
 
@@ -126,11 +137,15 @@ docker build -t nethermind/juno:latest .
 Locate the standalone binary in the `./build/` directory:
 
 ```bash
-# Run with the default configuration
-./build/juno
+# Prepare the snapshots directory
+mkdir -p $HOME/snapshots
 
-# See the available command line options
-./build/juno --help
+# Run the binary
+./build/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --db-path $HOME/snapshots/juno_mainnet
 ```
 
 :::tip

@@ -39,13 +39,19 @@ docker rm juno
 Run a new container using the updated Docker image:
 
 ```bash
+# Prepare the snapshots directory
+mkdir -p $HOME/snapshots
+
+# Run the container
 docker run -d \
   --name juno \
   -p 6060:6060 \
+  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
   nethermind/juno \
   --http \
   --http-port 6060 \
-  --http-host 0.0.0.0
+  --http-host 0.0.0.0 \
+  --db-path /snapshots/juno_mainnet
 ```
 
 Verify that the node is running correctly with the updated version:
@@ -56,7 +62,7 @@ docker logs juno
 
 ## Standalone binary
 
-Download the latest binary from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases) page and replace the existing one.
+Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases) page and replace the existing one.
 
 ## Updating from source
 
@@ -64,10 +70,11 @@ Download the latest binary from [Juno's GitHub Releases](https://github.com/Neth
 # Pull the latest updates to the codebase
 git pull
 
-# Rebuild the binary or Docker image
+# Rebuild the binary
 make juno
 
 # OR
 
+# Rebuild the Docker image
 docker build -t nethermind/juno:latest .
 ```

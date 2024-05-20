@@ -15,13 +15,13 @@ Juno can be configured using several methods, with the following order of preced
 Juno can be configured directly on the command line by prefixing `--` to each option name:
 
 ```bash
-juno --db-path=/var/lib/juno --network=mainnet
+./build/juno --http --http-port 6060 --http-host 0.0.0.0
 ```
 
 When using Docker, append the command line parameters after the image name to configure Juno:
 
 ```bash
-docker run nethermind/juno --db-path=/var/lib/juno --network=mainnet
+docker run nethermind/juno --http --http-port 6060 --http-host 0.0.0.0
 ```
 
 :::tip
@@ -32,16 +32,18 @@ Command line parameters override [environment variables](#environment-variables)
 
 Juno can be configured through environment variables by prefixing the variable names with `JUNO_` and using the configuration options in [SCREAMING_SNAKE_CASE](https://en.wiktionary.org/wiki/screaming_snake_case) format.
 
-To set the `http-port` configuration, Juno should be run in this format:
+To set the `http`, `http-port`, and `http-host` configurations, Juno should be run in this format:
 
 ```bash
-JUNO_HTTP_PORT=6060 juno
+JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0 ./build/juno
 ```
 
 When using Docker, start Juno using the `-e` command option:
 
 ```bash
-docker run -e "JUNO_HTTP_PORT=6060" nethermind/juno
+docker run \
+  -e "JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0" \
+  nethermind/juno
 ```
 
 :::tip
@@ -54,7 +56,6 @@ Juno can be configured using a [YAML](https://en.wikipedia.org/wiki/YAML) file:
 
 ```yaml title="Sample YAML File" showLineNumbers
 log-level: info
-db-path: /var/lib/juno
 network: mainnet
 http: true
 http-port: 6060
@@ -66,10 +67,10 @@ To run Juno with a configuration file, use the `config` option to specify the pa
 
 ```bash
 # Standalone binary
-juno --config=<CONFIG FILE PATH>
+./build/juno --config <CONFIG FILE PATH>
 
 # Docker container
-docker run nethermind/juno --config=<CONFIG FILE PATH>
+docker run nethermind/juno --config <CONFIG FILE PATH>
 ```
 
 :::info
@@ -86,7 +87,7 @@ To list all available command line options, you can use the `--help` parameter:
 
 ```bash
 # Standalone binary
-juno --help
+./build/juno --help
 
 # Docker container
 docker run nethermind/juno --help

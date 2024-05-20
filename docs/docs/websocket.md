@@ -25,7 +25,7 @@ docker run -d \
   --ws-host 0.0.0.0
 
 # Standalone binary
-./build/juno --ws --ws-port=6061 --ws-host=localhost
+./build/juno --ws --ws-port 6061 --ws-host 0.0.0.0
 ```
 
 ## Making WebSocket requests

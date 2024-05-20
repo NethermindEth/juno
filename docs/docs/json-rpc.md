@@ -25,7 +25,7 @@ docker run -d \
   --http-host 0.0.0.0
 
 # Standalone binary
-./build/juno --http --http-port=6060 --http-host=localhost
+./build/juno --http --http-port 6060 --http-host 0.0.0.0
 ```
 
 ## Making JSON-RPC requests

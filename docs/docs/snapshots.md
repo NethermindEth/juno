@@ -52,17 +52,15 @@ Run the Docker command to start Juno and provide the path to the snapshot using 
 docker run -d \
   --name juno \
   -p 6060:6060 \
-  -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
+  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
   nethermind/juno \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
-  --db-path /var/lib/juno \
+  --db-path /snapshots/juno_mainnet
   --eth-node <YOUR ETH NODE>
 ```
 
 :::info
 Replace \<YOUR ETH NODE\> with the WebSocket endpoint of your Ethereum node. For Infura users, your address should be: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
 :::
-
-After completing these steps, Juno should be up and running on your system using the snapshot.

@@ -25,7 +25,7 @@ docker run -d \
   --metrics-host 0.0.0.0
 
 # Standalone binary
-./build/juno --metrics --metrics-port=9090 --metrics-host=localhost
+./build/juno --metrics --metrics-port 9090 --metrics-host=0.0.0.0
 ```
 
 ## Configure Grafana dashboard
