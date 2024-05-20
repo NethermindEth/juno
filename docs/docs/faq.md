@@ -7,7 +7,7 @@ title: Frequently Asked Questions
 <details>
   <summary>What is Juno?</summary>
 
-Juno is a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals.
+Juno is a Go implementation of a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals. Juno supports various node setups, from casual to production-grade indexers.
 
 </details>
 
@@ -93,22 +93,33 @@ You can contribute to Juno by running a node, starring on GitHub, reporting bugs
 </details>
 
 <details>
-  <summary>I noticed a warning in my logs saying: 'Failed storing Block \{"err": "unsupported block version"\}'. How should I proceed?</summary>
+  <summary>I noticed a warning in my logs saying: **Failed storing Block \{"err": "unsupported block version"\}**. How should I proceed?</summary>
 
 You can fix this problem by [updating to the latest version](updating) of Juno. Check for updates and install them to maintain compatibility with the latest block versions.
 
 </details>
 
 <details>
-  <summary>After updating Juno, I receive "error while migrating DB." How should I proceed?</summary>
+  <summary>After updating Juno, I receive **error while migrating DB.** How should I proceed?</summary>
 
 This error suggests your database is corrupted, likely due to the node being interrupted during migration. This can occur if there are insufficient system resources, such as RAM, to finish the process. The only solution is to resynchronise the node from the beginning. To avoid this issue in the future, ensure your system has adequate resources and that the node remains uninterrupted during upgrades.
 
 </details>
 
 <details>
-  <summary>I received "Error: unable to verify latest block hash; are the database and --network option compatible?" while running Juno. How should I proceed?</summary>
+  <summary>I receive **Error: unable to verify latest block hash; are the database and --network option compatible?** while running Juno. How should I proceed?</summary>
 
 To resolve this issue, ensure that the `eth-node` configuration aligns with the `network` option for the Starknet network.
+
+</details>
+
+<details>
+  <summary>I receive **process \<PID\> killed** and **./build/juno: invalid signature (code or signature have been modified)** while running the binary on macOS. How should I proceed?</summary>
+
+You need to re-sign the binary to resolve this issue using the following command:
+
+```bash
+codesign --sign - ./build/juno
+```
 
 </details>

@@ -5,7 +5,7 @@ title: Introduction
 
 # Welcome to Juno :wave:
 
-Juno is a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals. Juno supports various node setups, from casual to production-grade indexers.
+Juno is a Go implementation of a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals. Juno supports various node setups, from casual to production-grade indexers.
 
 - :cd: **Small database footprint**: Approximately 182GB on mainnet.
 - :zap: **Ultra-fast synchronisation**: Limited only by your hardware and the sequencer.
