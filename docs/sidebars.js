@@ -3,7 +3,7 @@
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
   main: [
-    "introduction",
+    "intro",
     {
       type: "category",
       label: "Installation and Setup",

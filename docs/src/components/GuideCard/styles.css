@@ -1,0 +1,71 @@
+.guide-card-container {
+    border: 1px solid var(--ifm-color-emphasis-300);
+    border-radius: var(--ifm-global-radius);
+    display: block;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.guide-card-container:hover {
+    border-color: var(--ifm-color-primary);
+    box-shadow: 0 3px 6px 0 rgb(0 0 0 / 20%);
+}
+
+.guide-card-href:hover {
+    text-decoration: none;
+}
+
+.guide-card-description-short {
+    display: flex;
+}
+
+.guide-card-detail {
+    display: block;
+}
+
+.guide-card-icon {
+    color: var(--ifm-color-primary);
+    font-size: 2rem;
+    line-height: 2rem;
+    margin: 0.25rem 0.75rem auto 0;
+}
+
+.guide-card-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.guide-card-description {
+    font-size: 0.8rem;
+    color: var(--ifm-font-color-secondary);
+}
+
+.guide-card-description-long {
+    margin-top: 1em;
+    padding: 0.75em 1em;
+    font-size: 0.8rem;
+    color: var(--ifm-font-color-primary);
+    border: 1px solid var(--ifm-color-emphasis-200);
+    border-radius: var(--ifm-global-radius);
+}
+
+.guide-card-description-long p:last-child {
+    margin-bottom: 0;
+}
+
+.guide-card-more {
+    font-size: 1em;
+    margin-left: 0.5rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--ifm-global-radius);
+    background-color: var(--ifm-color-secondary-light);
+}
+
+.guide-card-more:hover {
+    background-color: var(--ifm-color-secondary-dark);
+}
+
+.guide-card-more:active {
+    background-color: var(--ifm-color-primary);
+    color: #fff;
+}

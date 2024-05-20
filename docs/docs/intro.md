@@ -18,31 +18,34 @@ Juno is a Starknet full-node client created by Nethermind to allow node operator
 Learn how to configure and manage your Juno node with the following resources:
 
 ```mdx-code-block
-import DocCardList from '@theme/DocCardList';
+import GuideCard from '@site/src/components/GuideCard';
 
-<DocCardList
-  items={[
-    {
-      type: "link",
-      href: "running-juno",
-      label: "Running a Juno node",
-    },
-    {
-      type: "link",
-      href: "configuring",
-      label: "Juno configuration options",
-    },
-    {
-      type: "link",
-      href: "json-rpc",
-      label: "Interacting with Juno",
-    },
-    {
-      type: "link",
-      href: "snapshots",
-      label: "Download a Juno snapshot",
-    },
-  ]}
+<GuideCard
+  href="running-juno"
+  icon="🚀"
+  title="Running a Juno Node"
+  description="Learn how to set up and operate your own Juno node"
+/>
+
+<GuideCard
+  href="configuring"
+  icon="⚙️"
+  title="Juno Configuration Options"
+  description="Explore various configuration options to customise your node"
+/>
+
+<GuideCard
+  href="json-rpc"
+  icon="🌐"
+  title="Interacting with Juno"
+  description="Discover how to interact with Juno using the JSON-RPC and WebSocket interfaces"
+/>
+
+<GuideCard
+  href="snapshots"
+  icon="📸"
+  title="Download a Juno Snapshot"
+  description="Download and use a snapshot to quickly sync your node with the network"
 />
 ```
 
