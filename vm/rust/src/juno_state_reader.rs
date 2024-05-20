@@ -172,7 +172,7 @@ impl StateReader for JunoStateReader {
 }
 
 pub fn felt_to_byte_array(felt: &StarkFelt) -> [u8; 32] {
-    felt.bytes().try_into().expect("StarkFelt not [u8; 32]")
+    *felt.bytes()
 }
 
 pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {

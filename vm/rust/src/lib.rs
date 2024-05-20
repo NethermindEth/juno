@@ -23,14 +23,8 @@ use blockifier::{
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     },
     fee::fee_utils::calculate_tx_fee,
-    state::{
-        cached_state::{CachedState, GlobalContractCache},
-        state_api::State,
-    },
+    state::{cached_state::CachedState, state_api::State},
     transaction::{
-        errors::TransactionExecutionError::{
-            ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
-        },
         objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo},
         transaction_execution::Transaction,
         transactions::ExecutableTransaction,
@@ -123,13 +117,16 @@ pub extern "C" fn cairoVMCall(
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
         call_type: CallType::Call,
-        class_hash: class_hash,
+        class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: get_versioned_constants(block_info.version).gas_cost("initial_gas_cost"),
+        initial_gas: get_versioned_constants(block_info.version)
+            .os_constants
+            .gas_costs
+            .initial_gas_cost,
     };
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(1));
+    let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
@@ -210,7 +207,7 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(1));
+    let mut state = CachedState::new(reader);
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
     let block_context: BlockContext =
@@ -277,12 +274,7 @@ pub extern "C" fn cairoVMExecute(
 
         match res {
             Err(error) => {
-                let err_string = match &error {
-                    ContractConstructorExecutionFailed(e)
-                    | ExecutionError(e)
-                    | ValidateTransactionError(e) => format!("{error} {e}"),
-                    other => other.to_string(),
-                };
+                let err_string = error.to_string();
                 report_error(
                     reader_handle,
                     format!(
@@ -466,6 +458,7 @@ fn build_block_context(
             },
         },
         constants,
+        false,
     )
     .unwrap()
 }
@@ -481,6 +474,10 @@ lazy_static! {
             "0.13.1".to_string(),
             serde_json::from_slice(include_bytes!("../versioned_constants_13_1.json")).unwrap(),
         );
+        m.insert(
+            "0.13.1.1".to_string(),
+            serde_json::from_slice(include_bytes!("../versioned_constants_13_1_1.json")).unwrap(),
+        );
         m
     };
 }
@@ -490,10 +487,12 @@ fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
     let version = StarknetVersion::from_str(&version_str)
         .unwrap_or(StarknetVersion::from_str(&"0.0.0").unwrap());
 
-    if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
+    if version < StarknetVersion::from_str(&"0.13.0").unwrap() {
         CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
+    } else if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
+        CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
     }
