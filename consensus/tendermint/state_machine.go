@@ -24,9 +24,11 @@ func (p *PreCommit) NextStep() interface{} {
 	return nil
 }
 
+// State Todo: locked/validRound can be as large as round so uint vs int might be a bad idea maybe use uint and set to nil for negative value?
 type State struct {
 	step          Step
 	currentHeight uint64
+	round         uint64
 	lockedValue   *consensus.Proposable
 	lockedRound   int64
 	validValue    *consensus.Proposable
