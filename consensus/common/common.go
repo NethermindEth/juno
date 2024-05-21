@@ -12,7 +12,7 @@ type Gossiper interface {
 
 type Proposer interface {
 	Proposer() interface{}
-	IsProposer() uint8      // 0 no, 1 yes 2 unknown
+	IsProposer() uint8      // 0 no, 1 yes, 2 unknown
 	StrictIsProposer() bool // yes or no
 }
 
