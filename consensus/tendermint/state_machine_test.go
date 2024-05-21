@@ -179,3 +179,12 @@ func TestInAnyState__OnProposal_hp_r_v_AnyPreviouslyValidRound_FromProposerAndMa
 func TestInAnyState__OnProposal_hp_r_v_AnyPreviouslyValidRound_FromProposerAndLessThanMajorityPreCommit_hp_r_idv__DoNothing(t *testing.T) {
 
 }
+
+// join an ongoing round if node is behind
+func TestInAnyState__OnMinorityAnyVote_hp_r_AnyValueORAnyId_AnyPreviouslyValidRound__And_r_GreaterThan_rp__DoStartNewRound_r(t *testing.T) {
+
+}
+
+func TestInAnyState__OnLessThanMinorityAnyVote_hp_r_AnyValueORAnyId_AnyPreviouslyValidRound__DoStartNewRound_r(t *testing.T) {
+	// do nothing for r > rp and for r < rp
+}
