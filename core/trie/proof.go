@@ -112,8 +112,8 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
-func GetProofs(startKey *felt.Felt, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
-	var oneFelt = new(felt.Felt).SetUint64(1)
+func GetProofs(startKey, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
+	oneFelt := new(felt.Felt).SetUint64(1)
 	iterKey := startKey
 	proofs := make([][]ProofNode, new(felt.Felt).Sub(endKey, startKey).Uint64())
 	for i := range proofs {
