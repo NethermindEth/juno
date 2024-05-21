@@ -128,12 +128,13 @@ func GetProofs(startKey, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
 	return proofs, nil
 }
 
-func VerifyProofs(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) []bool {
-	verifications := make([]bool, len(keys))
+func VerifyProofs(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) bool {
 	for i, key := range keys {
-		verifications[i] = VerifyProof(root, key, values[i], proofs[i], hash)
+		if !VerifyProof(root, key, values[i], proofs[i], hash) {
+			return false
+		}
 	}
-	return verifications
+	return true
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
