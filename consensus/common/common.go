@@ -20,3 +20,9 @@ type Decider interface {
 	SubmitDecision(decision interface{})
 	GetDecision(params map[string]interface{}) interface{}
 }
+
+type Proposable interface {
+	Id() uint64
+	Value() interface{}
+	IsId() bool
+}
