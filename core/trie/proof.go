@@ -112,6 +112,29 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
+func GetProofs(startKey *felt.Felt, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
+	var oneFelt = new(felt.Felt).SetUint64(1)
+	iterKey := startKey
+	proofs := make([][]ProofNode, new(felt.Felt).Sub(endKey, startKey).Uint64())
+	for i := range proofs {
+		proof, err := GetProof(iterKey, tri)
+		if err != nil {
+			return nil, err
+		}
+		proofs[i] = proof
+		iterKey.Add(iterKey, oneFelt)
+	}
+	return proofs, nil
+}
+
+func VerifyProofs(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) []bool {
+	verifications := make([]bool, len(keys))
+	for i, key := range keys {
+		verifications[i] = VerifyProof(root, key, values[i], proofs[i], hash)
+	}
+	return verifications
+}
+
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
 func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	leafKey := tri.feltToKey(leaf)
