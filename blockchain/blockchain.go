@@ -76,6 +76,8 @@ type Blockchain struct {
 
 	listener EventListener
 
+	log utils.SimpleLogger
+
 	cachedPending atomic.Pointer[Pending]
 }
 
