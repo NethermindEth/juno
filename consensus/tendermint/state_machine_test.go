@@ -221,3 +221,7 @@ func TestInAnyState__OnTimeOutPreCommit__WithMatchingState__DoStartNextRound(t *
 func TestInAnyState__OnTimeOutPreCommit__WithNoMatchingState__DoNothing(t *testing.T) {
 
 }
+
+func Test__Timeout__WithRound__DoReturnExpectedTimeoutValue(t *testing.T) {
+
+}
