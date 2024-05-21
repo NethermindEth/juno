@@ -3,18 +3,26 @@ package tendermint
 import consensus "github.com/NethermindEth/juno/consensus/common"
 
 const (
-	PROPOSAL  string = "PROPOSAL"
-	PREVOTE   string = "PREVOTE"
-	PRECOMMIT string = "PRECOMMIT"
+	STEP_PROPOSAL  string = "PROPOSAL"
+	STEP_PREVOTE   string = "PREVOTE"
+	STEP_PRECOMMIT string = "PRECOMMIT"
+
+	VOTE_MAJORITY           string = "MAJORITY"
+	VOTE_MINORITY           string = "MINORITY"
+	VOTE_LESS_THAN_MINORITY string = "LESS_THAN_MINORITY"
 )
+
+type MsgType = string
+type VoteLevel = string
 
 // Message Todo: locked/validRound can be as large as round so uint vs int might be a bad idea maybe use uint and set to nil for negative value?
 type Message struct {
-	msgType        string
+	msgType        MsgType
 	height         uint64
 	round          uint64
 	value          *consensus.Proposable
 	lastValidRound int64
+	voteLevel      VoteLevel
 }
 
 func (msg *Message) Type() string {
