@@ -3,6 +3,11 @@ This document contains the most recent design for the implementation of Tendermi
 
 [visit here for more detailed explanation with diagrams](https://www.notion.so/nethermind/Tendermint-Consensus-f5f337c7a90046efbcf98fa2eafa8279?pvs=4#dabf0214f3324e5eba186fbe167cf056)
 
+## Things to note
+- leader election algorithm must guarantee that for some finite N all possible leaders can be choosen.
+  That is, after some N choices, any possible leader would have been chosen as a leader at some point. This is one of the
+  assumptions that guarantees termination.
+
 ## Component
 At a higher level the components
 1. Tendermint core
