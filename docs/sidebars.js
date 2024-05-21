@@ -13,7 +13,7 @@ const sidebars = {
         "running-juno",
         "configuring",
         "running-on-gcp",
-        "running-p2p",
+        // "running-p2p",
         "updating",
       ],
     },

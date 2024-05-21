@@ -14,7 +14,7 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 <details>
   <summary>How can I run Juno?</summary>
 
-Check out the [Running Juno](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) and [Running a Juno P2P Node](running-p2p) guides to learn how to run Juno on GCP and configure Juno's peer-to-peer feature.
+Check out the [Running Juno](running-juno) guide to learn the simplest and fastest ways to run a Juno node. You can also check the [Running Juno on GCP](running-on-gcp) guide to learn how to run Juno on GCP.
 
 </details>
 
@@ -28,7 +28,7 @@ We recommend running Juno with at least 4GB of RAM and 250GB of SSD storage. Che
 <details>
   <summary>How can I configure my Juno node?</summary>
 
-You can configure Juno using [command line parameters](configuring#command-line-params), [environment variables](configuring#environment-variables), and [YAML configuration files](configuring#configuration-file). Check out the [Configuring Juno](configuring) guide to learn their usage and precedence.
+You can configure Juno using [command line parameters](configuring#command-line-params), [environment variables](configuring#environment-variables), and a [YAML configuration file](configuring#configuration-file). Check out the [Configuring Juno](configuring) guide to learn their usage and precedence.
 
 </details>
 
