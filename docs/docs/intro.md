@@ -1,43 +1,78 @@
 ---
 slug: /
-sidebar_position: 1
-title: Quick Start
+title: Introduction
 ---
 
-*Juno is your fast and featureful Starknet client implementation.*
+# Welcome to Juno :wave:
 
-Suitable for casual setups, production-grade indexers, and everything in between.
+Juno is a Go implementation of a Starknet full-node client created by Nethermind to allow node operators to easily and reliably support the network and advance its decentralisation goals. Juno supports various node setups, from casual to production-grade indexers.
 
-- :floppy_disk: **Tiny database size**: ~71Gb on mainnet
-- :zap: **Blazing fast sync**: constrained only by hardware and the sequencer
-- :100: **100% [JSON-RPC spec](https://github.com/starkware-libs/starknet-specs/tree/master) compliance**: all things Starknet, in one place
-- :racing_car: **Minimal RPC response latency**: to keep your applications moving
-- :mag_right: **Low-level GRPC database API**: for the most demanding workloads
+- :cd: **Small database footprint**: Approximately 182GB on mainnet.
+- :zap: **Ultra-fast synchronisation**: Limited only by your hardware and the sequencer.
+- :100: **Complete [JSON-RPC spec](https://github.com/starkware-libs/starknet-specs/tree/master) compliance**: Everything Starknet, accessible from a single point.
+- :mag_right: **Minimal RPC response latency**: Ensuring your applications run smoothly.
+- :globe_with_meridians: **Websocket interface**: For seamless real-time updates of the network.
 
-# Sync Starknet in Two Commands
+## Getting started
 
-```shell
-# Juno's database directory. Can be any directory on the machine.
-mkdir -p junodb
+Learn how to configure and manage your Juno node with the following resources:
 
-# Juno's HTTP server listens on port 6060.
-docker run -d --name juno -p 6060:6060 -v junodb:/var/lib/juno nethermind/juno:latest --db-path /var/lib/juno --http
+```mdx-code-block
+import GuideCard from '@site/src/components/GuideCard';
+
+<GuideCard
+  href="running-juno"
+  icon="🚀"
+  title="Running a Juno Node"
+  description="Learn how to set up and operate your own Juno node"
+/>
+
+<GuideCard
+  href="configuring"
+  icon="⚙️"
+  title="Juno Configuration Options"
+  description="Explore various configuration options to customise your node"
+/>
+
+<GuideCard
+  href="json-rpc"
+  icon="🌐"
+  title="Interacting with Juno"
+  description="Discover how to interact with Juno using the JSON-RPC and WebSocket interfaces"
+/>
+
+<GuideCard
+  href="snapshots"
+  icon="📸"
+  title="Download a Juno Snapshot"
+  description="Download and use a snapshot to quickly sync your node with the network"
+/>
 ```
 
-For a complete list of options and their explanations, see the [Example Configuration](example_config.md) or run:
+:::tip
+You can access the Nethermind Starknet RPC service for free at https://data.voyager.online.
+:::
 
-```shell
-docker run nethermind/juno --help
-```
+## Community and support
 
-# Looking for a Starknet RPC Provider? 
+Join our community for support, engaging discussions, and updates:
 
-Access Nethermind's Starknet RPC service for free at [data.voyager.online](https://data.voyager.online).
+- [Discord](https://discord.gg/SZkKcmmChJ): Connect in real-time with the Juno team and community.
+- [X (Twitter)](https://x.com/NethermindStark): Follow for the latest news and insights from Nethermind.
+- [Telegram](https://t.me/+LHRF4H8iQ3c5MDY0): Share ideas and stay informed with fellow Juno users.
 
-# Questions, Discussions, Community
+## Contributions and partnerships
 
-Find active Juno team members and users in the following places.
+We value community contributions and are eager to support your involvement. Here’s how you can contribute:
 
-- [GitHub](https://github.com/NethermindEth/juno)
-- [Discord](https://discord.gg/SZkKcmmChJ)
-- [Telegram](https://t.me/+LHRF4H8iQ3c5MDY0)
+- :rocket: [Run a Juno node](running-juno) to strengthen the Starknet network.
+- :star: Give Juno a [star on GitHub](https://github.com/NethermindEth/juno/stargazers).
+- :memo: Share your thoughts on [X (Twitter)](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum).
+- :beetle: [Report bugs](https://github.com/NethermindEth/juno/issues/new) or [suggest new features](https://github.com/NethermindEth/juno/issues/new).
+- :mega: Encourage others to explore and use Juno.
+
+:::tip
+If you're ready to make PRs but unsure where to start, join our [Discord](https://discord.gg/TcHbSZ9ATd), and we'll guide you through some beginner-friendly issues.
+:::
+
+If you're interested in forming a partnership with the Juno team or have any suggestions or special requests, please don't hesitate to contact us via juno@nethermind.io
