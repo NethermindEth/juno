@@ -24,9 +24,17 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 			return nil, err
 		}
 		classInfo.AbiLength = uint32(len(c.Abi))
-		println("Marshalling Cairo0 class")
+
+		// Used only for debugging purposes
+		hash, err := c.Hash()
+		var hashStr string
+		if err == nil {
+			hashStr = "0x" + hash.Text(16)
+		} else {
+			hashStr = "error: " + err.Error()
+		}
+		println(fmt.Sprintf("Marshalling Cairo Zero class. Hash: %s Version: %v\n", hashStr, c.Version()))
 	case *core.Cairo1Class:
-		println("ch1")
 		if c.Compiled == nil {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
@@ -37,6 +45,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
 
+		// Used only for debugging purposes
 		hash, err := c.Hash()
 		var hashStr string
 		if err == nil {
@@ -45,11 +54,10 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 			hashStr = "error: " + err.Error()
 		}
 
-		println(fmt.Sprintf("Marshalling sierra class. Hash: %s Version: %v\n", hashStr, c.Version()))
+		println(fmt.Sprintf("Marshalling Sierra class. Hash: %s Version: %v\n", hashStr, c.Version()))
 	default:
 		println("Failed marshalling, unknown type.")
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
-	println("ch2")
 	return json.Marshal(classInfo)
 }
