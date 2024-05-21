@@ -78,3 +78,7 @@ make juno
 # Rebuild the Docker image
 docker build -t nethermind/juno:latest .
 ```
+
+:::tip
+To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
+:::
