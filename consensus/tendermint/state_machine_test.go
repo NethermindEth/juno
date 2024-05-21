@@ -188,3 +188,36 @@ func TestInAnyState__OnMinorityAnyVote_hp_r_AnyValueORAnyId_AnyPreviouslyValidRo
 func TestInAnyState__OnLessThanMinorityAnyVote_hp_r_AnyValueORAnyId_AnyPreviouslyValidRound__DoStartNewRound_r(t *testing.T) {
 	// do nothing for r > rp and for r < rp
 }
+
+// Test Misc functions
+func TestInProposeState__OnTimeOutPropose__WithMatchingState__DoBroadcastPreVoteWithNoValueIdSetStepToPreVote(t *testing.T) {
+
+}
+
+func TestInProposeState__OnTimeOutPropose__WithNoMatchingState__DoNothing(t *testing.T) {
+
+}
+
+func TestInNonProposeState__OnTimeOutPropose__DoNothing(t *testing.T) {
+
+}
+
+func TestInPreVoteState__OnTimeOutPreVote__WithMatchingState__DoBroadcastPreCommitWithNoValueIdSetStepToPreCommit(t *testing.T) {
+
+}
+
+func TestInPreVoteState__OnTimeOutPreVote__WithNoMatchingState__DoNothing(t *testing.T) {
+
+}
+
+func TestInNonePreVoteState__OnTimeOutPreVote__DoNothing(t *testing.T) {
+
+}
+
+func TestInAnyState__OnTimeOutPreCommit__WithMatchingState__DoStartNextRound(t *testing.T) {
+
+}
+
+func TestInAnyState__OnTimeOutPreCommit__WithNoMatchingState__DoNothing(t *testing.T) {
+
+}
