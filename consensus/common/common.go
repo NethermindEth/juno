@@ -25,4 +25,5 @@ type Proposable interface {
 	Id() uint64
 	Value() interface{}
 	IsId() bool
+	IsValue() bool
 }
