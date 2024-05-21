@@ -26,11 +26,11 @@ import (
 )
 
 const greeting = `
-       _                    
-      | |                   
-      | |_   _ _ __   ___   
-  _   | | | | | '_ \ / _ \  
- | |__| | |_| | | | | (_) |  
+       _
+      | |
+      | |_   _ _ __   ___
+  _   | | | | | '_ \ / _ \
+ | |__| | |_| | | | | (_) |
   \____/ \__,_|_| |_|\___/ %s
 
 Juno is a Go implementation of a Starknet full-node client created by Nethermind.
@@ -118,14 +118,14 @@ const (
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
 
-	configFlagUsage                       = "The yaml configuration file."
-	logLevelFlagUsage                     = "Options: debug, info, warn, error."
+	configFlagUsage                       = "The YAML configuration file."
+	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
 	httpUsage                             = "Enables the HTTP RPC server on the default port and interface."
 	httpHostUsage                         = "The interface on which the HTTP RPC server will listen for requests."
 	httpPortUsage                         = "The port on which the HTTP server will listen for requests."
-	wsUsage                               = "Enables the Websocket RPC server on the default port."
-	wsHostUsage                           = "The interface on which the Websocket RPC server will listen for requests."
-	wsPortUsage                           = "The port on which the websocket server will listen for requests."
+	wsUsage                               = "Enables the WebSocket RPC server on the default port."
+	wsHostUsage                           = "The interface on which the WebSocket RPC server will listen for requests."
+	wsPortUsage                           = "The port on which the WebSocket server will listen for requests."
 	dbPathUsage                           = "Location of the database files."
 	networkUsage                          = "Options: mainnet, sepolia, sepolia-integration."
 	networkCustomName                     = "Custom network name."
@@ -138,8 +138,8 @@ const (
 	pprofUsage                            = "Enables the pprof endpoint on the default port."
 	pprofHostUsage                        = "The interface on which the pprof HTTP server will listen for requests."
 	pprofPortUsage                        = "The port on which the pprof HTTP server will listen for requests."
-	colourUsage                           = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage                          = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
 	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
@@ -149,14 +149,14 @@ const (
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
 	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
-	metricsUsage         = "Enables the prometheus metrics endpoint on the default port."
-	metricsHostUsage     = "The interface on which the prometheus endpoint will listen for requests."
-	metricsPortUsage     = "The port on which the prometheus endpoint will listen for requests."
-	grpcUsage            = "Enable the HTTP GRPC server on the default port."
-	grpcHostUsage        = "The interface on which the GRPC server will listen for requests."
-	grpcPortUsage        = "The port on which the GRPC server will listen for requests."
+	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
+	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
+	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
+	grpcUsage            = "Enable the HTTP gRPC server on the default port."
+	grpcHostUsage        = "The interface on which the gRPC server will listen for requests."
+	grpcPortUsage        = "The port on which the gRPC server will listen for requests."
 	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
+	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
 	remoteDBUsage        = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
 	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
