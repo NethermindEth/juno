@@ -1,0 +1,15 @@
+{
+  "block_hash": "0x7a906dfd1ff77a121b8048e6f750cda9e949d341c4487d4c6a449f183f0e61d",
+  "new_root": "0xe005205a1327f3dff98074e528f7b96f30e0624a1dfcf571bdc81948d150a0",
+  "old_root": "0xe005205a1327f3dff98074e528f7b96f30e0624a1dfcf571bdc81948d150a0",
+  "state_diff": {
+    "storage_diffs": {},
+    "nonces": {},
+    "deployed_contracts": [],
+    "old_declared_contracts": [
+      "0x4f23a756b221f8ce46b72e6a6b10ee7ee6cf3b59790e76e02433104f9a8c5d1"
+    ],
+    "declared_classes": [],
+    "replaced_classes": []
+  }
+}

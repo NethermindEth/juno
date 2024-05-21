@@ -82,7 +82,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 		return
 	}
 
-	response, err := reqHandler(req.(ReqT))
+	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
 		log.Debugw("Error handling request", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
@@ -90,7 +90,7 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	}
 
 	// todo add write timeout
-	response(func(msg proto.Message) bool {
+	responseIterator(func(msg proto.Message) bool {
 		if ctx.Err() != nil {
 			return false
 		}
@@ -191,6 +191,10 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (iter.Seq[p
 		return nil, err
 	}
 
+	fin := newFin(&spec.BlockBodiesResponse{
+		BodyMessage: &spec.BlockBodiesResponse_Fin{},
+	})
+
 	return func(yield func(proto.Message) bool) {
 	outerLoop:
 		for it.Valid() {
@@ -221,8 +225,8 @@ func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (iter.Seq[p
 			it.Next()
 		}
 
-		finMsg := &spec.BlockBodiesResponse{
-			BodyMessage: &spec.BlockBodiesResponse_Fin{},
+		if finMs, ok := fin(); ok {
+			yield(finMs)
 		}
 		yield(finMsg)
 	}, nil
@@ -311,11 +315,11 @@ type blockDataAccessor interface {
 // given block data for current iteration through blockDataAccessor
 type iterationProcessor = func(it blockDataAccessor) (proto.Message, error)
 
-// processIterationRequest is helper method that simplifies data processing for provided spec.Iteration object
+// processIterationRequest is helper function that simplifies data processing for provided spec.Iteration object
 // caller usually passes iteration object from received request, finMsg as final message to a peer
 // and iterationProcessor function that will generate response for each iteration
-func (h *Handler) processIterationRequest(
-	iteration *spec.Iteration, finMsg proto.Message, f iterationProcessor,
+func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg proto.Message,
+	getMsg iterationProcessor,
 ) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
 	if err != nil {
@@ -327,7 +331,7 @@ func (h *Handler) processIterationRequest(
 		// while iterator is valid
 		for it.Valid() {
 			// pass it to handler function (some might be interested in header, others in entire block)
-			msg, err := f(it)
+			msg, err := getMsg(it)
 			if err != nil {
 				h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
 				break

@@ -383,13 +383,12 @@ func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	}
 	defer body.Close()
 
-	b, err := io.ReadAll(body)
-	if err != nil {
+	var publicKey string // public key hex string
+	if err = json.NewDecoder(body).Decode(&publicKey); err != nil {
 		return nil, err
 	}
-	publicKey := new(felt.Felt).SetBytes(b)
 
-	return publicKey, nil
+	return new(felt.Felt).SetString(publicKey)
 }
 
 func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {

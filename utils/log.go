@@ -12,8 +12,8 @@ import (
 )
 
 var ErrUnknownLogLevel = fmt.Errorf(
-	"unknown log level (known: %s, %s, %s, %s)",
-	DEBUG, INFO, WARN, ERROR,
+	"unknown log level (known: %s, %s, %s, %s, %s)",
+	TRACE, DEBUG, INFO, WARN, ERROR,
 )
 
 type LogLevel int
@@ -30,6 +30,7 @@ const (
 	INFO
 	WARN
 	ERROR
+	TRACE
 )
 
 func (l LogLevel) String() string {
@@ -42,6 +43,8 @@ func (l LogLevel) String() string {
 		return "warn"
 	case ERROR:
 		return "error"
+	case TRACE:
+		return "trace"
 	default:
 		// Should not happen.
 		panic(ErrUnknownLogLevel)
@@ -62,6 +65,8 @@ func (l *LogLevel) Set(s string) error {
 		*l = WARN
 	case "ERROR", "error":
 		*l = ERROR
+	case "TRACE", "trace":
+		*l = TRACE
 	default:
 		return ErrUnknownLogLevel
 	}
@@ -90,10 +95,25 @@ type SimpleLogger interface {
 	Infow(msg string, keysAndValues ...any)
 	Warnw(msg string, keysAndValues ...any)
 	Errorw(msg string, keysAndValues ...any)
+	Tracew(msg string, keysAndValues ...any)
 }
 
 type ZapLogger struct {
 	*zap.SugaredLogger
+}
+
+const (
+	traceLevel = zapcore.Level(-2)
+)
+
+func (l *ZapLogger) IsTraceEnabled() bool {
+	return l.Desugar().Core().Enabled(traceLevel)
+}
+
+func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
+	if l.IsTraceEnabled() {
+		l.Debugw("[TRACE] "+msg, keysAndValues...) // Hack: we use Debug for traces
+	}
 }
 
 var _ Logger = (*ZapLogger)(nil)
@@ -113,9 +133,17 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
-	level, err := zapcore.ParseLevel(logLevel.String())
-	if err != nil {
-		return nil, err
+
+	var level zapcore.Level
+	var err error
+	levelStr := logLevel.String()
+	if logLevel == TRACE {
+		level = traceLevel
+	} else {
+		level, err = zapcore.ParseLevel(levelStr)
+		if err != nil {
+			return nil, err
+		}
 	}
 	config.Level.SetLevel(level)
 	log, err := config.Build()

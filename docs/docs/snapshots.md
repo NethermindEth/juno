@@ -1,68 +1,66 @@
 ---
-slug: /snapshots
-sidebar_position: 4
 title: Database Snapshots
 ---
 
-To decrease sync times, users may opt to download a Juno database snapshot.
-After downloading a snapshot and starting a Juno node, only recent blocks must be synced.
+# Database Snapshots :camera_flash:
+
+You can download a snapshot of the Juno database to reduce the network syncing time. Only the blocks created after the snapshot will be synced when you run the node.
 
 ## Mainnet
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
+| Version      | Size       | Block      | Download Link                                                                                         |
+| ------------ | ---------- | ---------- | ----------------------------------------------------------------------------------------------------- |
+| **>=v0.9.2** | **182 GB** | **640855** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar) |
 
-### Sepolia
+## Sepolia
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2** | **2.9 GB** | **55984** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.4_55984.tar) |
+| Version      | Size     | Block     | Download Link                                                                                        |
+| ------------ | -------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| **>=v0.9.2** | **5 GB** | **66477** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.7_66477.tar) |
 
-## Goerli2
+## Run Juno with a snapshot
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+### 1. Download the snapshot
 
-## Run Juno Using Snapshot
+First, download a snapshot from one of the provided URLs:
 
-1. **Download Snapshot**
+```bash
+wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar
+```
 
-   Fetch a snapshot from one of the provided URLs:
+### 2. Prepare a directory
 
-   ```bash
-   curl -o juno_mainnet_247401.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar
-   ```
+Ensure you have a directory to store the snapshots. We will use the `$HOME/snapshots` directory:
 
-2. **Prepare Directory**
+```bash
+mkdir -p $HOME/snapshots
+```
 
-   Ensure you have a directory where you will store the snapshots. We will use `$HOME/snapshots`.
+### 3. Extract the snapshot
 
-   ```bash
-   mkdir -p $HOME/snapshots
-   ```
+Extract the contents of the downloaded `.tar` file into the directory:
 
-3. **Extract Tarball**
+```bash
+tar -xvf juno_mainnet.tar -C $HOME/snapshots
+```
 
-   Extract the contents of the `.tar` file:
+### 4. Run Juno
 
-   ```bash
-   tar -xvf juno_mainnet_247401.tar -C $HOME/snapshots
-   ```
+Run the Docker command to start Juno and provide the path to the snapshot using the `db-path` option:
 
-4. **Run Juno**
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --db-path /snapshots/juno_mainnet
+  --eth-node <YOUR ETH NODE>
+```
 
-   Execute the Docker command to run Juno, ensuring that you're using the correct snapshot path `$HOME/snapshots/juno_mainnet`:
-
-   ```bash
-   docker run -d \
-     --name juno \
-     -p 6060:6060 \
-     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
-     nethermind/juno \
-     --http \
-     --db-path /var/lib/juno
-   ```
-
-After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.
+:::info
+Replace \<YOUR ETH NODE\> with the WebSocket endpoint of your Ethereum node. For Infura users, your address should be: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
+:::
