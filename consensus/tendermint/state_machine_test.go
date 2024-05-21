@@ -119,3 +119,19 @@ func TestInProposeState__OnProposal_h_r_v_vr_FromProposerAndMajorityPreVote_h_vr
 func TestInProposeState__OnProposal_h_r_v_vr_FromProposerAndMajorityPreVote_h_vr_idv_WithReceivedPreviouslyValidRoundIsValid__AfterTransitionToPreVoteStep_OnlyStepStateValueChanges(t *testing.T) {
 
 }
+
+func TestInPreVoteState_FirstTime__OnPreVote_hp_rp_AnyValueId__DoScheduleOnTimeOutPreVoteForTimeOutPreVote(t *testing.T) {
+
+}
+
+func TestInPreVoteState_FirstTime__OnPreVote_hp_rp_AnyValueId__DoScheduleOnTimeOutPreVoteForTimeOutPreVote__AfterTimeOutOnStateMatch__DoBroadcastPreCommit__TransitionToPreCommit(t *testing.T) {
+
+}
+
+func TestInPreVoteState_FirstTime__OnPreVote_hp_rp_AnyValueId__DoScheduleOnTimeOutPreVoteForTimeOutPreVote__AfterTimeOutOnStateDoesNotMatch__DoNothing__NoStateChange(t *testing.T) {
+
+}
+
+func TestInPreVoteState_NotFirstTime__OnPreVote_hp_rp_AnyValueId__DoNothing__NoStateChange(t *testing.T) {
+
+}
