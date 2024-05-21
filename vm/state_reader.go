@@ -71,7 +71,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress unsafe.Po
 
 //export JunoStateGetCompiledClass
 func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointer) unsafe.Pointer {
-	println("executing JunoStateGetCompiledClass(Go)")
+	println("00 -> Executing JunoStateGetCompiledClass(Go)")
 	context := unwrapContext(readerHandle)
 
 	classHashFelt := makeFeltFromPtr(classHash)
@@ -91,6 +91,6 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		return nil
 	}
 
-	println("executing JunoStateGetCompiledClass(Go) -> SUCCESS")
+	println("01 -> Completed JunoStateGetCompiledClass(Go) -> SUCCESS")
 	return unsafe.Pointer(cstring(compiledClass))
 }

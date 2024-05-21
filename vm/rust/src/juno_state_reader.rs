@@ -102,6 +102,10 @@ impl StateReader for JunoStateReader {
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        println!(
+            "00 -> get_class_hash_at {0} (Rust Juno State Reader)",
+            contract_address.to_string()
+        );
         let addr = felt_to_byte_array(contract_address.0.key());
         let ptr = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
@@ -113,12 +117,17 @@ impl StateReader for JunoStateReader {
             let felt_val = ptr_to_felt(ptr);
             unsafe { JunoFree(ptr as *const c_void) };
 
+            println!(
+                "01-> Success get_class_hash_at {0} (Rust Juno State Reader)",
+                contract_address.to_string()
+            );
             Ok(ClassHash(felt_val))
         }
     }
 
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        println!("00 -> get_compiled_contract_class {class_hash} (Rust Juno State Reader)");
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
@@ -133,6 +142,9 @@ impl StateReader for JunoStateReader {
             // if they are cached on the same height that we are executing on. Because they might be cached using a state instance that
             // is in the future compared to the state that we are currently executing on, even tho they have the same height.
             if cached_class.cached_on_height < self.height {
+                println!(
+                    "01a -> Success (Cached) get_compiled_contract_class {class_hash} (Rust Juno State Reader)"
+                );
                 return Ok(cached_class.definition.clone());
             }
         }
@@ -156,7 +168,14 @@ impl StateReader for JunoStateReader {
 
             unsafe { JunoFree(ptr as *const c_void) };
 
+            println!(
+                    "01b -> Success(?) get_compiled_contract_class {class_hash} (Rust Juno State Reader)"
+                );
+
             class_info_res.map(|ci| ci.contract_class()).map_err(|err| {
+                println!(
+                    "01c -> Failure get_compiled_contract_class {class_hash} (Rust Juno State Reader)"
+                );
                 StateError::StateReadError(format!(
                     "parsing JSON string for class hash {}: {}",
                     class_hash.0, err

@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
 )
 
 func marshalClassInfo(class core.Class) (json.RawMessage, error) {
+	println("Attempting to marshalClassInfo")
 	var classInfo struct {
 		Class        any    `json:"contract_class"`
 		AbiLength    uint32 `json:"abi_length"`
@@ -26,6 +26,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		classInfo.AbiLength = uint32(len(c.Abi))
 		println("Marshalling Cairo0 class")
 	case *core.Cairo1Class:
+		println("ch1")
 		if c.Compiled == nil {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
@@ -35,9 +36,20 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		classInfo.Class = core2sn.AdaptSierraClass(c)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
-		print("Marshalling sierra class")
+
+		hash, err := c.Hash()
+		var hashStr string
+		if err == nil {
+			hashStr = "0x" + hash.Text(16)
+		} else {
+			hashStr = "error: " + err.Error()
+		}
+
+		println(fmt.Sprintf("Marshalling sierra class. Hash: %s Version: %v\n", hashStr, c.Version()))
 	default:
+		println("Failed marshalling, unknown type.")
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
+	println("ch2")
 	return json.Marshal(classInfo)
 }
