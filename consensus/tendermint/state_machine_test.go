@@ -147,3 +147,19 @@ func TestInPreCommitState__OnProposal_hp_rp_v_AnyPreviouslyValidRound_FromPropos
 func TestInProposeState__OnProposal_hp_rp_v_AnyPreviouslyValidRound_FromProposerAndMajorityPreVote_hp_rp_idv__ValidProposedValue__DoNothing(t *testing.T) {
 
 }
+
+func TestInPreVoteState__OnMajorityPreVote_hp_rp_NoValueId__DoBroadcastPreCommit__SetStepToPreCommit(t *testing.T) {
+
+}
+
+func TestInPreVoteState__OnLessThanMajorityPreVote_hp_rp_NoValueId__DoNothing(t *testing.T) {
+
+}
+
+func TestInAnyState__OnMajorityPreCommit_hp_rp_AnyValueId_FirstTime__DoScheduleOnTimeOutPreCommitForTimeOutPreCommit__AfterTimeOutOnStateMatch__DoStartNewRound(t *testing.T) {
+
+}
+
+func TestInAnyState__OnMajorityPreCommit_hp_rp_AnyValueId_FirstTime__DoScheduleOnTimeOutPreCommitForTimeOutPreCommit__AfterTimeOutOnStateDoesNotMatch__DoNothing(t *testing.T) {
+
+}
