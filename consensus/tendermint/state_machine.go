@@ -30,6 +30,22 @@ func (sm *StateMachine) HandleMessage(msg Message) error {
 	panic("implement me")
 }
 
-func (sm *StateMachine) startRound(round int64) error {
+func (sm *StateMachine) startRound(round uint64) error {
+	panic("implement me")
+}
+
+func (sm *StateMachine) onTimeoutPropose(height, round uint64) error {
+	panic("implement me")
+}
+
+func (sm *StateMachine) onTimeoutPreVote(height, round uint64) error {
+	panic("implement me")
+}
+
+func (sm *StateMachine) onTimeoutPreCommit(height, round uint64) error {
+	panic("implement me")
+}
+
+func (sm *StateMachine) timeOutTime(round uint64) {
 	panic("implement me")
 }

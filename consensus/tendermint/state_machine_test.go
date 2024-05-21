@@ -36,7 +36,8 @@ func TestAsNonProposerStartRoundBroadCastsNothingWhenValueExists(t *testing.T) {
 }
 
 func TestAsNonProposerStartRoundSchedulesTimeOut(t *testing.T) {
-	// a bit tricky might need to make timeout callback function a dependency
+	// a bit tricky might need to make timeout callback function a dependency for handle message function
+	// also timeout time is based on a function of the number of rounds so far.
 }
 
 // test machine creation
