@@ -10,15 +10,11 @@
 package mocks
 
 import (
-	"bytes"
-	"errors"
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
-	db "github.com/NethermindEth/juno/core/db"
 	felt "github.com/NethermindEth/juno/core/felt"
 	trie "github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -26,62 +22,6 @@ import (
 type MockStateHistoryReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateHistoryReaderMockRecorder
-}
-
-// GetGlobalTrie implements core.StateReader.
-func (m *MockStateHistoryReader) GetGlobalTrie() (*trie.Trie, func() error, error) {
-	panic("unimplemented")
-}
-
-// NodeFromRoot implements core.StateHistoryReader.
-func (m *MockStateHistoryReader) NodeFromRoot() (*trie.Trie, func() error, error) {
-	// panic("not implemented")
-	dbPrefix := db.StateTrie.Key()
-	new_state := core.NewState(db.Transaction)
-	tTxn := trie.NewStorage(db.Transaction, dbPrefix)
-
-	rootKeyDBKey := dbPrefix
-	var rootKey *trie.Key
-	err := new_state.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(trie.Key)
-		return rootKey.UnmarshalBinary(val)
-	})
-
-	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
-		return nil, nil, err
-	}
-
-	gTrie, err := trie.NewTrieFunc(tTxn, 251) // globalTrieHeight
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// prep closer
-	closer := func() error {
-		if err = gTrie.Commit(); err != nil {
-			return err
-		}
-
-		resultingRootKey := gTrie.RootKey()
-		// no updates on the trie, short circuit and return
-		if resultingRootKey.Equal(rootKey) {
-			return nil
-		}
-
-		if resultingRootKey != nil {
-			var rootKeyBytes bytes.Buffer
-			_, marshalErr := resultingRootKey.WriteTo(&rootKeyBytes)
-			if marshalErr != nil {
-				return marshalErr
-			}
-
-			return new_state.txn.Set(rootKeyDBKey, rootKeyBytes.Bytes())
-		}
-		return new_state.txn.Delete(rootKeyDBKey)
-	}
-
-	return gTrie, closer, nil
-
 }
 
 // MockStateHistoryReaderMockRecorder is the mock recorder for MockStateHistoryReader.
@@ -219,4 +159,20 @@ func (m *MockStateHistoryReader) ContractStorageAt(arg0, arg1 *felt.Felt, arg2 u
 func (mr *MockStateHistoryReaderMockRecorder) ContractStorageAt(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageAt), arg0, arg1, arg2)
+}
+
+// GetGlobalTrie mocks base method.
+func (m *MockStateHistoryReader) GetGlobalTrie() (*trie.Trie, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGlobalTrie")
+	ret0, _ := ret[0].(*trie.Trie)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetGlobalTrie indicates an expected call of GetGlobalTrie.
+func (mr *MockStateHistoryReaderMockRecorder) GetGlobalTrie() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGlobalTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).GetGlobalTrie))
 }

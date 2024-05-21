@@ -77,6 +77,8 @@ type Blockchain struct {
 	listener EventListener
 
 	cachedPending atomic.Pointer[Pending]
+
+	log utils.SimpleLogger
 }
 
 func New(database db.DB, network *utils.Network) *Blockchain {
