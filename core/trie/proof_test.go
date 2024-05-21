@@ -340,4 +340,30 @@ func TestVerifyProofs(t *testing.T) {
 		val1 := new(felt.Felt).SetUint64(2)
 		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
+
+	t.Run("Simple binary trie - fail missing key", func(t *testing.T) {
+		tempTrie := buildSimpleTrie(t)
+		zero := trie.NewKey(250, []byte{0})
+		expectedProofNodes := []trie.ProofNode{
+			{
+				Edge: &trie.Edge{
+					Path:  &zero,
+					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+				},
+			},
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+				},
+			},
+		}
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+		key1Bytes := new(felt.Felt).SetUint64(123456).Bytes() // non-existant key
+		key1 := trie.NewKey(251, key1Bytes[:])
+		val1 := new(felt.Felt).SetUint64(2)
+		assert.False(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
+	})
 }
