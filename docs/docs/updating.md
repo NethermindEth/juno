@@ -10,6 +10,10 @@ It is important to run the latest version of Juno as each update brings new feat
 - [Standalone binary](#standalone-binary)
 - [Updating from source](#updating-from-source)
 
+:::info
+When running an updated node, use the same `db-path` as before to avoid restarting the sync and use the already synced database.
+:::
+
 ## Docker container
 
 ### 1. Get the latest Docker image
