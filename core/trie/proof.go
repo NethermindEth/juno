@@ -129,8 +129,11 @@ func GetProofs(startKey, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
 }
 
 func VerifyProofs(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) bool {
-	for i, key := range keys {
-		if !VerifyProof(root, key, values[i], proofs[i], hash) {
+	if len(keys) != len(values) || len(keys) != len(proofs) {
+		return false
+	}
+	for i := range len(keys) {
+		if !VerifyProof(root, keys[i], values[i], proofs[i], hash) {
 			return false
 		}
 	}
