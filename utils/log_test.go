@@ -15,6 +15,7 @@ var levelStrings = map[utils.LogLevel]string{
 	utils.INFO:  "info",
 	utils.WARN:  "warn",
 	utils.ERROR: "error",
+	utils.TRACE: "trace",
 }
 
 func TestLogLevelString(t *testing.T) {

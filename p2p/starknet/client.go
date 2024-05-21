@@ -14,6 +14,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const unmarshalMaxSize = 15 * utils.Megabyte
+
 type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Stream, error)
 
 type Client struct {
@@ -44,7 +46,7 @@ func sendAndCloseWrite(stream network.Stream, req proto.Message) error {
 
 func receiveInto(stream network.Stream, res proto.Message) error {
 	unmarshaller := protodelim.UnmarshalOptions{
-		MaxSize: 10 * utils.Megabyte,
+		MaxSize: unmarshalMaxSize,
 	}
 	return unmarshaller.UnmarshalFrom(&byteReader{stream}, res)
 }
