@@ -361,9 +361,9 @@ func TestVerifyProofs(t *testing.T) {
 
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
-		key1Bytes := new(felt.Felt).SetUint64(123456).Bytes() // non-existant key
+		key1Bytes := utils.HexToFelt(t, "0x4").Bytes() // Non-existant key
 		key1 := trie.NewKey(251, key1Bytes[:])
-		val1 := new(felt.Felt).SetUint64(2)
+		val1 := new(felt.Felt).SetUint64(2) // key=0 has val=2
 		assert.False(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
 }
