@@ -18,6 +18,13 @@ type State struct {
 type StateMachine struct {
 }
 
+func NewStateMachine() *StateMachine {
+	// initial state
+	// timeout call back map
+	// timeout time returning function
+	panic("implement me")
+}
+
 func (sm *StateMachine) Init() error {
 	panic("implement me")
 }
