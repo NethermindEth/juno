@@ -340,9 +340,12 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
+		fmt.Printf("StateUpdate old root is %v\n", stateUpdate.OldRoot)
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+			fmt.Println("Update error", err)
 			return err
 		}
+		fmt.Println("Trying to store")
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}

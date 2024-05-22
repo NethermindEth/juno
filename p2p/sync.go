@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
-	"runtime/debug"
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -90,8 +89,8 @@ func (s *syncService) start(ctx context.Context) {
 
 		iterCtx, cancel := context.WithCancel(ctx)
 		cancelIteration := func() {
-			fmt.Println("Called by:")
-			debug.PrintStack()
+			// fmt.Println("Called by:")
+			// debug.PrintStack()
 			time.Sleep(time.Second * 4)
 			cancel()
 		}
@@ -201,6 +200,16 @@ func (s *syncService) start(ctx context.Context) {
 			}
 
 			storeTimer := time.Now()
+			var str string
+			for k, v := range b.newClasses {
+				h, err := v.Hash()
+				if err != nil {
+					panic(err)
+				}
+
+				str += fmt.Sprintf("key=%s, value=%s\n", k.String(), h)
+			}
+			fmt.Printf("Block %d stateUpdate: %v newClasses: %v\n", b.block.Number, b.stateUpdate.OldRoot, str)
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
@@ -324,8 +333,7 @@ func (s *syncService) processSpecBlockParts(
 						if curBlockNum > 0 {
 							// First check cache if the header is not present, then get it from the db.
 							if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
-								_ = oldHeader
-								// prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.State.Root)
+								prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.State.Root)
 							} else {
 								oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
 								if err != nil {

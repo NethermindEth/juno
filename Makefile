@@ -87,7 +87,7 @@ clean: ## clean project builds
 help: ## show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-feedernode:
+feedernode: juno-cached
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
@@ -98,7 +98,8 @@ feedernode:
 	--p2p-private-key="5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089" \
 	--metrics-port=9090
 
-node1:
+node1: juno-cached
+	rm -rf ./p2p-dbs/node1/ && \
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
