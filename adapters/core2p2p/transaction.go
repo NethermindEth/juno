@@ -3,6 +3,8 @@ package core2p2p
 import (
 	"fmt"
 
+	"github.com/NethermindEth/juno/utils"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -35,17 +37,16 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 		case tx.Version.Is(3):
 			specTx.Txn = &spec.Transaction_DeployAccountV3_{
 				DeployAccountV3: &spec.Transaction_DeployAccountV3{
-					// MaxFee:      AdaptFelt(tx.MaxFee), // todo support max_fee?
-					Signature:      AdaptAccountSignature(tx.Signature()),
-					ClassHash:      AdaptHash(tx.ClassHash),
-					Nonce:          AdaptFelt(tx.Nonce),
-					AddressSalt:    AdaptFelt(tx.ContractAddressSalt),
-					Calldata:       AdaptFeltSlice(tx.ConstructorCallData),
-					ResourceBounds: adaptResourceBounds(tx.ResourceBounds),
-					Tip:            AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					// Paymaster:   nil, todo support paymaster?
-					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
-					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
+					Signature:                 AdaptAccountSignature(tx.Signature()),
+					ClassHash:                 AdaptHash(tx.ClassHash),
+					Nonce:                     AdaptFelt(tx.Nonce),
+					AddressSalt:               AdaptFelt(tx.ContractAddressSalt),
+					Calldata:                  AdaptFeltSlice(tx.ConstructorCallData),
+					ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
+					Tip:                       tx.Tip,
+					PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+					NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
+					FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
 				},
 			}
 		default:
@@ -80,23 +81,23 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 					Signature:         AdaptAccountSignature(tx.Signature()),
 					ClassHash:         AdaptHash(tx.ClassHash),
 					Nonce:             AdaptFelt(tx.Nonce),
-					CompiledClassHash: AdaptFelt(tx.CompiledClassHash),
+					CompiledClassHash: AdaptHash(tx.CompiledClassHash),
 				},
 			}
 		case tx.Version.Is(3):
 			specTx.Txn = &spec.Transaction_DeclareV3_{
 				DeclareV3: &spec.Transaction_DeclareV3{
-					Sender: AdaptAddress(tx.SenderAddress),
-					// MaxFee:            AdaptFelt(tx.MaxFee), // todo support max_fee?
-					Signature:         AdaptAccountSignature(tx.Signature()),
-					ClassHash:         AdaptHash(tx.ClassHash),
-					Nonce:             AdaptFelt(tx.Nonce),
-					CompiledClassHash: AdaptFelt(tx.CompiledClassHash),
-					ResourceBounds:    adaptResourceBounds(tx.ResourceBounds),
-					Tip:               AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					// Paymaster:         nil, // todo support paymaster?
-					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
-					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
+					Sender:                    AdaptAddress(tx.SenderAddress),
+					Signature:                 AdaptAccountSignature(tx.Signature()),
+					ClassHash:                 AdaptHash(tx.ClassHash),
+					Nonce:                     AdaptFelt(tx.Nonce),
+					CompiledClassHash:         AdaptHash(tx.CompiledClassHash),
+					ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
+					Tip:                       tx.Tip,
+					PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+					AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
+					NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
+					FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
 				},
 			}
 		default:
@@ -127,16 +128,16 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 		case tx.Version.Is(3):
 			specTx.Txn = &spec.Transaction_InvokeV3_{
 				InvokeV3: &spec.Transaction_InvokeV3{
-					Sender: AdaptAddress(tx.SenderAddress),
-					// MaxFee:      AdaptFelt(tx.MaxFee), // todo support max_fee?
-					Signature:      AdaptAccountSignature(tx.Signature()),
-					Calldata:       AdaptFeltSlice(tx.CallData),
-					Nonce:          AdaptFelt(tx.Nonce),
-					ResourceBounds: adaptResourceBounds(tx.ResourceBounds),
-					Tip:            AdaptFelt(new(felt.Felt).SetUint64(tx.Tip)),
-					// Paymaster:   nil, // todo support paymaster?
-					NonceDomain: fmt.Sprintf("%v", tx.NonceDAMode),
-					FeeDomain:   fmt.Sprintf("%v", tx.FeeDAMode),
+					Sender:                    AdaptAddress(tx.SenderAddress),
+					Signature:                 AdaptAccountSignature(tx.Signature()),
+					Calldata:                  AdaptFeltSlice(tx.CallData),
+					ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
+					Tip:                       tx.Tip,
+					PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+					AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
+					NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
+					FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
+					Nonce:                     AdaptFelt(tx.Nonce),
 				},
 			}
 		default:
@@ -182,5 +183,16 @@ func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *spec.Transaction_
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
 			Calldata:           AdaptFeltSlice(tx.CallData),
 		},
+	}
+}
+
+func adaptVolitionDomain(mode core.DataAvailabilityMode) spec.VolitionDomain {
+	switch mode {
+	case core.DAModeL1:
+		return spec.VolitionDomain_L1
+	case core.DAModeL2:
+		return spec.VolitionDomain_L2
+	default:
+		panic("unreachable in adaptVolitionDomain")
 	}
 }

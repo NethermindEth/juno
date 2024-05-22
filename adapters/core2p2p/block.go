@@ -28,26 +28,27 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.SignedBlockHeader {
 	// todo revisit
 	return &spec.SignedBlockHeader{
+		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),
 		Number:           header.Number,
 		Time:             header.Timestamp,
 		SequencerAddress: AdaptAddress(header.SequencerAddress),
-		Receipts:         nil, // not defined yet
-		State: &spec.Patricia{
-			Height: core.ContractStorageTrieHeight,
-			Root:   AdaptHash(header.GlobalStateRoot),
-		},
-		Transactions: &spec.Merkle{
-			NLeaves: uint32(header.TransactionCount),
+		StateRoot:        AdaptHash(header.GlobalStateRoot),
+		// todo state diff commitment
+		Transactions: &spec.Patricia{
+			NLeaves: header.TransactionCount,
 			Root:    AdaptHash(commitments.TransactionCommitment),
 		},
-		Events: &spec.Merkle{
-			NLeaves: uint32(header.EventCount),
+		Events: &spec.Patricia{
+			NLeaves: header.EventCount,
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
+		// todo fill receipts
+		Receipts:        nil,
 		ProtocolVersion: header.ProtocolVersion,
-		GasPrice:        AdaptFelt(header.GasPrice),
-		Signatures:      utils.Map(header.Signatures, AdaptSignature),
+
+		GasPriceFri: AdaptUint128(header.GasPrice),
+		Signatures:  utils.Map(header.Signatures, AdaptSignature),
 	}
 }
 

@@ -62,12 +62,28 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 }
 
 func receiptCommon(r *core.TransactionReceipt) *spec.Receipt_Common {
+	var revertReason *string
+	if r.RevertReason != "" {
+		revertReason = &r.RevertReason
+	}
+
 	return &spec.Receipt_Common{
-		TransactionHash:    AdaptHash(r.TransactionHash),
 		ActualFee:          AdaptFelt(r.Fee),
+		PriceUnit:          adaptPriceUnit(r.FeeUnit),
 		MessagesSent:       utils.Map(r.L2ToL1Message, AdaptMessageToL1),
 		ExecutionResources: AdaptExecutionResources(r.ExecutionResources),
-		RevertReason:       r.RevertReason,
+		RevertReason:       revertReason,
+	}
+}
+
+func adaptPriceUnit(unit core.FeeUnit) spec.PriceUnit {
+	switch unit {
+	case core.WEI:
+		return spec.PriceUnit_Wei
+	case core.STRK:
+		return spec.PriceUnit_Fri // todo double check
+	default:
+		panic("unreachable adaptPriceUnit")
 	}
 }
 

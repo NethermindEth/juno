@@ -8,8 +8,6 @@ import (
 	"runtime"
 	"sort"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -183,7 +181,6 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 }
 
 func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
-	fmt.Println("verifyStateUpdateRoot", root)
 	currentRoot, err := s.Root()
 	if err != nil {
 		return err
@@ -205,7 +202,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	spew.Dump(blockNumber, update.StateDiff)
+	// spew.Dump(blockNumber, update.StateDiff)
 
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {

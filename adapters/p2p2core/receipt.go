@@ -2,11 +2,13 @@ package p2p2core
 
 import (
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptReceipt(r *spec.Receipt) *core.TransactionReceipt {
+// todo change type of txHash to spec
+func AdaptReceipt(r *spec.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
 	var common *spec.Receipt_Common
 
 	switch r.Type.(type) {
@@ -28,9 +30,9 @@ func AdaptReceipt(r *spec.Receipt) *core.TransactionReceipt {
 		ExecutionResources: adaptExecutionResources(common.ExecutionResources),
 		L1ToL2Message:      nil,
 		L2ToL1Message:      utils.Map(common.MessagesSent, adaptMessageToL1),
-		TransactionHash:    AdaptHash(common.TransactionHash),
-		Reverted:           common.RevertReason != "", // todo is it correct?
-		RevertReason:       common.RevertReason,
+		TransactionHash:    txHash,
+		Reverted:           common.RevertReason != nil, // todo is it correct?
+		RevertReason:       common.GetRevertReason(),
 	}
 }
 

@@ -8,12 +8,11 @@ import (
 
 func AdaptContractDiff(addr, nonce, classHash *felt.Felt, replaced *bool, storageDiff map[felt.Felt]*felt.Felt) *spec.ContractDiff {
 	return &spec.ContractDiff{
-		Address:    AdaptAddress(addr),
-		Nonce:      AdaptFelt(nonce),
-		ClassHash:  AdaptHash(classHash), // This will need to be set if deployed_contracts and replaced_classes are removed from StateDiff
-		IsReplaced: replaced,
-		Values:     AdaptStorageDiff(storageDiff),
-		Domain:     0,
+		Address:   AdaptAddress(addr),
+		Nonce:     AdaptFelt(nonce),
+		ClassHash: AdaptHash(classHash), // This will need to be set if deployed_contracts and replaced_classes are removed from StateDiff
+		Values:    AdaptStorageDiff(storageDiff),
+		Domain:    0,
 	}
 }
 

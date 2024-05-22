@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
+
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -19,7 +24,7 @@ func AdaptClass(class *spec.Class) core.Class {
 	case *spec.Class_Cairo0:
 		cairo0 := cls.Cairo0
 		return &core.Cairo0Class{
-			Abi:          cairo0.Abi,
+			Abi:          json.RawMessage(cairo0.Abi),
 			Externals:    utils.Map(cairo0.Externals, adaptEntryPoint),
 			L1Handlers:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
 			Constructors: utils.Map(cairo0.Constructors, adaptEntryPoint),
@@ -27,20 +32,20 @@ func AdaptClass(class *spec.Class) core.Class {
 		}
 	case *spec.Class_Cairo1:
 		cairo1 := cls.Cairo1
-		abiHash, err := crypto.StarknetKeccak(cairo1.Abi)
+		abiHash, err := crypto.StarknetKeccak([]byte(cairo1.Abi))
 		if err != nil {
 			panic(err)
 		}
 
-		// Todo: remove once compiled class hash is added to p2p spec.
-		compiledC := new(core.CompiledClass)
-		if err := json.Unmarshal(cairo1.Compiled, compiledC); err != nil {
-			panic(fmt.Errorf("unable to unmarshal json compiled class: %v", err))
+		program := utils.Map(cairo1.Program, AdaptFelt)
+		compiled, err := createCompiledClass(cairo1)
+		if err != nil {
+			fmt.Println("Version is ", cairo1.ContractClassVersion)
+			panic(err)
 		}
 
-		program := utils.Map(cairo1.Program, AdaptFelt)
 		return &core.Cairo1Class{
-			Abi:     string(cairo1.Abi),
+			Abi:     cairo1.Abi,
 			AbiHash: abiHash,
 			EntryPoints: struct {
 				Constructor []core.SierraEntryPoint
@@ -54,7 +59,7 @@ func AdaptClass(class *spec.Class) core.Class {
 			Program:         program,
 			ProgramHash:     crypto.PoseidonArray(program...),
 			SemanticVersion: cairo1.ContractClassVersion,
-			Compiled:        compiledC,
+			Compiled:        compiled,
 		}
 	default:
 		panic(fmt.Errorf("unsupported class %T", cls))
@@ -71,6 +76,39 @@ func adaptSierra(e *spec.SierraEntryPoint) core.SierraEntryPoint {
 func adaptEntryPoint(e *spec.EntryPoint) core.EntryPoint {
 	return core.EntryPoint{
 		Selector: AdaptFelt(e.Selector),
-		Offset:   AdaptFelt(e.Offset),
+		Offset:   new(felt.Felt).SetUint64(e.Offset),
 	}
+}
+
+func createCompiledClass(cairo1 *spec.Cairo1Class) (*core.CompiledClass, error) {
+	if cairo1 == nil {
+		return nil, nil
+	}
+
+	adapt := func(ep *spec.SierraEntryPoint) starknet.SierraEntryPoint {
+		return starknet.SierraEntryPoint{
+			Index:    ep.Index,
+			Selector: AdaptFelt(ep.Selector),
+		}
+	}
+	ep := cairo1.EntryPoints
+	def := &starknet.SierraDefinition{
+		Abi: cairo1.Abi,
+		EntryPoints: starknet.SierraEntryPoints{
+			// WARNING: usage of utils.NonNilSlice is essential, otherwise compilation will finish with errors
+			// todo move NonNilSlice to Compile ?
+			Constructor: utils.Map(utils.NonNilSlice(ep.Constructors), adapt),
+			External:    utils.Map(utils.NonNilSlice(ep.Externals), adapt),
+			L1Handler:   utils.Map(utils.NonNilSlice(ep.L1Handlers), adapt),
+		},
+		Program: utils.Map(cairo1.Program, AdaptFelt),
+		Version: cairo1.ContractClassVersion,
+	}
+
+	compiledClass, err := starknet.Compile(def)
+	if err != nil {
+		return nil, err
+	}
+
+	return sn2core.AdaptCompiledClass(compiledClass)
 }

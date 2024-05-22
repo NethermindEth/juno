@@ -41,14 +41,17 @@ func AdaptStateDiff(contractDiffs []*spec.ContractDiff, classes []*spec.Class) *
 		storageDiffs[*address] = utils.ToMap(diff.Values, adaptStoredValue)
 
 		// todo recheck this logic
-		addrToClsHash := addrToClassHash{
-			addr:      diff.Address,
-			classHash: diff.ClassHash,
-		}
-		if diff.GetIsReplaced() {
-			replacedClasses = append(replacedClasses, addrToClsHash)
-		} else {
-			deployedContracts = append(deployedContracts, addrToClsHash)
+		if diff.ClassHash != nil {
+			addrToClsHash := addrToClassHash{
+				addr:      diff.Address,
+				classHash: diff.ClassHash,
+			}
+
+			if false {
+				replacedClasses = append(replacedClasses, addrToClsHash)
+			} else {
+				deployedContracts = append(deployedContracts, addrToClsHash)
+			}
 		}
 	}
 

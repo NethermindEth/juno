@@ -29,13 +29,13 @@ func AdaptBlockHeader(h *spec.SignedBlockHeader) core.Header {
 		Hash:             nil, // todo: add this when building the block
 		ParentHash:       AdaptHash(h.ParentHash),
 		Number:           h.Number,
-		GlobalStateRoot:  AdaptHash(h.State.Root),
+		GlobalStateRoot:  AdaptHash(h.StateRoot),
 		SequencerAddress: AdaptAddress(h.SequencerAddress),
-		TransactionCount: uint64(h.Transactions.NLeaves),
-		EventCount:       uint64(h.Events.NLeaves),
+		TransactionCount: h.Transactions.NLeaves,
+		EventCount:       h.Events.NLeaves,
 		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,
 		EventsBloom:      nil, // Todo: add this in when building the block
-		GasPrice:         AdaptFelt(h.GasPrice),
+		GasPrice:         AdaptUint128(h.GasPriceFri),
 	}
 }

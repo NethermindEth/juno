@@ -99,6 +99,7 @@ feedernode: juno-cached
 	--metrics-port=9090
 
 node1: juno-cached
+# todo remove rm before merge
 	rm -rf ./p2p-dbs/node1/ && \
 	./build/juno \
 	--network=sepolia \

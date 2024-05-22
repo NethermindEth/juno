@@ -118,9 +118,9 @@ func (h *Handler) EventsHandler(stream network.Stream) {
 	streamHandler[*spec.EventsRequest](h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
 }
 
-func (h *Handler) ReceiptsHandler(stream network.Stream) {
-	streamHandler[*spec.ReceiptsRequest](h.ctx, &h.wg, stream, h.onReceiptsRequest, h.log)
-}
+//func (h *Handler) ReceiptsHandler(stream network.Stream) {
+//	streamHandler[*spec.ReceiptsRequest](h.ctx, &h.wg, stream, h.onReceiptsRequest, h.log)
+//}
 
 func (h *Handler) TransactionsHandler(stream network.Stream) {
 	streamHandler[*spec.TransactionsRequest](h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
@@ -256,6 +256,7 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (iter.Seq[proto.Messa
 	})
 }
 
+/*
 func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.ReceiptsResponse{ReceiptMessage: &spec.ReceiptsResponse_Fin{}}
 	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
@@ -276,6 +277,7 @@ func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (iter.Seq[proto.M
 		return responses, nil
 	})
 }
+*/
 
 func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.TransactionsResponse{
@@ -289,9 +291,14 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (iter.Seq
 
 		responses := make([]proto.Message, len(block.Transactions))
 		for i, tx := range block.Transactions {
+			receipt := block.Receipts[i]
+
 			responses[i] = &spec.TransactionsResponse{
-				TransactionMessage: &spec.TransactionsResponse_Transaction{
-					Transaction: core2p2p.AdaptTransaction(tx),
+				TransactionMessage: &spec.TransactionsResponse_TransactionWithReceipt{
+					TransactionWithReceipt: &spec.TransactionWithReceipt{
+						Transaction: core2p2p.AdaptTransaction(tx),
+						Receipt:     core2p2p.AdaptReceipt(receipt, tx),
+					},
 				},
 			}
 		}
@@ -354,25 +361,33 @@ func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[prot
 			}
 		}
 
+		for addr, classHash := range diff.DeployedContracts {
+			classHashCopy := classHash
+			err = updateModifiedContracts(addr, func(diff *contractDiff) {
+				diff.classHash = classHashCopy
+				diff.replaced = utils.Ptr(false)
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		for addr, classHash := range diff.ReplacedClasses {
+			classHashCopy := classHash
+			err = updateModifiedContracts(addr, func(diff *contractDiff) {
+				diff.classHash = classHashCopy
+				diff.replaced = utils.Ptr(true)
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		var responses []proto.Message
 		for _, c := range modifiedContracts {
-			contractAddress := *c.address
-
-			var (
-				classHash *felt.Felt
-				replaced  *bool
-			)
-			if hash, ok := diff.DeployedContracts[contractAddress]; ok {
-				classHash = hash
-				replaced = utils.Ptr(false)
-			} else if hash, ok = diff.ReplacedClasses[contractAddress]; ok {
-				classHash = hash
-				replaced = utils.Ptr(true)
-			}
-
 			responses = append(responses, &spec.StateDiffsResponse{
 				StateDiffMessage: &spec.StateDiffsResponse_ContractDiff{
-					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, classHash, replaced, c.storageDiffs),
+					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, c.classHash, c.replaced, c.storageDiffs),
 				},
 			})
 		}

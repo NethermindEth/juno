@@ -87,26 +87,22 @@ func (s *syncService) start(ctx context.Context) {
 
 		s.log.Debugw("Continuous iteration", "i", i)
 
-		iterCtx, cancel := context.WithCancel(ctx)
-		cancelIteration := func() {
-			// fmt.Println("Called by:")
-			// debug.PrintStack()
-			time.Sleep(time.Second * 4)
-			cancel()
-		}
+		iterCtx, cancelIteration := context.WithCancel(ctx)
 
-		var err error
-		randHeight, err = s.randomNodeHeight(iterCtx)
-		if err != nil {
-			cancelIteration()
-			if errors.Is(err, errNoPeers) {
-				s.log.Infow("No peers available", "retrying in", retryDuration.String())
-				s.sleep(retryDuration)
-			} else {
-				s.logError("Failed to get random node height", err)
+		/*
+			var err error
+			randHeight, err = s.randomNodeHeight(iterCtx)
+			if err != nil {
+				cancelIteration()
+				if errors.Is(err, errNoPeers) {
+					s.log.Infow("No peers available", "retrying in", retryDuration.String())
+					s.sleep(retryDuration)
+				} else {
+					s.logError("Failed to get random node height", err)
+				}
+				continue
 			}
-			continue
-		}
+		*/
 
 		var nextHeight int
 		if curHeight, err := s.blockchain.Height(); err == nil { //nolint:govet
@@ -115,17 +111,18 @@ func (s *syncService) start(ctx context.Context) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
-		blockBehind := randHeight - (nextHeight - 1)
-		if blockBehind <= 0 {
-			s.log.Infow("Random node height is the same or less as local height", " retrying in", retryDuration.String(),
-				"Random node height", randHeight, "Current height", nextHeight-1)
-			cancelIteration()
-			s.sleep(retryDuration)
-			continue
-		}
+		/*
+			blockBehind := randHeight - (nextHeight - 1)
+			if blockBehind <= 0 {
+				s.log.Infow("Random node height is the same or less as local height", " retrying in", retryDuration.String(),
+					"Random node height", randHeight, "Current height", nextHeight-1)
+				cancelIteration()
+				s.sleep(retryDuration)
+				continue
+			}
+		*/
 
-		s.log.Infow("Start Pipeline", "Random node height", randHeight, "Current height", nextHeight-1, "Start", nextHeight, "End",
-			nextHeight+min(blockBehind, maxBlocks))
+		s.log.Infow("Start Pipeline", "Random node height", randHeight, "Current height", nextHeight-1, "Start", nextHeight)
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
@@ -136,16 +133,6 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		/*
-			blockBodiesCh, err := s.genBlockBodies(iterCtx, commonIt)
-			if err != nil {
-				s.logError("Failed to get block bodies", err)
-				cancelIteration()
-				continue
-			}
-
-		*/
-
 		txsCh, err := s.genTransactions(iterCtx, blockNumber)
 		if err != nil {
 			s.logError("Failed to get transactions", err)
@@ -153,12 +140,14 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		receiptsCh, err := s.genReceipts(iterCtx, blockNumber)
-		if err != nil {
-			s.logError("Failed to get receipts", err)
-			cancelIteration()
-			continue
-		}
+		/*
+			receiptsCh, err := s.genReceipts(iterCtx, blockNumber)
+			if err != nil {
+				s.logError("Failed to get receipts", err)
+				cancelIteration()
+				continue
+			}
+		*/
 
 		eventsCh, err := s.genEvents(iterCtx, blockNumber)
 		if err != nil {
@@ -186,8 +175,8 @@ func (s *syncService) start(ctx context.Context) {
 			pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
 			pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
 			// pipeline.Stage(iterCtx, blockBodiesCh, specBlockPartsFunc[specBlockBody]),
-			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTransactions]),
-			pipeline.Stage(iterCtx, receiptsCh, specBlockPartsFunc[specReceipts]),
+			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
+			// pipeline.Stage(iterCtx, receiptsCh, specBlockPartsFunc[specReceipts]),
 			pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
 		)))
 
@@ -200,16 +189,6 @@ func (s *syncService) start(ctx context.Context) {
 			}
 
 			storeTimer := time.Now()
-			var str string
-			for k, v := range b.newClasses {
-				h, err := v.Hash()
-				if err != nil {
-					panic(err)
-				}
-
-				str += fmt.Sprintf("key=%s, value=%s\n", k.String(), h)
-			}
-			fmt.Printf("Block %d stateUpdate: %v newClasses: %v\n", b.block.Number, b.stateUpdate.OldRoot, str)
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
@@ -225,7 +204,7 @@ func (s *syncService) start(ctx context.Context) {
 	}
 }
 
-func specBlockPartsFunc[T specBlockHeaderAndSigs | specBlockBody | specTransactions | specReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
+func specBlockPartsFunc[T specBlockHeaderAndSigs | specBlockBody | specTxWithReceipts | specReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
 	return specBlockParts(i)
 }
 
@@ -266,8 +245,8 @@ func (s *syncService) processSpecBlockParts(
 		specBlockHeadersAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
 		specBlockBodiesM := make(map[uint64]specBlockBody)
 		specClassesM := make(map[uint64]specClasses)
-		specTransactionsM := make(map[uint64]specTransactions)
-		specReceiptsM := make(map[uint64]specReceipts)
+		specTransactionsM := make(map[uint64]specTxWithReceipts)
+		// specReceiptsM := make(map[uint64]specReceipts)
 		specEventsM := make(map[uint64]specEvents)
 		specContractDiffsM := make(map[uint64]specContractDiffs)
 
@@ -287,16 +266,16 @@ func (s *syncService) processSpecBlockParts(
 					if _, ok := specBlockBodiesM[part.blockNumber()]; !ok {
 						specBlockBodiesM[part.blockNumber()] = p
 					}
-				case specTransactions:
+				case specTxWithReceipts:
 					s.log.Debugw("Received Transactions", "blockNumber", p.blockNumber())
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
-				case specReceipts:
-					s.log.Debugw("Received Receipts", "blockNumber", p.blockNumber())
-					if _, ok := specReceiptsM[part.blockNumber()]; !ok {
-						specReceiptsM[part.blockNumber()] = p
-					}
+				// case specReceipts:
+				//	s.log.Debugw("Received Receipts", "blockNumber", p.blockNumber())
+				//	if _, ok := specReceiptsM[part.blockNumber()]; !ok {
+				//		specReceiptsM[part.blockNumber()] = p
+				//	}
 				case specEvents:
 					s.log.Debugw("Received Events", "blockNumber", p.blockNumber())
 					if _, ok := specEventsM[part.blockNumber()]; !ok {
@@ -319,11 +298,11 @@ func (s *syncService) processSpecBlockParts(
 				headerAndSig, ok1 := specBlockHeadersAndSigsM[curBlockNum]
 				// body, ok2 := specBlockBodiesM[curBlockNum]
 				txs, ok3 := specTransactionsM[curBlockNum]
-				rs, ok4 := specReceiptsM[curBlockNum]
+				// rs, ok4 := specReceiptsM[curBlockNum]
 				es, ok5 := specEventsM[curBlockNum]
 				cls, ok6 := specClassesM[curBlockNum]
 				diffs, ok7 := specContractDiffsM[curBlockNum]
-				if ok1 && ok3 && ok4 && ok5 && ok6 && ok7 {
+				if ok1 && ok3 && ok5 && ok6 && ok7 {
 					s.log.Debugw(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
 
 					select {
@@ -333,7 +312,7 @@ func (s *syncService) processSpecBlockParts(
 						if curBlockNum > 0 {
 							// First check cache if the header is not present, then get it from the db.
 							if oldHeader, ok := specBlockHeadersAndSigsM[curBlockNum-1]; ok {
-								prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.State.Root)
+								prevBlockRoot = p2p2core.AdaptHash(oldHeader.header.StateRoot)
 							} else {
 								oldHeader, err := s.blockchain.BlockHeaderByNumber(curBlockNum - 1)
 								if err != nil {
@@ -345,7 +324,7 @@ func (s *syncService) processSpecBlockParts(
 						}
 
 						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, diffs.contractDiffs,
-							cls.classes, txs.txs, rs.receipts, es.events, prevBlockRoot)
+							cls.classes, txs.txs, txs.receipts, es.events, prevBlockRoot)
 					}
 
 					if curBlockNum > 0 {
@@ -353,7 +332,7 @@ func (s *syncService) processSpecBlockParts(
 					}
 					delete(specBlockBodiesM, curBlockNum)
 					delete(specTransactionsM, curBlockNum)
-					delete(specReceiptsM, curBlockNum)
+					// delete(specReceiptsM, curBlockNum)
 					delete(specEventsM, curBlockNum)
 					curBlockNum++
 				}
@@ -388,7 +367,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
 			}
 
-			coreReceipts := utils.Map(receipts, p2p2core.AdaptReceipt)
+			var coreReceipts []*core.TransactionReceipt
+			for i, r := range receipts {
+				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, coreTxs[i].Hash()))
+			}
 			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
 				r.Events = txHashEventsM[*r.TransactionHash]
 				return r
@@ -567,6 +549,7 @@ func (s specReceipts) blockNumber() uint64 {
 	return s.number
 }
 
+/*
 //nolint:dupl
 func (s *syncService) genReceipts(ctx context.Context, blockNumber uint64) (<-chan specReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
@@ -605,6 +588,7 @@ func (s *syncService) genReceipts(ctx context.Context, blockNumber uint64) (<-ch
 
 	return receiptsCh, nil
 }
+*/
 
 type specClasses struct {
 	number  uint64
@@ -741,32 +725,38 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 	return eventsCh, nil
 }
 
-type specTransactions struct {
-	number uint64
-	txs    []*spec.Transaction
+type specTxWithReceipts struct {
+	number   uint64
+	txs      []*spec.Transaction
+	receipts []*spec.Receipt
 }
 
-func (s specTransactions) blockNumber() uint64 {
+func (s specTxWithReceipts) blockNumber() uint64 {
 	return s.number
 }
 
 //nolint:dupl
-func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTransactions, error) {
+func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	txsIt, err := s.client.RequestTransactions(ctx, &spec.TransactionsRequest{Iteration: it})
 	if err != nil {
 		return nil, err
 	}
 
-	txsCh := make(chan specTransactions)
+	txsCh := make(chan specTxWithReceipts)
 	go func() {
 		defer close(txsCh)
 
-		var transactions []*spec.Transaction
+		var (
+			transactions []*spec.Transaction
+			receipts     []*spec.Receipt
+		)
 		txsIt(func(res *spec.TransactionsResponse) bool {
 			switch v := res.TransactionMessage.(type) {
-			case *spec.TransactionsResponse_Transaction:
-				transactions = append(transactions, res.GetTransaction())
+			case *spec.TransactionsResponse_TransactionWithReceipt:
+				txWithReceipt := v.TransactionWithReceipt
+				transactions = append(transactions, txWithReceipt.Transaction)
+				receipts = append(receipts, txWithReceipt.Receipt)
 				return true
 			case *spec.TransactionsResponse_Fin:
 				return false
@@ -777,9 +767,10 @@ func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (
 		})
 
 		s.log.Debugw("Transactions length", "len", len(transactions))
-		spexTxs := specTransactions{
-			number: blockNumber,
-			txs:    transactions,
+		spexTxs := specTxWithReceipts{
+			number:   blockNumber,
+			txs:      transactions,
+			receipts: receipts,
 		}
 		select {
 		case <-ctx.Done():
