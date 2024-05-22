@@ -23,6 +23,12 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
+// cmp compares two keys. It returns -1 if k < other, 0 if k == other, and 1 if k > other.
+// note: assumes keys are of equal length
+func (k *Key) cmp(other *Key) int {
+	return bytes.Compare(k.bitset[:], other.bitset[:])
+}
+
 func (k *Key) SubKey(n uint8) *Key {
 	if n > k.len {
 		panic("n is greater than the length of the key")
