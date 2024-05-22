@@ -47,6 +47,7 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.
 		},
 		ProtocolVersion: header.ProtocolVersion,
 		GasPrice:        AdaptFelt(header.GasPrice),
+		Signatures:      utils.Map(header.Signatures, AdaptSignature),
 	}
 }
 

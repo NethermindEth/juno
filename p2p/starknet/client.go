@@ -102,7 +102,7 @@ func (c *Client) RequestBlockHeaders(
 	ctx context.Context, req *spec.BlockHeadersRequest,
 ) (iter.Seq[*spec.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](
-		ctx, c.newStream, BlockHeadersPID(c.network), req, c.log)
+		ctx, c.newStream, HeadersPID(c.network), req, c.log)
 }
 
 //func (c *Client) RequestBlockBodies(ctx context.Context, req *spec.BlockBodiesRequest) (iter.Seq[*spec.BlockBodiesResponse], error) {
@@ -112,6 +112,14 @@ func (c *Client) RequestBlockHeaders(
 
 func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (iter.Seq[*spec.EventsResponse], error) {
 	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(c.network), req, c.log)
+}
+
+func (c *Client) RequestClasses(ctx context.Context, req *spec.ClassesRequest) (iter.Seq[*spec.ClassesResponse], error) {
+	return requestAndReceiveStream[*spec.ClassesRequest, *spec.ClassesResponse](ctx, c.newStream, ClassesPID(c.network), req, c.log)
+}
+
+func (c *Client) RequestStateDiffs(ctx context.Context, req *spec.StateDiffsRequest) (iter.Seq[*spec.StateDiffsResponse], error) {
+	return requestAndReceiveStream[*spec.StateDiffsRequest, *spec.StateDiffsResponse](ctx, c.newStream, StateDiffPID(c.network), req, c.log)
 }
 
 func (c *Client) RequestReceipts(ctx context.Context, req *spec.ReceiptsRequest) (iter.Seq[*spec.ReceiptsResponse], error) {

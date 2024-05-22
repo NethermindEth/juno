@@ -72,7 +72,7 @@ func TestService(t *testing.T) {
 	case evt := <-events:
 		require.Equal(t, network.Connected, evt.Connectedness)
 	case <-time.After(timeout):
-		require.True(t, false, "no events were emitted")
+		require.True(t, false, "no classes were emitted")
 	}
 
 	t.Run("gossip", func(t *testing.T) {

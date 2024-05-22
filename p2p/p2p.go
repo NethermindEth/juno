@@ -220,13 +220,15 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) setProtocolHandlers() {
-	s.SetProtocolHandler(starknet.BlockHeadersPID(s.network), s.handler.BlockHeadersHandler)
-	s.SetProtocolHandler(starknet.CurrentBlockHeaderPID(s.network), s.handler.CurrentBlockHeaderHandler)
+	s.SetProtocolHandler(starknet.HeadersPID(s.network), s.handler.HeadersHandler)
+	// s.SetProtocolHandler(starknet.CurrentBlockHeaderPID(s.network), s.handler.CurrentBlockHeaderHandler)
 	s.SetProtocolHandler(starknet.ReceiptsPID(s.network), s.handler.ReceiptsHandler)
-	// todo discuss protocol id (should it be included in BlockHeadersPID)
-	s.SetProtocolHandler(starknet.BlockBodiesPID(s.network), s.handler.BlockBodiesHandler)
+	// todo discuss protocol id (should it be included in HeadersPID)
+	// s.SetProtocolHandler(starknet.BlockBodiesPID(s.network), s.handler.BlockBodiesHandler)
 	s.SetProtocolHandler(starknet.EventsPID(s.network), s.handler.EventsHandler)
 	s.SetProtocolHandler(starknet.TransactionsPID(s.network), s.handler.TransactionsHandler)
+	s.SetProtocolHandler(starknet.ClassesPID(s.network), s.handler.ClassesHandler)
+	s.SetProtocolHandler(starknet.StateDiffPID(s.network), s.handler.StateDiffHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {

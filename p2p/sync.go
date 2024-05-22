@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"reflect"
+	"runtime/debug"
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -47,7 +49,7 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, lo
 }
 
 func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
-	return 0, nil
+	return 9000, nil
 	//headersIt, err := s.client.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
 	//if err != nil {
 	//	return 0, err
@@ -86,7 +88,13 @@ func (s *syncService) start(ctx context.Context) {
 
 		s.log.Debugw("Continuous iteration", "i", i)
 
-		iterCtx, cancelIteration := context.WithCancel(ctx)
+		iterCtx, cancel := context.WithCancel(ctx)
+		cancelIteration := func() {
+			fmt.Println("Called by:")
+			debug.PrintStack()
+			time.Sleep(time.Second * 4)
+			cancel()
+		}
 
 		var err error
 		randHeight, err = s.randomNodeHeight(iterCtx)
@@ -121,8 +129,8 @@ func (s *syncService) start(ctx context.Context) {
 			nextHeight+min(blockBehind, maxBlocks))
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
-		commonIt := s.createIterator(uint64(nextHeight), 1)
-		headersAndSigsCh, err := s.genHeadersAndSigs(iterCtx, commonIt)
+		blockNumber := uint64(nextHeight)
+		headersAndSigsCh, err := s.genHeadersAndSigs(iterCtx, blockNumber)
 		if err != nil {
 			s.logError("Failed to get block headers parts", err)
 			cancelIteration()
@@ -139,29 +147,45 @@ func (s *syncService) start(ctx context.Context) {
 
 		*/
 
-		txsCh, err := s.genTransactions(iterCtx, commonIt)
+		txsCh, err := s.genTransactions(iterCtx, blockNumber)
 		if err != nil {
 			s.logError("Failed to get transactions", err)
 			cancelIteration()
 			continue
 		}
 
-		receiptsCh, err := s.genReceipts(iterCtx, commonIt)
+		receiptsCh, err := s.genReceipts(iterCtx, blockNumber)
 		if err != nil {
 			s.logError("Failed to get receipts", err)
 			cancelIteration()
 			continue
 		}
 
-		eventsCh, err := s.genEvents(iterCtx, commonIt)
+		eventsCh, err := s.genEvents(iterCtx, blockNumber)
 		if err != nil {
-			s.logError("Failed to get events", err)
+			s.logError("Failed to get classes", err)
+			cancelIteration()
+			continue
+		}
+
+		classesCh, err := s.genClasses(iterCtx, blockNumber)
+		if err != nil {
+			s.logError("Failed to get classes", err)
+			cancelIteration()
+			continue
+		}
+
+		stateDiffsCh, err := s.genStateDiffs(iterCtx, blockNumber)
+		if err != nil {
+			s.logError("Failed to get state diffs", err)
 			cancelIteration()
 			continue
 		}
 
 		blocksCh := pipeline.Bridge(iterCtx, s.processSpecBlockParts(iterCtx, uint64(nextHeight), pipeline.FanIn(iterCtx,
 			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+			pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
+			pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
 			// pipeline.Stage(iterCtx, blockBodiesCh, specBlockPartsFunc[specBlockBody]),
 			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTransactions]),
 			pipeline.Stage(iterCtx, receiptsCh, specBlockPartsFunc[specReceipts]),
@@ -192,7 +216,7 @@ func (s *syncService) start(ctx context.Context) {
 	}
 }
 
-func specBlockPartsFunc[T specBlockHeaderAndSigs | specBlockBody | specTransactions | specReceipts | specEvents](i T) specBlockParts {
+func specBlockPartsFunc[T specBlockHeaderAndSigs | specBlockBody | specTransactions | specReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
 	return specBlockParts(i)
 }
 
@@ -207,6 +231,8 @@ func (s *syncService) logError(msg string, err error) {
 		}
 
 		log.Errorw(msg, "err", err)
+	} else {
+		s.log.Debugw("Sync context canceled")
 	}
 }
 
@@ -230,9 +256,11 @@ func (s *syncService) processSpecBlockParts(
 
 		specBlockHeadersAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
 		specBlockBodiesM := make(map[uint64]specBlockBody)
+		specClassesM := make(map[uint64]specClasses)
 		specTransactionsM := make(map[uint64]specTransactions)
 		specReceiptsM := make(map[uint64]specReceipts)
 		specEventsM := make(map[uint64]specEvents)
+		specContractDiffsM := make(map[uint64]specContractDiffs)
 
 		curBlockNum := startingBlockNum
 		for part := range specBlockPartsCh {
@@ -241,7 +269,7 @@ func (s *syncService) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debugw("Received Block Header and Signatures", "blockNumber", p.header.Number)
+					s.log.Debugw("Received Block Header and Signatures", "blockNumber", p.blockNumber())
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
@@ -251,28 +279,42 @@ func (s *syncService) processSpecBlockParts(
 						specBlockBodiesM[part.blockNumber()] = p
 					}
 				case specTransactions:
-					s.log.Debugw("Received Transactions", "blockNumber", p.id.Number)
+					s.log.Debugw("Received Transactions", "blockNumber", p.blockNumber())
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
 				case specReceipts:
-					s.log.Debugw("Received Receipts", "blockNumber", p.id.Number)
+					s.log.Debugw("Received Receipts", "blockNumber", p.blockNumber())
 					if _, ok := specReceiptsM[part.blockNumber()]; !ok {
 						specReceiptsM[part.blockNumber()] = p
 					}
 				case specEvents:
-					s.log.Debugw("Received Events", "blockNumber", p.id.Number)
+					s.log.Debugw("Received Events", "blockNumber", p.blockNumber())
 					if _, ok := specEventsM[part.blockNumber()]; !ok {
 						specEventsM[part.blockNumber()] = p
 					}
+				case specClasses:
+					s.log.Debugw("Received Classes", "blockNumber", p.blockNumber())
+					if _, ok := specClassesM[part.blockNumber()]; !ok {
+						specClassesM[part.blockNumber()] = p
+					}
+				case specContractDiffs:
+					s.log.Debugw("Received Classes", "blockNumber", p.blockNumber())
+					if _, ok := specContractDiffsM[part.blockNumber()]; !ok {
+						specContractDiffsM[part.blockNumber()] = p
+					}
+				default:
+					s.log.Warnw("Unsupported part type", "blockNumber", part.blockNumber(), "type", reflect.TypeOf(p))
 				}
 
 				headerAndSig, ok1 := specBlockHeadersAndSigsM[curBlockNum]
-				body, ok2 := specBlockBodiesM[curBlockNum]
+				// body, ok2 := specBlockBodiesM[curBlockNum]
 				txs, ok3 := specTransactionsM[curBlockNum]
 				rs, ok4 := specReceiptsM[curBlockNum]
 				es, ok5 := specEventsM[curBlockNum]
-				if ok1 && ok2 && ok3 && ok4 && ok5 {
+				cls, ok6 := specClassesM[curBlockNum]
+				diffs, ok7 := specContractDiffsM[curBlockNum]
+				if ok1 && ok3 && ok4 && ok5 && ok6 && ok7 {
 					s.log.Debugw(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
 
 					select {
@@ -294,12 +336,8 @@ func (s *syncService) processSpecBlockParts(
 							}
 						}
 
-						_ = headerAndSig
-						_ = body.classes
-						_ = txs.txs
-						_ = es.events
-						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, nil, body.stateDiff,
-							nil, nil, rs.receipts, nil, prevBlockRoot)
+						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, diffs.contractDiffs,
+							cls.classes, txs.txs, rs.receipts, es.events, prevBlockRoot)
 					}
 
 					if curBlockNum > 0 {
@@ -317,8 +355,8 @@ func (s *syncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, diff interface{},
-	classes []*spec.Class, txs []*spec.Transaction, receipts *spec.Receipts, events []*spec.Event, prevBlockRoot *felt.Felt,
+func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
+	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
@@ -342,7 +380,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
 			}
 
-			coreReceipts := utils.Map(receipts.GetItems(), p2p2core.AdaptReceipt)
+			coreReceipts := utils.Map(receipts, p2p2core.AdaptReceipt)
 			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
 				r.Events = txHashEventsM[*r.TransactionHash]
 				return r
@@ -380,7 +418,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				BlockHash: coreBlock.Hash,
 				NewRoot:   coreBlock.GlobalStateRoot,
 				OldRoot:   prevBlockRoot,
-				StateDiff: p2p2core.AdaptStateDiff(nil, classes),
+				StateDiff: p2p2core.AdaptStateDiff(contractDiffs, classes),
 			}
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
@@ -411,7 +449,8 @@ func (s specBlockHeaderAndSigs) blockNumber() uint64 {
 	return s.header.Number
 }
 
-func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration) (<-chan specBlockHeaderAndSigs, error) {
+func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-chan specBlockHeaderAndSigs, error) {
+	it := s.createIteratorForBlock(blockNumber)
 	headersIt, err := s.client.RequestBlockHeaders(ctx, &spec.BlockHeadersRequest{Iteration: it})
 	if err != nil {
 		return nil, err
@@ -427,6 +466,9 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, it *spec.Iteration)
 			case *spec.BlockHeadersResponse_Header:
 				headerAndSig.header = v.Header
 			case *spec.BlockHeadersResponse_Fin:
+				return false
+			default:
+				s.log.Warnw("Unexpected HeaderMessage from getBlockHeaders", "v", v)
 				return false
 			}
 
@@ -509,16 +551,17 @@ func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<
 */
 
 type specReceipts struct {
-	id       *spec.BlockID
-	receipts *spec.Receipts
+	number   uint64
+	receipts []*spec.Receipt
 }
 
 func (s specReceipts) blockNumber() uint64 {
-	return s.id.Number
+	return s.number
 }
 
 //nolint:dupl
-func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-chan specReceipts, error) {
+func (s *syncService) genReceipts(ctx context.Context, blockNumber uint64) (<-chan specReceipts, error) {
+	it := s.createIteratorForBlock(blockNumber)
 	receiptsIt, err := s.client.RequestReceipts(ctx, &spec.ReceiptsRequest{Iteration: it})
 	if err != nil {
 		return nil, err
@@ -528,35 +571,134 @@ func (s *syncService) genReceipts(ctx context.Context, it *spec.Iteration) (<-ch
 	go func() {
 		defer close(receiptsCh)
 
+		var receipts []*spec.Receipt
 		receiptsIt(func(res *spec.ReceiptsResponse) bool {
-			switch res.ReceiptMessage.(type) {
+			switch v := res.ReceiptMessage.(type) {
 			case *spec.ReceiptsResponse_Receipt:
-				select {
-				case <-ctx.Done():
-					return false
-					// case receiptsCh <- specReceipts{res.GetId(), res.GetReceipts()}:
-				}
+				receipts = append(receipts, v.Receipt)
+				return true
 			case *spec.ReceiptsResponse_Fin:
 				return false
+			default:
+				s.log.Warnw("Unexpected ReceiptMessage from getReceipts", "v", res.ReceiptMessage)
+				return false
 			}
-
-			return true
 		})
+
+		select {
+		case <-ctx.Done():
+			return
+		case receiptsCh <- specReceipts{
+			number:   blockNumber,
+			receipts: receipts,
+		}:
+		}
 	}()
 
 	return receiptsCh, nil
 }
 
+type specClasses struct {
+	number  uint64
+	classes []*spec.Class
+}
+
+func (s specClasses) blockNumber() uint64 {
+	return s.number
+}
+
+func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-chan specClasses, error) {
+	it := s.createIteratorForBlock(blockNumber)
+	classesIt, err := s.client.RequestClasses(ctx, &spec.ClassesRequest{Iteration: it})
+	if err != nil {
+		return nil, err
+	}
+
+	classesCh := make(chan specClasses)
+	go func() {
+		defer close(classesCh)
+
+		var classes []*spec.Class
+		classesIt(func(res *spec.ClassesResponse) bool {
+			switch v := res.ClassMessage.(type) {
+			case *spec.ClassesResponse_Class:
+				classes = append(classes, v.Class)
+				return true
+			case *spec.ClassesResponse_Fin:
+				return false
+			default:
+				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
+				return false
+			}
+		})
+
+		select {
+		case <-ctx.Done():
+		case classesCh <- specClasses{
+			number:  blockNumber,
+			classes: classes,
+		}:
+		}
+	}()
+	return classesCh, nil
+}
+
+type specContractDiffs struct {
+	number        uint64
+	contractDiffs []*spec.ContractDiff
+}
+
+func (s specContractDiffs) blockNumber() uint64 {
+	return s.number
+}
+
+func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan specContractDiffs, error) {
+	it := s.createIteratorForBlock(blockNumber)
+	stateDiffsIt, err := s.client.RequestStateDiffs(ctx, &spec.StateDiffsRequest{Iteration: it})
+	if err != nil {
+		return nil, err
+	}
+
+	stateDiffsCh := make(chan specContractDiffs)
+	go func() {
+		defer close(stateDiffsCh)
+
+		var contractDiffs []*spec.ContractDiff
+		stateDiffsIt(func(res *spec.StateDiffsResponse) bool {
+			switch v := res.StateDiffMessage.(type) {
+			case *spec.StateDiffsResponse_ContractDiff:
+				contractDiffs = append(contractDiffs, v.ContractDiff)
+				return true
+			case *spec.StateDiffsResponse_Fin:
+				return false
+			default:
+				s.log.Warnw("Unexpected ClassMessage from getStateDiffs", "v", v)
+				return false
+			}
+		})
+
+		select {
+		case <-ctx.Done():
+		case stateDiffsCh <- specContractDiffs{
+			number:        blockNumber,
+			contractDiffs: contractDiffs,
+		}:
+		}
+	}()
+	return stateDiffsCh, nil
+}
+
 type specEvents struct {
-	id     *spec.BlockID
-	events []spec.Event
+	number uint64
+	events []*spec.Event
 }
 
 func (s specEvents) blockNumber() uint64 {
-	return s.id.Number
+	return s.number
 }
 
-func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan specEvents, error) {
+func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan specEvents, error) {
+	it := s.createIteratorForBlock(blockNumber)
 	eventsIt, err := s.client.RequestEvents(ctx, &spec.EventsRequest{Iteration: it})
 	if err != nil {
 		return nil, err
@@ -566,36 +708,43 @@ func (s *syncService) genEvents(ctx context.Context, it *spec.Iteration) (<-chan
 	go func() {
 		defer close(eventsCh)
 
+		var events []*spec.Event
 		eventsIt(func(res *spec.EventsResponse) bool {
-			switch res.EventMessage.(type) {
+			switch v := res.EventMessage.(type) {
 			case *spec.EventsResponse_Event:
-				select {
-				case <-ctx.Done():
-					return false
-					// case eventsCh <- specEvents{res.GetId(), res.GetEvents()}:
-					//	return true
-				}
+				events = append(events, v.Event)
+				return true
 			case *spec.EventsResponse_Fin:
 				return false
+			default:
+				s.log.Warnw("Unexpected EventMessage from getEvents", "v", v)
+				return false
 			}
-
-			return true
 		})
+
+		select {
+		case <-ctx.Done():
+		case eventsCh <- specEvents{
+			number: blockNumber,
+			events: events,
+		}:
+		}
 	}()
 	return eventsCh, nil
 }
 
 type specTransactions struct {
-	id  *spec.BlockID
-	txs []spec.Transaction
+	number uint64
+	txs    []*spec.Transaction
 }
 
 func (s specTransactions) blockNumber() uint64 {
-	return s.id.Number
+	return s.number
 }
 
 //nolint:dupl
-func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (<-chan specTransactions, error) {
+func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTransactions, error) {
+	it := s.createIteratorForBlock(blockNumber)
 	txsIt, err := s.client.RequestTransactions(ctx, &spec.TransactionsRequest{Iteration: it})
 	if err != nil {
 		return nil, err
@@ -605,20 +754,30 @@ func (s *syncService) genTransactions(ctx context.Context, it *spec.Iteration) (
 	go func() {
 		defer close(txsCh)
 
+		var transactions []*spec.Transaction
 		txsIt(func(res *spec.TransactionsResponse) bool {
-			switch res.TransactionMessage.(type) {
+			switch v := res.TransactionMessage.(type) {
 			case *spec.TransactionsResponse_Transaction:
-				select {
-				case <-ctx.Done():
-					return false
-					// case txsCh <- specTransactions{res.GetId(), res.GetTransactions()}:
-				}
+				transactions = append(transactions, res.GetTransaction())
+				return true
 			case *spec.TransactionsResponse_Fin:
 				return false
+			default:
+				s.log.Warnw("Unexpected TransactionMessage from getTransactions", "v", v)
+				return false
 			}
-
-			return true
 		})
+
+		s.log.Debugw("Transactions length", "len", len(transactions))
+		spexTxs := specTransactions{
+			number: blockNumber,
+			txs:    transactions,
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case txsCh <- spexTxs:
+		}
 	}()
 	return txsCh, nil
 }
@@ -663,14 +822,11 @@ func (s *syncService) removePeer(id peer.ID) {
 	s.host.Peerstore().ClearAddrs(id)
 }
 
-func (s *syncService) createIterator(start, limit uint64) *spec.Iteration {
-	if limit == 0 {
-		limit = 1
-	}
+func (s *syncService) createIteratorForBlock(blockNumber uint64) *spec.Iteration {
 	return &spec.Iteration{
-		Start:     &spec.Iteration_BlockNumber{BlockNumber: start},
+		Start:     &spec.Iteration_BlockNumber{BlockNumber: blockNumber},
 		Direction: spec.Iteration_Forward,
-		Limit:     limit,
+		Limit:     1,
 		Step:      1,
 	}
 }

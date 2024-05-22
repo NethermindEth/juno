@@ -111,17 +111,20 @@ func (b *blockBodyIterator) classes() (proto.Message, bool) {
 		classes = append(classes, core2p2p.AdaptClass(cls.Class))
 	}
 
-	res := &spec.BlockBodiesResponse{
-		Id: b.blockID(),
-		BodyMessage: &spec.BlockBodiesResponse_Classes{
-			Classes: &spec.Classes{
-				Domain:  0,
-				Classes: classes,
+	/*
+		res := &spec.BlockBodiesResponse{
+			Id: b.blockID(),
+			BodyMessage: &spec.BlockBodiesResponse_Classes{
+				Classes: &spec.Classes{
+					Domain:  0,
+					Classes: classes,
+				},
 			},
-		},
-	}
+		}
 
-	return res, true
+	*/
+
+	return nil, true
 }
 
 type contractDiff struct {
@@ -173,22 +176,26 @@ func (b *blockBodyIterator) diff() (proto.Message, bool) {
 		}
 	}
 
-	var contractDiffs []*spec.StateDiff_ContractDiff
-	for _, c := range modifiedContracts {
-		contractDiffs = append(contractDiffs, core2p2p.AdaptStateDiff(c.address, c.nonce, c.storageDiffs))
-	}
+	/*
+		var contractDiffs []*spec.StateDiff_ContractDiff
+		for _, c := range modifiedContracts {
+			contractDiffs = append(contractDiffs, core2p2p.AdaptContractDiff(c.address, c.nonce, c.storageDiffs))
+		}
 
-	return &spec.BlockBodiesResponse{
-		Id: b.blockID(),
-		BodyMessage: &spec.BlockBodiesResponse_Diff{
-			Diff: &spec.StateDiff{
-				Domain:            0,
-				ContractDiffs:     contractDiffs,
-				ReplacedClasses:   utils.ToSlice(diff.ReplacedClasses, core2p2p.AdaptAddressClassHashPair),
-				DeployedContracts: utils.ToSlice(diff.DeployedContracts, core2p2p.AdaptAddressClassHashPair),
+		return &spec.BlockBodiesResponse{
+			Id: b.blockID(),
+			BodyMessage: &spec.BlockBodiesResponse_Diff{
+				Diff: &spec.StateDiff{
+					Domain:            0,
+					ContractDiffs:     contractDiffs,
+					ReplacedClasses:   utils.ToSlice(diff.ReplacedClasses, core2p2p.AdaptAddressClassHashPair),
+					DeployedContracts: utils.ToSlice(diff.DeployedContracts, core2p2p.AdaptAddressClassHashPair),
+				},
 			},
-		},
-	}, true
+		}, true
+	*/
+
+	return nil, true
 }
 
 func (b *blockBodyIterator) fin() (proto.Message, bool) {
@@ -196,10 +203,11 @@ func (b *blockBodyIterator) fin() (proto.Message, bool) {
 	if err := b.stateCloser(); err != nil {
 		b.log.Errorw("Call to state closer failed", "err", err)
 	}
-	return &spec.BlockBodiesResponse{
-		Id:          b.blockID(),
-		BodyMessage: &spec.BlockBodiesResponse_Fin{},
-	}, true
+	//return &spec.BlockBodiesResponse{
+	//	Id:          b.blockID(),
+	//	BodyMessage: &spec.BlockBodiesResponse_Fin{},
+	//}, true
+	return nil, true
 }
 
 func (b *blockBodyIterator) proof() (proto.Message, bool) {
@@ -211,14 +219,15 @@ func (b *blockBodyIterator) proof() (proto.Message, bool) {
 		return b.fin()
 	}
 
-	return &spec.BlockBodiesResponse{
-		Id: b.blockID(),
-		BodyMessage: &spec.BlockBodiesResponse_Proof{
-			Proof: &spec.BlockProof{
-				Proof: proof,
-			},
-		},
-	}, true
+	//return &spec.BlockBodiesResponse{
+	//	Id: b.blockID(),
+	//	BodyMessage: &spec.BlockBodiesResponse_Proof{
+	//		Proof: &spec.BlockProof{
+	//			Proof: proof,
+	//		},
+	//	},
+	//}, true
+	return nil, true
 }
 
 func (b *blockBodyIterator) blockID() *spec.BlockID {
