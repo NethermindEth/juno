@@ -53,6 +53,8 @@ const config = {
     [
       "@easyops-cn/docusaurus-search-local",
       {
+        docsRouteBasePath: "/",
+        removeDefaultStopWordFilter: true,
         highlightSearchTermsOnTargetPage: true,
       },
     ],
