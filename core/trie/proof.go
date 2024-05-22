@@ -220,17 +220,37 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 	// Step 1: Verify each (key,value,proof)
 	for i, key := range keys {
 		if !VerifyProof(root, key, values[i], proofs[i], hash) {
-			return false, errors.New(fmt.Sprintf("Invalid proof for key %x", key))
+			return false, fmt.Errorf("invalid proof for key %x", key)
 		}
 	}
 
 	// Step 2: Recompute the root hash from the verified paths
-	recomputedRoot := recomputeRootHash(keys, values, proofs, hash)
+	recomputedRoot, err := recomputeRootHash(keys, values, proofs, hash)
+	if err != nil {
+		return false, err
+	}
 
 	// Verify that the recomputed root hash matches the provided root hash
-	if !recomputedRoot.Eq(root) {
+	if !recomputedRoot.Equal(root) {
 		return false, errors.New("Root hash mismatch")
 	}
 
-	return true, errors.New("Proof is valid")
+	return true, nil
+}
+
+// Todo : proofs??
+func recomputeRootHash(keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (*felt.Felt, error) {
+	tri, err := newTrie(newMemStorage(), 251, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, key := range keys {
+		keyFelt := key.Felt()
+		_, err = tri.Put(&keyFelt, values[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tri.Root()
 }
