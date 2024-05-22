@@ -199,7 +199,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 
 // VerifyRangeProof verifies the range proof for the given range of keys.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (bool, error) {
+func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [2][]ProofNode, hash hashFunc) (bool, error) {
 	// Step 0: checks
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
@@ -217,11 +217,12 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 		}
 	}
 
-	// Step 1: Verify each (key,value,proof)
-	for i, key := range keys {
-		if !VerifyProof(root, key, values[i], proofs[i], hash) {
-			return false, fmt.Errorf("invalid proof for key %x", key)
-		}
+	// Step 1: Verify the two boundary proofs
+	if !VerifyProof(root, keys[0], values[0], proofs[0], hash) {
+		return false, fmt.Errorf("invalid proof for key %x", keys[0])
+	}
+	if !VerifyProof(root, keys[len(keys)-1], values[len(values)-1], proofs[1], hash) {
+		return false, fmt.Errorf("invalid proof for key %x", keys[len(keys)-1])
 	}
 
 	// Step 2: Recompute the root hash from the verified paths
@@ -238,19 +239,37 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 	return true, nil
 }
 
-// Todo : proofs??
-func recomputeRootHash(keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (*felt.Felt, error) {
+// Todo
+func recomputeRootHash(keys []*Key, values []*felt.Felt, proofs [2][]ProofNode, hash hashFunc) (*felt.Felt, error) {
 	tri, err := newTrie(newMemStorage(), 251, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	for i, key := range keys {
-		keyFelt := key.Felt()
+	// Put the inner key-values
+	for i := 1; i < len(keys)-2; i++ {
+		keyFelt := keys[i].Felt()
 		_, err = tri.Put(&keyFelt, values[i])
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Put the proof/boundary key-values
+	getProofValue := func([]ProofNode) *felt.Felt {
+		return nil // Todo
+	}
+	leftKey := keys[0].Felt()
+	leftValue := getProofValue(proofs[0]) // Todo
+	_, err = tri.Put(&leftKey, leftValue)
+	if err != nil {
+		return nil, err
+	}
+	rightKey := keys[len(keys)-1].Felt()
+	rightValue := getProofValue(proofs[1]) // Todo
+	_, err = tri.Put(&rightKey, rightValue)
+	if err != nil {
+		return nil, err
 	}
 	return tri.Root()
 }
