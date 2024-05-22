@@ -112,34 +112,6 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
-func GetProofs(startKey, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
-	oneFelt := new(felt.Felt).SetUint64(1)
-	iterKey := startKey
-	leafRange := new(felt.Felt).Sub(endKey, startKey).Uint64()
-	proofs := make([][]ProofNode, leafRange)
-	for i := range leafRange {
-		proof, err := GetProof(iterKey, tri)
-		if err != nil {
-			return nil, err
-		}
-		proofs[i] = proof
-		iterKey.Add(iterKey, oneFelt)
-	}
-	return proofs, nil
-}
-
-func VerifyProofs(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) bool {
-	if len(keys) != len(values) || len(keys) != len(proofs) {
-		return false
-	}
-	for i := range len(keys) {
-		if !VerifyProof(root, keys[i], values[i], proofs[i], hash) {
-			return false
-		}
-	}
-	return true
-}
-
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
 func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	leafKey := tri.feltToKey(leaf)
@@ -173,6 +145,22 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	return proofNodes, nil
 }
 
+func GetProofs(startKey, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
+	oneFelt := new(felt.Felt).SetUint64(1)
+	iterKey := startKey
+	leafRange := new(felt.Felt).Sub(endKey, startKey).Uint64()
+	proofs := make([][]ProofNode, leafRange)
+	for i := range leafRange {
+		proof, err := GetProof(iterKey, tri)
+		if err != nil {
+			return nil, err
+		}
+		proofs[i] = proof
+		iterKey.Add(iterKey, oneFelt)
+	}
+	return proofs, nil
+}
+
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
@@ -204,4 +192,43 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 		}
 	}
 	return expectedHash.Equal(value)
+}
+
+// verifyRangeProof verifies the range proof for the given range of keys.
+// ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
+func verifyRangeProof(root *felt.Felt, firstKey *Key, firstProof []ProofNode, lastKey *Key, lastProof []ProofNode,
+	keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (bool, string) {
+	// Step 1: Verify the first edge proof (firstKey)
+	if !VerifyProof(root, firstKey, value, firstProof, hash) { // Todo: value??
+		return false, "Invalid first edge proof"
+	}
+
+	// Step 2: Verify the last edge proof (lastKey)
+	if !VerifyProof(root, lastKey, value, lastProof, hash) { // Todo: value??
+		return false, "Invalid last edge proof"
+	}
+
+	// Step 3: Verify each key and value in the given range
+	for i, key := range keys {
+
+		// Verify the key using its proof
+		if !VerifyProof(root, key, values[i], proofs[i], hash) {
+			return false, fmt.Sprintf("Invalid proof for key %x", key)
+		}
+
+		// Verify the value associated with the key
+		if !verifyValueFromProof(proofs[i], values[i], hash) {
+			return false, fmt.Sprintf("Incorrect value for key %x", key)
+		}
+	}
+
+	// Step 4: Recompute the root hash from the verified paths
+	recomputedRoot := recomputeRootHash(keys, values, proofs, hash)
+
+	// Verify that the recomputed root hash matches the provided root hash
+	if !recomputedRoot.Eq(root) {
+		return false, "Root hash mismatch"
+	}
+
+	return true, "Proof is valid"
 }
