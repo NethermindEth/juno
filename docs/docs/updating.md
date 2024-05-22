@@ -66,7 +66,7 @@ docker logs juno
 
 ## Standalone binary
 
-Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases) page and replace the existing one.
+Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) page and replace the existing one.
 
 ## Updating from source
 

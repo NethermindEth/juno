@@ -129,7 +129,7 @@ const config = {
               },
               {
                 label: "Juno Releases",
-                href: "https://github.com/NethermindEth/juno/releases",
+                href: "https://github.com/NethermindEth/juno/releases/latest",
               },
             ],
           },
