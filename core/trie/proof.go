@@ -204,14 +204,14 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
 	}
-	// Ensure the received batch is monotonic increasing
-	for i := 0; i < len(keys)-1; i++ {
+	// Ensure all keys are monotonic increasing
+	for i := range keys[0 : len(keys)-2] {
 		if keys[i].cmp(keys[i+1]) >= 0 {
 			return false, errors.New("range is not monotonically increasing")
 		}
 	}
-	// Ensure the received batch contains no deletions
-	for _, value := range values {
+	// Ensure the inner values contain no deletions
+	for _, value := range values[1 : len(values)-2] {
 		if value.Equal(&felt.Zero) {
 			return false, errors.New("range contains deletion")
 		}
@@ -224,7 +224,7 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 		}
 	}
 
-	// Step 4: Recompute the root hash from the verified paths
+	// Step 2: Recompute the root hash from the verified paths
 	recomputedRoot := recomputeRootHash(keys, values, proofs, hash)
 
 	// Verify that the recomputed root hash matches the provided root hash
