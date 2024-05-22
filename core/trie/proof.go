@@ -193,8 +193,41 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 		}
 	}
 
-	// value=felt.Zero handles the case where the value has not been set // Todo : test
 	return expectedHash.Equal(value)
+}
+
+// getExpectedhash effectievly gets the value corresponding to the key given proofs
+// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
+func getExpectedProofValue(root *felt.Felt, key *Key, proofs []ProofNode, hash hashFunc) *felt.Felt { // Todo: test
+	if key.Len() != 251 { //nolint:gomnd
+		return nil
+	}
+
+	expectedHash := root
+	remainingPath := key
+
+	for _, proofNode := range proofs {
+		if !proofNode.Hash(hash).Equal(expectedHash) {
+			return nil
+		}
+		switch {
+		case proofNode.Binary != nil:
+			if remainingPath.Test(remainingPath.Len() - 1) {
+				expectedHash = proofNode.Binary.RightHash
+			} else {
+				expectedHash = proofNode.Binary.LeftHash
+			}
+			remainingPath.RemoveLastBit()
+		case proofNode.Edge != nil:
+			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
+				return nil
+			}
+			expectedHash = proofNode.Edge.Child
+			remainingPath.Truncate(proofNode.Edge.Path.Len())
+		}
+	}
+
+	return expectedHash
 }
 
 // VerifyRangeProof verifies the range proof for the given range of keys.
@@ -226,21 +259,21 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 	}
 
 	// Step 2: Recompute the root hash from the verified paths
-	recomputedRoot, err := recomputeRootHash(keys, values, proofs, hash)
+	recomputedRoot, err := recomputeRootHash(root, keys, values, proofs, hash)
 	if err != nil {
 		return false, err
 	}
 
 	// Verify that the recomputed root hash matches the provided root hash
 	if !recomputedRoot.Equal(root) {
-		return false, errors.New("Root hash mismatch")
+		return false, errors.New("root hash mismatch")
 	}
 
 	return true, nil
 }
 
 // Todo
-func recomputeRootHash(keys []*Key, values []*felt.Felt, proofs [2][]ProofNode, hash hashFunc) (*felt.Felt, error) {
+func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [2][]ProofNode, hash hashFunc) (*felt.Felt, error) {
 	tri, err := newTrie(newMemStorage(), 251, hash)
 	if err != nil {
 		return nil, err
@@ -255,19 +288,18 @@ func recomputeRootHash(keys []*Key, values []*felt.Felt, proofs [2][]ProofNode, 
 		}
 	}
 
-	// Put the proof/boundary key-values
-	getProofValue := func([]ProofNode) *felt.Felt {
-		return nil // Todo
-	}
-	leftKey := keys[0].Felt()
-	leftValue := getProofValue(proofs[0]) // Todo
-	_, err = tri.Put(&leftKey, leftValue)
+	// Put left proof values
+	leftKey := keys[0]
+	leftKeyFelt := leftKey.Felt()
+	leftValue := getExpectedProofValue(root, leftKey, proofs[0], hash)
+	_, err = tri.Put(&leftKeyFelt, leftValue)
 	if err != nil {
 		return nil, err
 	}
-	rightKey := keys[len(keys)-1].Felt()
-	rightValue := getProofValue(proofs[1]) // Todo
-	_, err = tri.Put(&rightKey, rightValue)
+	rightKey := keys[len(keys)-1]
+	rightKeyFelt := rightKey.Felt()
+	rightValue := getExpectedProofValue(root, rightKey, proofs[1], hash)
+	_, err = tri.Put(&rightKeyFelt, rightValue)
 	if err != nil {
 		return nil, err
 	}
