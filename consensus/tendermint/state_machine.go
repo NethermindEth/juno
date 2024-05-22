@@ -1,6 +1,9 @@
 package tendermint
 
-import consensus "github.com/NethermindEth/juno/consensus/common"
+import (
+	consensus "github.com/NethermindEth/juno/consensus/common"
+	"sync"
+)
 
 type Step interface {
 	NextStep() interface{}
@@ -55,6 +58,7 @@ func (s State) NextHeight() uint64 {
 
 type StateMachine struct {
 	state State
+	lock  sync.Mutex
 }
 
 func NewStateMachine() *StateMachine {
