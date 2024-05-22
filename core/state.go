@@ -205,6 +205,8 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
+	spew.Dump(blockNumber, update.StateDiff)
+
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {
 		if err = s.putClass(&cHash, class, blockNumber); err != nil {
@@ -236,7 +238,6 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	spew.Dump(blockNumber, update.StateDiff)
 	return s.verifyStateUpdateRoot(update.NewRoot)
 }
 

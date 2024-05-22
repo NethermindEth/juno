@@ -356,9 +356,23 @@ func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[prot
 
 		var responses []proto.Message
 		for _, c := range modifiedContracts {
+			contractAddress := *c.address
+
+			var (
+				classHash *felt.Felt
+				replaced  *bool
+			)
+			if hash, ok := diff.DeployedContracts[contractAddress]; ok {
+				classHash = hash
+				replaced = utils.Ptr(false)
+			} else if hash, ok = diff.ReplacedClasses[contractAddress]; ok {
+				classHash = hash
+				replaced = utils.Ptr(true)
+			}
+
 			responses = append(responses, &spec.StateDiffsResponse{
 				StateDiffMessage: &spec.StateDiffsResponse_ContractDiff{
-					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, c.storageDiffs),
+					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, classHash, replaced, c.storageDiffs),
 				},
 			})
 		}
