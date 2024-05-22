@@ -192,56 +192,40 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 			remainingPath.Truncate(proofNode.Edge.Path.Len())
 		}
 	}
+
+	// value=felt.Zero handles the case where the value has not been set // Todo : test
 	return expectedHash.Equal(value)
 }
 
-// verifyRangeProof verifies the range proof for the given range of keys.
+// VerifyRangeProof verifies the range proof for the given range of keys.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func verifyRangeProof(root *felt.Felt, firstKey *Key, firstProof []ProofNode, lastKey *Key, lastProof []ProofNode,
-	innerKeys []*Key, innerValues []*felt.Felt, innerProofs [][]ProofNode, hash hashFunc) (bool, error) {
+func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (bool, error) {
 	// Step 0: checks
-	if len(innerKeys) != len(innerValues) {
-		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(innerKeys), len(innerValues))
+	if len(keys) != len(values) {
+		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
 	}
 	// Ensure the received batch is monotonic increasing
-	for i := 0; i < len(innerKeys)-1; i++ {
-		if innerKeys[i].cmp(innerKeys[i+1]) >= 0 {
+	for i := 0; i < len(keys)-1; i++ {
+		if keys[i].cmp(keys[i+1]) >= 0 {
 			return false, errors.New("range is not monotonically increasing")
 		}
 	}
 	// Ensure the received batch contains no deletions
-	for _, value := range innerValues {
+	for _, value := range values {
 		if value.Equal(&felt.Zero) {
 			return false, errors.New("range contains deletion")
 		}
 	}
 
-	// Step 1: Verify the first edge proof (firstKey)
-	if !VerifyProof(root, firstKey, value, firstProof, hash) { // Todo: value??
-		return false, errors.New("Invalid first edge proof")
-	}
-
-	// Step 2: Verify the last edge proof (lastKey)
-	if !VerifyProof(root, lastKey, value, lastProof, hash) { // Todo: value??
-		return false, errors.New("Invalid last edge proof")
-	}
-
-	// Step 3: Verify each key and value in the given range
-	for i, key := range innerKeys {
-
-		// Verify the key using its proof
-		if !VerifyProof(root, key, innerValues[i], innerProofs[i], hash) {
+	// Step 1: Verify each (key,value,proof)
+	for i, key := range keys {
+		if !VerifyProof(root, key, values[i], proofs[i], hash) {
 			return false, errors.New(fmt.Sprintf("Invalid proof for key %x", key))
-		}
-
-		// Verify the value associated with the key
-		if !verifyValueFromProof(innerProofs[i], innerValues[i], hash) {
-			return false, errors.New(fmt.Sprintf("Incorrect value for key %x", key))
 		}
 	}
 
 	// Step 4: Recompute the root hash from the verified paths
-	recomputedRoot := recomputeRootHash(innerKeys, innerValues, innerProofs, hash)
+	recomputedRoot := recomputeRootHash(keys, values, proofs, hash)
 
 	// Verify that the recomputed root hash matches the provided root hash
 	if !recomputedRoot.Eq(root) {
