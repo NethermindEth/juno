@@ -12,8 +12,9 @@ type Gossiper interface {
 
 type Proposer interface {
 	Proposer() interface{}
-	IsProposer() uint8      // 0 no, 1 yes, 2 unknown
-	StrictIsProposer() bool // yes or no
+	IsProposer() uint8                        // 0 no, 1 yes, 2 unknown
+	StrictIsProposer() bool                   // yes or no
+	Elect(params map[string]interface{}) bool // true if node is selected, false otherwise
 }
 
 type Decider interface {
