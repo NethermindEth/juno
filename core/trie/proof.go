@@ -198,17 +198,21 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 
 // getExpectedhash effectievly gets the value corresponding to the key given proofs
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-func getExpectedProofValue(root *felt.Felt, key *Key, proofs []ProofNode, hash hashFunc) *felt.Felt { // Todo: test
-	if key.Len() != 251 { //nolint:gomnd
-		return nil
+func getExpectedProofValue(root *felt.Felt, proofKey *Key, nbrKey *Key, proofs []ProofNode, hash hashFunc) (*felt.Felt, error) { // Todo: test
+	if proofKey.Len() != 251 || nbrKey.Len() != 251 { //nolint:gomnd
+		return nil, errors.New("keys not the correct length")
 	}
 
+	commonAncestorKey := nbrKey.commonPrefix(*proofKey)
 	expectedHash := root
-	remainingPath := key
-
+	remainingPath := proofKey
+	height := uint8(0)
 	for _, proofNode := range proofs {
 		if !proofNode.Hash(hash).Equal(expectedHash) {
-			return nil
+			return nil, errors.New("proofNode not the expected hash")
+		}
+		if height == commonAncestorKey.len {
+			return proofNode.Hash(hash), nil
 		}
 		switch {
 		case proofNode.Binary != nil:
@@ -218,16 +222,18 @@ func getExpectedProofValue(root *felt.Felt, key *Key, proofs []ProofNode, hash h
 				expectedHash = proofNode.Binary.LeftHash
 			}
 			remainingPath.RemoveLastBit()
+			height++
 		case proofNode.Edge != nil:
 			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
-				return nil
+				return nil, errors.New("error in key path")
 			}
 			expectedHash = proofNode.Edge.Child
 			remainingPath.Truncate(proofNode.Edge.Path.Len())
+			height += proofNode.Edge.Path.Len()
 		}
-	}
 
-	return expectedHash
+	}
+	return nil, errors.New("failed to get proof value")
 }
 
 // VerifyRangeProof verifies the range proof for the given range of keys.
@@ -289,17 +295,26 @@ func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs
 	}
 
 	// Put left proof values
-	leftKey := keys[0]
-	leftKeyFelt := leftKey.Felt()
-	leftValue := getExpectedProofValue(root, leftKey, proofs[0], hash)
-	_, err = tri.Put(&leftKeyFelt, leftValue)
+	proofKey := keys[0]
+	proofKeyFelt := proofKey.Felt()
+	nbrKey := keys[1]
+	leftValue, err := getExpectedProofValue(root, proofKey, nbrKey, proofs[0], hash)
+	if err == nil {
+		return nil, err
+	}
+	_, err = tri.Put(&proofKeyFelt, leftValue)
 	if err != nil {
 		return nil, err
 	}
-	rightKey := keys[len(keys)-1]
-	rightKeyFelt := rightKey.Felt()
-	rightValue := getExpectedProofValue(root, rightKey, proofs[1], hash)
-	_, err = tri.Put(&rightKeyFelt, rightValue)
+	// Put right proof values
+	proofKey = keys[len(keys)-1]
+	proofKeyFelt = proofKey.Felt()
+	nbrKey = keys[len(keys)-2]
+	rightValue, err := getExpectedProofValue(root, proofKey, nbrKey, proofs[1], hash)
+	if err == nil {
+		return nil, err
+	}
+	_, err = tri.Put(&proofKeyFelt, rightValue)
 	if err != nil {
 		return nil, err
 	}
