@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"net/http"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -61,30 +62,33 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
-	readOnlyBlockchain  bool
+	client              *http.Client
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
+	latestBlockHeight   uint64
+	log                 utils.SimpleLogger
+	listener            EventListener
 
-	log      utils.SimpleLogger
-	listener EventListener
-
+	retryInterval       time.Duration // Retry interval when reached the head
 	pendingPollInterval time.Duration
 	catchUpMode         bool
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration, readOnlyBlockchain bool,
+	log utils.SimpleLogger, pendingPollInterval time.Duration,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
+		client:              http.DefaultClient,
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
-		readOnlyBlockchain:  readOnlyBlockchain,
+		latestBlockHeight:   uint64(0),
+		retryInterval:       5 * time.Second,
 	}
 	return s
 }
@@ -254,10 +258,10 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	s.startingBlockNumber = &startingHeight
 
 	latestSem := make(chan struct{}, 1)
-	if s.readOnlyBlockchain {
-		s.pollLatest(syncCtx, latestSem)
-		return
-	}
+	// if s.readOnlyBlockchain {
+	// 	s.pollLatest(syncCtx, latestSem)
+	// 	return
+	// }
 
 	fetchers, verifiers := s.setupWorkers()
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
