@@ -515,3 +515,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 	}
 	return tempTrie, nil
 }
+
+func (t *Trie) RangeProof(startPath, endPath *felt.Felt) ([]ProofNode, error) {
+	// TODO: Do this properly
+
+	bts := startPath.Bytes()
+	k := NewKey(251, bts[:])
+	return GetProof(&k, t)
+}

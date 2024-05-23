@@ -11,9 +11,22 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
+
+type IterableStorage interface {
+	IterateLeaf(startKey *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error)
+}
+
+var usingIterableStorage = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "juno_trie_iterable_storage",
+	Help: "Time in address get",
+}, []string{"iterable"})
+
+type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
@@ -43,6 +56,10 @@ type Trie struct {
 	rootKeyIsDirty bool
 }
 
+func (t *Trie) GetRootKey() *Key {
+	return t.rootKey
+}
+
 type NewTrieFunc func(*Storage, uint8) (*Trie, error)
 
 func NewTriePedersen(storage *Storage, height uint8) (*Trie, error) {
@@ -51,6 +68,10 @@ func NewTriePedersen(storage *Storage, height uint8) (*Trie, error) {
 
 func NewTriePoseidon(storage *Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
+}
+
+func NewTrie(storage *Storage, height uint8, hash HashFunc) (*Trie, error) {
+	return newTrie(storage, height, hashFunc(hash))
 }
 
 func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
@@ -321,8 +342,14 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 	return nil
 }
 
+var triePut = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "juno_trie_put",
+	Help: "trie put",
+})
+
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
+	triePut.Inc()
 	if key.Cmp(t.maxKey) > 0 {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
@@ -714,4 +741,51 @@ func (t *Trie) dump(level int, parentP *Key) {
 		rootKey: root.Right,
 		storage: t.storage,
 	}).dump(level+1, t.rootKey)
+}
+
+// Iterate the trie from startValue in ascending order until the consumer returned false or an error occur or end of
+// trie was reached. Return true if end of trie is reached.
+// TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
+// block cache should have a pretty good hit rate.
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	if startValue == nil {
+		startValue = &felt.Zero
+	}
+	startKey := t.feltToKey(startValue)
+
+	return t.doIterate(&startKey, t.rootKey, consumer)
+}
+
+// doIterate returns false if the end of the trie is reached, true otherwise
+func (t *Trie) doIterate(startKey, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	if key == nil {
+		return false, nil
+	}
+
+	node, err := t.storage.Get(key)
+	if err != nil {
+		return false, err
+	}
+
+	if key.Len() == t.height {
+		if startKey.CmpAligned(key) > 0 {
+			return true, nil
+		}
+		keyAsFelt := key.Felt()
+		return consumer(&keyAsFelt, node.Value)
+	}
+
+	// If the startKey is higher than the right node, no point in going to left at all
+	if startKey.CmpAligned(node.Right) < 0 {
+		next, err := t.doIterate(startKey, node.Left, consumer)
+		if err != nil {
+			return false, err
+		}
+
+		if !next {
+			return false, nil
+		}
+	}
+
+	return t.doIterate(startKey, node.Right, consumer)
 }
