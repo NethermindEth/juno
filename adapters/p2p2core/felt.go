@@ -31,7 +31,6 @@ func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 	if v == nil || reflect.ValueOf(v).IsNil() {
 		return nil
 	}
-
 	return new(felt.Felt).SetBytes(v.GetElements())
 }
 

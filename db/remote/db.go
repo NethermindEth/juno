@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
 
@@ -79,4 +80,8 @@ func (d *DB) Close() error {
 
 func (d *DB) Impl() any {
 	return d.kvClient
+}
+
+func (d *DB) PersistedView() (db.Transaction, func() error, error) {
+	return nil, nil, errors.New("persisted view not supported")
 }

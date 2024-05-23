@@ -76,6 +76,8 @@ type Blockchain struct {
 	network  *utils.Network
 	database db.DB
 
+	snapshots []*snapshotRecord
+
 	listener EventListener
 
 	cachedPending atomic.Pointer[Pending]
@@ -83,11 +85,20 @@ type Blockchain struct {
 
 func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
-	return &Blockchain{
+	bc := &Blockchain{
 		database: database,
 		network:  network,
 		listener: &SelectiveListener{},
 	}
+
+	// TODO: Used only for testing though...
+	// TODO: the following is only used for snap sync, uncomment when we need it again
+	// err := bc.seedSnapshot()
+	// if err != nil {
+	// 	fmt.Printf("Error seeding snapshot %s", err)
+	// }
+
+	return bc
 }
 
 func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
@@ -348,7 +359,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	return b.database.Update(func(txn db.Transaction) error {
+	err := b.database.Update(func(txn db.Transaction) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
@@ -387,6 +398,50 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		// [db.ChainHeight]() -> (BlockNumber)
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
+	})
+	if err != nil {
+		return err
+	}
+
+	// TODO: the following is only used for snap sync, uncomment when we need it again
+	// err = b.seedSnapshot()
+	// if err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
+func (b *Blockchain) StoreRaw(blockNumber uint64, stateDiff *core.StateDiff) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return core.NewState(txn).UpdateNoVerify(blockNumber, stateDiff, make(map[felt.Felt]core.Class))
+	})
+}
+
+func (b *Blockchain) PutClasses(blockNumber uint64, classHashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		v1ClassHashes := map[felt.Felt]*felt.Felt{}
+		for ch, class := range newClasses {
+			if class.Version() == 1 {
+				v1ClassHashes[ch] = classHashes[ch]
+			}
+		}
+
+		return core.NewState(txn).UpdateNoVerify(blockNumber, &core.StateDiff{
+			DeclaredV1Classes: v1ClassHashes,
+		}, newClasses)
+	})
+}
+
+func (b *Blockchain) PutContracts(address, nonces, classHash []*felt.Felt) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return core.NewState(txn).UpdateContractNoLog(address, nonces, classHash)
+	})
+}
+
+func (b *Blockchain) PutStorage(storage map[felt.Felt]map[felt.Felt]*felt.Felt) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return core.NewState(txn).UpdateContractStorages(storage)
 	})
 }
 
@@ -800,6 +855,16 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	_, err = ChainHeight(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return core.NewState(txn), txn.Discard, nil
+}
+
+func (b *Blockchain) HeadStateFreakingState() (*core.State, StateCloser, error) {
+	b.listener.OnRead("HeadState")
+	txn, err := b.database.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return core.NewState(txn), txn.Discard, nil

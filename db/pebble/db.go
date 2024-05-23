@@ -158,3 +158,14 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (*Item, er
 
 	return item, utils.RunAndWrapOnError(it.Close, err)
 }
+
+// View : see db.DB.View
+func (d *DB) PersistedView() (db.Transaction, func() error, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+	return txn, func() error {
+		return txn.Discard()
+	}, nil
+}

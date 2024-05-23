@@ -153,3 +153,61 @@ func (k *Key) RemoveLastBit() {
 		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
 	}
 }
+
+// CmpAligned is Cmp as if the value is bigendian bytes of key of the same length
+func (k Key) CmpAligned(other *Key) int {
+	// No its not aligned, so need to convert to bigint then left shift it so that the MSB is of the same index
+	height := k.len
+	if other.len > height {
+		height = other.len
+	}
+
+	b1i := k.alignedBitInt(height)
+	b2i := other.alignedBitInt(height)
+	return b1i.Cmp(b2i)
+}
+
+func (k Key) alignedBitInt(height uint8) *big.Int {
+	theint := &big.Int{}
+	theint = theint.SetBytes(k.bitset[:])
+	if k.len < height {
+		theint = theint.Lsh(theint, uint(height-k.len))
+	}
+
+	return theint
+}
+
+func (k *Key) AppendBitMut(flag bool) {
+	const LSB = uint8(0x1)
+	bit := k.len
+	byteIdx := bit / 8
+	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]
+	bitIdx := bit % 8
+
+	// I'm sure someone will make this nicer
+	if flag {
+		byteAtIdx |= LSB << bitIdx
+	} else {
+		byteAtIdx &= ^(LSB << bitIdx)
+	}
+
+	k.len++
+	k.bitset[len(k.bitset)-int(byteIdx)-1] = byteAtIdx
+}
+
+func (k Key) Append(otherKey *Key) Key {
+	result := NewKey(otherKey.len, otherKey.bitset[:])
+
+	// I'm sure someone will make this faster
+	for i := uint8(0); i < k.len; i++ {
+		result.AppendBitMut(k.Test(i))
+	}
+
+	return result
+}
+
+func (k Key) AppendBit(flag bool) Key {
+	result := NewKey(0, []byte{})
+	result.AppendBitMut(flag)
+	return k.Append(&result)
+}

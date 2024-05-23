@@ -56,3 +56,12 @@ message ClassesResponse {
         Fin   fin   = 2; // Fin is sent after the peer sent all the data or when it encountered a block that it doesn't have its classes.
     }
 }
+
+message Classes {
+    uint32   domain        = 1;
+    repeated Class classes = 2;
+}
+
+message ClassHashesRequest {
+    repeated Hash class_hashes = 1;
+}
