@@ -320,9 +320,10 @@ func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
 	}
 }
 
-func (s *Synchronizer) getBlockNumberDetails(blockNumber uint64) core.Block {
+func (s *Synchronizer) getBlockNumberDetails(blockNumber uint64) (core.Block, core.StateUpdate) {
 	var block core.Block = s.getBlockFeederGateway(blockNumber)
-	return block
+	var stateUpdate core.StateUpdate = s.getStateUpdate(blockNumber)
+	return block, stateUpdate
 }
 
 func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) core.Block {
@@ -339,9 +340,6 @@ func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) core.Block {
 		if err := decoder.Decode(&block); err != nil {
 			s.log.Errorw("Failed to decode response: %v", err)
 		}
-
-	} else {
-		s.log.Warnw("Received non-OK HTTP status: %s, Retrying ...", blockResponse.Status)
 	}
 
 	var adaptedTransactions []core.Transaction
@@ -383,6 +381,25 @@ func (s *Synchronizer) buildHeaderGateway(block starknet.Block, eventCount uint6
 		L1DAMode:         core.L1DAMode(block.L1DAMode),
 		L1DataGasPrice:   (*core.GasPrice)(block.L1DataGasPrice),
 	}
+}
+
+func (s *Synchronizer) getStateUpdate(blockNumber uint64) core.StateUpdate {
+	var stateUpdateURL = fmt.Sprintf("https://alpha-sepolia.starknet.io/feeder_gateway/get_state_update?blockNumber=%d", blockNumber)
+	response, err := http.Get(stateUpdateURL)
+	if err != nil {
+		s.log.Errorw("Failed to get response: %v", err)
+	}
+	var stateUpdate core.StateUpdate
+	if response.StatusCode == http.StatusOK {
+
+		decoder := json.NewDecoder(response.Body)
+
+		if err := decoder.Decode(&stateUpdate); err != nil {
+			s.log.Errorw("Failed to decode response: %v", err)
+		}
+	}
+
+	return stateUpdate
 }
 
 func maxWorkers() int {
