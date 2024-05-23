@@ -7,11 +7,10 @@
 package spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -797,26 +796,23 @@ func file_p2p_proto_common_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_common_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_common_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-	file_p2p_proto_common_proto_msgTypes  = make([]protoimpl.MessageInfo, 11)
-	file_p2p_proto_common_proto_goTypes   = []interface{}{
-		(Iteration_Direction)(0),   // 0: Iteration.Direction
-		(Fin_Error)(0),             // 1: Fin.Error
-		(*Felt252)(nil),            // 2: Felt252
-		(*Hash)(nil),               // 3: Hash
-		(*Hashes)(nil),             // 4: Hashes
-		(*Address)(nil),            // 5: Address
-		(*PeerID)(nil),             // 6: PeerID
-		(*ConsensusSignature)(nil), // 7: ConsensusSignature
-		(*Merkle)(nil),             // 8: Merkle
-		(*Patricia)(nil),           // 9: Patricia
-		(*BlockID)(nil),            // 10: BlockID
-		(*Iteration)(nil),          // 11: Iteration
-		(*Fin)(nil),                // 12: Fin
-	}
-)
-
+var file_p2p_proto_common_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_p2p_proto_common_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_p2p_proto_common_proto_goTypes = []interface{}{
+	(Iteration_Direction)(0),   // 0: Iteration.Direction
+	(Fin_Error)(0),             // 1: Fin.Error
+	(*Felt252)(nil),            // 2: Felt252
+	(*Hash)(nil),               // 3: Hash
+	(*Hashes)(nil),             // 4: Hashes
+	(*Address)(nil),            // 5: Address
+	(*PeerID)(nil),             // 6: PeerID
+	(*ConsensusSignature)(nil), // 7: ConsensusSignature
+	(*Merkle)(nil),             // 8: Merkle
+	(*Patricia)(nil),           // 9: Patricia
+	(*BlockID)(nil),            // 10: BlockID
+	(*Iteration)(nil),          // 11: Iteration
+	(*Fin)(nil),                // 12: Fin
+}
 var file_p2p_proto_common_proto_depIdxs = []int32{
 	3, // 0: Hashes.items:type_name -> Hash
 	2, // 1: ConsensusSignature.r:type_name -> Felt252

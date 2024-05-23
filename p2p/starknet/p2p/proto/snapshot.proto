@@ -85,6 +85,7 @@ message StorageLeafQuery {
 }
 
 message StorageRangeQuery {
+    Address address                   = 3;
     StorageLeafQuery start = 1;
     StorageLeafQuery end   = 2;
 }
@@ -93,6 +94,7 @@ message StorageRangeQuery {
 message ContractStorageRequest {
     uint32   domain                  = 1;  // volition
     Hash     state_root              = 2;
+    uint32  chunks_per_proof = 5;  // how many ContractRange items to send before sending a proof
     repeated StorageRangeQuery query = 3;
 }
 

@@ -7,11 +7,10 @@
 package spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -866,26 +865,23 @@ func file_p2p_proto_state_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_state_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_state_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
-	file_p2p_proto_state_proto_goTypes  = []interface{}{
-		(*ContractStoredValue)(nil),               // 0: ContractStoredValue
-		(*StateDiff)(nil),                         // 1: StateDiff
-		(*EntryPoint)(nil),                        // 2: EntryPoint
-		(*Cairo0Class)(nil),                       // 3: Cairo0Class
-		(*SierraEntryPoint)(nil),                  // 4: SierraEntryPoint
-		(*Cairo1EntryPoints)(nil),                 // 5: Cairo1EntryPoints
-		(*Cairo1Class)(nil),                       // 6: Cairo1Class
-		(*Class)(nil),                             // 7: Class
-		(*Classes)(nil),                           // 8: Classes
-		(*StateDiff_ContractDiff)(nil),            // 9: StateDiff.ContractDiff
-		(*StateDiff_ContractAddrToClassHash)(nil), // 10: StateDiff.ContractAddrToClassHash
-		(*Felt252)(nil),                           // 11: Felt252
-		(*Address)(nil),                           // 12: Address
-		(*Hash)(nil),                              // 13: Hash
-	}
-)
-
+var file_p2p_proto_state_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_p2p_proto_state_proto_goTypes = []interface{}{
+	(*ContractStoredValue)(nil),               // 0: ContractStoredValue
+	(*StateDiff)(nil),                         // 1: StateDiff
+	(*EntryPoint)(nil),                        // 2: EntryPoint
+	(*Cairo0Class)(nil),                       // 3: Cairo0Class
+	(*SierraEntryPoint)(nil),                  // 4: SierraEntryPoint
+	(*Cairo1EntryPoints)(nil),                 // 5: Cairo1EntryPoints
+	(*Cairo1Class)(nil),                       // 6: Cairo1Class
+	(*Class)(nil),                             // 7: Class
+	(*Classes)(nil),                           // 8: Classes
+	(*StateDiff_ContractDiff)(nil),            // 9: StateDiff.ContractDiff
+	(*StateDiff_ContractAddrToClassHash)(nil), // 10: StateDiff.ContractAddrToClassHash
+	(*Felt252)(nil),                           // 11: Felt252
+	(*Address)(nil),                           // 12: Address
+	(*Hash)(nil),                              // 13: Hash
+}
 var file_p2p_proto_state_proto_depIdxs = []int32{
 	11, // 0: ContractStoredValue.key:type_name -> Felt252
 	11, // 1: ContractStoredValue.value:type_name -> Felt252

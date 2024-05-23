@@ -202,14 +202,22 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
+	if err = s.UpdateNoVerify(blockNumber, update.StateDiff, declaredClasses); err != nil {
+		return err
+	}
+
+	return s.verifyStateUpdateRoot(update.NewRoot)
+}
+
+func (s *State) UpdateNoVerify(blockNumber uint64, update *StateDiff, declaredClasses map[felt.Felt]Class) error {
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {
-		if err = s.putClass(&cHash, class, blockNumber); err != nil {
+		if err := s.putClass(&cHash, class, blockNumber); err != nil {
 			return err
 		}
 	}
 
-	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
+	if err := s.updateDeclaredClassesTrie(update.DeclaredV1Classes, declaredClasses); err != nil {
 		return err
 	}
 
@@ -219,13 +227,13 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	}
 
 	// register deployed contracts
-	for addr, classHash := range update.StateDiff.DeployedContracts {
+	for addr, classHash := range update.DeployedContracts {
 		if err = s.putNewContract(stateTrie, &addr, classHash, blockNumber); err != nil {
 			return err
 		}
 	}
 
-	if err = s.updateContracts(stateTrie, blockNumber, update.StateDiff, true); err != nil {
+	if err = s.updateContracts(stateTrie, blockNumber, update, true); err != nil {
 		return err
 	}
 
@@ -233,7 +241,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	return s.verifyStateUpdateRoot(update.NewRoot)
+	return nil
 }
 
 var (

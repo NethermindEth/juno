@@ -373,6 +373,34 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	})
 }
 
+func (b *Blockchain) StoreRaw(blockNumber uint64, stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return core.NewState(txn).UpdateNoVerify(blockNumber, stateDiff, newClasses)
+	})
+}
+
+func (b *Blockchain) GetClasses(felts []*felt.Felt) ([]core.Class, error) {
+	classes := make([]core.Class, len(felts))
+	err := b.database.View(func(txn db.Transaction) error {
+		state := core.NewState(txn)
+		for i, f := range felts {
+			d, err := state.Class(f)
+			if err != nil {
+				return err
+			}
+			classes[i] = d.Class
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return classes, nil
+}
+
 // VerifyBlock assumes the block has already been sanity-checked.
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return b.database.View(func(txn db.Transaction) error {

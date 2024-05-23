@@ -7,11 +7,10 @@
 package spec
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -322,21 +321,18 @@ func file_p2p_proto_event_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_event_proto_rawDescData
 }
 
-var (
-	file_p2p_proto_event_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-	file_p2p_proto_event_proto_goTypes  = []interface{}{
-		(*Event)(nil),          // 0: Event
-		(*EventsRequest)(nil),  // 1: EventsRequest
-		(*Events)(nil),         // 2: Events
-		(*EventsResponse)(nil), // 3: EventsResponse
-		(*Hash)(nil),           // 4: Hash
-		(*Felt252)(nil),        // 5: Felt252
-		(*Iteration)(nil),      // 6: Iteration
-		(*BlockID)(nil),        // 7: BlockID
-		(*Fin)(nil),            // 8: Fin
-	}
-)
-
+var file_p2p_proto_event_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_p2p_proto_event_proto_goTypes = []interface{}{
+	(*Event)(nil),          // 0: Event
+	(*EventsRequest)(nil),  // 1: EventsRequest
+	(*Events)(nil),         // 2: Events
+	(*EventsResponse)(nil), // 3: EventsResponse
+	(*Hash)(nil),           // 4: Hash
+	(*Felt252)(nil),        // 5: Felt252
+	(*Iteration)(nil),      // 6: Iteration
+	(*BlockID)(nil),        // 7: BlockID
+	(*Fin)(nil),            // 8: Fin
+}
 var file_p2p_proto_event_proto_depIdxs = []int32{
 	4, // 0: Event.transaction_hash:type_name -> Hash
 	5, // 1: Event.from_address:type_name -> Felt252
