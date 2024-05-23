@@ -579,7 +579,7 @@ func TestPublicKey(t *testing.T) {
 
 	actualPublicKey, err := client.PublicKey(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, "0x507b38d81561baa02f718dae46c371ba9f72fc5f0e9535ca94559dfb776115b", actualPublicKey.String())
+	assert.Equal(t, "0x52934be54ce926b1e715f15dc2542849a97ecfdf829cd0b7384c64eeeb2264e", actualPublicKey.String())
 }
 
 func TestSignature(t *testing.T) {
