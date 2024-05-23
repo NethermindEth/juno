@@ -316,8 +316,11 @@ func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
 			return
 		default:
 			s.log.Infow("Fetching from feeder")
-			s.getBlockNumberDetails(0)
-			s.latestBlockHeight = s.latestBlockHeight + 1
+			blocks, stateUpdate, blockCommitments := s.getBlockNumberDetails(uint64(s.latestBlockHeight))
+			newClass, _ := s.fetchUnknownClasses(syncCtx, &stateUpdate)
+			s.blockchain.Store(&blocks, &blockCommitments, &stateUpdate, newClass)
+			s.latestBlockHeight += 1
+			s.log.Infow("Fetched")
 		}
 
 	}
