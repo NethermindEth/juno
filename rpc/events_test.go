@@ -28,6 +28,7 @@ func TestEvents(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	n := utils.Ptr(utils.Sepolia)
 	chain := blockchain.New(testDB, n)
+	defer chain.Close()
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -238,6 +239,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	chain := blockchain.New(pebble.NewMemTest(t), n)
+	defer chain.Close()
 	syncer := sync.New(chain, gw, log, 0, false)
 	handler := rpc.New(chain, syncer, nil, "", log)
 
@@ -319,6 +321,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	chain := blockchain.New(pebble.NewMemTest(t), n)
+	defer chain.Close()
 	syncer := sync.New(chain, gw, log, 0, false)
 	handler := rpc.New(chain, syncer, nil, "", log)
 	go func() {

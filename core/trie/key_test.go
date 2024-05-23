@@ -2,6 +2,7 @@ package trie_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -152,4 +153,121 @@ func TestTruncate(t *testing.T) {
 			assert.Equal(t, test.expectedKey, copyKey)
 		})
 	}
+}
+
+func Test_cmp(t *testing.T) {
+	tests := []struct {
+		n1       int
+		n2       int
+		isHigher bool
+	}{
+		{
+			n1:       10,
+			n2:       0,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       0,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       4,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       4,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       0,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       300,
+			n2:       1,
+			isHigher: true,
+		},
+		{
+			n1:       1,
+			n2:       300,
+			isHigher: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%d %d %v", test.n1, test.n2, test.isHigher), func(t *testing.T) {
+			k1 := numToKey(test.n1)
+			k2 := numToKey(test.n2)
+
+			assert.Equal(t,
+				k1.CmpAligned(&k2) > 0,
+				test.isHigher)
+		})
+	}
+}
+
+func numToKey(num int) trie.Key {
+	return trie.NewKey(8, []byte{byte(num)})
+}
+
+func TestKeyAppend(t *testing.T) {
+	tests := map[string]struct {
+		Key1        trie.Key
+		Key2        trie.Key
+		ExpectedKey trie.Key
+	}{
+		"no append": {
+			Key1:        trie.NewKey(1, []byte{0x01}),
+			Key2:        trie.NewKey(0, []byte{0x00}),
+			ExpectedKey: trie.NewKey(1, []byte{0x01}),
+		},
+		"from zero append": {
+			Key1:        trie.NewKey(0, []byte{0x00}),
+			Key2:        trie.NewKey(1, []byte{0x01}),
+			ExpectedKey: trie.NewKey(1, []byte{0x01}),
+		},
+		"append shift": {
+			Key1:        trie.NewKey(1, []byte{0x01}),
+			Key2:        trie.NewKey(7, []byte{0x00}),
+			ExpectedKey: trie.NewKey(8, []byte{0x80}),
+		},
+		"append to a new byte": {
+			Key1:        trie.NewKey(8, []byte{0xff}),
+			Key2:        trie.NewKey(1, []byte{0x01}),
+			ExpectedKey: trie.NewKey(9, []byte{0x01, 0xff}),
+		},
+		"append multi byte": {
+			Key1:        trie.NewKey(11, []byte{0x00, 0xff}),       //  000 1111 1111
+			Key2:        trie.NewKey(12, []byte{0x00, 0xff}),       // 0000 1111 1111
+			ExpectedKey: trie.NewKey(23, []byte{0x0f, 0xf0, 0xff}), //  000 1111 1111 0000 1111 1111
+		},
+	}
+
+	for desc, test := range tests {
+		t.Run(desc, func(t *testing.T) {
+			appended := test.Key1.Append(&test.Key2)
+			assert.Equal(t, test.ExpectedKey, appended)
+		})
+	}
+}
+
+func TestKeyAppendBit(t *testing.T) {
+	k1 := trie.NewKey(1, []byte{0x01})
+	k2 := k1.AppendBit(true)
+	expected := trie.NewKey(2, []byte{0x03})
+	assert.Equal(t, k2, expected)
+
+	k1 = trie.NewKey(1, []byte{0x00})
+	k2 = k1.AppendBit(true)
+	expected = trie.NewKey(2, []byte{0x01})
+	assert.Equal(t, k2, expected)
 }

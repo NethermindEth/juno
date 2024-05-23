@@ -94,6 +94,7 @@ func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
 		d.wMutex.Lock()
 		return NewBatch(d.pebble.NewIndexedBatch(), d.wMutex, d.listener), nil
 	}
+	txn.rwlock = &sync.RWMutex{}
 
 	return NewSnapshot(d.pebble.NewSnapshot(), d.listener), nil
 }
@@ -157,4 +158,15 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (*Item, er
 	}
 
 	return item, utils.RunAndWrapOnError(it.Close, err)
+}
+
+// View : see db.DB.View
+func (d *DB) PersistedView() (db.Transaction, func() error, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+	return txn, func() error {
+		return txn.Discard()
+	}, nil
 }
