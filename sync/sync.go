@@ -107,7 +107,7 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	s.syncBlocks(ctx)
+	s.syncBlocksFeeder(ctx)
 	return nil
 }
 
@@ -313,9 +313,11 @@ func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
 		select {
 		case <-streamCtx.Done():
 			streamCancel()
-
+			return
 		default:
-
+			s.log.Infow("Fetching from feeder")
+			s.getBlockNumberDetails(0)
+			s.latestBlockHeight = s.latestBlockHeight + 1
 		}
 
 	}
