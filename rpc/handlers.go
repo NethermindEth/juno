@@ -500,24 +500,41 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 	stateReader, _, error := h.bcReader.HeadState()
 	if error != nil {
-		return "", ErrBlockNotFound
+		return "", &jsonrpc.Error{
+			Code:    11111,
+			Message: "Failed to retrieve head state",
+			Data:    error.Error(),
+		}
 	}
+
 	try, _, errTry := stateReader.GetGlobalTrie()
 	if errTry != nil {
-		return "", ErrBlockNotFound
+		return "", &jsonrpc.Error{
+			Code:    22222,
+			Message: "Failed to get global trie",
+			Data:    errTry.Error(),
+		}
 	}
 
 	k := try.FeltToKeyConverter(&key)
 	storageNodes, err := try.GetNodesFromRoot(&k)
 	if err != nil {
-		return "", ErrBlockNotFound
+		return "", &jsonrpc.Error{
+			Code:    33333,
+			Message: "Failed to get nodes from root",
+			Data:    err.Error(),
+		}
 	}
 
 	parsedNodes := try.NodeParser(storageNodes)
 
 	jsonBytes, err := json.Marshal(parsedNodes)
 	if err != nil {
-		return "", ErrParsingError
+		return "", &jsonrpc.Error{
+			Code:    44444,
+			Message: "Failed to parse nodes",
+			Data:    err.Error(),
+		}
 	}
 	return string(jsonBytes), nil
 }
