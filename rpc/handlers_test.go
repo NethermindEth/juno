@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
+	fp1 "github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -113,8 +114,16 @@ func TestJunoGetNodesFromRoot(t *testing.T) {
 
 	t.Run("Key DNE", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		nodeStorage, _ := handler.JunoGetNodesFromRoot(felt.Zero)
+		nodeStorage, err := handler.JunoGetNodesFromRoot(felt.Zero)
 		require.Nil(t, nodeStorage)
-		// assert.Equal(t, rpc.ErrBlockNotFound, err)
+		require.NotEqual(t, err, nil)
+	})
+
+	t.Run("Key Exist", func(t *testing.T) {
+		element := fp1.NewElement(1)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		nodeStorage, err := handler.JunoGetNodesFromRoot(*felt.NewFelt(&element))
+		require.Nil(t, err)
+		assert.NotEqual(t, nodeStorage, nil)
 	})
 }
