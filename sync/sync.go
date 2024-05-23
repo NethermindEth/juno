@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"runtime"
 	"sync/atomic"
@@ -314,19 +315,19 @@ func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
 			streamCancel()
 
 		default:
-			// Need to make request
+
 		}
 
 	}
 }
 
-func (s *Synchronizer) getBlockNumberDetails(blockNumber uint64) (core.Block, core.StateUpdate) {
-	var block core.Block = s.getBlockFeederGateway(blockNumber)
+func (s *Synchronizer) getBlockNumberDetails(blockNumber uint64) (core.Block, core.StateUpdate, core.BlockCommitments) {
+	var block, commitments = s.getBlockFeederGateway(blockNumber)
 	var stateUpdate core.StateUpdate = s.getStateUpdate(blockNumber)
-	return block, stateUpdate
+	return block, stateUpdate, commitments
 }
 
-func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) core.Block {
+func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) (core.Block, core.BlockCommitments) {
 	getBlockURL := fmt.Sprintf("https://alpha-sepolia.starknet.io/feeder_gateway/get_block?blockNumber=%d", blockNumber)
 	blockResponse, err := http.Get(getBlockURL)
 	if err != nil {
@@ -356,15 +357,37 @@ func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) core.Block {
 		adaptedTransactionReceipt = append(adaptedTransactionReceipt, &adaptedTransaction)
 	}
 
-	var header core.Header = s.buildHeaderGateway(block, eventCount, core.EventsBloom(adaptedTransactionReceipt))
+	var header core.Header = s.buildHeaderGateway(blockNumber, block, eventCount, core.EventsBloom(adaptedTransactionReceipt))
 	return core.Block{
-		Header:       &header,
-		Transactions: adaptedTransactions,
-		Receipts:     adaptedTransactionReceipt,
-	}
+			Header:       &header,
+			Transactions: adaptedTransactions,
+			Receipts:     adaptedTransactionReceipt,
+		},
+		core.BlockCommitments{
+			TransactionCommitment: block.TransactionCommitment,
+			EventCommitment:       block.EventCommitment,
+		}
 }
 
-func (s *Synchronizer) buildHeaderGateway(block starknet.Block, eventCount uint64, eventsBloom *bloom.BloomFilter) core.Header {
+func (s *Synchronizer) buildHeaderGateway(blockNumber uint64, block starknet.Block, eventCount uint64, eventsBloom *bloom.BloomFilter) core.Header {
+	getSignatureURL := fmt.Sprintf("https://alpha-sepolia.starknet.io/feeder_gateway/get_signature?blockNumber=%d", blockNumber)
+	signatureResponse, sigErr := http.Get(getSignatureURL)
+	if sigErr != nil {
+		log.Fatalf("Failed to get response: %v", sigErr)
+	}
+	var signature starknet.Signature
+	defer signatureResponse.Body.Close()
+	if signatureResponse.StatusCode == http.StatusOK {
+
+		decoder := json.NewDecoder(signatureResponse.Body)
+
+		if err := decoder.Decode(&signature); err != nil {
+			log.Fatalf("Failed to decode response: %v", err)
+		}
+	}
+
+	var sigs = buildSignature(&signature)
+
 	return core.Header{
 		Hash:             block.Hash,
 		ParentHash:       block.ParentHash,
@@ -380,7 +403,16 @@ func (s *Synchronizer) buildHeaderGateway(block starknet.Block, eventCount uint6
 		GasPriceSTRK:     block.GasPriceSTRK(),
 		L1DAMode:         core.L1DAMode(block.L1DAMode),
 		L1DataGasPrice:   (*core.GasPrice)(block.L1DataGasPrice),
+		Signatures:       sigs,
 	}
+}
+
+func buildSignature(sig *starknet.Signature) [][]*felt.Felt {
+	sigs := [][]*felt.Felt{}
+	if sig != nil {
+		sigs = append(sigs, sig.Signature)
+	}
+	return sigs
 }
 
 func (s *Synchronizer) getStateUpdate(blockNumber uint64) core.StateUpdate {
