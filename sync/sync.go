@@ -2,20 +2,25 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"runtime"
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/sourcegraph/conc/stream"
 )
 
@@ -298,6 +303,85 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			})
 			nextHeight++
 		}
+	}
+}
+
+func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
+	streamCtx, streamCancel := context.WithCancel(syncCtx)
+	for {
+		select {
+		case <-streamCtx.Done():
+			streamCancel()
+
+		default:
+			// Need to make request
+		}
+
+	}
+}
+
+func (s *Synchronizer) getBlockNumberDetails(blockNumber uint64) core.Block {
+	var block core.Block = s.getBlockFeederGateway(blockNumber)
+	return block
+}
+
+func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) core.Block {
+	getBlockURL := fmt.Sprintf("https://alpha-sepolia.starknet.io/feeder_gateway/get_block?blockNumber=%d", blockNumber)
+	blockResponse, err := http.Get(getBlockURL)
+	if err != nil {
+		s.log.Errorw("Failed to get response: %v", err)
+	}
+	defer blockResponse.Body.Close()
+	var block starknet.Block
+	if blockResponse.StatusCode == http.StatusOK {
+		decoder := json.NewDecoder(blockResponse.Body)
+
+		if err := decoder.Decode(&block); err != nil {
+			s.log.Errorw("Failed to decode response: %v", err)
+		}
+
+	} else {
+		s.log.Warnw("Received non-OK HTTP status: %s, Retrying ...", blockResponse.Status)
+	}
+
+	var adaptedTransactions []core.Transaction
+	for _, transactionFromBlock := range block.Transactions {
+		adaptedTransaction, _ := sn2core.AdaptTransaction(transactionFromBlock)
+		adaptedTransactions = append(adaptedTransactions, adaptedTransaction)
+	}
+
+	var eventCount uint64 = 0
+	var adaptedTransactionReceipt []*core.TransactionReceipt
+	for _, receipt := range block.Receipts {
+		eventCount += uint64(len(receipt.Events))
+		var adaptedTransaction core.TransactionReceipt = *sn2core.AdaptTransactionReceipt(receipt)
+		adaptedTransactionReceipt = append(adaptedTransactionReceipt, &adaptedTransaction)
+	}
+
+	var header core.Header = s.buildHeaderGateway(block, eventCount, core.EventsBloom(adaptedTransactionReceipt))
+	return core.Block{
+		Header:       &header,
+		Transactions: adaptedTransactions,
+		Receipts:     adaptedTransactionReceipt,
+	}
+}
+
+func (s *Synchronizer) buildHeaderGateway(block starknet.Block, eventCount uint64, eventsBloom *bloom.BloomFilter) core.Header {
+	return core.Header{
+		Hash:             block.Hash,
+		ParentHash:       block.ParentHash,
+		Number:           block.Number,
+		GlobalStateRoot:  block.StateRoot,
+		SequencerAddress: block.SequencerAddress,
+		TransactionCount: uint64(len(block.Receipts)),
+		EventCount:       eventCount,
+		Timestamp:        block.Timestamp,
+		ProtocolVersion:  block.Version,
+		EventsBloom:      eventsBloom,
+		GasPrice:         block.GasPriceETH(),
+		GasPriceSTRK:     block.GasPriceSTRK(),
+		L1DAMode:         core.L1DAMode(block.L1DAMode),
+		L1DataGasPrice:   (*core.GasPrice)(block.L1DataGasPrice),
 	}
 }
 
