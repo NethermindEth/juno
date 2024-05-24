@@ -62,7 +62,7 @@ docker logs -f juno
 
 ## Standalone binary
 
-Download standalone binaries from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases) as ZIP archives for Linux (amd64 and arm64) and macOS (amd64). For macOS (arm64) or Windows users, consider [running Juno using Docker](#docker-container).
+Download standalone binaries from [Juno's GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) as ZIP archives for Linux (amd64 and arm64) and macOS (amd64). For macOS (arm64) or Windows users, consider [running Juno using Docker](#docker-container).
 
 ```bash
 # Prepare the snapshots directory

@@ -74,11 +74,10 @@ const extractConfigs = (codebase) => {
 
       // Additional descriptions based on specific configurations
       if (configName === "max-vms") {
-        description +=
-          ". Default is set to three times the number of CPU cores";
+        defaultValue = "3 * CPU Cores";
       }
       if (configName === "max-vm-queue") {
-        description += ". Default is set to double the value of `max-vms`";
+        defaultValue = "2 * max-vms";
       }
 
       configs.push({

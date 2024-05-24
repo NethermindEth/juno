@@ -163,8 +163,9 @@ const (
 	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests"
-	corsEnableUsage      = "Enable CORS on RPC endpoints"
+	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
+		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
+	corsEnableUsage = "Enable CORS on RPC endpoints"
 )
 
 var Version string
