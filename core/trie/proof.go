@@ -240,7 +240,7 @@ func getExpectedProofValue(root *felt.Felt, proofKey *Key, nbrKey *Key, proofs [
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
 // Note: this currently assumes that the inner keys do not contain the min/max key (ie both proofs exist) // Todo
 // The first/last key and value must correspond to the left/right proofs //Todo we currently assume both proofs are provided, as above
-func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [2][]ProofNode, hash hashFunc) (bool, error) {
+func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (bool, error) {
 	// Step 0: checks
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
@@ -280,7 +280,10 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 	return true, nil
 }
 
-func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [2][]ProofNode, hash hashFunc) (*felt.Felt, error) {
+// The leaves are set as follows:
+// 1. For the leaves that we have the values for, we set the key-value directly
+// 2. All other leaves are obtained from the proofs, and then set ????
+func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (*felt.Felt, error) {
 	tri, err := newTrie(newMemStorage(), 251, hash)
 	if err != nil {
 		return nil, err
@@ -295,25 +298,19 @@ func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs
 		}
 	}
 
-	// Put to two proof values
-	// The trick here is that we set the proof value to the the hash of all nodes to the left/right of the first/last key
-	handleProofValue := func(tri *Trie, root *felt.Felt, proofKey, nbrKey *Key, proof []ProofNode, hash hashFunc) error {
-		value, err := getExpectedProofValue(root, proofKey, nbrKey, proof, hash)
-		if err != nil {
-			return err
-		}
-		proofKeyFelt := proofKey.Felt()
-		_, err = tri.Put(&proofKeyFelt, value)
-		return err
+	getKeyValueFromProof := func(proof []ProofNode, hash hashFunc) (*felt.Felt, *felt.Felt, error) { // Todo
+		return nil, nil, err
 	}
 
-	err = handleProofValue(tri, root, keys[0], keys[1], proofs[0], hash)
-	if err != nil {
-		return nil, err
-	}
-	err = handleProofValue(tri, root, keys[len(keys)-1], keys[len(keys)-2], proofs[1], hash)
-	if err != nil {
-		return nil, err
+	for _, proof := range proofs {
+		key, value, err := getKeyValueFromProof(proof, hash)
+		if err != nil {
+			return nil, err
+		}
+		_, err = tri.Put(key, value)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return tri.Root()
