@@ -418,9 +418,13 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		return err
 	}
 
+	sort.Slice(bufferedTxns, func(i, j int) bool {
+		return bufferedTxns[i].Address.Cmp(bufferedTxns[j].Address) < 0
+	})
+
 	// flush buffered txns
 	for _, bufferedTxnsSlice := range bufferedTxns {
-		bufferedTxnsSlice.GetBufferedTransaction().Flush()
+		bufferedTxnsSlice.Txn.Flush()
 	}
 
 	for addr := range diffs {

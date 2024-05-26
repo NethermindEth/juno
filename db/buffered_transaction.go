@@ -13,8 +13,8 @@ type BufferedTransaction struct {
 }
 
 type BufferedTransactionWithAddress struct {
-	txn     *BufferedTransaction
-	address *felt.Felt
+	Txn     *BufferedTransaction
+	Address *felt.Felt
 }
 
 func NewBufferedTransaction(txn Transaction) *BufferedTransaction {
@@ -26,8 +26,8 @@ func NewBufferedTransaction(txn Transaction) *BufferedTransaction {
 
 func NewBufferedTransactionWithAddress(txn *BufferedTransaction, address *felt.Felt) *BufferedTransactionWithAddress {
 	return &BufferedTransactionWithAddress{
-		txn:     txn,
-		address: address,
+		Txn:     txn,
+		Address: address,
 	}
 }
 
@@ -95,8 +95,4 @@ func (t *BufferedTransaction) Impl() any {
 // NewIterator : see db.Transaction.NewIterator
 func (t *BufferedTransaction) NewIterator() (Iterator, error) {
 	return nil, errors.New("buffered transactions dont support iterators")
-}
-
-func (ta *BufferedTransactionWithAddress) GetBufferedTransaction() *BufferedTransaction {
-	return ta.txn
 }
