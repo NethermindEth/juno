@@ -316,7 +316,7 @@ func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs
 	return tri.Root()
 }
 
-func proofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
+func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
 
 	height := uint8(0)
 	leafBytes := leaf.Bytes()
@@ -341,7 +341,7 @@ func proofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 		} else if proofNodes[i].Edge != nil {
 			edgeHeight := proofNodes[i].Edge.Path.len
 			if i <= len(proofNodes)-1 { // fuse edge+binary into single juno node
-				snNodeKey := leafKey.SubKey(edgeHeight + 1)
+				snNodeKey := leafKey.SubKey(edgeHeight)
 				pathNodes = append(pathNodes,
 					storageNode{
 						key: snNodeKey,

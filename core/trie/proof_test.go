@@ -367,3 +367,50 @@ func TestVerifyProofs(t *testing.T) {
 		assert.False(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
 }
+
+func TestProoftoPath(t *testing.T) {
+
+	t.Run("Simple binary trie proof to path", func(t *testing.T) {
+		tempTrie := buildSimpleTrie(t)
+		zero := trie.NewKey(250, []byte{0})
+		proofNodes := []trie.ProofNode{
+			{
+				Edge: &trie.Edge{
+					Path:  &zero,
+					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+				},
+			},
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+				},
+			},
+		}
+
+		sns, err := trie.ProofToPath(proofNodes, &felt.Zero, crypto.Pedersen)
+		require.NoError(t, err)
+		rootKey := tempTrie.RootKey()
+		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
+		require.NoError(t, err)
+		qwe := rootNodes.Right.Bitset()
+		fmt.Println(rootNodes, qwe)
+
+		require.Equal(t, 1, len(sns))
+		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
+		panic(1)
+	})
+}
+
+func TestChildMethods(t *testing.T) {
+	tempTrie := buildSimpleTrie(t)
+
+	roootKey := tempTrie.RootKey()
+	roootNodes, err := tempTrie.GetNodeFromKey(roootKey) // right node key seems incorrect???
+	require.NoError(t, err)
+
+	left := roootKey.LeftChild()
+	right := roootKey.RightChild()
+	require.Equal(t, roootNodes.Left, left)
+	require.Equal(t, roootNodes.Right, right)
+}

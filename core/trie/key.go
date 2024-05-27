@@ -25,13 +25,19 @@ func NewKey(length uint8, keyBytes []byte) Key {
 
 func (k *Key) LeftChild() *Key {
 	child := NewKey(k.len+1, k.bitset[:])
-	child.bitset[31-k.len/8] &= ^(1 << (k.len % 8)) // set bit to 0
+	const LSB = uint8(0x1)
+	byteIdx := k.len / 8
+	bitIdx := k.len % 8
+	child.bitset[len(child.bitset)-int(byteIdx)-1] &^= LSB << (bitIdx)
 	return &child
 }
 
 func (k *Key) RightChild() *Key {
 	child := NewKey(k.len+1, k.bitset[:])
-	child.bitset[31-k.len/8] |= 1 << (k.len % 8) // set bit to 1
+	const LSB = uint8(0x1)
+	byteIdx := k.len / 8
+	bitIdx := k.len % 8
+	child.bitset[len(child.bitset)-int(byteIdx)-1] |= LSB << (bitIdx)
 	return &child
 }
 
@@ -113,6 +119,9 @@ func (k *Key) EncodedLen() uint {
 
 func (k *Key) Len() uint8 {
 	return k.len
+}
+func (k *Key) Bitset() [32]byte {
+	return k.bitset
 }
 
 func (k *Key) Felt() felt.Felt {
