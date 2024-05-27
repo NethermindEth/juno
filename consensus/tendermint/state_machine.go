@@ -563,7 +563,7 @@ func (sm *StateMachine) onTimeOutTime(round uint64, step Step) time.Duration {
 }
 
 func (sm *StateMachine) setProposalTimeOut(height uint64, round uint64, step Step) {
-	setTimeOut(
+	consensus.SetTimeOut(
 		func() {
 			if sm.timeOutProposal != nil {
 				sm.timeOutProposal(sm, height, round)
@@ -575,7 +575,7 @@ func (sm *StateMachine) setProposalTimeOut(height uint64, round uint64, step Ste
 }
 
 func (sm *StateMachine) setPreVoteTimeOut(height uint64, round uint64, step Step) {
-	setTimeOut(
+	consensus.SetTimeOut(
 		func() {
 			if sm.timeOutPreVote != nil {
 				sm.timeOutPreVote(sm, height, round)
@@ -587,7 +587,7 @@ func (sm *StateMachine) setPreVoteTimeOut(height uint64, round uint64, step Step
 }
 
 func (sm *StateMachine) setPreCommitTimeOut(height uint64, round uint64, step Step) {
-	setTimeOut(
+	consensus.SetTimeOut(
 		func() {
 			if sm.timeOutPreCommit != nil {
 				sm.timeOutPreCommit(sm, height, round)
@@ -601,11 +601,4 @@ func (sm *StateMachine) setPreCommitTimeOut(height uint64, round uint64, step St
 func onTimeOutTime(round uint64, step Step) time.Duration {
 	return 5 * time.Second
 	// todo set duration based on step and round and/or based on config
-}
-
-func setTimeOut(f func(), t time.Duration) {
-	go func() {
-		time.Sleep(t)
-		f()
-	}()
 }

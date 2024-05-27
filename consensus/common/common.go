@@ -1,5 +1,7 @@
 package consensus
 
+import "time"
+
 type Gossiper interface {
 	SubmitMessageForBroadcast(msg interface{})   // adds a msg to be broadcast to the queue
 	SubmitMessage(msg interface{})               // takes a msg to be broadcast off the queue
@@ -31,4 +33,11 @@ type Proposable interface {
 	IsValid() bool
 	Equals(other interface{}) bool
 	EqualsTo(other Proposable) bool
+}
+
+func SetTimeOut(f func(), t time.Duration) {
+	go func() {
+		time.Sleep(t)
+		f()
+	}()
 }
