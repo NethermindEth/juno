@@ -25,7 +25,7 @@ var (
 
 type State struct {
 	step             Step
-	currentHeight    uint64
+	currentHeight    HeightType
 	round            RoundType
 	lockedValue      *consensus.Proposable
 	lockedRound      RoundType
@@ -40,13 +40,13 @@ func InitialState(decider *consensus.Decider) *State {
 	return initialStateWithHeight(0, decider)
 }
 
-func initialStateWithHeight(height uint64, decider *consensus.Decider) *State {
+func initialStateWithHeight(height HeightType, decider *consensus.Decider) *State {
 	return newState(STEP_PROPOSE, height, 0, nil, nil, -1, -1,
 		true, true, decider)
 }
 
-func newState(step Step, height uint64, round RoundType, lockedValue, validValue *consensus.Proposable,
-	lockedRound, validRound int64, firstPreVote, firstPreCommit bool, decider *consensus.Decider) *State {
+func newState(step Step, height HeightType, round RoundType, lockedValue, validValue *consensus.Proposable,
+	lockedRound, validRound RoundType, firstPreVote, firstPreCommit bool, decider *consensus.Decider) *State {
 
 	return &State{
 		step:             step,
@@ -66,7 +66,7 @@ func (s State) Builder() *StateBuilder {
 	return NewStateBuilder(&s)
 }
 
-func (s State) nextHeight() uint64 {
+func (s State) nextHeight() HeightType {
 	return s.currentHeight + 1
 }
 
@@ -106,7 +106,7 @@ func (sb *StateBuilder) SetDecider(decider *consensus.Decider) *StateBuilder {
 	return sb
 }
 
-func (sb *StateBuilder) SetHeight(height uint64) *StateBuilder {
+func (sb *StateBuilder) SetHeight(height HeightType) *StateBuilder {
 	sb.state.currentHeight = height
 	return sb
 }
@@ -152,10 +152,11 @@ func (sb *StateBuilder) SetIsFirstPreCommit(isFirstPreCommit bool) *StateBuilder
 }
 
 type Config struct {
-	timeOutProposal  func(sm *StateMachine, height uint64, round RoundType)
-	timeOutPreVote   func(sm *StateMachine, height uint64, round RoundType)
-	timeOutPreCommit func(sm *StateMachine, height uint64, round RoundType)
+	timeOutProposal  func(sm *StateMachine, height HeightType, round RoundType)
+	timeOutPreVote   func(sm *StateMachine, height HeightType, round RoundType)
+	timeOutPreCommit func(sm *StateMachine, height HeightType, round RoundType)
 	timeOutTime      func(sm *StateMachine, round RoundType, step Step) time.Duration
+	// todo: add logger, tracer, metric collector here.
 }
 
 type StateMachine struct {
@@ -222,6 +223,14 @@ func (sm *StateMachine) Run() {
 			//todo: log error
 		}
 	}
+}
+
+func (sm *StateMachine) Interrupt() {
+	// todo: stop the run loop
+	// todo: use a context maybe?
+	// todo: ensure all data is saved - maybe do this at tendermint level.
+	// todo: kill all go routines spawned by this state machine
+	// todo: how to kill routines that are asleep?!
 }
 
 func (sm *StateMachine) HandleMessage(msgs []Message) error {

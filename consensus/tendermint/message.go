@@ -60,6 +60,10 @@ func (msg *Message) Sender() interface{} {
 	return msg.sender
 }
 
+func (msg *Message) SetSender(sender interface{}) {
+	msg.sender = sender
+}
+
 func newMessage(msgType MsgType, height HeightType, round RoundType, value *consensus.Proposable, validRound RoundType,
 	voteLevel VoteLevel) *Message {
 
