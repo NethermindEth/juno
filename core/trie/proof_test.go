@@ -24,7 +24,7 @@ func buildSimpleTrie(t *testing.T) *trie.Trie {
 	txn, err := memdb.NewTransaction(true)
 	require.NoError(t, err)
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{1}), 251)
+	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)
 
 	// Update trie
@@ -302,10 +302,8 @@ func TestVerifyProofs(t *testing.T) {
 
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
-		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
-		key1 := trie.NewKey(251, key1Bytes[:])
 		val1 := new(felt.Felt).SetUint64(2)
-		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
+		assert.True(t, trie.VerifyProof(root, new(felt.Felt).SetUint64(0), val1, expectedProofNodes, crypto.Pedersen))
 	})
 
 	// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2167
@@ -335,10 +333,8 @@ func TestVerifyProofs(t *testing.T) {
 
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
-		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
-		key1 := trie.NewKey(251, key1Bytes[:])
 		val1 := new(felt.Felt).SetUint64(2)
-		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
+		assert.True(t, trie.VerifyProof(root, new(felt.Felt).SetUint64(0), val1, expectedProofNodes, crypto.Pedersen))
 	})
 
 	t.Run("Simple binary trie - fail missing key", func(t *testing.T) {
@@ -361,10 +357,9 @@ func TestVerifyProofs(t *testing.T) {
 
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
-		key1Bytes := utils.HexToFelt(t, "0x4").Bytes() // Non-existant key
-		key1 := trie.NewKey(251, key1Bytes[:])
+		key1 := utils.HexToFelt(t, "0x4")   // Non-existant key
 		val1 := new(felt.Felt).SetUint64(2) // key=0 has val=2
-		assert.False(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
+		assert.False(t, trie.VerifyProof(root, key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
 }
 

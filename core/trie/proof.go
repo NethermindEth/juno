@@ -164,10 +164,9 @@ func GetProofs(startKey, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
 
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
-	if key.Len() != 251 { //nolint:gomnd
-		return false
-	}
+func VerifyProof(root *felt.Felt, keyFelt *felt.Felt, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
+	keyBytes := keyFelt.Bytes()
+	key := NewKey(251, keyBytes[:])
 
 	expectedHash := root
 	remainingPath := key
@@ -196,58 +195,18 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 	return expectedHash.Equal(value)
 }
 
-// getExpectedhash effectievly gets the value corresponding to the key given proofs
-// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-func getExpectedProofValue(root *felt.Felt, proofKey *Key, nbrKey *Key, proofs []ProofNode, hash hashFunc) (*felt.Felt, error) { // Todo: test
-	if proofKey.Len() != 251 || nbrKey.Len() != 251 { //nolint:gomnd
-		return nil, errors.New("keys not the correct length")
-	}
-
-	commonAncestorKey := nbrKey.commonPrefix(*proofKey)
-	expectedHash := root
-	remainingPath := proofKey
-	height := uint8(0)
-	for _, proofNode := range proofs {
-		if !proofNode.Hash(hash).Equal(expectedHash) {
-			return nil, errors.New("proofNode not the expected hash")
-		}
-		if height == commonAncestorKey.len {
-			return proofNode.Hash(hash), nil
-		}
-		switch {
-		case proofNode.Binary != nil:
-			if remainingPath.Test(remainingPath.Len() - 1) {
-				expectedHash = proofNode.Binary.RightHash
-			} else {
-				expectedHash = proofNode.Binary.LeftHash
-			}
-			remainingPath.RemoveLastBit()
-			height++
-		case proofNode.Edge != nil:
-			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
-				return nil, errors.New("error in key path")
-			}
-			expectedHash = proofNode.Edge.Child
-			remainingPath.Truncate(proofNode.Edge.Path.Len())
-			height += proofNode.Edge.Path.Len()
-		}
-
-	}
-	return nil, errors.New("failed to get proof value")
-}
-
 // VerifyRangeProof verifies the range proof for the given range of keys.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
 // Note: this currently assumes that the inner keys do not contain the min/max key (ie both proofs exist) // Todo
 // The first/last key and value must correspond to the left/right proofs //Todo we currently assume both proofs are provided, as above
-func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (bool, error) {
+func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, proofs [2][]ProofNode, proofKeys [2]*felt.Felt, hash hashFunc) (bool, error) {
 	// Step 0: checks
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
 	}
 	// Ensure all keys are monotonic increasing
 	for i := range keys[0 : len(keys)-2] {
-		if keys[i].cmp(keys[i+1]) >= 0 {
+		if keys[i].Cmp(keys[i+1]) >= 0 {
 			return false, errors.New("range is not monotonically increasing")
 		}
 	}
@@ -266,13 +225,28 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 		return false, fmt.Errorf("invalid proof for key %x", keys[len(keys)-1])
 	}
 
-	// Step 2: Recompute the root hash from the verified paths
-	recomputedRoot, err := recomputeRootHash(root, keys, values, proofs, hash)
+	// Step 2: Get proof paths
+	firstProofPath, err := ProofToPath(proofs[0], proofKeys[0], hash)
+	if err != nil {
+		return false, err
+	}
+
+	lastProofPath, err := ProofToPath(proofs[1], proofKeys[1], hash)
+	if err != nil {
+		return false, err
+	}
+
+	// Step 3: Build trie from proofPaths and keys
+	tmpTrie, err := buildTrie(firstProofPath, lastProofPath, keys, values)
 	if err != nil {
 		return false, err
 	}
 
 	// Verify that the recomputed root hash matches the provided root hash
+	recomputedRoot, err := tmpTrie.Root()
+	if err != nil {
+		return false, err
+	}
 	if !recomputedRoot.Equal(root) {
 		return false, errors.New("root hash mismatch")
 	}
@@ -280,42 +254,7 @@ func VerifyRangeProof(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs 
 	return true, nil
 }
 
-// The leaves are set as follows:
-// 1. For the leaves that we have the values for, we set the key-value directly
-// 2. All other leaves are obtained from the proofs, and then set ????
-func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs [][]ProofNode, hash hashFunc) (*felt.Felt, error) {
-	tri, err := newTrie(newMemStorage(), 251, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	// Put the inner key-values
-	for i := 1; i < len(keys)-2; i++ {
-		keyFelt := keys[i].Felt()
-		_, err = tri.Put(&keyFelt, values[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	getKeyValueFromProof := func(proof []ProofNode, hash hashFunc) (*felt.Felt, *felt.Felt, error) { // Todo
-		return nil, nil, err
-	}
-
-	for _, proof := range proofs {
-		key, value, err := getKeyValueFromProof(proof, hash)
-		if err != nil {
-			return nil, err
-		}
-		_, err = tri.Put(key, value)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return tri.Root()
-}
-
+// Todo : test
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
 
 	height := uint8(0)
@@ -370,3 +309,71 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 
 	return pathNodes, nil
 }
+
+// buildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
+// Todo: test
+func buildTrie(firstProofPath, lastProofPath []storageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
+	tempTrie, err := NewTriePedersen(newMemStorage(), 251)
+	if err != nil {
+		return nil, err
+	}
+	for _, sNode := range firstProofPath {
+		err := tempTrie.storage.Put(sNode.key, sNode.node)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, sNode := range lastProofPath {
+		err := tempTrie.storage.Put(sNode.key, sNode.node)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i := range len(keys) {
+		_, err := tempTrie.Put(keys[i], values[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tempTrie, nil
+}
+
+// getExpectedhash effectievly gets the value corresponding to the key given proofs
+// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
+// func getExpectedProofValue(root *felt.Felt, proofKey *Key, nbrKey *Key, proofs []ProofNode, hash hashFunc) (*felt.Felt, error) { // Todo: test
+// 	if proofKey.Len() != 251 || nbrKey.Len() != 251 { //nolint:gomnd
+// 		return nil, errors.New("keys not the correct length")
+// 	}
+
+// 	commonAncestorKey := nbrKey.commonPrefix(*proofKey)
+// 	expectedHash := root
+// 	remainingPath := proofKey
+// 	height := uint8(0)
+// 	for _, proofNode := range proofs {
+// 		if !proofNode.Hash(hash).Equal(expectedHash) {
+// 			return nil, errors.New("proofNode not the expected hash")
+// 		}
+// 		if height == commonAncestorKey.len {
+// 			return proofNode.Hash(hash), nil
+// 		}
+// 		switch {
+// 		case proofNode.Binary != nil:
+// 			if remainingPath.Test(remainingPath.Len() - 1) {
+// 				expectedHash = proofNode.Binary.RightHash
+// 			} else {
+// 				expectedHash = proofNode.Binary.LeftHash
+// 			}
+// 			remainingPath.RemoveLastBit()
+// 			height++
+// 		case proofNode.Edge != nil:
+// 			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
+// 				return nil, errors.New("error in key path")
+// 			}
+// 			expectedHash = proofNode.Edge.Child
+// 			remainingPath.Truncate(proofNode.Edge.Path.Len())
+// 			height += proofNode.Edge.Path.Len()
+// 		}
+
+// 	}
+// 	return nil, errors.New("failed to get proof value")
+// }

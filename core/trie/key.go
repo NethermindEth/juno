@@ -28,7 +28,7 @@ func (k *Key) LeftChild() *Key {
 	const LSB = uint8(0x1)
 	byteIdx := k.len / 8
 	bitIdx := k.len % 8
-	child.bitset[len(child.bitset)-int(byteIdx)-1] &^= LSB << (bitIdx)
+	child.bitset[len(child.bitset)-int(byteIdx)-1] &^= LSB << (7 - bitIdx)
 	return &child
 }
 
@@ -37,10 +37,12 @@ func (k *Key) RightChild() *Key {
 	const LSB = uint8(0x1)
 	byteIdx := k.len / 8
 	bitIdx := k.len % 8
-	child.bitset[len(child.bitset)-int(byteIdx)-1] |= LSB << (bitIdx)
+
+	// Set the bit in the correct byte
+	child.bitset[byteIdx] |= byte(LSB << (7 - bitIdx))
+
 	return &child
 }
-
 func (k1 *Key) commonPrefix(k2 Key) Key {
 	minLen := k1.len
 	if k2.len < minLen {
