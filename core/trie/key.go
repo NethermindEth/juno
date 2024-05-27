@@ -23,6 +23,18 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
+func (k *Key) LeftChild() *Key {
+	child := NewKey(k.len+1, k.bitset[:])
+	child.bitset[31-k.len/8] &= ^(1 << (k.len % 8)) // set bit to 0
+	return &child
+}
+
+func (k *Key) RightChild() *Key {
+	child := NewKey(k.len+1, k.bitset[:])
+	child.bitset[31-k.len/8] |= 1 << (k.len % 8) // set bit to 1
+	return &child
+}
+
 func (k1 *Key) commonPrefix(k2 Key) Key {
 	minLen := k1.len
 	if k2.len < minLen {

@@ -315,3 +315,58 @@ func recomputeRootHash(root *felt.Felt, keys []*Key, values []*felt.Felt, proofs
 
 	return tri.Root()
 }
+
+func proofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
+
+	height := uint8(0)
+	leafBytes := leaf.Bytes()
+	leafKey := NewKey(251, leafBytes[:])
+	pathNodes := []storageNode{}
+
+	i := 0
+	for i < len(proofNodes) {
+		if proofNodes[i].Binary != nil { // Binary becomes single "binary" juno node
+			snNodeKey := leafKey.SubKey(height)
+			pathNodes = append(pathNodes,
+				storageNode{
+					key: snNodeKey,
+					node: &Node{
+						Value: proofNodes[i].Hash(hashF),
+						Left:  snNodeKey.LeftChild(),
+						Right: snNodeKey.RightChild(),
+					}})
+			height += 1
+			i++
+			continue
+		} else if proofNodes[i].Edge != nil {
+			edgeHeight := proofNodes[i].Edge.Path.len
+			if i <= len(proofNodes)-1 { // fuse edge+binary into single juno node
+				snNodeKey := leafKey.SubKey(edgeHeight + 1)
+				pathNodes = append(pathNodes,
+					storageNode{
+						key: snNodeKey,
+						node: &Node{
+							Value: proofNodes[i].Edge.Child,
+							Left:  snNodeKey.LeftChild(),
+							Right: snNodeKey.RightChild(),
+						}})
+				i += 2
+				height += edgeHeight + 1
+				continue
+
+			}
+			// edge pre-leaf
+			snNodeKey := leafKey.SubKey(edgeHeight)
+			pathNodes = append(pathNodes,
+				storageNode{
+					key: snNodeKey,
+					node: &Node{
+						Value: proofNodes[i].Edge.Child,
+						Left:  snNodeKey.LeftChild(),
+						Right: snNodeKey.RightChild(),
+					}})
+		}
+	}
+
+	return pathNodes, nil
+}
