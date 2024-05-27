@@ -2,6 +2,8 @@ package tendermint
 
 import "testing"
 
+// TODO:  refactor tests  into groups the golang way.
+
 // Todo: need to specify that some messages must match current round and height
 // test state creation
 
@@ -189,7 +191,7 @@ func TestInAnyState__OnLessThanMinorityAnyVote_hp_r_AnyValueORAnyId_AnyPreviousl
 	// do nothing for r > rp and for r < rp
 }
 
-// Test Misc functions
+// Test Misc Functions
 func TestInProposeState__OnTimeOutPropose__WithMatchingState__DoBroadcastPreVoteWithNoValueIdSetStepToPreVote(t *testing.T) {
 
 }
