@@ -60,51 +60,6 @@ func (msg *Message) Sender() interface{} {
 	return msg.sender
 }
 
-//func (msg *Message) ParamsMatch(params map[string]interface{}) bool {
-//	for k, v := range params {
-//		switch k {
-//		case "height":
-//			val, ok := v.(uint64)
-//			// panic if error?
-//			if !ok {
-//				return false
-//			}
-//			if val != msg.height {
-//				return false
-//			}
-//		case "round":
-//			val, ok := v.(uint64)
-//			if !ok {
-//				return false
-//			}
-//			if val != msg.round {
-//				return false
-//			}
-//		case "sender":
-//			val, ok := v.(string)
-//			if !ok {
-//				return false
-//			}
-//			if msg.sender != val {
-//				return false
-//			}
-//		case "last_valid_round":
-//			val, ok := v.(int64)
-//			if !ok {
-//				return false
-//			}
-//			if msg.lastValidRound != val {
-//				return false
-//			}
-//		default:
-//			panic("unknown param type: " + k)
-//		}
-//	}
-//
-//	return true
-//
-//}
-
 func newMessage(msgType MsgType, height, round uint64, value *consensus.Proposable, validRound int64,
 	voteLevel VoteLevel) *Message {
 
