@@ -24,10 +24,10 @@ const (
 // Message Todo: locked/validRound can be as large as round so uint vs int might be a bad idea maybe use uint and set to nil for negative value?
 type Message struct {
 	msgType        MsgType
-	height         uint64
-	round          uint64
+	height         HeightType
+	round          RoundType
 	value          *consensus.Proposable
-	lastValidRound int64
+	lastValidRound RoundType
 	voteLevel      VoteLevel
 	sender         interface{} // change to match id type
 }
@@ -36,11 +36,11 @@ func (msg *Message) Type() MsgType {
 	return msg.msgType
 }
 
-func (msg *Message) Height() uint64 {
+func (msg *Message) Height() HeightType {
 	return msg.height
 }
 
-func (msg *Message) Round() uint64 {
+func (msg *Message) Round() RoundType {
 	return msg.round
 }
 
@@ -48,7 +48,7 @@ func (msg *Message) Value() *consensus.Proposable {
 	return msg.value
 }
 
-func (msg *Message) LastValidRound() int64 {
+func (msg *Message) LastValidRound() RoundType {
 	return msg.lastValidRound
 }
 
@@ -60,7 +60,7 @@ func (msg *Message) Sender() interface{} {
 	return msg.sender
 }
 
-func newMessage(msgType MsgType, height, round uint64, value *consensus.Proposable, validRound int64,
+func newMessage(msgType MsgType, height HeightType, round RoundType, value *consensus.Proposable, validRound RoundType,
 	voteLevel VoteLevel) *Message {
 
 	return &Message{
@@ -73,18 +73,18 @@ func newMessage(msgType MsgType, height, round uint64, value *consensus.Proposab
 	}
 }
 
-func NewProposalMessage(height, round uint64, value *consensus.Proposable, validRound int64) *Message {
+func NewProposalMessage(height HeightType, round RoundType, value *consensus.Proposable, validRound RoundType) *Message {
 	return newMessage(MSG_PROPOSAL, height, round, value, validRound, VOTE_LEVEL_EMPTY)
 }
 
-func NewPreVoteMessage(height, round uint64, value *consensus.Proposable) *Message {
+func NewPreVoteMessage(height HeightType, round RoundType, value *consensus.Proposable) *Message {
 	return newMessage(MSG_PREVOTE, height, round, value, ROUND_EMPTY, VOTE_LEVEL_EMPTY)
 }
 
-func NewPreCommitMessage(height, round uint64, value *consensus.Proposable) *Message {
+func NewPreCommitMessage(height HeightType, round RoundType, value *consensus.Proposable) *Message {
 	return newMessage(MSG_PRECOMMIT, height, round, value, ROUND_EMPTY, VOTE_LEVEL_EMPTY)
 }
 
 func NewEmptyMessage() *Message {
-	return newMessage(MSG_EMPTY, 0, 0, nil, ROUND_EMPTY, VOTE_LEVEL_EMPTY)
+	return newMessage(MSG_EMPTY, 0, ROUND_EMPTY, nil, ROUND_EMPTY, VOTE_LEVEL_EMPTY)
 }

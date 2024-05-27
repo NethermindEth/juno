@@ -8,6 +8,8 @@ import (
 )
 
 type Step = int8
+type RoundType = consensus.RoundType
+type HeightType = consensus.HeightType
 
 const (
 	STEP_PROPOSE   Step = 0
@@ -21,18 +23,17 @@ var (
 	VOTE_NONE *consensus.Proposable = nil
 )
 
-// State Todo: locked/validRound can be as large as round so uint vs int might be a bad idea maybe use uint and set to nil for negative value?
 type State struct {
-	step           Step
-	currentHeight  uint64
-	round          uint64
-	lockedValue    *consensus.Proposable
-	lockedRound    int64
-	validValue     *consensus.Proposable
-	validRound     int64
-	decider        *consensus.Decider
-	firstPreVote   bool
-	firstPreCommit bool
+	step             Step
+	currentHeight    uint64
+	round            RoundType
+	lockedValue      *consensus.Proposable
+	lockedRound      RoundType
+	validValue       *consensus.Proposable
+	validRound       RoundType
+	decider          *consensus.Decider
+	isFirstPreVote   bool
+	isFirstPreCommit bool
 }
 
 func InitialState(decider *consensus.Decider) *State {
@@ -40,27 +41,25 @@ func InitialState(decider *consensus.Decider) *State {
 }
 
 func initialStateWithHeight(height uint64, decider *consensus.Decider) *State {
-	return newState(STEP_PROPOSE, height, height, nil, nil, -1, -1, true, true, decider)
+	return newState(STEP_PROPOSE, height, 0, nil, nil, -1, -1,
+		true, true, decider)
 }
 
-func newState(step Step, height, round uint64, lockedValue, validValue *consensus.Proposable, lockedRound, validRound int64, firstPreVote, firstPreCommit bool, decider *consensus.Decider) *State {
+func newState(step Step, height uint64, round RoundType, lockedValue, validValue *consensus.Proposable,
+	lockedRound, validRound int64, firstPreVote, firstPreCommit bool, decider *consensus.Decider) *State {
+
 	return &State{
-		step:           step,
-		currentHeight:  height,
-		round:          round,
-		lockedValue:    lockedValue,
-		validValue:     validValue,
-		validRound:     validRound,
-		lockedRound:    lockedRound,
-		decider:        decider,
-		firstPreVote:   firstPreVote,
-		firstPreCommit: firstPreCommit,
+		step:             step,
+		currentHeight:    height,
+		round:            round,
+		lockedValue:      lockedValue,
+		validValue:       validValue,
+		validRound:       validRound,
+		lockedRound:      lockedRound,
+		decider:          decider,
+		isFirstPreVote:   firstPreVote,
+		isFirstPreCommit: firstPreCommit,
 	}
-}
-
-// todo: remove after builder is complete!
-func (s State) CopyWith(map[string]interface{}) *State {
-	panic("implement me")
 }
 
 func (s State) Builder() *StateBuilder {
@@ -71,7 +70,7 @@ func (s State) nextHeight() uint64 {
 	return s.currentHeight + 1
 }
 
-func (s State) nextRound() uint64 {
+func (s State) nextRound() RoundType {
 	return s.round + 1
 }
 
@@ -81,13 +80,30 @@ type StateBuilder struct {
 
 func NewStateBuilder(state *State) *StateBuilder {
 	if state == nil {
-		state = &State{}
+		state = InitialState(nil)
 	}
 	return &StateBuilder{state: *state} // todo should be a copy
 }
 
 func (sb *StateBuilder) Build() *State { //todo: calling build twice on the same builder should return two different states
+	if sb.state.decider == nil {
+		panic("decider not initialized")
+	}
+
+	if sb.state.step != STEP_PROPOSE || sb.state.step != STEP_PREVOTE || sb.state.step != STEP_PRECOMMIT {
+		panic("invalid step")
+	}
+
+	if sb.state.round < 0 {
+		panic("invalid round: round can not be negative")
+	}
+
 	return &sb.state
+}
+
+func (sb *StateBuilder) SetDecider(decider *consensus.Decider) *StateBuilder {
+	sb.state.decider = decider
+	return sb
 }
 
 func (sb *StateBuilder) SetHeight(height uint64) *StateBuilder {
@@ -95,11 +111,51 @@ func (sb *StateBuilder) SetHeight(height uint64) *StateBuilder {
 	return sb
 }
 
+func (sb *StateBuilder) SetStep(step Step) *StateBuilder {
+	sb.state.step = step
+	return sb
+}
+
+func (sb *StateBuilder) SetRound(round RoundType) *StateBuilder {
+	sb.state.round = round
+	return sb
+}
+
+func (sb *StateBuilder) SetLockedValue(lockedValue *consensus.Proposable) *StateBuilder {
+	sb.state.lockedValue = lockedValue
+	return sb
+}
+
+func (sb *StateBuilder) SetValidValue(validValue *consensus.Proposable) *StateBuilder {
+	sb.state.validValue = validValue
+	return sb
+}
+
+func (sb *StateBuilder) SetLockedRound(lockedRound RoundType) *StateBuilder {
+	sb.state.lockedRound = lockedRound
+	return sb
+}
+
+func (sb *StateBuilder) SetValidRound(validRound RoundType) *StateBuilder {
+	sb.state.validRound = validRound
+	return sb
+}
+
+func (sb *StateBuilder) SetIsFirstPreVote(isFirstPreVote bool) *StateBuilder {
+	sb.state.isFirstPreVote = isFirstPreVote
+	return sb
+}
+
+func (sb *StateBuilder) SetIsFirstPreCommit(isFirstPreCommit bool) *StateBuilder {
+	sb.state.isFirstPreCommit = isFirstPreCommit
+	return sb
+}
+
 type Config struct {
-	timeOutProposal  func(sm *StateMachine, height, round uint64)
-	timeOutPreVote   func(sm *StateMachine, height, round uint64)
-	timeOutPreCommit func(sm *StateMachine, height, round uint64)
-	timeOutTime      func(sm *StateMachine, round uint64, step Step) time.Duration
+	timeOutProposal  func(sm *StateMachine, height uint64, round RoundType)
+	timeOutPreVote   func(sm *StateMachine, height uint64, round RoundType)
+	timeOutPreCommit func(sm *StateMachine, height uint64, round RoundType)
+	timeOutTime      func(sm *StateMachine, round RoundType, step Step) time.Duration
 }
 
 type StateMachine struct {
@@ -265,15 +321,13 @@ func (sm *StateMachine) handleProposalPreVoting(msg []Message) {
 	if sm.state.step == STEP_PROPOSE && (lastValidRoundRecv >= 0 && lastValidRoundRecv < sm.state.validRound) {
 		value := msg[0].Value()
 		if (*value).IsValid() && (sm.state.lockedRound <= lastValidRoundRecv || (*value).EqualsTo(*sm.state.lockedValue)) {
-			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, value)) // will get the id from the value
+			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, value))
 		} else {
 			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
 		}
 
-		// todo switch to builder style for immutablity
-		params := make(map[string]interface{})
-		params["step"] = STEP_PREVOTE
-		sm.state = *sm.state.CopyWith(params)
+		nextState := sm.state.Builder().SetStep(STEP_PREVOTE).Build()
+		sm.state = *nextState
 	}
 }
 
@@ -291,29 +345,27 @@ func (sm *StateMachine) handleInitialVoting(msg []Message) {
 
 	value := msg[0].Value()
 	// todo:  tricky condition for first time?!
-	if (*value).IsValid() && sm.state.step >= STEP_PREVOTE && (sm.state.firstPreVote && sm.state.firstPreCommit) {
-		// todo switch to builder style for immutablity
-		params := make(map[string]interface{})
+	if (*value).IsValid() && sm.state.step >= STEP_PREVOTE && (sm.state.isFirstPreVote && sm.state.isFirstPreCommit) {
+		nextStateBuilder := sm.state.Builder()
 
 		if sm.state.step == STEP_PREVOTE {
-			params["lockedValue"] = *value
-			params["lockedRound"] = sm.state.round
+			nextStateBuilder.SetLockedValue(value).SetLockedRound(sm.state.round)
 			(*sm.gossiper).SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, value))
-			params["step"] = STEP_PRECOMMIT
+			nextStateBuilder.SetStep(STEP_PRECOMMIT)
 		}
 
-		params["validValue"] = value
-		params["validRound"] = sm.state.round
+		nextStateBuilder.SetValidValue(value)
+		nextStateBuilder.SetValidRound(sm.state.round)
 
-		if sm.state.firstPreVote {
-			params["firstPreVote"] = false
+		if sm.state.isFirstPreVote {
+			nextStateBuilder.SetIsFirstPreVote(false)
 		}
 
-		if !sm.state.firstPreCommit {
-			params["firstPreCommit"] = false
+		if !sm.state.isFirstPreCommit {
+			nextStateBuilder.SetIsFirstPreCommit(false)
 		}
 
-		sm.state = *sm.state.CopyWith(params)
+		sm.state = *nextStateBuilder.Build() // todo idea of state machine owning state might be too expensive for copies
 	}
 }
 
@@ -348,9 +400,9 @@ func (sm *StateMachine) handleProposalsWithPreCommits(msg []Message) {
 	}
 }
 
-func (sm *StateMachine) resetStateWithNewHeight(newHeight uint64) {
+func (sm *StateMachine) resetStateWithNewHeight(newHeight HeightType) {
 	sm.state = *initialStateWithHeight(newHeight, sm.state.decider)
-	(*sm.gossiper).ClearReceive() // toddo: clears msgs processing state not all the received msgs
+	(*sm.gossiper).ClearReceive() // todo: clears msgs processing state not all the received msgs
 }
 
 func (sm *StateMachine) handleJustProposals(msg []Message) {
@@ -382,10 +434,7 @@ func (sm *StateMachine) handleJustProposals(msg []Message) {
 			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
 		}
 
-		// todo switch to builder style for immutablity
-		params := make(map[string]interface{})
-		params["step"] = STEP_PREVOTE
-		sm.state = *sm.state.CopyWith(params)
+		sm.state = *sm.state.Builder().SetStep(STEP_PREVOTE).Build()
 	}
 }
 
@@ -423,13 +472,9 @@ func (sm *StateMachine) handleInitialPreVote(msg []Message) {
 		return
 	}
 
-	if sm.state.step == STEP_PREVOTE && sm.state.firstPreVote {
+	if sm.state.step == STEP_PREVOTE && sm.state.isFirstPreVote {
 		sm.setPreVoteTimeOut(sm.state.currentHeight, sm.state.round, sm.state.step)
-
-		// todo switch to builder style for immutablity
-		params := make(map[string]interface{})
-		params["firstPreVote"] = false
-		sm.state = *sm.state.CopyWith(params)
+		sm.state = *sm.state.Builder().SetIsFirstPreVote(false).Build()
 	}
 
 }
@@ -449,11 +494,7 @@ func (sm *StateMachine) handlePreVotes(msg []Message) {
 	if sm.state.step == STEP_PREVOTE {
 		(*sm.gossiper).SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, VOTE_NONE))
 
-		// todo switch to builder style for immutablity
-		params := make(map[string]interface{})
-		params["step"] = STEP_PRECOMMIT
-
-		sm.state = *sm.state.CopyWith(params)
+		sm.state = *sm.state.Builder().SetStep(STEP_PRECOMMIT).Build()
 	}
 
 }
@@ -474,7 +515,7 @@ func (sm *StateMachine) handleJustPreCommits(msg []Message) {
 		return
 	}
 
-	if sm.state.firstPreCommit {
+	if sm.state.isFirstPreCommit {
 		sm.setPreCommitTimeOut(sm.state.currentHeight, sm.state.round, sm.state.step)
 	}
 }
@@ -497,13 +538,10 @@ func (sm *StateMachine) handleUniqueVotes(msg []Message) {
 	}
 }
 
-func (sm *StateMachine) startRound(round uint64) {
+func (sm *StateMachine) startRound(round RoundType) {
 	// no need for lock here,  would always be called within a locked process.
-	// todo switch to builder style for immutablity
-	params := make(map[string]interface{})
-	params["round"] = round
-	params["step"] = STEP_PROPOSE
-	sm.state = *sm.state.CopyWith(params)
+
+	sm.state = *sm.state.Builder().SetRound(round).SetStep(STEP_PROPOSE).Build()
 
 	var proposal consensus.Proposable = nil
 	if (*sm.proposer).StrictIsProposer(sm.state.currentHeight, sm.state.round) {
@@ -518,20 +556,20 @@ func (sm *StateMachine) startRound(round uint64) {
 	}
 }
 
-func (sm *StateMachine) onTimeoutPropose(height, round uint64) {
+// todo maybe make sm a parameter that way we elimiate all if/else and just pass as config value.
+// todo then we have sm handleTimeOut with controls the locks/unlocks for the particular timeout function
+func (sm *StateMachine) onTimeoutPropose(height HeightType, round RoundType) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
 	if height == sm.state.currentHeight && round == sm.state.round && sm.state.step == STEP_PROPOSE {
 		(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
 	}
-	// todo switch to builder style for immutablity
-	params := make(map[string]interface{})
-	params["step"] = STEP_PREVOTE
-	sm.state = *sm.state.CopyWith(params)
+
+	sm.state = *sm.state.Builder().SetStep(STEP_PREVOTE).Build()
 }
 
-func (sm *StateMachine) onTimeoutPreVote(height, round uint64) {
+func (sm *StateMachine) onTimeoutPreVote(height HeightType, round RoundType) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -539,13 +577,10 @@ func (sm *StateMachine) onTimeoutPreVote(height, round uint64) {
 		(*sm.gossiper).SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, nil))
 	}
 
-	// todo switch to builder style for immutablity
-	params := make(map[string]interface{})
-	params["step"] = STEP_PRECOMMIT
-	sm.state = *sm.state.CopyWith(params)
+	sm.state = *sm.state.Builder().SetStep(STEP_PRECOMMIT).Build()
 }
 
-func (sm *StateMachine) onTimeoutPreCommit(height, round uint64) {
+func (sm *StateMachine) onTimeoutPreCommit(height HeightType, round RoundType) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -554,7 +589,7 @@ func (sm *StateMachine) onTimeoutPreCommit(height, round uint64) {
 	}
 }
 
-func (sm *StateMachine) onTimeOutTime(round uint64, step Step) time.Duration {
+func (sm *StateMachine) onTimeOutTime(round RoundType, step Step) time.Duration {
 	if sm.timeOutTime != nil {
 		return sm.timeOutTime(sm, round, step)
 	} else {
@@ -562,7 +597,7 @@ func (sm *StateMachine) onTimeOutTime(round uint64, step Step) time.Duration {
 	}
 }
 
-func (sm *StateMachine) setProposalTimeOut(height uint64, round uint64, step Step) {
+func (sm *StateMachine) setProposalTimeOut(height HeightType, round RoundType, step Step) {
 	consensus.SetTimeOut(
 		func() {
 			if sm.timeOutProposal != nil {
@@ -574,7 +609,7 @@ func (sm *StateMachine) setProposalTimeOut(height uint64, round uint64, step Ste
 		sm.onTimeOutTime(round, step))
 }
 
-func (sm *StateMachine) setPreVoteTimeOut(height uint64, round uint64, step Step) {
+func (sm *StateMachine) setPreVoteTimeOut(height HeightType, round RoundType, step Step) {
 	consensus.SetTimeOut(
 		func() {
 			if sm.timeOutPreVote != nil {
@@ -586,7 +621,7 @@ func (sm *StateMachine) setPreVoteTimeOut(height uint64, round uint64, step Step
 		sm.onTimeOutTime(round, step))
 }
 
-func (sm *StateMachine) setPreCommitTimeOut(height uint64, round uint64, step Step) {
+func (sm *StateMachine) setPreCommitTimeOut(height HeightType, round RoundType, step Step) {
 	consensus.SetTimeOut(
 		func() {
 			if sm.timeOutPreCommit != nil {
@@ -598,7 +633,7 @@ func (sm *StateMachine) setPreCommitTimeOut(height uint64, round uint64, step St
 		sm.onTimeOutTime(round, step))
 }
 
-func onTimeOutTime(round uint64, step Step) time.Duration {
+func onTimeOutTime(round RoundType, step Step) time.Duration {
 	return 5 * time.Second
 	// todo set duration based on step and round and/or based on config
 }
