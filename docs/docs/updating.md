@@ -10,6 +10,10 @@ It is important to run the latest version of Juno as each update brings new feat
 - [Standalone binary](#standalone-binary)
 - [Updating from source](#updating-from-source)
 
+:::info
+When running an updated node, use the same `db-path` as before to avoid restarting the sync and use the already synced database.
+:::
+
 ## Docker container
 
 ### 1. Get the latest Docker image
@@ -62,7 +66,7 @@ docker logs juno
 
 ## Standalone binary
 
-Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases) page and replace the existing one.
+Download the latest binary from the [Juno GitHub Releases](https://github.com/NethermindEth/juno/releases/latest) page and replace the existing one.
 
 ## Updating from source
 
@@ -78,3 +82,7 @@ make juno
 # Rebuild the Docker image
 docker build -t nethermind/juno:latest .
 ```
+
+:::tip
+To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
+:::
