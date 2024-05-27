@@ -44,12 +44,18 @@ func buildSimpleTrie(t *testing.T) *trie.Trie {
 }
 
 func buildSimpleBinaryRootTrie(t *testing.T) *trie.Trie {
+	// PF
 	//           (0, 0, x)
 	//    /                    \
 	// (250, 0, cc)     (250, 11111.., dd)
 	//    |                     |
 	//   (cc)                  (dd)
-	// Build trie
+
+	//	JUNO
+	//           (0, 0, x)
+	//    /                    \
+	// (251, 0, cc)     (251, 11111.., dd)
+
 	memdb := pebble.NewMemTest(t)
 	txn, err := memdb.NewTransaction(true)
 	require.NoError(t, err)
@@ -385,15 +391,56 @@ func TestProoftoPath(t *testing.T) {
 
 		sns, err := trie.ProofToPath(proofNodes, &felt.Zero, crypto.Pedersen)
 		require.NoError(t, err)
+
 		rootKey := tempTrie.RootKey()
 		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
 		require.NoError(t, err)
-		qwe := rootNodes.Right.Bitset()
-		fmt.Println(rootNodes, qwe)
 
 		require.Equal(t, 1, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
-		panic(1)
+		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
+		require.Equal(t, rootNodes.Right, sns[0].Node().Right, "root's right node does not have the correct key")
+	})
+
+	t.Run("Simple doulbe binary trie proof to path", func(t *testing.T) {
+		tempTrie := buildSimpleBinaryRootTrie(t)
+
+		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
+		path1 := trie.NewKey(250, key1Bytes[:])
+		proofNodes := []trie.ProofNode{
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x06E08BF82793229338CE60B65D1845F836C8E2FBFE2BC59FF24AEDBD8BA219C4"),
+					RightHash: utils.HexToFelt(t, "0x04F9B8E66212FB528C0C1BD02F43309C53B895AA7D9DC91180001BDD28A588FA"),
+				},
+			},
+			{
+				Edge: &trie.Edge{
+					Path:  &path1,
+					Child: utils.HexToFelt(t, "0xcc"),
+				},
+			},
+		}
+
+		// Only the path down to leaf Key will be set correctly. Not neightbouring keys
+		sns, err := trie.ProofToPath(proofNodes, &felt.Zero, crypto.Pedersen)
+		require.NoError(t, err)
+
+		rootKey := tempTrie.RootKey()
+		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
+		require.NoError(t, err)
+
+		leftNodes, err := tempTrie.GetNodeFromKey(rootNodes.Left)
+		require.NoError(t, err)
+
+		rightNodes, err := tempTrie.GetNodeFromKey(rootNodes.Right)
+		require.NoError(t, err)
+
+		fmt.Println(leftNodes, rightNodes)
+
+		require.Equal(t, 1, len(sns))
+		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
+		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
 	})
 }
 

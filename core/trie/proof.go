@@ -49,9 +49,9 @@ type Binary struct {
 }
 
 type Edge struct {
-	Child *felt.Felt
-	Path  *Key
-	Value *felt.Felt
+	Child *felt.Felt // Child hash
+	Path  *Key       // path from parent to child
+	Value *felt.Felt // this nodes hash
 }
 
 func isEdge(parentKey *Key, sNode storageNode) bool {
@@ -255,55 +255,59 @@ func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, p
 }
 
 // Todo : test
+// Only the path down to leaf Key will be set correctly. Not neightbouring keys
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
-
 	height := uint8(0)
 	leafBytes := leaf.Bytes()
 	leafKey := NewKey(251, leafBytes[:])
 	pathNodes := []storageNode{}
 
 	i := 0
-	for i < len(proofNodes) {
-		if proofNodes[i].Binary != nil { // Binary becomes single "binary" juno node
-			snNodeKey := leafKey.SubKey(height)
+	for i < len(proofNodes)-1 {
+		// note: we can only determine the path of nodes along leafKey
+		curKey := leafKey.SubKey(proofNodes[i].Edge.Path.len)
+		var nxtPath, leftPath, rightPath *Key
+		if proofNodes[i+1].Edge != nil {
+			nxtPath = leafKey.SubKey(proofNodes[i+1].Edge.Path.len)
+		} else {
+			nxtPath = leafKey.SubKey(height + 1)
+		}
+		if leafKey.Test(leafKey.len - nxtPath.len - 1) {
+			rightPath = nxtPath
+		} else {
+			leftPath = nxtPath
+		}
+
+		if proofNodes[i].Binary != nil {
 			pathNodes = append(pathNodes,
 				storageNode{
-					key: snNodeKey,
+					key: curKey,
 					node: &Node{
 						Value: proofNodes[i].Hash(hashF),
-						Left:  snNodeKey.LeftChild(),
-						Right: snNodeKey.RightChild(),
+						Left:  leftPath,
+						Right: rightPath,
 					}})
-			height += 1
+
+			if proofNodes[i+1].Edge != nil {
+				height = proofNodes[i+1].Edge.Path.len
+			} else {
+				height += 1
+			}
 			i++
 			continue
 		} else if proofNodes[i].Edge != nil {
-			edgeHeight := proofNodes[i].Edge.Path.len
-			if i <= len(proofNodes)-1 { // fuse edge+binary into single juno node
-				snNodeKey := leafKey.SubKey(edgeHeight)
-				pathNodes = append(pathNodes,
-					storageNode{
-						key: snNodeKey,
-						node: &Node{
-							Value: proofNodes[i].Edge.Child,
-							Left:  snNodeKey.LeftChild(),
-							Right: snNodeKey.RightChild(),
-						}})
-				i += 2
-				height += edgeHeight + 1
-				continue
-
-			}
-			// edge pre-leaf
-			snNodeKey := leafKey.SubKey(edgeHeight)
+			// squish this edge and following binary, increment i by 2
 			pathNodes = append(pathNodes,
 				storageNode{
-					key: snNodeKey,
+					key: curKey,
 					node: &Node{
 						Value: proofNodes[i].Edge.Child,
-						Left:  snNodeKey.LeftChild(),
-						Right: snNodeKey.RightChild(),
+						Left:  leftPath,
+						Right: rightPath,
 					}})
+			i += 2
+			height++
+			continue
 		}
 	}
 

@@ -139,6 +139,10 @@ func (sn *storageNode) Key() *Key {
 	return sn.key
 }
 
+func (sn *storageNode) Node() *Node {
+	return sn.node
+}
+
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
