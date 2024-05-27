@@ -94,21 +94,24 @@ func (sb *StateBuilder) SetHeight(height uint64) *StateBuilder {
 	return sb
 }
 
-type StateMachine struct {
-	state            State
-	proposer         *consensus.Proposer
-	gossiper         *consensus.Gossiper
-	decider          *consensus.Decider
-	lock             sync.Mutex // lock needed because of timeouts!!!
+type Config struct {
 	timeOutProposal  func(sm *StateMachine, height, round uint64)
 	timeOutPreVote   func(sm *StateMachine, height, round uint64)
 	timeOutPreCommit func(sm *StateMachine, height, round uint64)
 	timeOutTime      func(sm *StateMachine, round uint64, step Step) time.Duration
 }
 
-func NewStateMachine(initialState *State, gossiper *consensus.Gossiper, decider *consensus.Decider,
-	proposer *consensus.Proposer, timeOutProposal, timeOutPreVote, timeOutPreCommit func(sm *StateMachine, height, round uint64),
-	timeOutTime func(sm *StateMachine, round uint64, step Step) time.Duration) *StateMachine {
+type StateMachine struct {
+	state    State
+	proposer *consensus.Proposer
+	gossiper *consensus.Gossiper
+	decider  *consensus.Decider
+	lock     sync.Mutex // lock needed because of timeouts!!!
+	*Config
+}
+
+func newStateMachine(initialState *State, gossiper *consensus.Gossiper, decider *consensus.Decider,
+	proposer *consensus.Proposer, config *Config) *StateMachine {
 
 	if decider == nil {
 		panic("Decider missing: decider for state machine can not be nil")
@@ -127,15 +130,18 @@ func NewStateMachine(initialState *State, gossiper *consensus.Gossiper, decider 
 	}
 
 	return &StateMachine{
-		state:            *initialState,
-		decider:          decider,
-		gossiper:         gossiper,
-		proposer:         proposer,
-		timeOutProposal:  timeOutProposal,
-		timeOutPreVote:   timeOutPreVote,
-		timeOutPreCommit: timeOutPreCommit,
-		timeOutTime:      timeOutTime,
+		state:    *initialState,
+		decider:  decider,
+		gossiper: gossiper,
+		proposer: proposer,
+		Config:   config,
 	}
+}
+
+func NewStateMachine(gossiper *consensus.Gossiper, decider *consensus.Decider,
+	proposer *consensus.Proposer) *StateMachine {
+
+	return newStateMachine(nil, gossiper, decider, proposer, nil)
 }
 
 func (sm *StateMachine) start() {
@@ -593,21 +599,7 @@ func (sm *StateMachine) setPreCommitTimeOut(height uint64, round uint64, step St
 
 func onTimeOutTime(round uint64, step Step) time.Duration {
 	return 5 * time.Second
-	// todo fix this
-	//var timeOutKey string
-	//switch step {
-	//case STEP_PREVOTE:
-	//	timeOutKey = "prevote_timeout"
-	//case STEP_PRECOMMIT:
-	//	timeOutKey = "precommit_timeout"
-	//case STEP_PROPOSE:
-	//	timeOutKey = "propose_timeout"
-	//default:
-	//	timeOutKey = "timeout"
-	//}
-	//
-	//timeout := sm.configs[timeOutKey]
-	//return time.Duration(timeout*time.Second + round*time.Second)
+	// todo set duration based on step and round and/or based on config
 }
 
 func setTimeOut(f func(), t time.Duration) {
