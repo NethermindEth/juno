@@ -105,12 +105,9 @@ func (msg *Message) Sender() interface{} {
 //
 //}
 
-func newMessage(msgType MsgType,
-	height uint64,
-	round uint64,
-	value *consensus.Proposable,
-	validRound int64,
+func newMessage(msgType MsgType, height, round uint64, value *consensus.Proposable, validRound int64,
 	voteLevel VoteLevel) *Message {
+
 	return &Message{
 		msgType:        msgType,
 		height:         height,
