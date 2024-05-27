@@ -58,6 +58,7 @@ func newState(step Step, height, round uint64, lockedValue, validValue *consensu
 	}
 }
 
+// todo: remove after builder is complete!
 func (s State) CopyWith(map[string]interface{}) *State {
 	panic("implement me")
 }
