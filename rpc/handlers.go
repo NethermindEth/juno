@@ -505,7 +505,7 @@ func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 
 	try, _, errTry := stateReader.GetGlobalTrie()
 	if errTry != nil {
-		return "", jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return "", jsonrpc.Err(jsonrpc.InternalError, errTry.Error())
 	}
 
 	k := try.FeltToKeyConverter(&key)
