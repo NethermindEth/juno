@@ -70,3 +70,7 @@ curl --location 'http://localhost:6060' \
 
 </TabItem>
 </Tabs>
+
+:::tip
+To learn how to configure Juno, check out the [Configuring Juno](configuring) guide.
+:::

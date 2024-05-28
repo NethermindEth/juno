@@ -24,8 +24,8 @@
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |
 | `log-level` | `info` | Options: trace, debug, info, warn, error |
-| `max-vm-queue` |  | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests. Default is set to double the value of `max-vms` |
-| `max-vms` |  | Maximum number for VM instances to be used for RPC calls concurrently. Default is set to three times the number of CPU cores |
+| `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
+| `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
 | `metrics` | `false` | Enables the Prometheus metrics endpoint on the default port |
 | `metrics-host` | `localhost` | The interface on which the Prometheus endpoint will listen for requests |
 | `metrics-port` | `9090` | The port on which the Prometheus endpoint will listen for requests |
@@ -40,7 +40,7 @@
 | `pprof-host` | `localhost` | The interface on which the pprof HTTP server will listen for requests |
 | `pprof-port` | `6062` | The port on which the pprof HTTP server will listen for requests |
 | `remote-db` |  | gRPC URL of a remote Juno node |
-| `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
+| `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests. The upper limit is 4 million steps, and any higher value will still be capped at 4 million |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
 | `ws` | `false` | Enables the WebSocket RPC server on the default port |
