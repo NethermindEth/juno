@@ -10,15 +10,11 @@
 package mocks
 
 import (
-	// "bytes"
-	// "errors"
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
-	// db "github.com/NethermindEth/juno/core/db"
 	felt "github.com/NethermindEth/juno/core/felt"
 	trie "github.com/NethermindEth/juno/core/trie"
-	// "github.com/NethermindEth/juno/db"
 	gomock "go.uber.org/mock/gomock"
 )
 
