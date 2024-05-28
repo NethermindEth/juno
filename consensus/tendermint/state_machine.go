@@ -7,150 +7,6 @@ import (
 	"time"
 )
 
-type Step = int8
-type RoundType = consensus.RoundType
-type HeightType = consensus.HeightType
-
-const (
-	STEP_PROPOSE   Step = 0
-	STEP_PREVOTE   Step = 1
-	STEP_PRECOMMIT Step = 2
-
-	ROUND_NONE int64 = -1
-)
-
-var (
-	VOTE_NONE *consensus.Proposable = nil
-)
-
-type State struct {
-	step             Step
-	currentHeight    HeightType
-	round            RoundType
-	lockedValue      *consensus.Proposable
-	lockedRound      RoundType
-	validValue       *consensus.Proposable
-	validRound       RoundType
-	decider          *consensus.Decider
-	isFirstPreVote   bool
-	isFirstPreCommit bool
-}
-
-func InitialState(decider *consensus.Decider) *State {
-	return initialStateWithHeight(0, decider)
-}
-
-func initialStateWithHeight(height HeightType, decider *consensus.Decider) *State {
-	return newState(STEP_PROPOSE, height, 0, nil, nil, -1, -1,
-		true, true, decider)
-}
-
-func newState(step Step, height HeightType, round RoundType, lockedValue, validValue *consensus.Proposable,
-	lockedRound, validRound RoundType, firstPreVote, firstPreCommit bool, decider *consensus.Decider) *State {
-
-	return &State{
-		step:             step,
-		currentHeight:    height,
-		round:            round,
-		lockedValue:      lockedValue,
-		validValue:       validValue,
-		validRound:       validRound,
-		lockedRound:      lockedRound,
-		decider:          decider,
-		isFirstPreVote:   firstPreVote,
-		isFirstPreCommit: firstPreCommit,
-	}
-}
-
-func (s State) Builder() *StateBuilder {
-	return NewStateBuilder(&s)
-}
-
-func (s State) nextHeight() HeightType {
-	return s.currentHeight + 1
-}
-
-func (s State) nextRound() RoundType {
-	return s.round + 1
-}
-
-type StateBuilder struct {
-	state State
-}
-
-func NewStateBuilder(state *State) *StateBuilder {
-	if state == nil {
-		state = InitialState(nil)
-	}
-	return &StateBuilder{state: *state} // todo should be a copy
-}
-
-func (sb *StateBuilder) Build() *State { //todo: calling build twice on the same builder should return two different states
-	if sb.state.decider == nil {
-		panic("decider not initialized")
-	}
-
-	if sb.state.step != STEP_PROPOSE || sb.state.step != STEP_PREVOTE || sb.state.step != STEP_PRECOMMIT {
-		panic("invalid step")
-	}
-
-	if sb.state.round < 0 {
-		panic("invalid round: round can not be negative")
-	}
-
-	return &sb.state
-}
-
-func (sb *StateBuilder) SetDecider(decider *consensus.Decider) *StateBuilder {
-	sb.state.decider = decider
-	return sb
-}
-
-func (sb *StateBuilder) SetHeight(height HeightType) *StateBuilder {
-	sb.state.currentHeight = height
-	return sb
-}
-
-func (sb *StateBuilder) SetStep(step Step) *StateBuilder {
-	sb.state.step = step
-	return sb
-}
-
-func (sb *StateBuilder) SetRound(round RoundType) *StateBuilder {
-	sb.state.round = round
-	return sb
-}
-
-func (sb *StateBuilder) SetLockedValue(lockedValue *consensus.Proposable) *StateBuilder {
-	sb.state.lockedValue = lockedValue
-	return sb
-}
-
-func (sb *StateBuilder) SetValidValue(validValue *consensus.Proposable) *StateBuilder {
-	sb.state.validValue = validValue
-	return sb
-}
-
-func (sb *StateBuilder) SetLockedRound(lockedRound RoundType) *StateBuilder {
-	sb.state.lockedRound = lockedRound
-	return sb
-}
-
-func (sb *StateBuilder) SetValidRound(validRound RoundType) *StateBuilder {
-	sb.state.validRound = validRound
-	return sb
-}
-
-func (sb *StateBuilder) SetIsFirstPreVote(isFirstPreVote bool) *StateBuilder {
-	sb.state.isFirstPreVote = isFirstPreVote
-	return sb
-}
-
-func (sb *StateBuilder) SetIsFirstPreCommit(isFirstPreCommit bool) *StateBuilder {
-	sb.state.isFirstPreCommit = isFirstPreCommit
-	return sb
-}
-
 type Config struct {
 	timeOutProposal  func(sm *StateMachine, height HeightType, round RoundType)
 	timeOutPreVote   func(sm *StateMachine, height HeightType, round RoundType)
@@ -565,8 +421,9 @@ func (sm *StateMachine) startRound(round RoundType) {
 	}
 }
 
-// todo maybe make sm a parameter that way we elimiate all if/else and just pass as config value.
-// todo then we have sm handleTimeOut with controls the locks/unlocks for the particular timeout function
+// todo maybe make sm a parameter and not receiver that way we eliminate all if/else and just pass as config value.
+// todo then we have sm handleTimeOut which controls the locks/unlocks for the particular timeout function
+// todo implying state machine retains full control over state
 func (sm *StateMachine) onTimeoutPropose(height HeightType, round RoundType) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
