@@ -24,6 +24,90 @@ type StateDiff struct {
 	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
+type StateUpdateJSON struct {
+	BlockHash *felt.Felt     `json:"block_hash"`
+	NewRoot   *felt.Felt     `json:"new_root"`
+	OldRoot   *felt.Felt     `json:"old_root"`
+	StateDiff *StateDiffJSON `json:"state_diff"`
+}
+
+type DeployedContract struct {
+	Address   *felt.Felt `json:"address"`
+	ClassHash *felt.Felt `json:"class_hash"`
+}
+
+type DeclaredV1Classes struct {
+	ClassHash         *felt.Felt `json:"class_hash"`
+	CompiledClassHash *felt.Felt `json:"compiled_class_hash"`
+}
+
+type StateDiffKeyValue struct {
+	Key   *felt.Felt `json:"key"`
+	Value *felt.Felt `json:"value"`
+}
+
+type StateDiffJSON struct {
+	StorageDiffs      map[string][]StateDiffKeyValue `json:"storage_diffs"`
+	Nonces            map[string]*felt.Felt          `json:"nonces"`
+	DeployedContracts []DeployedContract             `json:"deployed_contracts"`
+	DeclaredV0Classes []*felt.Felt                   `json:"old_declared_contracts"`
+	DeclaredV1Classes []DeclaredV1Classes            `json:"declared_classes"`
+	ReplacedClasses   []DeployedContract             `json:"replaced_classes"`
+}
+
+func StateUpdateAdapter(stateUpdateJson StateUpdateJSON) StateUpdate {
+	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
+	for addr, keyValueArr := range stateUpdateJson.StateDiff.StorageDiffs {
+		addrFelt := felt.Felt{}
+		addrFelt.UnmarshalJSON([]byte(addr))
+		storageDiffs[addrFelt] = make(map[felt.Felt]*felt.Felt)
+		for _, keyValue := range keyValueArr {
+			storageDiffs[addrFelt][*keyValue.Key] = keyValue.Value
+		}
+	}
+
+	deployedContracts := make(map[felt.Felt]*felt.Felt)
+	for _, contract := range stateUpdateJson.StateDiff.DeployedContracts {
+		deployedContracts[*contract.Address] = contract.ClassHash
+	}
+
+	deployedV1Class := make(map[felt.Felt]*felt.Felt)
+	for _, classV1 := range stateUpdateJson.StateDiff.DeclaredV1Classes {
+		deployedV1Class[*classV1.ClassHash] = classV1.CompiledClassHash
+	}
+
+	replacedClasses := make(map[felt.Felt]*felt.Felt)
+	for _, replaced := range stateUpdateJson.StateDiff.ReplacedClasses {
+		replacedClasses[*replaced.Address] = replaced.ClassHash // Corrected assignment
+	}
+
+	stateDiff := StateDiff{
+		StorageDiffs:      storageDiffs,
+		Nonces:            convertToFeltMap(stateUpdateJson.StateDiff.Nonces),
+		DeployedContracts: deployedContracts,
+		DeclaredV0Classes: stateUpdateJson.StateDiff.DeclaredV0Classes,
+		DeclaredV1Classes: deployedV1Class,
+		ReplacedClasses:   replacedClasses,
+	}
+
+	return StateUpdate{
+		BlockHash: stateUpdateJson.BlockHash,
+		NewRoot:   stateUpdateJson.NewRoot,
+		OldRoot:   stateUpdateJson.OldRoot,
+		StateDiff: &stateDiff,
+	}
+}
+
+func convertToFeltMap(input map[string]*felt.Felt) map[felt.Felt]*felt.Felt {
+	output := make(map[felt.Felt]*felt.Felt)
+	for k, v := range input {
+		keyFelt := felt.Felt{}
+		keyFelt.UnmarshalJSON([]byte(k))
+		output[keyFelt] = v
+	}
+	return output
+}
+
 func EmptyStateDiff() *StateDiff {
 	return &StateDiff{
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
