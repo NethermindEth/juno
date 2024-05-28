@@ -15,6 +15,9 @@ type Config struct {
 	// todo: add logger, tracer, metric collector here.
 }
 
+// todo: rename transition functions to better read like domian language.
+// todo: tendermint paper isn't written with programmers in mind, more like for other researchers
+// todo: so no domain language was used rather expectations of familiarity with the concepts were implictly assumed.
 type StateMachine struct {
 	state    State
 	proposer *consensus.Proposer

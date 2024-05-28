@@ -28,6 +28,7 @@ type Decider interface {
 	GetDecision(height HeightType) interface{}
 }
 
+// Proposable todo: use pointers for memory efficiency
 type Proposable interface {
 	Id() Proposable
 	Value() Proposable

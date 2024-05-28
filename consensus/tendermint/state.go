@@ -31,6 +31,24 @@ type State struct {
 	isFirstPreCommit bool
 }
 
+func checkStep(step Step) {
+	if step != STEP_PROPOSE || step != STEP_PREVOTE || step != STEP_PRECOMMIT {
+		panic("Invalid - invalid step")
+	}
+}
+
+func checkDecider(decider *consensus.Decider) {
+	if decider == nil {
+		panic("decider is missing")
+	}
+}
+
+func checkRound(round RoundType) {
+	if round < 0 {
+		panic("invalid round: round can not be negative")
+	}
+}
+
 func InitialState(decider *consensus.Decider) *State {
 	return initialStateWithHeight(0, decider)
 }
@@ -42,6 +60,10 @@ func initialStateWithHeight(height HeightType, decider *consensus.Decider) *Stat
 
 func newState(step Step, height HeightType, round RoundType, lockedValue, validValue *consensus.Proposable,
 	lockedRound, validRound RoundType, firstPreVote, firstPreCommit bool, decider *consensus.Decider) *State {
+
+	checkStep(step)
+	checkDecider(decider)
+	checkRound(round)
 
 	return &State{
 		step:             step,
@@ -80,20 +102,12 @@ func NewStateBuilder(state *State) *StateBuilder {
 	return &StateBuilder{state: *state} // todo should be a copy
 }
 
-func (sb *StateBuilder) Build() *State { //todo: calling build twice on the same builder should return two different states
-	if sb.state.decider == nil {
-		panic("decider is missing")
-	}
+func (sb *StateBuilder) Build() *State {
+	checkDecider(sb.state.decider)
+	checkStep(sb.state.step)
+	checkRound(sb.state.round)
 
-	if sb.state.step != STEP_PROPOSE || sb.state.step != STEP_PREVOTE || sb.state.step != STEP_PRECOMMIT {
-		panic("invalid step")
-	}
-
-	if sb.state.round < 0 {
-		panic("invalid round: round can not be negative")
-	}
-
-	return &sb.state
+	return &sb.state //todo: calling build twice on the same builder should return two different states so actually create a new state here, using state copy constructor>?
 }
 
 func (sb *StateBuilder) SetDecider(decider *consensus.Decider) *StateBuilder {
