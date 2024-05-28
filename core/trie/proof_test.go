@@ -427,6 +427,7 @@ func TestProoftoPath(t *testing.T) {
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
+		// rootKey.Bitset()
 		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
 		require.NoError(t, err)
 

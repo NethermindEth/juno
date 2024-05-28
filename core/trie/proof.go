@@ -196,6 +196,10 @@ func VerifyProof(root *felt.Felt, keyFelt *felt.Felt, value *felt.Felt, proofs [
 }
 
 // VerifyRangeProof verifies the range proof for the given range of keys.
+// This is achieved by constructing a trie from the boundary proofs, and the supplied key-values.
+// If the root of the reconstructed trie matches the supplied root, then the verification passes.
+// If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
+// and therefore it's hash will be incorrect.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
 // Note: this currently assumes that the inner keys do not contain the min/max key (ie both proofs exist) // Todo
 // The first/last key and value must correspond to the left/right proofs //Todo we currently assume both proofs are provided, as above
