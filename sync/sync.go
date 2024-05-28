@@ -169,7 +169,7 @@ func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
 			return
 		default:
 			s.log.Infow("Fetching from feeder")
-			blocks, stateUpdate, blockCommitments := s.getBlockNumberDetails(uint64(s.latestBlockHeight))
+			blocks, stateUpdate, blockCommitments := s.getBlockNumberDetails(s.latestBlockHeight)
 			newClass, _ := s.fetchUnknownClasses(syncCtx, &stateUpdate)
 			err := s.blockchain.Store(&blocks, &blockCommitments, &stateUpdate, newClass)
 			if err != nil {
@@ -178,13 +178,12 @@ func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
 			s.latestBlockHeight += 1
 			s.log.Infow("Fetched")
 		}
-
 	}
 }
 
 func (s *Synchronizer) getBlockNumberDetails(blockNumber uint64) (core.Block, core.StateUpdate, core.BlockCommitments) {
-	var block, commitments = s.getBlockFeederGateway(blockNumber)
-	var stateUpdate core.StateUpdate = s.getStateUpdate(blockNumber)
+	block, commitments := s.getBlockFeederGateway(blockNumber)
+	stateUpdate := s.getStateUpdate(blockNumber)
 	return block, stateUpdate, commitments
 }
 
@@ -214,11 +213,11 @@ func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) (core.Block, co
 	var adaptedTransactionReceipt []*core.TransactionReceipt
 	for _, receipt := range block.Receipts {
 		eventCount += uint64(len(receipt.Events))
-		var adaptedTransaction core.TransactionReceipt = *sn2core.AdaptTransactionReceipt(receipt)
+		adaptedTransaction := *sn2core.AdaptTransactionReceipt(receipt)
 		adaptedTransactionReceipt = append(adaptedTransactionReceipt, &adaptedTransaction)
 	}
 
-	var header core.Header = s.buildHeaderGateway(blockNumber, block, eventCount, core.EventsBloom(adaptedTransactionReceipt))
+	header := s.buildHeaderGateway(blockNumber, &block, eventCount, core.EventsBloom(adaptedTransactionReceipt))
 	return core.Block{
 			Header:       &header,
 			Transactions: adaptedTransactions,
@@ -230,7 +229,12 @@ func (s *Synchronizer) getBlockFeederGateway(blockNumber uint64) (core.Block, co
 		}
 }
 
-func (s *Synchronizer) buildHeaderGateway(blockNumber uint64, block starknet.Block, eventCount uint64, eventsBloom *bloom.BloomFilter) core.Header {
+func (s *Synchronizer) buildHeaderGateway(
+	blockNumber uint64,
+	block *starknet.Block,
+	eventCount uint64,
+	eventsBloom *bloom.BloomFilter,
+) core.Header {
 	getSignatureURL := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_signature?blockNumber=%d", blockNumber)
 	signatureResponse, sigErr := http.Get(getSignatureURL)
 	if sigErr != nil {
@@ -239,7 +243,6 @@ func (s *Synchronizer) buildHeaderGateway(blockNumber uint64, block starknet.Blo
 	var signature starknet.Signature
 	defer signatureResponse.Body.Close()
 	if signatureResponse.StatusCode == http.StatusOK {
-
 		decoder := json.NewDecoder(signatureResponse.Body)
 
 		if err := decoder.Decode(&signature); err != nil {
@@ -247,7 +250,7 @@ func (s *Synchronizer) buildHeaderGateway(blockNumber uint64, block starknet.Blo
 		}
 	}
 
-	var sigs = buildSignature(&signature)
+	sigs := buildSignature(&signature)
 
 	return core.Header{
 		Hash:             block.Hash,
@@ -277,14 +280,13 @@ func buildSignature(sig *starknet.Signature) [][]*felt.Felt {
 }
 
 func (s *Synchronizer) getStateUpdate(blockNumber uint64) core.StateUpdate {
-	var stateUpdateURL = fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_state_update?blockNumber=%d", blockNumber)
+	stateUpdateURL := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_state_update?blockNumber=%d", blockNumber)
 	response, err := http.Get(stateUpdateURL)
 	if err != nil {
 		s.log.Errorw("Failed to get response: %v", err)
 	}
 	var stateUpdateJSON core.StateUpdateJSON
 	if response.StatusCode == http.StatusOK {
-
 		decoder := json.NewDecoder(response.Body)
 
 		if err := decoder.Decode(&stateUpdateJSON); err != nil {
