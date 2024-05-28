@@ -80,13 +80,13 @@ type Synchronizer struct {
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration,
+	logger utils.SimpleLogger, pendingPollInterval time.Duration,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
 		client:              http.DefaultClient,
 		starknetData:        starkNetData,
-		log:                 log,
+		log:                 logger,
 		newHeads:            feed.New[*core.Header](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
@@ -241,7 +241,6 @@ func (s *Synchronizer) buildHeaderGateway(
 		log.Fatalf("Failed to get response: %v", sigErr)
 	}
 	var signature starknet.Signature
-	defer signatureResponse.Body.Close()
 	if signatureResponse.StatusCode == http.StatusOK {
 		decoder := json.NewDecoder(signatureResponse.Body)
 
@@ -249,6 +248,7 @@ func (s *Synchronizer) buildHeaderGateway(
 			log.Fatalf("Failed to decode response: %v", err)
 		}
 	}
+	defer signatureResponse.Body.Close()
 
 	sigs := buildSignature(&signature)
 
