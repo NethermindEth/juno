@@ -44,7 +44,7 @@ var (
 	_ pflag.Value              = (*Network)(nil)
 	_ encoding.TextUnmarshaler = (*Network)(nil)
 
-	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
+	// The docs states the addresses for each network: https://docs.starknet.io/documentation/tools/important_addresses/
 	Mainnet = Network{
 		Name:                "mainnet",
 		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway/",
