@@ -267,6 +267,9 @@ func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, p
 // Only the path down to leaf Key will be set correctly. Not neightbouring keys
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]StorageNode, error) {
 
+	zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+	nilKey := NewKey(0, zeroFeltBytes[:]) // Hack: we can't store nil keys..
+
 	shouldSquish := func(parent *ProofNode, child *ProofNode) (uint8, uint8) {
 		if parent == nil || child == nil {
 			return 0, 0
@@ -329,7 +332,9 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 			childKey := leafKey.SubKey(height + squishParentOffset + squishChildOffset + squishedChild)
 			if leafKey.Test(leafKey.len - crntKey.len - 1) {
 				crntNode.Right = childKey
+				crntNode.Left = &nilKey
 			} else {
+				crntNode.Right = &nilKey
 				crntNode.Left = childKey
 			}
 		} else if i+1+offset == len(proofNodes)-1 { // i+1+offset is the final node
@@ -337,7 +342,9 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 			if proofNodes[i+int(squishedParent)+1].Edge != nil {
 				if leafKey.Test(leafKey.len - crntKey.len - 1) {
 					crntNode.Right = &leafKey
+					crntNode.Left = &nilKey
 				} else {
+					crntNode.Right = &nilKey
 					crntNode.Left = &leafKey
 				}
 				offset++ // Hack
@@ -345,14 +352,18 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 				qwe := getLen(&proofNodes[i+int(squishedParent)+1])
 				if leafKey.Test(leafKey.len - crntKey.len - 1) {
 					crntNode.Right = leafKey.SubKey(crntKey.len + qwe)
+					crntNode.Left = &nilKey
 				} else {
+					crntNode.Right = &nilKey
 					crntNode.Left = leafKey.SubKey(crntKey.len + qwe)
 				}
 			}
 		} else { // Point to leaf
 			if leafKey.Test(leafKey.len - crntKey.len - 1) {
 				crntNode.Right = &leafKey
+				crntNode.Left = &nilKey
 			} else {
+				crntNode.Right = &nilKey
 				crntNode.Left = &leafKey
 			}
 		}
@@ -365,29 +376,38 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
 // Todo: test
-func BuildTrie(firstProofPath, lastProofPath []StorageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
+func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
 	tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 	if err != nil {
 		return nil, err
 	}
-	for _, sNode := range firstProofPath {
+	for _, sNode := range leftProof {
 		err := tempTrie.storage.Put(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
-	for _, sNode := range lastProofPath {
+	tempTrie.Commit()
+	rootKey := tempTrie.RootKey() // Todo: rootKey is not being updated
+
+	for _, sNode := range rightProof {
 		err := tempTrie.storage.Put(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
+	tempTrie.Commit()
+	rootKey = tempTrie.RootKey()
+
 	for i := range len(keys) {
 		_, err := tempTrie.Put(keys[i], values[i])
 		if err != nil {
 			return nil, err
 		}
 	}
+	tempTrie.Commit()
+	rootKey = tempTrie.RootKey()
+	fmt.Println(rootKey)
 	return tempTrie, nil
 }
 

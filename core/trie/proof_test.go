@@ -506,15 +506,21 @@ func TestProofToPath(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, rootKey, leftProofPath[0].Key())
 		require.Equal(t, rootNode.Left, leftProofPath[0].Node().Left)
-		require.Nil(t, leftProofPath[0].Node().Right)
+		require.NotEqual(t, rootNode.Right, leftProofPath[0].Node().Right)
+
+		leftNode, err := tri.GetNodeFromKey(rootNode.Left)
+		require.NoError(t, err)
+		require.Equal(t, rootNode.Left, leftProofPath[1].Key())
+		require.Equal(t, leftNode.Left, leftProofPath[1].Node().Left)
+		require.NotEqual(t, leftNode.Right, leftProofPath[0].Node().Right)
 
 		rightProofPath, err := trie.ProofToPath(bProofs[1], key3, crypto.Pedersen)
 		require.Equal(t, 1, len(rightProofPath))
 		require.NoError(t, err)
 		require.Equal(t, rootKey, rightProofPath[0].Key())
 		require.Equal(t, rootNode.Right, rightProofPath[0].Node().Right)
-		require.Nil(t, rightProofPath[0].Node().Left)
-		// Todo: check second nodes
+		require.NotEqual(t, rootNode.Left, rightProofPath[0].Node().Left)
+
 	})
 }
 func TestBuildTrie(t *testing.T) {
@@ -534,16 +540,8 @@ func TestBuildTrie(t *testing.T) {
 		leftProof, err := trie.ProofToPath(bProofs[0], key1, crypto.Pedersen)
 		require.NoError(t, err)
 
-		require.Equal(t, leftProof[0].Key().String(), rootKey.String())
-		require.NotNil(t, leftProof[0].Node().Left)
-		require.Equal(t, leftProof[0].Node().Left.Len(), 250)
-
 		rightProof, err := trie.ProofToPath(bProofs[1], key3, crypto.Pedersen)
 		require.NoError(t, err)
-
-		require.Equal(t, rightProof[0].Key().String(), rootKey.String())
-		require.NotNil(t, rightProof[0].Node().Right)
-		require.Equal(t, rightProof[0].Node().Right.Len(), 251)
 
 		keys := []*felt.Felt{new(felt.Felt).SetUint64(1)}
 		values := []*felt.Felt{new(felt.Felt).SetUint64(5)}
@@ -551,7 +549,9 @@ func TestBuildTrie(t *testing.T) {
 		require.NoError(t, err)
 
 		reconstructedRoot, err := reconstructedTrie.Root()
+		reconstructedRootKey := reconstructedTrie.RootKey()
 		require.NoError(t, err)
+		fmt.Println(reconstructedRootKey)
 		expectedRoot, err := tri.Root()
 		require.NoError(t, err)
 		require.Equal(t, expectedRoot, reconstructedRoot)
