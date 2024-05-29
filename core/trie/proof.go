@@ -64,7 +64,7 @@ func isEdge(parentKey *Key, sNode storageNode) bool {
 
 // Note: we need to account for the fact that Junos Trie has nodes that are Binary AND Edge,
 // whereas the protocol requires nodes that are Binary XOR Edge
-func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary, error) {
+func adaptNodeToSnap(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary, error) {
 	isEdgeBool := isEdge(parentKey, sNode)
 
 	var edge *Edge
@@ -126,7 +126,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 	for i := 0; i < len(nodesToLeaf); i++ {
 		sNode := nodesToLeaf[i]
-		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
+		sNodeEdge, sNodeBinary, err := adaptNodeToSnap(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
 		}
@@ -146,19 +146,18 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 	return proofNodes, nil
 }
 
-func GetProofs(startKey, endKey *felt.Felt, tri *Trie) ([][]ProofNode, error) {
-	oneFelt := new(felt.Felt).SetUint64(1)
-	iterKey := startKey
-	leafRange := new(felt.Felt).Sub(endKey, startKey).Uint64()
-	proofs := make([][]ProofNode, leafRange)
-	for i := range leafRange {
-		proof, err := GetProof(iterKey, tri)
-		if err != nil {
-			return nil, err
-		}
-		proofs[i] = proof
-		iterKey.Add(iterKey, oneFelt)
+func GetBoundaryProofs(leftBoundary, rightBoundary *felt.Felt, tri *Trie) ([2][]ProofNode, error) {
+	proofs := [2][]ProofNode{}
+	leftProof, err := GetProof(leftBoundary, tri)
+	if err != nil {
+		return proofs, err
 	}
+	rightProof, err := GetProof(rightBoundary, tri)
+	if err != nil {
+		return proofs, err
+	}
+	proofs[0] = leftProof
+	proofs[1] = rightProof
 	return proofs, nil
 }
 
