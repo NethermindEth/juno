@@ -81,7 +81,7 @@ func StateUpdateAdapter(stateUpdateJSON StateUpdateJSON) StateUpdate {
 
 	replacedClasses := make(map[felt.Felt]*felt.Felt)
 	for _, replaced := range stateUpdateJSON.StateDiff.ReplacedClasses {
-		replacedClasses[*replaced.Address] = replaced.ClassHash // Corrected assignment
+		replacedClasses[*replaced.Address] = replaced.ClassHash
 	}
 
 	stateDiff := StateDiff{

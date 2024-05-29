@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/sourcegraph/conc/stream"
 )
 
 var (
@@ -77,6 +79,7 @@ type Synchronizer struct {
 
 	retryInterval       time.Duration // Retry interval when reached the head
 	pendingPollInterval time.Duration
+	catchUpMode         bool
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -169,16 +172,99 @@ func (s *Synchronizer) syncBlocksFeeder(syncCtx context.Context) {
 			return
 		default:
 			s.log.Infow("Fetching from feeder")
-			blocks, stateUpdate, blockCommitments := s.getBlockNumberDetails(s.latestBlockHeight)
+			block, stateUpdate, blockCommitments := s.getBlockNumberDetails(s.latestBlockHeight)
 			newClass, _ := s.fetchUnknownClasses(syncCtx, &stateUpdate)
-			err := s.blockchain.Store(&blocks, &blockCommitments, &stateUpdate, newClass)
+			s.verifierTask(streamCtx, &block, &stateUpdate, newClass, streamCancel)
+			err := s.blockchain.Store(&block, &blockCommitments, &stateUpdate, newClass)
 			if err != nil {
 				s.log.Errorw("Error storing the block% v", err)
+			} else {
+				s.log.Infow("Stored Block", "number", block.Number, "hash", block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 			}
 			s.latestBlockHeight += 1
-			s.log.Infow("Fetched")
 		}
 	}
+}
+
+func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
+) stream.Callback {
+	verifyTimer := time.Now()
+	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+	if err == nil {
+		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	}
+	return func() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if err != nil {
+				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
+				resetStreams()
+				return
+			}
+			storeTimer := time.Now()
+			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
+			if err != nil {
+				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
+					// revert the head and restart the sync process, hoping that the reorg is not deep
+					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
+					// blocks
+					s.revertHead(block)
+				} else {
+					s.log.Warnw("Failed storing Block", "number", block.Number,
+						"hash", block.Hash.ShortString(), "err", err)
+				}
+				resetStreams()
+				return
+			}
+			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+
+			highestBlockHeader := s.highestBlockHeader.Load()
+			if highestBlockHeader != nil {
+				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
+				if s.catchUpMode != isBehind {
+					resetStreams()
+				}
+				s.catchUpMode = isBehind
+			}
+
+			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
+				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
+			}
+
+			s.newHeads.Send(block.Header)
+			s.log.Infow("Stored Block", "number", block.Number, "hash",
+				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+		}
+	}
+}
+
+func maxWorkers() int {
+	m, mProcs := 16, runtime.GOMAXPROCS(0)
+	if mProcs > m {
+		return m
+	}
+	return mProcs
+}
+
+func (s *Synchronizer) revertHead(forkBlock *core.Block) {
+	var localHead *felt.Felt
+	head, err := s.blockchain.HeadsHeader()
+	if err == nil {
+		localHead = head.Hash
+	}
+
+	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
+
+	err = s.blockchain.RevertHead()
+	if err != nil {
+		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
+	} else {
+		s.log.Infow("Reverted HEAD", "reverted", localHead)
+	}
+	s.listener.OnReorg(head.Number)
 }
 
 func (s *Synchronizer) getBlockNumberDetails(blockNumber uint64) (core.Block, core.StateUpdate, core.BlockCommitments) {
