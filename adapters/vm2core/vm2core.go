@@ -60,6 +60,10 @@ func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 }
 
 func adaptDA(da *vm.DataAvailability) *core.DataAvailability {
+	if da == nil {
+		return nil
+	}
+
 	return &core.DataAvailability{
 		L1Gas:     da.L1Gas,
 		L1DataGas: da.L1DataGas,
