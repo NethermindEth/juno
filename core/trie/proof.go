@@ -287,23 +287,37 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 		return 0, 0
 	}
 
+	getLen := func(pNode *ProofNode) uint8 {
+		if pNode.Binary != nil {
+			return 1
+		}
+		return pNode.Edge.Path.len
+	}
+
 	leafBytes := leaf.Bytes()
 	leafKey := NewKey(251, leafBytes[:])
 	height := uint8(0)
 	pathNodes := []StorageNode{}
 
 	i := 0
-	for i < len(proofNodes)-1 {
+	offset := 0
+	// totalOffset := 0
+	for i <= len(proofNodes)-1 {
 		var crntKey *Key
 		crntNode := Node{}
-		curKeyOffset := 0
 
+		nxtProofNode := ProofNode{}
+		// Last node (should be binary, last edge accounted for elsewhere)
+		if i != len(proofNodes)-1 {
+			nxtProofNode = proofNodes[i+1]
+		}
 		// Set Key of current node
-		squishedParent, squishParentOffset := shouldSquish(&proofNodes[i], &proofNodes[i+1])
+		squishedParent, squishParentOffset := shouldSquish(&proofNodes[i], &nxtProofNode)
 		if proofNodes[i].Binary != nil {
 			crntKey = leafKey.SubKey(height)
 		} else {
 			crntKey = leafKey.SubKey(height + squishParentOffset)
+			offset++
 		}
 
 		// Set value
@@ -318,16 +332,33 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 			} else {
 				crntNode.Left = childKey
 			}
-		} else {
+		} else if i+1+offset == len(proofNodes)-1 { // i+1+offset is the final node
+			// If the (squished) child is an edge, then squish
+			if proofNodes[i+int(squishedParent)+1].Edge != nil {
+				if leafKey.Test(leafKey.len - crntKey.len - 1) {
+					crntNode.Right = &leafKey
+				} else {
+					crntNode.Left = &leafKey
+				}
+				offset++ // Hack
+			} else {
+				qwe := getLen(&proofNodes[i+int(squishedParent)+1])
+				if leafKey.Test(leafKey.len - crntKey.len - 1) {
+					crntNode.Right = leafKey.SubKey(crntKey.len + qwe)
+				} else {
+					crntNode.Left = leafKey.SubKey(crntKey.len + qwe)
+				}
+			}
+		} else { // Point to leaf
 			if leafKey.Test(leafKey.len - crntKey.len - 1) {
 				crntNode.Right = &leafKey
 			} else {
 				crntNode.Left = &leafKey
 			}
 		}
-
+		height = crntKey.len + 1
 		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
-		i += 1 + curKeyOffset
+		i += 1 + offset
 	}
 	return pathNodes, nil
 }

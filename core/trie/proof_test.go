@@ -501,20 +501,19 @@ func TestProofToPath(t *testing.T) {
 		trie.PrettyPrintProofPath(bProofs[0], key1)
 		trie.PrettyPrintProofPath(bProofs[1], key3)
 
-		expectedRoot := trie.NewStorageNode(rootKey, &trie.Node{Value: rootNode.Value, Left: rootNode.Left})
-
 		leftProofPath, err := trie.ProofToPath(bProofs[0], key1, crypto.Pedersen)
+		require.Equal(t, 2, len(leftProofPath))
 		require.NoError(t, err)
-		require.Equal(t, expectedRoot.Key(), leftProofPath[0].Key())
-		require.Equal(t, expectedRoot.Node().Left, leftProofPath[0].Node().Left)
-		require.Equal(t, expectedRoot.Node().Right, leftProofPath[0].Node().Right)
+		require.Equal(t, rootKey, leftProofPath[0].Key())
+		require.Equal(t, rootNode.Left, leftProofPath[0].Node().Left)
+		require.Nil(t, leftProofPath[0].Node().Right)
 
 		rightProofPath, err := trie.ProofToPath(bProofs[1], key3, crypto.Pedersen)
+		require.Equal(t, 1, len(rightProofPath))
 		require.NoError(t, err)
-		require.Equal(t, expectedRoot.Key(), rightProofPath[0].Key())
-		require.Equal(t, expectedRoot.Node().Left, rightProofPath[0].Node().Left)
-		require.Equal(t, expectedRoot.Node().Right, rightProofPath[0].Node().Right)
-
+		require.Equal(t, rootKey, rightProofPath[0].Key())
+		require.Equal(t, rootNode.Right, rightProofPath[0].Node().Right)
+		require.Nil(t, rightProofPath[0].Node().Left)
 		// Todo: check second nodes
 	})
 }
