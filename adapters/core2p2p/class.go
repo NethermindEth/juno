@@ -25,6 +25,7 @@ func AdaptClass(class core.Class) *spec.Class {
 					Program:      v.Program,
 				},
 			},
+			Domain: 0, // todo(kirill) recheck
 		}
 	case *core.Cairo1Class:
 		return &spec.Class{
@@ -40,6 +41,7 @@ func AdaptClass(class core.Class) *spec.Class {
 					ContractClassVersion: v.SemanticVersion,
 				},
 			},
+			Domain: 0, // todo(kirill) recheck
 		}
 	default:
 		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, class.Version()))

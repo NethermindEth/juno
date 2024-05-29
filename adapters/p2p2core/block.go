@@ -24,7 +24,6 @@ func AdaptSignature(cs *spec.ConsensusSignature) []*felt.Felt {
 }
 
 func AdaptBlockHeader(h *spec.SignedBlockHeader) core.Header {
-	// todo double check all values
 	return core.Header{
 		Hash:             nil, // todo: add this when building the block
 		ParentHash:       AdaptHash(h.ParentHash),
@@ -36,6 +35,9 @@ func AdaptBlockHeader(h *spec.SignedBlockHeader) core.Header {
 		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,
 		EventsBloom:      nil, // Todo: add this in when building the block
-		GasPrice:         AdaptUint128(h.GasPriceFri),
+		// todo(kirill) check prices
+		GasPrice:     AdaptUint128(h.GasPriceWei),
+		GasPriceSTRK: AdaptUint128(h.GasPriceFri),
+		Signatures:   utils.Map(h.Signatures, AdaptSignature),
 	}
 }

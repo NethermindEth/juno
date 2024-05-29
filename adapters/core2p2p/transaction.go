@@ -171,6 +171,7 @@ func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy
 			ClassHash:   AdaptHash(tx.ClassHash),
 			AddressSalt: AdaptFelt(tx.ContractAddressSalt),
 			Calldata:    AdaptFeltSlice(tx.ConstructorCallData),
+			Version:     0, // todo(kirill) remove field from spec? tx is deprecated so no future versions
 		},
 	}
 }

@@ -21,9 +21,11 @@ func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionRe
 			Keccak:       resources.Keccak,
 			Poseidon:     resources.Poseidon,
 			SegmentArena: resources.SegmentArena,
+			Output:       0, // todo(kirill) recheck, add Output field to core?
 		},
-		MemoryHoles: resources.MemoryHoles,
-		Steps:       resources.Steps,
+		MemoryHoles:      resources.MemoryHoles,
+		Steps:            resources.Steps,
+		DataAvailability: adaptDA(resources.DataAvailability),
 	}
 }
 
@@ -55,4 +57,15 @@ func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 		return cmp.Compare(a.Order, b.Order)
 	})
 	return utils.Map(events, AdaptOrderedEvent)
+}
+
+func adaptDA(da *vm.DataAvailability) *core.DataAvailability {
+	if da == nil {
+		return nil
+	}
+
+	return &core.DataAvailability{
+		L1Gas:     da.L1Gas,
+		L1DataGas: da.L1DataGas,
+	}
 }
