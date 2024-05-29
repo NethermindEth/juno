@@ -24,6 +24,7 @@ func AdaptReceipt(r *spec.Receipt) *core.TransactionReceipt {
 
 	return &core.TransactionReceipt{
 		Fee:                AdaptFelt(common.ActualFee),
+		FeeUnit:            0,   // todo(kirill) recheck
 		Events:             nil, // todo SPEC , current specification does not maintain the mapping of events to transactions receipts
 		ExecutionResources: adaptExecutionResources(common.ExecutionResources),
 		L1ToL2Message:      nil,
@@ -40,17 +41,19 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 	}
 	return &core.ExecutionResources{
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
-			Pedersen:   uint64(er.GetBuiltins().GetPedersen()),
-			RangeCheck: uint64(er.GetBuiltins().GetRangeCheck()),
-			Bitwise:    uint64(er.GetBuiltins().GetBitwise()),
-			Output:     0, // todo SPEC
-			Ecsda:      uint64(er.GetBuiltins().GetEcdsa()),
-			EcOp:       uint64(er.GetBuiltins().GetEcOp()),
-			Keccak:     uint64(er.GetBuiltins().GetKeccak()),
-			Poseidon:   uint64(er.GetBuiltins().GetPoseidon()),
+			Pedersen:     uint64(er.GetBuiltins().GetPedersen()),
+			RangeCheck:   uint64(er.GetBuiltins().GetRangeCheck()),
+			Bitwise:      uint64(er.GetBuiltins().GetBitwise()),
+			Output:       uint64(er.GetBuiltins().GetOutput()),
+			Ecsda:        uint64(er.GetBuiltins().GetEcdsa()),
+			EcOp:         uint64(er.GetBuiltins().GetEcOp()),
+			Keccak:       uint64(er.GetBuiltins().GetKeccak()),
+			Poseidon:     uint64(er.GetBuiltins().GetPoseidon()),
+			SegmentArena: 0, // todo(kirill) recheck
 		},
-		MemoryHoles: uint64(er.MemoryHoles),
-		Steps:       uint64(er.Steps), // todo SPEC 32 -> 64 bytes
+		DataAvailability: nil, // todo(kirill) recheck
+		MemoryHoles:      uint64(er.MemoryHoles),
+		Steps:            uint64(er.Steps), // todo SPEC 32 -> 64 bytes
 	}
 }
 

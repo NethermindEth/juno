@@ -64,6 +64,9 @@ linters-settings:
     require-explanation: false # don't require an explanation for nolint directives
     require-specific: false # don't require nolint directives to be specific about which linter is being skipped
 
+  exhaustruct:
+    include: []
+
 linters:
   disable-all: true
   enable:
@@ -99,6 +102,7 @@ linters:
     - whitespace
     - tparallel
     - gci
+    - exhaustruct
 
   # don't enable:
   # - asciicheck
@@ -125,6 +129,11 @@ issues:
         - funlen
         - lll
         - gosec
+        - exhaustruct
+
+    - path-except: 'adapters/.+\.go' # run specified linters only on files that reside inside adapters
+      linters:
+        - exhaustruct
 
     - linters:
         - lll
