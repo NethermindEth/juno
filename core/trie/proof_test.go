@@ -422,8 +422,8 @@ func TestProoftoPath(t *testing.T) {
 			},
 		}
 
-		// Only the path down to leaf Key will be set correctly. Not neightbouring keys
-		sns, err := trie.ProofToPath(proofNodes, &felt.Zero, crypto.Pedersen)
+		leafKey := new(felt.Felt).SetUint64(0)
+		sns, err := trie.ProofToPath(proofNodes, leafKey, crypto.Pedersen)
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
@@ -442,6 +442,7 @@ func TestProoftoPath(t *testing.T) {
 		require.Equal(t, 1, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
 		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
+		require.NotEqual(t, rootNodes.Right, sns[0].Node().Right)
 	})
 }
 

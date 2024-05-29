@@ -257,7 +257,6 @@ func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, p
 	return true, nil
 }
 
-// Todo : test
 // Only the path down to leaf Key will be set correctly. Not neightbouring keys
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
 
@@ -287,7 +286,6 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 	pathNodes := []storageNode{}
 
 	i := 0
-	// Todo: account for edge cases, eg not indexing outside of proofNodes
 	for i < len(proofNodes)-1 {
 		var crntKey *Key
 		crntNode := Node{}
@@ -295,17 +293,17 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 
 		// Set Key of current node
 		squishedParent, squishParentOffset := shouldSquish(&proofNodes[i], &proofNodes[i+1])
-		crntKey = leafKey.SubKey(height + squishParentOffset)
-
-		// Set current node value
-		if squishedParent == uint8(1) {
-			crntNode.Value = proofNodes[i+1].Hash(hashF)
+		if proofNodes[i].Binary != nil {
+			crntKey = leafKey.SubKey(height)
 		} else {
-			crntNode.Value = proofNodes[i].Hash(hashF)
+			crntKey = leafKey.SubKey(height + squishParentOffset)
 		}
 
+		// Set value
+		crntNode.Value = proofNodes[i].Hash(hashF)
+
 		// Check if there is a left/right node that we need to account for as well
-		if i+1 < len(proofNodes)-1 {
+		if i+2+int(squishedParent) < len(proofNodes)-1 {
 			squishedChild, squishChildOffset := shouldSquish(&proofNodes[i+1+int(squishedParent)], &proofNodes[i+2+int(squishedParent)])
 			childKey := leafKey.SubKey(height + squishParentOffset + squishChildOffset + squishedChild)
 			if leafKey.Test(leafKey.len - crntKey.len - 1) {
@@ -313,21 +311,17 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 			} else {
 				crntNode.Left = childKey
 			}
+		} else {
+			if leafKey.Test(leafKey.len - crntKey.len - 1) {
+				crntNode.Right = &leafKey
+			} else {
+				crntNode.Left = &leafKey
+			}
 		}
 
 		pathNodes = append(pathNodes, storageNode{key: crntKey, node: &crntNode})
 		i += 1 + curKeyOffset
 	}
-
-	lastNode := pathNodes[len(pathNodes)-1]
-	if lastNode.key.len == 250 {
-		if leafKey.Test(leafKey.len - lastNode.key.len - 1) {
-			lastNode.node.Right = &leafKey
-		} else {
-			lastNode.node.Left = &leafKey
-		}
-	}
-
 	return pathNodes, nil
 }
 
