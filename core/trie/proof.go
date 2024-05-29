@@ -317,8 +317,8 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 			crntKey = leafKey.SubKey(height)
 		} else {
 			crntKey = leafKey.SubKey(height + squishParentOffset)
-			offset++
 		}
+		offset += int(squishedParent)
 
 		// Set value
 		crntNode.Value = proofNodes[i].Hash(hashF)
