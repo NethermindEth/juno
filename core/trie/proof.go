@@ -260,60 +260,64 @@ func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, p
 // Todo : test
 // Only the path down to leaf Key will be set correctly. Not neightbouring keys
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
-	height := uint8(0)
+
+	shouldSquish := func(parent *ProofNode, child *ProofNode) (uint8, uint8) {
+		if parent == nil || child == nil {
+			return 0, 0
+		}
+		if parent.Edge != nil {
+			if child.Binary != nil {
+				return 1, uint8(parent.Edge.Path.len)
+			}
+			return 0, 0
+		}
+		if parent.Binary != nil {
+			if child.Edge != nil {
+				return 1, uint8(child.Edge.Path.len)
+			}
+			return 0, 0
+		}
+
+		return 0, 0
+	}
+
 	leafBytes := leaf.Bytes()
 	leafKey := NewKey(251, leafBytes[:])
+	height := uint8(0)
 	pathNodes := []storageNode{}
 
 	i := 0
+	// Todo: account for edge cases, eg not indexing outside of proofNodes
 	for i < len(proofNodes)-1 {
-		// note: we can only determine the path of nodes along leafKey
-		curKey := leafKey.SubKey(proofNodes[i].Edge.Path.len)
-		var nxtPath, leftPath, rightPath *Key
-		if proofNodes[i+1].Edge != nil {
-			nxtPath = leafKey.SubKey(proofNodes[i+1].Edge.Path.len)
+		var crntKey *Key
+		crntNode := Node{}
+		curKeyOffset := 0
+
+		// Set Key of current node
+		squishedParent, squishParentOffset := shouldSquish(&proofNodes[i], &proofNodes[i+1])
+		crntKey = leafKey.SubKey(height + squishParentOffset)
+
+		// Set current node value
+		if squishedParent == uint8(1) {
+			crntNode.Value = proofNodes[i+1].Hash(hashF)
 		} else {
-			nxtPath = leafKey.SubKey(height + 1)
-		}
-		if leafKey.Test(leafKey.len - nxtPath.len - 1) {
-			rightPath = nxtPath
-		} else {
-			leftPath = nxtPath
+			crntNode.Value = proofNodes[i].Hash(hashF)
 		}
 
-		if proofNodes[i].Binary != nil {
-			pathNodes = append(pathNodes,
-				storageNode{
-					key: curKey,
-					node: &Node{
-						Value: proofNodes[i].Hash(hashF),
-						Left:  leftPath,
-						Right: rightPath,
-					}})
-
-			if proofNodes[i+1].Edge != nil {
-				height = proofNodes[i+1].Edge.Path.len
+		// Check if there is a left/right node that we need to account for as well
+		if i+1 < len(proofNodes)-1 {
+			squishedChild, squishChildOffset := shouldSquish(&proofNodes[i+1+int(squishedParent)], &proofNodes[i+2+int(squishedParent)])
+			childKey := leafKey.SubKey(height + squishParentOffset + squishChildOffset + squishedChild)
+			if leafKey.Test(leafKey.len - crntKey.len - 1) {
+				crntNode.Right = childKey
 			} else {
-				height += 1
+				crntNode.Left = childKey
 			}
-			i++
-			continue
-		} else if proofNodes[i].Edge != nil {
-			// squish this edge and following binary, increment i by 2
-			pathNodes = append(pathNodes,
-				storageNode{
-					key: curKey,
-					node: &Node{
-						Value: proofNodes[i].Edge.Child,
-						Left:  leftPath,
-						Right: rightPath,
-					}})
-			i += 2
-			height++
-			continue
 		}
-	}
 
+		pathNodes = append(pathNodes, storageNode{key: crntKey, node: &crntNode})
+		i += 1 + curKeyOffset
+	}
 	return pathNodes, nil
 }
 
