@@ -199,7 +199,7 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {
-		return err
+		return fmt.Errorf("beginning: %w", err)
 	}
 
 	// spew.Dump(blockNumber, update.StateDiff)
@@ -235,7 +235,11 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	return s.verifyStateUpdateRoot(update.NewRoot)
+	err = s.verifyStateUpdateRoot(update.NewRoot)
+	if err != nil {
+		return fmt.Errorf("end: %w", err)
+	}
+	return nil
 }
 
 var (

@@ -25,6 +25,7 @@ func AdaptStateDiff(contractDiffs []*spec.ContractDiff, classes []*spec.Class) *
 			declaredV0Classes = append(declaredV0Classes, h)
 		case *core.Cairo1Class:
 			declaredV1Classes[*h] = c.Compiled.Hash()
+			// todo add type?
 		}
 	}
 

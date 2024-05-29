@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -340,6 +342,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
+		spew.Dump("DUMP", block.Number, stateUpdate)
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}

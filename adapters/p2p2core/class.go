@@ -40,7 +40,6 @@ func AdaptClass(class *spec.Class) core.Class {
 		program := utils.Map(cairo1.Program, AdaptFelt)
 		compiled, err := createCompiledClass(cairo1)
 		if err != nil {
-			fmt.Println("Version is ", cairo1.ContractClassVersion)
 			panic(err)
 		}
 

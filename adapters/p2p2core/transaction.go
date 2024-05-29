@@ -94,8 +94,8 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				core.ResourceL1Gas: adaptResourceLimits(tx.ResourceBounds.L1Gas),
 				core.ResourceL2Gas: adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			},
-			PaymasterData:         nil, // Todo: P2P needs to change the pay master data to a list
-			AccountDeploymentData: nil, // Todo: update p2p spec to include this
+			PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
+			AccountDeploymentData: utils.Map(tx.AccountDeploymentData, AdaptFelt),
 			NonceDAMode:           nDAMode,
 			FeeDAMode:             fDAMode,
 		}
@@ -171,7 +171,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				core.ResourceL1Gas: adaptResourceLimits(tx.ResourceBounds.L1Gas),
 				core.ResourceL2Gas: adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			},
-			PaymasterData: nil, // Todo: P2P needs to change the pay master data to a list
+			PaymasterData: utils.Map(tx.PaymasterData, AdaptFelt),
 			NonceDAMode:   nDAMode,
 			FeeDAMode:     fDAMode,
 		}
@@ -196,7 +196,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_InvokeV1_:
 		tx := t.GetInvokeV1()
 		invTx := &core.InvokeTransaction{
-			ContractAddress:      nil, // not used in v1
+			ContractAddress:      nil, // todo call core.ContractAddress() ?
 			Nonce:                AdaptFelt(tx.Nonce),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
@@ -222,7 +222,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		invTx := &core.InvokeTransaction{
-			ContractAddress:      nil, // is it ok?
+			ContractAddress:      nil, // todo call core.ContractAddress() ?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			// MaxFee:               AdaptFelt(tx.MaxFee), todo support max_fee?
@@ -235,7 +235,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				core.ResourceL1Gas: adaptResourceLimits(tx.ResourceBounds.L1Gas),
 				core.ResourceL2Gas: adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			},
-			PaymasterData: nil, // Todo: P2P needs to change the pay master data to a list
+			PaymasterData: utils.Map(tx.PaymasterData, AdaptFelt),
 			NonceDAMode:   nDAMode,
 			FeeDAMode:     fDAMode,
 		}

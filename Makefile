@@ -134,3 +134,13 @@ node3:
 	--p2p-private-key="54a695e2a5d5717d5ba8730efcafe6f17251a1955733cffc55a4085fbf7f5d2c1b4009314092069ef7ca9b364ce3eb3072531c64dfb2799c6bad76720a5bdff0" \
 	--metrics-port=9093
 
+pathfinder: juno-cached
+	rm -rf ./p2p-dbs/node-pathfinder/ && \
+	./build/juno \
+    	--network=sepolia \
+    	--log-level=debug \
+    	--db-path=./p2p-dbs/node-pathfinder \
+    	--p2p \
+    	--p2p-peers=/ip4/127.0.0.1/tcp/8888/p2p/12D3KooWF1JrZWQoBiBSjsFSuLbDiDvqcmJQRLaFQLmpVkHA9duk \
+    	--p2p-private-key="54a695e2a5d5717d5ba8730efcafe6f17251a1955733cffc55a4085fbf7f5d2c1b4009314092069ef7ca9b364ce3eb3072531c64dfb2799c6bad76720a5bdff0" \
+    	--metrics-port=9094

@@ -194,7 +194,7 @@ func (n *Network) L2ChainIDFelt() *felt.Felt {
 }
 
 func (n *Network) ProtocolID() protocol.ID {
-	return protocol.ID(fmt.Sprintf("/starknet/%s", n.String()))
+	return "/starknet" // n.String()
 }
 
 func knownNetworkNames() []string {

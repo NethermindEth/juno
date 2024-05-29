@@ -413,6 +413,7 @@ func TransactionHash(transaction Transaction, n *utils.Network) (*felt.Felt, err
 	case *DeployTransaction:
 		// deploy transactions are deprecated after re-genesis therefore we don't verify
 		// transaction hash
+		return deployTransactionHash(t, n)
 		return t.TransactionHash, nil
 	case *L1HandlerTransaction:
 		return l1HandlerTransactionHash(t, n)
@@ -421,6 +422,26 @@ func TransactionHash(transaction Transaction, n *utils.Network) (*felt.Felt, err
 	default:
 		return nil, errors.New("unknown transaction")
 	}
+}
+
+func deployTransactionHash(d *DeployTransaction, n *utils.Network) (*felt.Felt, error) {
+	snKeccakConstructor, err := crypto.StarknetKeccak([]byte("constructor"))
+	if err != nil {
+		return nil, err
+	}
+	if d.Version.Is(0) || d.Version.Is(1) {
+		return crypto.PedersenArray(
+			new(felt.Felt).SetBytes([]byte("deploy")),
+			d.Version.AsFelt(),
+			d.ContractAddress,
+			snKeccakConstructor,
+			crypto.PedersenArray(d.ConstructorCallData...),
+			new(felt.Felt),
+			n.L2ChainIDFelt(),
+		), nil
+	}
+
+	return nil, fmt.Errorf("Invalid deploy tx hash")
 }
 
 var (

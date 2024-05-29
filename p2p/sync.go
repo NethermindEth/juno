@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -189,6 +191,40 @@ func (s *syncService) start(ctx context.Context) {
 			}
 
 			storeTimer := time.Now()
+			if b.block.Number == 7 && false {
+				for k, v := range map[string]string{
+					"0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844":  "0x7e2bc0b8214da5e9506f383ce72dd8e92cf7f09e8cb668522f43e77023c9f52",
+					"0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003": "0x29787a427a423ffc5986d43e630077a176e4391fcef3ebf36014b154069ae4",
+				} {
+					key, err := new(felt.Felt).SetString(k)
+					if err != nil {
+						panic(err)
+					}
+
+					value, err := new(felt.Felt).SetString(v)
+					if err != nil {
+						panic(err)
+					}
+
+					b.stateUpdate.StateDiff.DeclaredV1Classes[*key] = value
+				}
+
+				b.stateUpdate.StateDiff.DeclaredV0Classes = utils.Map([]string{
+					"0x3ae692aaf1ded26a0b58cf42490f757563850acea887ed57b4894fee8279063",
+					"0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69",
+					"0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+					"0x5aa23d5bb71ddaa783da7ea79d405315bafa7cf0387a74f4593578c3e9e6570",
+					"0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
+					"0x3131fa018d520a037686ce3efddeab8f28895662f019ca3ca18a626650f7d1e",
+					"0x381f14e5e0db5889c981bf050fb034c0fbe0c4f070ee79346a05dbe2bf2af90",
+				}, func(s string) *felt.Felt {
+					value, err := new(felt.Felt).SetString(s)
+					if err != nil {
+						panic(err)
+					}
+					return value
+				})
+			}
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
@@ -287,7 +323,7 @@ func (s *syncService) processSpecBlockParts(
 						specClassesM[part.blockNumber()] = p
 					}
 				case specContractDiffs:
-					s.log.Debugw("Received Classes", "blockNumber", p.blockNumber())
+					s.log.Debugw("Received ContractDiffs", "blockNumber", p.blockNumber())
 					if _, ok := specContractDiffsM[part.blockNumber()]; !ok {
 						specContractDiffsM[part.blockNumber()] = p
 					}
@@ -369,7 +405,12 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 
 			var coreReceipts []*core.TransactionReceipt
 			for i, r := range receipts {
-				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, coreTxs[i].Hash()))
+				txHash := coreTxs[i].Hash()
+				if txHash == nil {
+					spew.Dump(coreTxs[i])
+					panic(fmt.Errorf("TX hash %d is nil", i))
+				}
+				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, txHash))
 			}
 			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
 				r.Events = txHashEventsM[*r.TransactionHash]
@@ -404,6 +445,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
 			// Update but there is no such message in P2P.
 
+			spew.Dump("Classes", coreBlock.Number, len(classes))
 			stateUpdate := &core.StateUpdate{
 				BlockHash: coreBlock.Hash,
 				NewRoot:   coreBlock.GlobalStateRoot,
@@ -630,6 +672,7 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 			number:  blockNumber,
 			classes: classes,
 		}:
+			s.log.Debugw("Received classes for block", "blockNumber", blockNumber, "lenClasses", len(classes))
 		}
 	}()
 	return classesCh, nil
@@ -660,6 +703,9 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 			switch v := res.StateDiffMessage.(type) {
 			case *spec.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
+				return true
+			case *spec.StateDiffsResponse_DeclaredClass:
+				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
 				return true
 			case *spec.StateDiffsResponse_Fin:
 				return false
@@ -805,6 +851,7 @@ var errNoPeers = errors.New("no peers available")
 func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 	randPeer := s.randomPeer()
 	if randPeer == "" {
+		panic(errNoPeers)
 		return nil, errNoPeers
 	}
 	stream, err := s.host.NewStream(ctx, randPeer, pids...)
