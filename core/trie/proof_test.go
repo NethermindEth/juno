@@ -108,6 +108,36 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
+func build3KeyTrie(t *testing.T) *trie.Trie {
+	// Build trie
+	memdb := pebble.NewMemTest(t)
+	txn, err := memdb.NewTransaction(true)
+	require.NoError(t, err)
+
+	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	require.NoError(t, err)
+
+	// Update trie
+	key1 := new(felt.Felt).SetUint64(0)
+	key2 := new(felt.Felt).SetUint64(1)
+	key3 := new(felt.Felt).SetUint64(2)
+	value1 := new(felt.Felt).SetUint64(4)
+	value2 := new(felt.Felt).SetUint64(5)
+	value3 := new(felt.Felt).SetUint64(6)
+
+	_, err = tempTrie.Put(key1, value1)
+	require.NoError(t, err)
+
+	_, err = tempTrie.Put(key2, value2)
+	require.NoError(t, err)
+
+	_, err = tempTrie.Put(key3, value3)
+	require.NoError(t, err)
+
+	require.NoError(t, tempTrie.Commit())
+	return tempTrie
+}
+
 func TestGetProofs(t *testing.T) {
 	t.Run("Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
@@ -427,21 +457,36 @@ func TestProoftoPath(t *testing.T) {
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
-		// rootKey.Bitset()
+
 		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
 		require.NoError(t, err)
-
-		leftNodes, err := tempTrie.GetNodeFromKey(rootNodes.Left)
-		require.NoError(t, err)
-
-		rightNodes, err := tempTrie.GetNodeFromKey(rootNodes.Right)
-		require.NoError(t, err)
-
-		fmt.Println(leftNodes, rightNodes)
 
 		require.Equal(t, 1, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
 		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
 		require.NotEqual(t, rootNodes.Right, sns[0].Node().Right)
+	})
+}
+func TestBuildTrie(t *testing.T) {
+
+	t.Run("Simple binary trie proof to path", func(t *testing.T) {
+		tri := build3KeyTrie(t)
+		rootKey := tri.RootKey()
+		nodes, err := tri.GetNodeFromKey(rootKey)
+		require.NoError(t, err)
+		fmt.Println(nodes)
+
+		firstProofPath := []trie.StorageNode{}
+		lastProofPath := []trie.StorageNode{}
+		keys := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		values := []*felt.Felt{new(felt.Felt).SetUint64(5)}
+		reconstructedTrie, err := trie.BuildTrie(firstProofPath, lastProofPath, keys, values)
+		require.NoError(t, err)
+
+		root, err := reconstructedTrie.Root()
+		require.NoError(t, err)
+		expectedRoot, err := tri.Root()
+		require.NoError(t, err)
+		require.Equal(t, expectedRoot, root)
 	})
 }

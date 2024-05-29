@@ -54,7 +54,7 @@ type Edge struct {
 	Value *felt.Felt // this nodes hash
 }
 
-func isEdge(parentKey *Key, sNode storageNode) bool {
+func isEdge(parentKey *Key, sNode StorageNode) bool {
 	sNodeLen := sNode.key.len
 	if parentKey == nil { // Root
 		return sNodeLen != 0
@@ -64,7 +64,7 @@ func isEdge(parentKey *Key, sNode storageNode) bool {
 
 // Note: we need to account for the fact that Junos Trie has nodes that are Binary AND Edge,
 // whereas the protocol requires nodes that are Binary XOR Edge
-func adaptNodeToSnap(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary, error) {
+func adaptNodeToSnap(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary, error) {
 	isEdgeBool := isEdge(parentKey, sNode)
 
 	var edge *Edge
@@ -88,7 +88,7 @@ func adaptNodeToSnap(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Bina
 	}
 
 	rightHash := rNode.Value
-	if isEdge(sNode.key, storageNode{node: rNode, key: sNode.node.Right}) {
+	if isEdge(sNode.key, StorageNode{node: rNode, key: sNode.node.Right}) {
 		edgePath := path(sNode.node.Right, sNode.key)
 		rEdge := ProofNode{Edge: &Edge{
 			Path:  &edgePath,
@@ -97,7 +97,7 @@ func adaptNodeToSnap(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Bina
 		rightHash = rEdge.Hash(tri.hash)
 	}
 	leftHash := lNode.Value
-	if isEdge(sNode.key, storageNode{node: lNode, key: sNode.node.Left}) {
+	if isEdge(sNode.key, StorageNode{node: lNode, key: sNode.node.Left}) {
 		edgePath := path(sNode.node.Left, sNode.key)
 		lEdge := ProofNode{Edge: &Edge{
 			Path:  &edgePath,
@@ -258,7 +258,7 @@ func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, p
 }
 
 // Only the path down to leaf Key will be set correctly. Not neightbouring keys
-func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]storageNode, error) {
+func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]StorageNode, error) {
 
 	shouldSquish := func(parent *ProofNode, child *ProofNode) (uint8, uint8) {
 		if parent == nil || child == nil {
@@ -283,7 +283,7 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 	leafBytes := leaf.Bytes()
 	leafKey := NewKey(251, leafBytes[:])
 	height := uint8(0)
-	pathNodes := []storageNode{}
+	pathNodes := []StorageNode{}
 
 	i := 0
 	for i < len(proofNodes)-1 {
@@ -319,7 +319,7 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 			}
 		}
 
-		pathNodes = append(pathNodes, storageNode{key: crntKey, node: &crntNode})
+		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
 		i += 1 + curKeyOffset
 	}
 	return pathNodes, nil
@@ -327,7 +327,7 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
 // Todo: test
-func BuildTrie(firstProofPath, lastProofPath []storageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
+func BuildTrie(firstProofPath, lastProofPath []StorageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
 	tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 	if err != nil {
 		return nil, err

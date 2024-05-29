@@ -130,24 +130,24 @@ func path(key, parentKey *Key) Key {
 
 // storageNode is the on-disk representation of a [Node],
 // where key is the storage key and node is the value.
-type storageNode struct {
+type StorageNode struct {
 	key  *Key
 	node *Node
 }
 
-func (sn *storageNode) Key() *Key {
+func (sn *StorageNode) Key() *Key {
 	return sn.key
 }
 
-func (sn *storageNode) Node() *Node {
+func (sn *StorageNode) Node() *Node {
 	return sn.node
 }
 
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(key *Key) ([]storageNode, error) {
-	var nodes []storageNode
+func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
+	var nodes []StorageNode
 	cur := t.rootKey
 	for cur != nil {
 		node, err := t.storage.Get(cur)
@@ -155,7 +155,7 @@ func (t *Trie) nodesFromRoot(key *Key) ([]storageNode, error) {
 			return nil, err
 		}
 
-		nodes = append(nodes, storageNode{
+		nodes = append(nodes, StorageNode{
 			key:  cur,
 			node: node,
 		})
@@ -225,7 +225,7 @@ func (t *Trie) handleEmptyTrie(old felt.Felt, nodeKey Key, node *Node, value *fe
 	return &old, nil
 }
 
-func (t *Trie) deleteExistingKey(sibling storageNode, nodeKey Key, nodes []storageNode) (*felt.Felt, error) {
+func (t *Trie) deleteExistingKey(sibling StorageNode, nodeKey Key, nodes []StorageNode) (*felt.Felt, error) {
 	if nodeKey.Equal(sibling.key) {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -238,7 +238,7 @@ func (t *Trie) deleteExistingKey(sibling storageNode, nodeKey Key, nodes []stora
 	return nil, nil
 }
 
-func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent storageNode) {
+func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent StorageNode) {
 	if siblingParent.node.Left.Equal(key) {
 		*siblingParent.node.Left = commonKey
 	} else {
@@ -246,7 +246,7 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent s
 	}
 }
 
-func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode, sibling storageNode) error {
+func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
 	newParent := &Node{}
@@ -429,7 +429,7 @@ func (t *Trie) updateChildTriesConcurrently(root *Node) (*Node, *Node, error) {
 }
 
 // deleteLast deletes the last node in the given list
-func (t *Trie) deleteLast(nodes []storageNode) error {
+func (t *Trie) deleteLast(nodes []StorageNode) error {
 	last := nodes[len(nodes)-1]
 	if err := t.storage.Delete(last.key); err != nil {
 		return err
