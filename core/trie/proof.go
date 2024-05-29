@@ -43,6 +43,13 @@ func (pn *ProofNode) PrettyPrint() {
 	}
 }
 
+func PrettyPrintProofPath(proofPath []ProofNode, key *felt.Felt) {
+	fmt.Println("---------------- proof to ", key.String(), " ------------")
+	for _, node := range proofPath {
+		node.PrettyPrint()
+	}
+}
+
 type Binary struct {
 	LeftHash  *felt.Felt
 	RightHash *felt.Felt

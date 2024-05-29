@@ -143,6 +143,10 @@ func (sn *StorageNode) Node() *Node {
 	return sn.node
 }
 
+func NewStorageNode(key *Key, node *Node) *StorageNode {
+	return &StorageNode{key: key, node: node}
+}
+
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
