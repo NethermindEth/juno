@@ -445,16 +445,3 @@ func TestProoftoPath(t *testing.T) {
 		require.NotEqual(t, rootNodes.Right, sns[0].Node().Right)
 	})
 }
-
-func TestChildMethods(t *testing.T) {
-	tempTrie := buildSimpleTrie(t)
-
-	roootKey := tempTrie.RootKey()
-	roootNodes, err := tempTrie.GetNodeFromKey(roootKey) // right node key seems incorrect???
-	require.NoError(t, err)
-
-	left := roootKey.LeftChild()
-	right := roootKey.RightChild()
-	require.Equal(t, roootNodes.Left, left)
-	require.Equal(t, roootNodes.Right, right)
-}

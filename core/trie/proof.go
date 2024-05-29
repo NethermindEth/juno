@@ -240,7 +240,7 @@ func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, p
 	}
 
 	// Step 3: Build trie from proofPaths and keys
-	tmpTrie, err := buildTrie(firstProofPath, lastProofPath, keys, values)
+	tmpTrie, err := BuildTrie(firstProofPath, lastProofPath, keys, values)
 	if err != nil {
 		return false, err
 	}
@@ -325,9 +325,9 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 	return pathNodes, nil
 }
 
-// buildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
+// BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
 // Todo: test
-func buildTrie(firstProofPath, lastProofPath []storageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
+func BuildTrie(firstProofPath, lastProofPath []storageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
 	tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 	if err != nil {
 		return nil, err
