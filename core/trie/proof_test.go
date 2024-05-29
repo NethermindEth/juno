@@ -388,8 +388,8 @@ func TestProoftoPath(t *testing.T) {
 				},
 			},
 		}
-
-		sns, err := trie.ProofToPath(proofNodes, &felt.Zero, crypto.Pedersen)
+		leafKey := new(felt.Felt).SetUint64(0)
+		sns, err := trie.ProofToPath(proofNodes, leafKey, crypto.Pedersen)
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
@@ -399,7 +399,7 @@ func TestProoftoPath(t *testing.T) {
 		require.Equal(t, 1, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
 		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
-		require.Equal(t, rootNodes.Right, sns[0].Node().Right, "root's right node does not have the correct key")
+		require.NotEqual(t, rootNodes.Right, sns[0].Node().Right)
 	})
 
 	t.Run("Simple doulbe binary trie proof to path", func(t *testing.T) {

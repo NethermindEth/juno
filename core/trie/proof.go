@@ -318,6 +318,16 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]sto
 		pathNodes = append(pathNodes, storageNode{key: crntKey, node: &crntNode})
 		i += 1 + curKeyOffset
 	}
+
+	lastNode := pathNodes[len(pathNodes)-1]
+	if lastNode.key.len == 250 {
+		if leafKey.Test(leafKey.len - lastNode.key.len - 1) {
+			lastNode.node.Right = &leafKey
+		} else {
+			lastNode.node.Left = &leafKey
+		}
+	}
+
 	return pathNodes, nil
 }
 
