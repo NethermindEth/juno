@@ -375,94 +375,40 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 }
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
-// Todo: test
 func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []*felt.Felt) (*Trie, error) {
 	tempTrie, err := NewTriePedersen(newMemStorage(), 251)
 	if err != nil {
 		return nil, err
 	}
 
-	// Hack
-	// for i := range len(keys) {
-	// 	_, err := tempTrie.Put(keys[i], values[i])
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
-	_, err = tempTrie.handleEmptyTrie(felt.Zero, *leftProof[0].key, leftProof[0].node, leftProof[0].node.Value)
-	if err != nil {
-		return nil, err
+	for i := range min(len(leftProof), len(rightProof)) {
+		if leftProof[i].key.Equal(rightProof[i].key) {
+			leftProof[i].node.Right = rightProof[i].node.Right
+			rightProof[i].node.Left = leftProof[i].node.Left
+		} else {
+			break
+		}
 	}
-	rk := tempTrie.RootKey()
-	rns, _ := tempTrie.GetNodeFromKey(rk)
+
 	for _, sNode := range leftProof {
-		err := tempTrie.storage.Put(sNode.key, sNode.node)
+		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
-	rk = tempTrie.RootKey() // Not constructing the trie correctly...
-	rns, _ = tempTrie.GetNodeFromKey(rk)
 
 	for _, sNode := range rightProof {
-		err := tempTrie.storage.Put(sNode.key, sNode.node)
+		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
-	rk = tempTrie.RootKey()
-	rns, _ = tempTrie.GetNodeFromKey(rk)
 
-	// Reset for the actual test
 	for i := range len(keys) {
 		_, err := tempTrie.Put(keys[i], values[i])
 		if err != nil {
 			return nil, err
 		}
 	}
-	rk = tempTrie.RootKey()
-	rns, _ = tempTrie.GetNodeFromKey(rk)
-	fmt.Println(rns)
 	return tempTrie, nil
 }
-
-// getExpectedhash effectievly gets the value corresponding to the key given proofs
-// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-// func getExpectedProofValue(root *felt.Felt, proofKey *Key, nbrKey *Key, proofs []ProofNode, hash hashFunc) (*felt.Felt, error) { // Todo: test
-// 	if proofKey.Len() != 251 || nbrKey.Len() != 251 { //nolint:gomnd
-// 		return nil, errors.New("keys not the correct length")
-// 	}
-
-// 	commonAncestorKey := nbrKey.commonPrefix(*proofKey)
-// 	expectedHash := root
-// 	remainingPath := proofKey
-// 	height := uint8(0)
-// 	for _, proofNode := range proofs {
-// 		if !proofNode.Hash(hash).Equal(expectedHash) {
-// 			return nil, errors.New("proofNode not the expected hash")
-// 		}
-// 		if height == commonAncestorKey.len {
-// 			return proofNode.Hash(hash), nil
-// 		}
-// 		switch {
-// 		case proofNode.Binary != nil:
-// 			if remainingPath.Test(remainingPath.Len() - 1) {
-// 				expectedHash = proofNode.Binary.RightHash
-// 			} else {
-// 				expectedHash = proofNode.Binary.LeftHash
-// 			}
-// 			remainingPath.RemoveLastBit()
-// 			height++
-// 		case proofNode.Edge != nil:
-// 			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
-// 				return nil, errors.New("error in key path")
-// 			}
-// 			expectedHash = proofNode.Edge.Child
-// 			remainingPath.Truncate(proofNode.Edge.Path.Len())
-// 			height += proofNode.Edge.Path.Len()
-// 		}
-
-// 	}
-// 	return nil, errors.New("failed to get proof value")
-// }

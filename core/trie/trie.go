@@ -154,6 +154,12 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 	var nodes []StorageNode
 	cur := t.rootKey
 	for cur != nil {
+
+		// proof nodes set "nil" nodes to zero
+		if len(nodes) > 0 && cur.len == 0 {
+			return nodes, nil
+		}
+
 		node, err := t.storage.Get(cur)
 		if err != nil {
 			return nil, err
@@ -308,7 +314,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return oldValue, err
 	}
 
-	nodes, err := t.nodesFromRoot(&nodeKey)
+	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
 	if err != nil {
 		return nil, err
 	}
@@ -340,6 +346,23 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		}
 		return &old, nil
 	}
+}
+
+// Put updates the corresponding `value` for a `key`
+// Note only a single node is modified. It's the callers responsibility
+// To ensure it doesn't break the trie.
+func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
+	if key.len == t.height {
+		keyFelt := key.Felt()
+		return t.Put(&keyFelt, node.Value)
+	}
+	if err := t.storage.Put(key, node); err != nil {
+		return nil, err
+	}
+	if t.rootKey == nil {
+		t.setRootKey(key)
+	}
+	return &felt.Zero, nil
 }
 
 func (t *Trie) setRootKey(newRootKey *Key) {

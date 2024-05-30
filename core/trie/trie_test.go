@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,7 +82,36 @@ func TestTriePut(t *testing.T) {
 		}))
 	})
 }
+func TestTriePutInner(t *testing.T) {
+	t.Run("put node to empty trie", func(t *testing.T) {
+		memdb := pebble.NewMemTest(t)
+		txn, err := memdb.NewTransaction(true)
+		require.NoError(t, err)
 
+		tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+		require.NoError(t, err)
+
+		keyFeltBytes := new(felt.Felt).SetUint64(123).Bytes()
+		key := trie.NewKey(10, keyFeltBytes[:])
+
+		leftKeyFeltBytes := new(felt.Felt).SetUint64(789).Bytes()
+		leftKey := trie.NewKey(11, leftKeyFeltBytes[:])
+		rightKeyFeltBytes := new(felt.Felt).SetUint64(135).Bytes()
+		rightKey := trie.NewKey(11, rightKeyFeltBytes[:])
+		node := trie.Node{
+			Value: new(felt.Felt).SetUint64(456),
+			Left:  &leftKey,
+			Right: &rightKey,
+		}
+
+		_, err = tempTrie.PutInner(&key, &node)
+		require.NoError(t, err)
+
+		gotNode, err := tempTrie.GetNodeFromKey(&key)
+		require.NoError(t, err)
+		require.Equal(t, node, *gotNode)
+	})
+}
 func TestTrieDeleteBasic(t *testing.T) {
 	// left branch
 	leftKeyNum, err := strconv.ParseUint("100", 2, 64)
