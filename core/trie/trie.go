@@ -278,7 +278,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode
 	return nil
 }
 
-// Put updates the corresponding `value` for a `key`
+// Put updates the corresponding `value` for a leaf `key`
 func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	if key.Cmp(t.maxKey) > 0 {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
@@ -328,6 +328,20 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		}
 		return &old, nil
 	}
+}
+
+// Put updates the corresponding `value` for a `key`
+// Note only a single node is modified. It's the callers responsibility
+// To ensure it doesn't break the trie.
+func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
+	if key.len == t.height {
+		keyFelt := key.Felt()
+		return t.Put(&keyFelt, node.Value)
+	}
+	if err := t.storage.Put(key, node); err != nil {
+		return nil, err
+	}
+	return &felt.Zero, nil
 }
 
 func (t *Trie) setRootKey(newRootKey *Key) {
