@@ -93,7 +93,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		}
 	}
 
-	p2pdht, err := makeDHT(p2phost, snNetwork, peersAddrInfoS)
+	p2pdht, err := makeDHT(p2phost, peersAddrInfoS)
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +114,9 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	return s, nil
 }
 
-func makeDHT(p2phost host.Host, snNetwork *utils.Network, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
+func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(snNetwork.ProtocolID()),
+		dht.ProtocolPrefix(starknet.Prefix),
 		dht.BootstrapPeers(addrInfos...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
@@ -220,15 +220,15 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) setProtocolHandlers() {
-	s.SetProtocolHandler(starknet.HeadersPID(s.network), s.handler.HeadersHandler)
+	s.SetProtocolHandler(starknet.HeadersPID(), s.handler.HeadersHandler)
 	// s.SetProtocolHandler(starknet.CurrentBlockHeaderPID(s.network), s.handler.CurrentBlockHeaderHandler)
 	// s.SetProtocolHandler(starknet.ReceiptsPID(s.network), s.handler.ReceiptsHandler)
 	// todo discuss protocol id (should it be included in HeadersPID)
 	// s.SetProtocolHandler(starknet.BlockBodiesPID(s.network), s.handler.BlockBodiesHandler)
-	s.SetProtocolHandler(starknet.EventsPID(s.network), s.handler.EventsHandler)
-	s.SetProtocolHandler(starknet.TransactionsPID(s.network), s.handler.TransactionsHandler)
-	s.SetProtocolHandler(starknet.ClassesPID(s.network), s.handler.ClassesHandler)
-	s.SetProtocolHandler(starknet.StateDiffPID(s.network), s.handler.StateDiffHandler)
+	s.SetProtocolHandler(starknet.EventsPID(), s.handler.EventsHandler)
+	s.SetProtocolHandler(starknet.TransactionsPID(), s.handler.TransactionsHandler)
+	s.SetProtocolHandler(starknet.ClassesPID(), s.handler.ClassesHandler)
+	s.SetProtocolHandler(starknet.StateDiffPID(), s.handler.StateDiffHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
 )
 
@@ -191,10 +190,6 @@ func (n *Network) UnmarshalText(text []byte) error {
 
 func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
-}
-
-func (n *Network) ProtocolID() protocol.ID {
-	return "/starknet" // n.String()
 }
 
 func knownNetworkNames() []string {

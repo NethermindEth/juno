@@ -202,7 +202,7 @@ func (s *syncService) start(ctx context.Context) {
 	}
 }
 
-func specBlockPartsFunc[T specBlockHeaderAndSigs | specBlockBody | specTxWithReceipts | specReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
+func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
 	return specBlockParts(i)
 }
 
@@ -241,10 +241,8 @@ func (s *syncService) processSpecBlockParts(
 		defer close(orderedBlockBodiesCh)
 
 		specBlockHeadersAndSigsM := make(map[uint64]specBlockHeaderAndSigs)
-		specBlockBodiesM := make(map[uint64]specBlockBody)
 		specClassesM := make(map[uint64]specClasses)
 		specTransactionsM := make(map[uint64]specTxWithReceipts)
-		// specReceiptsM := make(map[uint64]specReceipts)
 		specEventsM := make(map[uint64]specEvents)
 		specContractDiffsM := make(map[uint64]specContractDiffs)
 
@@ -258,11 +256,6 @@ func (s *syncService) processSpecBlockParts(
 					s.log.Debugw("Received Block Header and Signatures", "blockNumber", p.blockNumber())
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
-					}
-				case specBlockBody:
-					s.log.Debugw("Received Block Body parts", "blockNumber", p.id.Number)
-					if _, ok := specBlockBodiesM[part.blockNumber()]; !ok {
-						specBlockBodiesM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
 					s.log.Debugw("Received Transactions", "blockNumber", p.blockNumber())
@@ -289,9 +282,7 @@ func (s *syncService) processSpecBlockParts(
 				}
 
 				headerAndSig, okHeader := specBlockHeadersAndSigsM[curBlockNum]
-				// body, ok2 := specBlockBodiesM[curBlockNum]
 				txs, okTxs := specTransactionsM[curBlockNum]
-				// rs, ok4 := specReceiptsM[curBlockNum]
 				es, okEvents := specEventsM[curBlockNum]
 				cls, okClasses := specClassesM[curBlockNum]
 				diffs, okDiffs := specContractDiffsM[curBlockNum]
@@ -323,9 +314,7 @@ func (s *syncService) processSpecBlockParts(
 					if curBlockNum > 0 {
 						delete(specBlockHeadersAndSigsM, curBlockNum-1)
 					}
-					delete(specBlockBodiesM, curBlockNum)
 					delete(specTransactionsM, curBlockNum)
-					// delete(specReceiptsM, curBlockNum)
 					delete(specEventsM, curBlockNum)
 					curBlockNum++
 				}
@@ -487,71 +476,6 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64)
 
 	return headersAndSigCh, nil
 }
-
-type specBlockBody struct {
-	id *spec.BlockID
-	// proof     *spec.BlockProof
-	classes   []*spec.Class
-	stateDiff []*spec.ContractDiff
-}
-
-func (s specBlockBody) blockNumber() uint64 {
-	return s.id.Number
-}
-
-/*
-func (s *syncService) genBlockBodies(ctx context.Context, it *spec.Iteration) (<-chan specBlockBody, error) {
-	blockIt, err := s.client.RequestBlockBodies(ctx, &spec.BlockBodiesRequest{Iteration: it})
-	if err != nil {
-		return nil, err
-	}
-
-	specBodiesCh := make(chan specBlockBody)
-	go func() {
-		defer close(specBodiesCh)
-		curBlockBody := new(specBlockBody)
-		// Assumes that all parts of the same block will arrive before the next block parts
-		// Todo: the above assumption may not be true. A peer may decide to send different parts of the block in different order
-		// If the above assumption is not true we should return separate channels for each of the parts. Also, see todo above specBlockBody
-		// on line 317 in p2p/sync.go
-
-		blockIt(func(res *spec.BlockBodiesResponse) bool {
-			switch res.BodyMessage.(type) {
-			case *spec.BlockBodiesResponse_Classes:
-				if curBlockBody.id == nil {
-					curBlockBody.id = res.GetId()
-				}
-				curBlockBody.classes = res.GetClasses()
-			case *spec.BlockBodiesResponse_Diff:
-				if curBlockBody.id == nil {
-					curBlockBody.id = res.GetId()
-				}
-				curBlockBody.stateDiff = res.GetDiff()
-			case *spec.BlockBodiesResponse_Proof:
-				if curBlockBody.id == nil {
-					curBlockBody.id = res.GetId()
-				}
-				curBlockBody.proof = res.GetProof()
-			case *spec.BlockBodiesResponse_Fin:
-				if curBlockBody.id != nil {
-					select {
-					case <-ctx.Done():
-						return false
-					default:
-						specBodiesCh <- *curBlockBody
-						curBlockBody = new(specBlockBody)
-					}
-				}
-			}
-
-			return true
-		})
-	}()
-
-	return specBodiesCh, nil
-}
-
-*/
 
 type specReceipts struct {
 	number   uint64
