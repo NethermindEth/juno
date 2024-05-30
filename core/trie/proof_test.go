@@ -551,9 +551,12 @@ func TestBuildTrie(t *testing.T) {
 		reconstructedRoot, err := reconstructedTrie.Root()
 		reconstructedRootKey := reconstructedTrie.RootKey()
 		require.NoError(t, err)
+		rnodes, err := reconstructedTrie.GetNodeFromKey(reconstructedRootKey)
+		require.NoError(t, err)
+		fmt.Println(rnodes)
 		fmt.Println(reconstructedRootKey)
 		expectedRoot, err := tri.Root()
 		require.NoError(t, err)
-		require.Equal(t, expectedRoot, reconstructedRoot)
+		require.Equal(t, expectedRoot.String(), reconstructedRoot.String())
 	})
 }

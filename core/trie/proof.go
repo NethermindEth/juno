@@ -381,14 +381,29 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 	if err != nil {
 		return nil, err
 	}
+
+	// Hack
+	// for i := range len(keys) {
+	// 	_, err := tempTrie.Put(keys[i], values[i])
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
+
+	_, err = tempTrie.handleEmptyTrie(felt.Zero, *leftProof[0].key, leftProof[0].node, leftProof[0].node.Value)
+	if err != nil {
+		return nil, err
+	}
+	rk := tempTrie.RootKey()
+	rns, _ := tempTrie.GetNodeFromKey(rk)
 	for _, sNode := range leftProof {
 		err := tempTrie.storage.Put(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
-	tempTrie.Commit()
-	rootKey := tempTrie.RootKey() // Todo: rootKey is not being updated
+	rk = tempTrie.RootKey() // Not constructing the trie correctly...
+	rns, _ = tempTrie.GetNodeFromKey(rk)
 
 	for _, sNode := range rightProof {
 		err := tempTrie.storage.Put(sNode.key, sNode.node)
@@ -396,18 +411,19 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 			return nil, err
 		}
 	}
-	tempTrie.Commit()
-	rootKey = tempTrie.RootKey()
+	rk = tempTrie.RootKey()
+	rns, _ = tempTrie.GetNodeFromKey(rk)
 
+	// Reset for the actual test
 	for i := range len(keys) {
 		_, err := tempTrie.Put(keys[i], values[i])
 		if err != nil {
 			return nil, err
 		}
 	}
-	tempTrie.Commit()
-	rootKey = tempTrie.RootKey()
-	fmt.Println(rootKey)
+	rk = tempTrie.RootKey()
+	rns, _ = tempTrie.GetNodeFromKey(rk)
+	fmt.Println(rns)
 	return tempTrie, nil
 }
 
