@@ -61,7 +61,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
-		log.Debugw("sendAndCloseWrite (stream is not closed)", "err", err, "streamID", id)
+		log.Errorw("sendAndCloseWrite (stream is not closed)", "err", err, "streamID", id)
 		return nil, err
 	}
 
@@ -69,7 +69,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		defer func() {
 			closeErr := stream.Close()
 			if closeErr != nil {
-				log.Debugw("Error while closing stream", "err", closeErr)
+				log.Errorw("Error while closing stream", "err", closeErr)
 			}
 		}()
 
@@ -77,7 +77,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 			var zero ResT
 			res := zero.ProtoReflect().New().Interface()
 			if err := receiveInto(stream, res); err != nil {
-				if !errors.Is(err, io.EOF) {
+				if true || !errors.Is(err, io.EOF) {
 					log.Debugw("Error while reading from stream", "err", err)
 				}
 

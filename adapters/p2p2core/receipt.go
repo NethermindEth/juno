@@ -62,7 +62,7 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 func adaptMessageToL1(m *spec.MessageToL1) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
 		From:    AdaptFelt(m.FromAddress),
-		Payload: utils.Map(m.Payload, AdaptFelt),
 		To:      AdaptEthAddress(m.ToAddress),
+		Payload: utils.Map(m.Payload, AdaptFelt),
 	}
 }

@@ -25,7 +25,7 @@ func AdaptSignature(cs *spec.ConsensusSignature) []*felt.Felt {
 
 func AdaptBlockHeader(h *spec.SignedBlockHeader) core.Header {
 	return core.Header{
-		Hash:             nil, // todo: add this when building the block
+		Hash:             AdaptHash(h.BlockHash), // todo: add this when building the block
 		ParentHash:       AdaptHash(h.ParentHash),
 		Number:           h.Number,
 		GlobalStateRoot:  AdaptHash(h.StateRoot),

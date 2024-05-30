@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
+	"os"
 	"reflect"
 	"time"
 
@@ -49,28 +51,29 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, lo
 	}
 }
 
+/*
 func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
-	return 9000, nil
-	//headersIt, err := s.client.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
-	//if err != nil {
-	//	return 0, err
-	//}
-	//
-	//var header *spec.BlockHeader
-	//headersIt(func(res *spec.BlockHeadersResponse) bool {
-	//	for _, part := range res.GetPart() {
-	//		if _, ok := part.HeaderMessage.(*spec.BlockHeadersResponsePart_Header); ok {
-	//			header = part.GetHeader()
-	//			// found header - time to stop iterator
-	//			return false
-	//		}
-	//	}
-	//
-	//	return true
-	//})
-	//
-	//return int(header.Number), nil
+	headersIt, err := s.client.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
+	if err != nil {
+		return 0, err
+	}
+
+	var header *spec.BlockHeader
+	headersIt(func(res *spec.BlockHeadersResponse) bool {
+		for _, part := range res.GetPart() {
+			if _, ok := part.HeaderMessage.(*spec.BlockHeadersResponsePart_Header); ok {
+				header = part.GetHeader()
+				// found header - time to stop iterator
+				return false
+			}
+		}
+
+		return true
+	})
+
+	return int(header.Number), nil
 }
+*/
 
 const retryDuration = 5 * time.Second
 
@@ -142,15 +145,6 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		/*
-			receiptsCh, err := s.genReceipts(iterCtx, blockNumber)
-			if err != nil {
-				s.logError("Failed to get receipts", err)
-				cancelIteration()
-				continue
-			}
-		*/
-
 		eventsCh, err := s.genEvents(iterCtx, blockNumber)
 		if err != nil {
 			s.logError("Failed to get classes", err)
@@ -176,9 +170,7 @@ func (s *syncService) start(ctx context.Context) {
 			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
 			pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
 			pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
-			// pipeline.Stage(iterCtx, blockBodiesCh, specBlockPartsFunc[specBlockBody]),
 			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
-			// pipeline.Stage(iterCtx, receiptsCh, specBlockPartsFunc[specReceipts]),
 			pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
 		)))
 
@@ -191,42 +183,12 @@ func (s *syncService) start(ctx context.Context) {
 			}
 
 			storeTimer := time.Now()
-			if b.block.Number == 7 && false {
-				for k, v := range map[string]string{
-					"0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844":  "0x7e2bc0b8214da5e9506f383ce72dd8e92cf7f09e8cb668522f43e77023c9f52",
-					"0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003": "0x29787a427a423ffc5986d43e630077a176e4391fcef3ebf36014b154069ae4",
-				} {
-					key, err := new(felt.Felt).SetString(k)
-					if err != nil {
-						panic(err)
-					}
-
-					value, err := new(felt.Felt).SetString(v)
-					if err != nil {
-						panic(err)
-					}
-
-					b.stateUpdate.StateDiff.DeclaredV1Classes[*key] = value
-				}
-
-				b.stateUpdate.StateDiff.DeclaredV0Classes = utils.Map([]string{
-					"0x3ae692aaf1ded26a0b58cf42490f757563850acea887ed57b4894fee8279063",
-					"0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69",
-					"0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
-					"0x5aa23d5bb71ddaa783da7ea79d405315bafa7cf0387a74f4593578c3e9e6570",
-					"0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
-					"0x3131fa018d520a037686ce3efddeab8f28895662f019ca3ca18a626650f7d1e",
-					"0x381f14e5e0db5889c981bf050fb034c0fbe0c4f070ee79346a05dbe2bf2af90",
-				}, func(s string) *felt.Felt {
-					value, err := new(felt.Felt).SetString(s)
-					if err != nil {
-						panic(err)
-					}
-					return value
-				})
-			}
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
+				if err == blockchain.ErrParentDoesNotMatchHead {
+					spew.Dump(b.block.Number, b.block.Hash, b.block.ParentHash)
+					log.Fatal("Parent does NOT match head", err)
+				}
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
 				cancelIteration()
 				break
@@ -307,13 +269,8 @@ func (s *syncService) processSpecBlockParts(
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
-				// case specReceipts:
-				//	s.log.Debugw("Received Receipts", "blockNumber", p.blockNumber())
-				//	if _, ok := specReceiptsM[part.blockNumber()]; !ok {
-				//		specReceiptsM[part.blockNumber()] = p
-				//	}
 				case specEvents:
-					s.log.Debugw("Received Events", "blockNumber", p.blockNumber())
+					s.log.Debugw("Received Events", "blockNumber", p.blockNumber(), "len", len(p.events))
 					if _, ok := specEventsM[part.blockNumber()]; !ok {
 						specEventsM[part.blockNumber()] = p
 					}
@@ -331,14 +288,14 @@ func (s *syncService) processSpecBlockParts(
 					s.log.Warnw("Unsupported part type", "blockNumber", part.blockNumber(), "type", reflect.TypeOf(p))
 				}
 
-				headerAndSig, ok1 := specBlockHeadersAndSigsM[curBlockNum]
+				headerAndSig, okHeader := specBlockHeadersAndSigsM[curBlockNum]
 				// body, ok2 := specBlockBodiesM[curBlockNum]
-				txs, ok3 := specTransactionsM[curBlockNum]
+				txs, okTxs := specTransactionsM[curBlockNum]
 				// rs, ok4 := specReceiptsM[curBlockNum]
-				es, ok5 := specEventsM[curBlockNum]
-				cls, ok6 := specClassesM[curBlockNum]
-				diffs, ok7 := specContractDiffsM[curBlockNum]
-				if ok1 && ok3 && ok5 && ok6 && ok7 {
+				es, okEvents := specEventsM[curBlockNum]
+				cls, okClasses := specClassesM[curBlockNum]
+				diffs, okDiffs := specContractDiffsM[curBlockNum]
+				if okHeader && okTxs && okEvents && okClasses && okDiffs {
 					s.log.Debugw(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
 
 					select {
@@ -422,10 +379,25 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 
 			coreBlock.Header = &coreHeader
 			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)
+
+			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
+				spew.Dump("Number of transactions != count", coreBlock)
+				os.Exit(1)
+			}
+			if int(coreBlock.EventCount) != len(events) {
+				spew.Dump("Number of events != count", coreBlock, events)
+				os.Exit(1)
+			}
+
 			h, err := core.BlockHash(coreBlock)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
 				return
+			}
+			if !coreBlock.Hash.Equal(h) {
+				spew.Dump("Receipts number:", coreBlock.Receipts, events)
+				spew.Dump("Hash mismtach", coreBlock)
+				os.Exit(1)
 			}
 			coreBlock.Hash = h
 
@@ -747,6 +719,7 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 
 		var events []*spec.Event
 		eventsIt(func(res *spec.EventsResponse) bool {
+			fmt.Println("EVENT ITERATION", res.EventMessage)
 			switch v := res.EventMessage.(type) {
 			case *spec.EventsResponse_Event:
 				events = append(events, v.Event)
@@ -765,6 +738,7 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 			number: blockNumber,
 			events: events,
 		}:
+			spew.Dump("Received events from client", len(events), blockNumber)
 		}
 	}()
 	return eventsCh, nil

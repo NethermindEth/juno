@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -193,6 +195,19 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 		return nil, nil, eErr
 	}
 
+	spew.Dump("HASH VALUES:",
+		b.Number,           // block number
+		b.GlobalStateRoot,  // global state root
+		seqAddr,            // sequencer address
+		b.Timestamp,        // block timestamp
+		b.TransactionCount, // number of transactions
+		txCommitment,       // transaction commitment
+		b.EventCount,       // number of events
+		eCommitment,        // event commitment
+		&felt.Zero,         // reserved: protocol version
+		&felt.Zero,         // reserved: extra data
+		b.ParentHash,       // parent block hash
+		&BlockCommitments{TransactionCommitment: txCommitment, EventCommitment: eCommitment})
 	// Unlike the pre07Hash computation, we exclude the chain
 	// id and replace the zero felt with the actual values for:
 	// - sequencer address

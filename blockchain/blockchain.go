@@ -403,6 +403,7 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, block.Number)
 	}
 	if !block.ParentHash.Equal(expectedParentHash) {
+		spew.Dump("EXPECTATION FAIL", h.Number, h.Hash, h.ParentHash)
 		return ErrParentDoesNotMatchHead
 	}
 
