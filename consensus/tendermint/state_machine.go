@@ -68,15 +68,17 @@ func (sm *StateMachine) start() {
 	sm.startRound(0)
 }
 
-func toMessages(p interface{}) []Message {
+func toMessage(value interface{}) Message {
 	panic("implement me")
 }
 
 func (sm *StateMachine) Run() {
+	msgs := make([]Message, 2)
 	sm.start()
 	for {
-		msg := (*sm.gossiper).ReceiveMessage()
-		msgs := toMessages(msg)
+		// msg are received in two's
+		msgs[0] = toMessage((*sm.gossiper).ReceiveMessage())
+		msgs[1] = toMessage((*sm.gossiper).ReceiveMessage())
 		err := sm.HandleMessage(msgs)
 		if err != nil {
 			//todo: log error
@@ -90,6 +92,7 @@ func (sm *StateMachine) Interrupt() {
 	// todo: ensure all data is saved - maybe do this at tendermint level.
 	// todo: kill all go routines spawned by this state machine
 	// todo: how to kill routines that are asleep?!
+	// todo: just let them run to completion and stop the message loop
 }
 
 func (sm *StateMachine) HandleMessage(msgs []Message) error {

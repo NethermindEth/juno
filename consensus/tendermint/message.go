@@ -6,7 +6,7 @@ type MsgType = int8
 type VoteLevel = int8
 
 const (
-	// todo: remove step prefix
+	// todo: change to MSG_TYPE_*
 	MSG_PROPOSAL     MsgType = 0
 	MSG_PREVOTE      MsgType = 1
 	MSG_PRECOMMIT    MsgType = 2
@@ -19,6 +19,11 @@ const (
 	VOTE_LEVEL_EMPTY              VoteLevel = -1
 
 	ROUND_EMPTY int64 = -9999
+)
+
+var (
+	// TODO: MAYBE MAKE POINTER
+	MSG_VALUE_EMPTY Message = *NewEmptyMessage()
 )
 
 // Message Todo: locked/validRound can be as large as round so uint vs int might be a bad idea maybe use uint and set to nil for negative value?
