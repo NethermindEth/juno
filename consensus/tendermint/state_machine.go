@@ -92,7 +92,7 @@ func (sm *StateMachine) Interrupt() {
 	// todo: ensure all data is saved - maybe do this at tendermint level.
 	// todo: kill all go routines spawned by this state machine
 	// todo: how to kill routines that are asleep?!
-	// todo: just let them run to completion and stop the message loop
+	// todo: stop the message loop and just let them run to completion
 }
 
 func (sm *StateMachine) HandleMessage(msgs []Message) error {
