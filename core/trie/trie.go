@@ -352,10 +352,10 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 // Note only a single node is modified. It's the callers responsibility
 // To ensure it doesn't break the trie.
 func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
-	if key.len == t.height {
-		keyFelt := key.Felt()
-		return t.Put(&keyFelt, node.Value)
-	}
+	// if key.len == t.height {
+	// 	keyFelt := key.Felt()
+	// 	return t.Put(&keyFelt, node.Value)
+	// }
 	if err := t.storage.Put(key, node); err != nil {
 		return nil, err
 	}

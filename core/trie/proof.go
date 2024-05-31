@@ -264,7 +264,7 @@ func VerifyRangeProof(root *felt.Felt, keys []*felt.Felt, values []*felt.Felt, p
 	return true, nil
 }
 
-// Only the path down to leaf Key will be set correctly. Not neightbouring keys
+// Only the path down to leaf Key will be set correctly. Not neighbouring keys
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]StorageNode, error) {
 
 	zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
@@ -306,6 +306,15 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 	offset := 0
 	// totalOffset := 0
 	for i <= len(proofNodes)-1 {
+
+		if len(pathNodes) > 0 {
+			if proofNodes[i].Edge != nil {
+				height = pathNodes[len(pathNodes)-1].key.len + proofNodes[i].Edge.Path.len
+			} else {
+				height = pathNodes[len(pathNodes)-1].key.len + 1
+			}
+		}
+
 		var crntKey *Key
 		crntNode := Node{}
 
@@ -347,7 +356,8 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 					crntNode.Right = &nilKey
 					crntNode.Left = &leafKey
 				}
-				offset++ // Hack
+				// offset++ // Hack
+				// height += proofNodes[i+int(squishedParent)+1].Edge.Path.len
 			} else {
 				qwe := getLen(&proofNodes[i+int(squishedParent)+1])
 				if leafKey.Test(leafKey.len - crntKey.len - 1) {
@@ -357,8 +367,12 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 					crntNode.Right = &nilKey
 					crntNode.Left = leafKey.SubKey(crntKey.len + qwe)
 				}
+				// height += 1
 			}
-		} else { // Point to leaf
+		} else { // Point to leaf (if is leaf then make leaf)
+			if proofNodes[i].Edge != nil && len(pathNodes) > 0 {
+				break
+			}
 			if leafKey.Test(leafKey.len - crntKey.len - 1) {
 				crntNode.Right = &leafKey
 				crntNode.Left = &nilKey
@@ -367,9 +381,16 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 				crntNode.Left = &leafKey
 			}
 		}
-		height = crntKey.len + 1
+
 		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
 		i += 1 + offset
+	}
+	// Add leaf
+	lastNode := pathNodes[len(pathNodes)-1].node
+	if lastNode.Left.Equal(&leafKey) || lastNode.Right.Equal(&leafKey) {
+		leafNode := Node{}
+		leafNode.Value = proofNodes[len(proofNodes)-1].Hash(hashF)
+		pathNodes = append(pathNodes, StorageNode{key: &leafKey, node: &leafNode})
 	}
 	return pathNodes, nil
 }
@@ -391,18 +412,23 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 	}
 
 	for _, sNode := range leftProof {
+		_, err := tempTrie.PutInner(sNode.key, sNode.node) // Correctly sets root.left here (len is correct)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, sNode := range rightProof { // Note setting the leaf..
 		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	for _, sNode := range rightProof {
-		_, err := tempTrie.PutInner(sNode.key, sNode.node)
-		if err != nil {
-			return nil, err
-		}
-	}
+	builtRootKey := tempTrie.RootKey()
+	builtRootNode, err := tempTrie.GetNodeFromKey(builtRootKey)         // correct
+	builtLeftNode, err := tempTrie.GetNodeFromKey(builtRootNode.Left)   // correct
+	builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right) // correct
 
 	for i := range len(keys) {
 		_, err := tempTrie.Put(keys[i], values[i])
@@ -410,5 +436,10 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 			return nil, err
 		}
 	}
+	builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)         // correct
+	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)   // leftPath gets overwritten...
+	builtRightNode, err = tempTrie.GetNodeFromKey(builtRootNode.Right) // correct
+	fmt.Println(builtLeftNode, builtRightNode)
+
 	return tempTrie, nil
 }
