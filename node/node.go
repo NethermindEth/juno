@@ -85,6 +85,8 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+
+	DisableSync bool `mapstructure:"disable-sync"`
 }
 
 type Node struct {
@@ -164,7 +166,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, p2pService)
 	}
 	if synchronizer != nil {
-		services = append(services, synchronizer)
+		if cfg.DisableSync {
+			log.Info("Sync is disabled")
+		} else {
+			services = append(services, synchronizer)
+		}
 	}
 
 	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))

@@ -165,6 +165,11 @@ const (
 	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
 	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests"
 	corsEnableUsage      = "Enable CORS on RPC endpoints"
+
+	// test flags for this branch only
+	disableSyncF        = "disable-sync"
+	defaultDisableSyncF = false
+	disableSyncUsage    = "Hack for native branch to disable sync from feeder gateway"
 )
 
 var Version string
@@ -345,6 +350,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
+	junoCmd.Flags().Bool(disableSyncF, defaultDisableSyncF, disableSyncUsage)
 	junoCmd.AddCommand(GenP2PKeyPair())
 
 	return junoCmd
