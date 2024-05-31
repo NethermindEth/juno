@@ -7,7 +7,7 @@ type HeightType = uint64
 
 type Gossiper interface {
 	SubmitMessageForBroadcast(msg interface{})   // adds a msg to be broadcast to the queue
-	SubmitMessage(msg interface{})               // takes a msg to be broadcast off the queue
+	SubmitMessage() interface{}                  // takes a msg to be broadcast off the queue
 	ReceiveMessageFromBroadcast(msg interface{}) // adds a msg received onto the queue
 	ReceiveMessage() interface{}                 // takes a msg received off the queue
 	ClearAll()

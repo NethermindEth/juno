@@ -50,37 +50,79 @@ func TestStateMachineCreation(t *testing.T) {
 
 // test state mutation
 
-func TestAsProposerStartRoundBroadCastsCurrentValueWhenValueAlreadyExists(t *testing.T) {
-
+func getDecider() *consensus.Decider {
+	panic("implement me")
 }
 
-func TestAsProposerStartRoundBroadCastsCorrectMessageWhenValueAlreadyExists(t *testing.T) {
-
+func getProposer() *consensus.Proposer {
+	panic("implement me")
 }
 
-func TestAsProposerStartRoundBroadCastsCorrectMessageWhenValueAlreadyExistsAndNo(t *testing.T) {
-
+func getGossiper() *consensus.Gossiper {
+	panic("implement me")
 }
 
-func TestAsProposerStartRoundCreatesAndBroadCastsValueWhenValueDoesNotExists(t *testing.T) {
-
+func getStateMachine(initialState *State, config *Config) *StateMachine {
+	var decider consensus.Decider
+	var proposer consensus.Proposer
+	var gossiper consensus.Gossiper
+	return newStateMachine(initialState, &gossiper, &decider, &proposer, config)
 }
 
-func TestAsProposerStartRoundBroadCastsCorrectMessageWhenValueDoesNotExists(t *testing.T) {
+func TestTransitionAsProposer(t *testing.T) {
+	// is proposer
+	t.Run("On start round sm broadcasts correct value if it already exists", func(t *testing.T) {
+		var value consensus.Proposable
+		var state *State = NewStateBuilder(&State{}).SetValidValue(&value).Build()
+		sm := getStateMachine(state, nil)
+		go sm.Run()
 
+		msg := (*sm.gossiper).SubmitMessage()
+		assert.NotNil(t, msg)
+	})
+
+	t.Run("On start round sm creates and broadcasts correct value if it does not exists", func(t *testing.T) {
+		sm := getStateMachine(nil, nil)
+		go sm.Run()
+
+		msg := (*sm.gossiper).SubmitMessage() // blocks unitll msg received or time out
+		assert.NotNil(t, msg)
+	})
 }
 
-func TestAsNonProposerStartRoundBroadCastsNothingWhenValueDoesNotExists(t *testing.T) {
+func TestTransitionAsNonProposer(t *testing.T) {
+	// is proposer
+	t.Run("On start round sm broadcasts Nothing if value already exists", func(t *testing.T) {
+		var value consensus.Proposable
+		var state *State = NewStateBuilder(&State{}).SetValidValue(&value).Build()
+		sm := getStateMachine(state, nil)
+		go sm.Run()
 
-}
+		msg := (*sm.gossiper).SubmitMessage()
+		assert.NotNil(t, msg)
+	})
 
-func TestAsNonProposerStartRoundBroadCastsNothingWhenValueExists(t *testing.T) {
+	t.Run("On start round sm broadcasts Nothing it does not exists", func(t *testing.T) {
+		sm := getStateMachine(nil, nil)
+		go sm.Run()
 
-}
+		msg := (*sm.gossiper).SubmitMessage() // blocks unitll msg received or time out
+		assert.NotNil(t, msg)
+	})
 
-func TestAsNonProposerStartRoundSchedulesTimeOut(t *testing.T) {
 	// a bit tricky might need to make timeout callback function a dependency for handle message function
 	// also timeout time is based on a function of the number of rounds so far.
+	t.Run("On start round schedules timout callback function", func(t *testing.T) {
+		sm := getStateMachine(nil, &Config{timeOutProposal: func(sm *StateMachine, height HeightType, round RoundType) {
+			(*sm.gossiper).SubmitMessageForBroadcast("timeout")
+		}})
+
+		go sm.Run()
+
+		msg := (*sm.gossiper).SubmitMessage() // blocks unitll msg received or time out
+		assert.NotNil(t, msg)
+		assert.Equal(t, "timeout", msg)
+	})
 }
 
 // test machine transitions (the bulk of the tests)

@@ -106,6 +106,7 @@ func (sm *StateMachine) HandleMessage(msgs []Message) error {
 		sm.handleProposalsWithPreVotes(msgs)
 		return nil
 	}
+
 	if msgs[0].msgType == MSG_PROPOSAL && msgs[1].msgType == MSG_PRECOMMIT {
 		invalidMsg = false
 
