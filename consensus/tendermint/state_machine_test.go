@@ -1,11 +1,52 @@
 package tendermint
 
-import "testing"
+import (
+	consensus "github.com/NethermindEth/juno/consensus/common"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"testing"
+)
 
 // TODO:  refactor tests  into groups the golang way.
 
 // Todo: need to specify that some messages must match current round and height
 // test state creation
+
+func TestStateMachineCreation(t *testing.T) {
+	t.Parallel()
+
+	var decider consensus.Decider
+	var proposer consensus.Proposer
+	var gossiper consensus.Gossiper
+
+	t.Run("Initial state with no decider panics", func(t *testing.T) {
+
+		require.Panics(t, func() {
+			NewStateMachine(&gossiper, nil, &proposer)
+		})
+	})
+
+	t.Run("Initial state with no proposer panics", func(t *testing.T) {
+
+		require.Panics(t, func() {
+			NewStateMachine(&gossiper, &decider, nil)
+		})
+	})
+
+	t.Run("Initial state with no gossiper panics", func(t *testing.T) {
+
+		require.Panics(t, func() {
+			NewStateMachine(nil, &decider, &proposer)
+		})
+	})
+
+	t.Run("creates state machine  successfully", func(t *testing.T) {
+		sm := NewStateMachine(&gossiper, &decider, &proposer)
+		assert.NotNil(t, sm.proposer)
+		assert.NotNil(t, sm.gossiper)
+		assert.NotNil(t, sm.decider)
+	})
+}
 
 // test state mutation
 
@@ -40,11 +81,6 @@ func TestAsNonProposerStartRoundBroadCastsNothingWhenValueExists(t *testing.T) {
 func TestAsNonProposerStartRoundSchedulesTimeOut(t *testing.T) {
 	// a bit tricky might need to make timeout callback function a dependency for handle message function
 	// also timeout time is based on a function of the number of rounds so far.
-}
-
-// test machine creation
-func TestStateMachineCreation(t *testing.T) {
-
 }
 
 // test machine transitions (the bulk of the tests)
