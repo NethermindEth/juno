@@ -392,6 +392,27 @@ func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[prot
 			})
 		}
 
+		for _, classHash := range diff.DeclaredV0Classes {
+			responses = append(responses, &spec.StateDiffsResponse{
+				StateDiffMessage: &spec.StateDiffsResponse_DeclaredClass{
+					DeclaredClass: &spec.DeclaredClass{
+						ClassHash:         core2p2p.AdaptHash(classHash),
+						CompiledClassHash: nil, // for cairo0 it's nil
+					},
+				},
+			})
+		}
+		for classHash, compiledHash := range diff.DeclaredV1Classes {
+			responses = append(responses, &spec.StateDiffsResponse{
+				StateDiffMessage: &spec.StateDiffsResponse_DeclaredClass{
+					DeclaredClass: &spec.DeclaredClass{
+						ClassHash:         core2p2p.AdaptHash(&classHash),
+						CompiledClassHash: core2p2p.AdaptHash(compiledHash),
+					},
+				},
+			})
+		}
+
 		return responses, nil
 	})
 }
