@@ -412,13 +412,13 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 	}
 
 	for _, sNode := range leftProof {
-		_, err := tempTrie.PutInner(sNode.key, sNode.node) // Correctly sets root.left here (len is correct)
+		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	for _, sNode := range rightProof { // Note setting the leaf..
+	for _, sNode := range rightProof {
 		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
@@ -431,13 +431,13 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 	builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right) // correct
 
 	for i := range len(keys) {
-		_, err := tempTrie.Put(keys[i], values[i])
+		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProof, rightProof) // This is where the issues arises
 		if err != nil {
 			return nil, err
 		}
 	}
 	builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)         // correct
-	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)   // leftPath gets overwritten...
+	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)   // leftPath was getting overwritten... now the right is (parent sibling)
 	builtRightNode, err = tempTrie.GetNodeFromKey(builtRootNode.Right) // correct
 	fmt.Println(builtLeftNode, builtRightNode)
 

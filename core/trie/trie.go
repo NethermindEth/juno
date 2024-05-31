@@ -257,6 +257,7 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent S
 }
 
 func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode) error {
+
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
 	newParent := &Node{}
@@ -339,8 +340,73 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 			// trying to insert 0 to a key that does not exist
 			return nil, nil // no-op
 		}
-
 		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling)
+		if err != nil {
+			return nil, err
+		}
+		return &old, nil
+	}
+}
+
+// Put updates the corresponding `value` for a `key`
+func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []StorageNode) (*felt.Felt, error) {
+	if key.Cmp(t.maxKey) > 0 {
+		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
+	}
+
+	old := felt.Zero
+	nodeKey := t.feltToKey(key)
+	node := &Node{
+		Value: value,
+	}
+
+	oldValue, err := t.updateLeaf(nodeKey, node, value)
+	// xor operation, because we don't want to return result if the error is nil and the old value is nil
+	if (err != nil) != (oldValue != nil) {
+		return oldValue, err
+	}
+
+	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		for _, n := range nodes {
+			nodePool.Put(n.node)
+		}
+	}()
+
+	// empty trie, make new value root
+	if len(nodes) == 0 {
+		return t.handleEmptyTrie(old, nodeKey, node, value)
+	} else {
+		// Since we short-circuit in leaf updates, we will only end up here for deletions
+		// Delete if key already exist
+		sibling := nodes[len(nodes)-1]
+		oldValue, err = t.deleteExistingKey(sibling, nodeKey, nodes)
+		// xor operation, because we don't want to return if the error is nil and the old value is nil
+		if (err != nil) != (oldValue != nil) {
+			return oldValue, err
+		} else if value.IsZero() {
+			// trying to insert 0 to a key that does not exist
+			return nil, nil // no-op
+		}
+
+		// todo : make less dumb
+		for i, proof := range lProofPath {
+			if proof.key.Equal(sibling.key) {
+				sibling = lProofPath[i+1]
+				break
+			}
+		}
+		for i, proof := range rProofPath {
+			if proof.key.Equal(sibling.key) {
+				sibling = rProofPath[i+1]
+				break
+			}
+		}
+
+		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling) // This doesn't play well with proof constructed tries..
 		if err != nil {
 			return nil, err
 		}
