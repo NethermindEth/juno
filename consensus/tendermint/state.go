@@ -32,9 +32,9 @@ type State struct {
 }
 
 func checkStep(step Step) {
-	if step != STEP_PROPOSE || step != STEP_PREVOTE || step != STEP_PRECOMMIT {
-		panic("Invalid - invalid step")
-	}
+	//if step != STEP_PROPOSE || step != STEP_PREVOTE || step != STEP_PRECOMMIT {
+	//	panic("Invalid - invalid step")
+	//}
 }
 
 func checkDecider(decider *consensus.Decider) {
