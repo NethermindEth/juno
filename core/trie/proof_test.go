@@ -528,13 +528,32 @@ func TestProofToPath(t *testing.T) {
 func TestBuildTrie(t *testing.T) {
 
 	t.Run("Simple binary trie proof to path", func(t *testing.T) {
+
+		// Dont compare values as these will need updated later
+		compareLeftRight := func(t *testing.T, want, got *trie.Node) {
+			require.Equal(t, want.Left, got.Left)
+			require.Equal(t, want.Right, got.Right)
+		}
+
+		//		Node (edge path 249)
+		//		/			\
+		//  Node (binary)	0x6 (leaf)
+		//	/	\
+		// 0x4	0x5 (leaf, leaf)
+
 		tri := build3KeyTrie(t)
 		rootKey := tri.RootKey()
+		rootCommitment, err := tri.Root()
+		require.NoError(t, err)
 		rootNode, err := tri.GetNodeFromKey(rootKey)
 		require.NoError(t, err)
 		leftNode, err := tri.GetNodeFromKey(rootNode.Left)
 		require.NoError(t, err)
 		rightNode, err := tri.GetNodeFromKey(rootNode.Right)
+		require.NoError(t, err)
+		leftleftNode, err := tri.GetNodeFromKey(leftNode.Left)
+		require.NoError(t, err)
+		leftrightNode, err := tri.GetNodeFromKey(leftNode.Right)
 		require.NoError(t, err)
 
 		key1 := new(felt.Felt).SetUint64(0)
@@ -560,37 +579,27 @@ func TestBuildTrie(t *testing.T) {
 		require.NoError(t, err)
 		builtRightNode, err := builtTrie.GetNodeFromKey(builtRootNode.Right) // looks correct
 		require.NoError(t, err)
+		builtLeftLeftNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Left) //  looks correct
+		require.NoError(t, err)
+		builtLeftRightNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Right) // looks correct
+		require.NoError(t, err)
 
 		require.Equal(t, rootKey, builtRootKey)
-		require.Equal(t, rootNode.Left, builtRootNode.Left)
-		require.Equal(t, rootNode.Right, builtRootNode.Right)
-		require.Equal(t, rootNode.Value.String(), builtRootNode.Value.String()) // Incorrect
-		require.Equal(t, leftNode, builtLeftNode)
-		require.Equal(t, rightNode, builtRightNode)
+		compareLeftRight(t, rootNode, builtRootNode)
+		compareLeftRight(t, leftNode, builtLeftNode)
+		compareLeftRight(t, rightNode, builtRightNode)
+		compareLeftRight(t, leftleftNode, builtLeftLeftNode)
+		compareLeftRight(t, leftrightNode, builtLeftRightNode)
+		require.Equal(t, leftleftNode.Value.String(), builtLeftLeftNode.Value.String(), "should be 0x4") // incorrect got..
+		require.Equal(t, leftrightNode.Value.String(), builtLeftRightNode.Value.String(), "should be 0x5")
+		require.Equal(t, rightNode.Value.String(), builtRightNode.Value.String(), "should be 0x6") // incorrect got..
 
-		// reconstructedRoot, err := reconstructedTrie.Root() // Todo: fails at updating dirty values..
-		// require.NoError(t, err)
-
-		// expectedRoot, err := tri.Root()
-		// require.NoError(t, err)
+		// If the trie has the correct structure, and each nodes left/right is correct, and the leaf nodes have the correct
+		// Values, then we should be able to reconstruct the correct root commitment
+		reconstructedRootCommitment, err := builtTrie.Root() // Todo: need to force rehashing all nodes (since all are modified)??
+		require.NoError(t, err)
+		fmt.Println(reconstructedRootCommitment.String())
+		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String()) // Incorrect
 
 	})
 }
-
-// func PrettyPrint(tri *trie.Trie, key *trie.Key) {
-// 	nodes, _ := tri.GetNodeFromKey(key)
-
-// 	fmt.Println("")
-// 	fmt.Printf("    Key: %v\n", key)
-// 	fmt.Printf("    Left: %v\n", nodes.Left)
-// 	fmt.Printf("    Right: %v\n", nodes.Right)
-// 	fmt.Printf("    Value: %v\n", nodes.Value)
-// 	fmt.Println("")
-
-// 	if nodes.Left.Len() < 251 {
-// 		PrettyPrint(tri, nodes.Left)
-// 	}
-// 	if nodes.Right.Len() < 250 {
-// 		PrettyPrint(tri, nodes.Right)
-// 	}
-// }

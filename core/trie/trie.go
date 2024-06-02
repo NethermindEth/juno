@@ -418,19 +418,14 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 }
 
 // Put updates the corresponding `value` for a `key`
-// Note only a single node is modified. It's the callers responsibility
-// To ensure it doesn't break the trie.
 func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
-	// if key.len == t.height {
-	// 	keyFelt := key.Felt()
-	// 	return t.Put(&keyFelt, node.Value)
-	// }
 	if err := t.storage.Put(key, node); err != nil {
 		return nil, err
 	}
 	if t.rootKey == nil {
 		t.setRootKey(key)
 	}
+	// t.dirtyNodes = append(t.dirtyNodes, key) // todo: update everything?
 	return &felt.Zero, nil
 }
 
