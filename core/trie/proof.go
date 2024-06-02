@@ -431,13 +431,14 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 	builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right) // correct
 
 	for i := range len(keys) {
-		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProof, rightProof) // This is where the issues arises
+		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProof, rightProof) // This is where the issues arises (right gets overwritten)
 		if err != nil {
 			return nil, err
 		}
 	}
+	builtRootKey = tempTrie.RootKey()
 	builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)         // correct
-	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)   // leftPath was getting overwritten... now the right is (parent sibling)
+	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)   // correct
 	builtRightNode, err = tempTrie.GetNodeFromKey(builtRootNode.Right) // correct
 	fmt.Println(builtLeftNode, builtRightNode)
 

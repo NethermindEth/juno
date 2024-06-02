@@ -147,10 +147,9 @@ func build3KeyTrie(t *testing.T) *trie.Trie {
 	_, err = tempTrie.Put(key1, value1)
 	require.NoError(t, err)
 
-	_, err = tempTrie.Put(key2, value2)
-	require.NoError(t, err)
-
 	_, err = tempTrie.Put(key3, value3)
+	require.NoError(t, err)
+	_, err = tempTrie.Put(key2, value2)
 	require.NoError(t, err)
 
 	require.NoError(t, tempTrie.Commit())
@@ -557,7 +556,7 @@ func TestBuildTrie(t *testing.T) {
 		builtRootKey := builtTrie.RootKey()
 		builtRootNode, err := builtTrie.GetNodeFromKey(builtRootKey) // looks correct
 		require.NoError(t, err)
-		builtLeftNode, err := builtTrie.GetNodeFromKey(builtRootNode.Left) // left len gets incorrectly overwritten
+		builtLeftNode, err := builtTrie.GetNodeFromKey(builtRootNode.Left) //  looks correct
 		require.NoError(t, err)
 		builtRightNode, err := builtTrie.GetNodeFromKey(builtRootNode.Right) // looks correct
 		require.NoError(t, err)
@@ -565,7 +564,7 @@ func TestBuildTrie(t *testing.T) {
 		require.Equal(t, rootKey, builtRootKey)
 		require.Equal(t, rootNode.Left, builtRootNode.Left)
 		require.Equal(t, rootNode.Right, builtRootNode.Right)
-		require.Equal(t, rootNode.Value.String(), builtRootNode.Value.String())
+		require.Equal(t, rootNode.Value.String(), builtRootNode.Value.String()) // Incorrect
 		require.Equal(t, leftNode, builtLeftNode)
 		require.Equal(t, rightNode, builtRightNode)
 

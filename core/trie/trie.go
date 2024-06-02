@@ -267,7 +267,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		newParent.Left, newParent.Right = sibling.key, nodeKey
 		leftChild, rightChild = sibling.node, node
 	} else {
-		newParent.Left, newParent.Right = nodeKey, sibling.key
+		newParent.Left, newParent.Right = nodeKey, sibling.key //
 		leftChild, rightChild = node, sibling.node
 	}
 
@@ -279,15 +279,16 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		return err
 	}
 
-	if len(nodes) > 1 { // sibling has a parent
+	// Don't modify the structure outlined by the proof paths
+	if len(nodes) > 1 && !sibling.node.IsProof { // sibling has a parent
 		siblingParent := (nodes)[len(nodes)-2]
 
-		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent)
+		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent) // error with overwritting right arises here
 		if err := t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
 			return err
 		}
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
-	} else {
+	} else if !sibling.node.IsProof {
 		t.setRootKey(&commonKey)
 	}
 
@@ -396,12 +397,14 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 		for i, proof := range lProofPath {
 			if proof.key.Equal(sibling.key) {
 				sibling = lProofPath[i+1]
+				sibling.node.IsProof = true
 				break
 			}
 		}
 		for i, proof := range rProofPath {
 			if proof.key.Equal(sibling.key) {
 				sibling = rProofPath[i+1]
+				sibling.node.IsProof = true
 				break
 			}
 		}
