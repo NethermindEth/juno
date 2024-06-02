@@ -304,9 +304,7 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 
 	i := 0
 	offset := 0
-	// totalOffset := 0
 	for i <= len(proofNodes)-1 {
-
 		if len(pathNodes) > 0 {
 			if proofNodes[i].Edge != nil {
 				height = pathNodes[len(pathNodes)-1].key.len + proofNodes[i].Edge.Path.len
@@ -387,9 +385,16 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 	}
 	// Add leaf
 	lastNode := pathNodes[len(pathNodes)-1].node
+	lastProof := proofNodes[len(proofNodes)-1]
 	if lastNode.Left.Equal(&leafKey) || lastNode.Right.Equal(&leafKey) {
 		leafNode := Node{}
-		leafNode.Value = proofNodes[len(proofNodes)-1].Hash(hashF)
+		if lastProof.Edge != nil {
+			leafNode.Value = lastProof.Edge.Child
+		} else if lastNode.Left.Equal(&leafKey) {
+			leafNode.Value = lastProof.Binary.LeftHash
+		} else {
+			leafNode.Value = lastProof.Binary.RightHash
+		}
 		pathNodes = append(pathNodes, StorageNode{key: &leafKey, node: &leafNode})
 	}
 	return pathNodes, nil
@@ -413,6 +418,7 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys []*felt.Felt, values []
 
 	for _, sNode := range leftProof {
 		_, err := tempTrie.PutInner(sNode.key, sNode.node)
+		fmt.Println(sNode.node.Value.String()) // Lead value is incorrect
 		if err != nil {
 			return nil, err
 		}

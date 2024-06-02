@@ -425,7 +425,6 @@ func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
 	if t.rootKey == nil {
 		t.setRootKey(key)
 	}
-	// t.dirtyNodes = append(t.dirtyNodes, key) // todo: update everything?
 	return &felt.Zero, nil
 }
 

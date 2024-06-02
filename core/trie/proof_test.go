@@ -562,6 +562,7 @@ func TestBuildTrie(t *testing.T) {
 		require.NoError(t, err)
 
 		leftProof, err := trie.ProofToPath(bProofs[0], key1, crypto.Pedersen) // correct
+		fmt.Println(leftProof[len(leftProof)-1].Node().Value.String())        // correct
 		require.NoError(t, err)
 
 		rightProof, err := trie.ProofToPath(bProofs[1], key3, crypto.Pedersen) // correct
@@ -584,18 +585,20 @@ func TestBuildTrie(t *testing.T) {
 		builtLeftRightNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Right) // looks correct
 		require.NoError(t, err)
 
-		require.Equal(t, rootKey, builtRootKey)
-		compareLeftRight(t, rootNode, builtRootNode)
-		compareLeftRight(t, leftNode, builtLeftNode)
-		compareLeftRight(t, rightNode, builtRightNode)
-		compareLeftRight(t, leftleftNode, builtLeftLeftNode)
-		compareLeftRight(t, leftrightNode, builtLeftRightNode)
-		require.Equal(t, leftleftNode.Value.String(), builtLeftLeftNode.Value.String(), "should be 0x4") // incorrect got..
-		require.Equal(t, leftrightNode.Value.String(), builtLeftRightNode.Value.String(), "should be 0x5")
-		require.Equal(t, rightNode.Value.String(), builtRightNode.Value.String(), "should be 0x6") // incorrect got..
+		// Assert the structure is correct
+		require.Equal(t, rootKey, builtRootKey)                // correct
+		compareLeftRight(t, rootNode, builtRootNode)           // correct
+		compareLeftRight(t, leftNode, builtLeftNode)           // correct
+		compareLeftRight(t, rightNode, builtRightNode)         // correct
+		compareLeftRight(t, leftleftNode, builtLeftLeftNode)   // correct
+		compareLeftRight(t, leftrightNode, builtLeftRightNode) // correct
 
-		// If the trie has the correct structure, and each nodes left/right is correct, and the leaf nodes have the correct
-		// Values, then we should be able to reconstruct the correct root commitment
+		// Assert the leaf nodes have the correct values
+		require.Equal(t, leftleftNode.Value.String(), builtLeftLeftNode.Value.String(), "should be 0x4")   // correct
+		require.Equal(t, leftrightNode.Value.String(), builtLeftRightNode.Value.String(), "should be 0x5") // correct
+		require.Equal(t, rightNode.Value.String(), builtRightNode.Value.String(), "should be 0x6")         // correct
+
+		// Given the above two asserts pass, we should be able to reconstruct the correct commitment
 		reconstructedRootCommitment, err := builtTrie.Root() // Todo: need to force rehashing all nodes (since all are modified)??
 		require.NoError(t, err)
 		fmt.Println(reconstructedRootCommitment.String())
