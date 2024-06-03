@@ -1,7 +1,10 @@
 package p2p2core
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/NethermindEth/juno/db"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -9,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(contractDiffs []*spec.ContractDiff, classes []*spec.Class) *core.StateDiff {
+func AdaptStateDiff(reader core.StateReader, contractDiffs []*spec.ContractDiff, classes []*spec.Class) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
@@ -48,7 +51,16 @@ func AdaptStateDiff(contractDiffs []*spec.ContractDiff, classes []*spec.Class) *
 				classHash: diff.ClassHash,
 			}
 
-			if false {
+			stateClassHash, err := reader.ContractClassHash(address)
+			if err != nil {
+				if errors.Is(err, db.ErrKeyNotFound) {
+					stateClassHash = &felt.Zero
+				} else {
+					panic(err)
+				}
+			}
+
+			if !stateClassHash.IsZero() {
 				replacedClasses = append(replacedClasses, addrToClsHash)
 			} else {
 				deployedContracts = append(deployedContracts, addrToClsHash)

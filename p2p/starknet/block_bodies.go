@@ -132,7 +132,6 @@ type contractDiff struct {
 	storageDiffs map[felt.Felt]*felt.Felt
 	nonce        *felt.Felt
 	classHash    *felt.Felt // set only if contract deployed or replaced
-	replaced     *bool      // set only if contract deployed or replaced
 }
 
 func (b *blockBodyIterator) diff() (proto.Message, bool) {

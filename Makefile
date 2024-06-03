@@ -135,7 +135,6 @@ node3:
 	--metrics-port=9093
 
 pathfinder: juno-cached
-	rm -rf ./p2p-dbs/node-pathfinder/ && \
 	./build/juno \
     	--network=sepolia \
     	--log-level=debug \

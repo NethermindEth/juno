@@ -406,11 +406,18 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			// Update but there is no such message in P2P.
 
 			spew.Dump("Classes", coreBlock.Number, len(classes))
+
+			stateReader, stateCloser, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
+			if err != nil {
+				panic(err)
+			}
+			defer stateCloser()
+
 			stateUpdate := &core.StateUpdate{
 				BlockHash: coreBlock.Hash,
 				NewRoot:   coreBlock.GlobalStateRoot,
 				OldRoot:   prevBlockRoot,
-				StateDiff: p2p2core.AdaptStateDiff(contractDiffs, classes),
+				StateDiff: p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes),
 			}
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
@@ -643,7 +650,6 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 
 		var events []*spec.Event
 		eventsIt(func(res *spec.EventsResponse) bool {
-			fmt.Println("EVENT ITERATION", res.EventMessage)
 			switch v := res.EventMessage.(type) {
 			case *spec.EventsResponse_Event:
 				events = append(events, v.Event)

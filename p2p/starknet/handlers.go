@@ -256,29 +256,6 @@ func (h *Handler) onEventsRequest(req *spec.EventsRequest) (iter.Seq[proto.Messa
 	})
 }
 
-/*
-func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (iter.Seq[proto.Message], error) {
-	finMsg := &spec.ReceiptsResponse{ReceiptMessage: &spec.ReceiptsResponse_Fin{}}
-	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
-		block, err := it.Block()
-		if err != nil {
-			return nil, err
-		}
-
-		responses := make([]proto.Message, len(block.Receipts))
-		for i, receipt := range block.Receipts {
-			responses[i] = &spec.ReceiptsResponse{
-				ReceiptMessage: &spec.ReceiptsResponse_Receipt{
-					Receipt: core2p2p.AdaptReceipt(receipt, block.Transactions[i]),
-				},
-			}
-		}
-
-		return responses, nil
-	})
-}
-*/
-
 func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.TransactionsResponse{
 		TransactionMessage: &spec.TransactionsResponse_Fin{},
@@ -365,7 +342,6 @@ func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[prot
 			classHashCopy := classHash
 			err = updateModifiedContracts(addr, func(diff *contractDiff) {
 				diff.classHash = classHashCopy
-				diff.replaced = utils.Ptr(false)
 			})
 			if err != nil {
 				return nil, err
@@ -376,7 +352,6 @@ func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[prot
 			classHashCopy := classHash
 			err = updateModifiedContracts(addr, func(diff *contractDiff) {
 				diff.classHash = classHashCopy
-				diff.replaced = utils.Ptr(true)
 			})
 			if err != nil {
 				return nil, err
@@ -387,7 +362,7 @@ func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[prot
 		for _, c := range modifiedContracts {
 			responses = append(responses, &spec.StateDiffsResponse{
 				StateDiffMessage: &spec.StateDiffsResponse_ContractDiff{
-					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, c.classHash, c.replaced, c.storageDiffs),
+					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, c.classHash, c.storageDiffs),
 				},
 			})
 		}
