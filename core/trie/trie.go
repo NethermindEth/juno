@@ -290,6 +290,8 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 	} else if !sibling.node.IsProof {
 		t.setRootKey(&commonKey)
+	} else {
+		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 	}
 
 	if err := t.storage.Put(nodeKey, node); err != nil {
@@ -476,8 +478,11 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 	leftPath := path(node.Left, key)
 	rightPath := path(node.Right, key)
 
+	fmt.Println("--", node.Value.String())
+	fmt.Println("--", leftChild.Value.String())
+	fmt.Println("--", rightChild.Value.String())
 	node.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
-
+	fmt.Println("--", node.Value)
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
 	}

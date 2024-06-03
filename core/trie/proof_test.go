@@ -616,42 +616,43 @@ func TestBuildTrie(t *testing.T) {
 		printNode(rootNode, "root")
 		printNode(builtRootNode, "root")
 
-		printNode(leftNode, "left")
-		printNode(builtLeftNode, "left")
+		// printNode(leftNode, "left")
+		// printNode(builtLeftNode, "left")
 
-		printNode(rightNode, "right")
-		printNode(builtRightNode, "right")
+		// printNode(rightNode, "right")
+		// printNode(builtRightNode, "right")
 
-		printNode(leftleftNode, "left left")
-		printNode(builtLeftLeftNode, "left left")
+		// printNode(leftleftNode, "left left")
+		// printNode(builtLeftLeftNode, "left left")
 
-		printNode(leftrightNode, "left right")
-		printNode(builtLeftRightNode, "left right")
+		// printNode(leftrightNode, "left right")
+		// printNode(builtLeftRightNode, "left right")
 
-		hashF := crypto.Pedersen
+		// hashF := crypto.Pedersen
 
-		builtRootNode.Value = rootNode.Value // Todo : remove
+		// builtRootNode.Value = rootNode.Value // Todo : remove
 
-		fmt.Println("rootCommitment", rootCommitment)
+		// fmt.Println("rootCommitment", rootCommitment)
 
-		nodeValue := hashF(leftNode.Hash(rootNode.Left, hashF), rightNode.Hash(rootNode.Right, hashF))
-		fmt.Println("root val", nodeValue.String())
-		qwe := rootNode.Hash(rootKey, hashF)
-		fmt.Println("qwe", qwe.String())
+		// nodeValue := hashF(leftNode.Hash(rootNode.Left, hashF), rightNode.Hash(rootNode.Right, hashF))
+		// fmt.Println("root val", nodeValue.String())
+		// qwe := rootNode.Hash(rootKey, hashF)
+		// fmt.Println("qwe", qwe.String())
 
-		nodeValue2 := hashF(builtLeftNode.Hash(builtRootNode.Left, hashF), builtRightNode.Hash(builtRootNode.Right, hashF))
-		fmt.Println("built root val", nodeValue2.String())
-		manualReconstructedCommitment := builtRootNode.Hash(builtRootKey, hashF)
-		fmt.Println("built manualReconstructedCommitment", manualReconstructedCommitment.String())
+		// nodeValue2 := hashF(builtLeftNode.Hash(builtRootNode.Left, hashF), builtRightNode.Hash(builtRootNode.Right, hashF))
+		// fmt.Println("built root val", nodeValue2.String())
+		// manualReconstructedCommitment := builtRootNode.Hash(builtRootKey, hashF)
+		// fmt.Println("built manualReconstructedCommitment", manualReconstructedCommitment.String())
 
-		fmt.Println("rootKey", rootKey)
-		fmt.Println("builtRootKey", builtRootKey)
+		// fmt.Println("rootKey", rootKey)
+		// fmt.Println("builtRootKey", builtRootKey)
 
 		// Given the above two asserts pass, we should be able to reconstruct the correct commitment
 		reconstructedRootCommitment, err := builtTrie.Root() // Todo: need to force rehashing all nodes (since all are modified)??
 		require.NoError(t, err)
-		fmt.Println(reconstructedRootCommitment.String())
-		require.Equal(t, rootCommitment.String(), manualReconstructedCommitment.String()) // Incorrect
+		printNode(builtRootNode, "builtRootNode")
 
+		fmt.Println(reconstructedRootCommitment.String())
+		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String()) // Correct
 	})
 }
