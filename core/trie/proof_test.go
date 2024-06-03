@@ -78,7 +78,7 @@ func buildSimpleBinaryRootTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie {
+func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie { //nolint:dupl
 	// Build trie
 	memdb := pebble.NewMemTest(t)
 	txn, err := memdb.NewTransaction(true)
@@ -108,8 +108,7 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-func build3KeyTrie(t *testing.T) *trie.Trie {
-
+func build3KeyTrie(t *testing.T) *trie.Trie { //nolint:dupl
 	// 			Starknet
 	//
 	//			Edge
@@ -411,14 +410,13 @@ func TestVerifyProofs(t *testing.T) {
 
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
-		key1 := utils.HexToFelt(t, "0x4")   // Non-existant key
+		key1 := utils.HexToFelt(t, "0x4")   // Non-existent key
 		val1 := new(felt.Felt).SetUint64(2) // key=0 has val=2
 		assert.False(t, trie.VerifyProof(root, key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
 }
 
 func TestProofToPath(t *testing.T) {
-
 	t.Run("Simple binary trie proof to path", func(t *testing.T) {
 		// Todo check leaf
 		tempTrie := buildSimpleTrie(t)
@@ -451,7 +449,7 @@ func TestProofToPath(t *testing.T) {
 		require.NotEqual(t, rootNodes.Right, sns[0].Node().Right)
 	})
 
-	t.Run("Simple doulbe binary trie proof to path", func(t *testing.T) {
+	t.Run("Simple double binary trie proof to path", func(t *testing.T) {
 		// Todo: check leaf
 		tempTrie := buildSimpleBinaryRootTrie(t)
 
@@ -522,32 +520,14 @@ func TestProofToPath(t *testing.T) {
 		require.Equal(t, rootKey, rightProofPath[0].Key())
 		require.Equal(t, rootNode.Right, rightProofPath[0].Node().Right)
 		require.NotEqual(t, rootNode.Left, rightProofPath[0].Node().Left)
-
 	})
 }
+
 func TestBuildTrie(t *testing.T) {
-
 	t.Run("Simple binary trie proof to path", func(t *testing.T) {
-
-		// Dont compare values as these will need updated later
 		compareLeftRight := func(t *testing.T, want, got *trie.Node) {
 			require.Equal(t, want.Left, got.Left)
 			require.Equal(t, want.Right, got.Right)
-		}
-
-		printNode := func(want *trie.Node, desc string) {
-			fmt.Println("---------", desc, "---------")
-			if want.Left != nil {
-				fmt.Println("Left", want.Left.String())
-			}
-
-			if want.Right != nil {
-				fmt.Println("Right", want.Right.String())
-			}
-			if want.Value != nil {
-				fmt.Println("Value", want.Value.String())
-			}
-			fmt.Println("---------")
 		}
 
 		//		Node (edge path 249)
@@ -601,58 +581,21 @@ func TestBuildTrie(t *testing.T) {
 		require.NoError(t, err)
 
 		// Assert the structure is correct
-		require.Equal(t, rootKey, builtRootKey)                // correct
-		compareLeftRight(t, rootNode, builtRootNode)           // correct
-		compareLeftRight(t, leftNode, builtLeftNode)           // correct
-		compareLeftRight(t, rightNode, builtRightNode)         // correct
-		compareLeftRight(t, leftleftNode, builtLeftLeftNode)   // correct
-		compareLeftRight(t, leftrightNode, builtLeftRightNode) // correct
+		require.Equal(t, rootKey, builtRootKey)
+		compareLeftRight(t, rootNode, builtRootNode)
+		compareLeftRight(t, leftNode, builtLeftNode)
+		compareLeftRight(t, rightNode, builtRightNode)
+		compareLeftRight(t, leftleftNode, builtLeftLeftNode)
+		compareLeftRight(t, leftrightNode, builtLeftRightNode)
 
 		// Assert the leaf nodes have the correct values
-		require.Equal(t, leftleftNode.Value.String(), builtLeftLeftNode.Value.String(), "should be 0x4")   // correct
-		require.Equal(t, leftrightNode.Value.String(), builtLeftRightNode.Value.String(), "should be 0x5") // correct
-		require.Equal(t, rightNode.Value.String(), builtRightNode.Value.String(), "should be 0x6")         // correct
-
-		printNode(rootNode, "root")
-		printNode(builtRootNode, "root")
-
-		// printNode(leftNode, "left")
-		// printNode(builtLeftNode, "left")
-
-		// printNode(rightNode, "right")
-		// printNode(builtRightNode, "right")
-
-		// printNode(leftleftNode, "left left")
-		// printNode(builtLeftLeftNode, "left left")
-
-		// printNode(leftrightNode, "left right")
-		// printNode(builtLeftRightNode, "left right")
-
-		// hashF := crypto.Pedersen
-
-		// builtRootNode.Value = rootNode.Value // Todo : remove
-
-		// fmt.Println("rootCommitment", rootCommitment)
-
-		// nodeValue := hashF(leftNode.Hash(rootNode.Left, hashF), rightNode.Hash(rootNode.Right, hashF))
-		// fmt.Println("root val", nodeValue.String())
-		// qwe := rootNode.Hash(rootKey, hashF)
-		// fmt.Println("qwe", qwe.String())
-
-		// nodeValue2 := hashF(builtLeftNode.Hash(builtRootNode.Left, hashF), builtRightNode.Hash(builtRootNode.Right, hashF))
-		// fmt.Println("built root val", nodeValue2.String())
-		// manualReconstructedCommitment := builtRootNode.Hash(builtRootKey, hashF)
-		// fmt.Println("built manualReconstructedCommitment", manualReconstructedCommitment.String())
-
-		// fmt.Println("rootKey", rootKey)
-		// fmt.Println("builtRootKey", builtRootKey)
+		require.Equal(t, leftleftNode.Value.String(), builtLeftLeftNode.Value.String(), "should be 0x4")
+		require.Equal(t, leftrightNode.Value.String(), builtLeftRightNode.Value.String(), "should be 0x5")
+		require.Equal(t, rightNode.Value.String(), builtRightNode.Value.String(), "should be 0x6")
 
 		// Given the above two asserts pass, we should be able to reconstruct the correct commitment
-		reconstructedRootCommitment, err := builtTrie.Root() // Todo: need to force rehashing all nodes (since all are modified)??
+		reconstructedRootCommitment, err := builtTrie.Root()
 		require.NoError(t, err)
-		printNode(builtRootNode, "builtRootNode")
-
-		fmt.Println(reconstructedRootCommitment.String())
-		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String()) // Correct
+		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String())
 	})
 }

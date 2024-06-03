@@ -82,6 +82,7 @@ func TestTriePut(t *testing.T) {
 		}))
 	})
 }
+
 func TestTriePutInner(t *testing.T) {
 	t.Run("put node to empty trie", func(t *testing.T) {
 		memdb := pebble.NewMemTest(t)
@@ -112,6 +113,7 @@ func TestTriePutInner(t *testing.T) {
 		require.Equal(t, node, *gotNode)
 	})
 }
+
 func TestTrieDeleteBasic(t *testing.T) {
 	// left branch
 	leftKeyNum, err := strconv.ParseUint("100", 2, 64)

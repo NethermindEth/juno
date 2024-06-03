@@ -23,29 +23,6 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
-func (k1 *Key) commonPrefix(k2 Key) Key {
-	minLen := k1.len
-	if k2.len < minLen {
-		minLen = k2.len
-	}
-	commonKey := Key{len: minLen}
-	for i := uint8(0); i < minLen; i++ {
-		if k1.bitset[i] == k2.bitset[i] {
-			commonKey.bitset[i] = k1.bitset[i]
-		} else {
-			commonKey.len = i
-			break
-		}
-	}
-	return commonKey
-}
-
-// cmp compares two keys. It returns -1 if k < other, 0 if k == other, and 1 if k > other.
-// note: assumes keys are of equal length
-func (k *Key) cmp(other *Key) int {
-	return bytes.Compare(k.bitset[:], other.bitset[:])
-}
-
 func (k *Key) SubKey(n uint8) *Key {
 	if n > k.len {
 		panic("n is greater than the length of the key")
@@ -101,9 +78,6 @@ func (k *Key) EncodedLen() uint {
 
 func (k *Key) Len() uint8 {
 	return k.len
-}
-func (k *Key) Bitset() [32]byte {
-	return k.bitset
 }
 
 func (k *Key) Felt() felt.Felt {
