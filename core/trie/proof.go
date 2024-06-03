@@ -178,7 +178,10 @@ func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashF
 	remainingPath := key
 
 	for _, proofNode := range proofs {
+		fmt.Println(remainingPath)
 		if !proofNode.Hash(hash).Equal(expectedHash) {
+			fmt.Println(proofNode.Hash(hash))
+			fmt.Println(expectedHash)
 			return false
 		}
 		switch {
@@ -194,11 +197,28 @@ func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashF
 				return false
 			}
 			expectedHash = proofNode.Edge.Child
-			remainingPath.Truncate(proofNode.Edge.Path.Len())
+			remainingPath.Truncate(remainingPath.len - proofNode.Edge.Path.Len())
 		}
 	}
 
 	return expectedHash.Equal(value)
+}
+
+func ensureMonotonicIncreasing(proofKeys [2]*felt.Felt, keys []*felt.Felt) error {
+	if proofKeys[0].Cmp(keys[0]) >= 0 {
+		return errors.New("range is not monotonically increasing")
+	}
+	if keys[len(keys)-1].Cmp(proofKeys[1]) >= 0 {
+		return errors.New("range is not monotonically increasing")
+	}
+	if len(keys) > 2 {
+		for i := range keys[0 : len(keys)-2] {
+			if keys[i].Cmp(keys[i+1]) >= 0 {
+				return errors.New("range is not monotonically increasing")
+			}
+		}
+	}
+	return nil
 }
 
 // VerifyRangeProof verifies the range proof for the given range of keys.
@@ -207,34 +227,32 @@ func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashF
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
 // and therefore it's hash will be incorrect.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-// Note: this currently assumes that the inner keys do not contain the min/max key (ie both proofs exist) // Todo
-// The first/last key and value must correspond to the left/right proofs //Todo we currently assume both proofs are provided, as above
-func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofs [2][]ProofNode,
-	proofKeys [2]*felt.Felt, hash hashFunc,
+func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
+	proofValues [2]*felt.Felt, proofs [2][]ProofNode, hash hashFunc,
 ) (bool, error) {
 	// Step 0: checks
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
 	}
+
 	// Ensure all keys are monotonic increasing
-	for i := range keys[0 : len(keys)-2] {
-		if keys[i].Cmp(keys[i+1]) >= 0 {
-			return false, errors.New("range is not monotonically increasing")
-		}
+	if err := ensureMonotonicIncreasing(proofKeys, keys); err != nil {
+		return false, err
 	}
+
 	// Ensure the inner values contain no deletions
-	for _, value := range values[1 : len(values)-2] {
+	for _, value := range values {
 		if value.Equal(&felt.Zero) {
 			return false, errors.New("range contains deletion")
 		}
 	}
 
 	// Step 1: Verify the two boundary proofs
-	if !VerifyProof(root, keys[0], values[0], proofs[0], hash) {
-		return false, fmt.Errorf("invalid proof for key %x", keys[0])
+	if !VerifyProof(root, proofKeys[0], proofValues[0], proofs[0], hash) {
+		return false, fmt.Errorf("invalid proof for key %x", proofKeys[0].String())
 	}
-	if !VerifyProof(root, keys[len(keys)-1], values[len(values)-1], proofs[1], hash) {
-		return false, fmt.Errorf("invalid proof for key %x", keys[len(keys)-1])
+	if !VerifyProof(root, proofKeys[1], proofValues[1], proofs[1], hash) {
+		return false, fmt.Errorf("invalid proof for key %x", proofKeys[1].String())
 	}
 
 	// Step 2: Get proof paths

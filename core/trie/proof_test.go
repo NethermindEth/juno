@@ -387,6 +387,42 @@ func TestVerifyProofs(t *testing.T) {
 		val1 := new(felt.Felt).SetUint64(2)
 		assert.True(t, trie.VerifyProof(root, new(felt.Felt).SetUint64(0), val1, expectedProofNodes, crypto.Pedersen))
 	})
+
+	t.Run("three key trie", func(t *testing.T) {
+		tempTrie := build3KeyTrie(t)
+		zero := trie.NewKey(249, []byte{0})
+		felt2 := new(felt.Felt).SetUint64(0).Bytes()
+		lastPath := trie.NewKey(1, felt2[:])
+		expectedProofNodes := []trie.ProofNode{
+			{
+				Edge: &trie.Edge{
+					Path:  &zero,
+					Child: utils.HexToFelt(t, "0x0768DEB8D0795D80AAAC2E5E326141F33044759F97A1BF092D8EB9C4E4BE9234"),
+				},
+			},
+			{
+				Binary: &trie.Binary{
+					LeftHash:  utils.HexToFelt(t, "0x057166F9476D0A2D6875124251841EB85A9AE37462FAE3CBF7304BCD593938E7"),
+					RightHash: utils.HexToFelt(t, "0x060FBDE29F96F706498EFD132DC7F312A4C99A9AE051BF152C2AF2B3CAF31E5B"),
+				},
+			},
+			{
+				Edge: &trie.Edge{
+					Path:  &lastPath,
+					Child: utils.HexToFelt(t, "0x6"),
+				},
+			},
+		}
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+		val6 := new(felt.Felt).SetUint64(6)
+
+		gotProof, err := trie.GetProof(new(felt.Felt).SetUint64(2), tempTrie)
+		require.NoError(t, err)
+		require.Equal(t, expectedProofNodes, gotProof)
+		assert.True(t, trie.VerifyProof(root, new(felt.Felt).SetUint64(2), val6, expectedProofNodes, crypto.Pedersen))
+	})
 }
 
 func TestProofToPath(t *testing.T) {
@@ -563,5 +599,28 @@ func TestBuildTrie(t *testing.T) {
 		reconstructedRootCommitment, err := builtTrie.Root()
 		require.NoError(t, err)
 		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String())
+	})
+}
+
+func TestVerifyRangeProof(t *testing.T) {
+	t.Run("Simple binary trie proof to path", func(t *testing.T) {
+		//		Node (edge path 249)
+		//		/			\
+		//  Node (binary)	0x6 (leaf)
+		//	/	\
+		// 0x4	0x5 (leaf, leaf)
+
+		tri := build3KeyTrie(t)
+		keys := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		values := []*felt.Felt{new(felt.Felt).SetUint64(5)}
+		proofKeys := [2]*felt.Felt{new(felt.Felt).SetUint64(0), new(felt.Felt).SetUint64(2)}
+		proofValues := [2]*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(6)}
+		rootCommitment, err := tri.Root()
+		require.NoError(t, err)
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
+		require.NoError(t, err)
+		require.True(t, verif)
 	})
 }
