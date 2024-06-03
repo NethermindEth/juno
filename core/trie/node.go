@@ -9,10 +9,9 @@ import (
 
 // A Node represents a node in the [Trie]
 type Node struct {
-	Value   *felt.Felt
-	Left    *Key
-	Right   *Key
-	IsProof bool
+	Value *felt.Felt
+	Left  *Key
+	Right *Key
 }
 
 // Hash calculates the hash of a [Node]

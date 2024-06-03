@@ -295,7 +295,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 	return nil
 }
 
-func (t *Trie) insertOrUpdateValueProof(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode) error {
+func (t *Trie) insertOrUpdateValueProof(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, isProof bool) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
 	newParent := &Node{}
@@ -318,7 +318,7 @@ func (t *Trie) insertOrUpdateValueProof(nodeKey *Key, node *Node, nodes []Storag
 	}
 
 	// Don't modify the structure outlined by the proof paths
-	if len(nodes) > 1 && !sibling.node.IsProof { // sibling has a parent
+	if len(nodes) > 1 && !isProof { // sibling has a parent
 		siblingParent := (nodes)[len(nodes)-2]
 
 		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent) // error with overwritting right arises here
@@ -326,7 +326,7 @@ func (t *Trie) insertOrUpdateValueProof(nodeKey *Key, node *Node, nodes []Storag
 			return err
 		}
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
-	} else if !sibling.node.IsProof {
+	} else if !isProof {
 		t.setRootKey(&commonKey)
 	} else {
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
@@ -433,11 +433,11 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 			return nil, nil // no-op
 		}
 
-		found := false
+		IsProof, found := false, false
 		for i, proof := range lProofPath {
 			if proof.key.Equal(sibling.key) {
 				sibling = lProofPath[i+1]
-				sibling.node.IsProof = true
+				IsProof = true
 				found = true
 				break
 			}
@@ -446,13 +446,13 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 			for i, proof := range rProofPath {
 				if proof.key.Equal(sibling.key) {
 					sibling = rProofPath[i+1]
-					sibling.node.IsProof = true
+					IsProof = true
 					break
 				}
 			}
 		}
 
-		err := t.insertOrUpdateValueProof(&nodeKey, node, nodes, sibling)
+		err := t.insertOrUpdateValueProof(&nodeKey, node, nodes, sibling, IsProof)
 		if err != nil {
 			return nil, err
 		}
@@ -519,11 +519,7 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 	leftPath := path(node.Left, key)
 	rightPath := path(node.Right, key)
 
-	fmt.Println("--", node.Value.String())
-	fmt.Println("--", leftChild.Value.String())
-	fmt.Println("--", rightChild.Value.String())
 	node.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
-	fmt.Println("--", node.Value)
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
 	}

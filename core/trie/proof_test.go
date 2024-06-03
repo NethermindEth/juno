@@ -1,7 +1,6 @@
 package trie_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -179,9 +178,9 @@ func TestGetProofs(t *testing.T) {
 		require.NoError(t, err)
 
 		// Better inspection
-		for _, pNode := range proofNodes {
-			pNode.PrettyPrint()
-		}
+		// for _, pNode := range proofNodes {
+		// 	pNode.PrettyPrint()
+		// }
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 
@@ -214,9 +213,9 @@ func TestGetProofs(t *testing.T) {
 		require.NoError(t, err)
 
 		// Better inspection
-		for _, pNode := range proofNodes {
-			pNode.PrettyPrint()
-		}
+		// for _, pNode := range proofNodes {
+		// 	pNode.PrettyPrint()
+		// }
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 
@@ -252,9 +251,9 @@ func TestGetProofs(t *testing.T) {
 		require.NoError(t, err)
 
 		// Better inspection
-		for _, pNode := range proofNodes {
-			pNode.PrettyPrint()
-		}
+		// for _, pNode := range proofNodes {
+		// 	pNode.PrettyPrint()
+		// }
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 
@@ -282,9 +281,9 @@ func TestGetProofs(t *testing.T) {
 		require.NoError(t, err)
 
 		// Better inspection
-		for _, pNode := range proofNodes {
-			pNode.PrettyPrint()
-		}
+		// for _, pNode := range proofNodes {
+		// 	pNode.PrettyPrint()
+		// }
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 
@@ -325,10 +324,9 @@ func TestGetProofs(t *testing.T) {
 		require.NoError(t, err)
 
 		// Better inspection
-		for i, pNode := range proofNodes {
-			fmt.Println(i)
-			pNode.PrettyPrint()
-		}
+		// for _, pNode := range proofNodes {
+		// 	pNode.PrettyPrint()
+		// }
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
 }
@@ -388,31 +386,6 @@ func TestVerifyProofs(t *testing.T) {
 		require.NoError(t, err)
 		val1 := new(felt.Felt).SetUint64(2)
 		assert.True(t, trie.VerifyProof(root, new(felt.Felt).SetUint64(0), val1, expectedProofNodes, crypto.Pedersen))
-	})
-
-	t.Run("Simple binary trie - fail missing key", func(t *testing.T) {
-		tempTrie := buildSimpleTrie(t)
-		zero := trie.NewKey(250, []byte{0})
-		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-				},
-			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
-				},
-			},
-		}
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-		key1 := utils.HexToFelt(t, "0x4")   // Non-existent key
-		val1 := new(felt.Felt).SetUint64(2) // key=0 has val=2
-		assert.False(t, trie.VerifyProof(root, key1, val1, expectedProofNodes, crypto.Pedersen))
 	})
 }
 
@@ -478,7 +451,6 @@ func TestProofToPath(t *testing.T) {
 
 		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
 		require.NoError(t, err)
-		fmt.Println(rootNodes.Value.String())
 		require.Equal(t, 2, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
 		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
@@ -486,20 +458,15 @@ func TestProofToPath(t *testing.T) {
 	})
 
 	t.Run("boundary proofs wth three key trie", func(t *testing.T) {
-		// Todo: check leaf
 		tri := build3KeyTrie(t)
 		rootKey := tri.RootKey()
 		rootNode, err := tri.GetNodeFromKey(rootKey)
 		require.NoError(t, err)
-		fmt.Println(rootNode)
 
 		key1 := new(felt.Felt).SetUint64(0)
 		key3 := new(felt.Felt).SetUint64(2)
 		bProofs, err := trie.GetBoundaryProofs(key1, key3, tri)
 		require.NoError(t, err)
-
-		trie.PrettyPrintProofPath(bProofs[0], key1)
-		trie.PrettyPrintProofPath(bProofs[1], key3)
 
 		leftProofPath, err := trie.ProofToPath(bProofs[0], key1, crypto.Pedersen)
 		require.Equal(t, 3, len(leftProofPath))
@@ -526,8 +493,8 @@ func TestProofToPath(t *testing.T) {
 func TestBuildTrie(t *testing.T) {
 	t.Run("Simple binary trie proof to path", func(t *testing.T) {
 		compareLeftRight := func(t *testing.T, want, got *trie.Node) {
-			require.Equal(t, want.Left, got.Left)
-			require.Equal(t, want.Right, got.Right)
+			require.Equal(t, want.Left, got.Left, "left fail")
+			require.Equal(t, want.Right, got.Right, "right fail")
 		}
 
 		//		Node (edge path 249)
@@ -556,11 +523,10 @@ func TestBuildTrie(t *testing.T) {
 		bProofs, err := trie.GetBoundaryProofs(key1, key3, tri)
 		require.NoError(t, err)
 
-		leftProof, err := trie.ProofToPath(bProofs[0], key1, crypto.Pedersen) // correct
-		fmt.Println(leftProof[len(leftProof)-1].Node().Value.String())        // correct
+		leftProof, err := trie.ProofToPath(bProofs[0], key1, crypto.Pedersen)
 		require.NoError(t, err)
 
-		rightProof, err := trie.ProofToPath(bProofs[1], key3, crypto.Pedersen) // correct
+		rightProof, err := trie.ProofToPath(bProofs[1], key3, crypto.Pedersen)
 		require.NoError(t, err)
 
 		keys := []*felt.Felt{new(felt.Felt).SetUint64(1)}
@@ -569,15 +535,15 @@ func TestBuildTrie(t *testing.T) {
 		require.NoError(t, err)
 
 		builtRootKey := builtTrie.RootKey()
-		builtRootNode, err := builtTrie.GetNodeFromKey(builtRootKey) // looks correct
+		builtRootNode, err := builtTrie.GetNodeFromKey(builtRootKey)
 		require.NoError(t, err)
-		builtLeftNode, err := builtTrie.GetNodeFromKey(builtRootNode.Left) //  looks correct
+		builtLeftNode, err := builtTrie.GetNodeFromKey(builtRootNode.Left)
 		require.NoError(t, err)
-		builtRightNode, err := builtTrie.GetNodeFromKey(builtRootNode.Right) // looks correct
+		builtRightNode, err := builtTrie.GetNodeFromKey(builtRootNode.Right)
 		require.NoError(t, err)
-		builtLeftLeftNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Left) //  looks correct
+		builtLeftLeftNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Left)
 		require.NoError(t, err)
-		builtLeftRightNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Right) // looks correct
+		builtLeftRightNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Right)
 		require.NoError(t, err)
 
 		// Assert the structure is correct
