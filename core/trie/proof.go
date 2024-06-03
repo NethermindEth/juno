@@ -29,6 +29,13 @@ func (pn *ProofNode) Hash(hash hashFunc) *felt.Felt {
 	}
 }
 
+func (pn *ProofNode) Len() uint8 {
+	if pn.Binary != nil {
+		return 1
+	}
+	return pn.Edge.Path.len
+}
+
 func (pn *ProofNode) PrettyPrint() {
 	if pn.Binary != nil {
 		fmt.Printf("  Binary:\n")
@@ -43,22 +50,63 @@ func (pn *ProofNode) PrettyPrint() {
 	}
 }
 
-func PrettyPrintProofPath(proofPath []ProofNode, key *felt.Felt) {
-	fmt.Println("---------------- proof to ", key.String(), " ------------")
-	for _, node := range proofPath {
-		node.PrettyPrint()
-	}
-}
-
 type Binary struct {
 	LeftHash  *felt.Felt
 	RightHash *felt.Felt
 }
 
 type Edge struct {
-	Child *felt.Felt // Child hash
+	Child *felt.Felt // child hash
 	Path  *Key       // path from parent to child
 	Value *felt.Felt // this nodes hash
+}
+
+// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
+func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
+	leafKey := tri.feltToKey(leaf)
+	nodesToLeaf, err := tri.nodesFromRoot(&leafKey)
+	if err != nil {
+		return nil, err
+	}
+	proofNodes := []ProofNode{}
+
+	var parentKey *Key
+
+	for i := 0; i < len(nodesToLeaf); i++ {
+		sNode := nodesToLeaf[i]
+		sNodeEdge, sNodeBinary, err := adaptNodeToSnap(tri, parentKey, sNode)
+		if err != nil {
+			return nil, err
+		}
+		isLeaf := sNode.key.len == tri.height
+
+		if sNodeEdge != nil && !isLeaf { // Internal Edge
+			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}, {Binary: sNodeBinary}}...)
+		} else if sNodeEdge == nil && !isLeaf { // Internal Binary
+			proofNodes = append(proofNodes, []ProofNode{{Binary: sNodeBinary}}...)
+		} else if sNodeEdge != nil && isLeaf { // Leaf Edge
+			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}}...)
+		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
+			break
+		}
+		parentKey = nodesToLeaf[i].key
+	}
+	return proofNodes, nil
+}
+
+func GetBoundaryProofs(leftBoundary, rightBoundary *felt.Felt, tri *Trie) ([2][]ProofNode, error) {
+	proofs := [2][]ProofNode{}
+	leftProof, err := GetProof(leftBoundary, tri)
+	if err != nil {
+		return proofs, err
+	}
+	rightProof, err := GetProof(rightBoundary, tri)
+	if err != nil {
+		return proofs, err
+	}
+	proofs[0] = leftProof
+	proofs[1] = rightProof
+	return proofs, nil
 }
 
 func isEdge(parentKey *Key, sNode StorageNode) bool {
@@ -120,54 +168,6 @@ func adaptNodeToSnap(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Bina
 	return edge, binary, nil
 }
 
-// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
-func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
-	leafKey := tri.feltToKey(leaf)
-	nodesToLeaf, err := tri.nodesFromRoot(&leafKey)
-	if err != nil {
-		return nil, err
-	}
-	proofNodes := []ProofNode{}
-
-	var parentKey *Key
-
-	for i := 0; i < len(nodesToLeaf); i++ {
-		sNode := nodesToLeaf[i]
-		sNodeEdge, sNodeBinary, err := adaptNodeToSnap(tri, parentKey, sNode)
-		if err != nil {
-			return nil, err
-		}
-		isLeaf := sNode.key.len == tri.height
-
-		if sNodeEdge != nil && !isLeaf { // Internal Edge
-			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}, {Binary: sNodeBinary}}...)
-		} else if sNodeEdge == nil && !isLeaf { // Internal Binary
-			proofNodes = append(proofNodes, []ProofNode{{Binary: sNodeBinary}}...)
-		} else if sNodeEdge != nil && isLeaf { // Leaf Edge
-			proofNodes = append(proofNodes, []ProofNode{{Edge: sNodeEdge}}...)
-		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
-			break
-		}
-		parentKey = nodesToLeaf[i].key
-	}
-	return proofNodes, nil
-}
-
-func GetBoundaryProofs(leftBoundary, rightBoundary *felt.Felt, tri *Trie) ([2][]ProofNode, error) {
-	proofs := [2][]ProofNode{}
-	leftProof, err := GetProof(leftBoundary, tri)
-	if err != nil {
-		return proofs, err
-	}
-	rightProof, err := GetProof(rightBoundary, tri)
-	if err != nil {
-		return proofs, err
-	}
-	proofs[0] = leftProof
-	proofs[1] = rightProof
-	return proofs, nil
-}
-
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
@@ -178,10 +178,7 @@ func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashF
 	remainingPath := key
 
 	for _, proofNode := range proofs {
-		fmt.Println(remainingPath)
 		if !proofNode.Hash(hash).Equal(expectedHash) {
-			fmt.Println(proofNode.Hash(hash))
-			fmt.Println(expectedHash)
 			return false
 		}
 		switch {
@@ -204,23 +201,6 @@ func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashF
 	return expectedHash.Equal(value)
 }
 
-func ensureMonotonicIncreasing(proofKeys [2]*felt.Felt, keys []*felt.Felt) error {
-	if proofKeys[0].Cmp(keys[0]) >= 0 {
-		return errors.New("range is not monotonically increasing")
-	}
-	if keys[len(keys)-1].Cmp(proofKeys[1]) >= 0 {
-		return errors.New("range is not monotonically increasing")
-	}
-	if len(keys) > 2 {
-		for i := range keys[0 : len(keys)-2] {
-			if keys[i].Cmp(keys[i+1]) >= 0 {
-				return errors.New("range is not monotonically increasing")
-			}
-		}
-	}
-	return nil
-}
-
 // VerifyRangeProof verifies the range proof for the given range of keys.
 // This is achieved by constructing a trie from the boundary proofs, and the supplied key-values.
 // If the root of the reconstructed trie matches the supplied root, then the verification passes.
@@ -232,7 +212,7 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
 ) (bool, error) {
 	// Step 0: checks
 	if len(keys) != len(values) {
-		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
+		return false, fmt.Errorf("inconsistent proof data, number of keys: %d, number of values: %d", len(keys), len(values))
 	}
 
 	// Ensure all keys are monotonic increasing
@@ -284,78 +264,83 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
 	return true, nil
 }
 
-func shouldSquish(parent, child *ProofNode) (uint8, uint8) {
-	if parent == nil || child == nil {
+func ensureMonotonicIncreasing(proofKeys [2]*felt.Felt, keys []*felt.Felt) error {
+	if proofKeys[0].Cmp(keys[0]) >= 0 {
+		return errors.New("range is not monotonically increasing")
+	}
+	if keys[len(keys)-1].Cmp(proofKeys[1]) >= 0 {
+		return errors.New("range is not monotonically increasing")
+	}
+	if len(keys) > 2 {
+		for i := range keys[0 : len(keys)-2] {
+			if keys[i].Cmp(keys[i+1]) >= 0 {
+				return errors.New("range is not monotonically increasing")
+			}
+		}
+	}
+	return nil
+}
+
+// shouldSquish determines if the node needs compressed, and if so, the len needed to arrive at the next key
+func shouldSquish(idx int, proofNodes []ProofNode) (int, uint8) {
+	parent := &proofNodes[idx]
+	var child *ProofNode
+	// The child is nil of the current node is a leaf
+	if idx != len(proofNodes)-1 {
+		child = &proofNodes[idx+1]
+	}
+
+	if child == nil {
 		return 0, 0
 	}
-	if parent.Edge != nil {
-		if child.Binary != nil {
-			return 1, parent.Edge.Path.len
-		}
-		return 0, 0
+
+	if parent.Edge != nil && child.Binary != nil {
+		return 1, parent.Edge.Path.len
 	}
-	if parent.Binary != nil {
-		if child.Edge != nil {
-			return 1, child.Edge.Path.len
-		}
-		return 0, 0
+
+	if parent.Binary != nil && child.Edge != nil {
+		return 1, child.Edge.Path.len
 	}
 
 	return 0, 0
 }
 
-func getLen(pNode *ProofNode) uint8 {
-	if pNode.Binary != nil {
-		return 1
-	}
-	return pNode.Edge.Path.len
-}
-
-// Only the path down to leaf Key will be set correctly. Not neighbouring keys
+// ProofToPath returns the set of storage nodes along the proofNodes towards the leaf.
+// Note that only the nodes and children along this path will be set correctly.
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]StorageNode, error) {
-	zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
-	nilKey := NewKey(0, zeroFeltBytes[:]) // Hack: we can't store nil keys..
-
+	pathNodes := []StorageNode{}
 	leafBytes := leaf.Bytes()
 	leafKey := NewKey(251, leafBytes[:]) //nolint:gomnd
-	height := uint8(0)
-	pathNodes := []StorageNode{}
 
-	i := 0
-	offset := 0
+	// Hack: this allows us to store a right without an existing left node.
+	zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+	nilKey := NewKey(0, zeroFeltBytes[:])
+
+	i, offset := 0, 0
 	for i <= len(proofNodes)-1 {
-		if len(pathNodes) > 0 {
-			if proofNodes[i].Edge != nil {
-				height = pathNodes[len(pathNodes)-1].key.len + proofNodes[i].Edge.Path.len
-			} else {
-				height = pathNodes[len(pathNodes)-1].key.len + 1
-			}
-		}
-
 		var crntKey *Key
 		crntNode := Node{}
 
-		nxtProofNode := ProofNode{}
-		// Last node (should be binary, last edge accounted for elsewhere)
-		if i != len(proofNodes)-1 {
-			nxtProofNode = proofNodes[i+1]
-		}
-		// Set Key of current node
-		squishedParent, squishParentOffset := shouldSquish(&proofNodes[i], &nxtProofNode)
+		height := getHeight(i, pathNodes, proofNodes)
+
+		// Set the key of the current node
+		squishedParent, squishParentOffset := shouldSquish(i, proofNodes)
 		if proofNodes[i].Binary != nil {
 			crntKey = leafKey.SubKey(height)
 		} else {
 			crntKey = leafKey.SubKey(height + squishParentOffset)
 		}
-		offset += int(squishedParent)
+		offset += squishedParent
 
-		// Set value
+		// Set the value of the current node
 		crntNode.Value = proofNodes[i].Hash(hashF)
 
-		// Check if there is a left/right node that we need to account for as well
-		if i+2+int(squishedParent) < len(proofNodes)-1 {
-			squishedChild, squishChildOffset := shouldSquish(&proofNodes[i+1+int(squishedParent)], &proofNodes[i+2+int(squishedParent)])
-			childKey := leafKey.SubKey(height + squishParentOffset + squishChildOffset + squishedChild)
+		// Set the children of the current node
+		// The child may need compressed. If so, point to its compressed form.
+		childIdx := i + squishedParent + 1
+		if i+2+squishedParent < len(proofNodes)-1 {
+			squishedChild, squishChildOffset := shouldSquish(childIdx, proofNodes)
+			childKey := leafKey.SubKey(height + squishParentOffset + squishChildOffset + uint8(squishedChild))
 			if leafKey.Test(leafKey.len - crntKey.len - 1) {
 				crntNode.Right = childKey
 				crntNode.Left = &nilKey
@@ -363,9 +348,8 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 				crntNode.Right = &nilKey
 				crntNode.Left = childKey
 			}
-		} else if i+1+offset == len(proofNodes)-1 { // i+1+offset is the final node
-			// If the (squished) child is an edge, then squish
-			if proofNodes[i+int(squishedParent)+1].Edge != nil {
+		} else if i+1+offset == len(proofNodes)-1 { // The child (i+1+offset) is the final (pre/non-leaf) node.
+			if proofNodes[childIdx].Edge != nil {
 				if leafKey.Test(leafKey.len - crntKey.len - 1) {
 					crntNode.Right = &leafKey
 					crntNode.Left = &nilKey
@@ -374,17 +358,15 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 					crntNode.Left = &leafKey
 				}
 			} else {
-				qwe := getLen(&proofNodes[i+int(squishedParent)+1])
 				if leafKey.Test(leafKey.len - crntKey.len - 1) {
-					crntNode.Right = leafKey.SubKey(crntKey.len + qwe)
+					crntNode.Right = leafKey.SubKey(crntKey.len + proofNodes[childIdx].Len())
 					crntNode.Left = &nilKey
 				} else {
 					crntNode.Right = &nilKey
-					crntNode.Left = leafKey.SubKey(crntKey.len + qwe)
+					crntNode.Left = leafKey.SubKey(crntKey.len + proofNodes[childIdx].Len())
 				}
-				// height += 1
 			}
-		} else { // Point to leaf (if is leaf then make leaf)
+		} else { // The current node points to the leaf
 			if proofNodes[i].Edge != nil && len(pathNodes) > 0 {
 				break
 			}
@@ -404,6 +386,21 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 	return pathNodes, nil
 }
 
+// getHeight returns the height of the current node, which depends on the previous
+// height and whether the current proofnode is edge or binary
+func getHeight(idx int, pathNodes []StorageNode, proofNodes []ProofNode) uint8 {
+	if len(pathNodes) > 0 {
+		if proofNodes[idx].Edge != nil {
+			return pathNodes[len(pathNodes)-1].key.len + proofNodes[idx].Edge.Path.len
+		} else {
+			return pathNodes[len(pathNodes)-1].key.len + 1
+		}
+	} else {
+		return 0
+	}
+}
+
+// addLeafNode appends the leaf node, if the final node in pathNodes points to a leaf.
 func addLeafNode(proofNodes []ProofNode, pathNodes []StorageNode, leafKey *Key) []StorageNode {
 	lastNode := pathNodes[len(pathNodes)-1].node
 	lastProof := proofNodes[len(proofNodes)-1]
@@ -422,29 +419,30 @@ func addLeafNode(proofNodes []ProofNode, pathNodes []StorageNode, leafKey *Key) 
 }
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
-func BuildTrie(leftProof, rightProof []StorageNode, keys, values []*felt.Felt) (*Trie, error) {
+func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt.Felt) (*Trie, error) {
 	tempTrie, err := NewTriePedersen(newMemStorage(), 251) //nolint:gomnd
 	if err != nil {
 		return nil, err
 	}
 
-	for i := range min(len(leftProof), len(rightProof)) {
-		if leftProof[i].key.Equal(rightProof[i].key) {
-			leftProof[i].node.Right = rightProof[i].node.Right
-			rightProof[i].node.Left = leftProof[i].node.Left
+	// merge proof paths
+	for i := range min(len(leftProofPath), len(rightProofPath)) {
+		if leftProofPath[i].key.Equal(rightProofPath[i].key) {
+			leftProofPath[i].node.Right = rightProofPath[i].node.Right
+			rightProofPath[i].node.Left = leftProofPath[i].node.Left
 		} else {
 			break
 		}
 	}
 
-	for _, sNode := range leftProof {
+	for _, sNode := range leftProofPath {
 		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	for _, sNode := range rightProof {
+	for _, sNode := range rightProofPath {
 		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
@@ -452,7 +450,7 @@ func BuildTrie(leftProof, rightProof []StorageNode, keys, values []*felt.Felt) (
 	}
 
 	for i := range len(keys) {
-		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProof, rightProof)
+		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProofPath, rightProofPath)
 		if err != nil {
 			return nil, err
 		}

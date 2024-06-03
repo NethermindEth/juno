@@ -255,47 +255,7 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent S
 	}
 }
 
-func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode) error {
-	commonKey, _ := findCommonKey(nodeKey, sibling.key)
-
-	newParent := &Node{}
-	var leftChild, rightChild *Node
-
-	if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
-		newParent.Left, newParent.Right = sibling.key, nodeKey
-		leftChild, rightChild = sibling.node, node
-	} else {
-		newParent.Left, newParent.Right = nodeKey, sibling.key //
-		leftChild, rightChild = node, sibling.node
-	}
-
-	leftPath := path(newParent.Left, &commonKey)
-	rightPath := path(newParent.Right, &commonKey)
-
-	newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
-	if err := t.storage.Put(&commonKey, newParent); err != nil {
-		return err
-	}
-
-	if len(nodes) > 1 { // sibling has a parent
-		siblingParent := (nodes)[len(nodes)-2]
-
-		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent) // error with overwritting right arises here
-		if err := t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
-			return err
-		}
-		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
-	} else {
-		t.setRootKey(&commonKey)
-	}
-
-	if err := t.storage.Put(nodeKey, node); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t *Trie) insertOrUpdateValueProof(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, isProof bool) error {
+func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, isProof bool) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
 	newParent := &Node{}
@@ -381,7 +341,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 			// trying to insert 0 to a key that does not exist
 			return nil, nil // no-op
 		}
-		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling)
+		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, false)
 		if err != nil {
 			return nil, err
 		}
@@ -452,7 +412,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 			}
 		}
 
-		err := t.insertOrUpdateValueProof(&nodeKey, node, nodes, sibling, IsProof)
+		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, IsProof)
 		if err != nil {
 			return nil, err
 		}
