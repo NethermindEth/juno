@@ -49,6 +49,7 @@ func AdaptSierraClass(class *core.Cairo1Class) *starknet.SierraDefinition {
 	handlers := utils.Map(utils.NonNilSlice(class.EntryPoints.L1Handler), adapt)
 
 	return &starknet.SierraDefinition{
+		Abi:     class.Abi,
 		Version: class.SemanticVersion,
 		Program: class.Program,
 		EntryPoints: starknet.SierraEntryPoints{

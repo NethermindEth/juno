@@ -68,6 +68,7 @@ func receiptCommon(r *core.TransactionReceipt) *spec.Receipt_Common {
 		MessagesSent:       utils.Map(r.L2ToL1Message, AdaptMessageToL1),
 		ExecutionResources: AdaptExecutionResources(r.ExecutionResources),
 		RevertReason:       r.RevertReason,
+		ConsumedMessage:    nil, // todo(kirill) recheck
 	}
 }
 
@@ -93,6 +94,7 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 			RangeCheck: uint32(er.BuiltinInstanceCounter.RangeCheck),
 			Poseidon:   uint32(er.BuiltinInstanceCounter.Poseidon),
 			Keccak:     uint32(er.BuiltinInstanceCounter.Keccak),
+			Output:     uint32(er.BuiltinInstanceCounter.Output),
 		},
 		Steps:       uint32(er.Steps),
 		MemoryHoles: uint32(er.MemoryHoles),
