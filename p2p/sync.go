@@ -194,8 +194,8 @@ func (s *syncService) start(ctx context.Context) {
 				break
 			}
 
-			s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(), "root",
-				b.block.GlobalStateRoot.ShortString())
+			s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(),
+				"root", b.block.GlobalStateRoot.ShortString())
 			s.listener.OnSyncStepDone(junoSync.OpStore, b.block.Number, time.Since(storeTimer))
 		}
 		cancelIteration()
@@ -253,12 +253,12 @@ func (s *syncService) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debugw("Received Block Header and Signatures", "blockNumber", p.blockNumber())
+					s.log.Debugw("Received Block Header with signatures", "blockNumber", p.blockNumber())
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
-					s.log.Debugw("Received Transactions", "blockNumber", p.blockNumber())
+					s.log.Debugw("Received Transactions with receipts", "blockNumber", p.blockNumber(), "txLen", len(p.txs))
 					if _, ok := specTransactionsM[part.blockNumber()]; !ok {
 						specTransactionsM[part.blockNumber()] = p
 					}
@@ -370,12 +370,24 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)
 
 			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
-				spew.Dump("Number of transactions != count", coreBlock)
-				os.Exit(1)
+				s.log.Errorw(
+					"Number of transactions != count",
+					"transactionCount",
+					coreBlock.TransactionCount,
+					"len(transactions)",
+					len(coreBlock.Transactions),
+				)
+				return
 			}
 			if int(coreBlock.EventCount) != len(events) {
-				spew.Dump("Number of events != count", coreBlock, events)
-				os.Exit(1)
+				s.log.Errorw(
+					"Number of events != count",
+					"eventCount",
+					coreBlock.EventCount,
+					"len(events)",
+					len(events),
+				)
+				return
 			}
 
 			h, err := core.BlockHash(coreBlock)
@@ -404,8 +416,6 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			// Build State update
 			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
 			// Update but there is no such message in P2P.
-
-			spew.Dump("Classes", coreBlock.Number, len(classes))
 
 			stateReader, stateCloser, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
 			if err != nil {
@@ -668,7 +678,6 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 			number: blockNumber,
 			events: events,
 		}:
-			spew.Dump("Received events from client", len(events), blockNumber)
 		}
 	}()
 	return eventsCh, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
@@ -14,7 +15,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const unmarshalMaxSize = 15 * utils.Megabyte
+const (
+	unmarshalMaxSize = 15 * utils.Megabyte
+	readTimeout      = 5 * time.Second
+)
 
 type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Stream, error)
 
@@ -59,6 +63,11 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		return nil, err
 	}
 
+	err = stream.SetReadDeadline(time.Now().Add(readTimeout))
+	if err != nil {
+		return nil, err
+	}
+
 	id := stream.ID()
 	if err := sendAndCloseWrite(stream, req); err != nil {
 		log.Errorw("sendAndCloseWrite (stream is not closed)", "err", err, "streamID", id)
@@ -77,7 +86,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 			var zero ResT
 			res := zero.ProtoReflect().New().Interface()
 			if err := receiveInto(stream, res); err != nil {
-				if true || !errors.Is(err, io.EOF) {
+				if !errors.Is(err, io.EOF) {
 					log.Debugw("Error while reading from stream", "err", err)
 				}
 

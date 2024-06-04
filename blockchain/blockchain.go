@@ -342,7 +342,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
-		spew.Dump("DUMP", block.Number, stateUpdate)
+		// spew.Dump("DUMP", block.Number, stateUpdate)
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
