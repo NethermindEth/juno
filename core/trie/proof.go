@@ -207,8 +207,8 @@ func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashF
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
 // and therefore it's hash will be incorrect.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
-	proofValues [2]*felt.Felt, proofs [2][]ProofNode, hash hashFunc,
+func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys, proofValues [2]*felt.Felt,
+	proofs [2][]ProofNode, hash hashFunc,
 ) (bool, error) {
 	// Step 0: checks
 	if len(keys) != len(values) {
@@ -243,7 +243,7 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
 
 	if proofs[1] != nil {
 		if !VerifyProof(root, proofKeys[1], proofValues[1], proofs[1], hash) {
-			return false, fmt.Errorf("invalid proof for key %x", proofKeys[1].String())
+			return false, fmt.Errorf("invalid proof for key %x", proofKeys[0].String())
 		}
 
 		lastProofPath, err = ProofToPath(proofs[1], proofKeys[1], hash)
@@ -268,7 +268,6 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
 	}
 
 	return true, nil
-
 }
 
 func ensureMonotonicIncreasing(proofKeys [2]*felt.Felt, keys []*felt.Felt) error {

@@ -665,4 +665,25 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, verif)
 	})
+
+	t.Run("right proof, all left keys", func(t *testing.T) {
+		//		Node (edge path 249)
+		//		/			\
+		//  Node (binary)	0x6 (leaf)
+		//	/	\
+		// 0x4	0x5 (leaf, leaf)
+		tri := build3KeyTrie(t)
+		keys := []*felt.Felt{new(felt.Felt).SetUint64(0), new(felt.Felt).SetUint64(1)}
+		values := []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(5)}
+		proofKeys := [2]*felt.Felt{nil, new(felt.Felt).SetUint64(2)}
+		proofValues := [2]*felt.Felt{nil, new(felt.Felt).SetUint64(6)}
+		rightProof, err := trie.GetProof(proofKeys[1], tri)
+		require.NoError(t, err)
+		proofs := [2][]trie.ProofNode{nil, rightProof}
+		rootCommitment, err := tri.Root()
+		require.NoError(t, err)
+		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
+		require.NoError(t, err)
+		require.True(t, verif)
+	})
 }
