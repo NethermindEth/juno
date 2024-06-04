@@ -72,7 +72,15 @@ func buildSimpleBinaryRootTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie {
+func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []trie.ProofNode) {
+	//           (249,0,x3)         // Edge
+	//               |
+	//           (0, 0, x3)         // Binary
+	//         /            \
+	//     (0,0,x1) // B  (1, 1, 5) // Edge leaf
+	//      /    \             |
+	//     (2)  (3)           (5)
+
 	// Build trie
 	memdb := pebble.NewMemTest(t)
 	txn, err := memdb.NewTransaction(true)
@@ -99,10 +107,35 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) *trie.Trie {
 	require.NoError(t, err)
 
 	require.NoError(t, tempTrie.Commit())
-	return tempTrie
+
+	zero := trie.NewKey(249, []byte{0})
+	key3Bytes := new(felt.Felt).SetUint64(1).Bytes()
+	path3 := trie.NewKey(1, key3Bytes[:])
+	expectedProofNodes := []trie.ProofNode{
+		{
+			Edge: &trie.Edge{
+				Path:  &zero,
+				Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
+			},
+		},
+		{
+			Binary: &trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+				RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
+			},
+		},
+		{
+			Edge: &trie.Edge{
+				Path:  &path3,
+				Child: value3,
+			},
+		},
+	}
+
+	return tempTrie, expectedProofNodes
 }
 
-func TestGetProofs(t *testing.T) {
+func TestGetProof(t *testing.T) {
 	t.Run("Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
 
@@ -121,8 +154,9 @@ func TestGetProofs(t *testing.T) {
 				},
 			},
 		}
-
-		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
+		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofNodes, err := trie.GetProof(&leafKey, tempTrie)
 		require.NoError(t, err)
 
 		// Better inspection
@@ -133,31 +167,18 @@ func TestGetProofs(t *testing.T) {
 	})
 
 	t.Run("Simple Trie - simple double binary", func(t *testing.T) {
-		tempTrie := buildSimpleDoubleBinaryTrie(t)
+		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
 
-		zero := trie.NewKey(249, []byte{0})
-		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
-				},
-			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-					RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
-				},
-			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
-				},
+		expectedProofNodes[2] = trie.ProofNode{
+			Binary: &trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+				RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 			},
 		}
 
-		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
+		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofNodes, err := trie.GetProof(&leafKey, tempTrie)
 		require.NoError(t, err)
 
 		// Better inspection
@@ -168,34 +189,10 @@ func TestGetProofs(t *testing.T) {
 	})
 
 	t.Run("Simple Trie - simple double binary edge", func(t *testing.T) {
-		tempTrie := buildSimpleDoubleBinaryTrie(t)
-
-		zero := trie.NewKey(249, []byte{0})
-		value3 := new(felt.Felt).SetUint64(5)
-		key3Bytes := new(felt.Felt).SetUint64(1).Bytes()
-		path3 := trie.NewKey(1, key3Bytes[:])
-		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
-				},
-			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-					RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
-				},
-			},
-			{
-				Edge: &trie.Edge{
-					Path:  &path3,
-					Child: value3,
-				},
-			},
-		}
-
-		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(3), tempTrie)
+		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
+		leafFelt := new(felt.Felt).SetUint64(3).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofNodes, err := trie.GetProof(&leafKey, tempTrie)
 		require.NoError(t, err)
 
 		// Better inspection
@@ -224,8 +221,10 @@ func TestGetProofs(t *testing.T) {
 				},
 			},
 		}
+		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
 
-		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
+		proofNodes, err := trie.GetProof(&leafKey, tempTrie)
 		require.NoError(t, err)
 
 		// Better inspection
@@ -267,8 +266,9 @@ func TestGetProofs(t *testing.T) {
 				},
 			},
 		}
-
-		proofNodes, err := trie.GetProof(new(felt.Felt).SetUint64(0), tempTrie)
+		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofNodes, err := trie.GetProof(&leafKey, tempTrie)
 		require.NoError(t, err)
 
 		// Better inspection
@@ -278,9 +278,54 @@ func TestGetProofs(t *testing.T) {
 		}
 		require.Equal(t, expectedProofNodes, proofNodes)
 	})
+
+	t.Run("Simple Trie - proof for non-set key", func(t *testing.T) {
+		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
+
+		leafFelt := new(felt.Felt).SetUint64(123).Bytes() // The (root) edge node would have a shorter len if this key was set
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofNodes, err := trie.GetProof(&leafKey, tempTrie)
+		require.NoError(t, err)
+
+		// Better inspection
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, expectedProofNodes[0:2], proofNodes)
+	})
+
+	t.Run("Simple Trie - proof for inner key", func(t *testing.T) {
+		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
+
+		innerFelt := new(felt.Felt).SetUint64(2).Bytes()
+		innerKey := trie.NewKey(123, innerFelt[:]) // The (root) edge node has len 249 which shows this doesn't exist
+		proofNodes, err := trie.GetProof(&innerKey, tempTrie)
+		require.NoError(t, err)
+
+		// Better inspection
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, expectedProofNodes[0:2], proofNodes)
+	})
+
+	t.Run("Simple Trie - proof for non-set key, with leafs set to right and left", func(t *testing.T) {
+		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
+
+		leafFelt := new(felt.Felt).SetUint64(2).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofNodes, err := trie.GetProof(&leafKey, tempTrie)
+		require.NoError(t, err)
+
+		// Better inspection
+		for _, pNode := range proofNodes {
+			pNode.PrettyPrint()
+		}
+		require.Equal(t, expectedProofNodes, proofNodes)
+	})
 }
 
-func TestVerifyProofs(t *testing.T) {
+func TestVerifyProof(t *testing.T) {
 	// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2137
 	t.Run("Simple binary trie", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
@@ -310,7 +355,7 @@ func TestVerifyProofs(t *testing.T) {
 
 	// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2167
 	t.Run("Simple double binary trie", func(t *testing.T) {
-		tempTrie := buildSimpleDoubleBinaryTrie(t)
+		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
 		zero := trie.NewKey(249, []byte{0})
 		expectedProofNodes := []trie.ProofNode{
 			{
@@ -338,6 +383,35 @@ func TestVerifyProofs(t *testing.T) {
 		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
 		key1 := trie.NewKey(251, key1Bytes[:])
 		val1 := new(felt.Felt).SetUint64(2)
-		assert.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
+		require.True(t, trie.VerifyProof(root, &key1, val1, expectedProofNodes, crypto.Pedersen))
+	})
+
+	t.Run("non existent key - less than root edge", func(t *testing.T) {
+		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
+
+		nonExistentKey := trie.NewKey(123, []byte{0}) // Diverges before the root node (len root node = 249)
+		nonExistentKeyValue := new(felt.Felt).SetUint64(2)
+		proofNodes, err := trie.GetProof(&nonExistentKey, tempTrie)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		require.False(t, trie.VerifyProof(root, &nonExistentKey, nonExistentKeyValue, proofNodes, crypto.Pedersen))
+	})
+
+	t.Run("non existent leaf key", func(t *testing.T) {
+		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
+
+		nonExistentKeyByte := new(felt.Felt).SetUint64(2).Bytes() // Key not set
+		nonExistentKey := trie.NewKey(251, nonExistentKeyByte[:])
+		nonExistentKeyValue := new(felt.Felt).SetUint64(2)
+		proofNodes, err := trie.GetProof(&nonExistentKey, tempTrie)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		require.False(t, trie.VerifyProof(root, &nonExistentKey, nonExistentKeyValue, proofNodes, crypto.Pedersen))
 	})
 }
