@@ -603,7 +603,7 @@ func TestBuildTrie(t *testing.T) {
 }
 
 func TestVerifyRangeProof(t *testing.T) {
-	t.Run("Simple binary trie proof to path", func(t *testing.T) {
+	t.Run("two proofs, single key trie", func(t *testing.T) {
 		//		Node (edge path 249)
 		//		/			\
 		//  Node (binary)	0x6 (leaf)
@@ -618,6 +618,26 @@ func TestVerifyRangeProof(t *testing.T) {
 		rootCommitment, err := tri.Root()
 		require.NoError(t, err)
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
+		require.NoError(t, err)
+		require.True(t, verif)
+	})
+
+	t.Run("all keys provided, no proofs needed", func(t *testing.T) {
+		//		Node (edge path 249)
+		//		/			\
+		//  Node (binary)	0x6 (leaf)
+		//	/	\
+		// 0x4	0x5 (leaf, leaf)
+
+		tri := build3KeyTrie(t)
+		keys := []*felt.Felt{new(felt.Felt).SetUint64(0), new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(2)}
+		values := []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(5), new(felt.Felt).SetUint64(6)}
+		proofKeys := [2]*felt.Felt{}
+		proofValues := [2]*felt.Felt{}
+		proofs := [2][]trie.ProofNode{}
+		rootCommitment, err := tri.Root()
 		require.NoError(t, err)
 		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
 		require.NoError(t, err)

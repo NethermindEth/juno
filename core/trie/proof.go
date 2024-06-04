@@ -227,26 +227,32 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
 		}
 	}
 
-	// Step 1: Verify the two boundary proofs
-	if !VerifyProof(root, proofKeys[0], proofValues[0], proofs[0], hash) {
-		return false, fmt.Errorf("invalid proof for key %x", proofKeys[0].String())
-	}
-	if !VerifyProof(root, proofKeys[1], proofValues[1], proofs[1], hash) {
-		return false, fmt.Errorf("invalid proof for key %x", proofKeys[1].String())
+	// Step 1: Verify proofs, and get proof paths
+	var firstProofPath, lastProofPath []StorageNode
+	var err error
+	if proofs[0] != nil {
+		if !VerifyProof(root, proofKeys[0], proofValues[0], proofs[0], hash) {
+			return false, fmt.Errorf("invalid proof for key %x", proofKeys[0].String())
+		}
+
+		firstProofPath, err = ProofToPath(proofs[0], proofKeys[0], hash)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	// Step 2: Get proof paths
-	firstProofPath, err := ProofToPath(proofs[0], proofKeys[0], hash)
-	if err != nil {
-		return false, err
+	if proofs[1] != nil {
+		if !VerifyProof(root, proofKeys[1], proofValues[1], proofs[1], hash) {
+			return false, fmt.Errorf("invalid proof for key %x", proofKeys[1].String())
+		}
+
+		lastProofPath, err = ProofToPath(proofs[1], proofKeys[1], hash)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	lastProofPath, err := ProofToPath(proofs[1], proofKeys[1], hash)
-	if err != nil {
-		return false, err
-	}
-
-	// Step 3: Build trie from proofPaths and keys
+	// Step 2: Build trie from proofPaths and keys
 	tmpTrie, err := BuildTrie(firstProofPath, lastProofPath, keys, values)
 	if err != nil {
 		return false, err
@@ -262,13 +268,14 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys,
 	}
 
 	return true, nil
+
 }
 
 func ensureMonotonicIncreasing(proofKeys [2]*felt.Felt, keys []*felt.Felt) error {
-	if proofKeys[0].Cmp(keys[0]) >= 0 {
+	if proofKeys[0] != nil && proofKeys[0].Cmp(keys[0]) >= 0 {
 		return errors.New("range is not monotonically increasing")
 	}
-	if keys[len(keys)-1].Cmp(proofKeys[1]) >= 0 {
+	if proofKeys[1] != nil && keys[len(keys)-1].Cmp(proofKeys[1]) >= 0 {
 		return errors.New("range is not monotonically increasing")
 	}
 	if len(keys) > 2 {
