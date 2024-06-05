@@ -20,12 +20,17 @@ func AdaptClass(class *spec.Class) core.Class {
 
 	switch cls := class.Class.(type) {
 	case *spec.Class_Cairo0:
+		adaptEP := func(points []*spec.EntryPoint) []core.EntryPoint {
+			// usage of NonNilSlice is essential because relevant core class fields are non nil
+			return utils.Map(utils.NonNilSlice(points), adaptEntryPoint)
+		}
+
 		cairo0 := cls.Cairo0
 		return &core.Cairo0Class{
 			Abi:          json.RawMessage(cairo0.Abi),
-			Externals:    utils.Map(cairo0.Externals, adaptEntryPoint),
-			L1Handlers:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
-			Constructors: utils.Map(cairo0.Constructors, adaptEntryPoint),
+			Externals:    adaptEP(cairo0.Externals),
+			L1Handlers:   adaptEP(cairo0.L1Handlers),
+			Constructors: adaptEP(cairo0.Constructors),
 			Program:      cairo0.Program,
 		}
 	case *spec.Class_Cairo1:
@@ -41,6 +46,12 @@ func AdaptClass(class *spec.Class) core.Class {
 			panic(err)
 		}
 
+		adaptEP := func(points []*spec.SierraEntryPoint) []core.SierraEntryPoint {
+			// usage of NonNilSlice is essential because relevant core class fields are non nil
+			return utils.Map(utils.NonNilSlice(points), adaptSierra)
+		}
+
+		entryPoints := cairo1.EntryPoints
 		return &core.Cairo1Class{
 			Abi:     cairo1.Abi,
 			AbiHash: abiHash,
@@ -49,9 +60,9 @@ func AdaptClass(class *spec.Class) core.Class {
 				External    []core.SierraEntryPoint
 				L1Handler   []core.SierraEntryPoint
 			}{
-				Constructor: utils.Map(cairo1.EntryPoints.Constructors, adaptSierra),
-				External:    utils.Map(cairo1.EntryPoints.Externals, adaptSierra),
-				L1Handler:   utils.Map(cairo1.EntryPoints.L1Handlers, adaptSierra),
+				Constructor: adaptEP(entryPoints.Constructors),
+				External:    adaptEP(entryPoints.Externals),
+				L1Handler:   adaptEP(entryPoints.L1Handlers),
 			},
 			Program:         program,
 			ProgramHash:     crypto.PoseidonArray(program...),
