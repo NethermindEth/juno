@@ -173,6 +173,13 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
+        // Artem's intern exercise 4
+        {
+            Name: "juno_getBlockWithTxsAndReceipts",
+			Params: []jsonrpc.Parameter{{Name: "block_id"}},
+            Handler: h.juno_getBlockWithTxsAndReceipts,
+        },
+        // End of Artem's intern exercise 4
 		{
 			Name:    "starknet_chainId",
 			Handler: h.ChainID,

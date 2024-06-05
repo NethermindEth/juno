@@ -278,6 +278,47 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}, nil
 }
 
+// Artem's intern exercise 4
+type BlockWithTxsAndReceipts struct {
+    Status BlockStatus
+    BlockHeader
+    Transactions []*Transaction
+    Receipts []*TransactionReceipt
+}
+
+func (h *Handler) juno_getBlockWithTxsAndReceipts(id BlockID) (*BlockWithTxsAndReceipts, *jsonrpc.Error) {
+    block, rpcErr := h.blockByID(&id)
+    if rpcErr != nil {
+        return nil, rpcErr
+    }
+
+    blockStatus, rpcErr := h.blockStatus(id, block)
+    if rpcErr != nil {
+        return nil, rpcErr
+    }
+
+    finalityStatus := TxnAcceptedOnL2
+    if blockStatus == BlockAcceptedL1 {
+        finalityStatus = TxnAcceptedOnL1
+    }
+
+    txs := make([]*Transaction, len(block.Transactions))
+    receipts := make([]*TransactionReceipt, len(block.Transactions))
+    for index, txn := range block.Transactions {
+        txs[index] = AdaptTransaction(txn)
+        r := block.Receipts[index]
+        receipts[index] = AdaptReceipt(r, txn, finalityStatus, nil, 0, false)
+    }
+
+    return &BlockWithTxsAndReceipts{
+        Status: blockStatus,
+        BlockHeader: adaptBlockHeader(block.Header),
+        Transactions: txs,
+        Receipts: receipts,
+    }, nil
+}
+// end of Artem's intern exercise 4
+
 func (h *Handler) BlockWithTxsV0_6(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	resp, err := h.BlockWithTxs(id)
 	if err != nil {
