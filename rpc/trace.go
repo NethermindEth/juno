@@ -15,7 +15,9 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-var traceFallbackVersion = semver.MustParse("0.12.3")
+var traceFallbackVersion = semver.MustParse("0.13.1")
+
+const excludedVersion = "0.13.1.1"
 
 func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
@@ -198,8 +200,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
-		} else if blockVer.Compare(traceFallbackVersion) != 1 || h.forceFeederTracesForBlocks.Contains(block.Number) {
-			// version <= 0.12.3 or forcing fetch some blocks from feeder gateway
+		} else if (blockVer.Compare(traceFallbackVersion) != 1 && block.ProtocolVersion != excludedVersion) ||
+			h.forceFeederTracesForBlocks.Contains(block.Number) {
+			// version <= 0.13.1 and not 0.13.1.1 or forcing fetch some blocks from feeder gateway
 			return h.fetchTraces(ctx, block.Hash)
 		}
 
