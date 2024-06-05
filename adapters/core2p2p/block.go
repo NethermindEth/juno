@@ -28,7 +28,6 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 }
 
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.SignedBlockHeader {
-	// todo revisit
 	return &spec.SignedBlockHeader{
 		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),

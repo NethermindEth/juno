@@ -1,5 +1,0 @@
-version: v1beta1
-plugins:
-  - name: go
-    out: spec
-    opt: paths=source_relative,M=somepackage

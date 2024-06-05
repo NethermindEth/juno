@@ -199,7 +199,7 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {
-		return fmt.Errorf("beginning: %w", err)
+		return err
 	}
 
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
@@ -233,11 +233,7 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	err = s.verifyStateUpdateRoot(update.NewRoot)
-	if err != nil {
-		return fmt.Errorf("end: %w", err)
-	}
-	return nil
+	return s.verifyStateUpdateRoot(update.NewRoot)
 }
 
 var (

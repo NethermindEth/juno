@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/davecgh/go-spew/spew"
 )
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -401,7 +400,6 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, block.Number)
 	}
 	if !block.ParentHash.Equal(expectedParentHash) {
-		spew.Dump("EXPECTATION FAIL", h.Number, h.Hash, h.ParentHash)
 		return ErrParentDoesNotMatchHead
 	}
 
