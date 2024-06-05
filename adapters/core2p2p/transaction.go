@@ -3,11 +3,10 @@ package core2p2p
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/utils"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/utils"
 )
 
 //nolint:funlen,gocyclo

@@ -4,13 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"reflect"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -22,14 +19,13 @@ import (
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"go.uber.org/zap"
 )
-
-const maxBlocks = 100
 
 type syncService struct {
 	host    host.Host
@@ -51,33 +47,7 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, lo
 	}
 }
 
-/*
-func (s *syncService) randomNodeHeight(ctx context.Context) (int, error) {
-	headersIt, err := s.client.RequestCurrentBlockHeader(ctx, &spec.CurrentBlockHeaderRequest{})
-	if err != nil {
-		return 0, err
-	}
-
-	var header *spec.BlockHeader
-	headersIt(func(res *spec.BlockHeadersResponse) bool {
-		for _, part := range res.GetPart() {
-			if _, ok := part.HeaderMessage.(*spec.BlockHeadersResponsePart_Header); ok {
-				header = part.GetHeader()
-				// found header - time to stop iterator
-				return false
-			}
-		}
-
-		return true
-	})
-
-	return int(header.Number), nil
-}
-*/
-
-const retryDuration = 5 * time.Second
-
-//nolint:funlen,gocyclo
+//nolint:funlen
 func (s *syncService) start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -89,43 +59,16 @@ func (s *syncService) start(ctx context.Context) {
 		if err := ctx.Err(); err != nil {
 			break
 		}
-
 		s.log.Debugw("Continuous iteration", "i", i)
 
 		iterCtx, cancelIteration := context.WithCancel(ctx)
 
-		/*
-			var err error
-			randHeight, err = s.randomNodeHeight(iterCtx)
-			if err != nil {
-				cancelIteration()
-				if errors.Is(err, errNoPeers) {
-					s.log.Infow("No peers available", "retrying in", retryDuration.String())
-					s.sleep(retryDuration)
-				} else {
-					s.logError("Failed to get random node height", err)
-				}
-				continue
-			}
-		*/
-
 		var nextHeight int
-		if curHeight, err := s.blockchain.Height(); err == nil { //nolint:govet
+		if curHeight, err := s.blockchain.Height(); err == nil {
 			nextHeight = int(curHeight) + 1
 		} else if !errors.Is(db.ErrKeyNotFound, err) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
-
-		/*
-			blockBehind := randHeight - (nextHeight - 1)
-			if blockBehind <= 0 {
-				s.log.Infow("Random node height is the same or less as local height", " retrying in", retryDuration.String(),
-					"Random node height", randHeight, "Current height", nextHeight-1)
-				cancelIteration()
-				s.sleep(retryDuration)
-				continue
-			}
-		*/
 
 		s.log.Infow("Start Pipeline", "Random node height", randHeight, "Current height", nextHeight-1, "Start", nextHeight)
 
@@ -185,10 +128,6 @@ func (s *syncService) start(ctx context.Context) {
 			storeTimer := time.Now()
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
-				if err == blockchain.ErrParentDoesNotMatchHead {
-					spew.Dump(b.block.Number, b.block.Hash, b.block.ParentHash)
-					log.Fatal("Parent does NOT match head", err)
-				}
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
 				cancelIteration()
 				break
@@ -202,7 +141,7 @@ func (s *syncService) start(ctx context.Context) {
 	}
 }
 
-func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
+func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
 	return specBlockParts(i)
 }
 
@@ -324,6 +263,7 @@ func (s *syncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
+//nolint:gocyclo,funlen
 func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
 	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
@@ -364,10 +304,8 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			})
 			coreBlock.Receipts = coreReceipts
 
-			coreHeader := p2p2core.AdaptBlockHeader(header)
-
-			coreBlock.Header = &coreHeader
-			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)
+			eventsBloom := core.EventsBloom(coreBlock.Receipts)
+			coreBlock.Header = p2p2core.AdaptBlockHeader(header, eventsBloom)
 
 			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
 				s.log.Errorw(
@@ -419,9 +357,14 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 
 			stateReader, stateCloser, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
 			if err != nil {
+				// todo(kirill) change to shutdown
 				panic(err)
 			}
-			defer stateCloser()
+			defer func() {
+				if closeErr := stateCloser(); closeErr != nil {
+					s.log.Errorw("Failed to close state reader", "err", closeErr)
+				}
+			}()
 
 			stateUpdate := &core.StateUpdate{
 				BlockHash: coreBlock.Hash,
@@ -493,56 +436,6 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64)
 
 	return headersAndSigCh, nil
 }
-
-type specReceipts struct {
-	number   uint64
-	receipts []*spec.Receipt
-}
-
-func (s specReceipts) blockNumber() uint64 {
-	return s.number
-}
-
-/*
-//nolint:dupl
-func (s *syncService) genReceipts(ctx context.Context, blockNumber uint64) (<-chan specReceipts, error) {
-	it := s.createIteratorForBlock(blockNumber)
-	receiptsIt, err := s.client.RequestReceipts(ctx, &spec.ReceiptsRequest{Iteration: it})
-	if err != nil {
-		return nil, err
-	}
-
-	receiptsCh := make(chan specReceipts)
-	go func() {
-		defer close(receiptsCh)
-
-		var receipts []*spec.Receipt
-		receiptsIt(func(res *spec.ReceiptsResponse) bool {
-			switch v := res.ReceiptMessage.(type) {
-			case *spec.ReceiptsResponse_Receipt:
-				receipts = append(receipts, v.Receipt)
-				return true
-			case *spec.ReceiptsResponse_Fin:
-				return false
-			default:
-				s.log.Warnw("Unexpected ReceiptMessage from getReceipts", "v", res.ReceiptMessage)
-				return false
-			}
-		})
-
-		select {
-		case <-ctx.Done():
-			return
-		case receiptsCh <- specReceipts{
-			number:   blockNumber,
-			receipts: receipts,
-		}:
-		}
-	}()
-
-	return receiptsCh, nil
-}
-*/
 
 type specClasses struct {
 	number  uint64
@@ -693,7 +586,6 @@ func (s specTxWithReceipts) blockNumber() uint64 {
 	return s.number
 }
 
-//nolint:dupl
 func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	txsIt, err := s.client.RequestTransactions(ctx, &spec.TransactionsRequest{Iteration: it})
@@ -763,7 +655,6 @@ var errNoPeers = errors.New("no peers available")
 func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 	randPeer := s.randomPeer()
 	if randPeer == "" {
-		panic(errNoPeers)
 		return nil, errNoPeers
 	}
 	stream, err := s.host.NewStream(ctx, randPeer, pids...)
@@ -793,6 +684,7 @@ func (s *syncService) WithListener(l junoSync.EventListener) {
 	s.listener = l
 }
 
+//nolint:unused
 func (s *syncService) sleep(d time.Duration) {
 	s.log.Debugw("Sleeping...", "for", d)
 	time.Sleep(d)

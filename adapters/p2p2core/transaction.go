@@ -108,10 +108,10 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		declareTx := &core.DeclareTransaction{
-			TransactionHash: nil, // overridden below
-			ClassHash:       AdaptHash(tx.ClassHash),
-			SenderAddress:   AdaptAddress(tx.Sender),
-			// MaxFee:               AdaptFelt(tx.MaxFee), todo either remove or add support for max_fee
+			TransactionHash:      nil, // overridden below
+			ClassHash:            AdaptHash(tx.ClassHash),
+			SenderAddress:        AdaptAddress(tx.Sender),
+			MaxFee:               nil, // in 3 version this field was removed
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
 			Version:              txVersion(3),
@@ -279,12 +279,12 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			ContractAddress:      nil, // todo call core.ContractAddress() ?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
-			// MaxFee:               AdaptFelt(tx.MaxFee), todo support max_fee?
-			Version:            txVersion(3),
-			Nonce:              AdaptFelt(tx.Nonce),
-			SenderAddress:      AdaptAddress(tx.Sender),
-			EntryPointSelector: nil,
-			Tip:                tx.Tip,
+			MaxFee:               nil, // in 3 version this field was removed
+			Version:              txVersion(3),
+			Nonce:                AdaptFelt(tx.Nonce),
+			SenderAddress:        AdaptAddress(tx.Sender),
+			EntryPointSelector:   nil,
+			Tip:                  tx.Tip,
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: adaptResourceLimits(tx.ResourceBounds.L1Gas),
 				core.ResourceL2Gas: adaptResourceLimits(tx.ResourceBounds.L2Gas),

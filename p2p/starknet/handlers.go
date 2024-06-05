@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/NethermindEth/juno/core/felt"
-
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/iter"
@@ -110,17 +109,9 @@ func (h *Handler) HeadersHandler(stream network.Stream) {
 	streamHandler[*spec.BlockHeadersRequest](h.ctx, &h.wg, stream, h.onHeadersRequest, h.log)
 }
 
-//func (h *Handler) BlockBodiesHandler(stream network.Stream) {
-//	streamHandler[*spec.BlockBodiesRequest](h.ctx, &h.wg, stream, h.onBlockBodiesRequest, h.log)
-//}
-
 func (h *Handler) EventsHandler(stream network.Stream) {
 	streamHandler[*spec.EventsRequest](h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
 }
-
-//func (h *Handler) ReceiptsHandler(stream network.Stream) {
-//	streamHandler[*spec.ReceiptsRequest](h.ctx, &h.wg, stream, h.onReceiptsRequest, h.log)
-//}
 
 func (h *Handler) TransactionsHandler(stream network.Stream) {
 	streamHandler[*spec.TransactionsRequest](h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
@@ -133,28 +124,6 @@ func (h *Handler) ClassesHandler(stream network.Stream) {
 func (h *Handler) StateDiffHandler(stream network.Stream) {
 	streamHandler[*spec.StateDiffsRequest](h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
 }
-
-//func (h *Handler) CurrentBlockHeaderHandler(stream network.Stream) {
-//	streamHandler[*spec.CurrentBlockHeaderRequest](h.ctx, &h.wg, stream, h.onCurrentBlockHeaderRequest, h.log)
-//}
-
-//func (h *Handler) onCurrentBlockHeaderRequest(*spec.CurrentBlockHeaderRequest) (iter.Seq[proto.Message], error) {
-//	curHeight, err := h.bcReader.Height()
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return h.onHeadersRequest(&spec.BlockHeadersRequest{
-//		Iteration: &spec.Iteration{
-//			Start: &spec.Iteration_BlockNumber{
-//				BlockNumber: curHeight,
-//			},
-//			Direction: spec.Iteration_Forward,
-//			Limit:     1,
-//			Step:      1,
-//		},
-//	})
-//}
 
 func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.BlockHeadersResponse{
@@ -284,6 +253,7 @@ func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (iter.Seq
 	})
 }
 
+//nolint:gocyclo
 func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.StateDiffsResponse{
 		StateDiffMessage: &spec.StateDiffsResponse_Fin{},
@@ -301,6 +271,12 @@ func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[prot
 		}
 		diff := stateUpdate.StateDiff
 
+		type contractDiff struct {
+			address      *felt.Felt
+			storageDiffs map[felt.Felt]*felt.Felt
+			nonce        *felt.Felt
+			classHash    *felt.Felt // set only if contract deployed or replaced
+		}
 		modifiedContracts := make(map[felt.Felt]*contractDiff)
 
 		initContractDiff := func(addr *felt.Felt) *contractDiff {
@@ -412,7 +388,11 @@ func (h *Handler) onClassesRequest(req *spec.ClassesRequest) (iter.Seq[proto.Mes
 		if err != nil {
 			return nil, err
 		}
-		defer closer()
+		defer func() {
+			if closeErr := closer(); closeErr != nil {
+				h.log.Errorw("Failed to close state reader", "err", closeErr)
+			}
+		}()
 
 		stateDiff := stateUpdate.StateDiff
 

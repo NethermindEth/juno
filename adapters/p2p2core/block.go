@@ -1,10 +1,13 @@
 package p2p2core
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bits-and-blooms/bloom/v3"
 )
 
 func AdaptEvent(e *spec.Event) *core.Event {
@@ -19,13 +22,9 @@ func AdaptEvent(e *spec.Event) *core.Event {
 	}
 }
 
-func AdaptSignature(cs *spec.ConsensusSignature) []*felt.Felt {
-	return []*felt.Felt{AdaptFelt(cs.R), AdaptFelt(cs.S)}
-}
-
-func AdaptBlockHeader(h *spec.SignedBlockHeader) core.Header {
-	return core.Header{
-		Hash:             AdaptHash(h.BlockHash), // todo: add this when building the block
+func AdaptBlockHeader(h *spec.SignedBlockHeader, eventsBloom *bloom.BloomFilter) *core.Header {
+	return &core.Header{
+		Hash:             AdaptHash(h.BlockHash),
 		ParentHash:       AdaptHash(h.ParentHash),
 		Number:           h.Number,
 		GlobalStateRoot:  AdaptHash(h.StateRoot),
@@ -34,10 +33,30 @@ func AdaptBlockHeader(h *spec.SignedBlockHeader) core.Header {
 		EventCount:       h.Events.NLeaves,
 		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,
-		EventsBloom:      nil, // Todo: add this in when building the block
+		EventsBloom:      eventsBloom,
+		Signatures:       utils.Map(h.Signatures, adaptSignature),
+		L1DAMode:         adaptDA(h.L1DataAvailabilityMode),
+		L1DataGasPrice: &core.GasPrice{
+			PriceInWei: AdaptUint128(h.DataGasPriceWei),
+			PriceInFri: AdaptUint128(h.DataGasPriceFri),
+		},
 		// todo(kirill) check prices
 		GasPrice:     AdaptUint128(h.GasPriceWei),
 		GasPriceSTRK: AdaptUint128(h.GasPriceFri),
-		Signatures:   utils.Map(h.Signatures, AdaptSignature),
+	}
+}
+
+func adaptSignature(cs *spec.ConsensusSignature) []*felt.Felt {
+	return []*felt.Felt{AdaptFelt(cs.R), AdaptFelt(cs.S)}
+}
+
+func adaptDA(da spec.L1DataAvailabilityMode) core.L1DAMode {
+	switch da {
+	case spec.L1DataAvailabilityMode_Calldata:
+		return core.Calldata
+	case spec.L1DataAvailabilityMode_Blob:
+		return core.Blob
+	default:
+		panic(fmt.Errorf("unsupported DA mode %v", da))
 	}
 }
