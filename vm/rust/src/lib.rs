@@ -8,7 +8,7 @@ extern crate lazy_static;
 use blockifier::state::state_api::State;
 use crate::juno_state::{ptr_to_felt, JunoState};
 use std::{
-    collections::HashMap, ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
+    collections::{HashMap,HashSet}, ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
 };
 use juno_state::{class_info_from_json_str, felt_to_byte_array};
 use blockifier::{
@@ -132,8 +132,8 @@ pub extern "C" fn cairoVMCall(
         caller_address: ContractAddress::default(),
         initial_gas: get_versioned_constants(block_info.version).gas_cost("initial_gas_cost"),
     };
-
-    let mut juno_state = JunoState::new(reader_handle, block_info.block_number);
+    let mut map: HashMap<ClassHash, HashSet<usize>> = HashMap::new();
+    let mut juno_state = JunoState::new(reader_handle, block_info.block_number,map);
     let mut cached_juno_state: CachedState<JunoState>;
     let mut state: MutRefState<'_, dyn State> = if mutable_state == 0 {
         cached_juno_state = CachedState::new(juno_state, GlobalContractCache::new(1));
@@ -186,7 +186,8 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar
 ) {
     let block_info: BlockInfo = unsafe { *block_info_ptr };
-    let reader = JunoState::new(reader_handle, block_info.block_number);
+    let mut map: HashMap<ClassHash, HashSet<usize>> = HashMap::new();
+    let reader = JunoState::new(reader_handle, block_info.block_number,map);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =

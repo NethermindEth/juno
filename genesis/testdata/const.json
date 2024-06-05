@@ -1,0 +1,38 @@
+{
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
+        {
+            "name": "name",
+            "type": "core::felt252"
+        },
+        {
+            "name": "symbol",
+            "type": "core::felt252"
+        },
+        {
+            "name": "decimals",
+            "type": "core::integer::u8"
+        },
+        {
+            "name": "initial_supply",
+            "type": "core::integer::u256"
+        },
+        {
+            "name": "recipient",
+            "type": "core::starknet::contract_address::ContractAddress"
+        },
+        {
+            "name": "permitted_minter",
+            "type": "core::starknet::contract_address::ContractAddress"
+        },
+        {
+            "name": "provisional_governance_admin",
+            "type": "core::starknet::contract_address::ContractAddress"
+        },
+        {
+            "name": "upgrade_delay",
+            "type": "core::integer::u64"
+        }
+    ]
+}

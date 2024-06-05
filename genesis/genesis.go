@@ -70,7 +70,7 @@ func GenesisStateDiff(
 		if err = genesisState.SetContractClass(&classHash, class); err != nil {
 			return nil, nil, fmt.Errorf("declare v0 class: %v", err)
 		}
-
+		fmt.Println("classHash", classHash.String())
 		if cairo1Class, isCairo1 := class.(*core.Cairo1Class); isCairo1 {
 			if err = genesisState.SetCompiledClassHash(&classHash, cairo1Class.Compiled.Hash()); err != nil {
 				return nil, nil, fmt.Errorf("set compiled class hash: %v", err)
@@ -103,6 +103,10 @@ func GenesisStateDiff(
 			}
 			maxSteps := uint64(100000) //nolint:gomnd
 			// Call the constructors
+			fmt.Println("callInfo.ContractAddress", callInfo.ContractAddress.String())
+			fmt.Println("callInfo.ClassHash", callInfo.ClassHash.String())
+			fmt.Println("callInfo.Selector", callInfo.Selector.String())
+			fmt.Println("callInfo.Calldata", callInfo.Calldata[0].String())
 			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
 				return nil, nil, fmt.Errorf("execute function call: %v", err)
 			}
