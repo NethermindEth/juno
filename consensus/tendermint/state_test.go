@@ -20,13 +20,13 @@ func TestCreateNewState(t *testing.T) {
 	t.Run("Initial state with decider does not panics", func(t *testing.T) {
 		var decider consensus.Decider
 		require.NotPanics(t, func() {
-			InitialState(&decider)
+			InitialState(decider)
 		})
 	})
 
 	t.Run("creates initial state successfully", func(t *testing.T) {
 		var decider consensus.Decider
-		initialState := InitialState(&decider)
+		initialState := InitialState(decider)
 		assert.Equal(t, STEP_PROPOSE, initialState.step)
 		assert.Equal(t, RoundType(0), initialState.round)
 		assert.Equal(t, ROUND_NONE, initialState.validRound)

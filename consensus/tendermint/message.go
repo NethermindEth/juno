@@ -31,7 +31,7 @@ type Message struct {
 	msgType        MsgType
 	height         HeightType
 	round          RoundType
-	value          *consensus.Proposable
+	value          consensus.Proposable
 	lastValidRound RoundType
 	voteLevel      VoteLevel
 	sender         interface{} // change to match id type
@@ -49,7 +49,7 @@ func (msg *Message) Round() RoundType {
 	return msg.round
 }
 
-func (msg *Message) Value() *consensus.Proposable {
+func (msg *Message) Value() consensus.Proposable {
 	return msg.value
 }
 
@@ -69,7 +69,7 @@ func (msg *Message) SetSender(sender interface{}) {
 	msg.sender = sender
 }
 
-func newMessage(msgType MsgType, height HeightType, round RoundType, value *consensus.Proposable, validRound RoundType,
+func newMessage(msgType MsgType, height HeightType, round RoundType, value consensus.Proposable, validRound RoundType,
 	voteLevel VoteLevel) *Message {
 
 	return &Message{
@@ -82,15 +82,15 @@ func newMessage(msgType MsgType, height HeightType, round RoundType, value *cons
 	}
 }
 
-func NewProposalMessage(height HeightType, round RoundType, value *consensus.Proposable, validRound RoundType) *Message {
+func NewProposalMessage(height HeightType, round RoundType, value consensus.Proposable, validRound RoundType) *Message {
 	return newMessage(MSG_PROPOSAL, height, round, value, validRound, VOTE_LEVEL_EMPTY)
 }
 
-func NewPreVoteMessage(height HeightType, round RoundType, value *consensus.Proposable) *Message {
+func NewPreVoteMessage(height HeightType, round RoundType, value consensus.Proposable) *Message {
 	return newMessage(MSG_PREVOTE, height, round, value, ROUND_EMPTY, VOTE_LEVEL_EMPTY)
 }
 
-func NewPreCommitMessage(height HeightType, round RoundType, value *consensus.Proposable) *Message {
+func NewPreCommitMessage(height HeightType, round RoundType, value consensus.Proposable) *Message {
 	return newMessage(MSG_PRECOMMIT, height, round, value, ROUND_EMPTY, VOTE_LEVEL_EMPTY)
 }
 

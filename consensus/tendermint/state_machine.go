@@ -20,15 +20,16 @@ type Config struct {
 // todo: so no domain language was used rather expectations of familiarity with the concepts were implictly assumed.
 type StateMachine struct {
 	state    State
-	proposer *consensus.Proposer
-	gossiper *consensus.Gossiper
-	decider  *consensus.Decider
+	proposer consensus.Proposer
+	gossiper consensus.Gossiper
+	decider  consensus.Decider
+	started  bool
 	lock     sync.Mutex // lock needed because of timeouts!!!
 	*Config
 }
 
-func newStateMachine(initialState *State, gossiper *consensus.Gossiper, decider *consensus.Decider,
-	proposer *consensus.Proposer, config *Config) *StateMachine {
+func newStateMachine(initialState *State, gossiper consensus.Gossiper, decider consensus.Decider,
+	proposer consensus.Proposer, config *Config) *StateMachine {
 
 	if decider == nil {
 		panic("Decider missing: decider for state machine can not be nil")
@@ -55,30 +56,37 @@ func newStateMachine(initialState *State, gossiper *consensus.Gossiper, decider 
 	}
 }
 
-func NewStateMachine(gossiper *consensus.Gossiper, decider *consensus.Decider,
-	proposer *consensus.Proposer) *StateMachine {
+func NewStateMachine(gossiper consensus.Gossiper, decider consensus.Decider,
+	proposer consensus.Proposer) *StateMachine {
 
 	return newStateMachine(nil, gossiper, decider, proposer, nil)
 }
 
-func (sm *StateMachine) start() {
+func (sm *StateMachine) Start() {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
-
+	sm.started = true
 	sm.startRound(0)
 }
 
 func toMessage(value interface{}) Message {
-	panic("implement me")
+	v, ok := value.(Message)
+	if !ok {
+		return MSG_VALUE_EMPTY
+	}
+	return v
 }
 
+// run without stopping
 func (sm *StateMachine) Run() {
 	msgs := make([]Message, 2)
-	sm.start()
+	if !sm.started {
+		sm.Start()
+	}
 	for {
 		// msg are received in two's
-		msgs[0] = toMessage((*sm.gossiper).ReceiveMessage())
-		msgs[1] = toMessage((*sm.gossiper).ReceiveMessage())
+		msgs[0] = toMessage(sm.gossiper.GetReceivedMessage())
+		msgs[1] = toMessage(sm.gossiper.GetReceivedMessage())
 		err := sm.HandleMessage(msgs)
 		if err != nil {
 			//todo: log error
@@ -95,6 +103,7 @@ func (sm *StateMachine) Interrupt() {
 	// todo: stop the message loop and just let them run to completion
 }
 
+// transition to the next state
 func (sm *StateMachine) HandleMessage(msgs []Message) error {
 	// order message in proposal, preVote, preCommit, Empty order
 
@@ -164,14 +173,14 @@ func (sm *StateMachine) handleProposalsWithPreVotes(msg []Message) {
 
 // todo: change all check-functions name
 func (sm *StateMachine) checkValidVoting(msg []Message) bool {
-	if msg[0].Sender() != (*sm.proposer).Proposer(sm.state.currentHeight, sm.state.round) && msg[1].VoteLevel() >= VOTE_LEVEL_MAJORITY {
+	if msg[0].Sender() != sm.proposer.Proposer(sm.state.currentHeight, sm.state.round) && msg[1].VoteLevel() >= VOTE_LEVEL_MAJORITY {
 		return false
 	}
 
 	if msg[0].Height() != sm.state.currentHeight && msg[0].Height() != msg[1].Height() {
 		return false
 	}
-	if (*msg[0].Value()).Id() != (*msg[1].Value()).Id() {
+	if msg[0].Value().Id() != msg[1].Value().Id() {
 		return false
 	}
 	return true
@@ -192,10 +201,10 @@ func (sm *StateMachine) handleProposalPreVoting(msg []Message) {
 	lastValidRoundRecv := msg[0].LastValidRound()
 	if sm.state.step == STEP_PROPOSE && (lastValidRoundRecv >= 0 && lastValidRoundRecv < sm.state.validRound) {
 		value := msg[0].Value()
-		if (*value).IsValid() && (sm.state.lockedRound <= lastValidRoundRecv || (*value).EqualsTo(*sm.state.lockedValue)) {
-			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, value))
+		if value.IsValid() && (sm.state.lockedRound <= lastValidRoundRecv || value.EqualsTo(sm.state.lockedValue)) {
+			sm.gossiper.SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, value))
 		} else {
-			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
+			sm.gossiper.SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
 		}
 
 		nextState := sm.state.Builder().SetStep(STEP_PREVOTE).Build()
@@ -217,12 +226,12 @@ func (sm *StateMachine) handleInitialVoting(msg []Message) {
 
 	value := msg[0].Value()
 	// todo:  tricky condition for first time?!
-	if (*value).IsValid() && sm.state.step >= STEP_PREVOTE && (sm.state.isFirstPreVote && sm.state.isFirstPreCommit) {
+	if value.IsValid() && sm.state.step >= STEP_PREVOTE && (sm.state.isFirstPreVote && sm.state.isFirstPreCommit) {
 		nextStateBuilder := sm.state.Builder()
 
 		if sm.state.step == STEP_PREVOTE {
 			nextStateBuilder.SetLockedValue(value).SetLockedRound(sm.state.round)
-			(*sm.gossiper).SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, value))
+			sm.gossiper.SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, value))
 			nextStateBuilder.SetStep(STEP_PRECOMMIT)
 		}
 
@@ -254,18 +263,18 @@ func (sm *StateMachine) handleProposalsWithPreCommits(msg []Message) {
 	if msg[0].Height() != sm.state.currentHeight && msg[0].Height() != msg[1].Height() {
 		return
 	}
-	if msg[0].Sender() != (*sm.proposer).Proposer(sm.state.currentHeight, msg[0].Round()) {
+	if msg[0].Sender() != sm.proposer.Proposer(sm.state.currentHeight, msg[0].Round()) {
 		return
 	}
 	value := msg[0].Value()
 
-	if !(*value).EqualsTo(*msg[1].Value()) {
+	if !value.EqualsTo(msg[1].Value()) {
 		return
 	}
 
-	if (*sm.decider).GetDecision(sm.state.currentHeight) != nil {
-		if (*value).IsValid() {
-			(*sm.decider).SubmitDecision(value, sm.state.currentHeight)
+	if sm.decider.GetDecision(sm.state.currentHeight) != nil {
+		if value.IsValid() {
+			sm.decider.SubmitDecision(value, sm.state.currentHeight)
 			sm.resetStateWithNewHeight(sm.state.nextHeight())
 			sm.startRound(0)
 		}
@@ -274,14 +283,14 @@ func (sm *StateMachine) handleProposalsWithPreCommits(msg []Message) {
 
 func (sm *StateMachine) resetStateWithNewHeight(newHeight HeightType) {
 	sm.state = *initialStateWithHeight(newHeight, sm.state.decider)
-	(*sm.gossiper).ClearReceive() // todo: clears msgs processing state not all the received msgs
+	sm.gossiper.ClearReceive() // todo: clears msgs processing state not all the received msgs
 }
 
 func (sm *StateMachine) handleJustProposals(msg []Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
-	if msg[0].Sender() != (*sm.proposer).Proposer(sm.state.currentHeight, msg[0].Round()) {
+	if msg[0].Sender() != sm.proposer.Proposer(sm.state.currentHeight, msg[0].Round()) {
 		return
 	}
 
@@ -300,10 +309,10 @@ func (sm *StateMachine) handleJustProposals(msg []Message) {
 	if sm.state.step == STEP_PROPOSE {
 		value := msg[0].Value()
 
-		if (*value).IsValid() && (sm.state.lockedRound == ROUND_NONE || (*value).EqualsTo(*sm.state.lockedValue)) {
-			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, value))
+		if value.IsValid() && (sm.state.lockedRound == ROUND_NONE || value.EqualsTo(sm.state.lockedValue)) {
+			sm.gossiper.SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, value))
 		} else {
-			(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
+			sm.gossiper.SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
 		}
 
 		sm.state = *sm.state.Builder().SetStep(STEP_PREVOTE).Build()
@@ -364,7 +373,7 @@ func (sm *StateMachine) handlePreVotes(msg []Message) {
 	}
 
 	if sm.state.step == STEP_PREVOTE {
-		(*sm.gossiper).SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, VOTE_NONE))
+		sm.gossiper.SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, VOTE_NONE))
 
 		sm.state = *sm.state.Builder().SetStep(STEP_PRECOMMIT).Build()
 	}
@@ -416,13 +425,13 @@ func (sm *StateMachine) startRound(round RoundType) {
 	sm.state = *sm.state.Builder().SetRound(round).SetStep(STEP_PROPOSE).Build()
 
 	var proposal consensus.Proposable = nil
-	if (*sm.proposer).StrictIsProposer(sm.state.currentHeight, sm.state.round) {
+	if sm.proposer.StrictIsProposer(sm.state.currentHeight, sm.state.round) {
 		if sm.state.validValue != nil {
-			proposal = *sm.state.validValue
+			proposal = sm.state.validValue
 		} else {
-			proposal = (*sm.proposer).Propose(sm.state.currentHeight, sm.state.round)
+			proposal = sm.proposer.Propose(sm.state.currentHeight, sm.state.round)
 		}
-		(*sm.gossiper).SubmitMessageForBroadcast(proposal)
+		sm.gossiper.SubmitMessageForBroadcast(proposal)
 	} else {
 		sm.setProposalTimeOut(sm.state.currentHeight, sm.state.round, sm.state.step)
 	}
@@ -436,7 +445,7 @@ func (sm *StateMachine) onTimeoutPropose(height HeightType, round RoundType) {
 	defer sm.lock.Unlock()
 
 	if height == sm.state.currentHeight && round == sm.state.round && sm.state.step == STEP_PROPOSE {
-		(*sm.gossiper).SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
+		sm.gossiper.SubmitMessageForBroadcast(NewPreVoteMessage(sm.state.currentHeight, sm.state.round, nil))
 	}
 
 	sm.state = *sm.state.Builder().SetStep(STEP_PREVOTE).Build()
@@ -447,7 +456,7 @@ func (sm *StateMachine) onTimeoutPreVote(height HeightType, round RoundType) {
 	defer sm.lock.Unlock()
 
 	if height == sm.state.currentHeight && round == sm.state.round && sm.state.step == STEP_PREVOTE {
-		(*sm.gossiper).SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, nil))
+		sm.gossiper.SubmitMessageForBroadcast(NewPreCommitMessage(sm.state.currentHeight, sm.state.round, nil))
 	}
 
 	sm.state = *sm.state.Builder().SetStep(STEP_PRECOMMIT).Build()

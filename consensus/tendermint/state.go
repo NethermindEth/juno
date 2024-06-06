@@ -15,18 +15,18 @@ const (
 )
 
 var (
-	VOTE_NONE *consensus.Proposable = nil
+	VOTE_NONE consensus.Proposable = nil
 )
 
 type State struct {
 	step             Step
 	currentHeight    HeightType
 	round            RoundType
-	lockedValue      *consensus.Proposable
+	lockedValue      consensus.Proposable
 	lockedRound      RoundType
-	validValue       *consensus.Proposable
+	validValue       consensus.Proposable
 	validRound       RoundType
-	decider          *consensus.Decider
+	decider          consensus.Decider
 	isFirstPreVote   bool
 	isFirstPreCommit bool
 }
@@ -37,29 +37,29 @@ func checkStep(step Step) {
 	//}
 }
 
-func checkDecider(decider *consensus.Decider) {
+func checkDecider(decider consensus.Decider) {
 	if decider == nil {
-		panic("decider is missing")
+		panic("state builder: decider is missing")
 	}
 }
 
 func checkRound(round RoundType) {
 	if round < 0 {
-		panic("invalid round: round can not be negative")
+		panic("state builder: invalid round, round can not be negative")
 	}
 }
 
-func InitialState(decider *consensus.Decider) *State {
+func InitialState(decider consensus.Decider) *State {
 	return initialStateWithHeight(0, decider)
 }
 
-func initialStateWithHeight(height HeightType, decider *consensus.Decider) *State {
+func initialStateWithHeight(height HeightType, decider consensus.Decider) *State {
 	return newState(STEP_PROPOSE, height, 0, nil, nil, -1, -1,
 		true, true, decider)
 }
 
-func newState(step Step, height HeightType, round RoundType, lockedValue, validValue *consensus.Proposable,
-	lockedRound, validRound RoundType, firstPreVote, firstPreCommit bool, decider *consensus.Decider) *State {
+func newState(step Step, height HeightType, round RoundType, lockedValue, validValue consensus.Proposable,
+	lockedRound, validRound RoundType, firstPreVote, firstPreCommit bool, decider consensus.Decider) *State {
 
 	checkStep(step)
 	checkDecider(decider)
@@ -110,7 +110,7 @@ func (sb *StateBuilder) Build() *State {
 	return &sb.state //todo: calling build twice on the same builder should return two different states so actually create a new state here, using state copy constructor>?
 }
 
-func (sb *StateBuilder) SetDecider(decider *consensus.Decider) *StateBuilder {
+func (sb *StateBuilder) SetDecider(decider consensus.Decider) *StateBuilder {
 	sb.state.decider = decider
 	return sb
 }
@@ -130,12 +130,12 @@ func (sb *StateBuilder) SetRound(round RoundType) *StateBuilder {
 	return sb
 }
 
-func (sb *StateBuilder) SetLockedValue(lockedValue *consensus.Proposable) *StateBuilder {
+func (sb *StateBuilder) SetLockedValue(lockedValue consensus.Proposable) *StateBuilder {
 	sb.state.lockedValue = lockedValue
 	return sb
 }
 
-func (sb *StateBuilder) SetValidValue(validValue *consensus.Proposable) *StateBuilder {
+func (sb *StateBuilder) SetValidValue(validValue consensus.Proposable) *StateBuilder {
 	sb.state.validValue = validValue
 	return sb
 }

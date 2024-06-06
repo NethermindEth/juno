@@ -4,12 +4,13 @@ import "time"
 
 type RoundType = int64
 type HeightType = uint64
+type IdType = uint64
 
 type Gossiper interface {
 	SubmitMessageForBroadcast(msg interface{})   // adds a msg to be broadcast to the queue
-	SubmitMessage() interface{}                  // takes a msg to be broadcast off the queue
+	GetSubmittedMessage() interface{}            // takes a msg to be broadcast off the queue
 	ReceiveMessageFromBroadcast(msg interface{}) // adds a msg received onto the queue
-	ReceiveMessage() interface{}                 // takes a msg received off the queue
+	GetReceivedMessage() interface{}             // takes a msg received off the queue
 	ClearAll()
 	ClearSubmit()
 	ClearReceive()
@@ -24,13 +25,13 @@ type Proposer interface {
 }
 
 type Decider interface {
-	SubmitDecision(decision *Proposable, height HeightType) bool
+	SubmitDecision(decision Proposable, height HeightType) bool
 	GetDecision(height HeightType) interface{}
 }
 
 // Proposable todo: use pointers for memory efficiency
 type Proposable interface {
-	Id() Proposable
+	Id() IdType // should be a hash
 	Value() Proposable
 	IsId() bool
 	IsValue() bool
