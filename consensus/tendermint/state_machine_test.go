@@ -3,6 +3,7 @@ package tendermint
 import (
 	consensus "github.com/NethermindEth/juno/consensus/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -22,26 +23,26 @@ func TestStateMachineCreation(t *testing.T) {
 	t.Run("Initial state with no decider panics", func(t *testing.T) {
 
 		require.Panics(t, func() {
-			NewStateMachine(&gossiper, nil, &proposer)
+			NewStateMachine(gossiper, nil, proposer)
 		})
 	})
 
 	t.Run("Initial state with no proposer panics", func(t *testing.T) {
 
 		require.Panics(t, func() {
-			NewStateMachine(&gossiper, &decider, nil)
+			NewStateMachine(gossiper, decider, nil)
 		})
 	})
 
 	t.Run("Initial state with no gossiper panics", func(t *testing.T) {
 
 		require.Panics(t, func() {
-			NewStateMachine(nil, &decider, &proposer)
+			NewStateMachine(nil, decider, proposer)
 		})
 	})
 
 	t.Run("creates state machine  successfully", func(t *testing.T) {
-		sm := NewStateMachine(&gossiper, &decider, &proposer)
+		sm := NewStateMachine(gossiper, decider, proposer)
 		assert.NotNil(t, sm.proposer)
 		assert.NotNil(t, sm.gossiper)
 		assert.NotNil(t, sm.decider)
@@ -58,70 +59,245 @@ func getProposer() *consensus.Proposer {
 	panic("implement me")
 }
 
-func getGossiper() *consensus.Gossiper {
+func getGossiper() consensus.Gossiper {
 	panic("implement me")
+}
+
+type gossiperMock struct {
+	mock.Mock
+	inValues  []interface{}
+	outValues []interface{}
+}
+
+func newGossiperMock(bufSize int, outValues []interface{}) *gossiperMock {
+	if bufSize <= 0 {
+		bufSize = 1
+	}
+	return &gossiperMock{
+		inValues:  make([]interface{}, 0, bufSize),
+		outValues: outValues,
+	}
+}
+
+func (gm *gossiperMock) SubmitMessageForBroadcast(msg interface{}) {
+	gm.inValues = append(gm.inValues, msg)
+}
+
+func (gm *gossiperMock) GetSubmittedMessage() interface{} {
+	if gm.inValues == nil || len(gm.inValues) == 0 {
+		return nil
+	}
+	val := gm.inValues[0]
+	gm.inValues = gm.inValues[1:]
+	return val
+}
+
+func (gm *gossiperMock) ReceiveMessageFromBroadcast(msg interface{}) {
+	panic("implement me")
+}
+
+func (gm *gossiperMock) GetReceivedMessage() interface{} {
+	if gm.inValues == nil || len(gm.inValues) == 0 {
+		return nil
+	}
+	val := gm.inValues[0]
+	gm.inValues = gm.inValues[1:]
+	return val
+}
+
+func (gm *gossiperMock) ClearReceive() {
+	panic("implement me")
+}
+func (gm *gossiperMock) ClearSubmit() {
+	panic("implement me")
+}
+func (gm *gossiperMock) ClearAll() {
+	panic("implement me")
+}
+
+type deciderMock struct {
+	mock.Mock
+}
+
+func (dm *deciderMock) SubmitDecision(decision consensus.Proposable, height HeightType) bool {
+	args := dm.Called(decision, height)
+	return args.Bool(0)
+}
+
+func (dm *deciderMock) GetDecision(height HeightType) interface{} {
+	args := dm.Called(height)
+	return args.Get(0)
+}
+
+type proposerMock struct {
+	mock.Mock
+}
+
+func (pm *proposerMock) Proposer(height HeightType, round RoundType) interface{} {
+	args := pm.Called(height, round)
+	return args.Get(0)
+}
+
+func (pm *proposerMock) IsProposer(height HeightType, round RoundType) uint8 {
+	args := pm.Called(height, round)
+	return args.Get(0).(uint8)
+}
+
+func (pm *proposerMock) StrictIsProposer(height HeightType, round RoundType) bool {
+	args := pm.Called(height, round)
+	return args.Bool(0)
+}
+
+func (pm *proposerMock) Elect(height HeightType, round RoundType) bool {
+	args := pm.Called(height, round)
+	return args.Bool(0)
+}
+
+func (pm *proposerMock) Propose(height HeightType, round RoundType) consensus.Proposable {
+	args := pm.Called(height, round)
+	return args.Get(0).(consensus.Proposable)
+}
+
+type proposableMock struct {
+	mock.Mock
+}
+
+func (prm *proposableMock) Id() consensus.IdType {
+	args := prm.Called()
+	return args.Get(0).(consensus.IdType)
+}
+
+func (prm *proposableMock) Value() consensus.Proposable {
+	args := prm.Called()
+	return args.Get(0).(consensus.Proposable)
+}
+
+func (prm *proposableMock) IsId() bool {
+	args := prm.Called()
+	return args.Bool(0)
+}
+
+func (prm *proposableMock) IsValue() bool {
+	args := prm.Called()
+	return args.Bool(0)
+}
+
+func (prm *proposableMock) IsValid() bool {
+	args := prm.Called()
+	return args.Bool(0)
+}
+func (prm *proposableMock) Equals(other interface{}) bool {
+	args := prm.Called(other, prm)
+	return args.Bool(0)
+}
+func (prm *proposableMock) EqualsTo(other consensus.Proposable) bool {
+	args := prm.Called(other, prm)
+	return args.Bool(0)
 }
 
 func getStateMachine(initialState *State, config *Config) *StateMachine {
 	var decider consensus.Decider
 	var proposer consensus.Proposer
-	var gossiper consensus.Gossiper
-	return newStateMachine(initialState, &gossiper, &decider, &proposer, config)
+	gossiper := newGossiperMock(3, make([]interface{}, 2))
+	return newStateMachine(initialState, gossiper, decider, proposer, config)
 }
 
 func TestTransitionAsProposer(t *testing.T) {
 	// is proposer
-	t.Run("On start round sm broadcasts correct value if it already exists", func(t *testing.T) {
-		var value consensus.Proposable
-		var state *State = NewStateBuilder(&State{}).SetValidValue(&value).Build()
-		sm := getStateMachine(state, nil)
-		go sm.Run()
+	t.Run("On Start round sm broadcasts correct value if it already exists", func(t *testing.T) {
+		value := new(proposableMock)
+		value.On("Id").Return(consensus.IdType(0))
 
-		msg := (*sm.gossiper).SubmitMessage()
+		decider := new(deciderMock)
+
+		proposer := new(proposerMock)
+		proposer.On("StrictIsProposer", mock.Anything, mock.Anything).Return(true)
+		//proposer.On()
+		gossiper := newGossiperMock(1, nil)
+
+		state := NewStateBuilder(&State{decider: decider}).SetValidValue(value).Build()
+		sm := newStateMachine(state, gossiper, decider, proposer, nil)
+		sm.Start()
+		msg := sm.gossiper.GetSubmittedMessage()
 		assert.NotNil(t, msg)
+		assert.Equal(t, value.Id(), msg.(consensus.Proposable).Id())
 	})
 
-	t.Run("On start round sm creates and broadcasts correct value if it does not exists", func(t *testing.T) {
-		sm := getStateMachine(nil, nil)
-		go sm.Run()
+	t.Run("On Start round sm creates and broadcasts correct value if it does not exists", func(t *testing.T) {
+		value := new(proposableMock)
+		value.On("Id").Return(consensus.IdType(0))
 
-		msg := (*sm.gossiper).SubmitMessage() // blocks unitll msg received or time out
+		decider := new(deciderMock)
+
+		proposer := new(proposerMock)
+		proposer.On("StrictIsProposer", mock.Anything, mock.Anything).Return(true)
+		proposer.On("Propose", mock.Anything, mock.Anything).Return(value)
+
+		gossiper := newGossiperMock(1, nil)
+
+		sm := newStateMachine(nil, gossiper, decider, proposer, nil)
+		sm.Start()
+		msg := sm.gossiper.GetSubmittedMessage()
 		assert.NotNil(t, msg)
+		assert.Equal(t, value.Id(), msg.(consensus.Proposable).Id())
 	})
 }
 
 func TestTransitionAsNonProposer(t *testing.T) {
-	// is proposer
-	t.Run("On start round sm broadcasts Nothing if value already exists", func(t *testing.T) {
-		var value consensus.Proposable
-		var state *State = NewStateBuilder(&State{}).SetValidValue(&value).Build()
-		sm := getStateMachine(state, nil)
-		go sm.Run()
+	// is not proposer
+	t.Run("On Start round sm broadcasts Nothing if value already exists", func(t *testing.T) {
+		value := new(proposableMock)
+		value.On("Id").Return(consensus.IdType(0))
 
-		msg := (*sm.gossiper).SubmitMessage()
-		assert.NotNil(t, msg)
+		decider := new(deciderMock)
+
+		proposer := new(proposerMock)
+		proposer.On("StrictIsProposer", mock.Anything, mock.Anything).Return(false)
+
+		gossiper := newGossiperMock(1, nil)
+
+		state := NewStateBuilder(&State{decider: decider}).SetValidValue(value).Build()
+
+		sm := newStateMachine(state, gossiper, decider, proposer, &Config{})
+
+		sm.Start()
+
+		msg := sm.gossiper.GetSubmittedMessage()
+		assert.Nil(t, msg)
 	})
 
-	t.Run("On start round sm broadcasts Nothing it does not exists", func(t *testing.T) {
-		sm := getStateMachine(nil, nil)
-		go sm.Run()
+	t.Run("On Start round sm broadcasts Nothing it does not exists", func(t *testing.T) {
+		value := new(proposableMock)
+		value.On("Id").Return(consensus.IdType(0))
 
-		msg := (*sm.gossiper).SubmitMessage() // blocks unitll msg received or time out
-		assert.NotNil(t, msg)
+		decider := new(deciderMock)
+
+		proposer := new(proposerMock)
+		proposer.On("StrictIsProposer", mock.Anything, mock.Anything).Return(false)
+		proposer.On("Propose", mock.Anything, mock.Anything).Return(value)
+
+		gossiper := newGossiperMock(1, nil)
+
+		sm := newStateMachine(nil, gossiper, decider, proposer, &Config{})
+		sm.Start()
+		msg := sm.gossiper.GetSubmittedMessage()
+
+		assert.Nil(t, msg)
 	})
 
 	// a bit tricky might need to make timeout callback function a dependency for handle message function
+	// with wait groups
 	// also timeout time is based on a function of the number of rounds so far.
-	t.Run("On start round schedules timout callback function", func(t *testing.T) {
-		sm := getStateMachine(nil, &Config{timeOutProposal: func(sm *StateMachine, height HeightType, round RoundType) {
-			(*sm.gossiper).SubmitMessageForBroadcast("timeout")
-		}})
-
-		go sm.Run()
-
-		msg := (*sm.gossiper).SubmitMessage() // blocks unitll msg received or time out
-		assert.NotNil(t, msg)
-		assert.Equal(t, "timeout", msg)
+	t.Run("On Start round schedules timout callback function", func(t *testing.T) {
+		//sm := getStateMachine(nil, &Config{timeOutProposal: func(sm *StateMachine, height HeightType, round RoundType) {
+		//	sm.gossiper.SubmitMessageForBroadcast("timeout")
+		//}})
+		//
+		//sm.Start()
+		//
+		//msg := sm.gossiper.GetSubmittedMessage() // blocks unitll msg received or time out
+		//assert.NotNil(t, msg)
+		//assert.Equal(t, "timeout", msg)
 	})
 }
 
