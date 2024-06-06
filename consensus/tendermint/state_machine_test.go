@@ -316,7 +316,7 @@ func TestTransitionAsNonProposer(t *testing.T) {
 		consensus.CheckTimeOut("scheduled", 5*time.Second, 10*time.Second)
 
 		sm.Start()
-		wg.Wait() // todo: needs timeout
+		wg.Wait()
 	})
 }
 
