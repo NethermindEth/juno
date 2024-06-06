@@ -5,7 +5,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"sync"
 	"testing"
+	"time"
 )
 
 // TODO:  refactor tests  into groups the golang way.
@@ -258,7 +260,7 @@ func TestTransitionAsNonProposer(t *testing.T) {
 
 		state := NewStateBuilder(&State{decider: decider}).SetValidValue(value).Build()
 
-		sm := newStateMachine(state, gossiper, decider, proposer, &Config{})
+		sm := newStateMachine(state, gossiper, decider, proposer, nil)
 
 		sm.Start()
 
@@ -278,7 +280,7 @@ func TestTransitionAsNonProposer(t *testing.T) {
 
 		gossiper := newGossiperMock(1, nil)
 
-		sm := newStateMachine(nil, gossiper, decider, proposer, &Config{})
+		sm := newStateMachine(nil, gossiper, decider, proposer, nil)
 		sm.Start()
 		msg := sm.gossiper.GetSubmittedMessage()
 
@@ -288,16 +290,33 @@ func TestTransitionAsNonProposer(t *testing.T) {
 	// a bit tricky might need to make timeout callback function a dependency for handle message function
 	// with wait groups
 	// also timeout time is based on a function of the number of rounds so far.
-	t.Run("On Start round schedules timout callback function", func(t *testing.T) {
-		//sm := getStateMachine(nil, &Config{timeOutProposal: func(sm *StateMachine, height HeightType, round RoundType) {
-		//	sm.gossiper.SubmitMessageForBroadcast("timeout")
-		//}})
-		//
-		//sm.Start()
-		//
-		//msg := sm.gossiper.GetSubmittedMessage() // blocks unitll msg received or time out
-		//assert.NotNil(t, msg)
-		//assert.Equal(t, "timeout", msg)
+	t.Run("On Start round schedules timeout callback function", func(t *testing.T) {
+		value := new(proposableMock)
+		value.On("Id").Return(consensus.IdType(0))
+
+		decider := new(deciderMock)
+
+		proposer := new(proposerMock)
+		proposer.On("StrictIsProposer", mock.Anything, mock.Anything).Return(false)
+		proposer.On("Propose", mock.Anything, mock.Anything).Return(value)
+
+		gossiper := newGossiperMock(1, nil)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		config := Config{
+			timeOutProposal: func(sm *StateMachine, height HeightType, round RoundType) {
+				wg.Done()
+			},
+		}
+
+		sm := newStateMachine(nil, gossiper, decider, proposer, &config)
+
+		consensus.CheckTimeOut("scheduled", 5*time.Second, 10*time.Second)
+
+		sm.Start()
+		wg.Wait() // todo: needs timeout
 	})
 }
 

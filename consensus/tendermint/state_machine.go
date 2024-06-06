@@ -47,6 +47,10 @@ func newStateMachine(initialState *State, gossiper consensus.Gossiper, decider c
 		initialState = InitialState(decider)
 	}
 
+	if config == nil {
+		config = &Config{}
+	}
+
 	return &StateMachine{
 		state:    *initialState,
 		decider:  decider,

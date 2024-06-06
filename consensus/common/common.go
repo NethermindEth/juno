@@ -1,6 +1,9 @@
 package consensus
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type RoundType = int64
 type HeightType = uint64
@@ -45,4 +48,10 @@ func SetTimeOut(f func(), t time.Duration) {
 		time.Sleep(t)
 		f()
 	}()
+}
+
+func CheckTimeOut(title string, expected, t time.Duration) {
+	SetTimeOut(func() {
+		panic(fmt.Sprintf("%s time out took too long, longer than %s", title, expected.String()))
+	}, t)
 }
