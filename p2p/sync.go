@@ -339,8 +339,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			})
 			coreBlock.Receipts = coreReceipts
 
-			coreHeader := p2p2core.AdaptBlockHeader(header)
-			coreHeader.Signatures = utils.Map(sig.GetSignatures(), p2p2core.AdaptSignature)
+			coreHeader := p2p2core.AdaptBlockHeader(header, sig.GetSignatures())
 
 			coreBlock.Header = &coreHeader
 			coreBlock.EventsBloom = core.EventsBloom(coreBlock.Receipts)

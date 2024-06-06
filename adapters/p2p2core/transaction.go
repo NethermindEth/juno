@@ -30,13 +30,22 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_DeclareV0_:
 		tx := t.GetDeclareV0()
 		declareTx := &core.DeclareTransaction{
+			TransactionHash:      nil, // overridden below
 			Nonce:                nil, // for v0 nonce is not used for hash calculation
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Version:              txVersion(0),
-			CompiledClassHash:    nil,
+			// version 2 field
+			CompiledClassHash: nil,
+			// version 3 fields (zero values)
+			ResourceBounds:        nil,
+			PaymasterData:         nil,
+			AccountDeploymentData: nil,
+			Tip:                   0,
+			NonceDAMode:           0,
+			FeeDAMode:             0,
 		}
 		declareTx.TransactionHash = hash(declareTx)
 
@@ -44,13 +53,22 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_DeclareV1_:
 		tx := t.GetDeclareV1()
 		declareTx := &core.DeclareTransaction{
+			TransactionHash:      nil, // overridden below
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
 			Version:              txVersion(1),
-			CompiledClassHash:    nil,
+			// version 2 field
+			CompiledClassHash: nil,
+			// version 3 fields (zero values)
+			ResourceBounds:        nil,
+			PaymasterData:         nil,
+			AccountDeploymentData: nil,
+			Tip:                   0,
+			NonceDAMode:           0,
+			FeeDAMode:             0,
 		}
 		declareTx.TransactionHash = hash(declareTx)
 
@@ -58,6 +76,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_DeclareV2_:
 		tx := t.GetDeclareV2()
 		declareTx := &core.DeclareTransaction{
+			TransactionHash:      nil, // overridden below
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -65,6 +84,13 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			Nonce:                AdaptFelt(tx.Nonce),
 			Version:              txVersion(2),
 			CompiledClassHash:    AdaptFelt(tx.CompiledClassHash),
+			// version 3 fields (zero values)
+			ResourceBounds:        nil,
+			PaymasterData:         nil,
+			AccountDeploymentData: nil,
+			Tip:                   0,
+			NonceDAMode:           0,
+			FeeDAMode:             0,
 		}
 		declareTx.TransactionHash = hash(declareTx)
 
@@ -83,6 +109,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		declareTx := &core.DeclareTransaction{
+			TransactionHash:      nil, // overridden below
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -110,6 +137,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		classHash := AdaptHash(tx.ClassHash)
 		callData := utils.Map(tx.Calldata, AdaptFelt)
 		deployTx := &core.DeployTransaction{
+			TransactionHash:     nil, // overridden below
 			ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 			ContractAddressSalt: addressSalt,
 			ClassHash:           classHash,
@@ -127,6 +155,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		callData := utils.Map(tx.Calldata, AdaptFelt)
 		deployAccTx := &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
+				TransactionHash:     nil, // overridden below
 				ContractAddressSalt: addressSalt,
 				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 				ClassHash:           classHash,
@@ -136,6 +165,12 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			Nonce:                AdaptFelt(tx.Nonce),
+			// version 3 fields (zero values)
+			ResourceBounds: nil,
+			PaymasterData:  nil,
+			Tip:            0,
+			NonceDAMode:    0,
+			FeeDAMode:      0,
 		}
 		deployAccTx.DeployTransaction.TransactionHash = hash(deployAccTx)
 
@@ -158,6 +193,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		callData := utils.Map(tx.Calldata, AdaptFelt)
 		deployAccTx := &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
+				TransactionHash:     nil, // overridden below
 				ContractAddressSalt: addressSalt,
 				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 				ClassHash:           classHash,
@@ -182,14 +218,23 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_InvokeV0_:
 		tx := t.GetInvokeV0()
 		invTx := &core.InvokeTransaction{
-			Nonce:                nil, // not used in v0
-			SenderAddress:        nil, // not used in v0
+			TransactionHash:      nil, // overridden below
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			ContractAddress:      AdaptAddress(tx.Address),
 			Version:              txVersion(0),
 			EntryPointSelector:   AdaptFelt(tx.EntryPointSelector),
+			// version 1 fields (zero values)
+			Nonce:         nil,
+			SenderAddress: nil,
+			// version 3 fields (zero values)
+			ResourceBounds:        nil,
+			Tip:                   0,
+			PaymasterData:         nil,
+			AccountDeploymentData: nil,
+			NonceDAMode:           0,
+			FeeDAMode:             0,
 		}
 		invTx.TransactionHash = hash(invTx)
 
@@ -197,6 +242,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_InvokeV1_:
 		tx := t.GetInvokeV1()
 		invTx := &core.InvokeTransaction{
+			TransactionHash:      nil, // overridden below
 			ContractAddress:      nil, // not used in v1
 			Nonce:                AdaptFelt(tx.Nonce),
 			SenderAddress:        AdaptAddress(tx.Sender),
@@ -205,6 +251,13 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			MaxFee:               AdaptFelt(tx.MaxFee),
 			Version:              txVersion(1),
 			EntryPointSelector:   nil,
+			// version 3 fields (zero values)
+			ResourceBounds:        nil,
+			Tip:                   0,
+			PaymasterData:         nil,
+			AccountDeploymentData: nil,
+			NonceDAMode:           0,
+			FeeDAMode:             0,
 		}
 		invTx.TransactionHash = hash(invTx)
 
@@ -223,6 +276,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		invTx := &core.InvokeTransaction{
+			TransactionHash:      nil, // overridden below
 			ContractAddress:      nil, // is it ok?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -236,9 +290,10 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 				core.ResourceL1Gas: adaptResourceLimits(tx.L1Gas),
 				core.ResourceL2Gas: adaptResourceLimits(tx.L2Gas),
 			},
-			PaymasterData: nil, // Todo: P2P needs to change the pay master data to a list
-			NonceDAMode:   core.DataAvailabilityMode(nDAMode),
-			FeeDAMode:     core.DataAvailabilityMode(fDAMode),
+			PaymasterData:         nil, // Todo: P2P needs to change the pay master data to a list
+			NonceDAMode:           core.DataAvailabilityMode(nDAMode),
+			FeeDAMode:             core.DataAvailabilityMode(fDAMode),
+			AccountDeploymentData: nil, // todo(kirill) recheck
 		}
 		invTx.TransactionHash = hash(invTx)
 
@@ -246,6 +301,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	case *spec.Transaction_L1Handler:
 		tx := t.GetL1Handler()
 		l1Tx := &core.L1HandlerTransaction{
+			TransactionHash:    nil, // overridden below
 			ContractAddress:    AdaptAddress(tx.Address),
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
 			Nonce:              AdaptFelt(tx.Nonce),
