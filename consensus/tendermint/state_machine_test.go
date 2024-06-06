@@ -18,9 +18,9 @@ import (
 func TestStateMachineCreation(t *testing.T) {
 	t.Parallel()
 
-	var decider consensus.Decider
-	var proposer consensus.Proposer
-	var gossiper consensus.Gossiper
+	var decider consensus.Decider = new(deciderMock)
+	var proposer consensus.Proposer = new(proposerMock)
+	var gossiper consensus.Gossiper = new(gossiperMock)
 
 	t.Run("Initial state with no decider panics", func(t *testing.T) {
 
@@ -52,18 +52,6 @@ func TestStateMachineCreation(t *testing.T) {
 }
 
 // test state mutation
-
-func getDecider() *consensus.Decider {
-	panic("implement me")
-}
-
-func getProposer() *consensus.Proposer {
-	panic("implement me")
-}
-
-func getGossiper() consensus.Gossiper {
-	panic("implement me")
-}
 
 type gossiperMock struct {
 	mock.Mock
