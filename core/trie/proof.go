@@ -72,8 +72,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 	var parentKey *Key
 
-	for i := 0; i < len(nodesToLeaf); i++ {
-		sNode := nodesToLeaf[i]
+	for i, sNode := range nodesToLeaf {
 		sNodeEdge, sNodeBinary, err := adaptNodeToSnap(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
@@ -205,7 +204,7 @@ func VerifyProof(root, keyFelt, value *felt.Felt, proofs []ProofNode, hash hashF
 // This is achieved by constructing a trie from the boundary proofs, and the supplied key-values.
 // If the root of the reconstructed trie matches the supplied root, then the verification passes.
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
-// and therefore it's hash will be incorrect.
+// and therefore it's hash won't match the expected root
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
 func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys, proofValues [2]*felt.Felt,
 	proofs [2][]ProofNode, hash hashFunc,
@@ -228,32 +227,23 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys, pro
 	}
 
 	// Step 1: Verify proofs, and get proof paths
-	var firstProofPath, lastProofPath []StorageNode
+	var proofPaths [2][]StorageNode
 	var err error
-	if proofs[0] != nil {
-		if !VerifyProof(root, proofKeys[0], proofValues[0], proofs[0], hash) {
-			return false, fmt.Errorf("invalid proof for key %x", proofKeys[0].String())
-		}
+	for i := 0; i < 2; i++ {
+		if proofs[i] != nil {
+			if !VerifyProof(root, proofKeys[i], proofValues[i], proofs[i], hash) {
+				return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
+			}
 
-		firstProofPath, err = ProofToPath(proofs[0], proofKeys[0], hash)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	if proofs[1] != nil {
-		if !VerifyProof(root, proofKeys[1], proofValues[1], proofs[1], hash) {
-			return false, fmt.Errorf("invalid proof for key %x", proofKeys[0].String())
-		}
-
-		lastProofPath, err = ProofToPath(proofs[1], proofKeys[1], hash)
-		if err != nil {
-			return false, err
+			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], hash)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
 
 	// Step 2: Build trie from proofPaths and keys
-	tmpTrie, err := BuildTrie(firstProofPath, lastProofPath, keys, values)
+	tmpTrie, err := BuildTrie(proofPaths[0], proofPaths[1], keys, values)
 	if err != nil {
 		return false, err
 	}
@@ -277,8 +267,8 @@ func ensureMonotonicIncreasing(proofKeys [2]*felt.Felt, keys []*felt.Felt) error
 	if proofKeys[1] != nil && keys[len(keys)-1].Cmp(proofKeys[1]) >= 0 {
 		return errors.New("range is not monotonically increasing")
 	}
-	if len(keys) > 2 {
-		for i := range keys[0 : len(keys)-2] {
+	if len(keys) >= 2 {
+		for i := 0; i < len(keys)-1; i++ {
 			if keys[i].Cmp(keys[i+1]) >= 0 {
 				return errors.New("range is not monotonically increasing")
 			}
@@ -319,7 +309,7 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 	leafKey := NewKey(251, leafBytes[:]) //nolint:gomnd
 
 	// Hack: this allows us to store a right without an existing left node.
-	zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+	zeroFeltBytes := new(felt.Felt).Bytes()
 	nilKey := NewKey(0, zeroFeltBytes[:])
 
 	i, offset := 0, 0
