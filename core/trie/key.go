@@ -26,7 +26,7 @@ func NewKey(length uint8, keyBytes []byte) Key {
 
 func (k *Key) SubKey(n uint8) (*Key, error) {
 	if n > k.len {
-		return nil, errors.New(fmt.Sprint("cannot subtract key by len %i", n))
+		return nil, errors.New(fmt.Sprint("cannot subtract key of length %i from key of length %i", n, k.len))
 	}
 
 	newKey := &Key{len: n}

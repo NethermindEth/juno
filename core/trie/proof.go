@@ -122,9 +122,7 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 
 	var parentKey *Key
 
-	for i := 0; i < len(nodesFromRoot); i++ {
-		sNode := nodesFromRoot[i]
-
+	for i, sNode := range nodesFromRoot {
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
