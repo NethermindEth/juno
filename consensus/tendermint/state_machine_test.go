@@ -192,8 +192,9 @@ func getStateMachine(initialState *State, config *Config) *StateMachine {
 	return newStateMachine(initialState, gossiper, decider, proposer, config)
 }
 
+// todo: check for state changes
 func TestTransitionAsProposer(t *testing.T) {
-	// is proposer
+
 	t.Run("On Start round sm broadcasts correct value if it already exists", func(t *testing.T) {
 		value := new(proposableMock)
 		value.On("Id").Return(consensus.IdType(0))
@@ -202,10 +203,10 @@ func TestTransitionAsProposer(t *testing.T) {
 
 		proposer := new(proposerMock)
 		proposer.On("StrictIsProposer", mock.Anything, mock.Anything).Return(true)
-		//proposer.On()
+
 		gossiper := newGossiperMock(1, nil)
 
-		state := NewStateBuilder(&State{decider: decider}).SetValidValue(value).Build()
+		state := NewStateBuilder(decider).SetValidValue(value).Build()
 		sm := newStateMachine(state, gossiper, decider, proposer, nil)
 		sm.Start()
 		msg := sm.gossiper.GetSubmittedMessage()
@@ -234,7 +235,7 @@ func TestTransitionAsProposer(t *testing.T) {
 }
 
 func TestTransitionAsNonProposer(t *testing.T) {
-	// is not proposer
+
 	t.Run("On Start round sm broadcasts Nothing if value already exists", func(t *testing.T) {
 		value := new(proposableMock)
 		value.On("Id").Return(consensus.IdType(0))
@@ -246,7 +247,7 @@ func TestTransitionAsNonProposer(t *testing.T) {
 
 		gossiper := newGossiperMock(1, nil)
 
-		state := NewStateBuilder(&State{decider: decider}).SetValidValue(value).Build()
+		state := NewStateBuilder(decider).SetValidValue(value).Build()
 
 		sm := newStateMachine(state, gossiper, decider, proposer, nil)
 
@@ -256,7 +257,7 @@ func TestTransitionAsNonProposer(t *testing.T) {
 		assert.Nil(t, msg)
 	})
 
-	t.Run("On Start round sm broadcasts Nothing it does not exists", func(t *testing.T) {
+	t.Run("On Start round sm broadcasts Nothing if value does not exists", func(t *testing.T) {
 		value := new(proposableMock)
 		value.On("Id").Return(consensus.IdType(0))
 
@@ -275,9 +276,6 @@ func TestTransitionAsNonProposer(t *testing.T) {
 		assert.Nil(t, msg)
 	})
 
-	// a bit tricky might need to make timeout callback function a dependency for handle message function
-	// with wait groups
-	// also timeout time is based on a function of the number of rounds so far.
 	t.Run("On Start round schedules timeout callback function", func(t *testing.T) {
 		value := new(proposableMock)
 		value.On("Id").Return(consensus.IdType(0))
@@ -312,10 +310,76 @@ func TestTransitionAsNonProposer(t *testing.T) {
 
 // Test naming convention.
 // Test_KeyState_Messages-received_DecisionCondition_ExpectedAction_ExpectedResultingState
+func TestTransitions(t *testing.T) {
+	t.Run("when not in propose step receiving proposal from proposer sm broadcasts nothing with no state change", func(t *testing.T) {
 
-// get proposals
-func TestNotInProposeStep__OnProposalFromProposer__DoNoBroadcast__NoStateChange(t *testing.T) {
+		value := new(proposableMock)
+		value.On("Id").Return(consensus.IdType(0))
 
+		decider := new(deciderMock)
+		proposer := new(proposerMock)
+		proposer.On("Proposer", mock.Anything, mock.Anything).Return(0)
+
+		states := []*State{
+			NewStateBuilder(decider).SetStep(STEP_PREVOTE).Build(),
+			NewStateBuilder(decider).SetStep(STEP_PRECOMMIT).Build(),
+		}
+
+		for _, state := range states {
+
+			msgs := make([]*Message, 0, 2)
+			proposalMsg := NewProposalMessage(0, 0, value, -1)
+			proposalMsg.SetSender(0)
+
+			msgs = append(msgs, proposalMsg)
+			msgs = append(msgs, MSG_VALUE_EMPTY)
+
+			gossiper := newGossiperMock(1, nil)
+
+			sm := newStateMachine(state, gossiper, decider, proposer, nil)
+
+			err := sm.HandleMessage(msgs)
+
+			assert.Nil(t, err)
+			assert.Equal(t, *state, sm.state)
+			assert.Nil(t, gossiper.GetSubmittedMessage())
+		}
+	})
+
+	t.Run("when in propose step receiving a valid proposal with no previously valid round from proposer and sm has no previously locked round, sm broacasts prevote with id", func(t *testing.T) {
+		value := new(proposableMock)
+		value.On("Id").Return(consensus.IdType(0))
+		value.On("IsValid").Return(true)
+
+		decider := new(deciderMock)
+		proposer := new(proposerMock)
+		proposer.On("Proposer", mock.Anything, mock.Anything).Return(0)
+
+		msgs := make([]*Message, 0, 2)
+		proposalMsg := NewProposalMessage(0, 0, value, ROUND_NONE)
+		proposalMsg.SetSender(0)
+
+		msgs = append(msgs, proposalMsg)
+		msgs = append(msgs, MSG_VALUE_EMPTY)
+
+		gossiper := newGossiperMock(1, nil)
+
+		initialState := NewStateBuilder(decider).SetStep(STEP_PROPOSE).Build()
+
+		sm := newStateMachine(initialState, gossiper, decider, proposer, nil)
+
+		err := sm.HandleMessage(msgs)
+		assert.Nil(t, err)
+
+		broadcast := gossiper.GetSubmittedMessage()
+		resultMsg, ok := broadcast.(*Message)
+		assert.True(t, ok)
+		assert.NotNil(t, resultMsg)
+		assert.Equal(t, MSG_PREVOTE, resultMsg.msgType)
+		assert.Equal(t, initialState.round, sm.state.round)
+		assert.Equal(t, initialState.currentHeight, sm.state.currentHeight)
+		assert.Equal(t, STEP_PREVOTE, sm.state.step)
+	})
 }
 
 func TestInProposeStep__OnProposalFromProposerWithReceivedNoPreviouslyValidRound__ValidProposedValueAndNoPreviouslyLockedRound__DoBroadcastPreVoteWithId(t *testing.T) {

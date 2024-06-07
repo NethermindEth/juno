@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	consensus "github.com/NethermindEth/juno/consensus/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -9,23 +8,21 @@ import (
 
 func TestCreateNewState(t *testing.T) {
 	t.Parallel()
+	decider := new(deciderMock)
 
 	t.Run("Initial state with no decider panics", func(t *testing.T) {
-
 		require.Panics(t, func() {
 			InitialState(nil)
 		})
 	})
 
-	t.Run("Initial state with decider does not panics", func(t *testing.T) {
-		var decider consensus.Decider
+	t.Run("Initial state with decider does not panic", func(t *testing.T) {
 		require.NotPanics(t, func() {
 			InitialState(decider)
 		})
 	})
 
 	t.Run("creates initial state successfully", func(t *testing.T) {
-		var decider consensus.Decider
 		initialState := InitialState(decider)
 		assert.Equal(t, STEP_PROPOSE, initialState.step)
 		assert.Equal(t, RoundType(0), initialState.round)

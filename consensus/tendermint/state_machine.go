@@ -23,9 +23,9 @@ type StateMachine struct {
 	proposer consensus.Proposer
 	gossiper consensus.Gossiper
 	decider  consensus.Decider
-	started  bool
+	started  bool       // tells us the state machine has ran start at least once. used for loop for ever
 	lock     sync.Mutex // lock needed because of timeouts!!!
-	*Config
+	Config
 }
 
 func newStateMachine(initialState *State, gossiper consensus.Gossiper, decider consensus.Decider,
@@ -47,8 +47,11 @@ func newStateMachine(initialState *State, gossiper consensus.Gossiper, decider c
 		initialState = InitialState(decider)
 	}
 
+	var tmpConfig Config
 	if config == nil {
-		config = &Config{}
+		tmpConfig = Config{}
+	} else {
+		tmpConfig = *config
 	}
 
 	return &StateMachine{
@@ -56,7 +59,7 @@ func newStateMachine(initialState *State, gossiper consensus.Gossiper, decider c
 		decider:  decider,
 		gossiper: gossiper,
 		proposer: proposer,
-		Config:   config,
+		Config:   tmpConfig,
 	}
 }
 
@@ -73,8 +76,8 @@ func (sm *StateMachine) Start() {
 	sm.startRound(0)
 }
 
-func toMessage(value interface{}) Message {
-	v, ok := value.(Message)
+func toMessage(value interface{}) *Message {
+	v, ok := value.(*Message)
 	if !ok {
 		return MSG_VALUE_EMPTY
 	}
@@ -83,7 +86,7 @@ func toMessage(value interface{}) Message {
 
 // run without stopping
 func (sm *StateMachine) Run() {
-	msgs := make([]Message, 2)
+	msgs := make([]*Message, 2)
 	if !sm.started {
 		sm.Start()
 	}
@@ -108,7 +111,7 @@ func (sm *StateMachine) Interrupt() {
 }
 
 // transition to the next state
-func (sm *StateMachine) HandleMessage(msgs []Message) error {
+func (sm *StateMachine) HandleMessage(msgs []*Message) error {
 	// order message in proposal, preVote, preCommit, Empty order
 
 	invalidMsg := true
@@ -131,14 +134,6 @@ func (sm *StateMachine) HandleMessage(msgs []Message) error {
 		invalidMsg = false
 
 		sm.handleJustProposals(msgs)
-		return nil
-	}
-
-	// TODO: remove not a case
-	if msgs[0].msgType == MSG_PREVOTE && msgs[1].msgType == MSG_PRECOMMIT {
-		invalidMsg = false
-
-		sm.handlePreVotesWithPreCommits(msgs)
 		return nil
 	}
 
@@ -170,13 +165,13 @@ func (sm *StateMachine) HandleMessage(msgs []Message) error {
 	return nil
 }
 
-func (sm *StateMachine) handleProposalsWithPreVotes(msg []Message) {
+func (sm *StateMachine) handleProposalsWithPreVotes(msg []*Message) {
 	sm.handleProposalPreVoting(msg)
 	sm.handleInitialVoting(msg)
 }
 
 // todo: change all check-functions name
-func (sm *StateMachine) checkValidVoting(msg []Message) bool {
+func (sm *StateMachine) checkValidVoting(msg []*Message) bool {
 	if msg[0].Sender() != sm.proposer.Proposer(sm.state.currentHeight, sm.state.round) && msg[1].VoteLevel() >= VOTE_LEVEL_MAJORITY {
 		return false
 	}
@@ -190,7 +185,7 @@ func (sm *StateMachine) checkValidVoting(msg []Message) bool {
 	return true
 }
 
-func (sm *StateMachine) handleProposalPreVoting(msg []Message) {
+func (sm *StateMachine) handleProposalPreVoting(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -216,7 +211,7 @@ func (sm *StateMachine) handleProposalPreVoting(msg []Message) {
 	}
 }
 
-func (sm *StateMachine) handleInitialVoting(msg []Message) {
+func (sm *StateMachine) handleInitialVoting(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -254,7 +249,7 @@ func (sm *StateMachine) handleInitialVoting(msg []Message) {
 	}
 }
 
-func (sm *StateMachine) handleProposalsWithPreCommits(msg []Message) {
+func (sm *StateMachine) handleProposalsWithPreCommits(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -290,7 +285,7 @@ func (sm *StateMachine) resetStateWithNewHeight(newHeight HeightType) {
 	sm.gossiper.ClearReceive() // todo: clears msgs processing state not all the received msgs
 }
 
-func (sm *StateMachine) handleJustProposals(msg []Message) {
+func (sm *StateMachine) handleJustProposals(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -323,17 +318,12 @@ func (sm *StateMachine) handleJustProposals(msg []Message) {
 	}
 }
 
-func (sm *StateMachine) handlePreVotesWithPreCommits(msg []Message) {
-	// todo; remove this not a transition function
-	return
-}
-
-func (sm *StateMachine) handleJustPreVotes(msg []Message) {
+func (sm *StateMachine) handleJustPreVotes(msg []*Message) {
 	sm.handleInitialPreVote(msg)
 	sm.handlePreVotes(msg)
 }
 
-func (sm *StateMachine) checkJustPreVoteMsg(msg []Message) bool {
+func (sm *StateMachine) checkJustPreVoteMsg(msg []*Message) bool {
 	if msg[0].VoteLevel() < VOTE_LEVEL_MAJORITY {
 		return false
 	}
@@ -349,7 +339,7 @@ func (sm *StateMachine) checkJustPreVoteMsg(msg []Message) bool {
 	return true
 }
 
-func (sm *StateMachine) handleInitialPreVote(msg []Message) {
+func (sm *StateMachine) handleInitialPreVote(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -364,7 +354,7 @@ func (sm *StateMachine) handleInitialPreVote(msg []Message) {
 
 }
 
-func (sm *StateMachine) handlePreVotes(msg []Message) {
+func (sm *StateMachine) handlePreVotes(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -384,7 +374,7 @@ func (sm *StateMachine) handlePreVotes(msg []Message) {
 
 }
 
-func (sm *StateMachine) handleJustPreCommits(msg []Message) {
+func (sm *StateMachine) handleJustPreCommits(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 
@@ -405,7 +395,7 @@ func (sm *StateMachine) handleJustPreCommits(msg []Message) {
 	}
 }
 
-func (sm *StateMachine) handleUniqueVotes(msg []Message) {
+func (sm *StateMachine) handleUniqueVotes(msg []*Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 

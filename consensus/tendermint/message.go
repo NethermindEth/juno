@@ -23,7 +23,7 @@ const (
 
 var (
 	// TODO: MAYBE MAKE POINTER
-	MSG_VALUE_EMPTY Message = *NewEmptyMessage()
+	MSG_VALUE_EMPTY *Message = NewEmptyMessage()
 )
 
 // Message Todo: locked/validRound can be as large as round so uint vs int might be a bad idea maybe use uint and set to nil for negative value?
