@@ -187,6 +187,59 @@ func build3KeyTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
+func build4KeyTrie(t *testing.T) *trie.Trie {
+	//			Juno
+	//			248
+	// 			/  \
+	// 		249		\
+	//		/ \		 \
+	//	 250   \	  \
+	//   / \    \	   \
+	//  0   1   2      4
+
+	//			Pathfinder (???)
+	//			  0	 Edge
+	// 			  |
+	// 			 248	Binary
+	//			 / \
+	//		   249	250		Binary Edge		??
+	//	   	   / \	 \
+	//		250  250  \		Binary Edge		??
+	//	    / \   \    \
+	// 	   0   1   2    4
+
+	// Build trie
+	memdb := pebble.NewMemTest(t)
+	txn, err := memdb.NewTransaction(true)
+	require.NoError(t, err)
+
+	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	require.NoError(t, err)
+
+	// Update trie
+	key1 := new(felt.Felt).SetUint64(0)
+	key2 := new(felt.Felt).SetUint64(1)
+	key3 := new(felt.Felt).SetUint64(2)
+	key5 := new(felt.Felt).SetUint64(4)
+	value1 := new(felt.Felt).SetUint64(4)
+	value2 := new(felt.Felt).SetUint64(5)
+	value3 := new(felt.Felt).SetUint64(6)
+	value5 := new(felt.Felt).SetUint64(7)
+
+	_, err = tempTrie.Put(key1, value1)
+	require.NoError(t, err)
+
+	_, err = tempTrie.Put(key3, value3)
+	require.NoError(t, err)
+	_, err = tempTrie.Put(key2, value2)
+	require.NoError(t, err)
+	_, err = tempTrie.Put(key5, value5)
+	require.NoError(t, err)
+
+	require.NoError(t, tempTrie.Commit())
+
+	return tempTrie
+}
 func TestGetProof(t *testing.T) {
 	t.Run("Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
@@ -778,6 +831,30 @@ func TestVerifyRangeProof(t *testing.T) {
 		rightProof, err := trie.GetProof(proofKeys[1], tri)
 		require.NoError(t, err)
 		proofs := [2][]trie.ProofNode{nil, rightProof}
+		rootCommitment, err := tri.Root()
+		require.NoError(t, err)
+		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
+		require.NoError(t, err)
+		require.True(t, verif)
+	})
+
+	t.Run("left proof, all inner keys, right proof with non-set key", func(t *testing.T) {
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+
+		threeFeltBytes := new(felt.Felt).SetUint64(3).Bytes()
+		threeLeafkey := trie.NewKey(251, threeFeltBytes[:])
+
+		tri := build4KeyTrie(t)
+		keys := []*felt.Felt{new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(2)}
+		values := []*felt.Felt{new(felt.Felt).SetUint64(5), new(felt.Felt).SetUint64(6)}
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &threeLeafkey}
+		proofValues := [2]*felt.Felt{new(felt.Felt).SetUint64(4), nil}
+		leftProof, err := trie.GetProof(proofKeys[0], tri)
+		require.NoError(t, err)
+		rightProof, err := trie.GetProof(proofKeys[1], tri)
+		require.NoError(t, err)
+		proofs := [2][]trie.ProofNode{leftProof, rightProof}
 		rootCommitment, err := tri.Root()
 		require.NoError(t, err)
 		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)

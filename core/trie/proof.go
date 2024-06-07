@@ -136,7 +136,7 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
-func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
+func GetProof(key *Key, tri *Trie) ([]ProofNode, error) { // todo: Get proof should always be for leafs??
 	nodesFromRoot, err := tri.nodesFromRoot(key)
 	if err != nil {
 		return nil, err
@@ -171,10 +171,11 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
 	expectedHash := root
 	remainingPath := NewKey(key.len, key.bitset[:])
-	for _, proofNode := range proofs {
+	for i, proofNode := range proofs {
 		if !proofNode.Hash(hash).Equal(expectedHash) {
 			return false
 		}
+
 		switch {
 		case proofNode.Binary != nil:
 			if remainingPath.Test(remainingPath.Len() - 1) {
@@ -188,6 +189,13 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 			if err != nil {
 				return false
 			}
+
+			// If we are verifying the key doesn't exist, then we should
+			// update subKey to point in the other direction
+			if value == nil && i == len(proofs)-1 {
+				return true // todo: hack for non-set proof nodes
+			}
+
 			if !proofNode.Edge.Path.Equal(subKey) {
 				return false
 			}
