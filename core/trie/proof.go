@@ -170,7 +170,7 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
 	expectedHash := root
-	remainingPath := key
+	remainingPath := NewKey(key.len, key.bitset[:])
 	for _, proofNode := range proofs {
 		if !proofNode.Hash(hash).Equal(expectedHash) {
 			return false
