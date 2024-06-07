@@ -301,6 +301,16 @@ func shouldSquish(idx int, proofNodes []ProofNode) (int, uint8) {
 	return 0, 0
 }
 
+func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
+	if isRight {
+		crntNode.Right = childKey
+		crntNode.Left = nilKey
+	} else {
+		crntNode.Right = nilKey
+		crntNode.Left = childKey
+	}
+}
+
 // ProofToPath returns the set of storage nodes along the proofNodes towards the leaf.
 // Note that only the nodes and children along this path will be set correctly.
 func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]StorageNode, error) {
@@ -332,47 +342,25 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 		crntNode.Value = proofNodes[i].Hash(hashF)
 
 		// Set the children of the current node
-		// The child may need compressed. If so, point to its compressed form.
 		childIdx := i + squishedParent + 1
+		childIsRight := leafKey.Test(leafKey.len - crntKey.len - 1)
+		// The child may need compressed. If so, point to its compressed form.
 		if i+2+squishedParent < len(proofNodes)-1 {
 			squishedChild, squishChildOffset := shouldSquish(childIdx, proofNodes)
 			childKey := leafKey.SubKey(height + squishParentOffset + squishChildOffset + uint8(squishedChild))
-			if leafKey.Test(leafKey.len - crntKey.len - 1) {
-				crntNode.Right = childKey
-				crntNode.Left = &nilKey
-			} else {
-				crntNode.Right = &nilKey
-				crntNode.Left = childKey
-			}
+			assignChild(&crntNode, &nilKey, childKey, childIsRight)
 		} else if i+1+offset == len(proofNodes)-1 { // The child (i+1+offset) is the final (pre/non-leaf) node.
 			if proofNodes[childIdx].Edge != nil {
-				if leafKey.Test(leafKey.len - crntKey.len - 1) {
-					crntNode.Right = &leafKey
-					crntNode.Left = &nilKey
-				} else {
-					crntNode.Right = &nilKey
-					crntNode.Left = &leafKey
-				}
+				assignChild(&crntNode, &nilKey, &leafKey, childIsRight)
 			} else {
-				if leafKey.Test(leafKey.len - crntKey.len - 1) {
-					crntNode.Right = leafKey.SubKey(crntKey.len + proofNodes[childIdx].Len())
-					crntNode.Left = &nilKey
-				} else {
-					crntNode.Right = &nilKey
-					crntNode.Left = leafKey.SubKey(crntKey.len + proofNodes[childIdx].Len())
-				}
+				childKey := leafKey.SubKey(crntKey.len + proofNodes[childIdx].Len())
+				assignChild(&crntNode, &nilKey, childKey, childIsRight)
 			}
 		} else { // The current node points to the leaf
 			if proofNodes[i].Edge != nil && len(pathNodes) > 0 {
 				break
 			}
-			if leafKey.Test(leafKey.len - crntKey.len - 1) {
-				crntNode.Right = &leafKey
-				crntNode.Left = &nilKey
-			} else {
-				crntNode.Right = &nilKey
-				crntNode.Left = &leafKey
-			}
+			assignChild(&crntNode, &nilKey, &leafKey, childIsRight)
 		}
 
 		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
