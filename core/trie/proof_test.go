@@ -140,7 +140,7 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []trie.ProofNode) {
 	return tempTrie, expectedProofNodes
 }
 
-func build3KeyTrie(t *testing.T) *trie.Trie { //nolint:dupl
+func build3KeyTrie(t *testing.T) *trie.Trie {
 	// 			Starknet
 	//
 	//			Edge
