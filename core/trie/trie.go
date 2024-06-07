@@ -130,24 +130,41 @@ func path(key, parentKey *Key) Key {
 
 // storageNode is the on-disk representation of a [Node],
 // where key is the storage key and node is the value.
-type storageNode struct {
+type StorageNode struct {
 	key  *Key
 	node *Node
+}
+
+func (sn *StorageNode) Key() *Key {
+	return sn.key
+}
+
+func (sn *StorageNode) Node() *Node {
+	return sn.node
+}
+
+func NewStorageNode(key *Key, node *Node) *StorageNode {
+	return &StorageNode{key: key, node: node}
 }
 
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(key *Key) ([]storageNode, error) {
-	var nodes []storageNode
+func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
+	var nodes []StorageNode
 	cur := t.rootKey
 	for cur != nil {
+		// proof nodes set "nil" nodes to zero
+		if len(nodes) > 0 && cur.len == 0 {
+			return nodes, nil
+		}
+
 		node, err := t.storage.Get(cur)
 		if err != nil {
 			return nil, err
 		}
 
-		nodes = append(nodes, storageNode{
+		nodes = append(nodes, StorageNode{
 			key:  cur,
 			node: node,
 		})
@@ -217,7 +234,7 @@ func (t *Trie) handleEmptyTrie(old felt.Felt, nodeKey Key, node *Node, value *fe
 	return &old, nil
 }
 
-func (t *Trie) deleteExistingKey(sibling storageNode, nodeKey Key, nodes []storageNode) (*felt.Felt, error) {
+func (t *Trie) deleteExistingKey(sibling StorageNode, nodeKey Key, nodes []StorageNode) (*felt.Felt, error) {
 	if nodeKey.Equal(sibling.key) {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -230,7 +247,7 @@ func (t *Trie) deleteExistingKey(sibling storageNode, nodeKey Key, nodes []stora
 	return nil, nil
 }
 
-func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent storageNode) {
+func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent StorageNode) {
 	if siblingParent.node.Left.Equal(key) {
 		*siblingParent.node.Left = commonKey
 	} else {
@@ -238,7 +255,7 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent s
 	}
 }
 
-func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode, sibling storageNode) error {
+func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, isProof bool) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
 	newParent := &Node{}
@@ -248,7 +265,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode
 		newParent.Left, newParent.Right = sibling.key, nodeKey
 		leftChild, rightChild = sibling.node, node
 	} else {
-		newParent.Left, newParent.Right = nodeKey, sibling.key
+		newParent.Left, newParent.Right = nodeKey, sibling.key //
 		leftChild, rightChild = node, sibling.node
 	}
 
@@ -260,16 +277,19 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []storageNode
 		return err
 	}
 
-	if len(nodes) > 1 { // sibling has a parent
+	// Don't modify the structure outlined by the proof paths
+	if len(nodes) > 1 && !isProof { // sibling has a parent
 		siblingParent := (nodes)[len(nodes)-2]
 
-		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent)
+		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent) // error with overwritting right arises here
 		if err := t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
 			return err
 		}
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
-	} else {
+	} else if !isProof {
 		t.setRootKey(&commonKey)
+	} else {
+		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 	}
 
 	if err := t.storage.Put(nodeKey, node); err != nil {
@@ -296,7 +316,58 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return oldValue, err
 	}
 
-	nodes, err := t.nodesFromRoot(&nodeKey)
+	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		for _, n := range nodes {
+			nodePool.Put(n.node)
+		}
+	}()
+
+	// empty trie, make new value root
+	if len(nodes) == 0 {
+		return t.handleEmptyTrie(old, nodeKey, node, value)
+	} else {
+		// Since we short-circuit in leaf updates, we will only end up here for deletions
+		// Delete if key already exist
+		sibling := nodes[len(nodes)-1]
+		oldValue, err = t.deleteExistingKey(sibling, nodeKey, nodes)
+		// xor operation, because we don't want to return if the error is nil and the old value is nil
+		if (err != nil) != (oldValue != nil) {
+			return oldValue, err
+		} else if value.IsZero() {
+			// trying to insert 0 to a key that does not exist
+			return nil, nil // no-op
+		}
+		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, false)
+		if err != nil {
+			return nil, err
+		}
+		return &old, nil
+	}
+}
+
+// Put updates the corresponding `value` for a `key`
+func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []StorageNode) (*felt.Felt, error) {
+	if key.Cmp(t.maxKey) > 0 {
+		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
+	}
+
+	old := felt.Zero
+	nodeKey := t.feltToKey(key)
+	node := &Node{
+		Value: value,
+	}
+
+	oldValue, err := t.updateLeaf(nodeKey, node, value)
+	// xor operation, because we don't want to return result if the error is nil and the old value is nil
+	if (err != nil) != (oldValue != nil) {
+		return oldValue, err
+	}
+
+	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
 	if err != nil {
 		return nil, err
 	}
@@ -322,12 +393,42 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 			return nil, nil // no-op
 		}
 
-		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling)
+		IsProof, found := false, false
+		for i, proof := range lProofPath {
+			if proof.key.Equal(sibling.key) {
+				sibling = lProofPath[i+1]
+				IsProof = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			for i, proof := range rProofPath {
+				if proof.key.Equal(sibling.key) {
+					sibling = rProofPath[i+1]
+					IsProof = true
+					break
+				}
+			}
+		}
+
+		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, IsProof)
 		if err != nil {
 			return nil, err
 		}
 		return &old, nil
 	}
+}
+
+// Put updates the corresponding `value` for a `key`
+func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
+	if err := t.storage.Put(key, node); err != nil {
+		return nil, err
+	}
+	if t.rootKey == nil {
+		t.setRootKey(key)
+	}
+	return &felt.Zero, nil
 }
 
 func (t *Trie) setRootKey(newRootKey *Key) {
@@ -379,7 +480,6 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 	rightPath := path(node.Right, key)
 
 	node.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
-
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
 	}
@@ -421,7 +521,7 @@ func (t *Trie) updateChildTriesConcurrently(root *Node) (*Node, *Node, error) {
 }
 
 // deleteLast deletes the last node in the given list
-func (t *Trie) deleteLast(nodes []storageNode) error {
+func (t *Trie) deleteLast(nodes []StorageNode) error {
 	last := nodes[len(nodes)-1]
 	if err := t.storage.Delete(last.key); err != nil {
 		return err
