@@ -476,6 +476,35 @@ func TestVerifyProof(t *testing.T) {
 
 		assert.True(t, trie.VerifyProof(root, &leafkey, val6, expectedProofNodes, crypto.Pedersen))
 	})
+
+	t.Run("non existent key - less than root edge", func(t *testing.T) {
+		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
+
+		nonExistentKey := trie.NewKey(123, []byte{0}) // Diverges before the root node (len root node = 249)
+		nonExistentKeyValue := new(felt.Felt).SetUint64(2)
+		proofNodes, err := trie.GetProof(&nonExistentKey, tempTrie)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		require.False(t, trie.VerifyProof(root, &nonExistentKey, nonExistentKeyValue, proofNodes, crypto.Pedersen))
+	})
+
+	t.Run("non existent leaf key", func(t *testing.T) {
+		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
+
+		nonExistentKeyByte := new(felt.Felt).SetUint64(2).Bytes() // Key not set
+		nonExistentKey := trie.NewKey(251, nonExistentKeyByte[:])
+		nonExistentKeyValue := new(felt.Felt).SetUint64(2)
+		proofNodes, err := trie.GetProof(&nonExistentKey, tempTrie)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		require.False(t, trie.VerifyProof(root, &nonExistentKey, nonExistentKeyValue, proofNodes, crypto.Pedersen))
+	})
 }
 
 func TestProofToPath(t *testing.T) {
@@ -756,32 +785,4 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.True(t, verif)
 	})
 
-	t.Run("non existent key - less than root edge", func(t *testing.T) {
-		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
-
-		nonExistentKey := trie.NewKey(123, []byte{0}) // Diverges before the root node (len root node = 249)
-		nonExistentKeyValue := new(felt.Felt).SetUint64(2)
-		proofNodes, err := trie.GetProof(&nonExistentKey, tempTrie)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		require.False(t, trie.VerifyProof(root, &nonExistentKey, nonExistentKeyValue, proofNodes, crypto.Pedersen))
-	})
-
-	t.Run("non existent leaf key", func(t *testing.T) {
-		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
-
-		nonExistentKeyByte := new(felt.Felt).SetUint64(2).Bytes() // Key not set
-		nonExistentKey := trie.NewKey(251, nonExistentKeyByte[:])
-		nonExistentKeyValue := new(felt.Felt).SetUint64(2)
-		proofNodes, err := trie.GetProof(&nonExistentKey, tempTrie)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		require.False(t, trie.VerifyProof(root, &nonExistentKey, nonExistentKeyValue, proofNodes, crypto.Pedersen))
-	})
 }
