@@ -242,7 +242,7 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 				return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
 			}
 
-			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], hash)
+			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], hash) // Todo: incorrect for both paths :(
 			if err != nil {
 				return false, err
 			}
@@ -430,7 +430,7 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 	}
 
 	// merge proof paths
-	for i := range min(len(leftProofPath), len(rightProofPath)) {
+	for i := range min(len(leftProofPath), len(rightProofPath)) { //
 		if leftProofPath[i].key.Equal(rightProofPath[i].key) {
 			leftProofPath[i].node.Right = rightProofPath[i].node.Right
 			rightProofPath[i].node.Left = leftProofPath[i].node.Left
@@ -447,7 +447,7 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 	}
 
 	for _, sNode := range rightProofPath {
-		_, err := tempTrie.PutInner(sNode.key, sNode.node)
+		_, err := tempTrie.PutInner(sNode.key, sNode.node) // Todo: incorrectly sets the proof key
 		if err != nil {
 			return nil, err
 		}

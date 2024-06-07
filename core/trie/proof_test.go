@@ -194,8 +194,17 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 	// 		249		\
 	//		/ \		 \
 	//	 250   \	  \
-	//   / \    \	   \
-	//  0   1   2      4
+	//   / \   /\	  /\
+	//  0   1 2	     4
+
+	//			Juno - should be able to reconstruct this from proofs
+	//			248
+	// 			/  \
+	// 		249
+	//		/ \
+	//	 250   \
+	//   / \   /\
+	//  0
 
 	//			Pathfinder (???)
 	//			  0	 Edge
@@ -850,9 +859,9 @@ func TestVerifyRangeProof(t *testing.T) {
 		values := []*felt.Felt{new(felt.Felt).SetUint64(5), new(felt.Felt).SetUint64(6)}
 		proofKeys := [2]*trie.Key{&zeroLeafkey, &threeLeafkey}
 		proofValues := [2]*felt.Felt{new(felt.Felt).SetUint64(4), nil}
-		leftProof, err := trie.GetProof(proofKeys[0], tri)
+		leftProof, err := trie.GetProof(proofKeys[0], tri) // Looks correct in terms of binary and edges
 		require.NoError(t, err)
-		rightProof, err := trie.GetProof(proofKeys[1], tri)
+		rightProof, err := trie.GetProof(proofKeys[1], tri) // Looks correct in terms of binary and edges
 		require.NoError(t, err)
 		proofs := [2][]trie.ProofNode{leftProof, rightProof}
 		rootCommitment, err := tri.Root()
