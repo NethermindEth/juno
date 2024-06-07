@@ -79,27 +79,29 @@ func newState(step Step, height HeightType, round RoundType, lockedValue, validV
 	}
 }
 
-func (s State) Builder() *StateBuilder {
-	return NewStateBuilder(&s)
+func (s *State) Builder() *StateBuilder {
+	return newStateBuilderFromState(s)
 }
 
-func (s State) nextHeight() HeightType {
+func (s *State) nextHeight() HeightType {
 	return s.currentHeight + 1
 }
 
-func (s State) nextRound() RoundType {
+func (s *State) nextRound() RoundType {
 	return s.round + 1
 }
 
 type StateBuilder struct {
-	state State
+	state *State
 }
 
-func NewStateBuilder(state *State) *StateBuilder {
-	if state == nil {
-		state = InitialState(nil)
-	}
-	return &StateBuilder{state: *state} // todo should be a copy
+func newStateBuilderFromState(state *State) *StateBuilder {
+	cpyState := *state
+	return &StateBuilder{state: &cpyState} // a copy
+}
+
+func NewStateBuilder(decider consensus.Decider) *StateBuilder {
+	return &StateBuilder{state: InitialState(decider)} // todo should be a copy
 }
 
 func (sb *StateBuilder) Build() *State {
@@ -107,7 +109,8 @@ func (sb *StateBuilder) Build() *State {
 	checkStep(sb.state.step)
 	checkRound(sb.state.round)
 
-	return &sb.state //todo: calling build twice on the same builder should return two different states so actually create a new state here, using state copy constructor>?
+	cpyState := *sb.state
+	return &cpyState // calling build twice on the same builder should return two different states so actually create a new state here, using state copy constructor>?
 }
 
 func (sb *StateBuilder) SetDecider(decider consensus.Decider) *StateBuilder {
