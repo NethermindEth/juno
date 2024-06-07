@@ -344,19 +344,18 @@ func ProofToPath(proofNodes []ProofNode, leaf *felt.Felt, hashF hashFunc) ([]Sto
 		// Set the children of the current node
 		childIdx := i + squishedParent + 1
 		childIsRight := leafKey.Test(leafKey.len - crntKey.len - 1)
-		// The child may need compressed. If so, point to its compressed form.
-		if i+2+squishedParent < len(proofNodes)-1 {
+		if i+2+squishedParent < len(proofNodes)-1 { // The child will be compressed, so point to its compressed form
 			squishedChild, squishChildOffset := shouldSquish(childIdx, proofNodes)
 			childKey := leafKey.SubKey(height + squishParentOffset + squishChildOffset + uint8(squishedChild))
 			assignChild(&crntNode, &nilKey, childKey, childIsRight)
-		} else if i+1+offset == len(proofNodes)-1 { // The child (i+1+offset) is the final (pre/non-leaf) node.
+		} else if i+1+offset == len(proofNodes)-1 { // The child points to a leaf, keep it as is
 			if proofNodes[childIdx].Edge != nil {
 				assignChild(&crntNode, &nilKey, &leafKey, childIsRight)
 			} else {
 				childKey := leafKey.SubKey(crntKey.len + proofNodes[childIdx].Len())
 				assignChild(&crntNode, &nilKey, childKey, childIsRight)
 			}
-		} else { // The current node points to the leaf
+		} else { // Current node points directly to leaf
 			if proofNodes[i].Edge != nil && len(pathNodes) > 0 {
 				break
 			}
