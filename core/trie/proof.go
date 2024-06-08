@@ -453,7 +453,12 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 	}
 
 	// merge proof paths
-	for i := range min(len(leftProofPath), len(rightProofPath)) { //
+	for i := range min(len(leftProofPath), len(rightProofPath)) {
+		// Can't store nil keys so stop merging
+		if leftProofPath[i].node.Left == nil || leftProofPath[i].node.Right == nil ||
+			rightProofPath[i].node.Left == nil || rightProofPath[i].node.Right == nil {
+			break
+		}
 		if leftProofPath[i].key.Equal(rightProofPath[i].key) {
 			leftProofPath[i].node.Right = rightProofPath[i].node.Right
 			rightProofPath[i].node.Left = leftProofPath[i].node.Left
@@ -463,6 +468,10 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 	}
 
 	for _, sNode := range leftProofPath {
+		// Can't store nil keys (reached end of line for proof)
+		if sNode.node.Left == nil || sNode.node.Right == nil {
+			break
+		}
 		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
@@ -470,7 +479,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 	}
 
 	for _, sNode := range rightProofPath {
-		_, err := tempTrie.PutInner(sNode.key, sNode.node) // Todo: incorrectly sets the proof key
+		// Can't store nil keys (reached end of line for proof)
+		if sNode.node.Left == nil || sNode.node.Right == nil {
+			break
+		}
+		_, err := tempTrie.PutInner(sNode.key, sNode.node)
 		if err != nil {
 			return nil, err
 		}

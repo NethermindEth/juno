@@ -279,8 +279,6 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 			newParent.Value = t.hash(node.LeftHash, rightChild.Hash(&rightPath, t.hash))
 		} else if node.RightHash != nil {
 			newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), node.RightHash)
-		} else {
-			return errors.New("proof node has neither right/left child hash")
 		}
 	} else {
 		newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))

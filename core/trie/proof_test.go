@@ -866,15 +866,17 @@ func TestVerifyRangeProof(t *testing.T) {
 		rightProof, err := trie.GetProof(proofKeys[1], tri) // Looks correct in terms of binary and edges
 		require.NoError(t, err)
 
+		// Todo: remove, just included for inspection/testing
 		leftProofPath, err := trie.ProofToPath(leftProof, proofKeys[0], proofValues[0], crypto.Pedersen) // correct
 		require.NoError(t, err)
 		rightProofPath, err := trie.ProofToPath(rightProof, proofKeys[1], proofValues[1], crypto.Pedersen) // gives the correct structure
 		require.NoError(t, err)
 		fmt.Println(leftProofPath, rightProofPath)
+
 		proofs := [2][]trie.ProofNode{leftProof, rightProof}
 		rootCommitment, err := tri.Root()
 		require.NoError(t, err)
-		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
+		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen) // todo: panics
 		require.NoError(t, err)
 		require.True(t, verif)
 	})
