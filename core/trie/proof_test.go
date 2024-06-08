@@ -204,7 +204,7 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 	// 		249			// Note we cant derive the right key, but need to store it's hash
 	//		/ \
 	//	 250   \
-	//   / \   /\
+	//   / \   / (Left hash set, no key)
 	//  0
 
 	//			Pathfinder (???)
@@ -592,7 +592,7 @@ func TestProofToPath(t *testing.T) {
 		}
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		leafkey := trie.NewKey(251, zeroFeltBytes[:])
-		sns, err := trie.ProofToPath(proofNodes, &leafkey, crypto.Pedersen) // Todo : we should be able to set the leaf as well
+		sns, err := trie.ProofToPath(proofNodes, &leafkey, new(felt.Felt).SetUint64(2), crypto.Pedersen) // Todo : we should be able to set the leaf as well
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
@@ -628,7 +628,7 @@ func TestProofToPath(t *testing.T) {
 
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		leafkey := trie.NewKey(251, zeroFeltBytes[:])
-		sns, err := trie.ProofToPath(proofNodes, &leafkey, crypto.Pedersen)
+		sns, err := trie.ProofToPath(proofNodes, &leafkey, utils.HexToFelt(t, "0xcc"), crypto.Pedersen)
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
@@ -654,7 +654,7 @@ func TestProofToPath(t *testing.T) {
 		bProofs, err := trie.GetBoundaryProofs(&zeroLeafkey, &twoLeafkey, tri)
 		require.NoError(t, err)
 
-		leftProofPath, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, crypto.Pedersen)
+		leftProofPath, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, new(felt.Felt).SetUint64(4), crypto.Pedersen)
 		require.Equal(t, 3, len(leftProofPath))
 		require.NoError(t, err)
 		require.Equal(t, rootKey, leftProofPath[0].Key())
@@ -667,7 +667,7 @@ func TestProofToPath(t *testing.T) {
 		require.Equal(t, leftNode.Left, leftProofPath[1].Node().Left)
 		require.NotEqual(t, leftNode.Right, leftProofPath[0].Node().Right)
 
-		rightProofPath, err := trie.ProofToPath(bProofs[1], &twoLeafkey, crypto.Pedersen)
+		rightProofPath, err := trie.ProofToPath(bProofs[1], &twoLeafkey, new(felt.Felt).SetUint64(6), crypto.Pedersen)
 		require.Equal(t, 2, len(rightProofPath))
 		require.NoError(t, err)
 		require.Equal(t, rootKey, rightProofPath[0].Key())
@@ -711,10 +711,10 @@ func TestBuildTrie(t *testing.T) {
 		bProofs, err := trie.GetBoundaryProofs(&zeroLeafkey, &twoLeafkey, tri)
 		require.NoError(t, err)
 
-		leftProof, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, crypto.Pedersen)
+		leftProof, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, new(felt.Felt).SetUint64(4), crypto.Pedersen)
 		require.NoError(t, err)
 
-		rightProof, err := trie.ProofToPath(bProofs[1], &twoLeafkey, crypto.Pedersen)
+		rightProof, err := trie.ProofToPath(bProofs[1], &twoLeafkey, new(felt.Felt).SetUint64(6), crypto.Pedersen)
 		require.NoError(t, err)
 
 		keys := []*felt.Felt{new(felt.Felt).SetUint64(1)}
@@ -866,9 +866,9 @@ func TestVerifyRangeProof(t *testing.T) {
 		rightProof, err := trie.GetProof(proofKeys[1], tri) // Looks correct in terms of binary and edges
 		require.NoError(t, err)
 
-		leftProofPath, err := trie.ProofToPath(leftProof, proofKeys[0], crypto.Pedersen) // todo: missing 250 node
+		leftProofPath, err := trie.ProofToPath(leftProof, proofKeys[0], proofValues[0], crypto.Pedersen) // correct
 		require.NoError(t, err)
-		rightProofPath, err := trie.ProofToPath(rightProof, proofKeys[1], crypto.Pedersen) // todo: last node should not have a value?
+		rightProofPath, err := trie.ProofToPath(rightProof, proofKeys[1], proofValues[1], crypto.Pedersen) // gives the correct structure
 		require.NoError(t, err)
 		fmt.Println(leftProofPath, rightProofPath)
 		proofs := [2][]trie.ProofNode{leftProof, rightProof}
