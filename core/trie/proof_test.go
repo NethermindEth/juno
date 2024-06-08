@@ -1,6 +1,7 @@
 package trie_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -200,7 +201,7 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 	//			Juno - should be able to reconstruct this from proofs
 	//			248
 	// 			/  \
-	// 		249
+	// 		249			// Note we cant derive the right key, but need to store it's hash
 	//		/ \
 	//	 250   \
 	//   / \   /\
@@ -211,9 +212,9 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 	// 			  |
 	// 			 248	Binary
 	//			 / \
-	//		   249	250		Binary Edge		??
+	//		   249	\		Binary Edge		??
 	//	   	   / \	 \
-	//		250  250  \		Binary Edge		??
+	//		250  250  250		Binary Edge		??
 	//	    / \   \    \
 	// 	   0   1   2    4
 
@@ -249,6 +250,7 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 
 	return tempTrie
 }
+
 func TestGetProof(t *testing.T) {
 	t.Run("Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
@@ -863,6 +865,12 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.NoError(t, err)
 		rightProof, err := trie.GetProof(proofKeys[1], tri) // Looks correct in terms of binary and edges
 		require.NoError(t, err)
+
+		leftProofPath, err := trie.ProofToPath(leftProof, proofKeys[0], crypto.Pedersen) // todo: missing 250 node
+		require.NoError(t, err)
+		rightProofPath, err := trie.ProofToPath(rightProof, proofKeys[1], crypto.Pedersen) // todo: last node should not have a value?
+		require.NoError(t, err)
+		fmt.Println(leftProofPath, rightProofPath)
 		proofs := [2][]trie.ProofNode{leftProof, rightProof}
 		rootCommitment, err := tri.Root()
 		require.NoError(t, err)

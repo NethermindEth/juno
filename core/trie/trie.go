@@ -255,7 +255,7 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent S
 	}
 }
 
-func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, isProof bool) error {
+func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsProof bool) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
 	newParent := &Node{}
@@ -265,20 +265,33 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		newParent.Left, newParent.Right = sibling.key, nodeKey
 		leftChild, rightChild = sibling.node, node
 	} else {
-		newParent.Left, newParent.Right = nodeKey, sibling.key //
+		newParent.Left, newParent.Right = nodeKey, sibling.key
 		leftChild, rightChild = node, sibling.node
 	}
 
 	leftPath := path(newParent.Left, &commonKey)
 	rightPath := path(newParent.Right, &commonKey)
 
-	newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
+	// It is not possible to derive both child keys from the proofs, but we have both
+	// child hashes, so use them in place of the missing key when computing this nodes value
+	if siblingIsProof {
+		if node.LeftHash != nil {
+			newParent.Value = t.hash(node.LeftHash, rightChild.Hash(&rightPath, t.hash))
+		} else if node.RightHash != nil {
+			newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), node.RightHash)
+		} else {
+			return errors.New("proof node has neither right/left child hash")
+		}
+	} else {
+		newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
+	}
+
 	if err := t.storage.Put(&commonKey, newParent); err != nil {
 		return err
 	}
 
 	// Don't modify the structure outlined by the proof paths
-	if len(nodes) > 1 && !isProof { // sibling has a parent
+	if len(nodes) > 1 && !siblingIsProof { // sibling has a parent
 		siblingParent := (nodes)[len(nodes)-2]
 
 		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent) // error with overwritting right arises here
@@ -286,7 +299,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 			return err
 		}
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
-	} else if !isProof {
+	} else if !siblingIsProof {
 		t.setRootKey(&commonKey)
 	} else {
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
@@ -393,11 +406,11 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 			return nil, nil // no-op
 		}
 
-		IsProof, found := false, false
+		siblingIsProof, found := false, false
 		for i, proof := range lProofPath {
 			if proof.key.Equal(sibling.key) {
 				sibling = lProofPath[i+1]
-				IsProof = true
+				siblingIsProof = true
 				found = true
 				break
 			}
@@ -406,13 +419,13 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 			for i, proof := range rProofPath {
 				if proof.key.Equal(sibling.key) {
 					sibling = rProofPath[i+1]
-					IsProof = true
+					siblingIsProof = true
 					break
 				}
 			}
 		}
 
-		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, IsProof)
+		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, siblingIsProof)
 		if err != nil {
 			return nil, err
 		}
