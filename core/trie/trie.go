@@ -11,6 +11,8 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
@@ -41,6 +43,10 @@ type Trie struct {
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
+}
+
+type IterableStorage interface {
+	IterateLeaf(startKey *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error)
 }
 
 type NewTrieFunc func(*Storage, uint8) (*Trie, error)
@@ -165,6 +171,156 @@ func (t *Trie) nodesFromRoot(key *Key) ([]storageNode, error) {
 	}
 
 	return nodes, nil
+}
+
+var usingIterableStorage = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "juno_trie_iterable_storage",
+	Help: "Time in address get",
+}, []string{"iterable"})
+
+// Iterate the trie from startValue in ascending order until the consumer returned false or an error occur. Return true
+// if end of trie is reached.
+// TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
+// block cache should have a pretty good hit rate.
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	startValueKey := t.feltToKey(startValue)
+	if iter, ok := interface{}(t.storage).(IterableStorage); ok {
+		usingIterableStorage.WithLabelValues("yes").Inc()
+		return iter.IterateLeaf(&startValueKey, consumer)
+	}
+	usingIterableStorage.WithLabelValues("no").Inc()
+
+	neverStopped, err := t.doIterate(&startValueKey, t.rootKey, consumer)
+
+	return neverStopped, err
+}
+
+func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	if key == nil {
+		return false, nil
+	}
+
+	thenode, err := t.storage.Get(key)
+	if err != nil {
+		return false, err
+	}
+
+	if key.Len() == t.height {
+		if startValue.CmpAligned(key) > 0 {
+			return true, nil
+		}
+		keyAsFelt := key.Felt()
+		return consumer(&keyAsFelt, thenode.Value)
+	}
+
+	// If the startvalue is higher than the right node, no point in going to left at all
+	if startValue.CmpAligned(thenode.Right) < 0 {
+		next, err := t.doIterate(startValue, thenode.Left, consumer)
+		if err != nil {
+			return false, err
+		}
+
+		if !next {
+			return false, nil
+		}
+	}
+
+	return t.doIterate(startValue, thenode.Right, consumer)
+}
+
+func (t *Trie) RangeProof(from, to *felt.Felt) ([]*ProofNode, error) {
+	if from.Equal(to) {
+		return t.proofTo(from)
+	}
+
+	leftProofs, err := t.proofTo(from)
+	if err != nil {
+		return nil, err
+	}
+
+	rightProofs, err := t.proofTo(to)
+	if err != nil {
+		return nil, err
+	}
+
+	fromKey := t.feltToKey(from)
+	toKey := t.feltToKey(to)
+
+	// Trim the proof from inner node or there might be cases where verification passes even with missing leaf
+	combinedProofs := make([]*ProofNode, 0, len(leftProofs)+len(rightProofs))
+	for _, proof := range leftProofs {
+		if proof.Edge.Path.CmpAligned(&fromKey) > 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, proof)
+	}
+	for _, proof := range rightProofs {
+		if proof.Edge.Path.CmpAligned(&toKey) < 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, proof)
+	}
+
+	return combinedProofs, err
+}
+
+func (t *Trie) proofTo(key *felt.Felt) ([]*ProofNode, error) {
+	nodeKey := t.feltToKey(key)
+	nodes, err := t.nodesFromRoot(&nodeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*ProofNode, 0, len(nodes))
+	for i, curnode := range nodes[:len(nodes)-1] {
+		nextKey := nodes[i+1].key
+		if curnode.node.Left.Equal(nextKey) {
+			othernode, err := t.storage.Get(curnode.node.Right)
+			if err != nil {
+				return nil, err
+			}
+			leftHash := othernode.Left.Felt()
+			rightHash := othernode.Right.Felt()
+			childHash := othernode.Right.Felt()
+			binary := &Binary{
+				LeftHash:  &leftHash,
+				RightHash: &rightHash,
+			}
+			edge := &Edge{
+				Child: &childHash,
+				Path:  curnode.node.Right,
+				Value: othernode.Value,
+			}
+			result = append(result, &ProofNode{
+				binary,
+				edge,
+			})
+		} else {
+			othernode, err := t.storage.Get(curnode.node.Left)
+			if err != nil {
+				return nil, err
+			}
+			leftHash := othernode.Left.Felt()
+			rightHash := othernode.Right.Felt()
+			childHash := othernode.Right.Felt()
+			binary := &Binary{
+				LeftHash:  &leftHash,
+				RightHash: &rightHash,
+			}
+			edge := &Edge{
+				Child: &childHash,
+				Path:  curnode.node.Left,
+				Value: othernode.Value,
+			}
+
+			result = append(result, &ProofNode{
+				binary,
+				edge,
+			})
+		}
+	}
+
+	return result, nil
 }
 
 // Get the corresponding `value` for a `key`

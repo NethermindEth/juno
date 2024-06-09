@@ -2,8 +2,10 @@ package trie
 
 import (
 	"bytes"
+	"slices"
 	"sync"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -116,6 +118,61 @@ func (t *Storage) PutRootKey(newRootKey *Key) error {
 		return err
 	}
 	return t.txn.Set(t.prefix, buffer.Bytes())
+}
+
+func (t *Storage) IterateLeaf(startKey *Key, consumer func(key *felt.Felt, value *felt.Felt) (bool, error)) (bool, error) {
+	iterator, err := t.txn.NewIterator()
+	if err != nil {
+		return false, err
+	}
+
+	buffer := getBuffer()
+	defer bufferPool.Put(buffer)
+	_, err = t.dbKey(startKey, buffer)
+	if err != nil {
+		return false, err
+	}
+
+	iterator.Seek(buffer.Bytes())
+
+	theKey := Key{}
+	for iterator.Valid() {
+		keyBts := iterator.Key()
+		if len(keyBts) < len(t.prefix) || !slices.Equal(keyBts[:len(t.prefix)], t.prefix) {
+			// gone to another trie
+			return true, nil
+		}
+
+		err := theKey.UnmarshalBinary(keyBts[len(t.prefix):])
+		if err != nil {
+			return false, err
+		}
+
+		val, err := iterator.Value()
+		if err != nil {
+			return false, err
+		}
+
+		node := nodePool.Get().(*Node)
+		err = node.UnmarshalBinary(val)
+		if err != nil {
+			return false, err
+		}
+
+		flt := theKey.Felt()
+		goNext, err := consumer(&flt, node.Value)
+		if err != nil {
+			return false, err
+		}
+
+		if !goNext {
+			return false, nil
+		}
+
+		iterator.Next()
+	}
+
+	return true, nil
 }
 
 func (t *Storage) DeleteRootKey() error {

@@ -159,6 +159,10 @@ func (s *State) storage() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
 }
 
+func (s *State) StorageTrie() (*trie.Trie, func() error, error) {
+	return s.storage()
+}
+
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
 }
