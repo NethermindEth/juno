@@ -281,13 +281,14 @@ func (t *Trie) proofTo(key *felt.Felt) ([]*ProofNode, error) {
 			}
 			leftHash := othernode.Left.Felt()
 			rightHash := othernode.Right.Felt()
-			childHash := othernode.Right.Felt()
+			// Calculate hash of left node
+			childHash := othernode.Hash(curnode.node.Right, t.hash)
 			binary := &Binary{
 				LeftHash:  &leftHash,
 				RightHash: &rightHash,
 			}
 			edge := &Edge{
-				Child: &childHash,
+				Child: childHash,
 				Path:  curnode.node.Right,
 				Value: othernode.Value,
 			}
@@ -302,13 +303,14 @@ func (t *Trie) proofTo(key *felt.Felt) ([]*ProofNode, error) {
 			}
 			leftHash := othernode.Left.Felt()
 			rightHash := othernode.Right.Felt()
-			childHash := othernode.Right.Felt()
+			// Calculate hash of left node
+			childHash := othernode.Hash(curnode.node.Left, t.hash)
 			binary := &Binary{
 				LeftHash:  &leftHash,
 				RightHash: &rightHash,
 			}
 			edge := &Edge{
-				Child: &childHash,
+				Child: childHash,
 				Path:  curnode.node.Left,
 				Value: othernode.Value,
 			}
