@@ -59,6 +59,28 @@ func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
 		}
 	}
 
+	if n.LeftHash == nil && n.RightHash == nil {
+		return totalBytes, nil
+	}
+	if (n.LeftHash != nil && n.RightHash == nil) || (n.LeftHash == nil && n.RightHash != nil) {
+		return totalBytes, errors.New("cannot store only one lefthash or righthash")
+	}
+	if n.LeftHash != nil {
+		leftHashB := n.LeftHash.Bytes()
+		wrote, err := buf.Write(leftHashB[:])
+		totalBytes += int64(wrote)
+		if err != nil {
+			return totalBytes, err
+		}
+	}
+	if n.Right != nil {
+		rightHashB := n.RightHash.Bytes()
+		wrote, err := buf.Write(rightHashB[:])
+		totalBytes += int64(wrote)
+		if err != nil {
+			return totalBytes, err
+		}
+	}
 	return totalBytes, nil
 }
 
@@ -76,6 +98,8 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
 		n.Left = nil
 		n.Right = nil
+		n.LeftHash = nil
+		n.RightHash = nil
 		return nil
 	}
 
@@ -87,5 +111,26 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	if err := n.Left.UnmarshalBinary(data); err != nil {
 		return err
 	}
-	return n.Right.UnmarshalBinary(data[n.Left.EncodedLen():])
+	data = data[n.Left.EncodedLen():]
+	if err := n.Right.UnmarshalBinary(data); err != nil {
+		return err
+	}
+	data = data[n.Right.EncodedLen():]
+
+	if n.LeftHash == nil {
+		n.LeftHash = new(felt.Felt)
+	}
+	if n.RightHash == nil {
+		n.RightHash = new(felt.Felt)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	if len(data) != 2*felt.Bytes {
+		return errors.New("the node does not contain both left and right hash")
+	}
+	n.LeftHash.SetBytes(data[:felt.Bytes])
+	data = data[felt.Bytes:]
+	n.RightHash.SetBytes(data[:felt.Bytes])
+	return nil
 }

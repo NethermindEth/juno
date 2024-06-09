@@ -260,6 +260,20 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 
 	newParent := &Node{}
 	var leftChild, rightChild *Node
+	var err error
+
+	// The parent already exists, and we need to keep the LeftHash/Righthash
+	if siblingIsProof {
+		newParent, err = t.GetNodeFromKey(&commonKey)
+		if err != nil {
+			return nil
+		}
+		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+			newParent.RightHash = node.Hash(nodeKey, t.hash)
+		} else {
+			newParent.LeftHash = node.Hash(nodeKey, t.hash)
+		}
+	}
 
 	if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
 		newParent.Left, newParent.Right = sibling.key, nodeKey
@@ -272,17 +286,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 	leftPath := path(newParent.Left, &commonKey)
 	rightPath := path(newParent.Right, &commonKey)
 
-	// It is not possible to derive both child keys from the proofs, but we have both
-	// child hashes, so use them in place of the missing key when computing this nodes value
-	if siblingIsProof {
-		if node.LeftHash != nil {
-			newParent.Value = t.hash(node.LeftHash, rightChild.Hash(&rightPath, t.hash))
-		} else if node.RightHash != nil {
-			newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), node.RightHash)
-		}
-	} else {
-		newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
-	}
+	newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
 
 	if err := t.storage.Put(&commonKey, newParent); err != nil {
 		return err
@@ -598,7 +602,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	storage := t.storage
 	t.storage = storage.SyncedStorage()
 	defer func() { t.storage = storage }()
-	root, err := t.updateValueIfDirty(t.rootKey)
+	root, err := t.updateValueIfDirty(t.rootKey) // Todo: key not found here for the reconstructed trie
 	if err != nil {
 		return nil, err
 	}

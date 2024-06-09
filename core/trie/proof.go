@@ -255,8 +255,18 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 		return false, err
 	}
 
+	// Todo: remove. Just inspection. Correct structure, and contains left/right hashes.
+	rootNode, _ := tmpTrie.GetNodeFromKey(tmpTrie.rootKey)
+	l, _ := tmpTrie.GetNodeFromKey(rootNode.Left)
+	r, _ := tmpTrie.GetNodeFromKey(rootNode.Right)
+	ll, _ := tmpTrie.GetNodeFromKey(l.Left)
+	lr, _ := tmpTrie.GetNodeFromKey(l.Right)
+	lll, _ := tmpTrie.GetNodeFromKey(ll.Left)
+	llr, _ := tmpTrie.GetNodeFromKey(ll.Right)
+	fmt.Println(l, r, lr, lll, llr)
+
 	// Verify that the recomputed root hash matches the provided root hash
-	recomputedRoot, err := tmpTrie.Root()
+	recomputedRoot, err := tmpTrie.Root() // Todo: key not found
 	if err != nil {
 		return false, err
 	}
