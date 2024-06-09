@@ -62,3 +62,13 @@ func (d *DB) Close() error {
 func (d *DB) Impl() any {
 	return d.kvClient
 }
+
+func (d *DB) PersistedView() (db.Transaction, func() error, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+	return txn, func() error {
+		return db.CloseAndWrapOnError(txn.Discard, nil)
+	}, nil
+}

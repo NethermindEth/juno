@@ -28,6 +28,8 @@ type DB interface {
 	// returns an error
 	Update(fn func(txn Transaction) error) error
 
+	PersistedView() (Transaction, func() error, error)
+
 	// Impl returns the underlying database object
 	Impl() any
 
@@ -115,4 +117,14 @@ func discardTxnOnPanic(txn Transaction) {
 		}
 		panic(p)
 	}
+}
+
+func CloseAndWrapOnError(closeFn func() error, existingErr error) error {
+	if closeErr := closeFn(); closeErr != nil {
+		if existingErr == nil {
+			return closeErr
+		}
+		return fmt.Errorf(`failed to close because "%v" with existing err "%w"`, closeErr, existingErr)
+	}
+	return existingErr
 }

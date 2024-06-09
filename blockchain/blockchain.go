@@ -51,6 +51,7 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
+	ErrMissingSnapshot        = errors.New("state snapshot missing")
 	supportedStarknetVersion  = semver.MustParse("0.13.1")
 )
 
@@ -69,10 +70,22 @@ func checkBlockVersion(protocolVersion string) error {
 
 var _ Reader = (*Blockchain)(nil)
 
+type snapshotRecord struct {
+	stateRoot *felt.Felt
+	classRoot *felt.Felt
+	blockHash *felt.Felt
+	txn       db.Transaction
+	closer    func() error
+}
+
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
 	network  *utils.Network
 	database db.DB
+
+	// Stores database snapshots
+	snapshots    []*snapshotRecord
+	maxSnapshots uint
 
 	listener EventListener
 
@@ -81,11 +94,19 @@ type Blockchain struct {
 
 func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
-	return &Blockchain{
-		database: database,
-		network:  network,
-		listener: &SelectiveListener{},
+	bc := &Blockchain{
+		database:     database,
+		network:      network,
+		listener:     &SelectiveListener{},
+		maxSnapshots: 128,
 	}
+
+	err := bc.seedSnapshot()
+	if err != nil {
+		fmt.Printf("Error seeding snapshot %s", err)
+	}
+
+	return bc
 }
 
 func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
@@ -336,13 +357,24 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	return b.database.Update(func(txn db.Transaction) error {
+	var thestateroot *felt.Felt
+	var theclassroot *felt.Felt
+	var headerhash *felt.Felt
+
+	err := b.database.Update(func(txn db.Transaction) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+
+		state := core.NewState(txn)
+		if err := state.Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
+		var err error
+		if thestateroot, theclassroot, err = state.StateAndClassRoot(); err != nil {
+			return err
+		}
+
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
@@ -371,6 +403,38 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
+	if err != nil {
+		return err
+	}
+
+	txn, closer, err := b.database.PersistedView()
+	if err != nil {
+		return err
+	}
+
+	dbsnap := snapshotRecord{
+		stateRoot: thestateroot,
+		classRoot: theclassroot,
+		blockHash: headerhash,
+		txn:       txn,
+		closer:    closer,
+	}
+
+	// TODO: Reorgs
+	b.snapshots = append(b.snapshots, &dbsnap)
+	if len(b.snapshots) > int(b.maxSnapshots) {
+		toremove := b.snapshots[0]
+		err = toremove.closer()
+		if err != nil {
+			return err
+		}
+
+		// TODO: I think internally, it keep the old array.
+		// maybe the append copy it to a new array, who knows...
+		b.snapshots = b.snapshots[1:]
+	}
+
+	return nil
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -1071,4 +1135,58 @@ func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff,
 		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
 	return stateDiff, nil
+}
+
+func (b *Blockchain) seedSnapshot() (err error) {
+	headheader, err := b.HeadsHeader()
+	if err != nil {
+		return err
+	}
+
+	state, scloser, err := b.HeadState()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if cerr := scloser(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+
+	stateS := state.(*core.State)
+	thestateroot, theclassroot, err := stateS.StateAndClassRoot()
+	if err != nil {
+		return err
+	}
+
+	txn, closer, err := b.database.PersistedView()
+	if err != nil {
+		return err
+	}
+
+	dbsnap := snapshotRecord{
+		stateRoot: thestateroot,
+		classRoot: theclassroot,
+		blockHash: headheader.Hash,
+		txn:       txn,
+		closer:    closer,
+	}
+
+	// TODO: Reorgs
+
+	// Append the new snapshot
+	b.snapshots = append(b.snapshots, &dbsnap)
+	if len(b.snapshots) > int(b.maxSnapshots) {
+		toremove := b.snapshots[0]
+		err = toremove.closer()
+		if err != nil {
+			return err
+		}
+
+		b.snapshots[0] = nil
+		b.snapshots = b.snapshots[1:]
+	}
+
+	return nil
 }
