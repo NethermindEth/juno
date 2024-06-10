@@ -74,6 +74,8 @@ type Blockchain struct {
 	network  *utils.Network
 	database db.DB
 
+	snapshots []*snapshotRecord
+
 	listener EventListener
 
 	cachedPending atomic.Pointer[Pending]
@@ -81,11 +83,19 @@ type Blockchain struct {
 
 func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
-	return &Blockchain{
+	bc := &Blockchain{
 		database: database,
 		network:  network,
 		listener: &SelectiveListener{},
 	}
+
+	// TODO: Used only for testing though...
+	err := bc.seedSnapshot()
+	if err != nil {
+		fmt.Printf("Error seeding snapshot %s", err)
+	}
+
+	return bc
 }
 
 func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
@@ -377,28 +387,6 @@ func (b *Blockchain) StoreRaw(blockNumber uint64, stateDiff *core.StateDiff, new
 	return b.database.Update(func(txn db.Transaction) error {
 		return core.NewState(txn).UpdateNoVerify(blockNumber, stateDiff, newClasses)
 	})
-}
-
-func (b *Blockchain) GetClasses(felts []*felt.Felt) ([]core.Class, error) {
-	classes := make([]core.Class, len(felts))
-	err := b.database.View(func(txn db.Transaction) error {
-		state := core.NewState(txn)
-		for i, f := range felts {
-			d, err := state.Class(f)
-			if err != nil {
-				return err
-			}
-			classes[i] = d.Class
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return classes, nil
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.

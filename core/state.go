@@ -122,6 +122,38 @@ func (s *State) Root() (*felt.Felt, error) {
 	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
 }
 
+func (s *State) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
+	var storageRoot, classesRoot *felt.Felt
+
+	sStorage, closer, err := s.storage()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if storageRoot, err = sStorage.Root(); err != nil {
+		return nil, nil, err
+	}
+
+	if err = closer(); err != nil {
+		return nil, nil, err
+	}
+
+	classes, closer, err := s.classesTrie()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if classesRoot, err = classes.Root(); err != nil {
+		return nil, nil, err
+	}
+
+	if err = closer(); err != nil {
+		return nil, nil, err
+	}
+
+	return storageRoot, classesRoot, nil
+}
+
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
 func (s *State) storage() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
@@ -129,6 +161,19 @@ func (s *State) storage() (*trie.Trie, func() error, error) {
 
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
+}
+
+// storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
+func (s *State) StorageTrie() (*trie.Trie, func() error, error) {
+	return s.storage()
+}
+
+func (s *State) ClassTrie() (*trie.Trie, func() error, error) {
+	return s.classesTrie()
+}
+
+func (s *State) StorageTrieForAddr(addr *felt.Felt) (*trie.Trie, error) {
+	return storage(addr, s.txn)
 }
 
 func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {

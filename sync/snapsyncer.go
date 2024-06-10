@@ -47,6 +47,7 @@ type SnapSyncher struct {
 
 	storageRangeJobCount int32
 	storageRangeJob      chan *storageRangeJob
+	storageRefreshJob    chan *storageRangeJob
 
 	classesJob chan *felt.Felt
 
@@ -272,6 +273,21 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		s.log.Infow("Storage range range completed")
 		close(s.storageRangeDone)
 		return nil
+	})
+
+	eg.Go(func() error {
+		defer func() {
+			if err := recover(); err != nil {
+				s.log.Errorw("storage refresh paniced", "err", err)
+			}
+		}()
+
+		err := s.runStorageRefreshWorker(ectx)
+		if err != nil {
+			s.log.Errorw("error in storage refresh worker", "err", err)
+		}
+
+		return err
 	})
 
 	for i := 0; i < fetchClassWorkerCount; i++ {
@@ -599,16 +615,36 @@ func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) e
 }
 
 func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path *felt.Felt, storageRoot *felt.Felt, classHash *felt.Felt, nonce uint64) error {
+	return s.queueStorageRangeJobJob(ctx, &storageRangeJob{
+		path:         path,
+		storageRoot:  storageRoot,
+		startAddress: &felt.Zero,
+		classHash:    classHash,
+		nonce:        nonce,
+	})
+}
+
+func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageRangeJob) error {
 	queued := false
 	for !queued {
 		select {
-		case s.storageRangeJob <- &storageRangeJob{
-			path:         path,
-			storageRoot:  storageRoot,
-			startAddress: &felt.Zero,
-			classHash:    classHash,
-			nonce:        nonce,
-		}:
+		case s.storageRangeJob <- job:
+			queued = true
+			atomic.AddInt32(&s.storageRangeJobCount, 1)
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			s.log.Infow("address queue stall")
+		}
+	}
+	return nil
+}
+
+func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRangeJob) error {
+	queued := false
+	for !queued {
+		select {
+		case s.storageRefreshJob <- job:
 			queued = true
 			atomic.AddInt32(&s.storageRangeJobCount, 1)
 		case <-ctx.Done():
@@ -699,15 +735,12 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				break
 			}
 
+			// Wait.. why is this needed here?
 			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
 			if err != nil {
 				// Root verification failed
-				// TODO: Ban peer
 				break
 			}
-
-			// TODO: State root outdated
-			// TODO: Class job need to re-queue if changed
 
 			// Validate response
 			paths := make([]*felt.Felt, len(response.Range))
@@ -721,9 +754,15 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
 			hasNext, err := VerifyTrie(job.storageRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
 			if err != nil {
-				// Root verification failed
-				// TODO: Ban peer
-				break
+				// It is unclear how to distinguish if the peer is malicious/broken/non-bizantine or the contracts root is outdated.
+				err := s.queueStorageRefreshJob(ctx, job)
+				if err != nil {
+					return err
+				}
+
+				// Go to next contract
+				processedJobs++
+				continue
 			}
 
 			// TODO: Double check this
@@ -861,4 +900,107 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
+	// In ethereum, this is normally done with get tries, but since we don't have that here, we'll have to be
+	// creative. This does mean that this is impressively inefficient.
+	var job *storageRangeJob
+
+	for {
+
+		if job == nil {
+		requestloop:
+			for {
+				contractDoneChecker := s.contractRangeDone
+				if s.storageRangeJobCount > 0 {
+					contractDoneChecker = nil // So that it never complete as there are job to be done
+				}
+
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(time.Second * 10):
+					s.log.Infow("waiting for more storage job", "count", s.storageRangeJobCount)
+				case <-contractDoneChecker:
+					// Its done...
+					return nil
+				case job = <-s.storageRefreshJob:
+					break requestloop
+				}
+			}
+		}
+
+		bigIntAdd := job.startAddress.BigInt(&big.Int{})
+		bigIntAdd = (&big.Int{}).Add(bigIntAdd, big.NewInt(1))
+		fp := fp.NewElement(0)
+		limitAddr := felt.NewFelt((&fp).SetBigInt(bigIntAdd))
+
+		stateRoot := s.currentGlobalStateRoot
+		streamingResult, err := s.snapServer.GetContractRange(ctx, &spec.ContractRangeRequest{
+			Domain:         0, // What do this do?
+			StateRoot:      core2p2p.AdaptHash(stateRoot),
+			Start:          core2p2p.AdaptAddress(job.startAddress),
+			End:            core2p2p.AdaptAddress(limitAddr),
+			ChunksPerProof: 10000,
+		})
+
+		if err != nil {
+			s.log.Errorw("Error with contract range", "err", err)
+			// Well... need to figure out how to determine if its a temporary error or not.
+			// For sure, the state root can be outdated, so this need to restart
+			continue
+		}
+
+		for response := range streamingResult {
+			if response.Range == nil && response.RangeProof == nil {
+				// State root missing.
+				break
+			}
+
+			if len(response.Range) == 0 {
+				// Unexpected behaviour
+				break
+			}
+
+			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
+			if err != nil {
+				// Root verification failed
+				// TODO: Ban peer
+				break
+			}
+
+			paths := make([]*felt.Felt, len(response.Range))
+			values := make([]*felt.Felt, len(response.Range))
+
+			for i, rangeValue := range response.Range {
+				paths[i] = p2p2core.AdaptAddress(rangeValue.Address)
+				values[i] = CalculateRangeValueHash(rangeValue)
+			}
+
+			proofs := P2pProofToTrieProofs(response.RangeProof)
+			_, err = VerifyTrie(response.ContractsRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
+			if err != nil {
+				// The peer should get penalized in this case
+				continue
+			}
+
+			job.storageRoot = p2p2core.AdaptHash(response.Range[0].Storage)
+			newClass := p2p2core.AdaptHash(response.Range[0].Storage)
+			if newClass != job.classHash {
+				err := s.queueClassJob(ctx, newClass)
+				if err != nil {
+					return err
+				}
+			}
+
+			err = s.queueStorageRangeJobJob(ctx, job)
+			if err != nil {
+				return err
+			}
+
+			job = nil
+			break
+		}
+	}
 }

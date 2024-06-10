@@ -4,6 +4,8 @@ package trie
 import (
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"math/big"
 	"strings"
 	"sync"
@@ -14,6 +16,63 @@ import (
 )
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
+
+type IterableStorage interface {
+	IterateLeaf(startKey *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error)
+}
+
+var usingIterableStorage = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "juno_trie_iterable_storage",
+	Help: "Time in address get",
+}, []string{"iterable"})
+
+type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
+
+// Iterate the trie from startValue in ascending order until the consumer returned false or an error occur. Return true
+// if end of trie is reached.
+// TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
+// block cache should have a pretty good hit rate.
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	startValueKey := t.feltToKey(startValue)
+	usingIterableStorage.WithLabelValues("no").Inc()
+
+	neverStopped, err := t.doIterate(&startValueKey, t.rootKey, consumer)
+
+	return neverStopped, err
+}
+
+func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	if key == nil {
+		return false, nil
+	}
+
+	thenode, err := t.storage.Get(key)
+	if err != nil {
+		return false, err
+	}
+
+	if key.Len() == t.height {
+		if startValue.CmpAligned(key) > 0 {
+			return true, nil
+		}
+		keyAsFelt := key.Felt()
+		return consumer(&keyAsFelt, thenode.Value)
+	}
+
+	// If the startvalue is higher than the right node, no point in going to left at all
+	if startValue.CmpAligned(thenode.Right) < 0 {
+		next, err := t.doIterate(startValue, thenode.Left, consumer)
+		if err != nil {
+			return false, err
+		}
+
+		if !next {
+			return false, nil
+		}
+	}
+
+	return t.doIterate(startValue, thenode.Right, consumer)
+}
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //

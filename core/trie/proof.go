@@ -177,3 +177,8 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 	}
 	return expectedHash.Equal(value)
 }
+
+func (t *Trie) RangeProof(startPath, endPath *felt.Felt) ([]ProofNode, error) {
+	// TODO: Do this properly
+	return GetProof(startPath, t)
+}
