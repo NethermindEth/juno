@@ -103,7 +103,7 @@ func (t *Trie) GetNodesFromRoot(key *Key) ([]storageNode, error) {
 func (t *Trie) ParseNodes(nodes []storageNode) ([]string, error) {
     var parsedNodes []string
     for _, node := range nodes {
-        parsedNodes = append(parsedNodes, fmt.Sprintf("%v", node.node.Value))
+        parsedNodes = append(parsedNodes, fmt.Sprintf("%v", &node.node.Value))
     }
 
     return parsedNodes, nil
