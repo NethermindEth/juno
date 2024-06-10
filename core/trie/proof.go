@@ -296,19 +296,13 @@ func ensureMonotonicIncreasing(proofKeys [2]*Key, keys []*felt.Felt) error {
 
 // shouldSquish determines if the node needs compressed, and if so, the len needed to arrive at the next key
 func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, *felt.Felt, *felt.Felt, error) {
-	if idx > len(proofNodes)-1 {
-		return 0, 1, nil, nil, nil
-	}
+
 	parent := &proofNodes[idx]
-	var child *ProofNode
-	// The child is nil of the current node is a leaf
-	if idx != len(proofNodes)-1 {
-		child = &proofNodes[idx+1]
+	if idx == len(proofNodes)-1 { // Landed at leaf
+		return 0, parent.Len(), nil, nil, nil
 	}
 
-	if child == nil {
-		return 0, 1, nil, nil, nil
-	}
+	child := &proofNodes[idx+1]
 
 	if parent.Edge != nil && child.Binary != nil {
 		return 1, parent.Edge.Path.len, child.Binary.LeftHash, child.Binary.RightHash, nil
@@ -373,7 +367,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 
 		// Set the key of the current node
 		var err error
-		squishedParent, squishParentOffset, leftHash, rightHash, err := shouldSquish(i, proofNodes, hashF)
+		squishedParent, squishParentOffset, leftHash, rightHash, err := shouldSquish(i, proofNodes, hashF) // Todo breaking in build4key
 		if err != nil {
 			return nil, err
 		}
@@ -398,7 +392,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 
 		// Set the child key of the current node.
 		childIdx := i + squishedParent + 1
-		childKey, err := getChilKey(childIdx, crntKey, leafKey, proofNodes, hashF)
+		childKey, err := getChildKey(childIdx, crntKey, leafKey, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
@@ -416,10 +410,16 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 	return pathNodes, nil
 }
 
-func getChilKey(childIdx int, crntKey, leafKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
-	_, squishChildOffset, _, _, err := shouldSquish(childIdx, proofNodes, hashF) //nolint:dogsled
-	if err != nil {
-		return nil, err
+func getChildKey(childIdx int, crntKey, leafKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
+	var squishChildOffset uint8
+	var err error
+	if childIdx == len(proofNodes)-1 {
+		squishChildOffset = leafKey.len - crntKey.len
+	} else {
+		_, squishChildOffset, _, _, err = shouldSquish(childIdx, proofNodes, hashF) //nolint:dogsled
+		if err != nil {
+			return nil, err
+		}
 	}
 	return leafKey.SubKey(crntKey.len + squishChildOffset)
 }
