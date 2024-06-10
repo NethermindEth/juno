@@ -332,7 +332,6 @@ func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 		} else {
 			panic("can't determine the child hash from the parent and child") // Todo: pass error up
 		}
-
 	}
 
 	if parent.Binary != nil && child.Binary != nil {
@@ -400,7 +399,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 		crntNode.RightHash = rightHash
 
 		// If current key is a leaf then don't set the children
-		if crntKey.len == 251 {
+		if crntKey.len == 251 { //nolint:gomnd
 			break
 		}
 
@@ -459,7 +458,7 @@ func addLeafNode(proofNodes []ProofNode, pathNodes []StorageNode, leafKey *Key) 
 }
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
-func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt.Felt) (*Trie, error) {
+func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt.Felt) (*Trie, error) { //nolint:gocyclo
 	tempTrie, err := NewTriePedersen(newMemStorage(), 251) //nolint:gomnd
 	if err != nil {
 		return nil, err

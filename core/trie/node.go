@@ -47,40 +47,38 @@ func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
 	}
 
 	if n.Left != nil {
-		wrote, err := n.Left.WriteTo(buf)
+		wrote, errInner := n.Left.WriteTo(buf)
 		totalBytes += wrote
 		if err != nil {
-			return totalBytes, err
+			return totalBytes, errInner
 		}
-		wrote, err = n.Right.WriteTo(buf) // n.Right is non-nil by design
+		wrote, errInner = n.Right.WriteTo(buf) // n.Right is non-nil by design
 		totalBytes += wrote
 		if err != nil {
-			return totalBytes, err
+			return totalBytes, errInner
 		}
 	}
 
 	if n.LeftHash == nil && n.RightHash == nil {
 		return totalBytes, nil
-	}
-	if (n.LeftHash != nil && n.RightHash == nil) || (n.LeftHash == nil && n.RightHash != nil) {
+	} else if (n.LeftHash != nil && n.RightHash == nil) || (n.LeftHash == nil && n.RightHash != nil) {
 		return totalBytes, errors.New("cannot store only one lefthash or righthash")
 	}
-	if n.LeftHash != nil {
-		leftHashB := n.LeftHash.Bytes()
-		wrote, err := buf.Write(leftHashB[:])
-		totalBytes += int64(wrote)
-		if err != nil {
-			return totalBytes, err
-		}
+
+	leftHashB := n.LeftHash.Bytes()
+	wrote, err = buf.Write(leftHashB[:])
+	totalBytes += int64(wrote)
+	if err != nil {
+		return totalBytes, err
 	}
-	if n.Right != nil {
-		rightHashB := n.RightHash.Bytes()
-		wrote, err := buf.Write(rightHashB[:])
-		totalBytes += int64(wrote)
-		if err != nil {
-			return totalBytes, err
-		}
+
+	rightHashB := n.RightHash.Bytes()
+	wrote, err = buf.Write(rightHashB[:])
+	totalBytes += int64(wrote)
+	if err != nil {
+		return totalBytes, err
 	}
+
 	return totalBytes, nil
 }
 

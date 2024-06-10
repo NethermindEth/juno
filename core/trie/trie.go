@@ -552,7 +552,6 @@ func (t *Trie) updateChildTriesConcurrently(root *Node, leftIsProof, rightIsProo
 		if !leftIsProof {
 			leftChild, lErr = t.updateValueIfDirty(root.Left)
 		}
-
 	}()
 	if !rightIsProof {
 		rightChild, rErr = t.updateValueIfDirty(root.Right)
@@ -622,7 +621,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 			if err := t.storage.DeleteRootKey(); err != nil {
 				return nil, err
 			}
-		} else if err := t.storage.PutRootKey(t.rootKey); err != nil { //Todo: t.rootKey is set here but not found below???
+		} else if err := t.storage.PutRootKey(t.rootKey); err != nil { // Todo: t.rootKey is set here but not found below???
 			return nil, err
 		}
 		t.rootKeyIsDirty = false
