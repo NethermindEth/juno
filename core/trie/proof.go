@@ -254,7 +254,10 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 	if err != nil {
 		return false, err
 	}
-
+	err = tmpTrie.Commit()
+	if err != nil {
+		return false, err
+	}
 	// Todo: remove. Just inspection. Correct structure, and contains left/right hashes.
 	rootNode, _ := tmpTrie.GetNodeFromKey(tmpTrie.rootKey)
 	l, _ := tmpTrie.GetNodeFromKey(rootNode.Left)

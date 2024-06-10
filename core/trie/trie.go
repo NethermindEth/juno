@@ -451,7 +451,12 @@ func (t *Trie) setRootKey(newRootKey *Key) {
 	t.rootKeyIsDirty = true
 }
 
+// Todo: account for the fact that the node may be a proof node
 func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
+	// Todo: moce, since also used in ProofToPath
+	zeroFeltBytes := new(felt.Felt).Bytes()
+	nilKey := NewKey(0, zeroFeltBytes[:])
+
 	node, err := t.storage.Get(key)
 	if err != nil {
 		return nil, err
@@ -476,44 +481,67 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 		return node, nil
 	}
 
+	var leftIsProof, rightIsProof bool
+	var leftHash, rightHash *felt.Felt
+	if node.Left.Equal(&nilKey) {
+		leftIsProof = true
+		leftHash = node.LeftHash
+	}
+	if node.Right.Equal(&nilKey) {
+		rightIsProof = true
+		rightHash = node.RightHash
+	}
+
 	// To avoid over-extending, only use concurrent updates when we are not too
 	// deep in to traversing the trie.
 	const concurrencyMaxDepth = 8 // heuristically selected value
 	var leftChild, rightChild *Node
 	if key.len <= concurrencyMaxDepth {
-		leftChild, rightChild, err = t.updateChildTriesConcurrently(node)
+		leftChild, rightChild, err = t.updateChildTriesConcurrently(node, leftIsProof, rightIsProof)
 	} else {
-		leftChild, rightChild, err = t.updateChildTriesSerially(node)
+		leftChild, rightChild, err = t.updateChildTriesSerially(node, leftIsProof, rightIsProof)
 	}
 	if err != nil {
 		return nil, err
 	}
-	defer nodePool.Put(leftChild)
-	defer nodePool.Put(rightChild)
 
-	leftPath := path(node.Left, key)
-	rightPath := path(node.Right, key)
+	if !leftIsProof {
+		leftPath := path(node.Left, key)
+		defer nodePool.Put(leftChild)
+		leftHash = leftChild.Hash(&leftPath, t.hash)
+	}
+	if !rightIsProof {
+		rightPath := path(node.Right, key)
+		defer nodePool.Put(rightChild)
+		rightHash = rightChild.Hash(&rightPath, t.hash)
+	}
 
-	node.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
+	node.Value = t.hash(leftHash, rightHash)
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
 	}
 	return node, nil
 }
 
-func (t *Trie) updateChildTriesSerially(root *Node) (*Node, *Node, error) {
-	leftChild, err := t.updateValueIfDirty(root.Left)
-	if err != nil {
-		return nil, nil, err
+func (t *Trie) updateChildTriesSerially(root *Node, leftIsProof, rightIsProof bool) (*Node, *Node, error) {
+	var leftChild, rightChild *Node
+	var err error
+	if !leftIsProof {
+		leftChild, err = t.updateValueIfDirty(root.Left)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-	rightChild, err := t.updateValueIfDirty(root.Right)
-	if err != nil {
-		return nil, nil, err
+	if !rightIsProof {
+		rightChild, err = t.updateValueIfDirty(root.Right)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	return leftChild, rightChild, nil
 }
 
-func (t *Trie) updateChildTriesConcurrently(root *Node) (*Node, *Node, error) {
+func (t *Trie) updateChildTriesConcurrently(root *Node, leftIsProof, rightIsProof bool) (*Node, *Node, error) {
 	var leftChild, rightChild *Node
 	var lErr, rErr error
 
@@ -521,9 +549,14 @@ func (t *Trie) updateChildTriesConcurrently(root *Node) (*Node, *Node, error) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		leftChild, lErr = t.updateValueIfDirty(root.Left)
+		if !leftIsProof {
+			leftChild, lErr = t.updateValueIfDirty(root.Left)
+		}
+
 	}()
-	rightChild, rErr = t.updateValueIfDirty(root.Right)
+	if !rightIsProof {
+		rightChild, rErr = t.updateValueIfDirty(root.Right)
+	}
 	wg.Wait()
 
 	if lErr != nil {
@@ -589,7 +622,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 			if err := t.storage.DeleteRootKey(); err != nil {
 				return nil, err
 			}
-		} else if err := t.storage.PutRootKey(t.rootKey); err != nil {
+		} else if err := t.storage.PutRootKey(t.rootKey); err != nil { //Todo: t.rootKey is set here but not found below???
 			return nil, err
 		}
 		t.rootKeyIsDirty = false
@@ -602,7 +635,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 	storage := t.storage
 	t.storage = storage.SyncedStorage()
 	defer func() { t.storage = storage }()
-	root, err := t.updateValueIfDirty(t.rootKey) // Todo: key not found here for the reconstructed trie
+	root, err := t.updateValueIfDirty(t.rootKey)
 	if err != nil {
 		return nil, err
 	}

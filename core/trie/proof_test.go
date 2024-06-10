@@ -861,22 +861,22 @@ func TestVerifyRangeProof(t *testing.T) {
 		values := []*felt.Felt{new(felt.Felt).SetUint64(5), new(felt.Felt).SetUint64(6)}
 		proofKeys := [2]*trie.Key{&zeroLeafkey, &threeLeafkey}
 		proofValues := [2]*felt.Felt{new(felt.Felt).SetUint64(4), nil}
-		leftProof, err := trie.GetProof(proofKeys[0], tri) // Looks correct in terms of binary and edges
+		leftProof, err := trie.GetProof(proofKeys[0], tri)
 		require.NoError(t, err)
-		rightProof, err := trie.GetProof(proofKeys[1], tri) // Looks correct in terms of binary and edges
+		rightProof, err := trie.GetProof(proofKeys[1], tri)
 		require.NoError(t, err)
 
 		// Todo: remove, just included for inspection/testing
-		leftProofPath, err := trie.ProofToPath(leftProof, proofKeys[0], proofValues[0], crypto.Pedersen) // correct
+		leftProofPath, err := trie.ProofToPath(leftProof, proofKeys[0], proofValues[0], crypto.Pedersen)
 		require.NoError(t, err)
-		rightProofPath, err := trie.ProofToPath(rightProof, proofKeys[1], proofValues[1], crypto.Pedersen) // gives the correct structure
+		rightProofPath, err := trie.ProofToPath(rightProof, proofKeys[1], proofValues[1], crypto.Pedersen)
 		require.NoError(t, err)
 		fmt.Println(leftProofPath, rightProofPath)
 
 		proofs := [2][]trie.ProofNode{leftProof, rightProof}
 		rootCommitment, err := tri.Root()
 		require.NoError(t, err)
-		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen) // todo: panics
+		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
 		require.NoError(t, err)
 		require.True(t, verif)
 	})
