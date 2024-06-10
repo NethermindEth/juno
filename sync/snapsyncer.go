@@ -27,7 +27,7 @@ import (
 )
 
 type Blockchain interface {
-	GetClassesLoc(felts []*felt.Felt) ([]core.Class, error)
+	GetClasses(felts []*felt.Felt) ([]core.Class, error)
 	StoreRaw(blockNumber uint64, stateUpdate *core.StateDiff, newClasses map[felt.Felt]core.Class) error
 }
 
@@ -883,7 +883,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			continue
 		}
 
-		cls, err := s.blockchain.GetClassesLoc([]*felt.Felt{key})
+		cls, err := s.blockchain.GetClasses([]*felt.Felt{key})
 		if err != nil {
 			s.log.Infow("error getting class", "err", err)
 			return err
