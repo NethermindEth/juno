@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/utils/iter"
 	"github.com/pkg/errors"
 )
 
@@ -30,11 +31,6 @@ type StorageRangeStreamingResult struct {
 	ClassesRoot   *felt.Felt
 	Range         []*spec.ContractStoredValue
 	RangeProof    *spec.PatriciaRangeProof
-
-	// If the requested `ContractsRoot` does not match, need to return a new contract root and the proof that it
-	// is part of the requested state.
-	ContractRoot      *felt.Felt
-	ContractRootProof *spec.PatriciaRangeProof
 }
 
 type ClassRangeStreamingResult struct {
@@ -45,9 +41,9 @@ type ClassRangeStreamingResult struct {
 }
 
 type SnapServer interface {
-	GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) (chan *ContractRangeStreamingResult, error)
-	GetStorageRange(ctx context.Context, request *StorageRangeRequest) (chan *StorageRangeStreamingResult, error)
-	GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) (chan *ClassRangeStreamingResult, error)
+	GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) iter.Seq2[*ContractRangeStreamingResult, error]
+	GetStorageRange(ctx context.Context, request *StorageRangeRequest) iter.Seq2[*StorageRangeStreamingResult, error]
+	GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) iter.Seq2[*ClassRangeStreamingResult, error]
 	GetClasses(ctx context.Context, classHashes []*felt.Felt) ([]*spec.Class, error)
 }
 
@@ -138,128 +134,134 @@ func iterateWithLimit(
 	return srcTrie.RangeProof(startPath, endPath)
 }
 
-func (b *Blockchain) GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) (chan *ClassRangeStreamingResult, error) {
-	stateRoot := p2p2core.AdaptHash(request.Root)
+func (b *Blockchain) GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) iter.Seq2[*ClassRangeStreamingResult, error] {
+	return func(yield func(*ClassRangeStreamingResult, error) bool) {
+		stateRoot := p2p2core.AdaptHash(request.Root)
 
-	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
-		return record.stateRoot.Equal(stateRoot)
-	})
-	if err != nil {
-		return nil, err
+		snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
+			return record.stateRoot.Equal(stateRoot)
+		})
+
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+
+		s := core.NewState(snapshot.txn)
+
+		contractRoot, classRoot, err := s.StateAndClassRoot()
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+
+		// TODO: Verify class trie
+		ctrie, classCloser, err := s.ClassTrie()
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		defer classCloser()
+
+		response := &spec.Classes{
+			Classes: make([]*spec.Class, 0),
+		}
+
+		startAddr := p2p2core.AdaptHash(request.Start)
+		limitAddr := p2p2core.AdaptHash(request.End)
+
+		// TODO: loop this
+		proofs, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
+			// response.Classes = append(response) // !!!!!
+			panic("not implemented")
+			return nil
+		})
+
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+
+		yield(&ClassRangeStreamingResult{
+			ContractsRoot: contractRoot,
+			ClassesRoot:   classRoot,
+			Range:         response,
+			RangeProof:    Core2P2pProof(proofs),
+		}, err)
 	}
-
-	s := core.NewState(snapshot.txn)
-
-	contractRoot, classRoot, err := s.StateAndClassRoot()
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Verify class trie
-	ctrie, classCloser, err := s.ClassTrie()
-	if err != nil {
-		return nil, err
-	}
-	defer classCloser()
-
-	response := &spec.Classes{
-		Classes: make([]*spec.Class, 0),
-	}
-
-	startAddr := p2p2core.AdaptHash(request.Start)
-	limitAddr := p2p2core.AdaptHash(request.End)
-
-	proofs, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
-		// response.Classes = append(response) // !!!!!
-		panic("not implemented")
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	ch := make(chan *ClassRangeStreamingResult, 1)
-	ch <- &ClassRangeStreamingResult{
-		ContractsRoot: contractRoot,
-		ClassesRoot:   classRoot,
-		Range:         response,
-		RangeProof:    Core2P2pProof(proofs),
-	}
-
-	return ch, nil
 }
 
 func Core2P2pProof(proofs []trie.ProofNode) *spec.PatriciaRangeProof {
 	panic("not implemented")
 }
 
-func (b *Blockchain) GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) (chan *ContractRangeStreamingResult, error) {
-	stateRoot := p2p2core.AdaptHash(request.StateRoot)
-	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
-		return record.stateRoot.Equal(stateRoot)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	s := core.NewState(snapshot.txn)
-
-	contractRoot, classRoot, err := s.StateAndClassRoot()
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Verify class trie
-	strie, scloser, err := s.StorageTrie()
-	if err != nil {
-		return nil, err
-	}
-	defer scloser()
-
-	startAddr := p2p2core.AdaptAddress(request.Start)
-	limitAddr := p2p2core.AdaptAddress(request.End)
-	var states []*spec.ContractState
-
-	proofs, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
-		classHash, err := s.ContractClassHash(key)
-		if err != nil {
-			return err
-		}
-
-		nonce, err := s.ContractNonce(key)
-		if err != nil {
-			return err
-		}
-
-		ctr, err := s.StorageTrieForAddr(key)
-		if err != nil {
-			return err
-		}
-
-		croot, err := ctr.Root()
-		if err != nil {
-			return err
-		}
-
-		states = append(states, &spec.ContractState{
-			Address: core2p2p.AdaptAddress(key),
-			Class:   core2p2p.AdaptHash(classHash),
-			Storage: core2p2p.AdaptHash(croot),
-			Nonce:   nonce.Uint64(),
+func (b *Blockchain) GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) iter.Seq2[*ContractRangeStreamingResult, error] {
+	return func(yield func(*ContractRangeStreamingResult, error) bool) {
+		stateRoot := p2p2core.AdaptHash(request.StateRoot)
+		snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
+			return record.stateRoot.Equal(stateRoot)
 		})
-		return nil
-	})
+		if err != nil {
+			yield(nil, err)
+			return
+		}
 
-	ch := make(chan *ContractRangeStreamingResult, 1)
-	ch <- &ContractRangeStreamingResult{
-		ContractsRoot: contractRoot,
-		ClassesRoot:   classRoot,
-		Range:         states,
-		RangeProof:    Core2P2pProof(proofs),
+		s := core.NewState(snapshot.txn)
+		contractRoot, classRoot, err := s.StateAndClassRoot()
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+
+		// TODO: Verify class trie
+		strie, scloser, err := s.StorageTrie()
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		defer scloser()
+
+		startAddr := p2p2core.AdaptAddress(request.Start)
+		limitAddr := p2p2core.AdaptAddress(request.End)
+		states := []*spec.ContractState{}
+
+		proofs, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
+			classHash, err := s.ContractClassHash(key)
+			if err != nil {
+				return err
+			}
+
+			nonce, err := s.ContractNonce(key)
+			if err != nil {
+				return err
+			}
+
+			ctr, err := s.StorageTrieForAddr(key)
+			if err != nil {
+				return err
+			}
+
+			croot, err := ctr.Root()
+			if err != nil {
+				return err
+			}
+
+			states = append(states, &spec.ContractState{
+				Address: core2p2p.AdaptAddress(key),
+				Class:   core2p2p.AdaptHash(classHash),
+				Storage: core2p2p.AdaptHash(croot),
+				Nonce:   nonce.Uint64(),
+			})
+			return nil
+		})
+
+		yield(&ContractRangeStreamingResult{
+			ContractsRoot: contractRoot,
+			ClassesRoot:   classRoot,
+			Range:         states,
+			RangeProof:    Core2P2pProof(proofs),
+		}, nil)
 	}
-
-	return ch, nil
 }
 
 func (b *Blockchain) GetClasses(ctx context.Context, felts []*felt.Felt) ([]*spec.Class, error) {
@@ -284,111 +286,133 @@ func (b *Blockchain) GetClasses(ctx context.Context, felts []*felt.Felt) ([]*spe
 	return classes, nil
 }
 
-func (b *Blockchain) GetStorageRange(ctx context.Context, request *StorageRangeRequest) (chan *StorageRangeStreamingResult, error) {
-	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
-		return record.stateRoot.Equal(storageTrieRootHash)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	s := core.NewState(snapshot.txn)
-
-	curNodeLimit := int64(determineMaxNodes(maxNodes))
-
-	responses := make([]*StorageRangeResult, 0)
-
-	for _, request := range requests {
-		contractLimit := uint64(curNodeLimit)
-		if contractLimit > maxNodesPerContract {
-			contractLimit = maxNodesPerContract
-		}
-
-		response, err := b.handleStorageRangeRequest(s, request, contractLimit)
-		if err != nil {
-			return nil, err
-		}
-
-		responses = append(responses, response)
-		curNodeLimit -= int64(len(response.Paths))
-
-		if curNodeLimit <= 0 {
-			break
-		}
-	}
-
-	return responses, nil
-}
-
-func (b *Blockchain) handleStorageRangeRequest(s *core.State, request *StorageRangeRequest, nodeLimit uint64) (*StorageRangeResult, error) {
-	if request.Hash == nil {
-		return nil, errors.New("request hash is nil")
-	}
-
-	contract, err := s.Contract(request.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	strie, err := contract.StorageTrie()
-	if err != nil {
-		return nil, err
-	}
-
-	sroot, err := strie.Root()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StorageRangeResult{
-		Paths:  nil,
-		Values: nil,
-		Proofs: nil,
-	}
-
-	if !sroot.Equal(request.Hash) {
-		storageTrie, closer, err := s.StorageTrie()
-		if err != nil {
-			return nil, err
-		}
-
-		defer func() {
-			err := closer()
+func (b *Blockchain) GetClassesLoc(felts []*felt.Felt) ([]core.Class, error) {
+	classes := make([]core.Class, len(felts))
+	err := b.database.View(func(txn db.Transaction) error {
+		state := core.NewState(txn)
+		for i, f := range felts {
+			d, err := state.Class(f)
 			if err != nil {
-				b.log.Errorw("error closing trie", "error", err)
+				return err
 			}
-		}()
-
-		proofs, err := storageTrie.RangeProof(request.Path, request.Path)
-		if err != nil {
-			return nil, err
+			classes[i] = d.Class
 		}
 
-		nonce, err := contract.Nonce()
-		if err != nil {
-			return nil, err
-		}
-
-		classHash, err := contract.ClassHash()
-		if err != nil {
-			return nil, err
-		}
-
-		response.UpdatedContract = &AddressRangeLeaf{
-			ContractStorageRoot: sroot,
-			ClassHash:           classHash,
-			Nonce:               nonce,
-		}
-		response.UpdatedContractProof = proofs
-	}
-
-	response.Proofs, err = iterateWithLimit(strie, request.StartAddr, request.LimitAddr, nodeLimit, func(key, value *felt.Felt) error {
-		response.Paths = append(response.Paths, key)
-		response.Values = append(response.Values, value)
 		return nil
 	})
 
-	return response, err
+	if err != nil {
+		return nil, err
+	}
+
+	return classes, nil
+}
+
+func (b *Blockchain) GetStorageRange(ctx context.Context, request *StorageRangeRequest) iter.Seq2[*StorageRangeStreamingResult, error] {
+	return func(yield func(*StorageRangeStreamingResult, error) bool) {
+		stateRoot := request.StateRoot
+		snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
+			return record.stateRoot.Equal(stateRoot)
+		})
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+
+		s := core.NewState(snapshot.txn)
+		contractRoot, classRoot, err := s.StateAndClassRoot()
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+
+		curNodeLimit := int64(1000000)
+
+		for _, query := range request.Queries {
+			if ctxerr := ctx.Err(); ctxerr != nil {
+				break
+			}
+
+			contractLimit := uint64(curNodeLimit)
+
+			strie, err := s.StorageTrieForAddr(p2p2core.AdaptAddress(query.Address))
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+
+			handled, err := b.handleStorageRangeRequest(ctx, strie, query, request.ChunkPerProof, contractLimit, func(values []*spec.ContractStoredValue, proofs []trie.ProofNode) {
+				yield(&StorageRangeStreamingResult{
+					ContractsRoot: contractRoot,
+					ClassesRoot:   classRoot,
+					Range:         values,
+					RangeProof:    Core2P2pProof(proofs),
+				}, nil)
+			})
+
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+
+			curNodeLimit -= handled
+
+			if curNodeLimit <= 0 {
+				break
+			}
+		}
+	}
+}
+
+func (b *Blockchain) handleStorageRangeRequest(
+	ctx context.Context,
+	trie *trie.Trie,
+	request *spec.StorageRangeQuery,
+	maxChunkPerProof uint64,
+	nodeLimit uint64,
+	yield func([]*spec.ContractStoredValue, []trie.ProofNode)) (int64, error) {
+
+	totalSent := int64(0)
+	finished := false
+	startAddr := p2p2core.AdaptFelt(request.Start.Key)
+	endAddr := p2p2core.AdaptFelt(request.End.Key)
+
+	for !finished {
+		if ctxerr := ctx.Err(); ctxerr != nil {
+			break
+		}
+
+		response := []*spec.ContractStoredValue{}
+
+		limit := maxChunkPerProof
+		if nodeLimit < limit {
+			limit = nodeLimit
+		}
+
+		proofs, err := iterateWithLimit(trie, startAddr, endAddr, limit, func(key, value *felt.Felt) error {
+			response = append(response, &spec.ContractStoredValue{
+				Key:   core2p2p.AdaptFelt(key),
+				Value: core2p2p.AdaptFelt(key),
+			})
+			return nil
+		})
+
+		if err != nil {
+			return 0, err
+		}
+
+		if len(response) == 0 {
+			finished = true
+			return totalSent, nil
+		}
+
+		yield(response, proofs)
+
+		totalSent += totalSent
+		nodeLimit -= limit
+	}
+
+	return totalSent, nil
 }
 
 type snapshotRecord struct {

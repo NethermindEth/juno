@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/utils/iter"
 )
 
 type ContractRangeStreamingResult struct {
@@ -34,8 +35,8 @@ type ClassRangeStreamingResult struct {
 }
 
 type SnapServer interface {
-	GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) (chan *ContractRangeStreamingResult, error)
-	GetStorageRange(ctx context.Context, request *StorageRangeRequest) (chan *StorageRangeStreamingResult, error)
-	GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) (chan *ClassRangeStreamingResult, error)
+	GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) iter.Seq2[*ContractRangeStreamingResult, error]
+	GetStorageRange(ctx context.Context, request *StorageRangeRequest) iter.Seq2[*StorageRangeStreamingResult, error]
+	GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) iter.Seq2[*ClassRangeStreamingResult, error]
 	GetClasses(ctx context.Context, classHashes []*felt.Felt) ([]*spec.Class, error)
 }

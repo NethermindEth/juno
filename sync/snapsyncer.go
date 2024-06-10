@@ -27,7 +27,7 @@ import (
 )
 
 type Blockchain interface {
-	GetClasses(felts []*felt.Felt) ([]core.Class, error)
+	GetClassesLoc(felts []*felt.Felt) ([]core.Class, error)
 	StoreRaw(blockNumber uint64, stateUpdate *core.StateDiff, newClasses map[felt.Felt]core.Class) error
 }
 
@@ -373,32 +373,36 @@ func calculatePercentage(f *felt.Felt) uint64 {
 
 func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 	totaladded := 0
+	completed := false
 	startAddr := &felt.Zero
-	for {
+	for !completed {
 		s.log.Infow("class range progress", "progress", calculatePercentage(startAddr))
 
 		stateRoot := s.currentGlobalStateRoot
+
+		var err error
+
 		// TODO: Maybe timeout
-		responseCh, err := s.snapServer.GetClassRange(ctx, &spec.ClassRangeRequest{
+		s.snapServer.GetClassRange(ctx, &spec.ClassRangeRequest{
 			Root:           core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptHash(startAddr),
 			ChunksPerProof: 1000,
-		})
-		if err != nil {
-			return errors.Join(err, errors.New("error get address range"))
-		}
+		})(func(response *ClassRangeStreamingResult, reqErr error) bool {
+			if reqErr != nil {
+				err = errors.Join(reqErr, errors.New("error get address range"))
+				return false
+			}
 
-		for response := range responseCh {
 			if response.Range == nil && response.RangeProof == nil {
 				// State root missing.
-				break
+				return false
 			}
 
 			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
 			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
-				break
+				return false
 			}
 
 			paths := make([]*felt.Felt, len(response.Range.Classes))
@@ -413,7 +417,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
-				break
+				return false
 			}
 
 			// Ingest
@@ -430,17 +434,27 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 
 			err = s.blockchain.StoreRaw(s.lastBlock.Number, nil, coreClasses)
 			if err != nil {
-				return err
+				return false
 			}
 
 			if !hasNext {
 				s.log.Infow("class range completed", "totalClass", totaladded)
-				return nil
+				completed = true
+				return false
 			}
+
 			// Increment addr, start loop again
 			startAddr = paths[len(paths)-1]
+
+			return true
+		})
+
+		if err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
 func CalculateCompiledClassHash(cls *spec.Class) *felt.Felt {
@@ -500,37 +514,32 @@ func CalculateClassHash(cls *spec.Class) *felt.Felt {
 
 func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 	startAddr := &felt.Zero
-	for {
+	completed := false
+
+	for !completed {
 		s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr))
 		rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
+		var err error
+
 		stateRoot := s.currentGlobalStateRoot
-		streamingResult, err := s.snapServer.GetContractRange(ctx, &spec.ContractRangeRequest{
+		s.snapServer.GetContractRange(ctx, &spec.ContractRangeRequest{
 			Domain:         0, // What do this do?
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptAddress(startAddr),
 			End:            nil, // No need for now.
 			ChunksPerProof: 10000,
-		})
-
-		if err != nil {
-			s.log.Errorw("Error with contract range", "err", err)
-			// Well... need to figure out how to determine if its a temporary error or not.
-			// For sure, the state root can be outdated, so this need to restart
-			continue
-		}
-
-		for response := range streamingResult {
+		})(func(response *ContractRangeStreamingResult, err error) bool {
 			if response.Range == nil && response.RangeProof == nil {
 				// State root missing.
-				break
+				return false
 			}
 
-			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
+			err = VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
 			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
-				break
+				return false
 			}
 
 			paths := make([]*felt.Felt, len(response.Range))
@@ -542,10 +551,11 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			hasNext, err := VerifyTrie(response.ContractsRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
-			if err != nil {
+			hasNext, ierr := VerifyTrie(response.ContractsRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
+			if ierr != nil {
+				err = ierr
 				// The peer should get penalized in this case
-				continue
+				return false
 			}
 
 			// We don't actually store it directly here... only put it as part of job.
@@ -556,23 +566,35 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				classHash := p2p2core.AdaptHash(r.Class)
 				nonce := r.Nonce
 
-				err := s.queueClassJob(ctx, classHash)
+				err = s.queueClassJob(ctx, classHash)
 				if err != nil {
-					return err
+					return false
 				}
 
 				err = s.queueStorageRangeJob(ctx, path, storageRoot, classHash, nonce)
 				if err != nil {
-					return err
+					return false
 				}
 			}
 
 			if !hasNext {
 				s.log.Infow("address range completed")
-				return nil
+				completed = true
+				return false
 			}
+
+			return true
+		})
+
+		if err != nil {
+			s.log.Errorw("Error with contract range", "err", err)
+			// Well... need to figure out how to determine if its a temporary error or not.
+			// For sure, the state root can be outdated, so this need to restart
+			continue
 		}
 	}
+
+	return nil
 }
 
 func CalculateRangeValueHash(value *spec.ContractState) *felt.Felt {
@@ -700,23 +722,10 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			})
 		}
 
+		var err error
+
 		stateRoot := s.currentGlobalStateRoot
-		s.log.Infow("storage range", "rootDistance", s.lastBlock.Number-s.startingBlock.Number, "root", stateRoot.String(), "requestcount", len(requests))
-		responsesCh, err := s.snapServer.GetStorageRange(ctx, &StorageRangeRequest{
-			StateRoot:     stateRoot,
-			ChunkPerProof: 10000,
-			Queries:       requests,
-		})
-
-		if err != nil {
-			s.log.Errorw("Error with storage range", "err", err)
-			// Well... need to figure out how to determine if its a temporary error or not.
-			// For sure, the state root can be outdated, so this need to restart
-			continue
-		}
-
 		processedJobs := 0
-
 		stateDiff := &core.StateDiff{
 			StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{},
 			Nonces:            map[felt.Felt]*felt.Felt{},
@@ -725,21 +734,26 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{}, // Not used here
 			ReplacedClasses:   map[felt.Felt]*felt.Felt{},
 		}
-
 		totalPath := 0
-		for response := range responsesCh {
+
+		s.log.Infow("storage range", "rootDistance", s.lastBlock.Number-s.startingBlock.Number, "root", stateRoot.String(), "requestcount", len(requests))
+		s.snapServer.GetStorageRange(ctx, &StorageRangeRequest{
+			StateRoot:     stateRoot,
+			ChunkPerProof: 10000,
+			Queries:       requests,
+		})(func(response *StorageRangeStreamingResult, err error) bool {
 			job := jobs[processedJobs]
 
 			if response.Range == nil && response.RangeProof == nil {
 				// State root missing.
-				break
+				return false
 			}
 
 			// Wait.. why is this needed here?
-			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
+			err = VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
 			if err != nil {
 				// Root verification failed
-				break
+				return false
 			}
 
 			// Validate response
@@ -755,14 +769,14 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			hasNext, err := VerifyTrie(job.storageRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
 			if err != nil {
 				// It is unclear how to distinguish if the peer is malicious/broken/non-bizantine or the contracts root is outdated.
-				err := s.queueStorageRefreshJob(ctx, job)
+				err = s.queueStorageRefreshJob(ctx, job)
 				if err != nil {
-					return err
+					return false
 				}
 
 				// Go to next contract
 				processedJobs++
-				continue
+				return true
 			}
 
 			// TODO: Double check this
@@ -781,9 +795,9 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			if totalPath > 100000 {
 				// Only after a certain amount of path, we store it
 				// so that the storing part is more efficient
-				err := s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
+				err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
 				if err != nil {
-					return err
+					return false
 				}
 
 				totalPath = 0
@@ -802,6 +816,15 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			} else {
 				processedJobs++
 			}
+
+			return true
+		})
+
+		if err != nil {
+			s.log.Errorw("Error with storage range", "err", err)
+			// Well... need to figure out how to determine if its a temporary error or not.
+			// For sure, the state root can be outdated, so this need to restart
+			continue
 		}
 
 		err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
@@ -860,7 +883,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			continue
 		}
 
-		cls, err := s.blockchain.GetClasses([]*felt.Felt{key})
+		cls, err := s.blockchain.GetClassesLoc([]*felt.Felt{key})
 		if err != nil {
 			s.log.Infow("error getting class", "err", err)
 			return err
@@ -935,39 +958,31 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 		bigIntAdd = (&big.Int{}).Add(bigIntAdd, big.NewInt(1))
 		fp := fp.NewElement(0)
 		limitAddr := felt.NewFelt((&fp).SetBigInt(bigIntAdd))
+		var err error
 
 		stateRoot := s.currentGlobalStateRoot
-		streamingResult, err := s.snapServer.GetContractRange(ctx, &spec.ContractRangeRequest{
+		s.snapServer.GetContractRange(ctx, &spec.ContractRangeRequest{
 			Domain:         0, // What do this do?
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptAddress(job.startAddress),
 			End:            core2p2p.AdaptAddress(limitAddr),
 			ChunksPerProof: 10000,
-		})
-
-		if err != nil {
-			s.log.Errorw("Error with contract range", "err", err)
-			// Well... need to figure out how to determine if its a temporary error or not.
-			// For sure, the state root can be outdated, so this need to restart
-			continue
-		}
-
-		for response := range streamingResult {
+		})(func(response *ContractRangeStreamingResult, err error) bool {
 			if response.Range == nil && response.RangeProof == nil {
 				// State root missing.
-				break
+				return false
 			}
 
 			if len(response.Range) == 0 {
 				// Unexpected behaviour
-				break
+				return false
 			}
 
-			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
+			err = VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
 			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
-				break
+				return false
 			}
 
 			paths := make([]*felt.Felt, len(response.Range))
@@ -982,7 +997,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			_, err = VerifyTrie(response.ContractsRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
 			if err != nil {
 				// The peer should get penalized in this case
-				continue
+				return false
 			}
 
 			job.storageRoot = p2p2core.AdaptHash(response.Range[0].Storage)
@@ -990,17 +1005,25 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			if newClass != job.classHash {
 				err := s.queueClassJob(ctx, newClass)
 				if err != nil {
-					return err
+					return false
 				}
 			}
 
 			err = s.queueStorageRangeJobJob(ctx, job)
 			if err != nil {
-				return err
+				return false
 			}
 
 			job = nil
-			break
+
+			return true
+		})
+
+		if err != nil {
+			s.log.Errorw("Error with contract range", "err", err)
+			// Well... need to figure out how to determine if its a temporary error or not.
+			// For sure, the state root can be outdated, so this need to restart
+			continue
 		}
 	}
 }
