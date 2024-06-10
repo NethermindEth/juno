@@ -5,11 +5,16 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+    "github.com/NethermindEth/juno/core/trie"
 )
 
 type stateSnapshot struct {
 	blockNumber uint64
 	state       StateHistoryReader
+}
+
+func (s *stateSnapshot) GetClassesTrie() (*trie.Trie, func() error, error) {
+	return s.state.GetClassesTrie()
 }
 
 func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) StateReader {

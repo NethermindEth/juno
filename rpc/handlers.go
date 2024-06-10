@@ -171,6 +171,27 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
 }
 
+func (h *Handler) juno_getNodesFromRoot(key felt.Felt) ([]string, *jsonrpc.Error) {
+    stateReader, _, err := h.bcReader.HeadState()
+	if err != nil {
+	    return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	try, _, errTry := stateReader.GetClassesTrie()
+	if errTry != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, errTry.Error())
+	}
+
+	k := try.ConvertFeltToKey(&key)
+	storageNodes, err := try.GetNodesFromRoot(&k)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+    nodes, _ := try.ParseNodes(storageNodes)
+    return nodes, nil
+}
+
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
         // Artem's intern exercise 4
@@ -180,6 +201,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
             Handler: h.juno_getBlockWithTxsAndReceipts,
         },
         // End of Artem's intern exercise 4
+        {
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.juno_getNodesFromRoot,
+		},
 		{
 			Name:    "starknet_chainId",
 			Handler: h.ChainID,
