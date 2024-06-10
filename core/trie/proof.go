@@ -136,7 +136,7 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
-func GetProof(key *Key, tri *Trie) ([]ProofNode, error) { // todo: Get proof should always be for leafs??
+func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 	nodesFromRoot, err := tri.nodesFromRoot(key)
 	if err != nil {
 		return nil, err
@@ -242,7 +242,7 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 				return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
 			}
 
-			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], proofValues[i], hash) // Todo: incorrect for both paths :(
+			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], proofValues[i], hash)
 			if err != nil {
 				return false, err
 			}
@@ -258,18 +258,9 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 	if err != nil {
 		return false, err
 	}
-	// Todo: remove. Just inspection. Correct structure, and contains left/right hashes.
-	rootNode, _ := tmpTrie.GetNodeFromKey(tmpTrie.rootKey)
-	l, _ := tmpTrie.GetNodeFromKey(rootNode.Left)
-	r, _ := tmpTrie.GetNodeFromKey(rootNode.Right)
-	ll, _ := tmpTrie.GetNodeFromKey(l.Left)
-	lr, _ := tmpTrie.GetNodeFromKey(l.Right)
-	lll, _ := tmpTrie.GetNodeFromKey(ll.Left)
-	llr, _ := tmpTrie.GetNodeFromKey(ll.Right)
-	fmt.Println(l, r, lr, lll, llr)
 
 	// Verify that the recomputed root hash matches the provided root hash
-	recomputedRoot, err := tmpTrie.Root() // Todo: key not found
+	recomputedRoot, err := tmpTrie.Root()
 	if err != nil {
 		return false, err
 	}
@@ -304,9 +295,9 @@ func ensureMonotonicIncreasing(proofKeys [2]*Key, keys []*felt.Felt) error {
 }
 
 // shouldSquish determines if the node needs compressed, and if so, the len needed to arrive at the next key
-func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, *felt.Felt, *felt.Felt) {
+func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, *felt.Felt, *felt.Felt, error) {
 	if idx > len(proofNodes)-1 {
-		return 0, 1, nil, nil
+		return 0, 1, nil, nil, nil
 	}
 	parent := &proofNodes[idx]
 	var child *ProofNode
@@ -316,29 +307,29 @@ func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 	}
 
 	if child == nil {
-		return 0, 1, nil, nil
+		return 0, 1, nil, nil, nil
 	}
 
 	if parent.Edge != nil && child.Binary != nil {
-		return 1, parent.Edge.Path.len, child.Binary.LeftHash, child.Binary.RightHash
+		return 1, parent.Edge.Path.len, child.Binary.LeftHash, child.Binary.RightHash, nil
 	}
 
 	if parent.Binary != nil && child.Edge != nil {
 		childHash := child.Hash(hashF)
 		if parent.Binary.LeftHash.Equal(childHash) {
-			return 1, child.Edge.Path.len, child.Edge.Value, parent.Binary.RightHash
+			return 1, child.Edge.Path.len, child.Edge.Value, parent.Binary.RightHash, nil
 		} else if parent.Binary.RightHash.Equal(childHash) {
-			return 1, child.Edge.Path.len, parent.Binary.LeftHash, child.Edge.Value
+			return 1, child.Edge.Path.len, parent.Binary.LeftHash, child.Edge.Value, nil
 		} else {
-			panic("can't determine the child hash from the parent and child") // Todo: pass error up
+			return 0, 0, nil, nil, errors.New("can't determine the child hash from the parent and child")
 		}
 	}
 
 	if parent.Binary != nil && child.Binary != nil {
-		return 0, 1, parent.Binary.LeftHash, parent.Binary.RightHash
+		return 0, 1, parent.Binary.LeftHash, parent.Binary.RightHash, nil
 	}
 
-	return 0, 1, nil, nil
+	return 0, 1, nil, nil, nil
 }
 
 func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
@@ -361,7 +352,6 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 	nilKey := NewKey(0, zeroFeltBytes[:])
 
 	for i, pNode := range proofNodes {
-		// Skip this node if it has been squished
 		if i != 0 {
 			lastNode := pathNodes[len(pathNodes)-1].node
 			noLeftMatch, noRightMatch := false, false
@@ -371,7 +361,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 			if lastNode.RightHash != nil && !pNode.Hash(hashF).Equal(lastNode.RightHash) {
 				noRightMatch = true
 			}
-			if noLeftMatch && noRightMatch {
+			if noLeftMatch && noRightMatch { // Keep moving until we find the child / node with the correct hash
 				continue
 			}
 		}
@@ -383,7 +373,10 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 
 		// Set the key of the current node
 		var err error
-		squishedParent, squishParentOffset, leftHash, rightHash := shouldSquish(i, proofNodes, hashF)
+		squishedParent, squishParentOffset, leftHash, rightHash, err := shouldSquish(i, proofNodes, hashF)
+		if err != nil {
+			return nil, err
+		}
 		if pNode.Binary != nil {
 			crntKey, err = leafKey.SubKey(height)
 		} else {
@@ -405,8 +398,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 
 		// Set the child key of the current node.
 		childIdx := i + squishedParent + 1
-		_, squishChildOffset, _, _ := shouldSquish(childIdx, proofNodes, hashF)
-		childKey, err := leafKey.SubKey(crntKey.len + squishChildOffset)
+		childKey, err := getChilKey(childIdx, crntKey, leafKey, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
@@ -415,14 +407,21 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 
 		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
 	}
-	// If the proof node is unset, then ensure that the child keys are also
-	// unset (they are erroneously set above)
+	// If the proof node is not set, then the last pathNode should not have children
 	if leafValue == nil {
 		pathNodes[len(pathNodes)-1].node.Left = nil
 		pathNodes[len(pathNodes)-1].node.Right = nil
 	}
 	pathNodes = addLeafNode(proofNodes, pathNodes, leafKey)
 	return pathNodes, nil
+}
+
+func getChilKey(childIdx int, crntKey, leafKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
+	_, squishChildOffset, _, _, err := shouldSquish(childIdx, proofNodes, hashF) //nolint:dogsled
+	if err != nil {
+		return nil, err
+	}
+	return leafKey.SubKey(crntKey.len + squishChildOffset)
 }
 
 // getHeight returns the height of the current node, which depends on the previous

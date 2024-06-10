@@ -451,9 +451,7 @@ func (t *Trie) setRootKey(newRootKey *Key) {
 	t.rootKeyIsDirty = true
 }
 
-// Todo: account for the fact that the node may be a proof node
 func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
-	// Todo: moce, since also used in ProofToPath
 	zeroFeltBytes := new(felt.Felt).Bytes()
 	nilKey := NewKey(0, zeroFeltBytes[:])
 
@@ -621,7 +619,7 @@ func (t *Trie) Root() (*felt.Felt, error) {
 			if err := t.storage.DeleteRootKey(); err != nil {
 				return nil, err
 			}
-		} else if err := t.storage.PutRootKey(t.rootKey); err != nil { // Todo: t.rootKey is set here but not found below???
+		} else if err := t.storage.PutRootKey(t.rootKey); err != nil {
 			return nil, err
 		}
 		t.rootKeyIsDirty = false

@@ -1,7 +1,6 @@
 package trie_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -865,13 +864,6 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.NoError(t, err)
 		rightProof, err := trie.GetProof(proofKeys[1], tri)
 		require.NoError(t, err)
-
-		// Todo: remove, just included for inspection/testing
-		leftProofPath, err := trie.ProofToPath(leftProof, proofKeys[0], proofValues[0], crypto.Pedersen)
-		require.NoError(t, err)
-		rightProofPath, err := trie.ProofToPath(rightProof, proofKeys[1], proofValues[1], crypto.Pedersen)
-		require.NoError(t, err)
-		fmt.Println(leftProofPath, rightProofPath)
 
 		proofs := [2][]trie.ProofNode{leftProof, rightProof}
 		rootCommitment, err := tri.Root()
