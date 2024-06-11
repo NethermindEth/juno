@@ -678,18 +678,14 @@ func TestProofToPath(t *testing.T) {
 		require.Equal(t, 1, len(rightProofPath))
 		require.NoError(t, err)
 		require.Equal(t, rootKey, rightProofPath[0].Key())
-		require.Equal(t, rootNode.Right, rightProofPath[0].Node().Right)
+		require.NotEqual(t, rootNode.Right, rightProofPath[0].Node().Right)
+		require.NotEqual(t, uint8(0), rightProofPath[0].Node().Right)
 		require.Equal(t, twoLeafValue.String(), rightProofPath[0].Node().RightHash.String())
 	})
 }
 
 func TestBuildTrie(t *testing.T) {
 	t.Run("Simple binary trie proof to path", func(t *testing.T) {
-		compareLeftRight := func(t *testing.T, want, got *trie.Node) {
-			require.Equal(t, want.Left, got.Left, "left fail")
-			require.Equal(t, want.Right, got.Right, "right fail")
-		}
-
 		//		Node (edge path 249)
 		//		/			\
 		//  Node (binary)	0x6 (leaf)
@@ -734,25 +730,20 @@ func TestBuildTrie(t *testing.T) {
 		require.NoError(t, err)
 		builtLeftNode, err := builtTrie.GetNodeFromKey(builtRootNode.Left)
 		require.NoError(t, err)
-		builtRightNode, err := builtTrie.GetNodeFromKey(builtRootNode.Right)
-		require.NoError(t, err)
-		builtLeftLeftNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Left)
-		require.NoError(t, err)
 		builtLeftRightNode, err := builtTrie.GetNodeFromKey(builtLeftNode.Right)
 		require.NoError(t, err)
 
-		// Assert the structure is correct
+		// Assert the structure / keys correct
 		require.Equal(t, rootKey, builtRootKey)
-		compareLeftRight(t, rootNode, builtRootNode)
-		compareLeftRight(t, leftNode, builtLeftNode)
-		compareLeftRight(t, rightNode, builtRightNode)
-		compareLeftRight(t, leftleftNode, builtLeftLeftNode)
-		compareLeftRight(t, leftrightNode, builtLeftRightNode)
+		require.Equal(t, rootNode.Left, builtRootNode.Left, "left fail")
+		require.NotEqual(t, rootNode.Right, builtRootNode.Right, "right fail")
+		require.Equal(t, uint8(0), builtRootNode.Right.Len(), "proof leafs are set to nil key")
+		require.Equal(t, leftrightNode.Right, builtLeftRightNode.Right, "right fail")
 
 		// Assert the leaf nodes have the correct values
-		require.Equal(t, leftleftNode.Value.String(), builtLeftLeftNode.Value.String(), "should be 0x4")
+		require.Equal(t, leftleftNode.Value.String(), builtLeftNode.LeftHash.String(), "should be 0x4")
 		require.Equal(t, leftrightNode.Value.String(), builtLeftRightNode.Value.String(), "should be 0x5")
-		require.Equal(t, rightNode.Value.String(), builtRightNode.Value.String(), "should be 0x6")
+		require.Equal(t, rightNode.Value.String(), builtRootNode.RightHash.String(), "should be 0x6")
 
 		// Given the above two asserts pass, we should be able to reconstruct the correct commitment
 		reconstructedRootCommitment, err := builtTrie.Root()

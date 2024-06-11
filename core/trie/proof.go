@@ -468,6 +468,9 @@ func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []Proof
 			return nil, 0, err
 		}
 	}
+	if crntKey.len+uint8(squishChild)+squishChildOffset == 251 {
+		return nilKey, squishChild, nil
+	}
 	key, err := leafKey.SubKey(crntKey.len + uint8(squishChild) + squishChildOffset)
 	return key, squishChild, err
 }
@@ -523,6 +526,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 			return nil, err
 		}
 	}
+	builtRootKey := tempTrie.RootKey()
+	builtRootNode, err := tempTrie.GetNodeFromKey(builtRootKey)
+	builtLeftNode, err := tempTrie.GetNodeFromKey(builtRootNode.Left)
+	// builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right)
+	builtLeftRightNode, err := tempTrie.GetNodeFromKey(builtLeftNode.Right)
 
 	for _, sNode := range rightProofPath {
 		if sNode.node.Left == nil || sNode.node.Right == nil {
@@ -534,6 +542,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 		}
 	}
 
+	builtRootKey = tempTrie.RootKey()
+	builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
+	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
+	builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right)
+	builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
 	for i := range len(keys) {
 		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProofPath, rightProofPath)
 		if err != nil {
@@ -541,5 +554,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 		}
 	}
 
+	builtRootKey = tempTrie.RootKey()
+	builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
+	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
+	builtRightNode, err = tempTrie.GetNodeFromKey(builtRootNode.Right)
+	builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
+	fmt.Println(builtRightNode, builtLeftRightNode)
 	return tempTrie, nil
 }
