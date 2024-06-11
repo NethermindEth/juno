@@ -1,7 +1,6 @@
 package trie_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -14,9 +13,9 @@ import (
 )
 
 func buildSimpleTrie(t *testing.T) *trie.Trie {
-	//   (250, 0, x1)
+	//   (250, 0, x1)		edge
 	//        |
-	//     (0,0,x1)
+	//     (0,0,x1)			binary
 	//      /    \
 	//     (2)  (3)
 	// Build trie
@@ -143,22 +142,24 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []trie.ProofNode) {
 
 func build3KeyTrie(t *testing.T) *trie.Trie {
 	// 			Starknet
+	//			--------
 	//
 	//			Edge
 	//			|
-	//			Binary with len 249
-	//		/				\
-	//	Binary (250)	Edge with len 250 (?)
+	//			Binary with len 249				 parent
+	//		 /				\
+	//	Binary (250)	Edge with len 250
 	//	/	\				/
-	// 0x4	0x5			0x6 (edge?)
+	// 0x4	0x5			0x6						 child
 
 	//			 Juno
+	//			 ----
 	//
 	//		Node (path 249)
 	//		/			\
-	//  Node (binary)	0x6
-	//	/	\
-	// 0x4	0x5
+	//  Node (binary)	 \
+	//	/	\			 /
+	// 0x4	0x5		   0x6
 
 	// Build trie
 	memdb := pebble.NewMemTest(t)
@@ -595,7 +596,7 @@ func TestProofToPath(t *testing.T) {
 
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		leafkey := trie.NewKey(251, zeroFeltBytes[:])
-		sns, err := trie.ProofToPath(proofNodes, &leafkey, new(felt.Felt).SetUint64(2), crypto.Pedersen)
+		sns, err := trie.ProofToPath(proofNodes, &leafkey, crypto.Pedersen)
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
@@ -630,7 +631,7 @@ func TestProofToPath(t *testing.T) {
 		leafValue := utils.HexToFelt(t, "0xcc")
 		siblingValue := utils.HexToFelt(t, "0xdd")
 
-		sns, err := trie.ProofToPath(proofNodes, &leafkey, utils.HexToFelt(t, "0xcc"), crypto.Pedersen)
+		sns, err := trie.ProofToPath(proofNodes, &leafkey, crypto.Pedersen)
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
@@ -658,14 +659,11 @@ func TestProofToPath(t *testing.T) {
 		require.NoError(t, err)
 
 		// Test 1
-		leftProofPath, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, zeroLeafValue, crypto.Pedersen)
+		leftProofPath, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, crypto.Pedersen)
 		require.Equal(t, 2, len(leftProofPath))
-		for _, qwe := range leftProofPath {
-			fmt.Println(qwe.Key(), qwe.Node().LeftHash.String(), qwe.Node().RightHash.String())
-		}
-		require.NoError(t, err)
+		// require.NoError(t, err)
 		// left, err := tri.GetNodeFromKey(rootNode.Left)
-		require.NoError(t, err)
+		// require.NoError(t, err)
 		// right, err := tri.GetNodeFromKey(rootNode.Right)
 		require.NoError(t, err)
 		require.Equal(t, rootKey, leftProofPath[0].Key())
@@ -676,12 +674,12 @@ func TestProofToPath(t *testing.T) {
 		require.Equal(t, oneLeafValue.String(), leftProofPath[1].Node().RightHash.String())
 
 		// Test 2
-		rightProofPath, err := trie.ProofToPath(bProofs[1], &twoLeafkey, twoLeafValue, crypto.Pedersen)
+		rightProofPath, err := trie.ProofToPath(bProofs[1], &twoLeafkey, crypto.Pedersen)
 		require.Equal(t, 1, len(rightProofPath))
 		require.NoError(t, err)
 		require.Equal(t, rootKey, rightProofPath[0].Key())
 		require.Equal(t, rootNode.Right, rightProofPath[0].Node().Right)
-		require.Equal(t, twoLeafValue.String(), rightProofPath[0].Node().RightHash.String()) // Todo: Should be 0x6
+		require.Equal(t, twoLeafValue.String(), rightProofPath[0].Node().RightHash.String())
 	})
 }
 
@@ -720,10 +718,10 @@ func TestBuildTrie(t *testing.T) {
 		bProofs, err := trie.GetBoundaryProofs(&zeroLeafkey, &twoLeafkey, tri)
 		require.NoError(t, err)
 
-		leftProof, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, new(felt.Felt).SetUint64(4), crypto.Pedersen)
+		leftProof, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, crypto.Pedersen)
 		require.NoError(t, err)
 
-		rightProof, err := trie.ProofToPath(bProofs[1], &twoLeafkey, new(felt.Felt).SetUint64(6), crypto.Pedersen)
+		rightProof, err := trie.ProofToPath(bProofs[1], &twoLeafkey, crypto.Pedersen)
 		require.NoError(t, err)
 
 		keys := []*felt.Felt{new(felt.Felt).SetUint64(1)}

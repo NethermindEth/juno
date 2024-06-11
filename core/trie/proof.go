@@ -244,7 +244,7 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 				return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
 			}
 
-			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], proofValues[i], hash)
+			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], hash)
 			if err != nil {
 				return false, err
 			}
@@ -297,52 +297,41 @@ func ensureMonotonicIncreasing(proofKeys [2]*Key, keys []*felt.Felt) error {
 }
 
 // shouldSquish determines if the node needs compressed, and if so, the len needed to arrive at the next key
-func shouldSquish(idx int, crntKey, leafKey *Key, leafValue *felt.Felt, proofNodes []ProofNode, hashF hashFunc) (int, uint8, *felt.Felt, *felt.Felt, error) {
-
+func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, error) {
 	parent := &proofNodes[idx]
 	if idx == len(proofNodes)-1 { // The node may have children, but we can only derive their hashes here
-		var leftHash, rightHash *felt.Felt
 		var hack int
 		if parent.Edge != nil {
-			childIsRight := leafKey.Test(leafKey.len - crntKey.len - 1)
-			if childIsRight {
-				rightHash = leafValue
-				leftHash = parent.Edge.Value
-			} else {
-				rightHash = parent.Edge.Value
-				leftHash = leafValue
-			}
 			hack = 1
 		} else if parent.Binary != nil {
-			leftHash = parent.Binary.LeftHash
-			rightHash = parent.Binary.RightHash
+
 			hack = 0
 		}
-		return hack, parent.Len(), leftHash, rightHash, nil
+		return hack, parent.Len(), nil
 	}
 
 	child := &proofNodes[idx+1]
 
 	if parent.Edge != nil && child.Binary != nil {
-		return 1, parent.Edge.Path.len, child.Binary.LeftHash, child.Binary.RightHash, nil
+		return 1, parent.Edge.Path.len, nil
 	}
 
 	if parent.Binary != nil && child.Edge != nil {
 		childHash := child.Hash(hashF)
 		if parent.Binary.LeftHash.Equal(childHash) {
-			return 1, child.Edge.Path.len, child.Edge.Child, parent.Binary.RightHash, nil
+			return 1, child.Edge.Path.len, nil
 		} else if parent.Binary.RightHash.Equal(childHash) {
-			return 1, child.Edge.Path.len, parent.Binary.LeftHash, child.Edge.Child, nil // Todo: should not have a nil child value
+			return 1, child.Edge.Path.len, nil
 		} else {
-			return 0, 0, nil, nil, errors.New("can't determine the child hash from the parent and child")
+			return 0, 0, errors.New("can't determine the child hash from the parent and child")
 		}
 	}
 
 	if parent.Binary != nil && child.Binary != nil {
-		return 0, 1, parent.Binary.LeftHash, parent.Binary.RightHash, nil
+		return 0, 1, nil
 	}
 
-	return 0, 1, nil, nil, nil
+	return 0, 1, nil
 }
 
 func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
@@ -358,8 +347,8 @@ func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
 // ProofToPath returns a set of storage nodes from the root to the end of the proof path.
 // It will contain the hashes of the children along the path, but only the key of the children
 // along the path. The final node must contain the hash of the leaf if the leaf is set.
-// It will note contain the leaf node even if it is set. // Todo
-func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, hashF hashFunc) ([]StorageNode, error) {
+// It will not contain the leaf node even if it is set. // Todo
+func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]StorageNode, error) {
 	pathNodes := []StorageNode{}
 
 	// Hack: this allows us to store a right without an existing left node.
@@ -388,8 +377,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 		height := getHeight(i, pathNodes, proofNodes)
 
 		// Set the key of the current node
-		var err error
-		squishedParent, squishParentOffset, leftHash, rightHash, err := shouldSquish(i, crntKey, leafKey, leafValue, proofNodes, hashF)
+		squishedParent, squishParentOffset, err := shouldSquish(i, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
@@ -402,10 +390,8 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 			return nil, err
 		}
 
-		// Set the value, left hash, and right hash of the current node
+		// Set the value of the current node
 		crntNode.Value = pNode.Hash(hashF)
-		crntNode.LeftHash = leftHash // Todo: this is actually something that depends on the children
-		crntNode.RightHash = rightHash
 
 		// End of the line
 		if crntKey.len == 251 {
@@ -413,8 +399,8 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 		}
 
 		// Set the child key of the current node.
-		childIdx := i + squishedParent + 1
-		childKey, err := getChildKey(childIdx, crntKey, leafKey, &nilKey, leafValue, proofNodes, hashF)
+		childId := i + squishedParent + 1
+		childKey, childOffset, err := getChildKey(childId, crntKey, leafKey, &nilKey, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
@@ -422,33 +408,68 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 		assignChild(&crntNode, &nilKey, childKey, childIsRight)
 
 		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
-		if childKey.len == 251 {
+
+		childId += childOffset
+		leftHash, rightHash, err := getLeftRightHash(i, crntKey, leafKey, proofNodes, hashF)
+		if err != nil {
+			return nil, err
+		}
+		crntNode.LeftHash = leftHash
+		crntNode.RightHash = rightHash
+
+		// break early
+		if childKey.len == 0 || childKey.len == 251 {
 			break
 		}
 	}
-	// // If the proof node is not set, then the last pathNode should not have children
-	// // We can just use the left/right hashes
-	// if leafValue == nil {
-	// 	pathNodes[len(pathNodes)-1].node.Left = nil
-	// 	pathNodes[len(pathNodes)-1].node.Right = nil
-	// }
-	// pathNodes = addLeafNode(proofNodes, pathNodes, leafKey)
 	return pathNodes, nil
 }
 
-func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, leafValue *felt.Felt, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
+func getLeftRightHash(parentId int, sqshdParentKey *Key, leafKey *Key, proofNodes []ProofNode, hashF hashFunc) (*felt.Felt, *felt.Felt, error) {
+	// Find the binary part of the parent. Use left and right hashes naievely.
+	// If there is an edge after the binary part, along the path, we use the edge child.
+	// If there is an edge after the binary part, in the complement path, the hash in that
+	// direction will be wrong, but it will be corrected later when either merging proofs or
+	// inserting the actual keys.
+	var leftHash, rightHash *felt.Felt
+	parent := &proofNodes[parentId]
+	shiftedParentId := parentId
+	var parentBinary *Binary
+	if parent.Binary != nil {
+		parentBinary = parent.Binary
+	} else {
+		shiftedParentId++
+		parentBinary = proofNodes[shiftedParentId].Binary
+
+	}
+	leftHash = parentBinary.LeftHash
+	rightHash = parentBinary.RightHash
+
+	childID := shiftedParentId + 1
+	if childID <= len(proofNodes)-1 && proofNodes[childID].Edge != nil {
+		if leafKey.Test(leafKey.len - sqshdParentKey.len - 1) {
+			rightHash = proofNodes[childID].Edge.Child
+		} else {
+			leftHash = proofNodes[childID].Edge.Child
+		}
+	}
+	return leftHash, rightHash, nil
+}
+
+func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, int, error) {
 	var squishChildOffset uint8
 	var squishChild int
 	var err error
 	if childIdx > len(proofNodes)-1 {
-		return nilKey, nil
+		return nilKey, 0, nil
 	} else {
-		squishChild, squishChildOffset, _, _, err = shouldSquish(childIdx, crntKey, leafKey, leafValue, proofNodes, hashF) //nolint:dogsled
+		squishChild, squishChildOffset, err = shouldSquish(childIdx, proofNodes, hashF)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
-	return leafKey.SubKey(crntKey.len + uint8(squishChild) + squishChildOffset)
+	key, err := leafKey.SubKey(crntKey.len + uint8(squishChild) + squishChildOffset)
+	return key, squishChild, err
 }
 
 // getHeight returns the height of the current node, which depends on the previous
@@ -469,24 +490,6 @@ func getHeight(idx int, pathNodes []StorageNode, proofNodes []ProofNode) uint8 {
 	} else {
 		return 0
 	}
-}
-
-// addLeafNode appends the leaf node, if the final node in pathNodes points to a leaf.
-func addLeafNode(proofNodes []ProofNode, pathNodes []StorageNode, leafKey *Key) []StorageNode {
-	lastNode := pathNodes[len(pathNodes)-1].node
-	lastProof := proofNodes[len(proofNodes)-1]
-	if lastNode.Left.Equal(leafKey) || lastNode.Right.Equal(leafKey) {
-		leafNode := Node{}
-		if lastProof.Edge != nil {
-			leafNode.Value = lastProof.Edge.Child
-		} else if lastNode.Left.Equal(leafKey) {
-			leafNode.Value = lastProof.Binary.LeftHash
-		} else {
-			leafNode.Value = lastProof.Binary.RightHash
-		}
-		pathNodes = append(pathNodes, StorageNode{key: leafKey, node: &leafNode})
-	}
-	return pathNodes
 }
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
