@@ -255,56 +255,60 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent S
 	}
 }
 
-func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsProof bool) error {
+func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsParentProof bool) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
 	newParent := &Node{}
 	var leftChild, rightChild *Node
 	var err error
 
-	// The parent already exists, and we need to keep the LeftHash/Righthash
-	if siblingIsProof {
+	// Update the (proof) parents child and hash
+	if siblingIsParentProof {
 		newParent, err = t.GetNodeFromKey(&commonKey)
 		if err != nil {
 			return nil
 		}
 		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+			newParent.Right = nodeKey
 			newParent.RightHash = node.Hash(nodeKey, t.hash)
 		} else {
+			newParent.Left = nodeKey
 			newParent.LeftHash = node.Hash(nodeKey, t.hash)
 		}
-	}
-
-	if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
-		newParent.Left, newParent.Right = sibling.key, nodeKey
-		leftChild, rightChild = sibling.node, node
-	} else {
-		newParent.Left, newParent.Right = nodeKey, sibling.key
-		leftChild, rightChild = node, sibling.node
-	}
-
-	leftPath := path(newParent.Left, &commonKey)
-	rightPath := path(newParent.Right, &commonKey)
-
-	newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
-
-	if err := t.storage.Put(&commonKey, newParent); err != nil {
-		return err
-	}
-
-	// Don't modify the structure outlined by the proof paths
-	if len(nodes) > 1 && !siblingIsProof { // sibling has a parent
-		siblingParent := (nodes)[len(nodes)-2]
-
-		t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent) // error with overwritting right arises here
-		if err := t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
+		if err := t.storage.Put(&commonKey, newParent); err != nil {
 			return err
 		}
+		// Todo: actually just need to mark the grandparent as dirtyNodes
+		// since we clean the parent here
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
-	} else if !siblingIsProof {
-		t.setRootKey(&commonKey)
 	} else {
-		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
+		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+			newParent.Left, newParent.Right = sibling.key, nodeKey
+			leftChild, rightChild = sibling.node, node
+		} else {
+			newParent.Left, newParent.Right = nodeKey, sibling.key
+			leftChild, rightChild = node, sibling.node
+		}
+
+		leftPath := path(newParent.Left, &commonKey)
+		rightPath := path(newParent.Right, &commonKey)
+
+		newParent.Value = t.hash(leftChild.Hash(&leftPath, t.hash), rightChild.Hash(&rightPath, t.hash))
+		if err := t.storage.Put(&commonKey, newParent); err != nil {
+			return err
+		}
+
+		if len(nodes) > 1 { // sibling has a parent
+			siblingParent := (nodes)[len(nodes)-2]
+
+			t.replaceLinkWithNewParent(sibling.key, commonKey, siblingParent)
+			if err := t.storage.Put(siblingParent.key, siblingParent.node); err != nil {
+				return err
+			}
+			t.dirtyNodes = append(t.dirtyNodes, &commonKey)
+		} else {
+			t.setRootKey(&commonKey)
+		}
 	}
 
 	if err := t.storage.Put(nodeKey, node); err != nil {
@@ -408,26 +412,27 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 			return nil, nil // no-op
 		}
 
-		siblingIsProof, found := false, false
-		for i, proof := range lProofPath {
+		// override the sibling to be the parent if it's a proof
+		parentIsProof, found := false, false
+		for _, proof := range lProofPath {
 			if proof.key.Equal(sibling.key) {
-				sibling = lProofPath[i+1]
-				siblingIsProof = true
+				sibling = proof
+				parentIsProof = true
 				found = true
 				break
 			}
 		}
 		if !found {
-			for i, proof := range rProofPath {
+			for _, proof := range rProofPath {
 				if proof.key.Equal(sibling.key) {
-					sibling = rProofPath[i+1]
-					siblingIsProof = true
+					sibling = proof
+					parentIsProof = true
 					break
 				}
 			}
 		}
 
-		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, siblingIsProof)
+		err := t.insertOrUpdateValue(&nodeKey, node, nodes, sibling, parentIsProof)
 		if err != nil {
 			return nil, err
 		}

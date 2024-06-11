@@ -214,8 +214,8 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 	//		   249	\		Binary Edge		??
 	//	   	   / \	 \
 	//		250  250  250		Binary Edge		??
-	//	    / \   \    \
-	// 	   0   1   2    4
+	//	    / \   /    /
+	// 	   0   1  2   4
 
 	// Build trie
 	memdb := pebble.NewMemTest(t)
@@ -879,6 +879,7 @@ func TestVerifyRangeProof(t *testing.T) {
 		proofs := [2][]trie.ProofNode{leftProof, rightProof}
 		rootCommitment, err := tri.Root()
 		require.NoError(t, err)
+
 		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
 		require.NoError(t, err)
 		require.True(t, verif)
