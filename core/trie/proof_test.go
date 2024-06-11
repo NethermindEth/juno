@@ -1,6 +1,7 @@
 package trie_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -736,9 +737,9 @@ func TestBuildTrie(t *testing.T) {
 		// Assert the structure / keys correct
 		require.Equal(t, rootKey, builtRootKey)
 		require.Equal(t, rootNode.Left, builtRootNode.Left, "left fail")
-		require.NotEqual(t, rootNode.Right, builtRootNode.Right, "right fail")
-		require.Equal(t, uint8(0), builtRootNode.Right.Len(), "proof leafs are set to nil key")
 		require.Equal(t, leftrightNode.Right, builtLeftRightNode.Right, "right fail")
+		require.Equal(t, uint8(0), builtRootNode.Right.Len(), "right fail")
+		require.Equal(t, uint8(0), builtLeftNode.Left.Len(), "left left fail")
 
 		// Assert the leaf nodes have the correct values
 		require.Equal(t, leftleftNode.Value.String(), builtLeftNode.LeftHash.String(), "should be 0x4")
@@ -746,15 +747,17 @@ func TestBuildTrie(t *testing.T) {
 		require.Equal(t, rightNode.Value.String(), builtRootNode.RightHash.String(), "should be 0x6")
 
 		// Given the above two asserts pass, we should be able to reconstruct the correct commitment
+		// Todo: The original tries right value doesn't seem correct (should be 0x6)
 		reconstructedRootCommitment, err := builtTrie.Root()
+		fmt.Println("rootNode.Value.String()", rootNode.Value.String(), rootCommitment.String())
 		require.NoError(t, err)
-		require.Equal(t, rootNode.Value.String(), builtRootNode.Value.String())
-		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String())
+		require.Equal(t, rootNode.Value.String(), builtRootNode.Value.String(), "rootNode.Value not equal")
+		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String(), "root commitment not equal")
 	})
 }
 
 func TestVerifyRangeProof(t *testing.T) {
-	t.Run("two proofs, single key trie", func(t *testing.T) {
+	t.Run("VPR two proofs, single key trie", func(t *testing.T) {
 		//		Node (edge path 249)
 		//		/			\
 		//  Node (binary)	0x6 (leaf)
@@ -780,7 +783,7 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.True(t, verif)
 	})
 
-	t.Run("all keys provided, no proofs needed", func(t *testing.T) {
+	t.Run("VPR all keys provided, no proofs needed", func(t *testing.T) {
 		//		Node (edge path 249)
 		//		/			\
 		//  Node (binary)	0x6 (leaf)
@@ -799,7 +802,7 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.True(t, verif)
 	})
 
-	t.Run("left proof, all right keys", func(t *testing.T) {
+	t.Run("VPR left proof, all right keys", func(t *testing.T) {
 		//		Node (edge path 249)
 		//		/			\
 		//  Node (binary)	0x6 (leaf)
@@ -824,7 +827,7 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.True(t, verif)
 	})
 
-	t.Run("right proof, all left keys", func(t *testing.T) {
+	t.Run("VPR right proof, all left keys", func(t *testing.T) {
 		//		Node (edge path 249)
 		//		/			\
 		//  Node (binary)	0x6 (leaf)
@@ -848,7 +851,7 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.True(t, verif)
 	})
 
-	t.Run("left proof, all inner keys, right proof with non-set key", func(t *testing.T) {
+	t.Run("VPR left proof, all inner keys, right proof with non-set key", func(t *testing.T) {
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
 
