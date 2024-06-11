@@ -136,6 +136,8 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
+// GetProof generates a set of proof nodes from the root to the leaf.
+// The proof never contains the leaf node if it is set, as we already know it's hash.
 func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 	nodesFromRoot, err := tri.nodesFromRoot(key)
 	if err != nil {
@@ -211,7 +213,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 // This is achieved by constructing a trie from the boundary proofs, and the supplied key-values.
 // If the root of the reconstructed trie matches the supplied root, then the verification passes.
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
-// and therefore it's hash won't match the expected root
+// and therefore it's hash won't match the expected root.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
 func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*Key, proofValues [2]*felt.Felt,
 	proofs [2][]ProofNode, hash hashFunc,
@@ -353,6 +355,7 @@ func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
 // ProofToPath returns a set of storage nodes from the root to the end of the proof path.
 // It will contain the hashes of the children along the path, but only the key of the children
 // along the path. The final node must contain the hash of the leaf if the leaf is set.
+// It will note contain the leaf node even if it is set. // Todo
 func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, hashF hashFunc) ([]StorageNode, error) {
 	pathNodes := []StorageNode{}
 
@@ -423,7 +426,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, leafValue *felt.Felt, has
 	// 	pathNodes[len(pathNodes)-1].node.Left = nil
 	// 	pathNodes[len(pathNodes)-1].node.Right = nil
 	// }
-	pathNodes = addLeafNode(proofNodes, pathNodes, leafKey)
+	// pathNodes = addLeafNode(proofNodes, pathNodes, leafKey)
 	return pathNodes, nil
 }
 

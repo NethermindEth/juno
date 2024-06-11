@@ -575,7 +575,8 @@ func TestProofToPath(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
 		zeroFeltByte := new(felt.Felt).Bytes()
 		zero := trie.NewKey(250, zeroFeltByte[:])
-		leafKey := trie.NewKey(251, zeroFeltByte[:])
+		leafValue := utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002")
+		siblingValue := utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003")
 		proofNodes := []trie.ProofNode{
 			{
 				Edge: &trie.Edge{
@@ -585,30 +586,23 @@ func TestProofToPath(t *testing.T) {
 			},
 			{
 				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
-				},
-			},
-			{
-				Edge: &trie.Edge{
-					Path:  &leafKey,
-					Child: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					LeftHash:  leafValue,
+					RightHash: siblingValue,
 				},
 			},
 		}
+
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		leafkey := trie.NewKey(251, zeroFeltBytes[:])
 		sns, err := trie.ProofToPath(proofNodes, &leafkey, new(felt.Felt).SetUint64(2), crypto.Pedersen)
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
-		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
-		require.NoError(t, err)
 
-		require.Equal(t, 2, len(sns))
+		require.Equal(t, 1, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
-		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
-		require.NotEqual(t, rootNodes.Right, sns[0].Node().Right)
+		require.Equal(t, leafValue.String(), sns[0].Node().LeftHash.String())
+		require.Equal(t, siblingValue.String(), sns[0].Node().RightHash.String())
 	})
 
 	t.Run("PTP Simple double binary trie proof to path", func(t *testing.T) {
@@ -630,25 +624,20 @@ func TestProofToPath(t *testing.T) {
 					Child: utils.HexToFelt(t, "0xcc"),
 				},
 			},
-			{
-				Edge: &trie.Edge{
-					Path:  &leafkey,
-					Child: utils.HexToFelt(t, "0xcc"),
-				},
-			},
 		}
+
+		leafValue := utils.HexToFelt(t, "0xcc")
+		siblingValue := utils.HexToFelt(t, "0xdd")
 
 		sns, err := trie.ProofToPath(proofNodes, &leafkey, utils.HexToFelt(t, "0xcc"), crypto.Pedersen)
 		require.NoError(t, err)
 
 		rootKey := tempTrie.RootKey()
 
-		rootNodes, err := tempTrie.GetNodeFromKey(rootKey)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(sns))
+		require.Equal(t, 1, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
-		require.Equal(t, rootNodes.Left, sns[0].Node().Left)
-		require.NotEqual(t, rootNodes.Right, sns[0].Node().Right)
+		require.Equal(t, leafValue.String(), sns[0].Node().LeftHash.String())
+		require.NotEqual(t, siblingValue.String(), sns[0].Node().RightHash.String())
 	})
 
 	t.Run("PTP boundary proofs with three key trie", func(t *testing.T) {
@@ -659,25 +648,32 @@ func TestProofToPath(t *testing.T) {
 
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		zeroLeafValue := new(felt.Felt).SetUint64(4)
+		oneLeafValue := new(felt.Felt).SetUint64(5)
 		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
 		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
+		twoLeafValue := new(felt.Felt).SetUint64(6)
 		bProofs, err := trie.GetBoundaryProofs(&zeroLeafkey, &twoLeafkey, tri)
 		require.NoError(t, err)
 
-		leftProofPath, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, new(felt.Felt).SetUint64(4), crypto.Pedersen)
-		require.Equal(t, 3, len(leftProofPath))
+		// Test 1
+		leftProofPath, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, zeroLeafValue, crypto.Pedersen)
+		require.Equal(t, 2, len(leftProofPath))
+		require.NoError(t, err)
+		left, err := tri.GetNodeFromKey(rootNode.Left)
+		require.NoError(t, err)
+		right, err := tri.GetNodeFromKey(rootNode.Right)
 		require.NoError(t, err)
 		require.Equal(t, rootKey, leftProofPath[0].Key())
-		require.Equal(t, rootNode.Left, leftProofPath[0].Node().Left)
-		require.NotEqual(t, rootNode.Right, leftProofPath[0].Node().Right)
+		require.Equal(t, left.Hash(rootNode.Left, crypto.Pedersen).String(), leftProofPath[0].Node().LeftHash.String())
+		require.Equal(t, right.Hash(rootNode.Right, crypto.Pedersen).String(), leftProofPath[0].Node().RightHash.String())
 
-		leftNode, err := tri.GetNodeFromKey(rootNode.Left)
-		require.NoError(t, err)
-		require.Equal(t, rootNode.Left, leftProofPath[1].Key())
-		require.Equal(t, leftNode.Left, leftProofPath[1].Node().Left)
-		require.NotEqual(t, leftNode.Right, leftProofPath[0].Node().Right)
+		require.Equal(t, left, leftProofPath[1].Key())
+		require.Equal(t, zeroLeafValue.String(), leftProofPath[1].Node().LeftHash.String())
+		require.NotEqual(t, oneLeafValue.String(), leftProofPath[1].Node().RightHash.String())
 
-		rightProofPath, err := trie.ProofToPath(bProofs[1], &twoLeafkey, new(felt.Felt).SetUint64(6), crypto.Pedersen)
+		// Test 2
+		rightProofPath, err := trie.ProofToPath(bProofs[1], &twoLeafkey, twoLeafValue, crypto.Pedersen)
 		require.Equal(t, 2, len(rightProofPath))
 		require.NoError(t, err)
 		require.Equal(t, rootKey, rightProofPath[0].Key())
