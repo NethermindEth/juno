@@ -28,6 +28,10 @@ func (k *Key) SubKey(n uint8) (*Key, error) {
 	if n > k.len {
 		return nil, errors.New(fmt.Sprint("cannot subtract key of length %i from key of length %i", n, k.len))
 	}
+	if n == k.len {
+		newkey := NewKey(k.len, k.bitset[:])
+		return &newkey, nil
+	}
 
 	newKey := &Key{len: n}
 	copy(newKey.bitset[:], k.bitset[len(k.bitset)-int((k.len+7)/8):]) //nolint:gomnd
