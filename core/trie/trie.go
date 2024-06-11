@@ -278,8 +278,6 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		if err := t.storage.Put(&commonKey, newParent); err != nil {
 			return err
 		}
-		// Todo: actually just need to mark the grandparent as dirtyNodes
-		// since we clean the parent here
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 	} else {
 		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
@@ -456,6 +454,7 @@ func (t *Trie) setRootKey(newRootKey *Key) {
 	t.rootKeyIsDirty = true
 }
 
+// Todo: update so that the proof nodes are always updated
 func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 	zeroFeltBytes := new(felt.Felt).Bytes()
 	nilKey := NewKey(0, zeroFeltBytes[:])
@@ -479,7 +478,12 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 			}
 		}
 	}
-
+	// Update inner proof nodes
+	if node.Left.Equal(&nilKey) && node.Right.Equal(&nilKey) { // leaf
+		shouldUpdate = false
+	} else if node.Left.Equal(&nilKey) || node.Right.Equal(&nilKey) { // inner
+		shouldUpdate = true
+	}
 	if !shouldUpdate {
 		return node, nil
 	}

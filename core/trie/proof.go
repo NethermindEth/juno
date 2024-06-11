@@ -526,11 +526,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 			return nil, err
 		}
 	}
-	builtRootKey := tempTrie.RootKey()
-	builtRootNode, err := tempTrie.GetNodeFromKey(builtRootKey)
-	builtLeftNode, err := tempTrie.GetNodeFromKey(builtRootNode.Left)
+	// builtRootKey := tempTrie.RootKey()
+	// builtRootNode, err := tempTrie.GetNodeFromKey(builtRootKey)
+	// builtLeftNode, err := tempTrie.GetNodeFromKey(builtRootNode.Left)
 	// builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right)
-	builtLeftRightNode, err := tempTrie.GetNodeFromKey(builtLeftNode.Right)
+	// builtLeftRightNode, err := tempTrie.GetNodeFromKey(builtLeftNode.Right)
 
 	for _, sNode := range rightProofPath {
 		if sNode.node.Left == nil || sNode.node.Right == nil {
@@ -542,11 +542,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 		}
 	}
 
-	builtRootKey = tempTrie.RootKey()
-	builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
-	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
-	builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right)
-	builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
+	// builtRootKey = tempTrie.RootKey()
+	// builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
+	// builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
+	// builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right)
+	// builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
 	for i := range len(keys) {
 		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProofPath, rightProofPath)
 		if err != nil {
@@ -554,11 +554,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 		}
 	}
 
-	builtRootKey = tempTrie.RootKey()
-	builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
-	builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
-	builtRightNode, err = tempTrie.GetNodeFromKey(builtRootNode.Right)
-	builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
-	fmt.Println(builtRightNode, builtLeftRightNode)
+	// builtRootKey = tempTrie.RootKey()
+	// builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
+	// builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
+	// builtRightNode, err = tempTrie.GetNodeFromKey(builtRootNode.Right)
+	// builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
+	// fmt.Println(builtRightNode, builtLeftRightNode)
 	return tempTrie, nil
 }

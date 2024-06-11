@@ -748,6 +748,7 @@ func TestBuildTrie(t *testing.T) {
 		// Given the above two asserts pass, we should be able to reconstruct the correct commitment
 		reconstructedRootCommitment, err := builtTrie.Root()
 		require.NoError(t, err)
+		require.Equal(t, rootNode.Value.String(), builtRootNode.Value.String())
 		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String())
 	})
 }
