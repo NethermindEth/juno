@@ -445,14 +445,14 @@ func getLeftRightHash(parentId int, sqshdParentKey *Key, leafKey *Key, proofNode
 	leftHash = parentBinary.LeftHash
 	rightHash = parentBinary.RightHash
 
-	childID := shiftedParentId + 1
-	if childID <= len(proofNodes)-1 && proofNodes[childID].Edge != nil {
-		if leafKey.Test(leafKey.len - sqshdParentKey.len - 1) {
-			rightHash = proofNodes[childID].Edge.Child
-		} else {
-			leftHash = proofNodes[childID].Edge.Child
-		}
-	}
+	// childID := shiftedParentId + 1
+	// if childID <= len(proofNodes)-1 && proofNodes[childID].Edge != nil {
+	// 	if leafKey.Test(leafKey.len - sqshdParentKey.len - 1) {
+	// 		rightHash = proofNodes[childID].Edge.Child
+	// 	} else {
+	// 		leftHash = proofNodes[childID].Edge.Child
+	// 	}
+	// }
 	return leftHash, rightHash, nil
 }
 

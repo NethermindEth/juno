@@ -32,6 +32,12 @@ func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 	return hash.Add(hash, &pathFelt)
 }
 
+// Hash calculates the hash of a [Node]
+func (n *Node) HashFromParent(parnetKey, nodeKey *Key, hashFunc hashFunc) *felt.Felt {
+	path := path(nodeKey, parnetKey)
+	return n.Hash(&path, hashFunc)
+}
+
 func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
 	if n.Value == nil {
 		return 0, errors.New("cannot marshal node with nil value")

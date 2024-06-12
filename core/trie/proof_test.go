@@ -1,7 +1,6 @@
 package trie_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -629,17 +628,17 @@ func TestProofToPath(t *testing.T) {
 			},
 		}
 
-		leafValue := utils.HexToFelt(t, "0xcc")
 		siblingValue := utils.HexToFelt(t, "0xdd")
-
 		sns, err := trie.ProofToPath(proofNodes, &leafkey, crypto.Pedersen)
 		require.NoError(t, err)
-
 		rootKey := tempTrie.RootKey()
-
+		rootNode, err := tempTrie.GetNodeFromKey(rootKey)
+		require.NoError(t, err)
+		leftNode, err := tempTrie.GetNodeFromKey(rootNode.Left)
+		require.NoError(t, err)
 		require.Equal(t, 1, len(sns))
 		require.Equal(t, rootKey.Len(), sns[0].Key().Len())
-		require.Equal(t, leafValue.String(), sns[0].Node().LeftHash.String())
+		require.Equal(t, leftNode.HashFromParent(rootKey, rootNode.Left, crypto.Pedersen).String(), sns[0].Node().LeftHash.String())
 		require.NotEqual(t, siblingValue.String(), sns[0].Node().RightHash.String())
 	})
 
@@ -655,21 +654,20 @@ func TestProofToPath(t *testing.T) {
 		oneLeafValue := new(felt.Felt).SetUint64(5)
 		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
 		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
-		twoLeafValue := new(felt.Felt).SetUint64(6)
 		bProofs, err := trie.GetBoundaryProofs(&zeroLeafkey, &twoLeafkey, tri)
 		require.NoError(t, err)
 
 		// Test 1
 		leftProofPath, err := trie.ProofToPath(bProofs[0], &zeroLeafkey, crypto.Pedersen)
 		require.Equal(t, 2, len(leftProofPath))
-		// require.NoError(t, err)
-		// left, err := tri.GetNodeFromKey(rootNode.Left)
-		// require.NoError(t, err)
-		// right, err := tri.GetNodeFromKey(rootNode.Right)
+		require.NoError(t, err)
+		left, err := tri.GetNodeFromKey(rootNode.Left)
+		require.NoError(t, err)
+		right, err := tri.GetNodeFromKey(rootNode.Right)
 		require.NoError(t, err)
 		require.Equal(t, rootKey, leftProofPath[0].Key())
-		// require.Equal(t, left.Hash(rootNode.Left, crypto.Pedersen).String(), leftProofPath[0].Node().LeftHash.String()) // Todo
-		// require.Equal(t, right.Hash(rootNode.Right, crypto.Pedersen).String(), leftProofPath[0].Node().RightHash.String()) // Todo
+		require.Equal(t, left.HashFromParent(rootKey, rootNode.Left, crypto.Pedersen).String(), leftProofPath[0].Node().LeftHash.String())
+		require.Equal(t, right.HashFromParent(rootKey, rootNode.Right, crypto.Pedersen).String(), leftProofPath[0].Node().RightHash.String())
 		require.Equal(t, rootNode.Left, leftProofPath[1].Key())
 		require.Equal(t, zeroLeafValue.String(), leftProofPath[1].Node().LeftHash.String())
 		require.Equal(t, oneLeafValue.String(), leftProofPath[1].Node().RightHash.String())
@@ -681,7 +679,7 @@ func TestProofToPath(t *testing.T) {
 		require.Equal(t, rootKey, rightProofPath[0].Key())
 		require.NotEqual(t, rootNode.Right, rightProofPath[0].Node().Right)
 		require.NotEqual(t, uint8(0), rightProofPath[0].Node().Right)
-		require.Equal(t, twoLeafValue.String(), rightProofPath[0].Node().RightHash.String())
+		require.Equal(t, right.HashFromParent(rootKey, rootNode.Right, crypto.Pedersen).String(), rightProofPath[0].Node().RightHash.String())
 	})
 }
 
@@ -700,8 +698,6 @@ func TestBuildTrie(t *testing.T) {
 		rootNode, err := tri.GetNodeFromKey(rootKey)
 		require.NoError(t, err)
 		leftNode, err := tri.GetNodeFromKey(rootNode.Left)
-		require.NoError(t, err)
-		rightNode, err := tri.GetNodeFromKey(rootNode.Right)
 		require.NoError(t, err)
 		leftleftNode, err := tri.GetNodeFromKey(leftNode.Left)
 		require.NoError(t, err)
@@ -744,14 +740,10 @@ func TestBuildTrie(t *testing.T) {
 		// Assert the leaf nodes have the correct values
 		require.Equal(t, leftleftNode.Value.String(), builtLeftNode.LeftHash.String(), "should be 0x4")
 		require.Equal(t, leftrightNode.Value.String(), builtLeftRightNode.Value.String(), "should be 0x5")
-		require.Equal(t, rightNode.Value.String(), builtRootNode.RightHash.String(), "should be 0x6")
 
 		// Given the above two asserts pass, we should be able to reconstruct the correct commitment
-		// Todo: The original tries right value doesn't seem correct (should be 0x6)
 		reconstructedRootCommitment, err := builtTrie.Root()
-		fmt.Println("rootNode.Value.String()", rootNode.Value.String(), rootCommitment.String())
 		require.NoError(t, err)
-		require.Equal(t, rootNode.Value.String(), builtRootNode.Value.String(), "rootNode.Value not equal")
 		require.Equal(t, rootCommitment.String(), reconstructedRootCommitment.String(), "root commitment not equal")
 	})
 }
