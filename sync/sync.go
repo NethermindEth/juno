@@ -2,17 +2,22 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"runtime"
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
@@ -66,6 +71,7 @@ type Synchronizer struct {
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
+    latestBlockHeight   uint64
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -82,6 +88,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
+        latestBlockHeight:   uint64(0),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -97,8 +104,161 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	s.syncBlocks(ctx)
+	//s.syncBlocks(ctx)
+    s.syncBlocksFromFeederGateway(ctx)
 	return nil
+}
+
+func (s *Synchronizer) syncBlocksFromFeederGateway(syncCtx context.Context) {
+    streamCtx, streamCancel := context.WithCancel(syncCtx)
+    for {
+        select {
+        case <- streamCtx.Done():
+            streamCancel()
+            return
+        default:
+            s.log.Infow("Fetching from feeder gateway")
+            block, stateUpdate, blockCommitments := s.getBlockDetails(s.latestBlockHeight)
+            newClasses, err := s.fetchUnknownClasses(syncCtx, &stateUpdate)
+            if err != nil {
+                s.log.Errorw("Error fetching unknown classes: %v", err)
+            }
+            err = s.blockchain.Store(&block, &blockCommitments, &stateUpdate, newClasses)
+            if err != nil {
+                s.log.Errorw("Error storing block: %v", err)
+            } else {
+                s.log.Infow("Stored Block", "number", block.Number, "hash", block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+            }
+            s.latestBlockHeight += 1
+        }
+    }
+}
+
+func (s *Synchronizer) getBlockDetails(blockNumber uint64) (core.Block, core.StateUpdate, core.BlockCommitments) {
+    block, blockCommitments := s.getBlockFromFeederGateway(blockNumber)
+    stateUpdate := s.getStateUpdateFromFeederGateway(blockNumber)
+    return block, stateUpdate, blockCommitments
+}
+
+func (s *Synchronizer) getBlockFromFeederGateway(blockNumber uint64) (core.Block, core.BlockCommitments) {
+    blockUrl := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=%d", blockNumber)
+    blockResponse, err := http.Get(blockUrl)
+    if err != nil {
+        s.log.Errorw("Error getting response: %v", err)
+        return core.Block{}, core.BlockCommitments{}
+    }
+    defer blockResponse.Body.Close()
+
+    var block starknet.Block
+    if blockResponse.StatusCode == http.StatusOK {
+        decoder := json.NewDecoder(blockResponse.Body)
+        if err := decoder.Decode(&block); err != nil {
+            s.log.Errorw("Failed to decode response: %v", err)
+            return core.Block{}, core.BlockCommitments{}
+        }
+    } else {
+        s.log.Warnw("Received non-OK HTTP status: %v", blockResponse.Status)
+        return core.Block{}, core.BlockCommitments{}
+    }
+
+    signatureUrl := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_signature?blockNumber=%d", block.Number)
+    signatureResponse, err := http.Get(signatureUrl)
+    if err != nil {
+        s.log.Errorw("Error getting response: %v", err)
+        return core.Block{}, core.BlockCommitments{}
+    }
+    defer signatureResponse.Body.Close()
+
+    var signature starknet.Signature
+    if signatureResponse.StatusCode == http.StatusOK {
+        decoder := json.NewDecoder(signatureResponse.Body)
+        if err := decoder.Decode(&signature); err != nil {
+            s.log.Errorw("Failed to decode response: %v", err)
+            return core.Block{}, core.BlockCommitments{}
+        }
+    } else {
+        s.log.Warnw("Received non-OK HTTP status: %v", signatureResponse.Status)
+        return core.Block{}, core.BlockCommitments{}
+    }
+
+    var adaptedTransactions []core.Transaction
+    for _, transaction := range block.Transactions {
+        adaptedTransaction, err := sn2core.AdaptTransaction(transaction)
+        if err != nil {
+            s.log.Errorw("Error adapting starknet type to core type: %v", err)
+            return core.Block{}, core.BlockCommitments{}
+        }
+        adaptedTransactions = append(adaptedTransactions, adaptedTransaction)
+    }
+
+    var eventCount uint64
+    var adaptedTransactionReceipts []*core.TransactionReceipt
+    for _, receipt := range block.Receipts {
+        eventCount += uint64(len(receipt.Events))
+        adaptedTransactionReceipt := sn2core.AdaptTransactionReceipt(receipt)
+        adaptedTransactionReceipts = append(adaptedTransactionReceipts, adaptedTransactionReceipt)
+    }
+
+    signatures := [][]*felt.Felt{}
+    signatures = append(signatures, signature.Signature)
+
+    header := &core.Header{
+        Hash:               block.Hash,
+        ParentHash:         block.ParentHash,
+        Number:             block.Number,
+        GlobalStateRoot:    block.StateRoot,
+        SequencerAddress:   block.SequencerAddress,
+        TransactionCount:   uint64(len(block.Transactions)),
+        EventCount:         eventCount,
+        Timestamp:          block.Timestamp,
+        ProtocolVersion:    block.Version,
+        EventsBloom:        core.EventsBloom(adaptedTransactionReceipts),
+        GasPrice:           block.GasPriceETH(),
+        Signatures:         signatures,
+        GasPriceSTRK:       block.GasPriceSTRK(),
+        L1DAMode:           core.L1DAMode(block.L1DAMode),
+        L1DataGasPrice:     (*core.GasPrice)(block.L1DataGasPrice),
+    }
+
+    return core.Block{
+        Header:         header,
+        Transactions:   adaptedTransactions,
+        Receipts:       adaptedTransactionReceipts,
+    },
+    core.BlockCommitments{
+        TransactionCommitment: block.TransactionCommitment,
+        EventCommitment:        block.EventCommitment,
+    }
+}
+
+func (s *Synchronizer) getStateUpdateFromFeederGateway(blockNumber uint64) core.StateUpdate {
+    stateUpdateUrl := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_state_update?blockNumber=%d", blockNumber)
+    stateUpdateResponse, err := http.Get(stateUpdateUrl)
+    if err != nil {
+        s.log.Errorw("Error getting response: %v", err)
+        return core.StateUpdate{}
+    }
+    defer stateUpdateResponse.Body.Close()
+
+    var stateUpdate starknet.StateUpdate
+    if stateUpdateResponse.StatusCode == http.StatusOK {
+        decoder := json.NewDecoder(stateUpdateResponse.Body)
+        if err := decoder.Decode(&stateUpdate); err != nil {
+            s.log.Errorw("Failed to decode response: %v", err)
+            return core.StateUpdate{}
+        }
+    } else {
+        s.log.Warnw("Received non-OK HTTP status: %v", stateUpdateResponse.Status)
+        return core.StateUpdate{}
+    }
+
+    adaptedStateUpdate, err := sn2core.AdaptStateUpdate(&stateUpdate)
+    if err != nil {
+        s.log.Errorw("Error adapting starknet type to core type: %v", err)
+        return core.StateUpdate{}
+    }
+
+    return *adaptedStateUpdate
 }
 
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
