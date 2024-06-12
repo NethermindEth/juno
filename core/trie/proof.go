@@ -383,8 +383,10 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 		}
 
 		// Set the LeftHash and RightHash values
-		parentNode.LeftHash, parentNode.RightHash = getLeftRightHash(i, proofNodes)
-
+		parentNode.LeftHash, parentNode.RightHash, err = getLeftRightHash(i, proofNodes)
+		if err != nil {
+			return nil, err
+		}
 		pathNodes = append(pathNodes, StorageNode{key: parentKey, node: &parentNode})
 
 		// break early since we don't store leafs along proof paths, or if no more nodes exist along the proof paths
@@ -410,12 +412,15 @@ func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF hashFunc) bool {
 	return false
 }
 
-func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.Felt) {
+func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.Felt, error) {
 	parent := &proofNodes[parentInd]
 	if parent.Binary == nil {
+		if parentInd+1 > len(proofNodes)-1 {
+			return nil, nil, errors.New("cant get hash of children from proof node, out of range")
+		}
 		parent = &proofNodes[parentInd+1]
 	}
-	return parent.Binary.LeftHash, parent.Binary.RightHash
+	return parent.Binary.LeftHash, parent.Binary.RightHash, nil
 }
 
 func getParentKey(idx int, compressedParentOffset uint8, leafKey *Key,
