@@ -256,10 +256,6 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 	if err != nil {
 		return false, err
 	}
-	err = tmpTrie.Commit()
-	if err != nil {
-		return false, err
-	}
 
 	// Verify that the recomputed root hash matches the provided root hash
 	recomputedRoot, err := tmpTrie.Root()
@@ -304,7 +300,6 @@ func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 		if parent.Edge != nil {
 			hack = 1
 		} else if parent.Binary != nil {
-
 			hack = 0
 		}
 		return hack, parent.Len(), nil
@@ -347,7 +342,7 @@ func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
 // ProofToPath returns a set of storage nodes from the root to the end of the proof path.
 // It will contain the hashes of the children along the path, but only the key of the children
 // along the path. The final node must contain the hash of the leaf if the leaf is set.
-// It will not contain the leaf node even if it is set. // Todo
+// It will not contain the leaf node even if it is set.
 func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]StorageNode, error) {
 	pathNodes := []StorageNode{}
 
@@ -381,11 +376,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 		if err != nil {
 			return nil, err
 		}
-		if pNode.Binary != nil {
-			crntKey, err = leafKey.SubKey(height)
-		} else {
-			crntKey, err = leafKey.SubKey(height + squishParentOffset)
-		}
+		crntKey, err = getCrntKey(height, squishParentOffset, leafKey, pNode)
 		if err != nil {
 			return nil, err
 		}
@@ -393,29 +384,24 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 		// Set the value of the current node
 		crntNode.Value = pNode.Hash(hashF)
 
-		// End of the line
-		if crntKey.len == 251 {
+		// End of the line, no children
+		if crntKey.len == 251 { //nolint:gomnd
 			break
 		}
 
 		// Set the child key of the current node.
-		childId := i + squishedParent + 1
-		childKey, childOffset, err := getChildKey(childId, crntKey, leafKey, &nilKey, proofNodes, hashF)
+		childInd := i + squishedParent + 1
+		childKey, err := getChildKey(childInd, crntKey, leafKey, &nilKey, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
 		childIsRight := leafKey.Test(leafKey.len - crntKey.len - 1)
 		assignChild(&crntNode, &nilKey, childKey, childIsRight)
 
-		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
+		// Set the LeftHash and RightHash values
+		crntNode.LeftHash, crntNode.RightHash = getLeftRightHash(i, proofNodes)
 
-		childId += childOffset
-		leftHash, rightHash, err := getLeftRightHash(i, crntKey, leafKey, proofNodes, hashF)
-		if err != nil {
-			return nil, err
-		}
-		crntNode.LeftHash = leftHash
-		crntNode.RightHash = rightHash
+		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
 
 		// break early
 		if childKey.len == 0 || childKey.len == 251 {
@@ -425,66 +411,54 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 	return pathNodes, nil
 }
 
-func getLeftRightHash(parentId int, sqshdParentKey *Key, leafKey *Key, proofNodes []ProofNode, hashF hashFunc) (*felt.Felt, *felt.Felt, error) {
-	// Find the binary part of the parent. Use left and right hashes naievely.
-	// If there is an edge after the binary part, along the path, we use the edge child.
-	// If there is an edge after the binary part, in the complement path, the hash in that
-	// direction will be wrong, but it will be corrected later when either merging proofs or
-	// inserting the actual keys.
+func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.Felt) {
 	var leftHash, rightHash *felt.Felt
-	parent := &proofNodes[parentId]
-	shiftedParentId := parentId
+	parent := &proofNodes[parentInd]
+	shiftedParentInd := parentInd
 	var parentBinary *Binary
 	if parent.Binary != nil {
 		parentBinary = parent.Binary
 	} else {
-		shiftedParentId++
-		parentBinary = proofNodes[shiftedParentId].Binary
-
+		shiftedParentInd++
+		parentBinary = proofNodes[shiftedParentInd].Binary
 	}
 	leftHash = parentBinary.LeftHash
 	rightHash = parentBinary.RightHash
-
-	// childID := shiftedParentId + 1
-	// if childID <= len(proofNodes)-1 && proofNodes[childID].Edge != nil {
-	// 	if leafKey.Test(leafKey.len - sqshdParentKey.len - 1) {
-	// 		rightHash = proofNodes[childID].Edge.Child
-	// 	} else {
-	// 		leftHash = proofNodes[childID].Edge.Child
-	// 	}
-	// }
-	return leftHash, rightHash, nil
+	return leftHash, rightHash
 }
 
-func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, int, error) {
+func getCrntKey(height, squishParentOffset uint8, leafKey *Key, pNode ProofNode) (*Key, error) {
+	var crntKey *Key
+	var err error
+	if pNode.Binary != nil {
+		crntKey, err = leafKey.SubKey(height)
+	} else {
+		crntKey, err = leafKey.SubKey(height + squishParentOffset)
+	}
+	return crntKey, err
+}
+
+func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
 	var squishChildOffset uint8
 	var squishChild int
 	var err error
 	if childIdx > len(proofNodes)-1 {
-		return nilKey, 0, nil
+		return nilKey, nil
 	} else {
 		squishChild, squishChildOffset, err = shouldSquish(childIdx, proofNodes, hashF)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 	}
-	if crntKey.len+uint8(squishChild)+squishChildOffset == 251 {
-		return nilKey, squishChild, nil
+	if crntKey.len+uint8(squishChild)+squishChildOffset == 251 { //nolint:gomnd
+		return nilKey, nil
 	}
 	key, err := leafKey.SubKey(crntKey.len + uint8(squishChild) + squishChildOffset)
-	return key, squishChild, err
+	return key, err
 }
 
-// getHeight returns the height of the current node, which depends on the previous
-// height and whether the current proofnode is edge or binary
 func getHeight(idx int, pathNodes []StorageNode, proofNodes []ProofNode) uint8 {
 	if len(pathNodes) > 0 {
-		// leftHeight := pathNodes[len(pathNodes)-1].node.Left.len
-		// rightHeight := pathNodes[len(pathNodes)-1].node.Right.len
-		// if leftHeight > rightHeight {
-		// 	return leftHeight
-		// }
-		// return rightHeight
 		if proofNodes[idx].Edge != nil {
 			return pathNodes[len(pathNodes)-1].key.len + proofNodes[idx].Edge.Path.len
 		} else {
@@ -526,11 +500,6 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 			return nil, err
 		}
 	}
-	// builtRootKey := tempTrie.RootKey()
-	// builtRootNode, err := tempTrie.GetNodeFromKey(builtRootKey)
-	// builtLeftNode, err := tempTrie.GetNodeFromKey(builtRootNode.Left)
-	// builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right)
-	// builtLeftRightNode, err := tempTrie.GetNodeFromKey(builtLeftNode.Right)
 
 	for _, sNode := range rightProofPath {
 		if sNode.node.Left == nil || sNode.node.Right == nil {
@@ -542,23 +511,11 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 		}
 	}
 
-	// builtRootKey = tempTrie.RootKey()
-	// builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
-	// builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
-	// builtRightNode, err := tempTrie.GetNodeFromKey(builtRootNode.Right)
-	// builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
 	for i := range len(keys) {
 		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProofPath, rightProofPath)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	// builtRootKey = tempTrie.RootKey()
-	// builtRootNode, err = tempTrie.GetNodeFromKey(builtRootKey)
-	// builtLeftNode, err = tempTrie.GetNodeFromKey(builtRootNode.Left)
-	// builtRightNode, err = tempTrie.GetNodeFromKey(builtRootNode.Right)
-	// builtLeftRightNode, err = tempTrie.GetNodeFromKey(builtLeftNode.Right)
-	// fmt.Println(builtRightNode, builtLeftRightNode)
 	return tempTrie, nil
 }

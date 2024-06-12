@@ -455,7 +455,7 @@ func (t *Trie) setRootKey(newRootKey *Key) {
 }
 
 // Todo: update so that the proof nodes are always updated
-func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
+func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 	zeroFeltBytes := new(felt.Felt).Bytes()
 	nilKey := NewKey(0, zeroFeltBytes[:])
 
@@ -478,6 +478,7 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 			}
 		}
 	}
+
 	// Update inner proof nodes
 	if node.Left.Equal(&nilKey) && node.Right.Equal(&nilKey) { // leaf
 		shouldUpdate = false
@@ -522,10 +523,7 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) {
 		defer nodePool.Put(rightChild)
 		rightHash = rightChild.Hash(&rightPath, t.hash)
 	}
-	fmt.Println("node.Value", node.Value.String(), key)
 	node.Value = t.hash(leftHash, rightHash)
-	fmt.Println("node.Value", node.Value.String(), key)
-	fmt.Println(key.String(), leftHash.String(), rightHash.String(), node.Value.String()) // Todo: rightHash should be 0x6 on original trie??
 	if err = t.storage.Put(key, node); err != nil {
 		return nil, err
 	}
