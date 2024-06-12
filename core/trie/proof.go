@@ -291,38 +291,29 @@ func ensureMonotonicIncreasing(proofKeys [2]*Key, keys []*felt.Felt) error {
 	return nil
 }
 
-// shouldSquish determines if the node needs compressed, and if so, the len needed to arrive at the next key
-func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, error) {
+// compressNode determines if the node needs compressed, and if so, the len needed to arrive at the next key
+func compressNode(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, error) {
 	parent := &proofNodes[idx]
-	if idx == len(proofNodes)-1 { // The node may have children, but we can only derive their hashes here
-		var isEdge int
+
+	if idx == len(proofNodes)-1 {
 		if parent.Edge != nil {
-			isEdge = 1
-		} else if parent.Binary != nil {
-			isEdge = 0
+			return 1, parent.Len(), nil
 		}
-		return isEdge, parent.Len(), nil
+		return 0, parent.Len(), nil
 	}
 
 	child := &proofNodes[idx+1]
 
-	if parent.Edge != nil && child.Binary != nil {
+	switch {
+	case parent.Edge != nil && child.Binary != nil:
 		return 1, parent.Edge.Path.len, nil
-	}
-
-	if parent.Binary != nil && child.Edge != nil {
+	case parent.Binary != nil && child.Edge != nil:
 		childHash := child.Hash(hashF)
-		if parent.Binary.LeftHash.Equal(childHash) {
-			return 1, child.Edge.Path.len, nil
-		} else if parent.Binary.RightHash.Equal(childHash) {
+		if parent.Binary.LeftHash.Equal(childHash) || parent.Binary.RightHash.Equal(childHash) {
 			return 1, child.Edge.Path.len, nil
 		} else {
 			return 0, 0, errors.New("can't determine the child hash from the parent and child")
 		}
-	}
-
-	if parent.Binary != nil && child.Binary != nil {
-		return 0, 1, nil
 	}
 
 	return 0, 1, nil
@@ -363,39 +354,39 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 			}
 		}
 
-		var crntKey *Key
-		crntNode := Node{}
+		var parentKey *Key
+		parentNode := Node{}
 
 		// Set the key of the current node
-		squishedParent, squishParentOffset, err := shouldSquish(i, proofNodes, hashF)
+		compressParent, compressParentOffset, err := compressNode(i, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
-		crntKey, err = getCrntKey(i, squishParentOffset, leafKey, pNode, pathNodes, proofNodes)
+		parentKey, err = getParentKey(i, compressParentOffset, leafKey, pNode, pathNodes, proofNodes)
 		if err != nil {
 			return nil, err
 		}
 
-		// Set the value of the current node
-		crntNode.Value = pNode.Hash(hashF)
-
-		// End of the line, no children
-		if crntKey.len == 251 { //nolint:gomnd
+		// Don't store leafs along proof paths
+		if parentKey.len == 251 { //nolint:gomnd
 			break
 		}
 
+		// Set the value of the current node
+		parentNode.Value = pNode.Hash(hashF)
+
 		// Set the child key of the current node.
-		childKey, err := assignChild(i, squishedParent, &crntNode, &nilKey, leafKey, crntKey, proofNodes, hashF)
+		childKey, err := assignChild(i, compressParent, &parentNode, &nilKey, leafKey, parentKey, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
 
 		// Set the LeftHash and RightHash values
-		crntNode.LeftHash, crntNode.RightHash = getLeftRightHash(i, proofNodes)
+		parentNode.LeftHash, parentNode.RightHash = getLeftRightHash(i, proofNodes)
 
-		pathNodes = append(pathNodes, StorageNode{key: crntKey, node: &crntNode})
+		pathNodes = append(pathNodes, StorageNode{key: parentKey, node: &parentNode})
 
-		// break early
+		// break early since we don't store leafs along proof paths, or if no more nodes exist along the proof paths
 		if childKey.len == 0 || childKey.len == 251 {
 			break
 		}
@@ -434,7 +425,7 @@ func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.
 	return leftHash, rightHash
 }
 
-func getCrntKey(idx int, squishParentOffset uint8, leafKey *Key, pNode ProofNode, pathNodes []StorageNode, proofNodes []ProofNode) (*Key, error) {
+func getParentKey(idx int, squishParentOffset uint8, leafKey *Key, pNode ProofNode, pathNodes []StorageNode, proofNodes []ProofNode) (*Key, error) {
 	var crntKey *Key
 	var err error
 
@@ -458,34 +449,20 @@ func getCrntKey(idx int, squishParentOffset uint8, leafKey *Key, pNode ProofNode
 }
 
 func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
-	var squishChildOffset uint8
-	var squishChild int
-	var err error
 	if childIdx > len(proofNodes)-1 {
 		return nilKey, nil
-	} else {
-		squishChild, squishChildOffset, err = shouldSquish(childIdx, proofNodes, hashF)
-		if err != nil {
-			return nil, err
-		}
 	}
-	if crntKey.len+uint8(squishChild)+squishChildOffset == 251 { //nolint:gomnd
+
+	compressChild, compressChildOffset, err := compressNode(childIdx, proofNodes, hashF)
+	if err != nil {
+		return nil, err
+	}
+
+	if crntKey.len+uint8(compressChild)+compressChildOffset == 251 { //nolint:gomnd
 		return nilKey, nil
 	}
-	key, err := leafKey.SubKey(crntKey.len + uint8(squishChild) + squishChildOffset)
-	return key, err
-}
 
-func getHeight(idx int, pathNodes []StorageNode, proofNodes []ProofNode) uint8 {
-	if len(pathNodes) > 0 {
-		if proofNodes[idx].Edge != nil {
-			return pathNodes[len(pathNodes)-1].key.len + proofNodes[idx].Edge.Path.len
-		} else {
-			return pathNodes[len(pathNodes)-1].key.len + 1
-		}
-	} else {
-		return 0
-	}
+	return leafKey.SubKey(crntKey.len + uint8(compressChild) + compressChildOffset)
 }
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
