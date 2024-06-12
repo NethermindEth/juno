@@ -590,16 +590,13 @@ func TestBlockWithReceipts(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 
 	t.Run("pending block", func(t *testing.T) {
-		t.Skip()
 		block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
-
-		blockID := rpc.BlockID{Pending: true}
 
 		mockReader.EXPECT().Pending().Return(blockchain.Pending{Block: block0}, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
-		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		resp, rpcErr := handler.BlockWithReceipts(rpc.BlockID{Pending: true})
 		header := resp.BlockHeader
 
 		var txsWithReceipt []rpc.TransactionWithReceipt
@@ -624,6 +621,8 @@ func TestBlockWithReceipts(t *testing.T) {
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
 				L1GasPrice:       header.L1GasPrice,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				L1DAMode:         header.L1DAMode,
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: txsWithReceipt,
@@ -631,7 +630,6 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	t.Run("accepted L1 block", func(t *testing.T) {
-		t.Skip()
 		block1, err := mainnetGw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
 
@@ -666,7 +664,9 @@ func TestBlockWithReceipts(t *testing.T) {
 				NewRoot:          header.NewRoot,
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
+				L1DAMode:         header.L1DAMode,
 				L1GasPrice:       header.L1GasPrice,
+				L1DataGasPrice:   header.L1DataGasPrice,
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: transactions,

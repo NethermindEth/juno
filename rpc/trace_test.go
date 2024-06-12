@@ -387,9 +387,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 	})
 }
 
-func TestTraceBlockTransactions(t *testing.T) {
-	t.Skip()
-
+func TestTraceBlockTransactionsV0_6(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
 		"pending": {Pending: true},
@@ -470,9 +468,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, false).Return(nil, []vm.TransactionTrace{vmTrace, vmTrace}, nil)
+			gomock.Any(), n, false, false, false, false).Return(nil, nil, []vm.TransactionTrace{vmTrace, vmTrace}, nil)
 
-		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
+		result, err := handler.TraceBlockTransactionsV0_6(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, &vm.TransactionTrace{
 			ValidateInvocation:    &vm.FunctionInvocation{},
@@ -536,7 +534,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, false).Return(nil, []vm.TransactionTrace{vmTrace}, nil)
+			gomock.Any(), n, false, false, false, false).Return(nil, nil, []vm.TransactionTrace{vmTrace}, nil)
 
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
@@ -544,7 +542,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				TraceRoot:       &vmTrace,
 			},
 		}
-		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
+		result, err := handler.TraceBlockTransactionsV0_6(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, expectedResult, result)
 	})
