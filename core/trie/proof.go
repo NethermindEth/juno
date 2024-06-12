@@ -413,13 +413,10 @@ func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF hashFunc) bool {
 
 func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.Felt) {
 	parent := &proofNodes[parentInd]
-	if parent.Binary != nil {
-		parentBinary := parent.Binary
-		return parentBinary.LeftHash, parentBinary.RightHash
-	} else {
-		parentBinary := proofNodes[parentInd+1].Binary
-		return parentBinary.LeftHash, parentBinary.RightHash
+	if parent.Binary == nil {
+		parent = &proofNodes[parentInd+1]
 	}
+	return parent.Binary.LeftHash, parent.Binary.RightHash
 }
 
 func getParentKey(idx int, compressedParentOffset uint8, leafKey *Key,
