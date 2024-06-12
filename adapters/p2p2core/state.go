@@ -50,12 +50,19 @@ func AdaptStateDiff(reader core.StateReader, contractDiffs []*spec.ContractDiff,
 				classHash: diff.ClassHash,
 			}
 
-			stateClassHash, err := reader.ContractClassHash(address)
-			if err != nil {
-				if errors.Is(err, db.ErrKeyNotFound) {
-					stateClassHash = &felt.Zero
-				} else {
-					panic(err)
+			var stateClassHash *felt.Felt
+			if reader == nil {
+				// zero block
+				stateClassHash = &felt.Zero
+			} else {
+				var err error
+				stateClassHash, err = reader.ContractClassHash(address)
+				if err != nil {
+					if errors.Is(err, db.ErrKeyNotFound) {
+						stateClassHash = &felt.Zero
+					} else {
+						panic(err)
+					}
 				}
 			}
 

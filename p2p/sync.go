@@ -356,11 +356,15 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			// Update but there is no such message in P2P.
 
 			stateReader, stateCloser, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
-			if err != nil {
+			if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 				// todo(kirill) change to shutdown
 				panic(err)
 			}
 			defer func() {
+				if stateCloser == nil {
+					return
+				}
+
 				if closeErr := stateCloser(); closeErr != nil {
 					s.log.Errorw("Failed to close state reader", "err", closeErr)
 				}
