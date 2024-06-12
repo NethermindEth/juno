@@ -83,12 +83,18 @@ type Synchronizer struct {
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 	log utils.SimpleLogger, pendingPollInterval time.Duration, readOnlyBlockchain bool,
 ) *Synchronizer {
+    head, err := bc.Head()
+    latestBlockHeight := uint64(0)
+    if err == nil {
+        latestBlockHeight = head.Number + uint64(1)
+    }
+
 	s := &Synchronizer{
 		blockchain:          bc,
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
-        latestBlockHeight:   uint64(0),
+        latestBlockHeight:   latestBlockHeight,
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
