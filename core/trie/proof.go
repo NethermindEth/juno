@@ -319,18 +319,20 @@ func compressNode(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 	return 0, 1, nil
 }
 
-func assignChild(i, squishedParent int, crntNode *Node, nilKey, leafKey, crntKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
-	childInd := i + squishedParent + 1
-	childKey, err := getChildKey(childInd, crntKey, leafKey, nilKey, proofNodes, hashF)
+func assignChild(i, compressedParent int, parentNode *Node,
+	nilKey, leafKey, parentKey *Key, proofNodes []ProofNode, hashF hashFunc,
+) (*Key, error) {
+	childInd := i + compressedParent + 1
+	childKey, err := getChildKey(childInd, parentKey, leafKey, nilKey, proofNodes, hashF)
 	if err != nil {
 		return nil, err
 	}
-	if leafKey.Test(leafKey.len - crntKey.len - 1) {
-		crntNode.Right = childKey
-		crntNode.Left = nilKey
+	if leafKey.Test(leafKey.len - parentKey.len - 1) {
+		parentNode.Right = childKey
+		parentNode.Left = nilKey
 	} else {
-		crntNode.Right = nilKey
-		crntNode.Left = childKey
+		parentNode.Right = nilKey
+		parentNode.Left = childKey
 	}
 	return childKey, nil
 }
@@ -410,22 +412,19 @@ func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF hashFunc) bool {
 }
 
 func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.Felt) {
-	var leftHash, rightHash *felt.Felt
 	parent := &proofNodes[parentInd]
-	shiftedParentInd := parentInd
-	var parentBinary *Binary
 	if parent.Binary != nil {
-		parentBinary = parent.Binary
+		parentBinary := parent.Binary
+		return parentBinary.LeftHash, parentBinary.RightHash
 	} else {
-		shiftedParentInd++
-		parentBinary = proofNodes[shiftedParentInd].Binary
+		parentBinary := proofNodes[parentInd+1].Binary
+		return parentBinary.LeftHash, parentBinary.RightHash
 	}
-	leftHash = parentBinary.LeftHash
-	rightHash = parentBinary.RightHash
-	return leftHash, rightHash
 }
 
-func getParentKey(idx int, squishParentOffset uint8, leafKey *Key, pNode ProofNode, pathNodes []StorageNode, proofNodes []ProofNode) (*Key, error) {
+func getParentKey(idx int, compressedParentOffset uint8, leafKey *Key,
+	pNode ProofNode, pathNodes []StorageNode, proofNodes []ProofNode,
+) (*Key, error) {
 	var crntKey *Key
 	var err error
 
@@ -443,7 +442,7 @@ func getParentKey(idx int, squishParentOffset uint8, leafKey *Key, pNode ProofNo
 	if pNode.Binary != nil {
 		crntKey, err = leafKey.SubKey(height)
 	} else {
-		crntKey, err = leafKey.SubKey(height + squishParentOffset)
+		crntKey, err = leafKey.SubKey(height + compressedParentOffset)
 	}
 	return crntKey, err
 }
