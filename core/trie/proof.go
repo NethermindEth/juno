@@ -143,6 +143,52 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 	return proofNodes, nil
 }
 
+func RangeProof(tri *Trie, from, to *felt.Felt) ([]*ProofNode, error) {
+	fromKey := tri.feltToKey(from)
+	toKey := tri.feltToKey(to)
+
+	if from.Equal(to) {
+		proof, err := GetProof(&fromKey, tri)
+		if err != nil {
+			return nil, err
+		}
+
+		var proofPtrs []*ProofNode
+		for i := range proof {
+			proofPtrs = append(proofPtrs, &proof[i])
+		}
+
+		return proofPtrs, nil
+	}
+
+	leftProofs, err := GetProof(&fromKey, tri)
+	if err != nil {
+		return nil, err
+	}
+
+	rightProofs, err := GetProof(&toKey, tri)
+	if err != nil {
+		return nil, err
+	}
+
+	// Trim the proof from inner node or there might be cases where verification passes even with missing leaf
+	combinedProofs := make([]*ProofNode, 0, len(leftProofs)+len(rightProofs))
+	for i, proof := range leftProofs {
+		if proof.Edge.Path.CmpAligned(&fromKey) > 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, &leftProofs[i])
+	}
+	for i, proof := range rightProofs {
+		if proof.Edge.Path.CmpAligned(&toKey) < 0 {
+			continue
+		}
+		combinedProofs = append(combinedProofs, &rightProofs[i])
+	}
+
+	return combinedProofs, err
+}
+
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {

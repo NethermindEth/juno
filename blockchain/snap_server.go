@@ -28,7 +28,8 @@ type SnapServer interface {
 const maxNodePerRequest = 1024 * 1024 // I just want it to process faster
 func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
 	if specifiedMaxNodes == 0 {
-		return 1024 * 16
+		maxNodes := 64
+		return uint64(maxNodes)
 	}
 
 	if specifiedMaxNodes < maxNodePerRequest {
@@ -87,7 +88,7 @@ func iterateWithLimit(
 		return nil, nil // No need for proof
 	}
 
-	return srcTrie.RangeProof(startPath, endPath)
+	return trie.RangeProof(srcTrie, startAddr, endPath)
 }
 
 func (b *Blockchain) findSnapshotMatching(filter func(record *snapshotRecord) bool) (*snapshotRecord, error) {
@@ -106,7 +107,7 @@ func (b *Blockchain) findSnapshotMatching(filter func(record *snapshotRecord) bo
 	return snapshot, nil
 }
 
-func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*AddressRangeResult, error) {
+func (b *Blockchain) GetAddressRange(rootHash, startAddr, limitAddr *felt.Felt, maxNodes uint64) (*AddressRangeResult, error) {
 	if rootHash == nil {
 		return nil, fmt.Errorf("root hash is nil")
 	}
@@ -128,7 +129,12 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 	if err != nil {
 		return nil, err
 	}
-	defer scloser()
+
+	defer func() {
+		if cerr := scloser(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	response := &AddressRangeResult{
 		Paths:  nil,
@@ -139,19 +145,19 @@ func (b *Blockchain) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, 
 	response.Proofs, err = iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(maxNodes), func(key, value *felt.Felt) error {
 		response.Paths = append(response.Paths, key)
 
-		classHash, err := s.ContractClassHash(key)
-		if err != nil {
-			return err
+		classHash, errProof := s.ContractClassHash(key)
+		if errProof != nil {
+			return errProof
 		}
 
-		nonce, err := s.ContractNonce(key)
-		if err != nil {
-			return err
+		nonce, errProof := s.ContractNonce(key)
+		if errProof != nil {
+			return errProof
 		}
 
-		croot, err := core.ContractRoot(key, snapshot.txn)
-		if err != nil {
-			return err
+		croot, errProof := core.ContractRoot(key, snapshot.txn)
+		if errProof != nil {
+			return errProof
 		}
 
 		leaf := &AddressRangeLeaf{

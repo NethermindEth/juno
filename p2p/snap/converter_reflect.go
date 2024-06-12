@@ -3,9 +3,8 @@ package snap
 import (
 	"reflect"
 
-	"github.com/NethermindEth/juno/core/trie"
-
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/p2p/snap/p2pproto"
 )
 

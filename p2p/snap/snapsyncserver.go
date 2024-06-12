@@ -29,7 +29,6 @@ func NewSnapSyncServer(server blockchain.SnapServer, log utils.SimpleLogger) *Sn
 
 func (s *SnapSyncServer) HandleSnapSyncRequest(request *p2pproto.SnapRequest) (*p2pproto.SnapResponse, error) {
 	switch v := request.Request.(type) {
-
 	case *p2pproto.SnapRequest_GetAddressRange:
 		response, err := s.HandleAddressRange(v.GetAddressRange)
 		return &p2pproto.SnapResponse{

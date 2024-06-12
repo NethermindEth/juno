@@ -22,12 +22,10 @@ type streamProvider = func(ctx context.Context) (network.Stream, func(), error)
 
 var _ blockchain.SnapServer = &SnapProvider{}
 
-var (
-	snapDataTotals = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "juno_snap_data_totals",
-		Help: "Time in address get",
-	})
-)
+var snapDataTotals = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "juno_snap_data_totals",
+	Help: "Time in address get",
+})
 
 func NewSnapProvider(
 	streamProvider streamProvider,
@@ -41,7 +39,10 @@ func NewSnapProvider(
 	return peerManager, nil
 }
 
-func (ip *SnapProvider) GetAddressRange(rootHash *felt.Felt, startAddr *felt.Felt, limitAddr *felt.Felt, maxNodes uint64) (*blockchain.AddressRangeResult, error) {
+func (ip *SnapProvider) GetAddressRange(
+	rootHash, startAddr, limitAddr *felt.Felt,
+	maxNodes uint64,
+) (*blockchain.AddressRangeResult, error) {
 	ctx := context.Background()
 	request := &p2pproto.SnapRequest{
 		Request: &p2pproto.SnapRequest_GetAddressRange{
