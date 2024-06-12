@@ -338,9 +338,8 @@ func assignChild(i, compressedParent int, parentNode *Node,
 }
 
 // ProofToPath returns a set of storage nodes from the root to the end of the proof path.
-// It will contain the hashes of the children along the path, but only the key of the children
-// along the path. The final node must contain the hash of the leaf if the leaf is set.
-// It will not contain the leaf node even if it is set.
+// The storage nodes will have the hashes of the children, but only the key of the child
+// along the path outlined by the proof.
 func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]StorageNode, error) {
 	pathNodes := []StorageNode{}
 
