@@ -328,14 +328,20 @@ func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 	return 0, 1, nil
 }
 
-func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
-	if isRight {
+func assignChild(i, squishedParent int, crntNode *Node, nilKey, leafKey, crntKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
+	childInd := i + squishedParent + 1
+	childKey, err := getChildKey(childInd, crntKey, leafKey, nilKey, proofNodes, hashF)
+	if err != nil {
+		return nil, err
+	}
+	if leafKey.Test(leafKey.len - crntKey.len - 1) {
 		crntNode.Right = childKey
 		crntNode.Left = nilKey
 	} else {
 		crntNode.Right = nilKey
 		crntNode.Left = childKey
 	}
+	return childKey, nil
 }
 
 // ProofToPath returns a set of storage nodes from the root to the end of the proof path.
@@ -352,15 +358,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 	for i, pNode := range proofNodes {
 		// Keep moving along the path (may need to skip nodes that were compressed into the last path node)
 		if i != 0 {
-			lastNode := pathNodes[len(pathNodes)-1].node
-			noLeftMatch, noRightMatch := false, false
-			if lastNode.LeftHash != nil && !pNode.Hash(hashF).Equal(lastNode.LeftHash) {
-				noLeftMatch = true
-			}
-			if lastNode.RightHash != nil && !pNode.Hash(hashF).Equal(lastNode.RightHash) {
-				noRightMatch = true
-			}
-			if noLeftMatch && noRightMatch {
+			if skipNode(pNode, pathNodes, hashF) {
 				continue
 			}
 		}
@@ -368,14 +366,12 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 		var crntKey *Key
 		crntNode := Node{}
 
-		height := getHeight(i, pathNodes, proofNodes)
-
 		// Set the key of the current node
 		squishedParent, squishParentOffset, err := shouldSquish(i, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
-		crntKey, err = getCrntKey(height, squishParentOffset, leafKey, pNode)
+		crntKey, err = getCrntKey(i, squishParentOffset, leafKey, pNode, pathNodes, proofNodes)
 		if err != nil {
 			return nil, err
 		}
@@ -389,13 +385,10 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 		}
 
 		// Set the child key of the current node.
-		childInd := i + squishedParent + 1
-		childKey, err := getChildKey(childInd, crntKey, leafKey, &nilKey, proofNodes, hashF)
+		childKey, err := assignChild(i, squishedParent, &crntNode, &nilKey, leafKey, crntKey, proofNodes, hashF)
 		if err != nil {
 			return nil, err
 		}
-		childIsRight := leafKey.Test(leafKey.len - crntKey.len - 1)
-		assignChild(&crntNode, &nilKey, childKey, childIsRight)
 
 		// Set the LeftHash and RightHash values
 		crntNode.LeftHash, crntNode.RightHash = getLeftRightHash(i, proofNodes)
@@ -408,6 +401,21 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 		}
 	}
 	return pathNodes, nil
+}
+
+func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF hashFunc) bool {
+	lastNode := pathNodes[len(pathNodes)-1].node
+	noLeftMatch, noRightMatch := false, false
+	if lastNode.LeftHash != nil && !pNode.Hash(hashF).Equal(lastNode.LeftHash) {
+		noLeftMatch = true
+	}
+	if lastNode.RightHash != nil && !pNode.Hash(hashF).Equal(lastNode.RightHash) {
+		noRightMatch = true
+	}
+	if noLeftMatch && noRightMatch {
+		return true
+	}
+	return false
 }
 
 func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.Felt) {
@@ -426,9 +434,21 @@ func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.
 	return leftHash, rightHash
 }
 
-func getCrntKey(height, squishParentOffset uint8, leafKey *Key, pNode ProofNode) (*Key, error) {
+func getCrntKey(idx int, squishParentOffset uint8, leafKey *Key, pNode ProofNode, pathNodes []StorageNode, proofNodes []ProofNode) (*Key, error) {
 	var crntKey *Key
 	var err error
+
+	var height uint8
+	if len(pathNodes) > 0 {
+		if proofNodes[idx].Edge != nil {
+			height = pathNodes[len(pathNodes)-1].key.len + proofNodes[idx].Edge.Path.len
+		} else {
+			height = pathNodes[len(pathNodes)-1].key.len + 1
+		}
+	} else {
+		height = 0
+	}
+
 	if pNode.Binary != nil {
 		crntKey, err = leafKey.SubKey(height)
 	} else {
