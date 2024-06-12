@@ -46,7 +46,6 @@ func (pn *ProofNode) PrettyPrint() {
 		fmt.Printf("  Edge:\n")
 		fmt.Printf("    Child: %v\n", pn.Edge.Child)
 		fmt.Printf("    Path: %v\n", pn.Edge.Path)
-		fmt.Printf("    Value: %v\n", pn.Edge.Value)
 	}
 }
 
@@ -58,7 +57,6 @@ type Binary struct {
 type Edge struct {
 	Child *felt.Felt // child hash
 	Path  *Key       // path from parent to child
-	Value *felt.Felt // this nodes hash
 }
 
 func GetBoundaryProofs(leftBoundary, rightBoundary *Key, tri *Trie) ([2][]ProofNode, error) {
@@ -192,10 +190,11 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 				return false
 			}
 
+			// Todo:
 			// If we are verifying the key doesn't exist, then we should
 			// update subKey to point in the other direction
 			if value == nil && i == len(proofs)-1 {
-				return true // todo: hack for non-set proof nodes
+				return true
 			}
 
 			if !proofNode.Edge.Path.Equal(subKey) {
@@ -252,7 +251,7 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 	}
 
 	// Step 2: Build trie from proofPaths and keys
-	tmpTrie, err := BuildTrie(proofPaths[0], proofPaths[1], keys, values) // Todo: left points to itself
+	tmpTrie, err := BuildTrie(proofPaths[0], proofPaths[1], keys, values)
 	if err != nil {
 		return false, err
 	}
@@ -296,13 +295,13 @@ func ensureMonotonicIncreasing(proofKeys [2]*Key, keys []*felt.Felt) error {
 func shouldSquish(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, error) {
 	parent := &proofNodes[idx]
 	if idx == len(proofNodes)-1 { // The node may have children, but we can only derive their hashes here
-		var hack int
+		var isEdge int
 		if parent.Edge != nil {
-			hack = 1
+			isEdge = 1
 		} else if parent.Binary != nil {
-			hack = 0
+			isEdge = 0
 		}
-		return hack, parent.Len(), nil
+		return isEdge, parent.Len(), nil
 	}
 
 	child := &proofNodes[idx+1]
@@ -346,7 +345,7 @@ func assignChild(crntNode *Node, nilKey, childKey *Key, isRight bool) {
 func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]StorageNode, error) {
 	pathNodes := []StorageNode{}
 
-	// Hack: this allows us to store a right without an existing left node.
+	// Child keys that can't be derived are set to nilKey, so that we can store the node
 	zeroFeltBytes := new(felt.Felt).Bytes()
 	nilKey := NewKey(0, zeroFeltBytes[:])
 

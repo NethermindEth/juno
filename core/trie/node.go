@@ -12,8 +12,8 @@ type Node struct {
 	Value     *felt.Felt
 	Left      *Key
 	Right     *Key
-	LeftHash  *felt.Felt // To verify proofs, we need to store the hash of children
-	RightHash *felt.Felt // even when we can't derive their key
+	LeftHash  *felt.Felt
+	RightHash *felt.Felt
 }
 
 // Hash calculates the hash of a [Node]

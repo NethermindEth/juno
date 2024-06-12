@@ -454,7 +454,6 @@ func (t *Trie) setRootKey(newRootKey *Key) {
 	t.rootKeyIsDirty = true
 }
 
-// Todo: update so that the proof nodes are always updated
 func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 	zeroFeltBytes := new(felt.Felt).Bytes()
 	nilKey := NewKey(0, zeroFeltBytes[:])
