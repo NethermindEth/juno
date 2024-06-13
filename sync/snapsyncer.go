@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -29,6 +30,7 @@ import (
 type Blockchain interface {
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
 	StoreRaw(blockNumber uint64, stateUpdate *core.StateDiff, newClasses map[felt.Felt]core.Class) error
+	DoneSnapSync()
 }
 
 type SnapSyncher struct {
@@ -140,7 +142,7 @@ var (
 	classesJobQueueSize   = 128
 
 	maxPivotDistance     = 32        // Set to 1 to test updated storage.
-	newPivotHeadDistance = uint64(1) // This should be the reorg depth
+	newPivotHeadDistance = uint64(0) // This should be the reorg depth
 
 	storePerContractBatchSize         = 500 // For some reason, the trie throughput is higher if the batch size is small.
 	storeMaxConcurrentContractTrigger = runtime.NumCPU()
@@ -222,85 +224,88 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 			s.log.Errorw("error in class range worker", "err", err)
 		}
 
+		s.blockchain.DoneSnapSync()
 		return err
 	})
 
-	eg.Go(func() error {
-		defer func() {
-			if err := recover(); err != nil {
-				s.log.Errorw("address range paniced", "err", err)
-			}
-		}()
-
-		err := s.runContractRangeWorker(ectx)
-		if err != nil {
-			s.log.Errorw("error in address range worker", "err", err)
-		}
-
-		close(s.contractRangeDone)
-		close(s.classesJob)
-
-		return err
-	})
-
-	storageEg, sctx := errgroup.WithContext(ectx)
-	for i := 0; i < storageJobWorker; i++ {
-		i := i
-		storageEg.Go(func() error {
+	/*
+		eg.Go(func() error {
 			defer func() {
 				if err := recover(); err != nil {
-					s.log.Errorw("storage worker paniced", "err", err)
+					s.log.Errorw("address range paniced", "err", err)
 				}
 			}()
 
-			err := s.runStorageRangeWorker(sctx, i)
+			err := s.runContractRangeWorker(ectx)
 			if err != nil {
-				s.log.Errorw("error in storage range worker", "err", err)
+				s.log.Errorw("error in address range worker", "err", err)
 			}
-			s.log.Infow("Storage worker completed", "workerId", i)
+
+			close(s.contractRangeDone)
+			close(s.classesJob)
 
 			return err
 		})
-	}
 
-	// For notifying that storage range is done
-	eg.Go(func() error {
-		err := storageEg.Wait()
-		if err != nil {
-			return err
+		storageEg, sctx := errgroup.WithContext(ectx)
+		for i := 0; i < storageJobWorker; i++ {
+			i := i
+			storageEg.Go(func() error {
+				defer func() {
+					if err := recover(); err != nil {
+						s.log.Errorw("storage worker paniced", "err", err)
+					}
+				}()
+
+				err := s.runStorageRangeWorker(sctx, i)
+				if err != nil {
+					s.log.Errorw("error in storage range worker", "err", err)
+				}
+				s.log.Infow("Storage worker completed", "workerId", i)
+
+				return err
+			})
 		}
 
-		s.log.Infow("Storage range range completed")
-		close(s.storageRangeDone)
-		return nil
-	})
-
-	eg.Go(func() error {
-		defer func() {
-			if err := recover(); err != nil {
-				s.log.Errorw("storage refresh paniced", "err", err)
-			}
-		}()
-
-		err := s.runStorageRefreshWorker(ectx)
-		if err != nil {
-			s.log.Errorw("error in storage refresh worker", "err", err)
-		}
-
-		return err
-	})
-
-	for i := 0; i < fetchClassWorkerCount; i++ {
-		i := i
+		// For notifying that storage range is done
 		eg.Go(func() error {
-			err := s.runFetchClassJob(ectx)
+			err := storageEg.Wait()
 			if err != nil {
-				s.log.Errorw("fetch class failed", "err", err)
+				return err
 			}
-			s.log.Infow("fetch class completed", "workerId", i)
+
+			s.log.Infow("Storage range range completed")
+			close(s.storageRangeDone)
+			return nil
+		})
+
+		eg.Go(func() error {
+			defer func() {
+				if err := recover(); err != nil {
+					s.log.Errorw("storage refresh paniced", "err", err)
+				}
+			}()
+
+			err := s.runStorageRefreshWorker(ectx)
+			if err != nil {
+				s.log.Errorw("error in storage refresh worker", "err", err)
+			}
+
 			return err
 		})
-	}
+
+		for i := 0; i < fetchClassWorkerCount; i++ {
+			i := i
+			eg.Go(func() error {
+				err := s.runFetchClassJob(ectx)
+				if err != nil {
+					s.log.Errorw("fetch class failed", "err", err)
+				}
+				s.log.Infow("fetch class completed", "workerId", i)
+				return err
+			})
+		}
+	*/
 
 	err = eg.Wait()
 	if err != nil {
@@ -345,6 +350,7 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	s.startingBlock = startingBlock.Header
 	s.lastBlock = startingBlock.Header
 
+	fmt.Printf("Start state root is %s\n", s.startingBlock.GlobalStateRoot)
 	s.currentGlobalStateRoot = s.startingBlock.GlobalStateRoot
 	s.storageRangeJobCount = 0
 	s.storageRangeJob = make(chan *storageRangeJob, storageJobQueueSize)
@@ -388,8 +394,9 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			Start:          core2p2p.AdaptHash(startAddr),
 			ChunksPerProof: 1000,
 		})(func(response *ClassRangeStreamingResult, reqErr error) bool {
+			s.log.Infow("got", "res", len(response.Range.Classes), "err", reqErr, "startAdr", startAddr)
 			if reqErr != nil {
-				err = errors.Join(reqErr, errors.New("error get address range"))
+				fmt.Printf("%s\n", errors.Join(reqErr, errors.New("error get address range")))
 				return false
 			}
 
@@ -407,9 +414,16 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 
 			paths := make([]*felt.Felt, len(response.Range.Classes))
 			values := make([]*felt.Felt, len(response.Range.Classes))
+			coreClasses := []core.Class{}
+
 			for i, cls := range response.Range.Classes {
-				paths[i] = CalculateClassHash(cls)
-				values[i] = CalculateCompiledClassHash(cls)
+				coreClass := p2p2core.AdaptClass(cls)
+				coreClasses = append(coreClasses, coreClass)
+				paths[i] = CalculateClassHash(coreClass)
+				values[i] = CalculateCompiledClassHash(coreClass)
+
+				// For verification, should be
+				// leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
@@ -420,19 +434,20 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				return false
 			}
 
-			// Ingest
-			classes := response.Range.Classes
-			coreClasses := map[felt.Felt]core.Class{}
-			for _, class := range classes {
-				coreClass := p2p2core.AdaptClass(class)
-				h, err := coreClass.Hash()
-				if err != nil {
-					panic(err)
-				}
-				coreClasses[*h] = coreClass
+			// TODO: Do this properly
+			if len(paths) == 1 && startAddr.Equal(paths[0]) {
+				hasNext = false
 			}
 
-			err = s.blockchain.StoreRaw(s.lastBlock.Number, nil, coreClasses)
+			// Ingest
+			stateDiff := &core.StateDiff{DeclaredV1Classes: make(map[felt.Felt]*felt.Felt)}
+			coreClassesMap := map[felt.Felt]core.Class{}
+			for i, coreClass := range coreClasses {
+				coreClassesMap[*paths[i]] = coreClass
+				stateDiff.DeclaredV1Classes[*paths[i]] = values[i]
+			}
+
+			err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, coreClassesMap)
 			if err != nil {
 				return false
 			}
@@ -449,6 +464,8 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			return true
 		})
 
+		s.log.Infow("done", "progress", calculatePercentage(startAddr))
+
 		if err != nil {
 			return err
 		}
@@ -457,8 +474,8 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 	return nil
 }
 
-func CalculateCompiledClassHash(cls *spec.Class) *felt.Felt {
-	return p2p2core.AdaptClass(cls).(*core.Cairo1Class).Compiled.Hash()
+func CalculateCompiledClassHash(cls core.Class) *felt.Felt {
+	return cls.(*core.Cairo1Class).Compiled.Hash()
 }
 
 func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []*trie.ProofNode {
@@ -503,8 +520,8 @@ func VerifyGlobalStateRoot(globalStateRoot *felt.Felt, classRoot *felt.Felt, sto
 const ClassTrieHeight = 251
 const ContractTrieDepth = 251
 
-func CalculateClassHash(cls *spec.Class) *felt.Felt {
-	hash, err := p2p2core.AdaptClass(cls).Hash()
+func CalculateClassHash(cls core.Class) *felt.Felt {
+	hash, err := cls.Hash()
 	if err != nil {
 		panic(err)
 	}
@@ -556,6 +573,11 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				err = ierr
 				// The peer should get penalized in this case
 				return false
+			}
+
+			// TODO: Do this properly
+			if len(paths) == 1 && startAddr.Equal(paths[0]) {
+				hasNext = false
 			}
 
 			// We don't actually store it directly here... only put it as part of job.
@@ -779,6 +801,11 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				return true
 			}
 
+			// TODO: Do this properly
+			if len(paths) == 1 && job.startAddress.Equal(paths[0]) {
+				hasNext = false
+			}
+
 			// TODO: Double check this
 			nonce := fp.NewElement(job.nonce)
 			stateDiff.Nonces[*job.path] = felt.NewFelt(&nonce)
@@ -867,6 +894,8 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 
 		s.log.Infow("Switching snap pivot", "hash", newTarget.Hash, "number", newTarget.Number)
 		s.lastBlock = newTarget.Header
+
+		fmt.Printf("Current state root is %s", s.lastBlock.GlobalStateRoot)
 		s.currentGlobalStateRoot = s.lastBlock.GlobalStateRoot
 	}
 }

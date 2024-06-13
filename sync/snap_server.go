@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -49,6 +50,7 @@ type SnapServer interface {
 type SnapServerBlockchain interface {
 	GetStateForStateRoot(stateRoot *felt.Felt) (*core.State, error)
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
+	DoneSnapSync()
 }
 
 type snapServer struct {
@@ -141,6 +143,8 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			return
 		}
 
+		fmt.Printf("Source roots %s, %s\n", contractRoot, classRoot)
+
 		// TODO: Verify class trie
 		ctrie, classCloser, err := s.ClassTrie()
 		if err != nil {
@@ -153,15 +157,28 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			Classes: make([]*spec.Class, 0),
 		}
 
+		classkeys := []*felt.Felt{}
 		startAddr := p2p2core.AdaptHash(request.Start)
 		limitAddr := p2p2core.AdaptHash(request.End)
+		if limitAddr.IsZero() {
+			limitAddr = nil
+		}
 
 		// TODO: loop this
 		proofs, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
-			// response.Classes = append(response) // !!!!!
-			panic("not implemented")
+			classkeys = append(classkeys, key)
 			return nil
 		})
+
+		coreclasses, err := b.blockchain.GetClasses(classkeys)
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+
+		for _, coreclass := range coreclasses {
+			response.Classes = append(response.Classes, core2p2p.AdaptClass(coreclass))
+		}
 
 		if err != nil {
 			yield(nil, err)
@@ -178,7 +195,38 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 }
 
 func Core2P2pProof(proofs []trie.ProofNode) *spec.PatriciaRangeProof {
-	panic("not implemented")
+	nodes := make([]*spec.PatriciaNode, len(proofs))
+
+	for i := range proofs {
+		if proofs[i].Binary != nil {
+			binary := proofs[i].Binary
+			nodes[i] = &spec.PatriciaNode{
+				Node: &spec.PatriciaNode_Binary_{
+					Binary: &spec.PatriciaNode_Binary{
+						Left:  core2p2p.AdaptFelt(binary.LeftHash),
+						Right: core2p2p.AdaptFelt(binary.RightHash),
+					},
+				},
+			}
+		}
+		if proofs[i].Edge != nil {
+			edge := proofs[i].Edge
+			pathfeld := edge.Path.Felt()
+			nodes[i] = &spec.PatriciaNode{
+				Node: &spec.PatriciaNode_Edge_{
+					Edge: &spec.PatriciaNode_Edge{
+						Length: uint32(edge.Path.Len()),
+						Path:   core2p2p.AdaptFelt(&pathfeld),
+						Value:  core2p2p.AdaptFelt(edge.Value),
+					},
+				},
+			}
+		}
+	}
+
+	return &spec.PatriciaRangeProof{
+		Nodes: nodes,
+	}
 }
 
 func (b *snapServer) GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) iter.Seq2[*ContractRangeStreamingResult, error] {

@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+	"fmt"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -107,6 +108,8 @@ func (b *Blockchain) seedSnapshot() error {
 		txn:           txn,
 		closer:        closer,
 	}
+
+	fmt.Printf("Snapshot %s\n", thestateroot)
 
 	// TODO: Reorgs
 	b.snapshots = append(b.snapshots, &dbsnap)
