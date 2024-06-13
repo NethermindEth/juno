@@ -55,10 +55,13 @@ func (b *Blockchain) GetClasses(felts []*felt.Felt) ([]core.Class, error) {
 		state := core.NewState(txn)
 		for i, f := range felts {
 			d, err := state.Class(f)
-			if err != nil {
+			if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 				return err
+			} else if errors.Is(err, db.ErrKeyNotFound) {
+				classes[i] = nil
+			} else {
+				classes[i] = d.Class
 			}
-			classes[i] = d.Class
 		}
 
 		return nil

@@ -228,84 +228,82 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		return err
 	})
 
-	/*
-		eg.Go(func() error {
+	eg.Go(func() error {
+		defer func() {
+			if err := recover(); err != nil {
+				s.log.Errorw("address range paniced", "err", err)
+			}
+		}()
+
+		err := s.runContractRangeWorker(ectx)
+		if err != nil {
+			s.log.Errorw("error in address range worker", "err", err)
+		}
+
+		close(s.contractRangeDone)
+		close(s.classesJob)
+
+		return err
+	})
+
+	storageEg, sctx := errgroup.WithContext(ectx)
+	for i := 0; i < storageJobWorker; i++ {
+		i := i
+		storageEg.Go(func() error {
 			defer func() {
 				if err := recover(); err != nil {
-					s.log.Errorw("address range paniced", "err", err)
+					s.log.Errorw("storage worker paniced", "err", err)
 				}
 			}()
 
-			err := s.runContractRangeWorker(ectx)
+			err := s.runStorageRangeWorker(sctx, i)
 			if err != nil {
-				s.log.Errorw("error in address range worker", "err", err)
+				s.log.Errorw("error in storage range worker", "err", err)
 			}
-
-			close(s.contractRangeDone)
-			close(s.classesJob)
+			s.log.Infow("Storage worker completed", "workerId", i)
 
 			return err
 		})
+	}
 
-		storageEg, sctx := errgroup.WithContext(ectx)
-		for i := 0; i < storageJobWorker; i++ {
-			i := i
-			storageEg.Go(func() error {
-				defer func() {
-					if err := recover(); err != nil {
-						s.log.Errorw("storage worker paniced", "err", err)
-					}
-				}()
-
-				err := s.runStorageRangeWorker(sctx, i)
-				if err != nil {
-					s.log.Errorw("error in storage range worker", "err", err)
-				}
-				s.log.Infow("Storage worker completed", "workerId", i)
-
-				return err
-			})
+	// For notifying that storage range is done
+	eg.Go(func() error {
+		err := storageEg.Wait()
+		if err != nil {
+			return err
 		}
 
-		// For notifying that storage range is done
-		eg.Go(func() error {
-			err := storageEg.Wait()
-			if err != nil {
-				return err
+		s.log.Infow("Storage range range completed")
+		close(s.storageRangeDone)
+		return nil
+	})
+
+	eg.Go(func() error {
+		defer func() {
+			if err := recover(); err != nil {
+				s.log.Errorw("storage refresh paniced", "err", err)
 			}
+		}()
 
-			s.log.Infow("Storage range range completed")
-			close(s.storageRangeDone)
-			return nil
-		})
+		err := s.runStorageRefreshWorker(ectx)
+		if err != nil {
+			s.log.Errorw("error in storage refresh worker", "err", err)
+		}
 
+		return err
+	})
+
+	for i := 0; i < fetchClassWorkerCount; i++ {
+		i := i
 		eg.Go(func() error {
-			defer func() {
-				if err := recover(); err != nil {
-					s.log.Errorw("storage refresh paniced", "err", err)
-				}
-			}()
-
-			err := s.runStorageRefreshWorker(ectx)
+			err := s.runFetchClassJob(ectx)
 			if err != nil {
-				s.log.Errorw("error in storage refresh worker", "err", err)
+				s.log.Errorw("fetch class failed", "err", err)
 			}
-
+			s.log.Infow("fetch class completed", "workerId", i)
 			return err
 		})
-
-		for i := 0; i < fetchClassWorkerCount; i++ {
-			i := i
-			eg.Go(func() error {
-				err := s.runFetchClassJob(ectx)
-				if err != nil {
-					s.log.Errorw("fetch class failed", "err", err)
-				}
-				s.log.Infow("fetch class completed", "workerId", i)
-				return err
-			})
-		}
-	*/
+	}
 
 	err = eg.Wait()
 	if err != nil {
@@ -464,8 +462,6 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			return true
 		})
 
-		s.log.Infow("done", "progress", calculatePercentage(startAddr))
-
 		if err != nil {
 			return err
 		}
@@ -534,9 +530,6 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 	completed := false
 
 	for !completed {
-		s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr))
-		rangeProgress.Set(float64(calculatePercentage(startAddr)))
-
 		var err error
 
 		stateRoot := s.currentGlobalStateRoot
@@ -545,8 +538,11 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptAddress(startAddr),
 			End:            nil, // No need for now.
-			ChunksPerProof: 10000,
+			ChunksPerProof: 100,
 		})(func(response *ContractRangeStreamingResult, err error) bool {
+			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr))
+			rangeProgress.Set(float64(calculatePercentage(startAddr)))
+
 			if response.Range == nil && response.RangeProof == nil {
 				// State root missing.
 				return false
@@ -578,6 +574,24 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			// TODO: Do this properly
 			if len(paths) == 1 && startAddr.Equal(paths[0]) {
 				hasNext = false
+			}
+
+			stateDiff := &core.StateDiff{
+				DeployedContracts: map[felt.Felt]*felt.Felt{},
+				Nonces:            map[felt.Felt]*felt.Felt{},
+			}
+
+			for _, r := range response.Range {
+				path := p2p2core.AdaptAddress(r.Address)
+				classHash := p2p2core.AdaptHash(r.Class)
+				stateDiff.DeployedContracts[*path] = classHash
+				stateDiff.Nonces[*path] = (&felt.Felt{}).SetUint64(r.Nonce)
+			}
+
+			err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
+			if err != nil {
+				fmt.Printf("%s\n", err)
+				panic(err)
 			}
 
 			// We don't actually store it directly here... only put it as part of job.
@@ -652,7 +666,7 @@ func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) e
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(time.Second):
-			s.log.Infow("address queue stall on class")
+			s.log.Infow("class queue stall on class")
 		}
 	}
 	return nil
@@ -677,8 +691,8 @@ func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageR
 			atomic.AddInt32(&s.storageRangeJobCount, 1)
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Second):
-			s.log.Infow("address queue stall")
+		case <-time.After(time.Second * 10):
+			s.log.Infow("storage range stall")
 		}
 	}
 	return nil
@@ -694,7 +708,7 @@ func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRa
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(time.Second):
-			s.log.Infow("address queue stall")
+			s.log.Infow("storage refresh queue stall")
 		}
 	}
 	return nil
@@ -765,6 +779,9 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			Queries:       requests,
 		})(func(response *StorageRangeStreamingResult, err error) bool {
 			job := jobs[processedJobs]
+			if !job.path.Equal(response.StorageAddr) {
+				panic(fmt.Errorf("storage addr differ %s %s %d\n", job.path, response.StorageAddr, workerIdx))
+			}
 
 			if response.Range == nil && response.RangeProof == nil {
 				// State root missing.
@@ -802,9 +819,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			}
 
 			// TODO: Do this properly
-			if len(paths) == 1 && job.startAddress.Equal(paths[0]) {
-				hasNext = false
-			}
+			hasNext = !response.Finished
 
 			// TODO: Double check this
 			nonce := fp.NewElement(job.nonce)
@@ -819,11 +834,12 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			}
 
 			totalPath += len(paths)
-			if totalPath > 100000 {
+			if totalPath > 10000 {
 				// Only after a certain amount of path, we store it
 				// so that the storing part is more efficient
 				err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
 				if err != nil {
+					s.log.Errorw("error store", "err", err)
 					return false
 				}
 
@@ -854,8 +870,10 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			continue
 		}
 
+		s.log.Infow("storage store raw final")
 		err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
 		if err != nil {
+			s.log.Errorw("store raw err", "err", err)
 			return err
 		}
 
@@ -922,7 +940,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			keyBatches = append(keyBatches, key)
 		}
 
-		if len(keyBatches) > 1000 {
+		if len(keyBatches) > 10000 {
 			classes, err := s.snapServer.GetClasses(ctx, keyBatches)
 			if err != nil {
 				s.log.Infow("error getting class from outside", "err", err)
@@ -934,7 +952,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 				newClasses[*keyBatches[i]] = p2p2core.AdaptClass(class)
 			}
 
-			err = s.blockchain.StoreRaw(s.lastBlock.Number, nil, newClasses)
+			err = s.blockchain.StoreRaw(s.lastBlock.Number, &core.StateDiff{}, newClasses)
 			if err != nil {
 				s.log.Infow("error storing class", "err", err)
 				return err
@@ -973,7 +991,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-time.After(time.Second * 10):
-					s.log.Infow("waiting for more storage job", "count", s.storageRangeJobCount)
+					s.log.Infow("waiting for more refresh job", "count", s.storageRangeJobCount)
 				case <-contractDoneChecker:
 					// Its done...
 					return nil
