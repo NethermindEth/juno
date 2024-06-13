@@ -36,9 +36,7 @@ func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Fel
 	startValueKey := t.feltToKey(startValue)
 	usingIterableStorage.WithLabelValues("no").Inc()
 
-	neverStopped, err := t.doIterate(&startValueKey, t.rootKey, consumer)
-
-	return neverStopped, err
+	return t.doIterate(&startValueKey, t.rootKey, consumer)
 }
 
 func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
@@ -100,6 +98,10 @@ type Trie struct {
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
+}
+
+func (t *Trie) GetRootKey() *Key {
+	return t.rootKey
 }
 
 type NewTrieFunc func(*Storage, uint8) (*Trie, error)

@@ -375,3 +375,40 @@ func BenchmarkTriePut(b *testing.B) {
 		return t.Commit()
 	}))
 }
+
+func TestTrieIterate(t *testing.T) {
+	t.Run("iterate standard", func(t *testing.T) {
+		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+
+			expectedKeys := []*felt.Felt{}
+			expectedValues := []*felt.Felt{}
+			for i := 0; i < 2; i++ {
+				key := new(felt.Felt).SetUint64(uint64(i*10 + 1))
+				val := new(felt.Felt).SetUint64(uint64(i + 1))
+
+				expectedKeys = append(expectedKeys, key)
+				expectedValues = append(expectedValues, val)
+
+				_, err := tempTrie.Put(key, val)
+				require.NoError(t, err)
+			}
+
+			startAddr := new(felt.Felt).SetUint64(0)
+			keys := []*felt.Felt{}
+			values := []*felt.Felt{}
+			finished, err := tempTrie.Iterate(startAddr, func(key, value *felt.Felt) (bool, error) {
+				keys = append(keys, key)
+				values = append(values, value)
+				return true, nil
+			})
+
+			assert.Nil(t, err)
+			assert.True(t, finished)
+
+			assert.Equal(t, expectedKeys, keys)
+			assert.Equal(t, expectedValues, values)
+
+			return nil
+		}))
+	})
+}
