@@ -12,7 +12,9 @@ require (
 	github.com/ethereum/go-ethereum v1.13.10
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/go-playground/validator/v10 v10.17.0
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/hashicorp/go-set/v2 v2.1.0
+	github.com/hashicorp/golang-lru v1.0.2
 	github.com/jinzhu/copier v0.4.0
 	github.com/libp2p/go-libp2p v0.32.2
 	github.com/libp2p/go-libp2p-kad-dht v0.25.2
@@ -81,7 +83,6 @@ require (
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/uint256 v1.2.4 // indirect

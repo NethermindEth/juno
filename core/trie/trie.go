@@ -114,6 +114,10 @@ func NewTriePoseidon(storage *Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
+func NewTrie(storage *Storage, height uint8, hash HashFunc) (*Trie, error) {
+	return newTrie(storage, height, hashFunc(hash))
+}
+
 func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)

@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
@@ -130,7 +131,7 @@ var (
 )
 
 var (
-	storageJobWorker    = 4
+	storageJobWorker    = 32
 	storageBatchSize    = 2000
 	storageMaxNodes     = 100000
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
@@ -188,6 +189,20 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 }
 
 func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []*trie.ProofNode, height uint8, hash func(*felt.Felt, *felt.Felt) *felt.Felt) (bool, error) {
+	txn := db.NewMemTransaction()
+	str := trie.NewStorage(txn, nil)
+	tri, err := trie.NewTrie(str, height, hash)
+	if err != nil {
+		return false, err
+	}
+
+	for i, path := range paths {
+		_, err = tri.Put(path, hashes[i])
+		if err != nil {
+			return false, err
+		}
+	}
+
 	return true, nil
 }
 
@@ -540,7 +555,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			End:            nil, // No need for now.
 			ChunksPerProof: 100,
 		})(func(response *ContractRangeStreamingResult, err error) bool {
-			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr))
+			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr), "addr", startAddr)
 			rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
 			if response.Range == nil && response.RangeProof == nil {
@@ -619,6 +634,11 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				return false
 			}
 
+			if len(paths) == 0 {
+				return false
+			}
+
+			startAddr = paths[len(paths)-1]
 			return true
 		})
 

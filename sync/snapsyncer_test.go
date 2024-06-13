@@ -2,6 +2,8 @@ package sync
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
 	"os"
 	"testing"
 
@@ -22,6 +24,11 @@ func TestSnapCopyTrie(t *testing.T) {
 
 	targetdir := "/home/amirul/fastworkscratch3/targetjuno"
 	os.RemoveAll(targetdir)
+
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":9201", nil)
+	}()
 
 	var d2 db.DB
 	d2, _ = pebble.New(targetdir, 128000000, 128, utils.NewNopZapLogger())

@@ -1,6 +1,9 @@
 package crypto
 
 import (
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -53,13 +56,37 @@ func hadesPermutation(state []felt.Felt) {
 
 var two = new(felt.Felt).SetUint64(2)
 
+var lruPoseidon, _ = lru.New(10000000)
+var poseidonCache = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "juno_poseidon",
+	Help: "pederson",
+}, []string{"hit"})
+
+type lruKey struct {
+	x felt.Felt
+	y felt.Felt
+}
+
 // Poseidon implements the [Poseidon hash].
 //
 // [Poseidon hash]: https://docs.starknet.io/documentation/architecture_and_concepts/Hashing/hash-functions/#poseidon_hash
 func Poseidon(x, y *felt.Felt) *felt.Felt {
+	key := lruKey{
+		x: *x, y: *y,
+	}
+
+	res, ok := lruPoseidon.Get(key)
+	if ok {
+		poseidonCache.WithLabelValues("true").Inc()
+		return res.(*felt.Felt)
+	}
+
 	state := []felt.Felt{*x, *y, *two}
 	hadesPermutation(state)
-	return new(felt.Felt).Set(&state[0])
+	result := new(felt.Felt).Set(&state[0])
+	lruPoseidon.Add(key, result)
+	poseidonCache.WithLabelValues("false").Inc()
+	return result
 }
 
 var one = new(felt.Felt).SetUint64(1)
