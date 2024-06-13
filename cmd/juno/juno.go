@@ -118,7 +118,7 @@ const (
 	defaultCallMaxSteps             = 4_000_000
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
-	defaultInstance                 = 1
+	defaultInstance                 = 0
 	defaultInstanceInc              = 10
 
 	configFlagUsage                       = "The YAML configuration file."
@@ -288,7 +288,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 		// Configure ports for multiple instances
 		if config.Instance > defaultInstance {
-			inc := defaultInstanceInc * (config.Instance - defaultInstance)
+			inc := defaultInstanceInc * config.Instance
 			if !v.IsSet(httpPortF) {
 				config.HTTPPort = defaultHTTPPort + inc
 			}

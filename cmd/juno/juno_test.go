@@ -65,7 +65,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultGwTimeout := 5 * time.Second
-	defaultInstance := uint16(1)
+	defaultInstance := uint16(0)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -713,7 +713,7 @@ func TestInstance(t *testing.T) {
 		expectedPorts   *ports
 	}{
 		"default instance on flag": {
-			inputArgs: []string{"--instance", "1"},
+			inputArgs: []string{"--instance", "0"},
 			expectedPorts: &ports{
 				HTTPPort:      6060,
 				WebsocketPort: 6061,
@@ -722,8 +722,8 @@ func TestInstance(t *testing.T) {
 				PprofPort:     6062,
 			},
 		},
-		"instance 2 on flag": {
-			inputArgs: []string{"--instance", "2"},
+		"instance 1 on flag": {
+			inputArgs: []string{"--instance", "1"},
 			expectedPorts: &ports{
 				HTTPPort:      6070,
 				WebsocketPort: 6071,
@@ -732,9 +732,9 @@ func TestInstance(t *testing.T) {
 				PprofPort:     6072,
 			},
 		},
-		"instance 2 on config": {
+		"instance 1 on config": {
 			cfgFile:         true,
-			cfgFileContents: `instance: 2`,
+			cfgFileContents: `instance: 1`,
 			expectedPorts: &ports{
 				HTTPPort:      6070,
 				WebsocketPort: 6071,
@@ -743,8 +743,8 @@ func TestInstance(t *testing.T) {
 				PprofPort:     6072,
 			},
 		},
-		"instance 2 on env": {
-			env: []string{"JUNO_INSTANCE", "2"},
+		"instance 1 on env": {
+			env: []string{"JUNO_INSTANCE", "1"},
 			expectedPorts: &ports{
 				HTTPPort:      6070,
 				WebsocketPort: 6071,
@@ -753,8 +753,8 @@ func TestInstance(t *testing.T) {
 				PprofPort:     6072,
 			},
 		},
-		"instance 2 on flag with ports override": {
-			inputArgs: []string{"--instance", "2", "--http-port", "8080", "--ws-port", "8081", "--grpc-port", "8084", "--metrics-port", "10000", "--pprof-port", "8082"},
+		"instance 1 on flag with ports override": {
+			inputArgs: []string{"--instance", "1", "--http-port", "8080", "--ws-port", "8081", "--grpc-port", "8084", "--metrics-port", "10000", "--pprof-port", "8082"},
 			expectedPorts: &ports{
 				HTTPPort:      8080,
 				WebsocketPort: 8081,
@@ -763,9 +763,9 @@ func TestInstance(t *testing.T) {
 				PprofPort:     8082,
 			},
 		},
-		"instance 2 on config with ports override": {
+		"instance 1 on config with ports override": {
 			cfgFile: true,
-			cfgFileContents: `instance: 2
+			cfgFileContents: `instance: 1
 http-port: 8080
 ws-port: 8081
 grpc-port: 8084
@@ -779,8 +779,8 @@ pprof-port: 8082`,
 				PprofPort:     8082,
 			},
 		},
-		"instance 2 on env with ports override": {
-			env: []string{"JUNO_INSTANCE", "2", "JUNO_HTTP_PORT", "8080", "JUNO_WS_PORT", "8081", "JUNO_GRPC_PORT", "8084", "JUNO_METRICS_PORT", "10000", "JUNO_PPROF_PORT", "8082"},
+		"instance 1 on env with ports override": {
+			env: []string{"JUNO_INSTANCE", "1", "JUNO_HTTP_PORT", "8080", "JUNO_WS_PORT", "8081", "JUNO_GRPC_PORT", "8084", "JUNO_METRICS_PORT", "10000", "JUNO_PPROF_PORT", "8082"},
 			expectedPorts: &ports{
 				HTTPPort:      8080,
 				WebsocketPort: 8081,
@@ -789,10 +789,10 @@ pprof-port: 8082`,
 				PprofPort:     8082,
 			},
 		},
-		"instance 2 with a mix of flags, config and env": {
+		"instance 1 with a mix of flags, config and env": {
 			cfgFile:         true,
 			cfgFileContents: `grpc-port: 8084`,
-			inputArgs:       []string{"--instance", "2", "--http-port", "8083"},
+			inputArgs:       []string{"--instance", "1", "--http-port", "8083"},
 			env:             []string{"JUNO_INSTANCE", "2", "JUNO_WS_PORT", "8088"},
 			expectedPorts: &ports{
 				HTTPPort:      8083,
