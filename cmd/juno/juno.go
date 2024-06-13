@@ -82,6 +82,7 @@ const (
 	cnUnverifiableRangeF   = "cn-unverifiable-range"
 	callMaxStepsF          = "rpc-call-max-steps"
 	corsEnableF            = "rpc-cors-enable"
+	instanceF              = "instance"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -117,6 +118,8 @@ const (
 	defaultCallMaxSteps             = 4_000_000
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
+	defaultInstance                 = 1
+	defaultInstanceInc              = 10
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -166,6 +169,9 @@ const (
 	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage = "Enable CORS on RPC endpoints"
+	instanceUsage   = "Configures the ports to avoid conflicts. Useful for running multiple instances on the same machine." +
+		" Changes to the following port numbers: grpc-port, http-port, metrics-port, pprof-port, ws-port." +
+		" Each instance count increments the default value of respective ports by 10."
 )
 
 var Version string
@@ -211,7 +217,7 @@ func main() {
 //  3. The config struct is populated.
 //  4. Cobra calls the run function.
 //
-//nolint:funlen
+//nolint:funlen, gocyclo
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:     "juno [flags]",
@@ -280,6 +286,30 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		// Configure ports for multiple instances
+		if config.Instance > defaultInstance {
+			inc := defaultInstanceInc * (config.Instance - defaultInstance)
+			if !v.IsSet(httpPortF) {
+				config.HTTPPort = defaultHTTPPort + inc
+			}
+
+			if !v.IsSet(wsPortF) {
+				config.WebsocketPort = defaultWSPort + inc
+			}
+
+			if !v.IsSet(grpcPortF) {
+				config.GRPCPort = defaultGRPCPort + inc
+			}
+
+			if !v.IsSet(metricsPortF) {
+				config.MetricsPort = defaultMetricsPort + inc
+			}
+
+			if !v.IsSet(pprofPortF) {
+				config.PprofPort = defaultPprofPort + inc
+			}
+		}
+
 		return nil
 	}
 
@@ -345,6 +375,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
+	junoCmd.Flags().Uint(instanceF, defaultInstance, instanceUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.AddCommand(GenP2PKeyPair())
 

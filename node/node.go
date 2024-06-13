@@ -64,6 +64,7 @@ type Config struct {
 	Colour              bool           `mapstructure:"colour"`
 	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
 	RemoteDB            string         `mapstructure:"remote-db"`
+	Instance            uint16         `mapstructure:"instance"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`

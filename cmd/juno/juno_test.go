@@ -65,6 +65,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultGwTimeout := 5 * time.Second
+	defaultInstance := uint16(1)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -111,6 +112,7 @@ func TestConfigPrecedence(t *testing.T) {
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"custom network config file": {
@@ -156,6 +158,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"default config with no flags": {
@@ -188,6 +191,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"config file path is empty string": {
@@ -220,6 +224,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"config file doesn't exist": {
@@ -257,6 +262,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -296,6 +302,7 @@ pprof: true
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -332,6 +339,7 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"all flags without config file": {
@@ -367,6 +375,7 @@ http-port: 4576
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				PendingPollInterval: defaultPendingPollInterval,
+				Instance:            defaultInstance,
 			},
 		},
 		"some flags without config file": {
@@ -402,6 +411,7 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -461,6 +471,7 @@ db-cache-size: 8
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -499,6 +510,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -533,6 +545,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"only set env variables": {
@@ -565,6 +578,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -598,6 +612,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -632,6 +647,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				Instance:            defaultInstance,
 			},
 		},
 	}
@@ -678,6 +694,152 @@ network: sepolia
 func TestGenP2PKeyPair(t *testing.T) {
 	cmd := juno.GenP2PKeyPair()
 	require.NoError(t, cmd.Execute())
+}
+
+func TestInstance(t *testing.T) {
+	type ports struct {
+		HTTPPort      uint16
+		WebsocketPort uint16
+		GRPCPort      uint16
+		MetricsPort   uint16
+		PprofPort     uint16
+	}
+
+	tests := map[string]struct {
+		cfgFile         bool
+		cfgFileContents string
+		env             []string
+		inputArgs       []string
+		expectedPorts   *ports
+	}{
+		"default instance on flag": {
+			inputArgs: []string{"--instance", "1"},
+			expectedPorts: &ports{
+				HTTPPort:      6060,
+				WebsocketPort: 6061,
+				GRPCPort:      6064,
+				MetricsPort:   9090,
+				PprofPort:     6062,
+			},
+		},
+		"instance 2 on flag": {
+			inputArgs: []string{"--instance", "2"},
+			expectedPorts: &ports{
+				HTTPPort:      6070,
+				WebsocketPort: 6071,
+				GRPCPort:      6074,
+				MetricsPort:   9100,
+				PprofPort:     6072,
+			},
+		},
+		"instance 2 on config": {
+			cfgFile:         true,
+			cfgFileContents: `instance: 2`,
+			expectedPorts: &ports{
+				HTTPPort:      6070,
+				WebsocketPort: 6071,
+				GRPCPort:      6074,
+				MetricsPort:   9100,
+				PprofPort:     6072,
+			},
+		},
+		"instance 2 on env": {
+			env: []string{"JUNO_INSTANCE", "2"},
+			expectedPorts: &ports{
+				HTTPPort:      6070,
+				WebsocketPort: 6071,
+				GRPCPort:      6074,
+				MetricsPort:   9100,
+				PprofPort:     6072,
+			},
+		},
+		"instance 2 on flag with ports override": {
+			inputArgs: []string{"--instance", "2", "--http-port", "8080", "--ws-port", "8081", "--grpc-port", "8084", "--metrics-port", "10000", "--pprof-port", "8082"},
+			expectedPorts: &ports{
+				HTTPPort:      8080,
+				WebsocketPort: 8081,
+				GRPCPort:      8084,
+				MetricsPort:   10000,
+				PprofPort:     8082,
+			},
+		},
+		"instance 2 on config with ports override": {
+			cfgFile: true,
+			cfgFileContents: `instance: 2
+http-port: 8080
+ws-port: 8081
+grpc-port: 8084
+metrics-port: 10000
+pprof-port: 8082`,
+			expectedPorts: &ports{
+				HTTPPort:      8080,
+				WebsocketPort: 8081,
+				GRPCPort:      8084,
+				MetricsPort:   10000,
+				PprofPort:     8082,
+			},
+		},
+		"instance 2 on env with ports override": {
+			env: []string{"JUNO_INSTANCE", "2", "JUNO_HTTP_PORT", "8080", "JUNO_WS_PORT", "8081", "JUNO_GRPC_PORT", "8084", "JUNO_METRICS_PORT", "10000", "JUNO_PPROF_PORT", "8082"},
+			expectedPorts: &ports{
+				HTTPPort:      8080,
+				WebsocketPort: 8081,
+				GRPCPort:      8084,
+				MetricsPort:   10000,
+				PprofPort:     8082,
+			},
+		},
+		"instance 2 with a mix of flags, config and env": {
+			cfgFile:         true,
+			cfgFileContents: `grpc-port: 8084`,
+			inputArgs:       []string{"--instance", "2", "--http-port", "8083"},
+			env:             []string{"JUNO_INSTANCE", "2", "JUNO_WS_PORT", "8088"},
+			expectedPorts: &ports{
+				HTTPPort:      8083,
+				WebsocketPort: 8088,
+				GRPCPort:      8084,
+				MetricsPort:   9100,
+				PprofPort:     6072,
+			},
+		},
+	}
+
+	junoEnv := unsetJunoPrefixedEnv(t)
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			if tc.cfgFile {
+				fileN := tempCfgFile(t, tc.cfgFileContents)
+				tc.inputArgs = append(tc.inputArgs, "--config", fileN)
+			}
+
+			require.True(t, len(tc.env)%2 == 0, "The number of env variables should be an even number")
+
+			if len(tc.env) > 0 {
+				for i := 0; i < len(tc.env)/2; i++ {
+					require.NoError(t, os.Setenv(tc.env[2*i], tc.env[2*i+1]))
+				}
+			}
+
+			config := new(node.Config)
+			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+			cmd.SetArgs(tc.inputArgs)
+			require.NoError(t, cmd.Execute())
+
+			assert.Equal(t, tc.expectedPorts.HTTPPort, config.HTTPPort)
+			assert.Equal(t, tc.expectedPorts.WebsocketPort, config.WebsocketPort)
+			assert.Equal(t, tc.expectedPorts.GRPCPort, config.GRPCPort)
+			assert.Equal(t, tc.expectedPorts.MetricsPort, config.MetricsPort)
+			assert.Equal(t, tc.expectedPorts.PprofPort, config.PprofPort)
+
+			if len(tc.env) > 0 {
+				for i := 0; i < len(tc.env)/2; i++ {
+					require.NoError(t, os.Unsetenv(tc.env[2*i]))
+				}
+			}
+		})
+	}
+	setJunoPrefixedEnv(t, junoEnv)
 }
 
 func tempCfgFile(t *testing.T, cfg string) string {
