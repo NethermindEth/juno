@@ -278,7 +278,6 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}, nil
 }
 
-// Artem's intern exercise 4
 type BlockWithTxsAndReceipts struct {
     Status BlockStatus
     BlockHeader
@@ -286,7 +285,7 @@ type BlockWithTxsAndReceipts struct {
     Receipts []*TransactionReceipt
 }
 
-func (h *Handler) juno_getBlockWithTxsAndReceipts(id BlockID) (*BlockWithTxsAndReceipts, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxsAndReceipts(id BlockID) (*BlockWithTxsAndReceipts, *jsonrpc.Error) {
     block, rpcErr := h.blockByID(&id)
     if rpcErr != nil {
         return nil, rpcErr
@@ -317,7 +316,6 @@ func (h *Handler) juno_getBlockWithTxsAndReceipts(id BlockID) (*BlockWithTxsAndR
         Receipts: receipts,
     }, nil
 }
-// end of Artem's intern exercise 4
 
 func (h *Handler) BlockWithTxsV0_6(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	resp, err := h.BlockWithTxs(id)
