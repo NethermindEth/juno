@@ -113,9 +113,8 @@ func transformNode(tri *Trie, parentKey *Key, sNode storageNode) (*Edge, *Binary
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
-func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
-	leafKey := tri.feltToKey(leaf)
-	nodesToLeaf, err := tri.nodesFromRoot(&leafKey)
+func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
+	nodesFromRoot, err := tri.nodesFromRoot(key)
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +122,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 
 	var parentKey *Key
 
-	for i := 0; i < len(nodesToLeaf); i++ {
-		sNode := nodesToLeaf[i]
+	for i, sNode := range nodesFromRoot {
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
@@ -140,7 +138,7 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
 			break
 		}
-		parentKey = nodesToLeaf[i].key
+		parentKey = nodesFromRoot[i].key
 	}
 	return proofNodes, nil
 }
@@ -148,13 +146,8 @@ func GetProof(leaf *felt.Felt, tri *Trie) ([]ProofNode, error) {
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
-	if key.Len() != 251 { //nolint:gomnd
-		return false
-	}
-
 	expectedHash := root
 	remainingPath := key
-
 	for _, proofNode := range proofs {
 		if !proofNode.Hash(hash).Equal(expectedHash) {
 			return false
@@ -168,11 +161,15 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 			}
 			remainingPath.RemoveLastBit()
 		case proofNode.Edge != nil:
-			if !proofNode.Edge.Path.Equal(remainingPath.SubKey(proofNode.Edge.Path.Len())) {
+			subKey, err := remainingPath.SubKey(proofNode.Edge.Path.Len())
+			if err != nil {
+				return false
+			}
+			if !proofNode.Edge.Path.Equal(subKey) {
 				return false
 			}
 			expectedHash = proofNode.Edge.Child
-			remainingPath.Truncate(proofNode.Edge.Path.Len())
+			remainingPath.Truncate(251 - proofNode.Edge.Path.Len()) //nolint:gomnd
 		}
 	}
 	return expectedHash.Equal(value)

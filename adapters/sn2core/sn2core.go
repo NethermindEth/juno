@@ -67,6 +67,7 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 	}
 
 	return &core.TransactionReceipt{
+		FeeUnit:            0, // todo(kirill) recheck
 		Fee:                response.ActualFee,
 		TransactionHash:    response.TransactionHash,
 		Events:             utils.Map(utils.NonNilSlice(response.Events), AdaptEvent),

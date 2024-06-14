@@ -45,7 +45,7 @@ func round(state []felt.Felt, full bool, index int) {
 	mixLayer(state)
 }
 
-func hadesPermutation(state []felt.Felt) {
+func HadesPermutation(state []felt.Felt) {
 	initialiseRoundKeys.Do(setRoundKeys)
 	totalRounds := fullRounds + partialRounds
 	for i := 0; i < totalRounds; i++ {
@@ -82,7 +82,7 @@ func Poseidon(x, y *felt.Felt) *felt.Felt {
 	}
 
 	state := []felt.Felt{*x, *y, *two}
-	hadesPermutation(state)
+	HadesPermutation(state)
 	result := new(felt.Felt).Set(&state[0])
 	lruPoseidon.Add(key, result)
 	poseidonCache.WithLabelValues("false").Inc()
@@ -104,7 +104,7 @@ func PoseidonArray(elems ...*felt.Felt) *felt.Felt {
 	for i := 0; i < len(elems)/2; i++ {
 		state[0].Add(&state[0], elems[2*i])
 		state[1].Add(&state[1], elems[2*i+1])
-		hadesPermutation(state)
+		HadesPermutation(state)
 	}
 
 	rem := len(elems) % 2
@@ -112,7 +112,7 @@ func PoseidonArray(elems ...*felt.Felt) *felt.Felt {
 		state[0].Add(&state[0], elems[len(elems)-1])
 	}
 	state[rem].Add(&state[rem], one)
-	hadesPermutation(state)
+	HadesPermutation(state)
 
 	return new(felt.Felt).Set(&state[0])
 }
@@ -154,7 +154,7 @@ func (d *PoseidonDigest) Update(elems ...*felt.Felt) Digest {
 		} else {
 			d.state[0].Add(&d.state[0], d.lastElem)
 			d.state[1].Add(&d.state[1], elems[idx])
-			hadesPermutation(d.state[:])
+			HadesPermutation(d.state[:])
 			d.lastElem = nil
 		}
 	}
@@ -168,7 +168,7 @@ func (d *PoseidonDigest) Finish() *felt.Felt {
 		d.state[0].Add(&d.state[0], d.lastElem)
 		d.state[1].Add(&d.state[1], one)
 	}
-	hadesPermutation(d.state[:])
+	HadesPermutation(d.state[:])
 	return &d.state[0]
 }
 
