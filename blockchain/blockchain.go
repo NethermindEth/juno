@@ -408,8 +408,15 @@ func (b *Blockchain) StoreRaw(blockNumber uint64, stateDiff *core.StateDiff) err
 	})
 }
 
-func (b *Blockchain) PutClasses(blockNumber uint64, v1ClassHashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) PutClasses(blockNumber uint64, classHashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error {
 	return b.database.Update(func(txn db.Transaction) error {
+		v1ClassHashes := map[felt.Felt]*felt.Felt{}
+		for ch, class := range newClasses {
+			if class.Version() == 1 {
+				v1ClassHashes[ch] = classHashes[ch]
+			}
+		}
+
 		return core.NewState(txn).UpdateNoVerify(blockNumber, &core.StateDiff{
 			DeclaredV1Classes: v1ClassHashes,
 		}, newClasses)

@@ -140,11 +140,13 @@ var (
 var (
 	storageJobWorker    = 32
 	storageBatchSize    = 2000
-	storageMaxNodes     = 100000
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
 
-	classRangeMaxNodes   = 10000
-	addressRangeMaxNodes = 5000
+	classRangeChunksPerProof   = 1000
+	contractRangeChunkPerProof = 1000
+	storageRangeChunkPerProof  = 1000
+	maxStorageBatchSize        = 2000
+	maxMaxPerStorageSize       = 1000
 
 	fetchClassWorkerCount = 8 // Fairly parallelizable. But this is brute force...
 	classesJobQueueSize   = 128
@@ -154,7 +156,6 @@ var (
 
 	storePerContractBatchSize         = 500 // For some reason, the trie throughput is higher if the batch size is small.
 	storeMaxConcurrentContractTrigger = runtime.NumCPU()
-	storeMaxTotalJobTrigger           = int(float64(storeMaxConcurrentContractTrigger*storePerContractBatchSize) * 4)
 )
 
 func (s *SnapSyncher) Run(ctx context.Context) error {
@@ -262,6 +263,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 			s.log.Errorw("error in address range worker", "err", err)
 		}
 
+		s.log.Infow("contract range done")
 		close(s.contractRangeDone)
 		close(s.classesJob)
 
@@ -414,7 +416,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 		s.snapServer.GetClassRange(ctx, &spec.ClassRangeRequest{
 			Root:           core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptHash(startAddr),
-			ChunksPerProof: 1000,
+			ChunksPerProof: uint32(classRangeChunksPerProof),
 		})(func(response *ClassRangeStreamingResult, reqErr error) bool {
 			s.log.Infow("got", "res", len(response.Range.Classes), "err", reqErr, "startAdr", startAddr)
 			if reqErr != nil {
@@ -562,7 +564,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptAddress(startAddr),
 			End:            nil, // No need for now.
-			ChunksPerProof: 100,
+			ChunksPerProof: uint32(contractRangeChunkPerProof),
 		})(func(response *ContractRangeStreamingResult, err error) bool {
 			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr), "addr", startAddr)
 			rangeProgress.Set(float64(calculatePercentage(startAddr)))
@@ -764,11 +766,10 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				return nil
 			case job := <-s.storageRangeJob:
 				jobs = append(jobs, job)
-
-				// TODO: Wait... is it subtracted here?
-				atomic.AddInt32(&s.storageRangeJobCount, -1)
 			}
 		}
+
+		s.log.Infow("Pending jobs count", "pending", s.storageRangeJobCount)
 
 		requests := make([]*spec.StorageRangeQuery, 0)
 		for _, job := range jobs {
@@ -789,11 +790,12 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		processedJobs := 0
 		storage := map[felt.Felt]map[felt.Felt]*felt.Felt{}
 		totalPath := 0
+		maxPerStorageSize := 0
 
 		s.log.Infow("storage range", "rootDistance", s.lastBlock.Number-s.startingBlock.Number, "root", stateRoot.String(), "requestcount", len(requests))
 		s.snapServer.GetStorageRange(ctx, &StorageRangeRequest{
 			StateRoot:     stateRoot,
-			ChunkPerProof: 10000,
+			ChunkPerProof: uint64(storageRangeChunkPerProof),
 			Queries:       requests,
 		})(func(response *StorageRangeStreamingResult, err error) bool {
 			job := jobs[processedJobs]
@@ -847,7 +849,11 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			}
 
 			totalPath += len(paths)
-			if totalPath > 10000 {
+			if maxPerStorageSize < len(storage[*job.path]) {
+				maxPerStorageSize = len(storage[*job.path])
+			}
+
+			if totalPath > maxStorageBatchSize || maxPerStorageSize > maxMaxPerStorageSize {
 				// Only after a certain amount of path, we store it
 				// so that the storing part is more efficient
 				storageAddressCount.Observe(float64(len(storage)))
@@ -858,6 +864,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				}
 
 				totalPath = 0
+				maxPerStorageSize = 0
 				storage = map[felt.Felt]map[felt.Felt]*felt.Felt{}
 			}
 
@@ -865,6 +872,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				job.startAddress = paths[len(paths)-1]
 			} else {
 				processedJobs++
+				atomic.AddInt32(&s.storageRangeJobCount, -1) // its... done?
 			}
 
 			return true
@@ -877,7 +885,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			continue
 		}
 
-		s.log.Infow("storage store raw final")
 		storageAddressCount.Observe(float64(len(storage)))
 		err = s.blockchain.PutStorage(storage)
 		if err != nil {
@@ -940,7 +947,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 
 		cls, err := s.blockchain.GetClasses([]*felt.Felt{key})
 		if err != nil {
-			s.log.Infow("error getting class", "err", err)
+			s.log.Errorw("error getting class", "err", err)
 			return err
 		}
 
@@ -948,12 +955,14 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			keyBatches = append(keyBatches, key)
 		}
 
-		if len(keyBatches) > 10000 {
+		if len(keyBatches) > 100 {
+			s.log.Infow("requesting classes", "count", len(keyBatches))
 			classes, err := s.snapServer.GetClasses(ctx, keyBatches)
 			if err != nil {
-				s.log.Infow("error getting class from outside", "err", err)
+				s.log.Errorw("error getting class from outside", "err", err)
 				return err
 			}
+			s.log.Infow("requesting classes done", "count", len(keyBatches))
 
 			newClasses := map[felt.Felt]core.Class{}
 			classHashes := map[felt.Felt]*felt.Felt{}
@@ -962,16 +971,17 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 				newClasses[*keyBatches[i]] = coreClass
 				h, err := coreClass.Hash()
 				if err != nil {
-					s.log.Infow("error hashing class", "err", err)
+					s.log.Errorw("error hashing class", "err", err)
 					return err
 				}
 
 				classHashes[*keyBatches[i]] = h
 			}
 
+			s.log.Infow("requesting classes verified", "count", len(keyBatches))
 			err = s.blockchain.PutClasses(s.lastBlock.Number, classHashes, newClasses)
 			if err != nil {
-				s.log.Infow("error storing class", "err", err)
+				s.log.Errorw("error storing class", "err", err)
 				return err
 			}
 
