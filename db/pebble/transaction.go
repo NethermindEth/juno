@@ -19,6 +19,7 @@ type Transaction struct {
 	batch    *pebble.Batch
 	snapshot *pebble.Snapshot
 	lock     *sync.Mutex
+	rwlock   *sync.RWMutex
 	listener db.EventListener
 }
 
@@ -56,6 +57,8 @@ func (t *Transaction) Commit() error {
 
 // Set : see db.Transaction.Set
 func (t *Transaction) Set(key, val []byte) error {
+	t.rwlock.Lock()
+	defer t.rwlock.Unlock()
 	start := time.Now()
 	if t.batch == nil {
 		return errors.New("read only transaction")
@@ -70,6 +73,8 @@ func (t *Transaction) Set(key, val []byte) error {
 
 // Delete : see db.Transaction.Delete
 func (t *Transaction) Delete(key []byte) error {
+	t.rwlock.Lock()
+	defer t.rwlock.Unlock()
 	start := time.Now()
 	if t.batch == nil {
 		return errors.New("read only transaction")
@@ -81,6 +86,8 @@ func (t *Transaction) Delete(key []byte) error {
 
 // Get : see db.Transaction.Get
 func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
+	t.rwlock.RLock()
+	defer t.rwlock.RUnlock()
 	start := time.Now()
 	var val []byte
 	var closer io.Closer

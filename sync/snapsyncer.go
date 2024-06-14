@@ -30,7 +30,9 @@ import (
 
 type Blockchain interface {
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
-	StoreRaw(blockNumber uint64, stateUpdate *core.StateDiff, newClasses map[felt.Felt]core.Class) error
+	PutClasses(blockNumber uint64, hashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error
+	PutContracts(address, nonces, classHash []*felt.Felt) error
+	PutStorage(storage map[felt.Felt]map[felt.Felt]*felt.Felt) error
 	DoneSnapSync()
 }
 
@@ -123,6 +125,11 @@ var (
 		Help:    "Time in address get",
 		Buckets: prometheus.ExponentialBuckets(1.0, 1.5, 30),
 	})
+	storageAddressCount = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "juno_storage_address_count",
+		Help:    "Time in address get",
+		Buckets: prometheus.ExponentialBuckets(1.0, 1.5, 30),
+	})
 	storageLargeLeafSize = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "juno_storage_large_leaf_size",
 		Help:    "Time in address get",
@@ -131,7 +138,7 @@ var (
 )
 
 var (
-	storageJobWorker    = 1
+	storageJobWorker    = 32
 	storageBatchSize    = 2000
 	storageMaxNodes     = 100000
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
@@ -455,14 +462,14 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			}
 
 			// Ingest
-			stateDiff := &core.StateDiff{DeclaredV1Classes: make(map[felt.Felt]*felt.Felt)}
 			coreClassesMap := map[felt.Felt]core.Class{}
+			coreClassesHashMap := map[felt.Felt]*felt.Felt{}
 			for i, coreClass := range coreClasses {
 				coreClassesMap[*paths[i]] = coreClass
-				stateDiff.DeclaredV1Classes[*paths[i]] = values[i]
+				coreClassesHashMap[*paths[i]] = values[i]
 			}
 
-			err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, coreClassesMap)
+			err = s.blockchain.PutClasses(s.lastBlock.Number, coreClassesHashMap, coreClassesMap)
 			if err != nil {
 				return false
 			}
@@ -593,19 +600,15 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				hasNext = false
 			}
 
-			stateDiff := &core.StateDiff{
-				DeployedContracts: map[felt.Felt]*felt.Felt{},
-				Nonces:            map[felt.Felt]*felt.Felt{},
-			}
-
+			classes := []*felt.Felt{}
+			nonces := []*felt.Felt{}
 			for _, r := range response.Range {
-				path := p2p2core.AdaptAddress(r.Address)
 				classHash := p2p2core.AdaptHash(r.Class)
-				stateDiff.DeployedContracts[*path] = classHash
-				stateDiff.Nonces[*path] = (&felt.Felt{}).SetUint64(r.Nonce)
+				classes = append(classes, classHash)
+				nonces = append(nonces, (&felt.Felt{}).SetUint64(r.Nonce))
 			}
 
-			err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
+			err = s.blockchain.PutContracts(paths, classes, nonces)
 			if err != nil {
 				fmt.Printf("%s\n", err)
 				panic(err)
@@ -784,14 +787,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 
 		stateRoot := s.currentGlobalStateRoot
 		processedJobs := 0
-		stateDiff := &core.StateDiff{
-			StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{},
-			Nonces:            map[felt.Felt]*felt.Felt{},
-			DeployedContracts: map[felt.Felt]*felt.Felt{},
-			DeclaredV0Classes: []*felt.Felt{},             // Probably not used here
-			DeclaredV1Classes: map[felt.Felt]*felt.Felt{}, // Not used here
-			ReplacedClasses:   map[felt.Felt]*felt.Felt{},
-		}
+		storage := map[felt.Felt]map[felt.Felt]*felt.Felt{}
 		totalPath := 0
 
 		s.log.Infow("storage range", "rootDistance", s.lastBlock.Number-s.startingBlock.Number, "root", stateRoot.String(), "requestcount", len(requests))
@@ -843,37 +839,26 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			// TODO: Do this properly
 			hasNext = !response.Finished
 
-			// TODO: Double check this
-			nonce := fp.NewElement(job.nonce)
-			stateDiff.Nonces[*job.path] = felt.NewFelt(&nonce)
-			stateDiff.DeclaredV1Classes[*job.path] = job.classHash
-
-			if stateDiff.StorageDiffs[*job.path] == nil {
-				stateDiff.StorageDiffs[*job.path] = make(map[felt.Felt]*felt.Felt)
+			if storage[*job.path] == nil {
+				storage[*job.path] = map[felt.Felt]*felt.Felt{}
 			}
 			for i, path := range paths {
-				stateDiff.StorageDiffs[*job.path][*path] = values[i]
+				storage[*job.path][*path] = values[i]
 			}
 
 			totalPath += len(paths)
 			if totalPath > 10000 {
 				// Only after a certain amount of path, we store it
 				// so that the storing part is more efficient
-				err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
+				storageAddressCount.Observe(float64(len(storage)))
+				err = s.blockchain.PutStorage(storage)
 				if err != nil {
 					s.log.Errorw("error store", "err", err)
 					return false
 				}
 
 				totalPath = 0
-				stateDiff = &core.StateDiff{
-					StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{},
-					Nonces:            map[felt.Felt]*felt.Felt{},
-					DeployedContracts: map[felt.Felt]*felt.Felt{},
-					DeclaredV0Classes: []*felt.Felt{},             // Probably not used here
-					DeclaredV1Classes: map[felt.Felt]*felt.Felt{}, // Not used here
-					ReplacedClasses:   map[felt.Felt]*felt.Felt{},
-				}
+				storage = map[felt.Felt]map[felt.Felt]*felt.Felt{}
 			}
 
 			if hasNext {
@@ -893,7 +878,8 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		}
 
 		s.log.Infow("storage store raw final")
-		err = s.blockchain.StoreRaw(s.lastBlock.Number, stateDiff, nil)
+		storageAddressCount.Observe(float64(len(storage)))
+		err = s.blockchain.PutStorage(storage)
 		if err != nil {
 			s.log.Errorw("store raw err", "err", err)
 			return err
@@ -970,11 +956,20 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			}
 
 			newClasses := map[felt.Felt]core.Class{}
+			classHashes := map[felt.Felt]*felt.Felt{}
 			for i, class := range classes {
-				newClasses[*keyBatches[i]] = p2p2core.AdaptClass(class)
+				coreClass := p2p2core.AdaptClass(class)
+				newClasses[*keyBatches[i]] = coreClass
+				h, err := coreClass.Hash()
+				if err != nil {
+					s.log.Infow("error hashing class", "err", err)
+					return err
+				}
+
+				classHashes[*keyBatches[i]] = h
 			}
 
-			err = s.blockchain.StoreRaw(s.lastBlock.Number, &core.StateDiff{}, newClasses)
+			err = s.blockchain.PutClasses(s.lastBlock.Number, classHashes, newClasses)
 			if err != nil {
 				s.log.Infow("error storing class", "err", err)
 				return err

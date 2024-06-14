@@ -37,18 +37,16 @@ func NewContractUpdater(addr *felt.Felt, txn db.Transaction) (*ContractUpdater, 
 
 // DeployContract sets up the database for a new contract.
 func DeployContract(addr, classHash *felt.Felt, txn db.Transaction) (*ContractUpdater, error) {
-	/*
-		contractDeployed, err := deployed(addr, txn)
-		if err != nil {
-			return nil, err
-		}
+	contractDeployed, err := deployed(addr, txn)
+	if err != nil {
+		return nil, err
+	}
 
-		if contractDeployed {
-			return nil, ErrContractAlreadyDeployed
-		}
-	*/
+	if contractDeployed {
+		return nil, ErrContractAlreadyDeployed
+	}
 
-	err := setClassHash(txn, addr, classHash)
+	err = setClassHash(txn, addr, classHash)
 	if err != nil {
 		return nil, err
 	}

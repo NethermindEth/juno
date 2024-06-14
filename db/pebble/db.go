@@ -85,6 +85,7 @@ func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
 	} else {
 		txn.snapshot = d.pebble.NewSnapshot()
 	}
+	txn.rwlock = &sync.RWMutex{}
 
 	return txn, nil
 }

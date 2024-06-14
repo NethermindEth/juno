@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"runtime"
 	"sort"
+	"sync"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -328,6 +330,103 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 
 	// update contract storages
 	return s.updateContractStorages(stateTrie, diff.StorageDiffs, blockNumber, logChanges)
+}
+
+func (s *State) UpdateContractNoLog(paths, nonces, classes []*felt.Felt) error {
+	stateTrie, storageCloser, err := s.storage()
+	if err != nil {
+		return err
+	}
+
+	for i, path := range paths {
+		nonce := nonces[i]
+		class := classes[i]
+
+		contract, err := NewContractUpdater(path, s.txn)
+		if err != nil && !errors.Is(err, ErrContractNotDeployed) {
+			return err
+		}
+		if errors.Is(err, ErrContractNotDeployed) {
+			contract, err = DeployContract(path, class, s.txn)
+			if err != nil {
+				return err
+			}
+
+		}
+
+		err = contract.Replace(class)
+		if err != nil {
+			return err
+		}
+
+		err = contract.UpdateNonce(nonce)
+		if err != nil {
+			return err
+		}
+
+		err = s.updateContractCommitment(stateTrie, contract)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = storageCloser(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *State) UpdateContractStorages(storages map[felt.Felt]map[felt.Felt]*felt.Felt) error {
+	stateTrie, storageCloser, err := s.storage()
+	if err != nil {
+		return err
+	}
+
+	updated := []*ContractUpdater{}
+	updatedmtx := &sync.Mutex{}
+
+	// Not the best way to parallelize, but I just need things to work.
+	egrp := errgroup.Group{}
+	for path, kv := range storages {
+		egrp.Go(func() error {
+			contract, err := NewContractUpdater(&path, s.txn)
+			if err != nil && !errors.Is(err, ErrContractNotDeployed) {
+				return err
+			}
+
+			// TODO: Can be done in parallel
+			err = contract.UpdateStorage(kv, func(location, oldValue *felt.Felt) error {
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+
+			updatedmtx.Lock()
+			defer updatedmtx.Unlock()
+
+			updated = append(updated, contract)
+
+			return nil
+		})
+	}
+
+	err = egrp.Wait()
+	if err != nil {
+		return err
+	}
+
+	for _, contract := range updated {
+		err = s.updateContractCommitment(stateTrie, contract)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = storageCloser(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates

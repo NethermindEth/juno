@@ -402,9 +402,29 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	})
 }
 
-func (b *Blockchain) StoreRaw(blockNumber uint64, stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class) error {
+func (b *Blockchain) StoreRaw(blockNumber uint64, stateDiff *core.StateDiff) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		return core.NewState(txn).UpdateNoVerify(blockNumber, stateDiff, newClasses)
+		return core.NewState(txn).UpdateNoVerify(blockNumber, stateDiff, make(map[felt.Felt]core.Class))
+	})
+}
+
+func (b *Blockchain) PutClasses(blockNumber uint64, v1ClassHashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return core.NewState(txn).UpdateNoVerify(blockNumber, &core.StateDiff{
+			DeclaredV1Classes: v1ClassHashes,
+		}, newClasses)
+	})
+}
+
+func (b *Blockchain) PutContracts(address, nonces, classHash []*felt.Felt) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return core.NewState(txn).UpdateContractNoLog(address, nonces, classHash)
+	})
+}
+
+func (b *Blockchain) PutStorage(storage map[felt.Felt]map[felt.Felt]*felt.Felt) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		return core.NewState(txn).UpdateContractStorages(storage)
 	})
 }
 
