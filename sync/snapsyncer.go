@@ -131,7 +131,7 @@ var (
 )
 
 var (
-	storageJobWorker    = 32
+	storageJobWorker    = 1
 	storageBatchSize    = 2000
 	storageMaxNodes     = 100000
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
@@ -258,6 +258,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		close(s.contractRangeDone)
 		close(s.classesJob)
 
+		s.blockchain.DoneSnapSync()
 		return err
 	})
 
@@ -276,6 +277,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 				s.log.Errorw("error in storage range worker", "err", err)
 			}
 			s.log.Infow("Storage worker completed", "workerId", i)
+			s.blockchain.DoneSnapSync()
 
 			return err
 		})
