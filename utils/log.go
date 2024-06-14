@@ -96,6 +96,8 @@ type SimpleLogger interface {
 	Warnw(msg string, keysAndValues ...any)
 	Errorw(msg string, keysAndValues ...any)
 	Tracew(msg string, keysAndValues ...any)
+	Panicw(msg string, keysAndValues ...any)
+	Fatalw(msg string, keysAndValues ...any)
 }
 
 type ZapLogger struct {
@@ -146,7 +148,7 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 		}
 	}
 	config.Level.SetLevel(level)
-	log, err := config.Build()
+	log, err := config.Build(zap.AddStacktrace(zapcore.PanicLevel))
 	if err != nil {
 		return nil, err
 	}

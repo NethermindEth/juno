@@ -40,6 +40,14 @@ func (l *upgradeLogger) Tracew(msg string, keysAndValues ...any) {
 	l.traceMsg = msg
 }
 
+func (l *upgradeLogger) Panicw(msg string, keysAndValues ...any) {
+	l.traceMsg = msg
+}
+
+func (l *upgradeLogger) Fatalw(msg string, keysAndValues ...any) {
+	l.traceMsg = msg
+}
+
 func newVersion(t *testing.T, v string) semver.Version {
 	version, err := semver.StrictNewVersion(v)
 	require.NoError(t, err)
