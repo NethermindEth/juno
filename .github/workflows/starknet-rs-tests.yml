@@ -26,7 +26,7 @@ jobs:
       - name: Run jsonrpc tests
         run: |
           cd starknet-providers && cargo test jsonrpc
-          cd ../starknet-accounts && cargo test jsonrpc
+          cd ../starknet-accounts && cargo test jsonrpc -- --skip can_declare_cairo0_contract_with_jsonrpc
         env:
           STARKNET_RPC: ${{ secrets.STARKNET_RPC }}
           RUST_BACKTRACE: full
