@@ -562,32 +562,32 @@ func (t *Trie) dump(level int, parentP *Key) {
 // TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
 // block cache should have a pretty good hit rate.
 func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
-	startValueKey := t.feltToKey(startValue)
+	startKey := t.feltToKey(startValue)
 
-	return t.doIterate(&startValueKey, t.rootKey, consumer)
+	return t.doIterate(&startKey, t.rootKey, consumer)
 }
 
-func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+func (t *Trie) doIterate(startKey, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
 	if key == nil {
 		return false, nil
 	}
 
-	thenode, err := t.storage.Get(key)
+	node, err := t.storage.Get(key)
 	if err != nil {
 		return false, err
 	}
 
 	if key.Len() == t.height {
-		if startValue.CmpAligned(key) > 0 {
+		if startKey.CmpAligned(key) > 0 {
 			return true, nil
 		}
 		keyAsFelt := key.Felt()
-		return consumer(&keyAsFelt, thenode.Value)
+		return consumer(&keyAsFelt, node.Value)
 	}
 
-	// If the startvalue is higher than the right node, no point in going to left at all
-	if startValue.CmpAligned(thenode.Right) < 0 {
-		next, err := t.doIterate(startValue, thenode.Left, consumer)
+	// If the startKey is higher than the right node, no point in going to left at all
+	if startKey.CmpAligned(node.Right) < 0 {
+		next, err := t.doIterate(startKey, node.Left, consumer)
 		if err != nil {
 			return false, err
 		}
@@ -597,5 +597,5 @@ func (t *Trie) doIterate(startValue, key *Key, consumer func(key, value *felt.Fe
 		}
 	}
 
-	return t.doIterate(startValue, thenode.Right, consumer)
+	return t.doIterate(startKey, node.Right, consumer)
 }
