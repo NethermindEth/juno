@@ -99,3 +99,22 @@ func TestThrottledVMError(t *testing.T) {
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 }
+
+func TestJunoGetNodesFromRoot(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
+
+	log := utils.NewNopZapLogger()
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	handler := rpc.New(mockReader, nil, nil, "", utils.Ptr(utils.Mainnet), log)
+
+	t.Run("Key DNE", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		nodeStorage, _ := handler.JunoGetNodesFromRoot(felt.Zero)
+		require.Nil(t, nodeStorage)
+		// assert.Equal(t, rpc.ErrBlockNotFound, err)
+	})
+}

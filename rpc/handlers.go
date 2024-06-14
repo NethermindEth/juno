@@ -56,6 +56,7 @@ var (
 	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
+	ErrParsingError                    = &jsonrpc.Error{Code: 64, Message: "Failed to parse"}
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
@@ -330,6 +331,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
 		},
+		{
+			Name:    "juno_getBlockWithTxsAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.JunoGetBlockWithTxsAndReceipts,
+		},
 	}, "/v0_7"
 }
 
@@ -483,5 +489,35 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
 		},
+		{
+			Name:    "juno_getBlockWithTxsAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.JunoGetBlockWithTxsAndReceipts,
+		},
 	}, "/v0_6"
+}
+
+func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
+	stateReader, _, error := h.bcReader.HeadState()
+	if error != nil {
+		return "", ErrBlockNotFound
+	}
+	try, _, errTry := stateReader.GetGlobalTrie()
+	if errTry != nil {
+		return "", ErrBlockNotFound
+	}
+
+	k := try.FeltToKeyConverter(&key)
+	storageNodes, err := try.GetNodesFromRoot(&k)
+	if err != nil {
+		return "", ErrBlockNotFound
+	}
+
+	parsedNodes := try.NodeParser(storageNodes)
+
+	jsonBytes, err := json.Marshal(parsedNodes)
+	if err != nil {
+		return "", ErrParsingError
+	}
+	return string(jsonBytes), nil
 }
