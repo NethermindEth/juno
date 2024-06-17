@@ -6,6 +6,8 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/rpc"
@@ -14,6 +16,24 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+func TestJunoGetNodesFromRoot(t *testing.T) {
+    mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+    n := utils.Ptr(utils.Mainnet)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, nil, "", n, log)
+
+    t.Run("Empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+
+		storage, rpcErr := handler.NodesFromRoot(felt.Zero)
+		require.Nil(t, storage)
+		assert.Equal(t, jsonrpc.InternalError, rpcErr.Code)
+	})
+}
 
 func nopCloser() error { return nil }
 
