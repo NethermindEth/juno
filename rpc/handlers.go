@@ -56,7 +56,6 @@ var (
 	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
-	ErrParsingError                    = &jsonrpc.Error{Code: 64, Message: "Failed to parse"}
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
@@ -332,15 +331,9 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.BlockWithReceipts,
 		},
 		{
-<<<<<<< HEAD
 			Name:    "juno_getNodesFromRoot",
 			Params:  []jsonrpc.Parameter{{Name: "key"}},
 			Handler: h.JunoGetNodesFromRoot,
-=======
-			Name:    "juno_getBlockWithTxsAndReceipts",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.JunoGetBlockWithTxsAndReceipts,
->>>>>>> 3fea2be (fix::> added new RPC_meth to methods)
 		},
 	}, "/v0_7"
 }
@@ -496,22 +489,15 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.Unsubscribe,
 		},
 		{
-<<<<<<< HEAD
 			Name:    "juno_getNodesFromRoot",
 			Params:  []jsonrpc.Parameter{{Name: "key"}},
 			Handler: h.JunoGetNodesFromRoot,
-=======
-			Name:    "juno_getBlockWithTxsAndReceipts",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.JunoGetBlockWithTxsAndReceipts,
->>>>>>> 3fea2be (fix::> added new RPC_meth to methods)
 		},
 	}, "/v0_6"
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
+
 	stateReader, _, err := h.bcReader.HeadState()
 	if err != nil {
 		return "", jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -533,37 +519,7 @@ func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 	jsonBytes, err := json.Marshal(parsedNodes)
 	if err != nil {
 		return "", jsonrpc.Err(jsonrpc.InvalidJSON, err.Error())
-=======
-func (h *Handler) GetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
-	// TODO: Implement this method
-	// Implement a new rpc method “juno_getNodesFromRoot(key felt.Felt)”
-	// that returns the set of nodes from the root to the key for the classes Trie.
-	// See nodesFromRoot(). Remember to implement tests for the new logic
-
-=======
-func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
->>>>>>> 2e7918b (fix::> Changed the fn name)
-	stateReader, _, error := h.bcReader.HeadState()
-	if error != nil {
-		return "", ErrBlockNotFound
-	}
-	try, _, errTry := stateReader.GetGlobalTrie()
-	if errTry != nil {
-		return "", ErrBlockNotFound
 	}
 
-	k := try.FeltToKeyConverter(&key)
-	storageNodes, err := try.GetNodesFromRoot(&k)
-	if err != nil {
-		return "", ErrBlockNotFound
-	}
-
-	parsedNodes := try.NodeParser(storageNodes)
-
-	jsonBytes, err := json.Marshal(parsedNodes)
-	if err != nil {
-		return "", ErrParsingError
->>>>>>> d472131 (fix::> impl handler JunoGetNodesFromRoot)
-	}
 	return string(jsonBytes), nil
 }

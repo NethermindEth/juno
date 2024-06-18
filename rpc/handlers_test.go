@@ -99,28 +99,12 @@ func TestThrottledVMError(t *testing.T) {
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 }
-
-<<<<<<< HEAD
-<<<<<<< HEAD
 func TestJunoGetNodesFromRoot(t *testing.T) {
-=======
-func TestJunoGetBlockFromRoot(t *testing.T) {
->>>>>>> 4a1a516 (fix::> Handler test written)
-=======
-func TestJunoGetNodesFromRoot(t *testing.T) {
->>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-=======
->>>>>>> 4a1a516 (fix::> Handler test written)
-=======
-
->>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 	log := utils.NewNopZapLogger()
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
@@ -128,29 +112,16 @@ func TestJunoGetNodesFromRoot(t *testing.T) {
 
 	t.Run("Key DNE", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-<<<<<<< HEAD
-<<<<<<< HEAD
 		nodeStorage, err := handler.JunoGetNodesFromRoot(felt.Zero)
 		require.Nil(t, nodeStorage)
 		require.NotEqual(t, err, nil)
 	})
 
 	t.Run("Key Exist", func(t *testing.T) {
-		// element := fp1.NewElement(1)
 		element := new(felt.Felt).SetUint64(1)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		nodeStorage, err := handler.JunoGetNodesFromRoot(*element)
 		require.Nil(t, err)
 		assert.NotEqual(t, nodeStorage, nil)
-=======
-		storage, rpcErr := handler.JunoGetNodesFromRoot(felt.Zero)
-		require.Nil(t, storage)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
->>>>>>> 4a1a516 (fix::> Handler test written)
-=======
-		nodeStorage, _ := handler.JunoGetNodesFromRoot(felt.Zero)
-		require.Nil(t, nodeStorage)
-		// assert.Equal(t, rpc.ErrBlockNotFound, err)
->>>>>>> 368ae2d (fix::> Test Written)
 	})
 }
