@@ -68,10 +68,15 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func (p *PendingState) GetGlobalTrie() (*trie.Trie, func() error, error) {
 	return p.head.GetGlobalTrie()
 =======
 func (p *PendingState) NodeFromRoot() (*trie.Trie, func() error, error) {
 	return p.head.NodeFromRoot()
 >>>>>>> 368ae2d (fix::> Test Written)
+=======
+func (p *PendingState) GetGlobalTrie() (*trie.Trie, func() error, error) {
+	return p.head.GetGlobalTrie()
+>>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 }

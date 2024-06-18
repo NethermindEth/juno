@@ -101,18 +101,26 @@ func TestThrottledVMError(t *testing.T) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func TestJunoGetNodesFromRoot(t *testing.T) {
 =======
 func TestJunoGetBlockFromRoot(t *testing.T) {
 >>>>>>> 4a1a516 (fix::> Handler test written)
+=======
+func TestJunoGetNodesFromRoot(t *testing.T) {
+>>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> 4a1a516 (fix::> Handler test written)
+=======
+
+>>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 	log := utils.NewNopZapLogger()
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 

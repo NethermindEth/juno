@@ -41,10 +41,14 @@ type StateReader interface {
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
 <<<<<<< HEAD
+<<<<<<< HEAD
 	GetGlobalTrie() (*trie.Trie, func() error, error)
 =======
 	NodeFromRoot() (*trie.Trie, func() error, error)
 >>>>>>> 6380352 (fix::> Implemented fn to get StateTrie)
+=======
+	GetGlobalTrie() (*trie.Trie, func() error, error)
+>>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 }
 
 type State struct {
@@ -128,10 +132,14 @@ func (s *State) Root() (*felt.Felt, error) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func (s *State) GetGlobalTrie() (*trie.Trie, func() error, error) {
 =======
 func (s *State) NodeFromRoot() (*trie.Trie, func() error, error) {
 >>>>>>> 6380352 (fix::> Implemented fn to get StateTrie)
+=======
+func (s *State) GetGlobalTrie() (*trie.Trie, func() error, error) {
+>>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
 }
 
