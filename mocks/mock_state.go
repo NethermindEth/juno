@@ -11,14 +11,9 @@ package mocks
 
 import (
 	reflect "reflect"
-	"errors"
-	"bytes"
 
 	core "github.com/NethermindEth/juno/core"
-	db "github.com/NethermindEth/juno/core/db"
 	felt "github.com/NethermindEth/juno/core/felt"
-	trie "github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -26,57 +21,6 @@ import (
 type MockStateHistoryReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateHistoryReaderMockRecorder
-}
-
-// NodeFromRoot implements core.StateHistoryReader.
-func (m *MockStateHistoryReader) NodeFromRoot() (*trie.Trie, func() error, error) {
-	// panic("not implemented")
-	dbPrefix := db.StateTrie.Key()
-	new_state := core.NewState(db.Transaction)
-	tTxn := trie.NewStorage(db.Transaction, dbPrefix)
-
-	rootKeyDBKey := dbPrefix
-	var rootKey *trie.Key
-	err := new_state.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(trie.Key)
-		return rootKey.UnmarshalBinary(val)
-	})
-
-	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
-		return nil, nil, err
-	}
-
-	gTrie, err := trie.NewTrieFunc(tTxn, 251) // globalTrieHeight
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// prep closer
-	closer := func() error {
-		if err = gTrie.Commit(); err != nil {
-			return err
-		}
-
-		resultingRootKey := gTrie.RootKey()
-		// no updates on the trie, short circuit and return
-		if resultingRootKey.Equal(rootKey) {
-			return nil
-		}
-
-		if resultingRootKey != nil {
-			var rootKeyBytes bytes.Buffer
-			_, marshalErr := resultingRootKey.WriteTo(&rootKeyBytes)
-			if marshalErr != nil {
-				return marshalErr
-			}
-
-			return s.txn.Set(rootKeyDBKey, rootKeyBytes.Bytes())
-		}
-		return s.txn.Delete(rootKeyDBKey)
-	}
-
-	return gTrie, closer, nil
-
 }
 
 // MockStateHistoryReaderMockRecorder is the mock recorder for MockStateHistoryReader.
