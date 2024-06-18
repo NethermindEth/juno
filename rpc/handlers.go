@@ -547,18 +547,18 @@ func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
 	if error != nil {
 		return "", ErrBlockNotFound
 	}
-	trie_, _, errTrie := stateReader.NodeFromRoot()
-	if errTrie != nil {
+	try, _, errTry := stateReader.NodeFromRoot()
+	if errTry != nil {
 		return "", ErrBlockNotFound
 	}
 
-	key_ := trie_.FeltToKeyConverter(&key)
-	storageNodes, err := trie_.GetNodesFromRoot(&key_)
+	k := try.FeltToKeyConverter(&key)
+	storageNodes, err := try.GetNodesFromRoot(&k)
 	if err != nil {
 		return "", ErrBlockNotFound
 	}
 
-	parsedNodes := trie_.NodeParser(storageNodes)
+	parsedNodes := try.NodeParser(storageNodes)
 
 	jsonBytes, err := json.Marshal(parsedNodes)
 	if err != nil {

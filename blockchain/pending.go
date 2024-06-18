@@ -67,6 +67,11 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	return p.head.Class(classHash)
 }
 
+<<<<<<< HEAD
 func (p *PendingState) GetGlobalTrie() (*trie.Trie, func() error, error) {
 	return p.head.GetGlobalTrie()
+=======
+func (p *PendingState) NodeFromRoot() (*trie.Trie, func() error, error) {
+	return p.head.NodeFromRoot()
+>>>>>>> 368ae2d (fix::> Test Written)
 }

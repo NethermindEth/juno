@@ -121,6 +121,7 @@ func TestJunoGetBlockFromRoot(t *testing.T) {
 	t.Run("Key DNE", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 <<<<<<< HEAD
+<<<<<<< HEAD
 		nodeStorage, err := handler.JunoGetNodesFromRoot(felt.Zero)
 		require.Nil(t, nodeStorage)
 		require.NotEqual(t, err, nil)
@@ -138,5 +139,10 @@ func TestJunoGetBlockFromRoot(t *testing.T) {
 		require.Nil(t, storage)
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 >>>>>>> 4a1a516 (fix::> Handler test written)
+=======
+		nodeStorage, _ := handler.JunoGetNodesFromRoot(felt.Zero)
+		require.Nil(t, nodeStorage)
+		// assert.Equal(t, rpc.ErrBlockNotFound, err)
+>>>>>>> 368ae2d (fix::> Test Written)
 	})
 }

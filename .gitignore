@@ -9,6 +9,12 @@ __pycache__/
 config/
 .envrc
 juno/
+<<<<<<< HEAD
+=======
+cmd/juno/pps_rpc.go
+cmd/juno/rpc_respReceipts.go
+cmd/juno/rpc_respTxns.go
+>>>>>>> 368ae2d (fix::> Test Written)
 
 # pyenv
 .python-version

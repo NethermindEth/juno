@@ -14,6 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -21,6 +22,11 @@ import (
 type MockStateHistoryReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateHistoryReaderMockRecorder
+}
+
+// NodeFromRoot implements core.StateHistoryReader.
+func (m *MockStateHistoryReader) NodeFromRoot() (*trie.Trie, func() error, error) {
+	panic("unimplemented")
 }
 
 // MockStateHistoryReaderMockRecorder is the mock recorder for MockStateHistoryReader.
