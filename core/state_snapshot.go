@@ -89,16 +89,6 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	return declaredClass, nil
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 func (s *stateSnapshot) GetGlobalTrie() (*trie.Trie, func() error, error) {
 	return s.state.GetGlobalTrie()
-=======
-func (s *stateSnapshot) NodeFromRoot() (*trie.Trie, func() error, error) {
-	return s.state.NodeFromRoot()
->>>>>>> c67cfd4 (fix::> Expose NodeFromRoot fn)
-=======
-func (s *stateSnapshot) GetGlobalTrie() (*trie.Trie, func() error, error) {
-	return s.state.GetGlobalTrie()
->>>>>>> c2ada93 (fix::> mock_state Node from Root partially implemented)
 }
