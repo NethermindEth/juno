@@ -9,11 +9,13 @@ use std::{
     collections::HashMap, ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
 };
 
+use blockifier::state::global_cache::GlobalContractCache;
+use blockifier::blockifier::block::{pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices};
 use blockifier::{
-    block::{pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices}, context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, execution::{
+    context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, execution::{
         contract_class::ClassInfo,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
-    }, fee::fee_utils::calculate_tx_fee, state::{cached_state::{CachedState, GlobalContractCache}, state_api::State}, transaction::{
+    }, fee::fee_utils::calculate_tx_fee, state::{cached_state::{CachedState}, state_api::State}, transaction::{
         errors::TransactionExecutionError::{
             ContractConstructorExecutionFailed,
             ExecutionError,
@@ -27,14 +29,19 @@ use serde::Deserialize;
 use starknet_api::{block::BlockHash, core::PatriciaKey, transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash}};
 use starknet_api::{
     deprecated_contract_class::EntryPointType,
-    hash::StarkFelt,
     transaction::Fee,
 };
+// use starknet_api::hash::StarkFelt;
+use starknet_types_core::felt::Felt;
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
 };
 use std::str::FromStr;
+
+type StarkFelt = Felt;
+
+const CONCURRENCY_MODE: bool = false;
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -81,13 +88,13 @@ pub extern "C" fn cairoVMCall(
     let call_info = unsafe { *call_info_ptr };
 
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
-    let contract_addr_felt = StarkFelt::new(call_info.contract_address).unwrap();
+    let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
     } else {
-        Some(ClassHash(StarkFelt::new(call_info.class_hash).unwrap()))
+        Some(ClassHash(StarkFelt::from_bytes_be(&call_info.class_hash)))
     };
-    let entry_point_selector_felt = StarkFelt::new(call_info.entry_point_selector).unwrap();
+    let entry_point_selector_felt = StarkFelt::from_bytes_be(&call_info.entry_point_selector);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
     let mut calldata_vec: Vec<StarkFelt> = Vec::with_capacity(call_info.len_calldata);
@@ -108,10 +115,10 @@ pub extern "C" fn cairoVMCall(
         class_hash: class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: get_versioned_constants(block_info.version).gas_cost("initial_gas_cost"),
+        initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
     };
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(1));
+    let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
@@ -187,7 +194,7 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(1));
+    let mut state = CachedState::new(reader);
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
     let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id_str, None);
@@ -254,9 +261,9 @@ pub extern "C" fn cairoVMExecute(
         match res {
             Err(error) => {
                 let err_string = match &error {
-                    ContractConstructorExecutionFailed(e)
-                        | ExecutionError(e)
-                        | ValidateTransactionError(e) => format!("{error} {e}"),
+                    ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
+                        /*| ExecutionError(e)
+                        | ValidateTransactionError(e)*/
                     other => other.to_string()
                 };
                 report_error(
@@ -317,7 +324,8 @@ pub extern "C" fn cairoVMExecute(
 }
 
 fn felt_to_u128(felt: StarkFelt) -> u128 {
-    let bytes = felt.bytes();
+    // todo find Into<u128> trait or similar
+    let bytes = felt.to_bytes_be();
     let mut arr = [0u8; 16];
     arr.copy_from_slice(&bytes[16..32]);
 
@@ -381,18 +389,18 @@ fn build_block_context(
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
 ) -> BlockContext {
-    let sequencer_addr =  StarkFelt::new(block_info.sequencer_address).unwrap();
-    let gas_price_wei_felt = StarkFelt::new(block_info.gas_price_wei).unwrap();
-    let gas_price_fri_felt = StarkFelt::new(block_info.gas_price_fri).unwrap();
-    let data_gas_price_wei_felt = StarkFelt::new(block_info.data_gas_price_wei).unwrap();
-    let data_gas_price_fri_felt = StarkFelt::new(block_info.data_gas_price_fri).unwrap();
+    let sequencer_addr =  StarkFelt::from_bytes_be(&block_info.sequencer_address);
+    let gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.gas_price_wei);
+    let gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.gas_price_fri);
+    let data_gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_wei);
+    let data_gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_fri);
     let default_gas_price = NonZeroU128::new(1).unwrap();
 
     let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
     if block_info.block_number >= 10 {
         old_block_number_and_hash = Some(BlockNumberHashPair{
             number: starknet_api::block::BlockNumber(block_info.block_number - 10),
-            hash: BlockHash(StarkFelt::new(block_info.block_hash_to_be_revealed).unwrap()),
+            hash: BlockHash(StarkFelt::from_bytes_be(&block_info.block_hash_to_be_revealed)),
         })
     }
     let mut constants = get_versioned_constants(block_info.version);
@@ -412,13 +420,13 @@ fn build_block_context(
         },
         use_kzg_da: block_info.use_blob_data == 1,
     }, ChainInfo{
-        chain_id: ChainId(chain_id_str.to_string()),
+        chain_id: ChainId::Other(chain_id_str.to_string()), // todo change that
         fee_token_addresses: FeeTokenAddresses {
             // both addresses are the same for all networks
-            eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
-            strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
+            eth_fee_token_address: ContractAddress::try_from(StarkHash::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
+            strk_fee_token_address: ContractAddress::try_from(StarkHash::from_hex("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
         },
-    }, constants).unwrap()
+    }, constants, CONCURRENCY_MODE).unwrap()
 }
 
 
@@ -429,6 +437,7 @@ lazy_static! {
         let mut m = HashMap::new();
         m.insert("0.13.0".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap());
         m.insert("0.13.1".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_1.json")).unwrap());
+        // todo add 0.13.2 ?
         m
     };
 }
