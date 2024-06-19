@@ -177,5 +177,8 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 
 func (t *Trie) RangeProof(startPath, endPath *felt.Felt) ([]ProofNode, error) {
 	// TODO: Do this properly
-	return GetProof(startPath, t)
+
+	bts := startPath.Bytes()
+	k := NewKey(251, bts[:])
+	return GetProof(&k, t)
 }

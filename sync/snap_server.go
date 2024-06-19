@@ -401,7 +401,7 @@ func (b *snapServer) handleStorageRangeRequest(
 		proofs, finished, err := iterateWithLimit(trie, startAddr, endAddr, limit, func(key, value *felt.Felt) error {
 			response = append(response, &spec.ContractStoredValue{
 				Key:   core2p2p.AdaptFelt(key),
-				Value: core2p2p.AdaptFelt(key),
+				Value: core2p2p.AdaptFelt(value),
 			})
 
 			startAddr = key

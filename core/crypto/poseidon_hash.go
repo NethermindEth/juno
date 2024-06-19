@@ -78,13 +78,13 @@ func Poseidon(x, y *felt.Felt) *felt.Felt {
 	res, ok := lruPoseidon.Get(key)
 	if ok {
 		poseidonCache.WithLabelValues("true").Inc()
-		return res.(*felt.Felt)
+		return res.(*felt.Felt).Clone()
 	}
 
 	state := []felt.Felt{*x, *y, *two}
 	HadesPermutation(state)
 	result := new(felt.Felt).Set(&state[0])
-	lruPoseidon.Add(key, result)
+	lruPoseidon.Add(key, result.Clone())
 	poseidonCache.WithLabelValues("false").Inc()
 	return result
 }

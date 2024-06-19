@@ -5,17 +5,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"golang.org/x/sync/errgroup"
-	"runtime"
-	"sort"
-	"sync"
-
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/sourcegraph/conc/pool"
+	"runtime"
+	"sort"
 )
 
 const globalTrieHeight = 251
@@ -382,51 +379,12 @@ func (s *State) UpdateContractStorages(storages map[felt.Felt]map[felt.Felt]*fel
 		return err
 	}
 
-	updated := []*ContractUpdater{}
-	updatedmtx := &sync.Mutex{}
-
-	// Not the best way to parallelize, but I just need things to work.
-	egrp := errgroup.Group{}
-	for path, kv := range storages {
-		egrp.Go(func() error {
-			contract, err := NewContractUpdater(&path, s.txn)
-			if err != nil && !errors.Is(err, ErrContractNotDeployed) {
-				return err
-			}
-
-			// TODO: Can be done in parallel
-			err = contract.UpdateStorage(kv, func(location, oldValue *felt.Felt) error {
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-
-			updatedmtx.Lock()
-			defer updatedmtx.Unlock()
-
-			updated = append(updated, contract)
-
-			return nil
-		})
-	}
-
-	err = egrp.Wait()
+	err = s.updateContractStorages(stateTrie, storages, 0, false)
 	if err != nil {
 		return err
 	}
 
-	for _, contract := range updated {
-		err = s.updateContractCommitment(stateTrie, contract)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err = storageCloser(); err != nil {
-		return err
-	}
-	return nil
+	return storageCloser()
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates

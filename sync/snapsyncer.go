@@ -16,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/sync/errgroup"
 	big "math/big"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -138,15 +137,16 @@ var (
 )
 
 var (
-	storageJobWorker    = 32
-	storageBatchSize    = 2000
+	storageJobWorker    = 1
+	storageBatchSize    = 500
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
 
-	classRangeChunksPerProof   = 1000
-	contractRangeChunkPerProof = 1000
-	storageRangeChunkPerProof  = 1000
-	maxStorageBatchSize        = 2000
-	maxMaxPerStorageSize       = 1000
+	// For some reason, the trie throughput is higher if the batch size is small.
+	classRangeChunksPerProof   = 500
+	contractRangeChunkPerProof = 500
+	storageRangeChunkPerProof  = 500
+	maxStorageBatchSize        = 500
+	maxMaxPerStorageSize       = 500
 
 	fetchClassWorkerCount = 8 // Fairly parallelizable. But this is brute force...
 	classesJobQueueSize   = 128
@@ -154,8 +154,6 @@ var (
 	maxPivotDistance     = 32        // Set to 1 to test updated storage.
 	newPivotHeadDistance = uint64(0) // This should be the reorg depth
 
-	storePerContractBatchSize         = 500 // For some reason, the trie throughput is higher if the batch size is small.
-	storeMaxConcurrentContractTrigger = runtime.NumCPU()
 )
 
 func (s *SnapSyncher) Run(ctx context.Context) error {
@@ -176,20 +174,20 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 		return err
 	}
 
-	for i := s.startingBlock.Number; i <= s.lastBlock.Number; i++ {
-		s.log.Infow("applying block", "blockNumber", i, "lastBlock", s.lastBlock.Number)
-
-		err = s.ApplyStateUpdate(uint64(i))
-		if err != nil {
-			return errors.Join(err, errors.New("error applying state update"))
-		}
-	}
-
 	/*
-		err = s.verifyTrie(ctx)
-		if err != nil {
-			return err
+		for i := s.startingBlock.Number; i <= s.lastBlock.Number; i++ {
+			s.log.Infow("applying block", "blockNumber", i, "lastBlock", s.lastBlock.Number)
+
+			err = s.ApplyStateUpdate(uint64(i))
+			if err != nil {
+				return errors.Join(err, errors.New("error applying state update"))
+			}
 		}
+
+			err = s.verifyTrie(ctx)
+			if err != nil {
+				return err
+			}
 	*/
 
 	s.log.Infow("delegating to standard synchronizer")
@@ -375,7 +373,7 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	s.lastBlock = startingBlock.Header
 
 	fmt.Printf("Start state root is %s\n", s.startingBlock.GlobalStateRoot)
-	s.currentGlobalStateRoot = s.startingBlock.GlobalStateRoot
+	s.currentGlobalStateRoot = s.startingBlock.GlobalStateRoot.Clone()
 	s.storageRangeJobCount = 0
 	s.storageRangeJob = make(chan *storageRangeJob, storageJobQueueSize)
 	s.classesJob = make(chan *felt.Felt, classesJobQueueSize)
@@ -412,13 +410,14 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 
 		var err error
 
+		s.log.Infow("class range state root", "stateroot", stateRoot)
+
 		// TODO: Maybe timeout
 		s.snapServer.GetClassRange(ctx, &spec.ClassRangeRequest{
 			Root:           core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptHash(startAddr),
 			ChunksPerProof: uint32(classRangeChunksPerProof),
 		})(func(response *ClassRangeStreamingResult, reqErr error) bool {
-			s.log.Infow("got", "res", len(response.Range.Classes), "err", reqErr, "startAdr", startAddr)
 			if reqErr != nil {
 				fmt.Printf("%s\n", errors.Join(reqErr, errors.New("error get address range")))
 				return false
@@ -428,26 +427,45 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				// State root missing.
 				return false
 			}
+			s.log.Infow("got", "res", len(response.Range.Classes), "err", reqErr, "startAdr", startAddr)
 
 			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
 			if err != nil {
+				s.log.Infow("global state root verification failure")
 				// Root verification failed
 				// TODO: Ban peer
 				return false
 			}
 
+			if response.ClassesRoot.Equal(&felt.Zero) {
+				// Special case, no V1 at all
+				completed = true
+				return false
+			}
+
 			paths := make([]*felt.Felt, len(response.Range.Classes))
 			values := make([]*felt.Felt, len(response.Range.Classes))
-			coreClasses := []core.Class{}
+			coreClasses := make([]core.Class, len(response.Range.Classes))
+
+			egrp := errgroup.Group{}
 
 			for i, cls := range response.Range.Classes {
 				coreClass := p2p2core.AdaptClass(cls)
-				coreClasses = append(coreClasses, coreClass)
-				paths[i] = CalculateClassHash(coreClass)
-				values[i] = CalculateCompiledClassHash(coreClass)
+				i := i
+				egrp.Go(func() error {
+					coreClasses[i] = coreClass
+					paths[i] = CalculateClassHash(coreClass)
+					values[i] = CalculateCompiledClassHash(coreClass)
 
-				// For verification, should be
-				// leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
+					// For verification, should be
+					// leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
+					return nil
+				})
+			}
+
+			err = egrp.Wait()
+			if err != nil {
+				return false
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
@@ -533,6 +551,14 @@ func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []*trie.ProofNode {
 var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 
 func VerifyGlobalStateRoot(globalStateRoot *felt.Felt, classRoot *felt.Felt, storageRoot *felt.Felt) error {
+	if classRoot.IsZero() {
+		if globalStateRoot.Equal(storageRoot) {
+			return nil
+		} else {
+			return errors.New("invalid global state root")
+		}
+	}
+
 	if !crypto.PoseidonArray(stateVersion, storageRoot, classRoot).Equal(globalStateRoot) {
 		return errors.New("invalid global state root")
 	}
@@ -610,7 +636,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				nonces = append(nonces, (&felt.Felt{}).SetUint64(r.Nonce))
 			}
 
-			err = s.blockchain.PutContracts(paths, classes, nonces)
+			err = s.blockchain.PutContracts(paths, nonces, classes)
 			if err != nil {
 				fmt.Printf("%s\n", err)
 				panic(err)
@@ -719,7 +745,7 @@ func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageR
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(time.Second * 10):
-			s.log.Infow("storage range stall")
+			s.log.Infow("queue storage range stall")
 		}
 	}
 	return nil
@@ -956,13 +982,11 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 		}
 
 		if len(keyBatches) > 100 {
-			s.log.Infow("requesting classes", "count", len(keyBatches))
 			classes, err := s.snapServer.GetClasses(ctx, keyBatches)
 			if err != nil {
 				s.log.Errorw("error getting class from outside", "err", err)
 				return err
 			}
-			s.log.Infow("requesting classes done", "count", len(keyBatches))
 
 			newClasses := map[felt.Felt]core.Class{}
 			classHashes := map[felt.Felt]*felt.Felt{}
@@ -978,7 +1002,6 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 				classHashes[*keyBatches[i]] = h
 			}
 
-			s.log.Infow("requesting classes verified", "count", len(keyBatches))
 			err = s.blockchain.PutClasses(s.lastBlock.Number, classHashes, newClasses)
 			if err != nil {
 				s.log.Errorw("error storing class", "err", err)

@@ -112,7 +112,7 @@ func (b *Blockchain) seedSnapshot() error {
 		closer:        closer,
 	}
 
-	fmt.Printf("Snapshot %s\n", thestateroot)
+	fmt.Printf("Snapshot %d %s %s\n", headheader.Number, headheader.GlobalStateRoot, thestateroot)
 
 	// TODO: Reorgs
 	b.snapshots = append(b.snapshots, &dbsnap)

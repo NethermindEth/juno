@@ -35,12 +35,12 @@ func Pedersen(a, b *felt.Felt) *felt.Felt {
 	res, ok := lruPederson.Get(key)
 	if ok {
 		pedersonCache.WithLabelValues("true").Inc()
-		return res.(*felt.Felt)
+		return res.(*felt.Felt).Clone()
 	}
 
 	hash := pedersenhash.Pedersen(a.Impl(), b.Impl())
 	result := felt.NewFelt(&hash)
-	lruPederson.Add(key, result)
+	lruPederson.Add(key, result.Clone())
 	pedersonCache.WithLabelValues("false").Inc()
 	return result
 }
