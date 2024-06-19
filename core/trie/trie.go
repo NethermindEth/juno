@@ -709,3 +709,46 @@ func (t *Trie) dump(level int, parentP *Key) {
 		storage: t.storage,
 	}).dump(level+1, t.rootKey)
 }
+
+// Iterate the trie from startValue in ascending order until the consumer returned false or an error occur or end of
+// trie was reached. Return true if end of trie is reached.
+// TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
+// block cache should have a pretty good hit rate.
+func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	startKey := t.feltToKey(startValue)
+
+	return t.doIterate(&startKey, t.rootKey, consumer)
+}
+
+func (t *Trie) doIterate(startKey, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	if key == nil {
+		return false, nil
+	}
+
+	node, err := t.storage.Get(key)
+	if err != nil {
+		return false, err
+	}
+
+	if key.Len() == t.height {
+		if startKey.CmpAligned(key) > 0 {
+			return true, nil
+		}
+		keyAsFelt := key.Felt()
+		return consumer(&keyAsFelt, node.Value)
+	}
+
+	// If the startKey is higher than the right node, no point in going to left at all
+	if startKey.CmpAligned(node.Right) < 0 {
+		next, err := t.doIterate(startKey, node.Left, consumer)
+		if err != nil {
+			return false, err
+		}
+
+		if !next {
+			return false, nil
+		}
+	}
+
+	return t.doIterate(startKey, node.Right, consumer)
+}
