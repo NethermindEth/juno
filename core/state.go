@@ -450,6 +450,64 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	return &class, nil
 }
 
+// StartsWith checks if the byte array 'a' starts with the byte array 'b'
+func StartsWith(a, b []byte) bool {
+	// If b is longer than a, it can't be a prefix
+	if len(b) > len(a) {
+		return false
+	}
+
+	// Compare the elements of a and b
+	for i := 0; i < len(b); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s *State) PrintIt() (*DeclaredClass, error) {
+	classKey := db.Class.Key(nil)
+
+	it, err := s.txn.NewIterator()
+	if err != nil {
+		return nil, err
+	}
+
+	it.Seek(classKey)
+	idx := 0
+	printed := 0
+	for it.Valid() && StartsWith(it.Key(), classKey) {
+		value, err := it.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		var class DeclaredClass
+		err = encoder.Unmarshal(value, &class)
+		if err != nil {
+			return nil, err
+		}
+
+		if class.Class.Version() == 0 {
+			fmt.Printf("%d %x %d %d\n", idx, it.Key(), class.Class.Version(), len(value))
+			if class.Class.Version() == 0 && len(value) < 20000 {
+				fmt.Printf("%x\n", value)
+				printed++
+				if printed >= 2 {
+					return nil, nil
+				}
+			}
+		}
+
+		idx++
+		it.Next()
+	}
+
+	return nil, nil
+}
+
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
 	*db.BufferedTransaction, error,
 ) {

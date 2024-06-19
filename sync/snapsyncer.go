@@ -29,7 +29,7 @@ import (
 
 type Blockchain interface {
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
-	PutClasses(blockNumber uint64, hashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error
+	PutClasses(blockNumber uint64, v1CompiledHashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error
 	PutContracts(address, nonces, classHash []*felt.Felt) error
 	PutStorage(storage map[felt.Felt]map[felt.Felt]*felt.Felt) error
 	DoneSnapSync()
@@ -137,7 +137,7 @@ var (
 )
 
 var (
-	storageJobWorker    = 1
+	storageJobWorker    = 8
 	storageBatchSize    = 500
 	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
 
@@ -964,62 +964,103 @@ func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64) error {
 }
 
 func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
+
 	keyBatches := make([]*felt.Felt, 0)
-	for key := range s.classesJob {
-		if key == nil || key.IsZero() {
-			// Not sure why...
-			continue
+	for {
+
+	requestloop:
+		for len(keyBatches) < 100 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Second * 10):
+				// Just request whatever we have
+				if len(keyBatches) > 0 {
+					break requestloop
+				}
+				s.log.Infow("waiting for more storage job", "count", s.storageRangeJobCount)
+			case key := <-s.classesJob:
+				if key == nil {
+					// channel finished.
+					if len(keyBatches) > 0 {
+						break requestloop
+					} else {
+						// Worker finished
+						return nil
+					}
+				} else {
+					if key.Equal(&felt.Zero) {
+						continue
+					}
+
+					// TODO: Can be done in batches
+					cls, err := s.blockchain.GetClasses([]*felt.Felt{key})
+					if err != nil {
+						s.log.Errorw("error getting class", "err", err)
+						return err
+					}
+
+					if cls[0] == nil {
+						keyBatches = append(keyBatches, key)
+					}
+				}
+			}
 		}
 
-		cls, err := s.blockchain.GetClasses([]*felt.Felt{key})
+		classes, err := s.snapServer.GetClasses(ctx, keyBatches)
 		if err != nil {
-			s.log.Errorw("error getting class", "err", err)
+			s.log.Errorw("error getting class from outside", "err", err)
 			return err
 		}
 
-		if cls[0] == nil {
-			keyBatches = append(keyBatches, key)
-		}
+		processedClasses := map[felt.Felt]bool{}
+		newClasses := map[felt.Felt]core.Class{}
+		classHashes := map[felt.Felt]*felt.Felt{}
+		for i, class := range classes {
+			if class == nil {
+				s.log.Infow("class empty", "key", keyBatches[i])
+				continue
+			}
 
-		if len(keyBatches) > 100 {
-			classes, err := s.snapServer.GetClasses(ctx, keyBatches)
+			coreClass := p2p2core.AdaptClass(class)
+			newClasses[*keyBatches[i]] = coreClass
+			h, err := coreClass.Hash()
 			if err != nil {
-				s.log.Errorw("error getting class from outside", "err", err)
+				s.log.Errorw("error hashing class", "err", err)
 				return err
 			}
 
-			newClasses := map[felt.Felt]core.Class{}
-			classHashes := map[felt.Felt]*felt.Felt{}
-			for i, class := range classes {
-				coreClass := p2p2core.AdaptClass(class)
-				newClasses[*keyBatches[i]] = coreClass
-				h, err := coreClass.Hash()
-				if err != nil {
-					s.log.Errorw("error hashing class", "err", err)
-					return err
-				}
-
-				classHashes[*keyBatches[i]] = h
+			if !h.Equal(keyBatches[i]) {
+				return errors.New("invalid class hash")
 			}
 
+			if coreClass.Version() == 1 {
+				classHashes[*keyBatches[i]] = coreClass.(*core.Cairo1Class).Compiled.Hash()
+			}
+
+			processedClasses[*keyBatches[i]] = true
+		}
+
+		if len(newClasses) != 0 {
 			err = s.blockchain.PutClasses(s.lastBlock.Number, classHashes, newClasses)
 			if err != nil {
 				s.log.Errorw("error storing class", "err", err)
 				return err
 			}
-
-			newBatch := make([]*felt.Felt, 0)
-			for _, classHash := range keyBatches {
-				if _, ok := newClasses[*classHash]; !ok {
-					newBatch = append(newBatch, classHash)
-				}
-			}
-
-			keyBatches = newBatch
+		} else {
+			s.log.Errorw("Unable to fetch any class from peer")
+			// TODO: Penalize peer?
 		}
-	}
 
-	return nil
+		newBatch := make([]*felt.Felt, 0)
+		for _, classHash := range keyBatches {
+			if _, ok := processedClasses[*classHash]; !ok {
+				newBatch = append(newBatch, classHash)
+			}
+		}
+
+		keyBatches = newBatch
+	}
 }
 
 func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {

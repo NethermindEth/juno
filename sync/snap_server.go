@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -180,7 +181,11 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			return
 		}
 
-		for _, coreclass := range coreclasses {
+		for i, coreclass := range coreclasses {
+			if coreclass == nil {
+				fmt.Printf("%d %s\n", i, classkeys[i])
+				yield(nil, errors.New("class is nil"))
+			}
 			response.Classes = append(response.Classes, core2p2p.AdaptClass(coreclass))
 		}
 

@@ -74,6 +74,31 @@ func (b *Blockchain) GetClasses(felts []*felt.Felt) ([]core.Class, error) {
 	return classes, nil
 }
 
+func (b *Blockchain) GetDClasses(felts []*felt.Felt) ([]*core.DeclaredClass, error) {
+	classes := make([]*core.DeclaredClass, len(felts))
+	err := b.database.View(func(txn db.Transaction) error {
+		state := core.NewState(txn)
+		for i, f := range felts {
+			d, err := state.Class(f)
+			if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+				return err
+			} else if errors.Is(err, db.ErrKeyNotFound) {
+				classes[i] = nil
+			} else {
+				classes[i] = d
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return classes, nil
+}
+
 func (b *Blockchain) seedSnapshot() error {
 	headheader, err := b.HeadsHeader()
 	if err != nil {
