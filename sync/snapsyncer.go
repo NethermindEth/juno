@@ -782,7 +782,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(time.Second * 10):
+			case <-time.After(time.Second * 1):
 				if len(jobs) > 0 {
 					break requestloop
 				}
