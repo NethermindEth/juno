@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"math"
+	"strings"
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -175,8 +176,65 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
 }
 
+func (h *Handler) NodesFromRoot(key felt.Felt) ([]map[string]string, *jsonrpc.Error) {
+	// Retrieve the head state from the blockchain reader
+	stateReader, _, err := h.bcReader.HeadState()
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	// Retrieve the classes trie from the state reader
+	trie, _, err := stateReader.GetClassesTrie()
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	// Convert the felt key to a trie key
+	k := trie.ConvertFeltToKey(&key)
+
+	// Retrieve the nodes from the trie using the converted key
+	storageNodes, err := trie.GetNodesFromRoot(&k)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	// Parse the nodes retrieved from the trie
+	nodes, err := trie.ParseNodes(storageNodes)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	// Convert the parsed nodes from []string to []map[string]string
+	result := make([]map[string]string, len(nodes))
+	for i, node := range nodes {
+		// Assuming each node string can be split into key-value pairs.
+		// You need to define the logic based on the actual format of the node strings.
+		parts := strings.SplitN(node, ":", 2)
+		if len(parts) == 2 {
+			result[i] = map[string]string{parts[0]: parts[1]}
+		} else {
+			// Handle the case where the node string does not have a key-value format.
+			// This is application specific and may need adjustments.
+			result[i] = map[string]string{"node": node}
+		}
+	}
+
+	// Return the converted result and no error
+	return result, nil
+}
+
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
+		{
+			Name:    "juno_getBlockWithTxsAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithTxsAndReceipts,
+		},
+		{
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.NodesFromRoot,
+		},
 		{
 			Name:    "starknet_chainId",
 			Handler: h.ChainID,
