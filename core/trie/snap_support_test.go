@@ -106,7 +106,7 @@ func TestRangeAndVerify(t *testing.T) {
 			var keys []*felt.Felt
 			var values []*felt.Felt
 
-			proofs, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
+			proofs, _, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
 				keys = append(keys, key)
 				values = append(values, value)
 				if scenario.maxNode > 0 && len(keys) >= scenario.maxNode {
@@ -255,7 +255,7 @@ func TestRangeAndVerifyReject(t *testing.T) {
 			var keys []*felt.Felt
 			var values []*felt.Felt
 
-			proofs, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
+			proofs, _, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
 				keys = append(keys, key)
 				values = append(values, value)
 				if scenario.maxNode > 0 && len(keys) >= scenario.maxNode {
