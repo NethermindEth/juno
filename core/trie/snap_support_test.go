@@ -1,13 +1,16 @@
 package trie_test
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
+
+const trieHeight = 251
 
 func TestRangeAndVerify(t *testing.T) {
 	scenarios := []struct {
@@ -95,7 +98,7 @@ func TestRangeAndVerify(t *testing.T) {
 			assert.NoError(t, err)
 
 			for i := 0; i < 10; i++ {
-				_, err := testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
+				_, err = testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
 				assert.NoError(t, err)
 			}
 
@@ -106,7 +109,7 @@ func TestRangeAndVerify(t *testing.T) {
 			var keys []*felt.Felt
 			var values []*felt.Felt
 
-			proofs, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
+			proofs, _, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
 				keys = append(keys, key)
 				values = append(values, value)
 				if scenario.maxNode > 0 && len(keys) >= scenario.maxNode {
@@ -125,7 +128,7 @@ func TestRangeAndVerify(t *testing.T) {
 				assert.Empty(t, proofs)
 			}
 
-			hasMore, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen)
+			hasMore, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen, trieHeight)
 			assert.NoError(t, err)
 			assert.True(t, valid)
 
@@ -244,7 +247,7 @@ func TestRangeAndVerifyReject(t *testing.T) {
 			assert.NoError(t, err)
 
 			for i := 0; i < 10; i++ {
-				_, err := testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
+				_, err = testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
 				assert.NoError(t, err)
 			}
 
@@ -255,7 +258,7 @@ func TestRangeAndVerifyReject(t *testing.T) {
 			var keys []*felt.Felt
 			var values []*felt.Felt
 
-			proofs, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
+			proofs, _, err := testTrie.IterateAndGenerateProof(startQuery, func(key, value *felt.Felt) (bool, error) {
 				keys = append(keys, key)
 				values = append(values, value)
 				if scenario.maxNode > 0 && len(keys) >= scenario.maxNode {
@@ -267,7 +270,7 @@ func TestRangeAndVerifyReject(t *testing.T) {
 
 			keys, values, proofs = scenario.mutator(keys, values, proofs)
 
-			_, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen)
+			_, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen, trieHeight)
 			assert.NoError(t, err)
 			assert.False(t, valid)
 		})
