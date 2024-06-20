@@ -1,7 +1,6 @@
 package trie
 
 import (
-	"fmt"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -88,7 +87,6 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 		if !root.Equal(recalculatedRoot) {
 			return false, false, nil
 		}
-		fmt.Printf("Its here %s %s\n", root, recalculatedRoot)
 
 		return false, true, nil
 	}
