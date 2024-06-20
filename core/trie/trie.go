@@ -715,6 +715,9 @@ func (t *Trie) dump(level int, parentP *Key) {
 // TODO: its much more efficient to iterate from the txn level. But even without that, if the leaf are ordered correctly,
 // block cache should have a pretty good hit rate.
 func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
+	if startValue == nil {
+		startValue = &felt.Zero
+	}
 	startKey := t.feltToKey(startValue)
 
 	return t.doIterate(&startKey, t.rootKey, consumer)

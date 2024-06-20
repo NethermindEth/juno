@@ -5,9 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
-
 	"github.com/NethermindEth/juno/core/felt"
+	"math/big"
 )
 
 type Key struct {
@@ -175,4 +174,39 @@ func (k Key) alignedBitInt(height uint8) *big.Int {
 	}
 
 	return theint
+}
+
+func (k *Key) AppendBitMut(flag bool) {
+	const LSB = uint8(0x1)
+	bit := k.len
+	byteIdx := bit / 8
+	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]
+	bitIdx := bit % 8
+
+	// I'm sure someone will make this nicer
+	if flag {
+		byteAtIdx |= LSB << bitIdx
+	} else {
+		byteAtIdx &= ^(LSB << bitIdx)
+	}
+
+	k.len++
+	k.bitset[len(k.bitset)-int(byteIdx)-1] = byteAtIdx
+}
+
+func (k Key) Append(otherKey *Key) Key {
+	result := NewKey(otherKey.len, otherKey.bitset[:])
+
+	// I'm sure someone will make this faster
+	for i := uint8(0); i < k.len; i++ {
+		result.AppendBitMut(k.Test(i))
+	}
+
+	return result
+}
+
+func (k Key) AppendBit(flag bool) Key {
+	result := NewKey(0, []byte{})
+	result.AppendBitMut(flag)
+	return k.Append(&result)
 }
