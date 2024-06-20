@@ -266,27 +266,12 @@ func TestSnapOfflineCopy(t *testing.T) {
 	}
 }
 
-func TestDumpClass(t *testing.T) {
-	var d db.DB
-	d, err := pebble.New("/home/amirul/fastworkscratch3/juno_sepolia/juno-sepolia/", 128000000, 128, utils.NewNopZapLogger())
-	assert.NoError(t, err)
-	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
-	bc.DoneSnapSync()
-
-	s, closer, err := bc.HeadStateFreakingState()
-	defer closer()
-
-	s.PrintIt()
-
-}
-
 func TestSnapCopyTrie(t *testing.T) {
 	var d db.DB
 	d, err := pebble.New("/home/amirul/fastworkscratch3/juno_sepolia/juno-sepolia/", 128000000, 128, utils.NewNopZapLogger())
 	assert.NoError(t, err)
 
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
-	bc.DoneSnapSync()
 
 	targetdir := "/home/amirul/fastworkscratch3/targetjuno"
 	os.RemoveAll(targetdir)
@@ -299,98 +284,6 @@ func TestSnapCopyTrie(t *testing.T) {
 	var d2 db.DB
 	d2, _ = pebble.New(targetdir, 128000000, 128, utils.NewNopZapLogger())
 	bc2 := blockchain.New(d2, &utils.Mainnet) // Needed because class loader need encoder to be registered
-	// bc2.DoneSnapSync()
-
-	/*
-		state, _, err := bc.HeadStateFreakingState()
-		assert.NoError(t, err)
-
-		state2, _, err := bc2.HeadStateFreakingState()
-		assert.NoError(t, err)
-
-		strie, _, err := state.StorageTrie()
-		assert.NoError(t, err)
-
-		strie2, _, err := state2.StorageTrie()
-		assert.NoError(t, err)
-
-		counter := 0
-		_, err = strie.Iterate(&felt.Zero, func(key, value *felt.Felt) (bool, error) {
-
-			stri1, err := state.StorageTrieForAddr(key)
-			if err != nil {
-				return false, err
-			}
-
-			r1, err := stri1.Root()
-			if err != nil {
-				return false, err
-			}
-
-			stri2, err := state2.StorageTrieForAddr(key)
-			if err != nil {
-				return false, err
-			}
-
-			r2, err := stri2.Root()
-			if err != nil {
-				return false, err
-			}
-
-			ch1, err := state.ContractClassHash(key)
-			if err != nil {
-				return false, err
-			}
-
-			nc1, err := state.ContractNonce(key)
-			if err != nil {
-				return false, err
-			}
-
-			ch2, err := state2.ContractClassHash(key)
-			if err != nil {
-				return false, err
-			}
-
-			nc2, err := state2.ContractNonce(key)
-			if err != nil {
-				return false, err
-			}
-
-			correctRoot := calculateContractCommitment(r2, ch2, nc2)
-			storedRoot, err := strie2.Get(key)
-			if err != nil {
-				return false, err
-			}
-
-			fmt.Printf("== %s %s %s\n", key, r1, r2)
-			fmt.Printf("=== %s %s %s\n", value, storedRoot, correctRoot)
-			fmt.Printf("=== %s %s vs %s %s\n", ch1, nc1, ch2, nc2)
-
-			idx := 0
-			_, err = stri1.Iterate(&felt.Zero, func(key, value *felt.Felt) (bool, error) {
-				v2, err := stri1.Get(key)
-				if err != nil {
-					return false, err
-				}
-
-				fmt.Printf(" %d %s %s %s\n", idx, key, value, v2)
-				if !value.Equal(v2) {
-					return false, errors.New("not equal")
-				}
-
-				idx++
-				return true, nil
-			})
-			if err != nil {
-				return false, err
-			}
-
-			counter++
-			return counter < 100, nil
-		})
-		assert.NoError(t, err)
-	*/
 
 	logger, err := utils.NewZapLogger(utils.DEBUG, false)
 	assert.NoError(t, err)
@@ -409,6 +302,23 @@ func TestSnapCopyTrie(t *testing.T) {
 
 	err = syncer.Run(context.Background())
 	assert.NoError(t, err)
+
+	state1, closer, err := bc.HeadStateFreakingState()
+	assert.NoError(t, err)
+	defer closer()
+
+	state2, closer, err := bc2.HeadStateFreakingState()
+	assert.NoError(t, err)
+	defer closer()
+
+	sr, cr, err := state1.StateAndClassRoot()
+	assert.NoError(t, err)
+
+	sr2, cr2, err := state2.StateAndClassRoot()
+	assert.NoError(t, err)
+
+	assert.Equal(t, sr, sr2)
+	assert.Equal(t, cr, cr2)
 }
 
 type NoopService struct {

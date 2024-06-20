@@ -81,25 +81,6 @@ type Blockchain struct {
 	cachedPending atomic.Pointer[Pending]
 }
 
-func (b *Blockchain) DoneSnapSync() {
-	sr, src, err := b.HeadStateFreakingState()
-	if err != nil {
-		panic(err)
-	}
-
-	str, clr, err := sr.StateAndClassRoot()
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("================ %s %s ==================== \n", str, clr)
-
-	err = src()
-	if err != nil {
-		panic(err)
-	}
-}
-
 func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	bc := &Blockchain{

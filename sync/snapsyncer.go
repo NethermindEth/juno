@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
@@ -32,7 +31,6 @@ type Blockchain interface {
 	PutClasses(blockNumber uint64, v1CompiledHashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error
 	PutContracts(address, nonces, classHash []*felt.Felt) error
 	PutStorage(storage map[felt.Felt]map[felt.Felt]*felt.Felt) error
-	DoneSnapSync()
 }
 
 type SnapSyncher struct {
@@ -194,22 +192,16 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 	return s.baseSync.Run(ctx)
 }
 
-func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []*trie.ProofNode, height uint8, hash func(*felt.Felt, *felt.Felt) *felt.Felt) (bool, error) {
-	txn := db.NewMemTransaction()
-	str := trie.NewStorage(txn, nil)
-	tri, err := trie.NewTrie(str, height, hash)
+func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []trie.ProofNode, height uint8, hash func(*felt.Felt, *felt.Felt) *felt.Felt) (bool, error) {
+	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash)
 	if err != nil {
 		return false, err
 	}
-
-	for i, path := range paths {
-		_, err = tri.Put(path, hashes[i])
-		if err != nil {
-			return false, err
-		}
+	if !valid {
+		return false, errors.New("invalid proof")
 	}
 
-	return true, nil
+	return hasMore, nil
 }
 
 func (s *SnapSyncher) runPhase1(ctx context.Context) error {
@@ -244,8 +236,6 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		if err != nil {
 			s.log.Errorw("error in class range worker", "err", err)
 		}
-
-		s.blockchain.DoneSnapSync()
 		return err
 	})
 
@@ -265,7 +255,6 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		close(s.contractRangeDone)
 		close(s.classesJob)
 
-		s.blockchain.DoneSnapSync()
 		return err
 	})
 
@@ -284,7 +273,6 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 				s.log.Errorw("error in storage range worker", "err", err)
 			}
 			s.log.Infow("Storage worker completed", "workerId", i)
-			s.blockchain.DoneSnapSync()
 
 			return err
 		})
@@ -476,11 +464,6 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				return false
 			}
 
-			// TODO: Do this properly
-			if len(paths) == 1 && startAddr.Equal(paths[0]) {
-				hasNext = false
-			}
-
 			// Ingest
 			coreClassesMap := map[felt.Felt]core.Class{}
 			coreClassesHashMap := map[felt.Felt]*felt.Felt{}
@@ -518,14 +501,14 @@ func CalculateCompiledClassHash(cls core.Class) *felt.Felt {
 	return cls.(*core.Cairo1Class).Compiled.Hash()
 }
 
-func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []*trie.ProofNode {
+func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []trie.ProofNode {
 	// TODO: Move to adapter
 
-	proofs := make([]*trie.ProofNode, len(proof.Nodes))
+	proofs := make([]trie.ProofNode, len(proof.Nodes))
 	for i, node := range proof.Nodes {
 		if node.GetBinary() != nil {
 			binary := node.GetBinary()
-			proofs[i] = &trie.ProofNode{
+			proofs[i] = trie.ProofNode{
 				Binary: &trie.Binary{
 					LeftHash:  p2p2core.AdaptFelt(binary.Left),
 					RightHash: p2p2core.AdaptFelt(binary.Right),
@@ -535,11 +518,10 @@ func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []*trie.ProofNode {
 			edge := node.GetEdge()
 			// TODO. What if edge is nil too?
 			key := trie.NewKey(uint8(edge.Length), edge.Path.Elements)
-			proofs[i] = &trie.ProofNode{
+			proofs[i] = trie.ProofNode{
 				Edge: &trie.Edge{
-					Child: nil, // Ah...
+					Child: p2p2core.AdaptFelt(edge.Value),
 					Path:  &key,
-					Value: p2p2core.AdaptFelt(edge.Value),
 				},
 			}
 		}
@@ -621,11 +603,6 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				err = ierr
 				// The peer should get penalized in this case
 				return false
-			}
-
-			// TODO: Do this properly
-			if len(paths) == 1 && startAddr.Equal(paths[0]) {
-				hasNext = false
 			}
 
 			classes := []*felt.Felt{}
@@ -863,9 +840,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				processedJobs++
 				return true
 			}
-
-			// TODO: Do this properly
-			hasNext = !response.Finished
 
 			if storage[*job.path] == nil {
 				storage[*job.path] = map[felt.Felt]*felt.Felt{}

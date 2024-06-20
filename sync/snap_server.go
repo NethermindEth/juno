@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -34,7 +33,6 @@ type StorageRangeStreamingResult struct {
 	StorageAddr   *felt.Felt
 	Range         []*spec.ContractStoredValue
 	RangeProof    *spec.PatriciaRangeProof
-	Finished      bool
 }
 
 type ClassRangeStreamingResult struct {
@@ -54,7 +52,6 @@ type SnapServer interface {
 type SnapServerBlockchain interface {
 	GetStateForStateRoot(stateRoot *felt.Felt) (*core.State, error)
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
-	DoneSnapSync()
 }
 
 type snapServer struct {
@@ -88,17 +85,11 @@ func iterateWithLimit(
 	hashes := make([]*felt.Felt, 0)
 
 	// TODO: Verify class trie
-	var startPath *felt.Felt
-	var endPath *felt.Felt
 	count := uint64(0)
-	finished, err := srcTrie.Iterate(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+	proof, finished, err := srcTrie.IterateAndGenerateProof(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
 		// Need at least one.
 		if limitAddr != nil && key.Cmp(limitAddr) > 1 && count > 0 {
 			return false, nil
-		}
-
-		if startPath == nil {
-			startPath = key
 		}
 
 		pathes = append(pathes, key)
@@ -109,7 +100,6 @@ func iterateWithLimit(
 			return false, err
 		}
 
-		endPath = key
 		count++
 		if count >= maxNode {
 			return false, nil
@@ -121,14 +111,6 @@ func iterateWithLimit(
 		return nil, finished, err
 	}
 
-	if finished && startAddr.Equal(&felt.Zero) {
-		return nil, finished, nil // No need for proof
-	}
-	if startPath == nil {
-		return nil, finished, nil // No need for proof
-	}
-
-	proof, err := srcTrie.RangeProof(startPath, endPath)
 	return proof, finished, err
 }
 
@@ -147,8 +129,6 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			yield(nil, err)
 			return
 		}
-
-		fmt.Printf("Source roots %s, %s\n", contractRoot, classRoot)
 
 		// TODO: Verify class trie
 		ctrie, classCloser, err := s.ClassTrie()
@@ -181,10 +161,10 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			return
 		}
 
-		for i, coreclass := range coreclasses {
+		for _, coreclass := range coreclasses {
 			if coreclass == nil {
-				fmt.Printf("%d %s\n", i, classkeys[i])
 				yield(nil, errors.New("class is nil"))
+				return
 			}
 			response.Classes = append(response.Classes, core2p2p.AdaptClass(coreclass))
 		}
@@ -226,7 +206,7 @@ func Core2P2pProof(proofs []trie.ProofNode) *spec.PatriciaRangeProof {
 					Edge: &spec.PatriciaNode_Edge{
 						Length: uint32(edge.Path.Len()),
 						Path:   core2p2p.AdaptFelt(&pathfeld),
-						Value:  core2p2p.AdaptFelt(edge.Value),
+						Value:  core2p2p.AdaptFelt(edge.Child),
 					},
 				},
 			}
@@ -350,12 +330,11 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 				return
 			}
 
-			handled, err := b.handleStorageRangeRequest(ctx, strie, query, request.ChunkPerProof, contractLimit, func(values []*spec.ContractStoredValue, proofs []trie.ProofNode, finished bool) {
+			handled, err := b.handleStorageRangeRequest(ctx, strie, query, request.ChunkPerProof, contractLimit, func(values []*spec.ContractStoredValue, proofs []trie.ProofNode) {
 				yield(&StorageRangeStreamingResult{
 					ContractsRoot: contractRoot,
 					ClassesRoot:   classRoot,
 					StorageAddr:   p2p2core.AdaptAddress(query.Address),
-					Finished:      finished,
 					Range:         values,
 					RangeProof:    Core2P2pProof(proofs),
 				}, nil)
@@ -381,7 +360,7 @@ func (b *snapServer) handleStorageRangeRequest(
 	request *spec.StorageRangeQuery,
 	maxChunkPerProof uint64,
 	nodeLimit uint64,
-	yield func([]*spec.ContractStoredValue, []trie.ProofNode, bool)) (int64, error) {
+	yield func([]*spec.ContractStoredValue, []trie.ProofNode)) (int64, error) {
 
 	totalSent := int64(0)
 	finished := false
@@ -421,7 +400,7 @@ func (b *snapServer) handleStorageRangeRequest(
 			finished = true
 		}
 
-		yield(response, proofs, finished)
+		yield(response, proofs)
 		if finished {
 			return totalSent, nil
 		}

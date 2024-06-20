@@ -1,11 +1,10 @@
 package trie
 
 import (
-	"fmt"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) ([]ProofNode, error) {
+func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) ([]ProofNode, bool, error) {
 	var lastKey *felt.Felt
 
 	finished, err := t.Iterate(startValue, func(key, value *felt.Felt) (bool, error) {
@@ -14,7 +13,7 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 		return consumer(key, value)
 	})
 	if err != nil {
-		return nil, err
+		return nil, finished, err
 	}
 
 	proofset := map[felt.Felt]ProofNode{}
@@ -27,7 +26,7 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 		// actually check that the server did not skip leafs.
 		leftProof, err := GetProof(&startKey, t)
 		if err != nil {
-			return nil, err
+			return nil, finished, err
 		}
 		for _, proof := range leftProof {
 			// Well.. using the trie hash here is kinda slow... but I just need it to work right now.
@@ -41,7 +40,7 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 		lastKey := NewKey(t.height, feltBts[:])
 		rightProof, err := GetProof(&lastKey, t)
 		if err != nil {
-			return nil, err
+			return nil, finished, err
 		}
 
 		for _, proof := range rightProof {
@@ -54,7 +53,7 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 		proofs = append(proofs, node)
 	}
 
-	return proofs, nil
+	return proofs, finished, nil
 }
 
 func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []ProofNode, hash hashFunc) (hasMore bool, valid bool, err error) {
@@ -88,7 +87,6 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 		if !root.Equal(recalculatedRoot) {
 			return false, false, nil
 		}
-		fmt.Printf("Its here %s %s\n", root, recalculatedRoot)
 
 		return false, true, nil
 	}
