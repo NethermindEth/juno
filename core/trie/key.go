@@ -5,8 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/core/felt"
 	"math/big"
+
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 type Key struct {

@@ -1,12 +1,13 @@
 package trie_test
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestRangeAndVerify(t *testing.T) {
