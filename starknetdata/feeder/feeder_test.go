@@ -104,8 +104,8 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
-	adapterGoerli := adaptfeeder.New(clientGoerli)
+	clientSepolia := feeder.NewTestClient(t, &utils.Sepolia)
+	adapterSepolia := adaptfeeder.New(clientSepolia)
 
 	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
@@ -113,12 +113,12 @@ func TestTransaction(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		hash := utils.HexToFelt(t, "0x33010b2dd27dc2abf6cf36269c00e054ceecd3b1452c29764230af228df823")
+		response, err := clientSepolia.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := adapterGoerli.Transaction(ctx, hash)
+		txn, err := adapterSepolia.Transaction(ctx, hash)
 		require.NoError(t, err)
 		invokeTx, ok := txn.(*core.InvokeTransaction)
 		require.True(t, ok)
@@ -126,12 +126,12 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("deploy transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		hash := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
+		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := adapterGoerli.Transaction(ctx, hash)
+		txn, err := adapterMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		deployTx, ok := txn.(*core.DeployTransaction)
 		require.True(t, ok)
@@ -152,12 +152,12 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		hash := utils.HexToFelt(t, "0x32538718071ad83ccd09fca03fe3a17add776ec12002d1c4e16ad4b92ddf752")
+		response, err := clientSepolia.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := adapterGoerli.Transaction(ctx, hash)
+		txn, err := adapterSepolia.Transaction(ctx, hash)
 		require.NoError(t, err)
 		declareTx, ok := txn.(*core.DeclareTransaction)
 		require.True(t, ok)
