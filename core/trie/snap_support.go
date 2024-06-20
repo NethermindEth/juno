@@ -4,7 +4,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error)) ([]ProofNode, bool, error) {
+func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error),
+) ([]ProofNode, bool, error) {
 	var lastKey *felt.Felt
 
 	finished, err := t.Iterate(startValue, func(key, value *felt.Felt) (bool, error) {
@@ -32,7 +33,6 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 			// Well.. using the trie hash here is kinda slow... but I just need it to work right now.
 			proofset[*proof.Hash(t.hash)] = proof
 		}
-
 	}
 
 	if !finished && lastKey != nil {
@@ -56,7 +56,9 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 	return proofs, finished, nil
 }
 
-func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []ProofNode, hash hashFunc) (hasMore bool, valid bool, err error) {
+func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []ProofNode, hash hashFunc,
+	treeHeight uint8,
+) (hasMore, valid bool, oerr error) {
 	proofMap := map[felt.Felt]ProofNode{}
 	for _, proof := range proofs {
 		proofHash := proof.Hash(hash)
@@ -67,13 +69,13 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 		// Special case where the whole trie is sent in one go.
 		// We just need to completely reconstruct the trie.
 
-		tempTrie, err := newTrie(newMemStorage(), 251, hash) //nolint:gomnd
+		tempTrie, err := newTrie(newMemStorage(), treeHeight, hash)
 		if err != nil {
 			return false, false, err
 		}
 
 		for i, key := range keys {
-			_, err := tempTrie.Put(key, values[i])
+			_, err = tempTrie.Put(key, values[i])
 			if err != nil {
 				return false, false, err
 			}
@@ -97,22 +99,12 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 	}
 
 	proofKeys := map[felt.Felt]Key{}
-	err = buildKeys(NewKey(0, []byte{}), root, proofMap, proofKeys, 0)
+	err := buildKeys(NewKey(0, []byte{}), root, proofMap, proofKeys, 0)
 	if err != nil {
 		return false, false, err
 	}
 
-	// No idea how this work
-	/*
-		proofValuesArray := []*felt.Felt{}
-		proofKeysArray := []*Key{}
-		for f, key := range proofKeys {
-			proofValuesArray = append(proofValuesArray, &f)
-			proofKeysArray = append(proofKeysArray, &key)
-		}
-
-		VerifyRangeProof(root, keys, values, nil, nil, nil, hash)
-	*/
+	// TODO: Verify here proof here
 
 	hasMoreKeyCheck := startKey
 	if len(keys) > 0 {
@@ -120,7 +112,7 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 	}
 
 	feltBytes := hasMoreKeyCheck.Bytes()
-	hasMoreKeyCheckKey := NewKey(251, feltBytes[:])
+	hasMoreKeyCheckKey := NewKey(treeHeight, feltBytes[:])
 
 	// does this actually work on all case?
 	hasMore = false

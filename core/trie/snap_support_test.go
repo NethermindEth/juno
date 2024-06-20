@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const trieHeight = 251
+
 func TestRangeAndVerify(t *testing.T) {
 	scenarios := []struct {
 		name             string
@@ -96,7 +98,7 @@ func TestRangeAndVerify(t *testing.T) {
 			assert.NoError(t, err)
 
 			for i := 0; i < 10; i++ {
-				_, err := testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
+				_, err = testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
 				assert.NoError(t, err)
 			}
 
@@ -126,7 +128,7 @@ func TestRangeAndVerify(t *testing.T) {
 				assert.Empty(t, proofs)
 			}
 
-			hasMore, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen)
+			hasMore, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen, trieHeight)
 			assert.NoError(t, err)
 			assert.True(t, valid)
 
@@ -245,7 +247,7 @@ func TestRangeAndVerifyReject(t *testing.T) {
 			assert.NoError(t, err)
 
 			for i := 0; i < 10; i++ {
-				_, err := testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
+				_, err = testTrie.Put(numToFelt(i*100+1), numToFelt(i*100+2))
 				assert.NoError(t, err)
 			}
 
@@ -268,7 +270,7 @@ func TestRangeAndVerifyReject(t *testing.T) {
 
 			keys, values, proofs = scenario.mutator(keys, values, proofs)
 
-			_, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen)
+			_, valid, err := trie.VerifyRange(expectedRoot, startQuery, keys, values, proofs, crypto.Pedersen, trieHeight)
 			assert.NoError(t, err)
 			assert.False(t, valid)
 		})
