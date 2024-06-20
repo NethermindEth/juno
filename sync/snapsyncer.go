@@ -193,7 +193,7 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 }
 
 func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []trie.ProofNode, height uint8, hash func(*felt.Felt, *felt.Felt) *felt.Felt) (bool, error) {
-	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash)
+	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash, height)
 	if err != nil {
 		return false, err
 	}
