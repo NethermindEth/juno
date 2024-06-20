@@ -218,3 +218,56 @@ func Test_cmp(t *testing.T) {
 func numToKey(num int) trie.Key {
 	return trie.NewKey(8, []byte{byte(num)})
 }
+
+func TestKeyAppend(t *testing.T) {
+	tests := map[string]struct {
+		Key1        trie.Key
+		Key2        trie.Key
+		ExpectedKey trie.Key
+	}{
+		"no append": {
+			Key1:        trie.NewKey(1, []byte{0x01}),
+			Key2:        trie.NewKey(0, []byte{0x00}),
+			ExpectedKey: trie.NewKey(1, []byte{0x01}),
+		},
+		"from zero append": {
+			Key1:        trie.NewKey(0, []byte{0x00}),
+			Key2:        trie.NewKey(1, []byte{0x01}),
+			ExpectedKey: trie.NewKey(1, []byte{0x01}),
+		},
+		"append shift": {
+			Key1:        trie.NewKey(1, []byte{0x01}),
+			Key2:        trie.NewKey(7, []byte{0x00}),
+			ExpectedKey: trie.NewKey(8, []byte{0x80}),
+		},
+		"append to a new byte": {
+			Key1:        trie.NewKey(8, []byte{0xff}),
+			Key2:        trie.NewKey(1, []byte{0x01}),
+			ExpectedKey: trie.NewKey(9, []byte{0x01, 0xff}),
+		},
+		"append multi byte": {
+			Key1:        trie.NewKey(11, []byte{0x00, 0xff}),       //  000 1111 1111
+			Key2:        trie.NewKey(12, []byte{0x00, 0xff}),       // 0000 1111 1111
+			ExpectedKey: trie.NewKey(23, []byte{0x0f, 0xf0, 0xff}), //  000 1111 1111 0000 1111 1111
+		},
+	}
+
+	for desc, test := range tests {
+		t.Run(desc, func(t *testing.T) {
+			appended := test.Key1.Append(&test.Key2)
+			assert.Equal(t, test.ExpectedKey, appended)
+		})
+	}
+}
+
+func TestKeyAppendBit(t *testing.T) {
+	k1 := trie.NewKey(1, []byte{0x01})
+	k2 := k1.AppendBit(true)
+	expected := trie.NewKey(2, []byte{0x03})
+	assert.Equal(t, k2, expected)
+
+	k1 = trie.NewKey(1, []byte{0x00})
+	k2 = k1.AppendBit(true)
+	expected = trie.NewKey(2, []byte{0x01})
+	assert.Equal(t, k2, expected)
+}
