@@ -8,7 +8,6 @@ use blockifier::state::state_api::{State, StateReader};
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey, EthAddress};
 use starknet_api::deprecated_contract_class::EntryPointType;
-// use starknet_api::hash::StarkFelt;
 use starknet_types_core::felt::Felt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};

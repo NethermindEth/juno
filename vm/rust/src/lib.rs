@@ -31,7 +31,6 @@ use starknet_api::{
     deprecated_contract_class::EntryPointType,
     transaction::Fee,
 };
-// use starknet_api::hash::StarkFelt;
 use starknet_types_core::felt::Felt;
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
@@ -437,7 +436,7 @@ lazy_static! {
         let mut m = HashMap::new();
         m.insert("0.13.0".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap());
         m.insert("0.13.1".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_1.json")).unwrap());
-        // todo add 0.13.2 ?
+        m.insert("0.13.1.1".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_1_1.json")).unwrap());
         m
     };
 }
