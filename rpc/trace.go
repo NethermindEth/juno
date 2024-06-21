@@ -264,7 +264,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	useBlobData := !v0_6Response
 	overallFees, dataGasConsumed, traces, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
-		false, false, useBlobData)
+		false, false, useBlobData, false) // todo add concurrenc_mode flag
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -385,7 +385,7 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, useBlobData)
+	}, state, h.bcReader.Network(), h.callMaxSteps, useBlobData, false) // todo change to flag
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)

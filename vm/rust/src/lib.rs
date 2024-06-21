@@ -40,8 +40,6 @@ use std::str::FromStr;
 
 type StarkFelt = Felt;
 
-const CONCURRENCY_MODE: bool = false;
-
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
@@ -82,6 +80,7 @@ pub extern "C" fn cairoVMCall(
     reader_handle: usize,
     chain_id: *const c_char,
     max_steps: c_ulonglong,
+    concurrency_mode: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
@@ -117,11 +116,12 @@ pub extern "C" fn cairoVMCall(
         initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
     };
 
+    let concurrency_mode = concurrency_mode == 1;
     let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
-            block_context: build_block_context(&mut state, &block_info, chain_id_str, Some(max_steps)),
+            block_context: build_block_context(&mut state, &block_info, chain_id_str, Some(max_steps), concurrency_mode),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
         false,
@@ -159,7 +159,8 @@ pub extern "C" fn cairoVMExecute(
     chain_id: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
-    err_on_revert: c_uchar
+    err_on_revert: c_uchar,
+    concurrency_mode: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
@@ -196,7 +197,8 @@ pub extern "C" fn cairoVMExecute(
     let mut state = CachedState::new(reader);
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
-    let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id_str, None);
+    let concurrency_mode = concurrency_mode == 1;
+    let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id_str, None, concurrency_mode);
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -387,6 +389,7 @@ fn build_block_context(
     block_info: &BlockInfo,
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
+    concurrency_mode: bool,
 ) -> BlockContext {
     let sequencer_addr =  StarkFelt::from_bytes_be(&block_info.sequencer_address);
     let gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.gas_price_wei);
@@ -425,7 +428,7 @@ fn build_block_context(
             eth_fee_token_address: ContractAddress::try_from(StarkHash::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
             strk_fee_token_address: ContractAddress::try_from(StarkHash::from_hex("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
         },
-    }, constants, CONCURRENCY_MODE).unwrap()
+    }, constants, concurrency_mode).unwrap()
 }
 
 

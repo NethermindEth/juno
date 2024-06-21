@@ -20,18 +20,19 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 }
 
 func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, useBlobData bool,
+	network *utils.Network, maxSteps uint64, useBlobData, concurrencyMode bool,
 ) ([]*felt.Felt, error) {
 	var ret []*felt.Felt
 	return ret, tvm.Do(func(vm *vm.VM) error {
 		var err error
-		ret, err = (*vm).Call(callInfo, blockInfo, state, network, maxSteps, useBlobData)
+		ret, err = (*vm).Call(callInfo, blockInfo, state, network, maxSteps, useBlobData, concurrencyMode)
 		return err
 	})
 }
 
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
-	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
+	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert,
+	useBlobData, concurrencyMode bool,
 ) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, error) {
 	var ret []*felt.Felt
 	var traces []vm.TransactionTrace
@@ -39,7 +40,7 @@ func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.
 	return ret, dataGasConsumed, traces, tvm.Do(func(vm *vm.VM) error {
 		var err error
 		ret, dataGasConsumed, traces, err = (*vm).Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network,
-			skipChargeFee, skipValidate, errOnRevert, useBlobData)
+			skipChargeFee, skipValidate, errOnRevert, useBlobData, concurrencyMode)
 		return err
 	})
 }

@@ -29,11 +29,12 @@ typedef struct BlockInfo {
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps);
+	unsigned long long max_steps, unsigned char concurrency_mode);
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
-					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert);
+					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
+					unsigned char concurrency_mode);
 
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
@@ -55,9 +56,11 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, useBlobData bool) ([]*felt.Felt, error) //nolint:lll
+	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+		maxSteps uint64, useBlobData, concurrencyMode bool) ([]*felt.Felt, error) //nolint:lll
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
+		concurrencyMode bool,
 	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error)
 }
 
@@ -210,7 +213,7 @@ func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, useBlobData bool,
+	network *utils.Network, maxSteps uint64, useBlobData, concurrencyMode bool,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -219,6 +222,11 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	}
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
+
+	var concurrencyModeByte byte
+	if concurrencyMode {
+		concurrencyModeByte = 1
+	}
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
@@ -229,6 +237,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		C.uintptr_t(handle),
 		chainID,
 		C.ulonglong(maxSteps), //nolint:gocritic
+		C.uchar(concurrencyModeByte),
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -243,7 +252,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
+	skipChargeFee, skipValidate, errOnRevert, useBlobData, concurrencyMode bool,
 ) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error) {
 	context := &callContext{
 		state: state,
@@ -281,6 +290,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		errOnRevertByte = 1
 	}
 
+	var concurrencyModeByte byte
+	if concurrencyMode {
+		concurrencyModeByte = 1
+	}
+
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
@@ -292,6 +306,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte), //nolint:gocritic
+		C.uchar(concurrencyModeByte),
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
