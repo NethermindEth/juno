@@ -2,7 +2,7 @@ use blockifier;
 use blockifier::execution::entry_point::CallType;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use cairo_vm::types::builtin_name::BuiltinName;
-use blockifier::state::cached_state::TransactionalState;
+use blockifier::state::cached_state::{TransactionalState, CommitmentStateDiff};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{State, StateReader};
 use serde::Serialize;
@@ -149,7 +149,7 @@ pub fn new_transaction_trace(
         }
     };
 
-    //trace.state_diff = make_state_diff(state, deprecated_declared_class)?;
+    trace.state_diff = make_state_diff(state, deprecated_declared_class)?;
     Ok(trace)
 }
 
@@ -296,28 +296,30 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 #[derive(Debug, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
-/*
+
 fn make_state_diff(
-    state: &mut TransactionalState<JunoStateReader>, // todo remove mut
+    state: &mut TransactionalState<CachedState<JunoStateReader>>, // todo remove mut
     deprecated_declared_class: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
-    let diff = state.to_state_diff().unwrap();// todo remove unwrap
+    let diff: CommitmentStateDiff  = state.to_state_diff().unwrap().into();// todo remove unwrap
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 
-    for pair in diff.class_hashes {
-        let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
+    for (addr, class_hash) in diff.address_to_class_hash {
+        let existing_class_hash = state.state.get_class_hash_at(addr)?;
+        let addr: StarkFelt = addr.into();
+
         if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
-                address: *pair.0.0.key(),
-                class_hash: pair.1.0,
+                address: addr,
+                class_hash: class_hash.0,
             });
         } else {
             #[rustfmt::skip]
             replaced_classes.push(ReplacedClass {
-                contract_address: *pair.0.0.key(),
-                class_hash: pair.1.0,
+                contract_address: addr,
+                class_hash: class_hash.0,
             });
         }
     }
@@ -337,7 +339,7 @@ fn make_state_diff(
             }).collect()
         }).collect(),
         #[rustfmt::skip]
-        declared_classes: diff.compiled_class_hashes.into_iter().map(| v | DeclaredClass {
+        declared_classes: diff.class_hash_to_compiled_class_hash.into_iter().map(| v | DeclaredClass {
             class_hash: v.0.0,
             compiled_class_hash: v.1.0,
         }).collect(),
@@ -350,4 +352,3 @@ fn make_state_diff(
         replaced_classes,
     })
 }
-*/

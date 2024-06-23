@@ -57,7 +57,7 @@ import (
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, useBlobData, concurrencyMode bool) ([]*felt.Felt, error) //nolint:lll
+		maxSteps uint64, useBlobData, concurrencyMode bool) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
 		concurrencyMode bool,
@@ -236,8 +236,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.ulonglong(maxSteps), //nolint:gocritic
-		C.uchar(concurrencyModeByte),
+		C.ulonglong(maxSteps),        //nolint:gocritic
+		C.uchar(concurrencyModeByte), //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -305,8 +305,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		chainID,
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
-		C.uchar(errOnRevertByte), //nolint:gocritic
-		C.uchar(concurrencyModeByte),
+		C.uchar(errOnRevertByte),     //nolint:gocritic
+		C.uchar(concurrencyModeByte), //nolint:gocritic
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
