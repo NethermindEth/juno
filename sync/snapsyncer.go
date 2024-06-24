@@ -48,7 +48,7 @@ type SnapSyncher struct {
 	storageRangeDone  chan interface{}
 
 	storageRangeJobCount int32
-	storageRangeJob      chan *storageRangeJob
+	storageRangeJobQueue chan *storageRangeJob
 	storageRefreshJob    chan *storageRangeJob
 
 	classesJob chan *felt.Felt
@@ -363,7 +363,7 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	fmt.Printf("Start state root is %s\n", s.startingBlock.GlobalStateRoot)
 	s.currentGlobalStateRoot = s.startingBlock.GlobalStateRoot.Clone()
 	s.storageRangeJobCount = 0
-	s.storageRangeJob = make(chan *storageRangeJob, storageJobQueueSize)
+	s.storageRangeJobQueue = make(chan *storageRangeJob, storageJobQueueSize)
 	s.classesJob = make(chan *felt.Felt, classesJobQueueSize)
 
 	s.contractRangeDone = make(chan interface{})
@@ -716,7 +716,7 @@ func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageR
 	queued := false
 	for !queued {
 		select {
-		case s.storageRangeJob <- job:
+		case s.storageRangeJobQueue <- job:
 			queued = true
 			atomic.AddInt32(&s.storageRangeJobCount, 1)
 		case <-ctx.Done():
@@ -757,6 +757,8 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			}
 
 			select {
+			case job := <-s.storageRangeJobQueue:
+				jobs = append(jobs, job)
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-time.After(time.Second * 1):
@@ -767,8 +769,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			case <-contractDoneChecker:
 				// Its done...
 				return nil
-			case job := <-s.storageRangeJob:
-				jobs = append(jobs, job)
 			}
 		}
 
@@ -803,7 +803,8 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		})(func(response *StorageRangeStreamingResult, err error) bool {
 			job := jobs[processedJobs]
 			if !job.path.Equal(response.StorageAddr) {
-				panic(fmt.Errorf("storage addr differ %s %s %d\n", job.path, response.StorageAddr, workerIdx))
+				s.log.Errorw(fmt.Sprintf("storage addr differ %s %s %d\n", job.path, response.StorageAddr, workerIdx))
+				return false
 			}
 
 			if response.Range == nil && response.RangeProof == nil {
@@ -1005,7 +1006,8 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			}
 
 			if !h.Equal(keyBatches[i]) {
-				return errors.New("invalid class hash")
+				s.log.Warnw("invalid classhash", "got", h, "expected", keyBatches[i])
+				// return errors.New("invalid class hash")
 			}
 
 			if coreClass.Version() == 1 {

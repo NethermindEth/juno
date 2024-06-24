@@ -167,6 +167,32 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 	return cStorage.Commit()
 }
 
+// UpdateStorage applies a change-set to the contract storage.
+func (c *ContractUpdater) UpdateStorageKV(diff []FeltKV, cb OnValueChanged) error {
+	cStorage, err := storage(c.Address, c.txn)
+	if err != nil {
+		return err
+	}
+
+	// apply the diff
+	for _, kv := range diff {
+		key := kv.Key
+		value := kv.Value
+		oldValue, pErr := cStorage.Put(key, value)
+		if pErr != nil {
+			return pErr
+		}
+
+		if oldValue != nil {
+			if err = cb(key, oldValue); err != nil {
+				return err
+			}
+		}
+	}
+
+	return cStorage.Commit()
+}
+
 func ContractStorage(addr, key *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 	cStorage, err := storage(addr, txn)
 	if err != nil {

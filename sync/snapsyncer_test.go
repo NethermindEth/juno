@@ -268,7 +268,7 @@ func TestSnapOfflineCopy(t *testing.T) {
 
 func TestSnapCopyTrie(t *testing.T) {
 	var d db.DB
-	d, err := pebble.New("/home/amirul/fastworkscratch3/juno_sepolia/juno-sepolia/", 128000000, 128, utils.NewNopZapLogger())
+	d, err := pebble.New("/home/amirul/fastworkscratch3/juno_db/juno_mainnet/", 1280, 128, utils.NewNopZapLogger())
 	assert.NoError(t, err)
 
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered

@@ -336,8 +336,14 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 	return nil
 }
 
+var triePut = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "juno_trie_put",
+	Help: "trie put",
+})
+
 // Put updates the corresponding `value` for a `key`
 func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
+	triePut.Inc()
 	if key.Cmp(t.maxKey) > 0 {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
