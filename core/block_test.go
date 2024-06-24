@@ -22,59 +22,11 @@ func TestBlockHash(t *testing.T) {
 		name   string
 	}{
 		{
-			// block 231579: goerli
-			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x40ffdbd9abbc4fc64652c50db94a29bce65c183316f304a95df624de708e746",
-			number: 231579,
-			chain:  utils.Goerli,
-			name:   "goerli network (post 0.7.0 with sequencer address)",
-		},
-		{
-			// block 156000: goerli
-			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=156000",
-			number: 156000,
-			chain:  utils.Goerli,
-			name:   "goerli network (post 0.7.0 without sequencer address)",
-		},
-		{
-			// block 1: goerli
-			// "https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=1",
-			number: 1,
-			chain:  utils.Goerli,
-			name:   "goerli network (pre 0.7.0 without sequencer address)",
-		},
-		{
 			// block 16789: mainnet
 			// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=16789"
 			number: 16789,
 			chain:  utils.Mainnet,
 			name:   "mainnet (post 0.7.0 with sequencer address)",
-		},
-		{
-			// block 1: integration
-			// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=1"
-			number: 1,
-			chain:  utils.Integration,
-			name:   "integration network (pre 0.7.0 without sequencer address)",
-		},
-		{
-			// block 119802: goerli
-			// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=119802
-			number: 119802,
-			chain:  utils.Goerli,
-			name:   "goerli network (post 0.7.0 without sequencer address)",
-		},
-		{
-			// block 10: goerli2
-			// https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=10
-			number: 10,
-			chain:  utils.Goerli2,
-			name:   "goerli2 network (post 0.7.0 with sequencer address)",
-		},
-		{
-			// https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=49
-			number: 49,
-			chain:  utils.Goerli2,
-			name:   "Block with multiple failed transaction hash",
 		},
 		{
 			// block 0: main
@@ -96,12 +48,6 @@ func TestBlockHash(t *testing.T) {
 			number: 16259,
 			chain:  utils.Mainnet,
 			name:   "Block 16259 with Deploy transaction version 0",
-		},
-		// https://alpha4.starknet.io/feeder_gateway/get_block?blockNumber=485004"
-		{
-			number: 485004,
-			chain:  utils.Goerli,
-			name:   "Block 485004 with Deploy transaction version 1",
 		},
 		// "https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=8"
 		{
@@ -145,30 +91,6 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.Mainnet,
 			name:   "Block 192 with Failing l1 handler transaction version 1",
 		},
-		// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=283364"
-		{
-			number: 283364,
-			chain:  utils.Integration,
-			name:   "Block 283364 with Declare v2",
-		},
-		// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=286310"
-		{
-			number: 286310,
-			chain:  utils.Integration,
-			name:   "Block 286310 with version 0.11.1",
-		},
-		// "https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=110238"
-		{
-			number: 110238,
-			chain:  utils.Goerli2,
-			name:   "Block 110238 with version 0.11.1",
-		},
-		// https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=330363
-		{
-			number: 330363,
-			chain:  utils.Integration,
-			name:   "Block 330363 with version 0.13.1",
-		},
 	}
 
 	for _, testcase := range tests {
@@ -205,12 +127,12 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Goerli)
-		goerliGW := adaptfeeder.New(client)
-		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
+		client := feeder.NewTestClient(t, &utils.Sepolia)
+		gw := adaptfeeder.New(client)
+		block, err := gw.BlockByNumber(context.Background(), 56377)
 		require.NoError(t, err)
 
-		commitments, err := core.VerifyBlockHash(block119802, &utils.Goerli)
+		commitments, err := core.VerifyBlockHash(block, &utils.Sepolia)
 		assert.NoError(t, err)
 		assert.NotNil(t, commitments)
 	})

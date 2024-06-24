@@ -114,16 +114,16 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("post v0.11.0", func(t *testing.T) {
-		integrationClient := feeder.NewTestClient(t, &utils.Integration)
-		integGw := adaptfeeder.New(integrationClient)
+		client := feeder.NewTestClient(t, &utils.Sepolia)
+		gw := adaptfeeder.New(client)
 
 		for name, height := range map[string]uint64{
-			"declared Cairo0 classes": 283746,
-			"declared Cairo1 classes": 283364,
-			"replaced classes":        283428,
+			"declared Cairo0 classes": 7,
+			"declared Cairo1 classes": 7,
+			"replaced classes":        6500,
 		} {
 			t.Run(name, func(t *testing.T) {
-				gwUpdate, err := integGw.StateUpdate(context.Background(), height)
+				gwUpdate, err := gw.StateUpdate(context.Background(), height)
 				require.NoError(t, err)
 
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)

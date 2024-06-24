@@ -104,21 +104,18 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
-	adapterGoerli := adaptfeeder.New(clientGoerli)
-
 	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		hash := utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1")
+		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := adapterGoerli.Transaction(ctx, hash)
+		txn, err := adapterMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		invokeTx, ok := txn.(*core.InvokeTransaction)
 		require.True(t, ok)
@@ -126,12 +123,12 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("deploy transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		hash := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
+		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := adapterGoerli.Transaction(ctx, hash)
+		txn, err := adapterMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		deployTx, ok := txn.(*core.DeployTransaction)
 		require.True(t, ok)
@@ -152,12 +149,12 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
-		response, err := clientGoerli.Transaction(ctx, hash)
+		hash := utils.HexToFelt(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
+		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 
-		txn, err := adapterGoerli.Transaction(ctx, hash)
+		txn, err := adapterMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		declareTx, ok := txn.(*core.DeclareTransaction)
 		require.True(t, ok)
@@ -179,7 +176,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 
 	tests := []struct {
@@ -187,12 +184,12 @@ func TestClassV1(t *testing.T) {
 		hasCompiledClass bool
 	}{
 		{
-			classHash:        utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5"),
+			classHash:        utils.HexToFelt(t, "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292"),
 			hasCompiledClass: true,
 		},
 		{
-			classHash:        utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c"),
-			hasCompiledClass: false,
+			classHash:        utils.HexToFelt(t, "0x21c2e8a87c431e8d3e89ecd1a40a0674ef533cce5a1f6c44ba9e60d804ecad2"),
+			hasCompiledClass: true,
 		},
 	}
 
@@ -222,15 +219,15 @@ func TestClassV1(t *testing.T) {
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
-	numbers := []uint64{0, 78541}
+	numbers := []uint64{0, 7320, 19199}
 
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
-		t.Run("integration block number "+numberStr, func(t *testing.T) {
+		t.Run("block number "+numberStr, func(t *testing.T) {
 			response, err := client.StateUpdateWithBlock(ctx, numberStr)
 			require.NoError(t, err)
 			sig, err := client.Signature(ctx, numberStr)
@@ -248,7 +245,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 

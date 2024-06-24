@@ -48,7 +48,7 @@ func TestNewNode(t *testing.T) {
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
-	network := utils.Integration
+	network := utils.Mainnet
 	tests := map[string]struct {
 		network   utils.Network
 		errString string
@@ -58,7 +58,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			errString: "",
 		},
 		"different network": {
-			network:   utils.Mainnet,
+			network:   utils.Sepolia,
 			errString: "unable to verify latest block hash; are the database and --network option compatible?",
 		},
 	}
