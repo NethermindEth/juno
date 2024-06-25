@@ -184,11 +184,11 @@ func (k *Key) AppendBitMut(flag bool) {
 	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]
 	bitIdx := bit % 8
 
-	// I'm sure someone will make this nicer
+	mask := uint8(1<<bitIdx)
 	if flag {
-		byteAtIdx |= LSB << bitIdx
+		byteAtIdx |= mask  // set bit
 	} else {
-		byteAtIdx &= ^(LSB << bitIdx)
+		byteAtIdx &= ^mask  // clear bit
 	}
 
 	k.len++
