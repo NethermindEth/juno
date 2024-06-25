@@ -40,7 +40,7 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
-    GetClassesTrie() (*trie.Trie, func() error, error)
+	GetClassesTrie() (*trie.Trie, func() error, error)
 }
 
 func (s *State) GetClassesTrie() (*trie.Trie, func() error, error) {

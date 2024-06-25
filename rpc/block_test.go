@@ -21,7 +21,7 @@ import (
 )
 
 func TestBlockWithTxsAndReceipts(t *testing.T) {
-    errTests := map[string]rpc.BlockID{
+	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
 		"pending": {Pending: true},
 		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
@@ -48,9 +48,8 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
-    t.Run("Receipts - transaction not found", func(t *testing.T) {
+	t.Run("Receipts - transaction not found", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
-
 		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(nil, db.ErrKeyNotFound)
 
 		resp, rpcErr := handler.BlockWithTxsAndReceipts(blockID)
@@ -185,7 +184,7 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxsAndReceipts)
 	})
 
-    t.Run("Receipts - pending block", func(t *testing.T) {
+	t.Run("Receipts - pending block", func(t *testing.T) {
 		t.Skip()
 		block0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
@@ -201,11 +200,11 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
         var transactions []*rpc.Transaction
         var receipts []*rpc.TransactionReceipt
         for i, tx := range block0.Transactions {
-            adaptedReceipt := rpc.AdaptReceipt(block0.Receipts[i], tx, rpc.TxnAcceptedOnL2, nil, 0, true)
-            adaptedTx := rpc.AdaptTransaction(tx)
+			adaptedReceipt := rpc.AdaptReceipt(block0.Receipts[i], tx, rpc.TxnAcceptedOnL2, nil, 0, true)
+			adaptedTx := rpc.AdaptTransaction(tx)
 
-            transactions = append(transactions, adaptedTx)
-            receipts = append(receipts, adaptedReceipt)
+			transactions = append(transactions, adaptedTx)
+			receipts = append(receipts, adaptedReceipt)
         }
 
 		assert.Nil(t, rpcErr)
@@ -222,7 +221,7 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: transactions,
-            Receipts: receipts,
+			Receipts: receipts,
 		}, resp)
 	})
 
@@ -241,15 +240,15 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithTxsAndReceipts(blockID)
 		header := resp.BlockHeader
 
-        var transactions []*rpc.Transaction
-        var receipts []*rpc.TransactionReceipt
-        for i, tx := range block1.Transactions {
-            adaptedReceipt := rpc.AdaptReceipt(block1.Receipts[i], tx, rpc.TxnAcceptedOnL1, nil, 0, true)
-            adaptedTx := rpc.AdaptTransaction(tx)
+		var transactions []*rpc.Transaction
+		var receipts []*rpc.TransactionReceipt
+		for i, tx := range block1.Transactions {
+			adaptedReceipt := rpc.AdaptReceipt(block1.Receipts[i], tx, rpc.TxnAcceptedOnL1, nil, 0, true)
+			adaptedTx := rpc.AdaptTransaction(tx)
 
-            transactions = append(transactions, adaptedTx)
-            receipts = append(receipts, adaptedReceipt)
-        }
+			transactions = append(transactions, adaptedTx)
+			receipts = append(receipts, adaptedReceipt)
+		}
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpc.BlockWithTxsAndReceipts{
@@ -265,7 +264,7 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: transactions,
-            Receipts: receipts,
+			Receipts: receipts,
 		}, resp)
 	})
 }

@@ -3,7 +3,7 @@ package blockchain
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-    "github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie"
 )
 
 type Pending struct {

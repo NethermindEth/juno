@@ -71,7 +71,7 @@ type Synchronizer struct {
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
-    latestBlockHeight   uint64
+	latestBlockHeight   uint64
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -83,18 +83,18 @@ type Synchronizer struct {
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 	log utils.SimpleLogger, pendingPollInterval time.Duration, readOnlyBlockchain bool,
 ) *Synchronizer {
-    head, err := bc.Head()
-    latestBlockHeight := uint64(0)
-    if err == nil {
-        latestBlockHeight = head.Number + uint64(1)
-    }
+	head, err := bc.Head()
+	latestBlockHeight := uint64(0)
+	if err == nil {
+		latestBlockHeight = head.Number + uint64(1)
+	}
 
 	s := &Synchronizer{
 		blockchain:          bc,
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
-        latestBlockHeight:   latestBlockHeight,
+		latestBlockHeight:   latestBlockHeight,
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -111,7 +111,7 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
 	//s.syncBlocks(ctx)
-    s.syncBlocksFromFeederGateway(ctx)
+	s.syncBlocksFromFeederGateway(ctx)
 	return nil
 }
 

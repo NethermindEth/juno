@@ -198,12 +198,12 @@ func (h *Handler) NodesFromRoot(key felt.Felt) ([]map[string]string, *jsonrpc.Er
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
-        {
-            Name: "juno_getBlockWithTxsAndReceipts",
+		{
+			Name: "juno_getBlockWithTxsAndReceipts",
 			Params: []jsonrpc.Parameter{{Name: "block_id"}},
-            Handler: h.BlockWithTxsAndReceipts,
-        },
-        {
+			Handler: h.BlockWithTxsAndReceipts,
+		},
+		{
 			Name:    "juno_getNodesFromRoot",
 			Params:  []jsonrpc.Parameter{{Name: "key"}},
 			Handler: h.NodesFromRoot,

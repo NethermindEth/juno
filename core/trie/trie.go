@@ -97,7 +97,7 @@ func (t *Trie) ConvertFeltToKey(key *felt.Felt) Key {
 }
 
 func (t *Trie) GetNodesFromRoot(key *Key) ([]storageNode, error) {
-    return t.nodesFromRoot(key)
+	return t.nodesFromRoot(key)
 }
 
 func (t *Trie) ParseNodes(nodes []storageNode) ([]map[string]string, error) {
