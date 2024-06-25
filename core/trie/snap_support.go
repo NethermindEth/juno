@@ -86,11 +86,9 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 			return false, false, err
 		}
 
-		if !root.Equal(recalculatedRoot) {
-			return false, false, nil
-		}
+		rootMatched := root.Equal(recalculatedRoot)
 
-		return false, true, nil
+		return false, rootMatched, nil
 	}
 
 	if _, ok := proofMap[*root]; !ok {
