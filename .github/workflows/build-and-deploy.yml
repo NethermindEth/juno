@@ -23,7 +23,7 @@ jobs:
       - name: Define docker image tag
         id: image_tag
         run: |
-          echo "DOCKER_IMAGE_TAG=nethermind.jfrog.io/angkor-docker-local-dev/juno:$(git describe --tags)" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE_TAG=https://nethermind.jfrog.io/angkor-docker-local-dev/juno:$(git describe --tags)" >> $GITHUB_ENV
           echo "IMAGE_TAG=$(git describe --tags)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Docker Buildx
@@ -31,7 +31,7 @@ jobs:
 
       - name: Login to Artifactory Docker registry
         run: |
-          docker login nethermind.jfrog.io -u antoni.tomaszuk@nethermind.io -p ${{ secrets.ARTIFACTORY_ANGKOR_CONTRIBUTOR }}
+          docker login https://nethermind.jfrog.io -u antoni.tomaszuk@nethermind.io -p ${{ secrets.ARTIFACTORY_ANGKOR_CONTRIBUTOR }}
       
       - name: Build and Push
         uses: docker/build-push-action@v5
@@ -78,7 +78,7 @@ jobs:
 
     - name: Copy image to staging artifactory
       run: |
-        jfrog rt cp "angkor-docker-local-dev/juno:${{ env.DOCKER_IMAGE_TAG }}" "angkor-docker-local-staging/juno:${{ env.DOCKER_IMAGE_TAG }}"
+        jfrog rt cp ${{ env.DOCKER_IMAGE_TAG }} "nethermind.jfrog.io/angkor-docker-local-staging/juno:${{ needs.docker_build_and_publish.outputs.IMAGE_TAG}}"
     
     - name: Verify Deployment Version (Staging)
       run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.docker_build_and_publish.outputs.IMAGE_TAG }}
