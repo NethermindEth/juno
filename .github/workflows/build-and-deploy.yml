@@ -75,12 +75,11 @@ jobs:
       
       - name: Tag Docker image
         run: |
-          jfrog docker tag juno:testing-tag angkor-docker-virtual-dev:v0.0.0
+          jfrog docker tag juno:testing-tag nethermind.jfrog.io/angkor-docker-virtual-dev:v0.0.0
 
       - name: Upload Docker image to dev artifactory
         run: |
-          jfrog docker push angkor-docker-virtual-dev:v0.0.0
-
+          jfrog docker push nethermind.jfrog.io/angkor-docker-virtual-dev:v0.0.0
 
   validate_dev:
     needs: [docker_build_and_publish]
