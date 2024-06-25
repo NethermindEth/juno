@@ -30,20 +30,18 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Build and Push
+      - name: Login to Artifactory Docker registry
+        run: |
+          docker login nethermind.jfrog.io -u antoni.tomaszuk@nethermind.io -p ${{ secrets.ARTIFACTORY_ANGKOR_CONTRIBUTOR }}
+
+      - name: Build and Push to Artifactory Docker
         uses: docker/build-push-action@v5
         with:
           context: .
           platforms: "linux/amd64"
           push: true
-          tags: nethermindeth/juno:${{ env.DOCKER_IMAGE_TAG }}
-    
+          tags: nethermind.jfrog.io/angkor-docker-local-dev/juno:${{ env.DOCKER_IMAGE_TAG }}
+
   deploy_to_dev:
     permissions:
       id-token: write
