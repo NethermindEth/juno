@@ -330,6 +330,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
 		},
+		{
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.JunoGetNodesFromRoot,
+		},
 	}, "/v0_7"
 }
 
@@ -483,5 +488,38 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
 		},
+		{
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.JunoGetNodesFromRoot,
+		},
 	}, "/v0_6"
+}
+
+func (h *Handler) JunoGetNodesFromRoot(key felt.Felt) (string, *jsonrpc.Error) {
+
+	stateReader, _, err := h.bcReader.HeadState()
+	if err != nil {
+		return "", jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	try, _, errTry := stateReader.GetGlobalTrie()
+	if errTry != nil {
+		return "", jsonrpc.Err(jsonrpc.InternalError, errTry.Error())
+	}
+
+	k := try.FeltToKeyConverter(&key)
+	storageNodes, err := try.GetNodesFromRoot(&k)
+	if err != nil {
+		return "", jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	parsedNodes := try.NodeParser(storageNodes)
+
+	jsonBytes, err := json.Marshal(parsedNodes)
+	if err != nil {
+		return "", jsonrpc.Err(jsonrpc.InvalidJSON, err.Error())
+	}
+
+	return string(jsonBytes), nil
 }
