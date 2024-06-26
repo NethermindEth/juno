@@ -33,7 +33,7 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
 			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", n, log)
+			handler := rpc.New(chain, nil, nil, "", log)
 
 			blockWithTxsAndReceipts, rpcErr := handler.BlockWithTxsAndReceipts(id)
 			assert.Nil(t, blockWithTxsAndReceipts)
@@ -46,7 +46,7 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	t.Run("Receipts - transaction not found", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
@@ -185,7 +185,6 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 	})
 
 	t.Run("Receipts - pending block", func(t *testing.T) {
-		t.Skip()
 		block0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
@@ -218,6 +217,8 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
 				L1GasPrice:       header.L1GasPrice,
+                L1DataGasPrice:   header.L1DataGasPrice,
+                L1DAMode:         header.L1DAMode,
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: transactions,
@@ -226,7 +227,6 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 	})
 
 	t.Run("Receipts - accepted L1 block", func(t *testing.T) {
-		t.Skip()
 		block1, err := gw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
 
@@ -261,6 +261,8 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
 				L1GasPrice:       header.L1GasPrice,
+                L1DataGasPrice:   header.L1DataGasPrice,
+                L1DAMode:         header.L1DAMode,
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: transactions,
