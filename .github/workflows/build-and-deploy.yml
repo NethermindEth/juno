@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  docker_build_and_publish:
+  build_docker_image:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,18 +20,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Define_docker_image_tag
+      - name: Define image tag
         run: |
           echo "DOCKER_IMAGE_TAG=$(git describe --tags)" >> $GITHUB_ENV
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Artifactory Docker registry
+      - name: Login to registry
         run: |
           docker login nethermind.jfrog.io -u antoni.tomaszuk@nethermind.io -p ${{ secrets.ARTIFACTORY_ANGKOR_CONTRIBUTOR }}
 
-      - name: Build and Push to Artifactory Docker
+      - name: Build and Push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -39,11 +39,11 @@ jobs:
           push: true
           tags: nethermind.jfrog.io/angkor-docker-local-dev/juno:${{ env.DOCKER_IMAGE_TAG }}
 
-  deploy_to_dev:
+  validate_dev:
     permissions:
       id-token: write
       contents: write
-    needs: [docker_build_and_publish]
+    needs: [build_docker_image]
     runs-on: ubuntu-latest
     environment:
       name: Development
@@ -68,21 +68,21 @@ jobs:
         run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ env.DOCKER_IMAGE_TAG }}
 
   dev-starknet-rs-tests:
-    needs: [deploy_to_dev]
+    needs: [validate_dev]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
       STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_6
 
   dev-starknet-js-tests:
-    needs: [deploy_to_dev]
+    needs: [validate_dev]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
-  deploy_to_staging:
-    needs: [docker_build_and_publish, deploy_to_dev]
+  promote_to_staging:
+    needs: [build_docker_image, validate_dev]
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -109,21 +109,21 @@ jobs:
         run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ env.DOCKER_IMAGE_TAG }}
 
   staging-starknet-rs-tests:
-    needs: [deploy_to_staging]
+    needs: [promote_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
       STARKNET_RPC: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_6
 
   staging-starknet-js-tests:
-    needs: [deploy_to_staging]
+    needs: [promote_to_staging]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_7
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
-  deploy_to_production:
-    needs: [docker_build_and_publish, deploy_to_staging]
+  promote_to_production:
+    needs: [build_docker_image, promote_to_staging]
     runs-on: ubuntu-latest
     environment:
       name: Production
@@ -144,13 +144,13 @@ jobs:
           -d '{"event_type": "${{ env.EVENT_NAME }}", "client_payload":{"name": "${{ env.EVENT_NAME }}", "mainnet_config": "${{ env.MAINNET }}", "sepolia_config": "${{ env.SEPOLIA }}", "sepolia_integration_config": "${{ env.SEPOLIA_INTEGRATION }}", "tag": "${{ env.DOCKER_IMAGE_TAG }}"}}'
 
   prod-starknet-rs-tests:
-    needs: [deploy_to_production]
+    needs: [promote_to_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
       STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_6
 
   prod-starknet-js-tests:
-    needs: [deploy_to_production]
+    needs: [promote_to_production]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
