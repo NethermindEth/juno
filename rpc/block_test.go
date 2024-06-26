@@ -20,6 +20,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+//nolint:dupl
 func TestBlockWithTxsAndReceipts(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
@@ -196,15 +197,15 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithTxsAndReceipts(blockID)
 		header := resp.BlockHeader
 
-        var transactions []*rpc.Transaction
-        var receipts []*rpc.TransactionReceipt
-        for i, tx := range block0.Transactions {
+		var transactions []*rpc.Transaction
+		var receipts []*rpc.TransactionReceipt
+		for i, tx := range block0.Transactions {
 			adaptedReceipt := rpc.AdaptReceipt(block0.Receipts[i], tx, rpc.TxnAcceptedOnL2, nil, 0, true)
 			adaptedTx := rpc.AdaptTransaction(tx)
 
 			transactions = append(transactions, adaptedTx)
 			receipts = append(receipts, adaptedReceipt)
-        }
+		}
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpc.BlockWithTxsAndReceipts{
@@ -217,12 +218,12 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
 				L1GasPrice:       header.L1GasPrice,
-                L1DataGasPrice:   header.L1DataGasPrice,
-                L1DAMode:         header.L1DAMode,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				L1DAMode:         header.L1DAMode,
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: transactions,
-			Receipts: receipts,
+			Receipts:     receipts,
 		}, resp)
 	})
 
@@ -261,12 +262,12 @@ func TestBlockWithTxsAndReceipts(t *testing.T) {
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
 				L1GasPrice:       header.L1GasPrice,
-                L1DataGasPrice:   header.L1DataGasPrice,
-                L1DAMode:         header.L1DAMode,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				L1DAMode:         header.L1DAMode,
 				StarknetVersion:  header.StarknetVersion,
 			},
 			Transactions: transactions,
-			Receipts: receipts,
+			Receipts:     receipts,
 		}, resp)
 	})
 }
@@ -597,6 +598,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func TestBlockWithTxs(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
@@ -805,6 +807,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	}, got)
 }
 
+//nolint:dupl
 func TestBlockWithReceipts(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

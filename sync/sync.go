@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"runtime"
+	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -20,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/sourcegraph/conc/stream"
 )
 
 var (
@@ -72,12 +71,10 @@ type Synchronizer struct {
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
 	latestBlockHeight   uint64
-
-	log      utils.SimpleLogger
-	listener EventListener
-
+	log                 utils.SimpleLogger
+	listener            EventListener
 	pendingPollInterval time.Duration
-	catchUpMode         bool
+	timeoutDuration     time.Duration
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -98,6 +95,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
+		timeoutDuration:     10 * time.Second,
 	}
 	return s
 }
@@ -110,188 +108,227 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	//s.syncBlocks(ctx)
 	s.syncBlocksFromFeederGateway(ctx)
 	return nil
 }
 
 func (s *Synchronizer) syncBlocksFromFeederGateway(syncCtx context.Context) {
-    streamCtx, streamCancel := context.WithCancel(syncCtx)
-    for {
-        select {
-        case <- streamCtx.Done():
-            streamCancel()
-            return
-        default:
-            s.log.Infow("Fetching from feeder gateway")
-            block, stateUpdate, blockCommitments := s.getBlockDetails(s.latestBlockHeight)
-            newClasses, err := s.fetchUnknownClasses(syncCtx, &stateUpdate)
-            if err != nil {
-                s.log.Errorw("Error fetching unknown classes: %v", err)
-            }
-            err = s.blockchain.Store(&block, &blockCommitments, &stateUpdate, newClasses)
-            if err != nil {
-                s.log.Errorw("Error storing block: %v", err)
-            } else {
-                s.log.Infow("Stored Block", "number", block.Number, "hash", block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
-            }
-            s.latestBlockHeight += 1
-        }
-    }
+	streamCtx, streamCancel := context.WithCancel(syncCtx)
+	for {
+		select {
+		case <-streamCtx.Done():
+			streamCancel()
+			return
+		default:
+			s.log.Infow("Fetching from feeder gateway")
+			block, stateUpdate, blockCommitments := s.getBlockDetails(s.latestBlockHeight)
+			newClasses, err := s.fetchUnknownClasses(syncCtx, &stateUpdate)
+			if err != nil {
+				s.log.Errorw("Error fetching unknown classes: %v", err)
+			}
+			err = s.blockchain.Store(&block, &blockCommitments, &stateUpdate, newClasses)
+			if err != nil {
+				s.log.Errorw("Error storing block: %v", err)
+			} else {
+				s.log.Infow("Stored Block", "number", block.Number, "hash",
+					block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			}
+			s.latestBlockHeight += 1
+		}
+	}
 }
 
 func (s *Synchronizer) getBlockDetails(blockNumber uint64) (core.Block, core.StateUpdate, core.BlockCommitments) {
-    block, blockCommitments := s.getBlockFromFeederGateway(blockNumber)
-    stateUpdate := s.getStateUpdateFromFeederGateway(blockNumber)
-    return block, stateUpdate, blockCommitments
+	block, blockCommitments := s.getBlockFromFeederGateway(blockNumber)
+	stateUpdate := s.getStateUpdateFromFeederGateway(blockNumber)
+	return block, stateUpdate, blockCommitments
+}
+
+//nolint:dupl
+func (s *Synchronizer) constructBlock(blockNumber uint64) (starknet.Block, error) {
+	blockURL := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=%d", blockNumber)
+	parsedBlockURL, err := url.Parse(blockURL)
+	if err != nil {
+		return starknet.Block{}, fmt.Errorf("invalid URL: %v", err)
+	}
+
+	// Create a context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeoutDuration)
+	defer cancel()
+
+	// Create a new request with context
+	req, err := http.NewRequestWithContext(ctx, "GET", parsedBlockURL.String(), http.NoBody)
+	if err != nil {
+		return starknet.Block{}, fmt.Errorf("error creating request: %v", err)
+	}
+
+	client := &http.Client{}
+	blockResponse, err := client.Do(req)
+	if err != nil {
+		return starknet.Block{}, fmt.Errorf("error getting response: %v", err)
+	}
+	defer blockResponse.Body.Close()
+
+	var block starknet.Block
+	if blockResponse.StatusCode == http.StatusOK {
+		decoder := json.NewDecoder(blockResponse.Body)
+		if errDecode := decoder.Decode(&block); errDecode != nil {
+			return starknet.Block{}, fmt.Errorf("failed to decode response: %v", errDecode)
+		}
+	} else {
+		return starknet.Block{}, fmt.Errorf("received non-OK HTTP status: %v", blockResponse.Status)
+	}
+
+	return block, nil
+}
+
+//nolint:dupl
+func (s *Synchronizer) constructSignature(blockNumber uint64) (starknet.Signature, error) {
+	signatureURL := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_signature?blockNumber=%d", blockNumber)
+	parsedSignatureURL, err := url.Parse(signatureURL)
+	if err != nil {
+		return starknet.Signature{}, fmt.Errorf("invalid URL: %v", err)
+	}
+
+	// Create a context with the timeout duration
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeoutDuration)
+	defer cancel()
+
+	// Create a new request with context
+	req, err := http.NewRequestWithContext(ctx, "GET", parsedSignatureURL.String(), http.NoBody)
+	if err != nil {
+		return starknet.Signature{}, fmt.Errorf("error creating request: %v", err)
+	}
+
+	client := &http.Client{}
+	signatureResponse, err := client.Do(req)
+	if err != nil {
+		return starknet.Signature{}, fmt.Errorf("error getting response: %v", err)
+	}
+	defer signatureResponse.Body.Close()
+
+	var signature starknet.Signature
+	if signatureResponse.StatusCode == http.StatusOK {
+		decoder := json.NewDecoder(signatureResponse.Body)
+		if err := decoder.Decode(&signature); err != nil {
+			return starknet.Signature{}, fmt.Errorf("failed to decode response: %v", err)
+		}
+	} else {
+		return starknet.Signature{}, fmt.Errorf("received non-OK HTTP status: %v", signatureResponse.Status)
+	}
+
+	return signature, nil
 }
 
 func (s *Synchronizer) getBlockFromFeederGateway(blockNumber uint64) (core.Block, core.BlockCommitments) {
-    blockUrl := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_block?blockNumber=%d", blockNumber)
-    blockResponse, err := http.Get(blockUrl)
-    if err != nil {
-        s.log.Errorw("Error getting response: %v", err)
-        return core.Block{}, core.BlockCommitments{}
-    }
-    defer blockResponse.Body.Close()
+	block, blockErr := s.constructBlock(blockNumber)
+	if blockErr != nil {
+		s.log.Errorw(blockErr.Error())
+		return core.Block{}, core.BlockCommitments{}
+	}
 
-    var block starknet.Block
-    if blockResponse.StatusCode == http.StatusOK {
-        decoder := json.NewDecoder(blockResponse.Body)
-        if err := decoder.Decode(&block); err != nil {
-            s.log.Errorw("Failed to decode response: %v", err)
-            return core.Block{}, core.BlockCommitments{}
-        }
-    } else {
-        s.log.Warnw("Received non-OK HTTP status: %v", blockResponse.Status)
-        return core.Block{}, core.BlockCommitments{}
-    }
+	signature, signatureErr := s.constructSignature(blockNumber)
+	if signatureErr != nil {
+		s.log.Errorw(signatureErr.Error())
+		return core.Block{}, core.BlockCommitments{}
+	}
 
-    signatureUrl := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_signature?blockNumber=%d", block.Number)
-    signatureResponse, err := http.Get(signatureUrl)
-    if err != nil {
-        s.log.Errorw("Error getting response: %v", err)
-        return core.Block{}, core.BlockCommitments{}
-    }
-    defer signatureResponse.Body.Close()
+	var adaptedTransactions []core.Transaction
+	for _, transaction := range block.Transactions {
+		adaptedTransaction, err := sn2core.AdaptTransaction(transaction)
+		if err != nil {
+			s.log.Errorw("Error adapting starknet type to core type: %v", err)
+			return core.Block{}, core.BlockCommitments{}
+		}
+		adaptedTransactions = append(adaptedTransactions, adaptedTransaction)
+	}
 
-    var signature starknet.Signature
-    if signatureResponse.StatusCode == http.StatusOK {
-        decoder := json.NewDecoder(signatureResponse.Body)
-        if err := decoder.Decode(&signature); err != nil {
-            s.log.Errorw("Failed to decode response: %v", err)
-            return core.Block{}, core.BlockCommitments{}
-        }
-    } else {
-        s.log.Warnw("Received non-OK HTTP status: %v", signatureResponse.Status)
-        return core.Block{}, core.BlockCommitments{}
-    }
+	var eventCount uint64
+	var adaptedTransactionReceipts []*core.TransactionReceipt
+	for _, receipt := range block.Receipts {
+		eventCount += uint64(len(receipt.Events))
+		adaptedTransactionReceipt := sn2core.AdaptTransactionReceipt(receipt)
+		adaptedTransactionReceipts = append(adaptedTransactionReceipts, adaptedTransactionReceipt)
+	}
 
-    var adaptedTransactions []core.Transaction
-    for _, transaction := range block.Transactions {
-        adaptedTransaction, err := sn2core.AdaptTransaction(transaction)
-        if err != nil {
-            s.log.Errorw("Error adapting starknet type to core type: %v", err)
-            return core.Block{}, core.BlockCommitments{}
-        }
-        adaptedTransactions = append(adaptedTransactions, adaptedTransaction)
-    }
+	signatures := [][]*felt.Felt{}
+	signatures = append(signatures, signature.Signature)
 
-    var eventCount uint64
-    var adaptedTransactionReceipts []*core.TransactionReceipt
-    for _, receipt := range block.Receipts {
-        eventCount += uint64(len(receipt.Events))
-        adaptedTransactionReceipt := sn2core.AdaptTransactionReceipt(receipt)
-        adaptedTransactionReceipts = append(adaptedTransactionReceipts, adaptedTransactionReceipt)
-    }
+	header := &core.Header{
+		Hash:             block.Hash,
+		ParentHash:       block.ParentHash,
+		Number:           block.Number,
+		GlobalStateRoot:  block.StateRoot,
+		SequencerAddress: block.SequencerAddress,
+		TransactionCount: uint64(len(block.Transactions)),
+		EventCount:       eventCount,
+		Timestamp:        block.Timestamp,
+		ProtocolVersion:  block.Version,
+		EventsBloom:      core.EventsBloom(adaptedTransactionReceipts),
+		GasPrice:         block.GasPriceETH(),
+		Signatures:       signatures,
+		GasPriceSTRK:     block.GasPriceSTRK(),
+		L1DAMode:         core.L1DAMode(block.L1DAMode),
+		L1DataGasPrice:   (*core.GasPrice)(block.L1DataGasPrice),
+	}
 
-    signatures := [][]*felt.Felt{}
-    signatures = append(signatures, signature.Signature)
-
-    header := &core.Header{
-        Hash:               block.Hash,
-        ParentHash:         block.ParentHash,
-        Number:             block.Number,
-        GlobalStateRoot:    block.StateRoot,
-        SequencerAddress:   block.SequencerAddress,
-        TransactionCount:   uint64(len(block.Transactions)),
-        EventCount:         eventCount,
-        Timestamp:          block.Timestamp,
-        ProtocolVersion:    block.Version,
-        EventsBloom:        core.EventsBloom(adaptedTransactionReceipts),
-        GasPrice:           block.GasPriceETH(),
-        Signatures:         signatures,
-        GasPriceSTRK:       block.GasPriceSTRK(),
-        L1DAMode:           core.L1DAMode(block.L1DAMode),
-        L1DataGasPrice:     (*core.GasPrice)(block.L1DataGasPrice),
-    }
-
-    return core.Block{
-        Header:         header,
-        Transactions:   adaptedTransactions,
-        Receipts:       adaptedTransactionReceipts,
-    },
-    core.BlockCommitments{
-        TransactionCommitment: block.TransactionCommitment,
-        EventCommitment:        block.EventCommitment,
-    }
+	return core.Block{
+			Header:       header,
+			Transactions: adaptedTransactions,
+			Receipts:     adaptedTransactionReceipts,
+		},
+		core.BlockCommitments{
+			TransactionCommitment: block.TransactionCommitment,
+			EventCommitment:       block.EventCommitment,
+		}
 }
 
 func (s *Synchronizer) getStateUpdateFromFeederGateway(blockNumber uint64) core.StateUpdate {
-    stateUpdateUrl := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_state_update?blockNumber=%d", blockNumber)
-    stateUpdateResponse, err := http.Get(stateUpdateUrl)
-    if err != nil {
-        s.log.Errorw("Error getting response: %v", err)
-        return core.StateUpdate{}
-    }
-    defer stateUpdateResponse.Body.Close()
-
-    var stateUpdate starknet.StateUpdate
-    if stateUpdateResponse.StatusCode == http.StatusOK {
-        decoder := json.NewDecoder(stateUpdateResponse.Body)
-        if err := decoder.Decode(&stateUpdate); err != nil {
-            s.log.Errorw("Failed to decode response: %v", err)
-            return core.StateUpdate{}
-        }
-    } else {
-        s.log.Warnw("Received non-OK HTTP status: %v", stateUpdateResponse.Status)
-        return core.StateUpdate{}
-    }
-
-    adaptedStateUpdate, err := sn2core.AdaptStateUpdate(&stateUpdate)
-    if err != nil {
-        s.log.Errorw("Error adapting starknet type to core type: %v", err)
-        return core.StateUpdate{}
-    }
-
-    return *adaptedStateUpdate
-}
-
-func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
-	resetStreams context.CancelFunc,
-) stream.Callback {
-	for {
-		select {
-		case <-ctx.Done():
-			return func() {}
-		default:
-			stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, height)
-			if err != nil {
-				continue
-			}
-
-			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
-			if err != nil {
-				continue
-			}
-
-			return func() {
-				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, block, stateUpdate, newClasses, resetStreams)
-				})
-			}
-		}
+	stateUpdateURL := fmt.Sprintf("https://alpha-mainnet.starknet.io/feeder_gateway/get_state_update?blockNumber=%d", blockNumber)
+	parsedStateUpdateURL, err := url.Parse(stateUpdateURL)
+	if err != nil {
+		s.log.Errorw("Invalid URL: %v", err)
+		return core.StateUpdate{}
 	}
+
+	// Create a context with the timeout duration
+	ctx, cancel := context.WithTimeout(context.Background(), s.timeoutDuration)
+	defer cancel()
+
+	// Create a new request with context
+	req, err := http.NewRequestWithContext(ctx, "GET", parsedStateUpdateURL.String(), http.NoBody)
+	if err != nil {
+		s.log.Errorw("Error creating request: %v", err)
+		return core.StateUpdate{}
+	}
+
+	client := &http.Client{}
+	stateUpdateResponse, err := client.Do(req)
+	if err != nil {
+		s.log.Errorw("Error getting response: %v", err)
+		return core.StateUpdate{}
+	}
+	defer stateUpdateResponse.Body.Close()
+
+	var stateUpdate starknet.StateUpdate
+	if stateUpdateResponse.StatusCode == http.StatusOK {
+		decoder := json.NewDecoder(stateUpdateResponse.Body)
+		if errDecode := decoder.Decode(&stateUpdate); errDecode != nil {
+			s.log.Errorw("Failed to decode response: %v", errDecode)
+			return core.StateUpdate{}
+		}
+	} else {
+		s.log.Warnw("Received non-OK HTTP status: %v", stateUpdateResponse.Status)
+		return core.StateUpdate{}
+	}
+
+	adaptedStateUpdate, err := sn2core.AdaptStateUpdate(&stateUpdate)
+	if err != nil {
+		s.log.Errorw("Error adapting starknet type to core type: %v", err)
+		return core.StateUpdate{}
+	}
+
+	return *adaptedStateUpdate
 }
 
 func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
@@ -344,253 +381,6 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 	}
 
 	return newClasses, closer()
-}
-
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
-) stream.Callback {
-	verifyTimer := time.Now()
-	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	if err == nil {
-		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
-	}
-	return func() {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
-				resetStreams()
-				return
-			}
-			storeTimer := time.Now()
-			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			if err != nil {
-				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
-					// revert the head and restart the sync process, hoping that the reorg is not deep
-					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
-					// blocks
-					s.revertHead(block)
-				} else {
-					s.log.Warnw("Failed storing Block", "number", block.Number,
-						"hash", block.Hash.ShortString(), "err", err)
-				}
-				resetStreams()
-				return
-			}
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
-
-			highestBlockHeader := s.highestBlockHeader.Load()
-			if highestBlockHeader != nil {
-				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
-				if s.catchUpMode != isBehind {
-					resetStreams()
-				}
-				s.catchUpMode = isBehind
-			}
-
-			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
-				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
-			}
-
-			s.newHeads.Send(block.Header)
-			s.log.Infow("Stored Block", "number", block.Number, "hash",
-				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
-		}
-	}
-}
-
-func (s *Synchronizer) nextHeight() uint64 {
-	nextHeight := uint64(0)
-	if h, err := s.blockchain.Height(); err == nil {
-		nextHeight = h + 1
-	}
-	return nextHeight
-}
-
-func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
-	defer func() {
-		s.startingBlockNumber = nil
-		s.highestBlockHeader.Store(nil)
-	}()
-
-	nextHeight := s.nextHeight()
-	startingHeight := nextHeight
-	s.startingBlockNumber = &startingHeight
-
-	latestSem := make(chan struct{}, 1)
-	if s.readOnlyBlockchain {
-		s.pollLatest(syncCtx, latestSem)
-		return
-	}
-
-	fetchers, verifiers := s.setupWorkers()
-	streamCtx, streamCancel := context.WithCancel(syncCtx)
-
-	go s.pollLatest(syncCtx, latestSem)
-	pendingSem := make(chan struct{}, 1)
-	go s.pollPending(syncCtx, pendingSem)
-
-	for {
-		select {
-		case <-streamCtx.Done():
-			streamCancel()
-			fetchers.Wait()
-			verifiers.Wait()
-
-			select {
-			case <-syncCtx.Done():
-				pendingSem <- struct{}{}
-				latestSem <- struct{}{}
-				return
-			default:
-				streamCtx, streamCancel = context.WithCancel(syncCtx)
-				nextHeight = s.nextHeight()
-				fetchers, verifiers = s.setupWorkers()
-				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
-			}
-		default:
-			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
-			fetchers.Go(func() stream.Callback {
-				fetchTimer := time.Now()
-				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
-				s.listener.OnSyncStepDone(OpFetch, curHeight, time.Since(fetchTimer))
-				return cb
-			})
-			nextHeight++
-		}
-	}
-}
-
-func maxWorkers() int {
-	m, mProcs := 16, runtime.GOMAXPROCS(0)
-	if mProcs > m {
-		return m
-	}
-	return mProcs
-}
-
-func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
-	numWorkers := 1
-	if s.catchUpMode {
-		numWorkers = maxWorkers()
-	}
-	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
-}
-
-func (s *Synchronizer) revertHead(forkBlock *core.Block) {
-	var localHead *felt.Felt
-	head, err := s.blockchain.HeadsHeader()
-	if err == nil {
-		localHead = head.Hash
-	}
-
-	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
-
-	err = s.blockchain.RevertHead()
-	if err != nil {
-		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
-	} else {
-		s.log.Infow("Reverted HEAD", "reverted", localHead)
-	}
-	s.listener.OnReorg(head.Number)
-}
-
-func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
-	if s.pendingPollInterval == time.Duration(0) {
-		return
-	}
-
-	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
-	for {
-		select {
-		case <-ctx.Done():
-			pendingPollTicker.Stop()
-			return
-		case <-pendingPollTicker.C:
-			select {
-			case sem <- struct{}{}:
-				go func() {
-					defer func() {
-						<-sem
-					}()
-					err := s.fetchAndStorePending(ctx)
-					if err != nil {
-						s.log.Debugw("Error while trying to poll pending block", "err", err)
-					}
-				}()
-			default:
-			}
-		}
-	}
-}
-
-func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
-	poll := func() {
-		select {
-		case sem <- struct{}{}:
-			go func() {
-				defer func() {
-					<-sem
-				}()
-				highestBlock, err := s.starknetData.BlockLatest(ctx)
-				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err)
-				} else {
-					s.highestBlockHeader.Store(highestBlock.Header)
-				}
-			}()
-		default:
-		}
-	}
-
-	ticker := time.NewTicker(time.Minute)
-	poll()
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			poll()
-		}
-	}
-}
-
-func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
-	highestBlockHeader := s.highestBlockHeader.Load()
-	if highestBlockHeader == nil {
-		return nil
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		return err
-	}
-
-	// not at the tip of the chain yet, no need to poll pending
-	if highestBlockHeader.Number > head.Number {
-		return nil
-	}
-
-	pendingStateUpdate, pendingBlock, err := s.starknetData.StateUpdatePendingWithBlock(ctx)
-	if err != nil {
-		return err
-	}
-
-	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
-	if err != nil {
-		return err
-	}
-
-	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
-	return s.blockchain.StorePending(&blockchain.Pending{
-		Block:       pendingBlock,
-		StateUpdate: pendingStateUpdate,
-		NewClasses:  newClasses,
-	})
 }
 
 func (s *Synchronizer) StartingBlockNumber() (uint64, error) {

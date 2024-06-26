@@ -101,15 +101,15 @@ func (t *Trie) GetNodesFromRoot(key *Key) ([]storageNode, error) {
 }
 
 func (t *Trie) ParseNodes(nodes []storageNode) ([]map[string]string, error) {
-    result := make([]map[string]string, len(nodes))
-    for i, node := range nodes {
-        result[i] = map[string]string{
-            "key":   fmt.Sprintf("%v", node.key),
-            "value": fmt.Sprintf("%v", node.node.Value),
-        }
-    }
+	result := make([]map[string]string, len(nodes))
+	for i, node := range nodes {
+		result[i] = map[string]string{
+			"key":   node.key.String(),
+			"value": node.node.Value.String(),
+		}
+	}
 
-    return result, nil
+	return result, nil
 }
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.

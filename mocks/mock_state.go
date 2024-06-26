@@ -14,6 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	trie "github.com/NethermindEth/juno/core/trie"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -158,4 +159,20 @@ func (m *MockStateHistoryReader) ContractStorageAt(arg0, arg1 *felt.Felt, arg2 u
 func (mr *MockStateHistoryReaderMockRecorder) ContractStorageAt(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageAt), arg0, arg1, arg2)
+}
+
+// GetClassesTrie mocks base method.
+func (m *MockStateHistoryReader) GetClassesTrie() (*trie.Trie, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClassesTrie")
+	ret0, _ := ret[0].(*trie.Trie)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetClassesTrie indicates an expected call of GetClassesTrie.
+func (mr *MockStateHistoryReaderMockRecorder) GetClassesTrie() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClassesTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).GetClassesTrie))
 }

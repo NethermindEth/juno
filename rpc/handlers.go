@@ -172,9 +172,9 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 }
 
 func (h *Handler) NodesFromRoot(key felt.Felt) ([]map[string]string, *jsonrpc.Error) {
-    stateReader, _, err := h.bcReader.HeadState()
+	stateReader, _, err := h.bcReader.HeadState()
 	if err != nil {
-	    return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
 	try, _, errTry := stateReader.GetClassesTrie()
@@ -188,19 +188,19 @@ func (h *Handler) NodesFromRoot(key felt.Felt) ([]map[string]string, *jsonrpc.Er
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
-    result, err := try.ParseNodes(storageNodes)
-    if err != nil {
-        return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-    }
+	result, err := try.ParseNodes(storageNodes)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
 
-    return result, nil
+	return result, nil
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
-			Name: "juno_getBlockWithTxsAndReceipts",
-			Params: []jsonrpc.Parameter{{Name: "block_id"}},
+			Name:    "juno_getBlockWithTxsAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithTxsAndReceipts,
 		},
 		{
