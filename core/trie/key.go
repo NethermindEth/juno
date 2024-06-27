@@ -178,7 +178,6 @@ func (k Key) alignedBitInt(height uint8) *big.Int {
 }
 
 func (k *Key) AppendBitMut(flag bool) {
-	const LSB = uint8(0x1)
 	bit := k.len
 	byteIdx := bit / 8
 	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]
