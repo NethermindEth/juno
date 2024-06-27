@@ -267,9 +267,9 @@ func (s *Synchronizer) getBlockFromFeederGateway(blockNumber uint64) (core.Block
 		EventsBloom:      core.EventsBloom(adaptedTransactionReceipts),
 		GasPrice:         block.GasPriceETH(),
 		Signatures:       signatures,
-		GasPriceSTRK:     block.GasPriceSTRK(),
+		GasPriceSTRK:     (*felt.Felt)(nil),
 		L1DAMode:         core.L1DAMode(block.L1DAMode),
-		L1DataGasPrice:   (*core.GasPrice)(block.L1DataGasPrice),
+		L1DataGasPrice:   (*core.GasPrice)(nil),
 	}
 
 	return core.Block{
