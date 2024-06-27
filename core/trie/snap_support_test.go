@@ -234,6 +234,13 @@ func TestRangeAndVerifyReject(t *testing.T) {
 				return keys, values, proofs
 			},
 		},
+		{
+			startQuery: numToFelt(10000),
+			name:       "queried after last key but give no proof",
+			mutator: func(keys, values []*felt.Felt, proofs []trie.ProofNode) ([]*felt.Felt, []*felt.Felt, []trie.ProofNode) {
+				return keys, values, nil
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {

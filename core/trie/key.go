@@ -168,13 +168,13 @@ func (k Key) CmpAligned(other *Key) int {
 }
 
 func (k Key) alignedBitInt(height uint8) *big.Int {
-	theint := &big.Int{}
-	theint = theint.SetBytes(k.bitset[:])
+	bigint := &big.Int{}
+	bigint = bigint.SetBytes(k.bitset[:])
 	if k.len < height {
-		theint = theint.Lsh(theint, uint(height-k.len))
+		bigint = bigint.Lsh(bigint, uint(height-k.len))
 	}
 
-	return theint
+	return bigint
 }
 
 func (k *Key) AppendBitMut(flag bool) {
@@ -184,11 +184,11 @@ func (k *Key) AppendBitMut(flag bool) {
 	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]
 	bitIdx := bit % 8
 
-	mask := uint8(1<<bitIdx)
+	mask := uint8(1 << bitIdx)
 	if flag {
-		byteAtIdx |= mask  // set bit
+		byteAtIdx |= mask // set bit
 	} else {
-		byteAtIdx &= ^mask  // clear bit
+		byteAtIdx &= ^mask // clear bit
 	}
 
 	k.len++

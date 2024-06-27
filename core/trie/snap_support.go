@@ -56,6 +56,9 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 	return proofs, finished, nil
 }
 
+// VerifyRange Verify range of keys and values given by IterateAndGenerateProof.
+// Also returns a flag to indicate if there are more leaf from the tree, inferred from the proof.
+// TODO: Actually verify proof in case when not the whole trie is sent.
 func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []ProofNode, hash hashFunc,
 	treeHeight uint8,
 ) (hasMore, valid bool, oerr error) {
@@ -96,25 +99,28 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 		return false, false, nil
 	}
 
-	proofKeys := map[felt.Felt]Key{}
-	err := buildKeys(NewKey(0, []byte{}), root, proofMap, proofKeys, 0)
+	proofPathKeys := map[felt.Felt]Key{}
+	err := buildKeys(NewKey(0, []byte{}), root, proofMap, proofPathKeys, 0)
 	if err != nil {
 		return false, false, err
 	}
 
 	// TODO: Verify here proof here
 
-	hasMoreKeyCheck := startKey
+	rightMostKey := startKey
+	if startKey == nil {
+		rightMostKey = &felt.Zero
+	}
 	if len(keys) > 0 {
-		hasMoreKeyCheck = keys[len(keys)-1]
+		rightMostKey = keys[len(keys)-1]
 	}
 
-	feltBytes := hasMoreKeyCheck.Bytes()
-	hasMoreKeyCheckKey := NewKey(treeHeight, feltBytes[:])
+	rightMostKeyBytes := rightMostKey.Bytes()
+	hasMoreKeyCheckKey := NewKey(treeHeight, rightMostKeyBytes[:])
 
 	// does this actually work on all case?
 	hasMore = false
-	for _, key := range proofKeys {
+	for _, key := range proofPathKeys {
 		comparison := key.CmpAligned(&hasMoreKeyCheckKey)
 		if comparison > 0 {
 			hasMore = true
@@ -124,6 +130,8 @@ func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []
 	return hasMore, true, nil
 }
 
+// buildKeys regenerate the keys for each proof into `keys`. The proof on its own does not have complete path, it only
+// points to its children by hash, which is given in `proofMap`.
 func buildKeys(currentKey Key, currentNode *felt.Felt, proofMap map[felt.Felt]ProofNode, keys map[felt.Felt]Key, depth int) error {
 	keys[*currentNode] = currentKey
 	proofNode, ok := proofMap[*currentNode]
