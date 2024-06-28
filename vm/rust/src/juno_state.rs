@@ -3,7 +3,7 @@ use std::{
     slice,
     sync::Mutex,
 };
-use std::collections::HashSet;
+use std::collections::{HashSet,HashMap};
 
 use blockifier::{
     execution::contract_class::{ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1},
@@ -78,11 +78,12 @@ static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
 pub struct JunoState {
     pub handle: usize, // uintptr_t equivalent
     pub height: u64,
+    visited_pcs: HashMap<ClassHash, HashSet<usize>>
 }
 
 impl JunoState {
     pub fn new(handle: usize, height: u64) -> Self {
-        Self { handle, height }
+        Self { handle, height ,visited_pcs: HashMap::new()}
     }
 }
 
@@ -206,6 +207,7 @@ impl StateReader for JunoState {
 }
 
 impl State for JunoState {
+    
     /// Sets the storage value under the given key in the given contract instance.
     fn set_storage_at(
         &mut self,
@@ -220,8 +222,11 @@ impl State for JunoState {
         result        
     }
 
-    fn add_visited_pcs(&mut self, _class_hash: ClassHash, _pcs: &HashSet<usize>){
-        todo!()
+    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>){
+        let entry = self.visited_pcs.entry(class_hash).or_insert_with(HashSet::new);
+        for pc in pcs {
+            entry.insert(*pc);
+        }
     }
 
     /// Increments the nonce of the given contract instance.
