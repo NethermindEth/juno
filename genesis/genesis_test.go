@@ -39,7 +39,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("valid   non-empty genesis config", func(t *testing.T) {
+	t.Run("valid    non-empty genesis config", func(t *testing.T) {
 		simpleStoreClassHash, err := new(felt.Felt).SetString("0x73b1d55a550a6b9073933817a40c22c4099aa5932694a85322dd5cefedbb467")
 		require.NoError(t, err)
 
@@ -53,7 +53,9 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NoError(t, err)
 
 
-		simpleStoreAddress, err := new(felt.Felt).SetString("0xdeadbeef") // token
+		// Todo: find a token contract, declare, deploy and mint some tokens for a user account/contract.
+
+		simpleStoreAddress, err := new(felt.Felt).SetString("0xdeadbeef") // This is not a token, but a simple variable we can increment.
 		require.NoError(t, err)
 
 		simpleAccountAddress, err := new(felt.Felt).SetString("0xdeadbeef123") // account
