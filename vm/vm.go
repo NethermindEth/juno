@@ -13,6 +13,7 @@ typedef struct CallInfo {
 	unsigned char entry_point_selector[FELT_SIZE];
 	unsigned char** calldata;
 	size_t len_calldata;
+	unsigned char caller_address[FELT_SIZE];
 } CallInfo;
 
 typedef struct BlockInfo {
@@ -174,6 +175,7 @@ type CallInfo struct {
 	ClassHash       *felt.Felt
 	Selector        *felt.Felt
 	Calldata        []felt.Felt
+	CallerAddress  *felt.Felt
 }
 
 type BlockInfo struct {
@@ -214,6 +216,7 @@ func makeCCallInfo(callInfo *CallInfo) (C.CallInfo, runtime.Pinner) {
 		pinner.Pin(&calldataPtrs[0])
 		cCallInfo.calldata = &calldataPtrs[0]
 	}
+	copyFeltIntoCArray(callInfo.CallerAddress, &cCallInfo.caller_address[0])
 	return cCallInfo, pinner
 }
 
