@@ -120,7 +120,7 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "failed_requests",
-	}, []string{"method", "version"})
+	}, []string{"method", "version", "error_code"})
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
@@ -128,7 +128,8 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 	}, []string{"method", "version"})
 	prometheus.MustRegister(requests, failedRequests, requestLatencies)
 
-	return &jsonrpc.SelectiveListener{
+	createListener := func(version string) *jsonrpc.SelectiveListener {
+		return &jsonrpc.SelectiveListener{
 			OnNewRequestCb: func(method string) {
 				requests.WithLabelValues(method, version).Inc()
 			},
@@ -136,19 +137,17 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 				requestLatencies.WithLabelValues(method, version).Observe(took.Seconds())
 			},
 			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, version).Inc()
-			},
-		}, &jsonrpc.SelectiveListener{
-			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, legacyVersion).Inc()
-			},
-			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, legacyVersion).Observe(took.Seconds())
-			},
-			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, legacyVersion).Inc()
+				var errorCode string
+				if rpcErr, ok := data.(*jsonrpc.Error); ok {
+					errorCode = strconv.Itoa(rpcErr.Code)
+				}
+
+				failedRequests.WithLabelValues(method, version, errorCode).Inc()
 			},
 		}
+	}
+
+	return createListener(version), createListener(legacyVersion)
 }
 
 func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {
