@@ -263,6 +263,7 @@ type InvokeTransaction struct {
 	// Additional information given by the sender, used to validate the transaction.
 	TransactionSignature []*felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction
+	// Available in version 1 only
 	MaxFee *felt.Felt
 	// The address of the contract invoked by this transaction.
 	ContractAddress *felt.Felt
@@ -313,6 +314,7 @@ type DeclareTransaction struct {
 	// The address of the account initiating the transaction.
 	SenderAddress *felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction.
+	// Available in versions 1, 2
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	TransactionSignature []*felt.Felt
@@ -411,6 +413,8 @@ func TransactionHash(transaction Transaction, n *utils.Network) (*felt.Felt, err
 	case *InvokeTransaction:
 		return invokeTransactionHash(t, n)
 	case *DeployTransaction:
+		// it's not always correct assumption because p2p peers do not provide this field
+		// so essentially we might return nil field for non-sepolia network and p2p sync
 		// deploy transactions are deprecated after re-genesis therefore we don't verify
 		// transaction hash
 		return t.TransactionHash, nil

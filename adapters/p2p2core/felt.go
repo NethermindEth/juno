@@ -29,3 +29,8 @@ func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 
 	return new(felt.Felt).SetBytes(v.GetElements())
 }
+
+func AdaptUint128(u *spec.Uint128) *felt.Felt {
+	// todo handle u128
+	return &felt.Zero
+}
