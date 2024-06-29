@@ -27,7 +27,7 @@ func getBuffer() *bytes.Buffer {
 	return buffer
 }
 
-// TransactionStorage is a database transaction on a trie.
+// Storage is a database transaction on a trie.
 type Storage struct {
 	txn    db.Transaction
 	prefix []byte
