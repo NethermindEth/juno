@@ -1,0 +1,18 @@
+{
+    "execution_status": "SUCCEEDED",
+    "finality_status": "ACCEPTED_ON_L1",
+    "status": "ACCEPTED_ON_L1",
+    "block_hash": "0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c",
+    "block_number": 0,
+    "transaction_index": 1,
+    "transaction": {
+        "transaction_hash": "0x32538718071ad83ccd09fca03fe3a17add776ec12002d1c4e16ad4b92ddf752",
+        "version": "0x0",
+        "max_fee": "0x0",
+        "signature": [],
+        "nonce": "0x0",
+        "class_hash": "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3",
+        "sender_address": "0x1",
+        "type": "DECLARE"
+    }
+}
