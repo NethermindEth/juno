@@ -9,7 +9,7 @@ require (
 	github.com/bits-and-blooms/bloom/v3 v3.6.0
 	github.com/cockroachdb/pebble v1.1.0
 	github.com/consensys/gnark-crypto v0.12.1
-	github.com/ethereum/go-ethereum v1.13.10
+	github.com/ethereum/go-ethereum v1.13.15
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/go-playground/validator/v10 v10.17.0
 	github.com/hashicorp/go-set/v2 v2.1.0
