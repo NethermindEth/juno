@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -224,4 +225,70 @@ func TestSubscribeNewHeads(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, want.Header, got)
 	sub.Unsubscribe()
+}
+
+func BenchmarkSync(b *testing.B) {
+	mockCtrl := gomock.NewController(b)
+	defer mockCtrl.Finish()
+
+	client := feeder.NewTestClient(b, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+	log := utils.NewNopZapLogger()
+
+	testDB := pebble.NewMemTest(b)
+	bc := blockchain.New(testDB, &utils.Sepolia)
+	b0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(b, err)
+	s0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(b, err)
+	require.NoError(b, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
+
+	synchronizer := sync.New(bc, gw, log, time.Duration(0), false)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		err := synchronizer.Run(ctx)
+		defer cancel()
+		if err != nil {
+			b.Error("failed to synchronize: ", err)
+		}
+	}
+}
+
+func BenchmarkRPC(b *testing.B) {
+	mockCtrl := gomock.NewController(b)
+	defer mockCtrl.Finish()
+
+	client := feeder.NewTestClient(b, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+	log := utils.NewNopZapLogger()
+
+	testDB := pebble.NewMemTest(b)
+	bc := blockchain.New(testDB, &utils.Sepolia)
+	b0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(b, err)
+	s0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(b, err)
+	require.NoError(b, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
+
+	synchronizer := sync.New(bc, gw, log, time.Duration(0), false)
+	handler := rpc.New(bc, synchronizer, nil, "", &utils.Mainnet, nil)
+
+	ctxSync, cancelSync := context.WithTimeout(context.Background(), timeout)
+	require.NoError(b, synchronizer.Run(ctxSync))
+	cancelSync()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_, err := handler.BlockTransactionCount(rpc.BlockID{Latest: true})
+
+		if err != nil {
+			b.Error("RPC call failed: ", err)
+		}
+	}
 }
