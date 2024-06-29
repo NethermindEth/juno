@@ -341,7 +341,7 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
-	*db.BufferedTransaction, error,
+	*db.BufferedTransactionWithAddress, error,
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
 	bufferedTxn := db.NewBufferedTransaction(s.txn)
@@ -362,7 +362,7 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 		return nil, err
 	}
 
-	return bufferedTxn, nil
+	return db.NewBufferedTransactionWithAddress(bufferedTxn, contractAddr), nil
 }
 
 // updateContractStorage applies the diff set to the Trie of the
@@ -400,12 +400,16 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	})
 
 	// update per-contract storage Tries concurrently
-	contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	contractUpdaters := pool.NewWithResults[*db.BufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
-		conractAddr := key
-		updateDiff := diffs[conractAddr]
-		contractUpdaters.Go(func() (*db.BufferedTransaction, error) {
-			return s.updateStorageBuffered(&conractAddr, updateDiff, blockNumber, logChanges)
+		contractAddr := key
+		updateDiff := diffs[contractAddr]
+		contractUpdaters.Go(func() (*db.BufferedTransactionWithAddress, error) {
+			result, err := s.updateStorageBuffered(&contractAddr, updateDiff, blockNumber, logChanges)
+			if err != nil {
+				return nil, err
+			}
+			return result, nil
 		})
 	}
 
@@ -414,11 +418,13 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		return err
 	}
 
+	sort.Slice(bufferedTxns, func(i, j int) bool {
+		return bufferedTxns[i].Address.Cmp(bufferedTxns[j].Address) < 0
+	})
+
 	// flush buffered txns
-	for _, bufferedTxn := range bufferedTxns {
-		if err = bufferedTxn.Flush(); err != nil {
-			return err
-		}
+	for _, bufferedTxnsSlice := range bufferedTxns {
+		bufferedTxnsSlice.Txn.Flush()
 	}
 
 	for addr := range diffs {
