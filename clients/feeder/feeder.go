@@ -21,7 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
+var (
+	ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
+	ErrBlockNotFound           = errors.New("block not found")
+)
 
 type Backoff func(wait time.Duration) time.Duration
 
@@ -254,7 +257,12 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
 				} else {
-					err = errors.New(res.Status)
+					if c.isBlockNotFoundError(res) {
+						err = ErrBlockNotFound
+						break
+					} else {
+						err = errors.New(res.Status)
+					}
 				}
 
 				res.Body.Close()
@@ -270,7 +278,23 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			c.log.Debugw("Failed query to feeder, retrying...", "req", req.URL.String(), "retryAfter", wait.String(), "err", err)
 		}
 	}
+
 	return nil, err
+}
+
+func (c *Client) isBlockNotFoundError(res *http.Response) bool {
+	var starknetError struct {
+		Code    string `json:"code"`
+		Message string `json:"message"` // not used for now
+	}
+
+	err := json.NewDecoder(res.Body).Decode(&starknetError)
+	if err != nil {
+		c.log.Errorw("Failed to read response body", "err", err)
+		return false
+	}
+
+	return starknetError.Code == "StarknetErrorCode.BLOCK_NOT_FOUND"
 }
 
 func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {

@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/clients/feeder"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -101,16 +103,23 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
-	resetStreams context.CancelFunc,
-) stream.Callback {
+func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream, resetStreams context.CancelFunc, deepReorg chan struct{}) stream.Callback {
+	emptyCallback := func() {}
+
 	for {
 		select {
 		case <-ctx.Done():
-			return func() {}
+			return emptyCallback
 		default:
 			stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, height)
 			if err != nil {
+				// in case block not found we should initiate deep reorg
+				if errors.Is(err, feeder.ErrBlockNotFound) {
+					resetStreams()
+					deepReorg <- struct{}{}
+					return emptyCallback
+				}
+
 				continue
 			}
 
@@ -266,6 +275,8 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	pendingSem := make(chan struct{}, 1)
 	go s.pollPending(syncCtx, pendingSem)
 
+	// rough marker that deep reorg in progress, todo replace with smth. else
+	deepReorg := make(chan struct{}, 1)
 	for {
 		select {
 		case <-streamCtx.Done():
@@ -278,6 +289,13 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				pendingSem <- struct{}{}
 				latestSem <- struct{}{}
 				return
+			case <-deepReorg:
+				// 1. fetch current height from feeder by using block=latest
+				// 2. revert all blocks till the block where it diverged
+				// 3. mark deep reorg as done
+				// 4. restart syncing process
+				// to discuss: do we need to remove "small" reorg in verifyier logic ?
+				// potential speedup: set catchUpMode before restarting sync
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
@@ -288,7 +306,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
 			fetchers.Go(func() stream.Callback {
 				fetchTimer := time.Now()
-				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
+				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel, deepReorg)
 				s.listener.OnSyncStepDone(OpFetch, curHeight, time.Since(fetchTimer))
 				return cb
 			})
