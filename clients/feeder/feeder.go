@@ -11,10 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -92,9 +92,9 @@ func NopBackoff(d time.Duration) time.Duration {
 }
 
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t *testing.T, network *utils.Network) *Client {
-	srv := newTestServer(t, network)
-	t.Cleanup(srv.Close)
+func NewTestClient(tb pebble.TestBench, network *utils.Network) *Client {
+	srv := newTestServer(tb, network)
+	tb.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	apiKey := "API_KEY"
 
@@ -117,7 +117,7 @@ func NewTestClient(t *testing.T, network *utils.Network) *Client {
 	return c
 }
 
-func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
+func newTestServer(tb pebble.TestBench, network *utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -125,11 +125,11 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 			return
 		}
 
-		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
-		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
+		assert.Equal(tb, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
+		assert.Equal(tb, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
 		wd, err := os.Getwd()
-		require.NoError(t, err)
+		require.NoError(tb, err)
 
 		base := wd[:strings.LastIndex(wd, "juno")+4]
 		queryArg := ""
