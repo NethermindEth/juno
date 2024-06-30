@@ -40,7 +40,7 @@ func TestGenesisStateDiff(t *testing.T) {
 	})
 	
 	t.Run("valid non-empty genesis config", func(t *testing.T) {
-		// Class hahes
+		// Class hashes
 		simpleStoreClassHash, err := new(felt.Felt).SetString("0x73b1d55a550a6b9073933817a40c22c4099aa5932694a85322dd5cefedbb467")
 		require.NoError(t, err)
 
@@ -60,8 +60,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		strkAddress, err := new(felt.Felt).SetString("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d") // strk token
 		require.NoError(t, err)
 
-		simpleAccountAddress, err := new(felt.Felt).SetString("0xdeadbeef123") // account
-		require.NoError(t, err)
+		accounts:=genesis.Accounts()
 	
 		udcAddress, err := new(felt.Felt).SetString("0xdeadbeef222") // UDC contract - allows deploying contracts using invoke txns
 		require.NoError(t, err)
@@ -69,12 +68,9 @@ func TestGenesisStateDiff(t *testing.T) {
 		selector, err := new(felt.Felt).SetString("0x362398bec32bc0ebb411203221a35a0301193a96f317ebe5e40be9f60d15320") // "increase_balance(amount)"
 		require.NoError(t, err)
 
-		simpleAccountPubKey, err := new(felt.Felt).SetString("0xdeadbeef123") 
-		require.NoError(t, err)
-
-		whyIsThisNeeded := new(felt.Felt).SetUint64(1) // Buffer for self parameter??
+		whyIsThisNeeded := new(felt.Felt).SetUint64(6) // Buffer for self parameter??
 		permissionedMinter := utils.HexToFelt(t,"0x123456")
-		initialMintAmnt:=utils.HexToFelt(t,"0x112233")
+		initialMintAmnt:=utils.HexToFelt(t,"0x000111")
 		// Pretty sure this is the token contract
 		// https://github.com/starknet-io/starkgate-contracts/blob/cairo-1/src/openzeppelin/token/erc20_v070/erc20.cairo#L110
 		strkConstrcutorArgs := []felt.Felt{
@@ -106,12 +102,7 @@ func TestGenesisStateDiff(t *testing.T) {
 				// deploy UDC 
 				*udcAddress: {
 					ClassHash: *udcClassHash,
-				},
-				// deploy account
-				*simpleAccountAddress: {
-					ClassHash: *simpleAccountClassHash,
-					ConstructorArgs: []felt.Felt{*simpleAccountPubKey},
-				},
+				},				
 				// deploy strk
 				*strkAddress: {
 					ClassHash: *strkClassHash,
@@ -121,37 +112,43 @@ func TestGenesisStateDiff(t *testing.T) {
 			// When the account is deployed, we can call any function (eg increase balance)
 			FunctionCalls: []genesis.FunctionCall{
 				{
-					// increase balance (just an int, not a token contract)
+					// increase balance (just a variable, not a token balance)
 					ContractAddress:    *simpleStoreAddress,
 					EntryPointSelector: *selector,
 					Calldata:           []felt.Felt{*new(felt.Felt).SetUint64(2)},				
 				},
-				{
-					// Todo: Only the permissioned_minter can mint - remove the assertion, or fill it in?
-					// sol1: permissioned minter assert -> insert caller_address (not working..caller from 0)
-					// sol2: transfer from the permissioned minter? worked??
-					// sol3: compile the contract without the assertions (ideal solution - to try)
-					ContractAddress:    *strkAddress,
-					EntryPointSelector: *utils.HexToFelt(t,"0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"), // transfer
-					Calldata:           []felt.Felt{*whyIsThisNeeded, *simpleAccountAddress, *initialMintAmnt},       // todo: ?, recipient, amount
-					CallerAddress: *permissionedMinter,
-				},
 			},
 		}
 
-		// Todo: check if the simpleAccountAddress has a non-zero balance
+		// deploy accounts
+		for _, acnt:=range accounts{			
+			genesisConfig.Contracts[acnt.Address]=genesis.GenesisContractData{
+					ClassHash: *simpleAccountClassHash,
+					ConstructorArgs: []felt.Felt{acnt.PubKey},
+				}
+		}
+
+		// fund accounts with strk token
+		for _, acnt:=range accounts{			
+			genesisConfig.FunctionCalls =append(genesisConfig.FunctionCalls,
+				genesis.FunctionCall{
+					ContractAddress:    *strkAddress,
+					EntryPointSelector: *utils.HexToFelt(t,"0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"), // transfer
+					Calldata:           []felt.Felt{acnt.Address, *initialMintAmnt, *whyIsThisNeeded},       // todo
+					CallerAddress: *permissionedMinter,
+			})			
+		}
+
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
 		balanceKey, err := new(felt.Felt).SetString("0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091")
 		require.NoError(t, err)
 		balanceVal := stateDiff.StorageDiffs[*simpleStoreAddress][*balanceKey]
-		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]		
-		strkTokenBalKey := utils.HexToFelt(t,"0x7b62949c85c6af8a50c11c22927f9302f7a2e40bc93b4c988415915b0f97f0a")
 		require.Equal(t, balanceVal.String(), "0x3")
 		require.Empty(t, stateDiff.Nonces)
 		require.Equal(t, stateDiff.DeployedContracts[*simpleStoreAddress], simpleStoreClassHash)
 		require.Equal(t, stateDiff.DeployedContracts[*udcAddress], udcClassHash)
-		require.Equal(t, stateDiff.DeclaredV0Classes[0].String(), simpleStoreClassHash.String())
+		require.Equal(t, stateDiff.DeclaredV0Classes[0].String(), simpleStoreClassHash.String()) // todo: flaky, may not be ordered
 		require.Equal(t, stateDiff.DeclaredV0Classes[1].String(), udcClassHash.String())
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
 		require.NotNil(t, stateDiff.DeclaredV1Classes[*simpleAccountClassHash])
@@ -160,6 +157,14 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NotNil(t, newClasses[*simpleStoreClassHash])
 		require.NotNil(t, newClasses[*simpleAccountClassHash])
 		require.NotNil(t, newClasses[*strkClassHash])
-		require.Equal(t,strkTokenDiffs[*strkTokenBalKey].String(),initialMintAmnt.String()) // simpleAccountAddress has tokens
+
+		numFundedAccounts:=0
+		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]		
+		for _,v:=range strkTokenDiffs{			
+			if v.Equal(initialMintAmnt){
+				numFundedAccounts++
+			}
+		}		
+		require.Equal(t,len(accounts),numFundedAccounts)
 	})
 }
