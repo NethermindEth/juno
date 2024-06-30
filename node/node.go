@@ -95,6 +95,7 @@ type Config struct {
 	SeqBlockTime        uint   `mapstructure:"seq-block-time"`
 	SeqBootstrap        bool   `mapstructure:"seq-bootstrap"`
 	SeqBootstrapToBlock uint64 `mapstructure:"seq-bootstrap-to-block"`
+	SeqPrefundAccounts bool `mapstructure:"seq-prefund-accounts"`
 	GenesisFile         string `mapstructure:"genesis-file"`
 }
 

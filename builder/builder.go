@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
@@ -44,6 +45,7 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
+	prefundAccounts bool
 	bootstrap        bool
 	bootstrapToBlock uint64
 	starknetData     starknetdata.StarknetData
@@ -85,6 +87,10 @@ func (b *Builder) WithBootstrapToBlock(bootstrapToBlock uint64) *Builder {
 	b.bootstrapToBlock = bootstrapToBlock
 	return b
 }
+func (b *Builder) WithPrefundAccounts(prefundAccounts bool) *Builder {
+	b.prefundAccounts = prefundAccounts
+	return b
+}
 
 func (b *Builder) BootstrapSeq(ctx context.Context, toBlockNum uint64) error {
 	var i uint64
@@ -110,6 +116,20 @@ func (b *Builder) Run(ctx context.Context) error {
 	if b.bootstrap {
 		err := b.BootstrapSeq(ctx, b.bootstrapToBlock)
 		if err != nil {
+			return err
+		}
+	}
+
+	if b.prefundAccounts {
+		initMintAmnt:=new(felt.Felt).SetUint64(100) 
+		classes:=[]string{"../genesis/testdata/strk.json","../genesis/testdata/simpleAccount.json"}
+		genesisConfig:=genesis.GenesisConfigAccountsTokens(*initMintAmnt,classes)		
+		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, b.vm, b.bc.Network())
+		if err!=nil{
+			return err
+		}
+		err=b.bc.StoreGenesis(stateDiff,newClasses)
+		if err!=nil{
 			return err
 		}
 	}

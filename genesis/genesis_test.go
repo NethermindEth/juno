@@ -41,7 +41,8 @@ func TestGenesisStateDiff(t *testing.T) {
 	
 	t.Run("accounts with prefunded strk", func(t *testing.T) {
 		initMintAmnt:=new(felt.Felt).SetUint64(100) // 0x64
-		genesisConfig:=genesis.GenesisConfigAccountsTokens(*initMintAmnt)		
+		classes:=[]string{"./testdata/strk.json","./testdata/simpleAccount.json"}
+		genesisConfig:=genesis.GenesisConfigAccountsTokens(*initMintAmnt,classes)		
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
 		require.Empty(t, stateDiff.Nonces)

@@ -182,7 +182,7 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 
 
 
-func GenesisConfigAccountsTokens(initMintAmnt felt.Felt) GenesisConfig {
+func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) GenesisConfig {
 
 	strToFelt := func(feltStr string) felt.Felt{
 		felt,_:= new(felt.Felt).SetString(feltStr)		
@@ -220,15 +220,11 @@ func GenesisConfigAccountsTokens(initMintAmnt felt.Felt) GenesisConfig {
 		*whyIsThisNeeded, 								// Todo: ? ref self: ContractState ?
 	} 
 
-	//account params
+	// account params
 	simpleAccountClassHash := strToFelt("0x04c6d6cf894f8bc96bb9c525e6853e5483177841f7388f74a46cfda6f028c755") 
 
 	genesisConfig := GenesisConfig{
-		Classes: []string{
-			"./testdata/simpleAccount.json",
-			"./testdata/strk.json",			
-		},
-	
+		Classes: classes,
 		Contracts: map[felt.Felt]GenesisContractData{
 			strkAddress: {
 				ClassHash: strkClassHash,
