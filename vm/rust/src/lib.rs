@@ -433,11 +433,14 @@ lazy_static! {
     };
 }
 
+#[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
     let version_str = unsafe { CStr::from_ptr(version) }.to_str().unwrap();
     let version = StarknetVersion::from_str(&version_str).unwrap_or(StarknetVersion::from_str(&"0.0.0").unwrap());
 
-    if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
+    if let Some(constants) =  unsafe{ &CUSTOM_VERSIONED_CONSTANTS } {
+        constants.clone()
+    } else if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
         CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
     } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
@@ -477,5 +480,15 @@ impl FromStr for StarknetVersion {
         let d = parts.get(3).map(|x| x.parse()).transpose()?.unwrap_or(0);
 
         Ok(StarknetVersion(a, b, c, d))
+    }
+}
+
+static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
+
+#[no_mangle]
+pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) {
+    let json_str = unsafe { CStr::from_ptr(json_bytes) }.to_str().unwrap();
+    unsafe {
+        CUSTOM_VERSIONED_CONSTANTS = Some(serde_json::from_str(json_str).unwrap());
     }
 }

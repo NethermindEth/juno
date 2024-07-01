@@ -35,6 +35,8 @@ extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
 					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert);
 
+extern void setVersionedConstants(char* json);
+
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
 */
@@ -44,6 +46,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"runtime"
 	"runtime/cgo"
 	"unsafe"
@@ -220,6 +224,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
+	C.setVersionedConstants(C.CString("my_json"))
+
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
@@ -350,4 +356,22 @@ func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []co
 	}
 
 	return txnsJSON, classesJSON, nil
+}
+
+func SetVersionedConstants(filename string) error {
+	fd, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+
+	buff, err := ioutil.ReadAll(fd)
+	if err != nil {
+		return err
+	}
+
+	jsonStr := C.CString(string(buff))
+	C.setVersionedConstants(jsonStr)
+	C.free(unsafe.Pointer(jsonStr))
+	// todo error check from vm
+	return nil
 }
