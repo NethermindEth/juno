@@ -1,11 +1,11 @@
-name: Docker Build, Publish and Deploy
+name: CI/CD pipeline
 
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
 
-  REPO_DEV: angkor-docker-local-dev
-  REPO_STAGING: angkor-docker-local-staging
-  REPO_PROD: angkor-docker-local-prod
+  REPO_DEV: nubia-docker-local-dev
+  REPO_STAGING: nubia-docker-local-staging
+  REPO_PROD: nubia-docker-local-prod
 
 
 on:
@@ -37,7 +37,7 @@ jobs:
 
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_ANGKOR_USER }} -p ${{ secrets.ARTIFACTORY_ANGKOR_CONTRIBUTOR }}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_ANGKOR_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
 
       - name: Build and Push
         uses: docker/build-push-action@v5
