@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"errors"
+	"fmt"
 	stdsync "sync"
 	"time"
 
@@ -45,7 +46,7 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
-	prefundAccounts bool
+	prefundAccounts  bool
 	bootstrap        bool
 	bootstrapToBlock uint64
 	starknetData     starknetdata.StarknetData
@@ -121,15 +122,16 @@ func (b *Builder) Run(ctx context.Context) error {
 	}
 
 	if b.prefundAccounts {
-		initMintAmnt:=new(felt.Felt).SetUint64(100) 
-		classes:=[]string{"../genesis/testdata/strk.json","../genesis/testdata/simpleAccount.json"}
-		genesisConfig:=genesis.GenesisConfigAccountsTokens(*initMintAmnt,classes)		
+		fmt.Println("building genesis state with prefunded accounts.")
+		initMintAmnt := new(felt.Felt).SetUint64(100)
+		classes := []string{"../genesis/testdata/strk.json", "../genesis/testdata/simpleAccount.json"}
+		genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, b.vm, b.bc.Network())
-		if err!=nil{
+		if err != nil {
 			return err
 		}
-		err=b.bc.StoreGenesis(stateDiff,newClasses)
-		if err!=nil{
+		err = b.bc.StoreGenesis(stateDiff, newClasses)
+		if err != nil {
 			return err
 		}
 	}
@@ -359,11 +361,14 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			GasPriceSTRK:     b.pendingBlock.Block.GasPriceSTRK,
 		},
 	}
+	fmt.Println("runTxn")
 	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, []*felt.Felt{}, blockInfo, state,
 		b.bc.Network(), false, false, false, false)
 	if err != nil {
+		fmt.Println("runTxn", err)
 		return err
 	}
+	fmt.Println("runTxn")
 
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
