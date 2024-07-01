@@ -96,11 +96,11 @@ func (t *Trie) ConvertFeltToKey(key *felt.Felt) Key {
 	return t.feltToKey(key)
 }
 
-func (t *Trie) GetNodesFromRoot(key *Key) ([]storageNode, error) {
+func (t *Trie) GetNodesFromRoot(key *Key) ([]StorageNode, error) {
 	return t.nodesFromRoot(key)
 }
 
-func (t *Trie) ParseNodes(nodes []storageNode) ([]map[string]string, error) {
+func (t *Trie) ParseNodes(nodes []StorageNode) ([]map[string]string, error) {
 	result := make([]map[string]string, len(nodes))
 	for i, node := range nodes {
 		result[i] = map[string]string{
