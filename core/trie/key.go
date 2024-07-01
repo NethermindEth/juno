@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -23,9 +24,9 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
-func (k *Key) SubKey(n uint8) *Key {
+func (k *Key) SubKey(n uint8) (*Key, error) {
 	if n > k.len {
-		panic("n is greater than the length of the key")
+		return nil, errors.New(fmt.Sprint("cannot subtract key of length %i from key of length %i", n, k.len))
 	}
 
 	newKey := &Key{len: n}
@@ -40,7 +41,7 @@ func (k *Key) SubKey(n uint8) *Key {
 		}
 	}
 
-	return newKey
+	return newKey, nil
 }
 
 func (k *Key) bytesNeeded() uint {

@@ -9,9 +9,11 @@ import (
 
 // A Node represents a node in the [Trie]
 type Node struct {
-	Value *felt.Felt
-	Left  *Key
-	Right *Key
+	Value     *felt.Felt
+	Left      *Key
+	Right     *Key
+	LeftHash  *felt.Felt
+	RightHash *felt.Felt
 }
 
 // Hash calculates the hash of a [Node]
@@ -30,6 +32,12 @@ func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 	return hash.Add(hash, &pathFelt)
 }
 
+// Hash calculates the hash of a [Node]
+func (n *Node) HashFromParent(parnetKey, nodeKey *Key, hashFunc hashFunc) *felt.Felt {
+	path := path(nodeKey, parnetKey)
+	return n.Hash(&path, hashFunc)
+}
+
 func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
 	if n.Value == nil {
 		return 0, errors.New("cannot marshal node with nil value")
@@ -45,16 +53,36 @@ func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
 	}
 
 	if n.Left != nil {
-		wrote, err := n.Left.WriteTo(buf)
+		wrote, errInner := n.Left.WriteTo(buf)
 		totalBytes += wrote
 		if err != nil {
-			return totalBytes, err
+			return totalBytes, errInner
 		}
-		wrote, err = n.Right.WriteTo(buf) // n.Right is non-nil by design
+		wrote, errInner = n.Right.WriteTo(buf) // n.Right is non-nil by design
 		totalBytes += wrote
 		if err != nil {
-			return totalBytes, err
+			return totalBytes, errInner
 		}
+	}
+
+	if n.LeftHash == nil && n.RightHash == nil {
+		return totalBytes, nil
+	} else if (n.LeftHash != nil && n.RightHash == nil) || (n.LeftHash == nil && n.RightHash != nil) {
+		return totalBytes, errors.New("cannot store only one lefthash or righthash")
+	}
+
+	leftHashB := n.LeftHash.Bytes()
+	wrote, err = buf.Write(leftHashB[:])
+	totalBytes += int64(wrote)
+	if err != nil {
+		return totalBytes, err
+	}
+
+	rightHashB := n.RightHash.Bytes()
+	wrote, err = buf.Write(rightHashB[:])
+	totalBytes += int64(wrote)
+	if err != nil {
+		return totalBytes, err
 	}
 
 	return totalBytes, nil
@@ -74,6 +102,8 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	if len(data) == 0 {
 		n.Left = nil
 		n.Right = nil
+		n.LeftHash = nil
+		n.RightHash = nil
 		return nil
 	}
 
@@ -85,5 +115,26 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	if err := n.Left.UnmarshalBinary(data); err != nil {
 		return err
 	}
-	return n.Right.UnmarshalBinary(data[n.Left.EncodedLen():])
+	data = data[n.Left.EncodedLen():]
+	if err := n.Right.UnmarshalBinary(data); err != nil {
+		return err
+	}
+	data = data[n.Right.EncodedLen():]
+
+	if n.LeftHash == nil {
+		n.LeftHash = new(felt.Felt)
+	}
+	if n.RightHash == nil {
+		n.RightHash = new(felt.Felt)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	if len(data) != 2*felt.Bytes {
+		return errors.New("the node does not contain both left and right hash")
+	}
+	n.LeftHash.SetBytes(data[:felt.Bytes])
+	data = data[felt.Bytes:]
+	n.RightHash.SetBytes(data[:felt.Bytes])
+	return nil
 }

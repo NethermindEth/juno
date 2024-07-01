@@ -95,7 +95,7 @@ type Config struct {
 	SeqBlockTime        uint   `mapstructure:"seq-block-time"`
 	SeqBootstrap        bool   `mapstructure:"seq-bootstrap"`
 	SeqBootstrapToBlock uint64 `mapstructure:"seq-bootstrap-to-block"`
-	SeqPrefundAccounts bool `mapstructure:"seq-prefund-accounts"`
+	SeqPrefundAccounts  bool   `mapstructure:"seq-prefund-accounts"`
 	GenesisFile         string `mapstructure:"genesis-file"`
 }
 
@@ -167,7 +167,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		p := mempool.New(poolDB)
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
 			log).WithBootstrap(cfg.SeqBootstrap).WithStarknetData(starknetData).WithBootstrapToBlock(cfg.SeqBootstrapToBlock)
-		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, &cfg.Network, log).WithMempool(p)
+		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p)
 		services = append(services, sequencer)
 	} else {
 		synchronizer := sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
@@ -210,7 +210,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			syncReader = synchronizer
 		}
 
-		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, &cfg.Network, log).WithGateway(gatewayClient).WithFeeder(client)
+		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 		rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	}
 

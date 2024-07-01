@@ -86,9 +86,8 @@ const (
 	seqBlockTimeF          = "seq-block-time"
 	seqBootstrapF          = "seq-bootstrap"
 	seqBootstrapToBlockF   = "seq-bootstrap-to-block"
-	seqPrefundAccountsF     = "seq-prefund-accounts"
+	seqPrefundAccountsF    = "seq-prefund-accounts"
 	genesisFileF           = "genesis-file"
-	
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -161,28 +160,29 @@ const (
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
-	p2pPrivateKeyUsage       = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
-	metricsUsage             = "Enables the Prometheus metrics endpoint on the default port."
-	metricsHostUsage         = "The interface on which the Prometheus endpoint will listen for requests."
-	metricsPortUsage         = "The port on which the Prometheus endpoint will listen for requests."
-	grpcUsage                = "Enable the HTTP gRPC server on the default port."
-	grpcHostUsage            = "The interface on which the gRPC server will listen for requests."
-	grpcPortUsage            = "The port on which the gRPC server will listen for requests."
-	maxVMsUsage              = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage          = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
-	remoteDBUsage            = "gRPC URL of a remote Juno node"
-	rpcMaxBlockScanUsage     = "Maximum number of blocks scanned in single starknet_getEvents call"
-	dbCacheSizeUsage         = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage        = "A soft limit on the number of open files that can be used by the DB"
-	gwAPIKeyUsage            = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutUsage           = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage        = "Maximum number of steps to be executed in starknet_call requests"
+	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
+	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
+	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
+	grpcUsage            = "Enable the HTTP gRPC server on the default port."
+	grpcHostUsage        = "The interface on which the gRPC server will listen for requests."
+	grpcPortUsage        = "The port on which the gRPC server will listen for requests."
+	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
+	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
+	remoteDBUsage        = "gRPC URL of a remote Juno node"
+	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
+	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
+	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
+	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
+		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage          = "Enable CORS on RPC endpoints"
 	seqEnUsage               = "Enables sequencer mode of operation"
 	seqBlockTimeUsage        = "Time to build a block, in seconds"
 	seqBootstrapToBlockUsage = "How many blocks to sycn from network before running sequencer"
 	seqBootstrapUsage        = "Enables sync from existing network before running sequencer mode"
-	seqPrefundAccountsUsage       = "Deploys some accounts and prefunds them with strk tokens"
+	seqPrefundAccountsUsage  = "Deploys some accounts and prefunds them with strk tokens"
 	genesisFileUsage         = "Path to the genesis file"
 )
 
