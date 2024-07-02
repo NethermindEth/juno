@@ -83,7 +83,7 @@ pub struct JunoState {
 
 impl JunoState {
     pub fn new(handle: usize, height: u64) -> Self {
-        Self { handle, height ,visited_pcs: HashMap::new()}
+        Self { handle, height ,visited_pcs: HashMap::default()}
     }
 }
 
@@ -222,11 +222,8 @@ impl State for JunoState {
         result        
     }
 
-    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>){
-        let entry = self.visited_pcs.entry(class_hash).or_insert_with(HashSet::new);
-        for pc in pcs {
-            entry.insert(*pc);
-        }
+    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>){        
+        self.visited_pcs.entry(class_hash).or_default().extend(pcs);    
     }
 
     /// Increments the nonce of the given contract instance.

@@ -246,7 +246,7 @@ func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) Genes
 				ContractAddress:    strkAddress,
 				EntryPointSelector: strToFelt("0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"), // transfer
 				Calldata:           []felt.Felt{acnt.Address, initMintAmnt, whyIsThisNeeded},                        // todo
-				CallerAddress:      permissionedMinter,
+				CallerAddress:      permissionedMinter,                                                              // Todo. Hack: remove assertion in strk so anyone can call mint.
 			})
 	}
 

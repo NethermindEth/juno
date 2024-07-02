@@ -361,14 +361,14 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			GasPriceSTRK:     b.pendingBlock.Block.GasPriceSTRK,
 		},
 	}
-	fmt.Println("runTxn")
+	b.log.Debugw("run tx")
 	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, []*felt.Felt{}, blockInfo, state,
 		b.bc.Network(), false, false, false, false)
 	if err != nil {
-		fmt.Println("runTxn", err)
+		b.log.Debugw("run tx err", err)
 		return err
 	}
-	fmt.Println("runTxn")
+	b.log.Debugw("run tx")
 
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
