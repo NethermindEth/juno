@@ -37,7 +37,7 @@ jobs:
 
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_ANGKOR_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
 
       - name: Build and Push
         uses: docker/build-push-action@v5
@@ -87,7 +87,7 @@ jobs:
         uses: jfrog/setup-jfrog-cli@v4
         env:
           JF_URL: ${{ vars.JFROG_URL}}
-          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_ANGKOR_CONTRIBUTOR }}
+          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR }}
 
       - name: Promote to Staging
         run: |
@@ -117,7 +117,7 @@ jobs:
         uses: jfrog/setup-jfrog-cli@v4
         env:
           JF_URL: ${{ vars.JFROG_URL}}
-          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_ANGKOR_CONTRIBUTOR }}
+          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR }}
 
       - name: Promote to Production
         run: |
