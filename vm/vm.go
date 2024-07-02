@@ -175,7 +175,7 @@ type CallInfo struct {
 	ClassHash       *felt.Felt
 	Selector        *felt.Felt
 	Calldata        []felt.Felt
-	CallerAddress  *felt.Felt
+	CallerAddress   *felt.Felt
 }
 
 type BlockInfo struct {

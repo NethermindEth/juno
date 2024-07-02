@@ -88,6 +88,7 @@ func (b *Builder) WithBootstrapToBlock(bootstrapToBlock uint64) *Builder {
 	b.bootstrapToBlock = bootstrapToBlock
 	return b
 }
+
 func (b *Builder) WithPrefundAccounts(prefundAccounts bool) *Builder {
 	b.prefundAccounts = prefundAccounts
 	return b
@@ -123,7 +124,7 @@ func (b *Builder) Run(ctx context.Context) error {
 
 	if b.prefundAccounts {
 		fmt.Println("building genesis state with prefunded accounts.")
-		initMintAmnt := new(felt.Felt).SetUint64(100)
+		initMintAmnt := new(felt.Felt).SetUint64(1_000_000_000_000)
 		classes := []string{"./genesis/testdata/strk.json", "./genesis/testdata/simpleAccount.json"}
 		genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, b.vm, b.bc.Network())
@@ -325,13 +326,15 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			return err
 		}
 		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
-
+		qwe, _ := (userTxn.Transaction).(*core.InvokeTransaction)
+		fmt.Println("run txn", userTxn.Transaction, qwe.SenderAddress.String())
 		if err = b.runTxn(&userTxn); err != nil {
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
 				return err
 			}
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
+			fmt.Println("run txn err", err)
 		}
 
 		select {

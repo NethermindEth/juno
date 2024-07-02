@@ -3,6 +3,7 @@ package genesis
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -181,7 +182,6 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 }
 
 func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) GenesisConfig {
-
 	strToFelt := func(feltStr string) felt.Felt {
 		felt, _ := new(felt.Felt).SetString(feltStr)
 		return *felt
@@ -199,12 +199,23 @@ func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) Genes
 			PrivKey: strToFelt("0x43d8de30e55ed83b4436aea47e7517d4a52d06912938e2887cb1d33518daef1"),
 			Address: strToFelt("0x102"),
 		},
+		{
+			PubKey:  strToFelt("0x441973b4517116d46800d35eca3bbcd455e034045c39852e46a74376d6881f"),
+			PrivKey: strToFelt("0x03a4791edf67fa0b32b812e41bc8bc4e9b79915412b1331f7669cbe23e97e15a"),
+			Address: strToFelt("0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
+		},
 	}
+
+	log.Printf("Pre-deployed accounts with %s strk tokens:", initMintAmnt.String())
+	for _, account := range accounts {
+		log.Printf("Account Address: %s, PubKey: %s, PrivKey: %s\n", account.Address.String(), account.PubKey.String(), account.PrivKey.String())
+	}
+
 	// strk params
-	whyIsThisNeeded := *new(felt.Felt).SetUint64(0) // Buffer for self parameter??
+	whyIsThisNeeded := *new(felt.Felt).SetUint64(0) // Todo: Buffer for self parameter??
 	permissionedMinter := strToFelt("0x123456")
 	initialSupply := new(felt.Felt).Mul(&initMintAmnt, new(felt.Felt).SetUint64(uint64(len(accounts))+100))
-	strkAddress := strToFelt("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+	strkAddress := strToFelt("0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7") // todo: chang from eth to strk
 	strkClassHash := strToFelt("0x04ad3c1dc8413453db314497945b6903e1c766495a1e60492d44da9c2a986e4b")
 	strkConstrcutorArgs := []felt.Felt{
 		strToFelt("0x537461726b6e657420546f6b656e"), // 1 name, felt
@@ -219,7 +230,7 @@ func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) Genes
 	}
 
 	// account params
-	simpleAccountClassHash := strToFelt("0x04c6d6cf894f8bc96bb9c525e6853e5483177841f7388f74a46cfda6f028c755")
+	accountClassHash := strToFelt("0x01a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003")
 
 	genesisConfig := GenesisConfig{
 		Classes: classes,
@@ -234,8 +245,8 @@ func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) Genes
 	// deploy accounts
 	for _, acnt := range accounts {
 		genesisConfig.Contracts[acnt.Address] = GenesisContractData{
-			ClassHash:       simpleAccountClassHash,
-			ConstructorArgs: []felt.Felt{acnt.PubKey},
+			ClassHash:       accountClassHash,
+			ConstructorArgs: []felt.Felt{acnt.PubKey, felt.Zero},
 		}
 	}
 

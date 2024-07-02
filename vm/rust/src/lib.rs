@@ -123,9 +123,6 @@ pub extern "C" fn cairoVMCall(
     };
 
     let caller_contract_address = ContractAddress::try_from(caller_addr_felt).unwrap(); // Todo: remove. Hack to allow minting at genesis.
-
-    println!("{:?}",caller_addr_felt);
-
     let entry_point = CallEntryPoint {
         entry_point_type: caller_entry_point_type,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
