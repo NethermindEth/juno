@@ -38,29 +38,29 @@ func TestGenesisStateDiff(t *testing.T) {
 		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
 	})
-	
+
 	t.Run("accounts with prefunded strk", func(t *testing.T) {
-		initMintAmnt:=new(felt.Felt).SetUint64(100) // 0x64
-		classes:=[]string{"./testdata/strk.json","./testdata/simpleAccount.json"}
-		genesisConfig:=genesis.GenesisConfigAccountsTokens(*initMintAmnt,classes)		
+		initMintAmnt := new(felt.Felt).SetUint64(100) // 0x64
+		classes := []string{"./testdata/strk.json", "./testdata/simpleAccount.json"}
+		genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
 		require.Empty(t, stateDiff.Nonces)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
-		for _,con:=range genesisConfig.Contracts{
+		for _, con := range genesisConfig.Contracts {
 			require.NotNil(t, stateDiff.DeclaredV1Classes[con.ClassHash])
 			require.NotNil(t, newClasses[con.ClassHash])
-		}				
+		}
 		require.Empty(t, stateDiff.ReplacedClasses)
 
-		numFundedAccounts:=0
-		strkAddress := utils.HexToFelt(t,"0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d") 
-		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]		
-		for _,v:=range strkTokenDiffs{			
-			if v.Equal(initMintAmnt){
+		numFundedAccounts := 0
+		strkAddress := utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
+		for _, v := range strkTokenDiffs {
+			if v.Equal(initMintAmnt) {
 				numFundedAccounts++
 			}
-		}		
-		require.Equal(t,len(genesisConfig.BootstrapAccounts),numFundedAccounts) 
+		}
+		require.Equal(t, len(genesisConfig.BootstrapAccounts), numFundedAccounts)
 	})
 }

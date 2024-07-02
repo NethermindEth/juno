@@ -491,11 +491,11 @@ func TestPrefundedAccounts(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), time.Millisecond, p, log).WithPrefundAccounts(true)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), time.Millisecond, p, log) //.WithPrefundAccounts(true)
 
 	// transfer 1 token from account 0x101 to account 0x102 (see genesis config)
 	invokeTxn := &core.InvokeTransaction{
-		SenderAddress:      utils.HexToFelt(t, "0x101"),
+		SenderAddress:      utils.HexToFelt(t, "0x123456"),
 		ContractAddress:    utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
 		EntryPointSelector: utils.HexToFelt(t, "0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 		Version:            new(core.TransactionVersion).SetUint64(1),

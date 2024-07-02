@@ -124,7 +124,7 @@ func (b *Builder) Run(ctx context.Context) error {
 	if b.prefundAccounts {
 		fmt.Println("building genesis state with prefunded accounts.")
 		initMintAmnt := new(felt.Felt).SetUint64(100)
-		classes := []string{"../genesis/testdata/strk.json", "../genesis/testdata/simpleAccount.json"}
+		classes := []string{"./genesis/testdata/strk.json", "./genesis/testdata/simpleAccount.json"}
 		genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, b.vm, b.bc.Network())
 		if err != nil {

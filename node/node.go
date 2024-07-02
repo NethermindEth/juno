@@ -166,7 +166,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
-			log).WithBootstrap(cfg.SeqBootstrap).WithStarknetData(starknetData).WithBootstrapToBlock(cfg.SeqBootstrapToBlock)
+			log).WithBootstrap(cfg.SeqBootstrap).WithStarknetData(starknetData).WithBootstrapToBlock(cfg.SeqBootstrapToBlock).WithPrefundAccounts(cfg.SeqPrefundAccounts)
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p)
 		services = append(services, sequencer)
 	} else {
