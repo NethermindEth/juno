@@ -302,6 +302,46 @@ func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.
 	}
 }
 
+func StateDiff(trace *vm.StateDiff) *core.StateDiff {
+	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
+	for _, sd := range trace.StorageDiffs {
+		entries := make(map[felt.Felt]*felt.Felt)
+		for _, entry := range sd.StorageEntries {
+			entries[entry.Key] = &entry.Value
+		}
+		newStorageDiffs[sd.Address] = entries
+	}
+
+	newNonces := make(map[felt.Felt]*felt.Felt)
+	for _, nonce := range trace.Nonces {
+		newNonces[nonce.ContractAddress] = &nonce.Nonce
+	}
+
+	newDeployedContracts := make(map[felt.Felt]*felt.Felt)
+	for _, dc := range trace.DeployedContracts {
+		newDeployedContracts[dc.Address] = &dc.ClassHash
+	}
+
+	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt)
+	for _, dc := range trace.DeclaredClasses {
+		newDeclaredV1Classes[dc.ClassHash] = &dc.CompiledClassHash
+	}
+
+	newReplacedClasses := make(map[felt.Felt]*felt.Felt)
+	for _, rc := range trace.ReplacedClasses {
+		newReplacedClasses[rc.ContractAddress] = &rc.ClassHash
+	}
+
+	return &core.StateDiff{
+		StorageDiffs:      newStorageDiffs,
+		Nonces:            newNonces,
+		DeployedContracts: newDeployedContracts,
+		DeclaredV0Classes: trace.DeprecatedDeclaredClasses,
+		DeclaredV1Classes: newDeclaredV1Classes,
+		ReplacedClasses:   newReplacedClasses,
+	}
+}
+
 func (b *Builder) listenPool(ctx context.Context) error {
 	for {
 		if err := b.depletePool(ctx); err != nil {
@@ -364,14 +404,12 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			GasPriceSTRK:     b.pendingBlock.Block.GasPriceSTRK,
 		},
 	}
-	b.log.Debugw("run tx")
+
 	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, []*felt.Felt{}, blockInfo, state,
 		b.bc.Network(), false, false, false, false)
 	if err != nil {
-		b.log.Debugw("run tx err", err)
 		return err
 	}
-	b.log.Debugw("run tx")
 
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
@@ -384,6 +422,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0])
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
+	b.pendingBlock.StateUpdate.StateDiff = StateDiff(trace[0].StateDiff)
 	return nil
 }
 
