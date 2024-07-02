@@ -75,6 +75,22 @@ func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
 		hash:    hash,
 	}, nil
 }
+func (t *Trie) ConvertFeltToKey(key *felt.Felt) Key {
+	return t.feltToKey(key)
+}
+
+func (t *Trie) GetNodesFromRoot(key *Key) ([]storageNode, error) {
+	return t.nodesFromRoot(key)
+}
+
+func (t *Trie) ParseNodes(nodes []storageNode) ([]string, error) {
+	var parsedNodes []string
+	for _, node := range nodes {
+		parsedNodes = append(parsedNodes, fmt.Sprintf("%v", &node.node.Value))
+	}
+
+	return parsedNodes, nil
+}
 
 // RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
 func RunOnTempTrie(height uint8, do func(*Trie) error) error {
