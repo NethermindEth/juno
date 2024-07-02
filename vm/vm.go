@@ -47,7 +47,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"runtime"
 	"runtime/cgo"
@@ -366,7 +366,7 @@ func SetVersionedConstants(filename string) error {
 	}
 	defer fd.Close()
 
-	buff, err := ioutil.ReadAll(fd)
+	buff, err := io.ReadAll(fd)
 	if err != nil {
 		return err
 	}
