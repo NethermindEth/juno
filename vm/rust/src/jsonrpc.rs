@@ -6,17 +6,14 @@ use cairo_vm::vm::runners::builtin_runner::{
     POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
     SEGMENT_ARENA_BUILTIN_NAME,
 };
-use blockifier::state::cached_state::TransactionalState;
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::state_api::State;
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey, EthAddress};
 use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
-
-use crate::juno_state_reader::JunoStateReader;
 
 #[derive(Serialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
@@ -101,10 +98,10 @@ pub enum ExecuteInvocation {
 }
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
-pub fn new_transaction_trace(
+pub fn new_transaction_trace<S: State>(
     tx: &StarknetApiTransaction,
     info: BlockifierTxInfo,
-    state: &mut TransactionalState<JunoStateReader>,
+    state: &mut S,
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
     let mut deprecated_declared_class: Option<ClassHash> = None;
@@ -297,8 +294,8 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 #[derive(Debug, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
-fn make_state_diff(
-    state: &mut TransactionalState<JunoStateReader>,
+fn make_state_diff<S: State>(
+    state: &mut S,
     deprecated_declared_class: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
     let diff = state.to_state_diff();
@@ -306,7 +303,7 @@ fn make_state_diff(
     let mut replaced_classes = Vec::new();
 
     for pair in diff.address_to_class_hash {
-        let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
+        let existing_class_hash = state.get_class_hash_at(pair.0)?;
         if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {

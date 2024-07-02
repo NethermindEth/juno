@@ -115,7 +115,7 @@ func TestSyncBlocks(t *testing.T) {
 			case 2:
 				state.BlockHash = new(felt.Felt) // fail sanity checks
 			case 3:
-				state.OldRoot = new(felt.Felt).SetUint64(1) // fail store
+				state.NewRoot = new(felt.Felt).SetUint64(1) // fail store
 			default:
 				reqCount = 0
 				atomic.AddUint64(&syncingHeight, 1)

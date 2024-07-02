@@ -82,6 +82,12 @@ const (
 	cnUnverifiableRangeF   = "cn-unverifiable-range"
 	callMaxStepsF          = "rpc-call-max-steps"
 	corsEnableF            = "rpc-cors-enable"
+	seqEnF                 = "seq-enable"
+	seqBlockTimeF          = "seq-block-time"
+	seqBootstrapF          = "seq-bootstrap"
+	seqBootstrapToBlockF   = "seq-bootstrap-to-block"
+	seqPrefundAccountsF    = "seq-prefund-accounts"
+	genesisFileF           = "genesis-file"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -117,6 +123,12 @@ const (
 	defaultCallMaxSteps             = 4_000_000
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
+	defaultSeqEn                    = false
+	defaultSeqBlockTime             = 60
+	defaultSeqBootstrapToBlock      = 0
+	defaultSeqBootstrap             = false
+	defaultSeqPrefundAccounts       = false
+	defaultGenesisFile              = ""
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -165,7 +177,13 @@ const (
 	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
 	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
-	corsEnableUsage = "Enable CORS on RPC endpoints"
+	corsEnableUsage          = "Enable CORS on RPC endpoints"
+	seqEnUsage               = "Enables sequencer mode of operation"
+	seqBlockTimeUsage        = "Time to build a block, in seconds"
+	seqBootstrapToBlockUsage = "How many blocks to sycn from network before running sequencer"
+	seqBootstrapUsage        = "Enables sync from existing network before running sequencer mode"
+	seqPrefundAccountsUsage  = "Deploys some accounts and prefunds them with strk tokens"
+	genesisFileUsage         = "Path to the genesis file"
 )
 
 var Version string
@@ -347,6 +365,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.AddCommand(GenP2PKeyPair())
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
+	junoCmd.Flags().Bool(seqBootstrapF, defaultSeqBootstrap, seqBootstrapUsage)
+	junoCmd.Flags().Uint(seqBootstrapToBlockF, defaultSeqBootstrapToBlock, seqBootstrapToBlockUsage)
+	junoCmd.Flags().Bool(seqPrefundAccountsF, defaultSeqPrefundAccounts, seqPrefundAccountsUsage)
+	junoCmd.Flags().String(genesisFileF, defaultGenesisFile, genesisFileUsage)
 
 	return junoCmd
 }
