@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -40,6 +41,7 @@ const (
 	upgraderDelay    = 5 * time.Minute
 	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	clientName       = "juno"
 )
 
 // Config is the top-level juno configuration.
@@ -156,7 +158,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, &cfg.Network, log)
+		agentVersion := clientName + "/" + parseVersion(version, log)
+		p2pService, err = p2p.New(cfg.P2PAddr, agentVersion, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, &cfg.Network, log)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
@@ -358,4 +361,13 @@ func (n *Node) Run(ctx context.Context) {
 
 func (n *Node) Config() Config {
 	return *n.cfg
+}
+
+func parseVersion(version string, log *utils.ZapLogger) string {
+	semVer, err := semver.NewVersion(version)
+	if err != nil {
+		log.Warnw("Failed to parse Juno version", "version", version, "err", err)
+		return "0.0.0"
+	}
+	return strings.Split(semVer.String(), "-")[0]
 }
