@@ -486,9 +486,31 @@ impl FromStr for StarknetVersion {
 static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
 
 #[no_mangle]
-pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) {
-    let json_str = unsafe { CStr::from_ptr(json_bytes) }.to_str().unwrap();
-    unsafe {
-        CUSTOM_VERSIONED_CONSTANTS = Some(serde_json::from_str(json_str).unwrap());
+pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_char {
+    let json_str = unsafe {
+        match CStr::from_ptr(json_bytes).to_str() {
+            Ok(s) => s,
+            Err(_) => return CString::new("Failed to convert JSON bytes to string").unwrap().into_raw(),
+        }
+    };
+
+    match serde_json::from_str(json_str) {
+        Ok(parsed) => unsafe {
+            CUSTOM_VERSIONED_CONSTANTS = Some(parsed);
+            CString::new("").unwrap().into_raw()  // No error, return an empty string
+        },
+        Err(_) => CString::new("Failed to parse JSON").unwrap().into_raw(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn freeString(s: *mut c_char) {
+    if !s.is_null() {
+        unsafe {
+            // Convert the raw C string pointer back to a CString. This operation
+            // takes ownership of the memory again and ensures it gets deallocated
+            // when drop function returns.
+            drop(CString::from_raw(s));
+        }
     }
 }

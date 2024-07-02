@@ -35,7 +35,8 @@ extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
 					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert);
 
-extern void setVersionedConstants(char* json);
+extern char* setVersionedConstants(char* json);
+extern void freeString(char* str);
 
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
@@ -363,6 +364,7 @@ func SetVersionedConstants(filename string) error {
 	if err != nil {
 		return err
 	}
+	defer fd.Close()
 
 	buff, err := ioutil.ReadAll(fd)
 	if err != nil {
@@ -370,8 +372,16 @@ func SetVersionedConstants(filename string) error {
 	}
 
 	jsonStr := C.CString(string(buff))
-	C.setVersionedConstants(jsonStr)
+	if errCStr := C.setVersionedConstants(jsonStr); errCStr != nil {
+		var errStr string = C.GoString(errCStr)
+		// empty string is not an error
+		if errStr != "" {
+			err = errors.New(errStr)
+		}
+		// here we rely on free call on Rust side, because on Go side we can have different allocator
+		C.freeString((*C.char)(unsafe.Pointer(errCStr)))
+	}
 	C.free(unsafe.Pointer(jsonStr))
-	// todo error check from vm
-	return nil
+
+	return err
 }

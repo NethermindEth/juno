@@ -144,7 +144,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if cfg.VersionedConstantsFile != "" {
 		err = vm.SetVersionedConstants(cfg.VersionedConstantsFile)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to set versioned constants: %w", err)
 		}
 	}
 
