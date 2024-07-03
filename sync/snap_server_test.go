@@ -3,22 +3,75 @@ package sync
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestClassRange(t *testing.T) {
-
 	var d db.DB
-	d, _ = pebble.New("/home/amirul/fastworkscratch3/juno_db/juno_mainnet", 128000000, 128, utils.NewNopZapLogger())
-	bc := blockchain.New(d, &utils.Mainnet) // Needed because class loader need encoder to be registered
+	t.Skip("You need to provide a valid path to the snapshot")
+	d, _ = pebble.New("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, utils.NewNopZapLogger())
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
+	_, err := utils.NewZapLogger(utils.DEBUG, false)
+	assert.NoError(t, err)
+
+	b, err := bc.Head()
+	assert.NoError(t, err)
+
+	fmt.Printf("headblock %d\n", b.Number)
+
+	stateRoot := b.GlobalStateRoot
+
+	server := &snapServer{
+		blockchain: bc,
+	}
+
+	startRange := (&felt.Felt{}).SetUint64(0)
+
+	chunksPerProof := 150
+	var classResult *ClassRangeStreamingResult
+	server.GetClassRange(context.Background(),
+		&spec.ClassRangeRequest{
+			Root:           core2p2p.AdaptHash(stateRoot),
+			Start:          core2p2p.AdaptHash(startRange),
+			ChunksPerProof: uint32(chunksPerProof),
+		})(func(result *ClassRangeStreamingResult, err error) bool {
+		if err != nil {
+			fmt.Printf("err %s\n", err)
+			t.Fatal(err)
+		}
+
+		if result != nil {
+			classResult = result
+		}
+
+		return false
+	})
+
+	assert.NotNil(t, classResult)
+	assert.Equal(t, chunksPerProof, len(classResult.Range.Classes))
+	verifyErr := VerifyGlobalStateRoot(stateRoot, classResult.ClassesRoot, classResult.ContractsRoot)
+	assert.NoError(t, verifyErr)
+}
+
+func TestContractRange(t *testing.T) {
+	var d db.DB
+	t.Skip("You need to provide a valid path to the snapshot")
+	d, _ = pebble.New("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, utils.NewNopZapLogger())
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
 
 	_, err := utils.NewZapLogger(utils.DEBUG, false)
 	assert.NoError(t, err)
@@ -34,22 +87,134 @@ func TestClassRange(t *testing.T) {
 		blockchain: bc,
 	}
 
-	// err = syncer.Run(context.Background())
+	startRange := (&felt.Felt{}).SetUint64(0)
+
+	chunksPerProof := 150
+	var contractResult *ContractRangeStreamingResult
+	server.GetContractRange(context.Background(),
+		&spec.ContractRangeRequest{
+			StateRoot:      core2p2p.AdaptHash(stateRoot),
+			Start:          core2p2p.AdaptAddress(startRange),
+			ChunksPerProof: uint32(chunksPerProof),
+		})(func(result *ContractRangeStreamingResult, err error) bool {
+		if err != nil {
+			fmt.Printf("err %s\n", err)
+			t.Fatal(err)
+		}
+
+		if result != nil {
+			contractResult = result
+		}
+
+		return false
+	})
+
+	assert.NotNil(t, contractResult)
+	assert.Equal(t, chunksPerProof, len(contractResult.Range))
+	verifyErr := VerifyGlobalStateRoot(stateRoot, contractResult.ClassesRoot, contractResult.ContractsRoot)
+	assert.NoError(t, verifyErr)
+}
+
+func TestContractStorageRange(t *testing.T) {
+	tests := []struct {
+		address        *felt.Felt
+		storageRoot    *felt.Felt
+		expectedLeaves int
+	}{
+		{
+			address:        feltFromString("0x3deecdb26a60e4c062d5bd98ab37f72ea2acc37f28dae6923359627ebde9"),
+			storageRoot:    feltFromString("0x276edbc91a945d11645ba0b8298c7d657e554d06ab2bb765cbc44d61fa01fd5"),
+			expectedLeaves: 1,
+		},
+		{
+			address:        feltFromString("0x5de00d3720421ab00fdbc47d33d253605c1ac226ab1a0d267f7d57e23305"),
+			storageRoot:    feltFromString("0x5eebb2c6722d321469cb662260c5171c9f6f67b9a625c9c9ab56b0a4631b0fe"),
+			expectedLeaves: 2,
+		},
+		{
+			address:        feltFromString("0x1ee60ed3c5abd9a08c61de5e8cbcf32b49646e681ee6e84da9d52f5c3099"),
+			storageRoot:    feltFromString("0x60dccd54f4956147c6a499b71579820d181e22d5e9c430fd5953f861ca7727e"),
+			expectedLeaves: 4,
+		},
+		// Note: long root calc - comment when root is verified
+		//{
+		//	address:        feltFromString("0x000000000000000000000000000000000000000000000000000000000001"),
+		//	storageRoot:    feltFromString("0x241ce4b3da62e79caf008c66ca5f3232e9628af90ba3fcb70974d0b8b30cd8b"),
+		//	expectedLeaves: 66468,
+		//},
+	}
+
+	var d db.DB
+	t.Skip("You need to provide a valid path to the snapshot")
+	d, _ = pebble.New("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, utils.NewNopZapLogger())
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
+
+	_, err := utils.NewZapLogger(utils.DEBUG, false)
 	assert.NoError(t, err)
+
+	b, err := bc.Head()
+	assert.NoError(t, err)
+
+	fmt.Printf("headblock %d\n", b.Number)
+
+	stateRoot := b.GlobalStateRoot
+
+	server := &snapServer{
+		blockchain: bc,
+	}
 
 	startRange := (&felt.Felt{}).SetUint64(0)
 
-	server.GetClassRange(context.Background(),
-		&spec.ClassRangeRequest{
-			Root:           core2p2p.AdaptHash(stateRoot),
-			Start:          core2p2p.AdaptHash(startRange),
-			ChunksPerProof: 100,
-		})(func(result *ClassRangeStreamingResult, err error) bool {
-		if err != nil {
-			fmt.Printf("err %s\n", err)
-		}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%.7s...", test.address), func(t *testing.T) {
+			request := &StorageRangeRequest{
+				StateRoot:     stateRoot,
+				ChunkPerProof: 100,
+				Queries: []*spec.StorageRangeQuery{
+					{
+						Address: core2p2p.AdaptAddress(test.address),
+						Start: &spec.StorageLeafQuery{
+							ContractStorageRoot: core2p2p.AdaptHash(test.storageRoot),
+							Key:                 core2p2p.AdaptFelt(startRange),
+						},
+						End: nil,
+					},
+				},
+			}
 
-		return true
-	})
+			keys := make([]*felt.Felt, 0, test.expectedLeaves)
+			vals := make([]*felt.Felt, 0, test.expectedLeaves)
+			server.GetStorageRange(context.Background(), request)(func(result *StorageRangeStreamingResult, err error) bool {
+				if err != nil {
+					fmt.Printf("err %s\n", err)
+					t.Fatal(err)
+				}
 
+				if result != nil {
+					for _, r := range result.Range {
+						keys = append(keys, p2p2core.AdaptFelt(r.Key))
+						vals = append(vals, p2p2core.AdaptFelt(r.Value))
+					}
+				}
+
+				return true
+			})
+
+			fmt.Println("Address:", test.address, "storage length:", len(keys))
+			assert.Equal(t, test.expectedLeaves, len(keys))
+
+			hasMore, err := VerifyTrie(test.storageRoot, keys, vals, nil, core.ContractStorageTrieHeight, crypto.Pedersen)
+			assert.NoError(t, err)
+			assert.False(t, hasMore)
+		})
+	}
+}
+
+func feltFromString(str string) *felt.Felt {
+	f, err := (&felt.Felt{}).SetString(str)
+	if err != nil {
+		panic(err)
+	}
+	return f
 }

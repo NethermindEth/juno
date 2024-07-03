@@ -3,6 +3,8 @@ package sync
 import (
 	"context"
 	"errors"
+	"math/big"
+
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -11,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils/iter"
-	"math/big"
 )
 
 type ContractRangeStreamingResult struct {
@@ -58,9 +59,7 @@ type snapServer struct {
 	blockchain SnapServerBlockchain
 }
 
-var (
-	_ SnapServerBlockchain = &blockchain.Blockchain{}
-)
+var _ SnapServerBlockchain = &blockchain.Blockchain{}
 
 const maxNodePerRequest = 1024 * 1024 // I just want it to process faster
 func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
@@ -72,46 +71,6 @@ func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
 		return specifiedMaxNodes
 	}
 	return maxNodePerRequest
-}
-
-func iterateWithLimit(
-	srcTrie *trie.Trie,
-	startAddr *felt.Felt,
-	limitAddr *felt.Felt,
-	maxNode uint64,
-	consumer func(key, value *felt.Felt) error,
-) ([]trie.ProofNode, bool, error) {
-	pathes := make([]*felt.Felt, 0)
-	hashes := make([]*felt.Felt, 0)
-
-	// TODO: Verify class trie
-	count := uint64(0)
-	proof, finished, err := srcTrie.IterateAndGenerateProof(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
-		// Need at least one.
-		if limitAddr != nil && key.Cmp(limitAddr) > 1 && count > 0 {
-			return false, nil
-		}
-
-		pathes = append(pathes, key)
-		hashes = append(hashes, value)
-
-		err := consumer(key, value)
-		if err != nil {
-			return false, err
-		}
-
-		count++
-		if count >= maxNode {
-			return false, nil
-		}
-		return true, nil
-	})
-
-	if err != nil {
-		return nil, finished, err
-	}
-
-	return proof, finished, err
 }
 
 func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) iter.Seq2[*ClassRangeStreamingResult, error] {
@@ -130,7 +89,6 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			return
 		}
 
-		// TODO: Verify class trie
 		ctrie, classCloser, err := s.ClassTrie()
 		if err != nil {
 			yield(nil, err)
@@ -138,83 +96,57 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 		}
 		defer classCloser()
 
-		response := &spec.Classes{
-			Classes: make([]*spec.Class, 0),
-		}
-
-		classkeys := []*felt.Felt{}
 		startAddr := p2p2core.AdaptHash(request.Start)
 		limitAddr := p2p2core.AdaptHash(request.End)
 		if limitAddr.IsZero() {
 			limitAddr = nil
 		}
 
-		// TODO: loop this
-		proofs, _, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
-			classkeys = append(classkeys, key)
-			return nil
-		})
+		for {
+			response := &spec.Classes{
+				Classes: make([]*spec.Class, 0),
+			}
 
-		coreclasses, err := b.blockchain.GetClasses(classkeys)
-		if err != nil {
-			yield(nil, err)
-			return
-		}
+			classkeys := []*felt.Felt{}
+			proofs, finished, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
+				classkeys = append(classkeys, key)
+				return nil
+			})
 
-		for _, coreclass := range coreclasses {
-			if coreclass == nil {
-				yield(nil, errors.New("class is nil"))
+			coreclasses, err := b.blockchain.GetClasses(classkeys)
+			if err != nil {
+				yield(nil, err)
 				return
 			}
-			response.Classes = append(response.Classes, core2p2p.AdaptClass(coreclass))
-		}
 
-		if err != nil {
-			yield(nil, err)
-			return
-		}
-
-		yield(&ClassRangeStreamingResult{
-			ContractsRoot: contractRoot,
-			ClassesRoot:   classRoot,
-			Range:         response,
-			RangeProof:    Core2P2pProof(proofs),
-		}, err)
-	}
-}
-
-func Core2P2pProof(proofs []trie.ProofNode) *spec.PatriciaRangeProof {
-	nodes := make([]*spec.PatriciaNode, len(proofs))
-
-	for i := range proofs {
-		if proofs[i].Binary != nil {
-			binary := proofs[i].Binary
-			nodes[i] = &spec.PatriciaNode{
-				Node: &spec.PatriciaNode_Binary_{
-					Binary: &spec.PatriciaNode_Binary{
-						Left:  core2p2p.AdaptFelt(binary.LeftHash),
-						Right: core2p2p.AdaptFelt(binary.RightHash),
-					},
-				},
+			for _, coreclass := range coreclasses {
+				if coreclass == nil {
+					yield(nil, errors.New("class is nil"))
+					return
+				}
+				response.Classes = append(response.Classes, core2p2p.AdaptClass(coreclass))
 			}
-		}
-		if proofs[i].Edge != nil {
-			edge := proofs[i].Edge
-			pathfeld := edge.Path.Felt()
-			nodes[i] = &spec.PatriciaNode{
-				Node: &spec.PatriciaNode_Edge_{
-					Edge: &spec.PatriciaNode_Edge{
-						Length: uint32(edge.Path.Len()),
-						Path:   core2p2p.AdaptFelt(&pathfeld),
-						Value:  core2p2p.AdaptFelt(edge.Child),
-					},
-				},
-			}
-		}
-	}
 
-	return &spec.PatriciaRangeProof{
-		Nodes: nodes,
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+
+			shouldContinue := yield(&ClassRangeStreamingResult{
+				ContractsRoot: contractRoot,
+				ClassesRoot:   classRoot,
+				Range:         response,
+				RangeProof:    Core2P2pProof(proofs),
+			}, err)
+
+			if finished || !shouldContinue {
+				break
+			}
+			startAddr = classkeys[len(classkeys)-1]
+		}
+
+		// will this send a `Fin` as in https://github.com/starknet-io/starknet-p2p-specs/blob/e335372d39b728372c0ff393bef78763deeb3fcb/p2p/proto/snapshot.proto#L77
+		yield(nil, nil)
 	}
 }
 
@@ -234,7 +166,6 @@ func (b *snapServer) GetContractRange(ctx context.Context, request *spec.Contrac
 			return
 		}
 
-		// TODO: Verify class trie
 		strie, scloser, err := s.StorageTrie()
 		if err != nil {
 			yield(nil, err)
@@ -246,57 +177,56 @@ func (b *snapServer) GetContractRange(ctx context.Context, request *spec.Contrac
 		limitAddr := p2p2core.AdaptAddress(request.End)
 		states := []*spec.ContractState{}
 
-		proofs, _, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
-			classHash, err := s.ContractClassHash(key)
-			if err != nil {
-				return err
-			}
+		for {
+			proofs, finished, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
+				classHash, err := s.ContractClassHash(key)
+				if err != nil {
+					return err
+				}
 
-			nonce, err := s.ContractNonce(key)
-			if err != nil {
-				return err
-			}
+				nonce, err := s.ContractNonce(key)
+				if err != nil {
+					return err
+				}
 
-			ctr, err := s.StorageTrieForAddr(key)
-			if err != nil {
-				return err
-			}
+				ctr, err := s.StorageTrieForAddr(key)
+				if err != nil {
+					return err
+				}
 
-			croot, err := ctr.Root()
-			if err != nil {
-				return err
-			}
+				croot, err := ctr.Root()
+				if err != nil {
+					return err
+				}
 
-			states = append(states, &spec.ContractState{
-				Address: core2p2p.AdaptAddress(key),
-				Class:   core2p2p.AdaptHash(classHash),
-				Storage: core2p2p.AdaptHash(croot),
-				Nonce:   nonce.Uint64(),
+				startAddr = key
+				states = append(states, &spec.ContractState{
+					Address: core2p2p.AdaptAddress(key),
+					Class:   core2p2p.AdaptHash(classHash),
+					Storage: core2p2p.AdaptHash(croot),
+					Nonce:   nonce.Uint64(),
+				})
+				return nil
 			})
-			return nil
-		})
+			if err != nil {
+				yield(nil, err)
+				return
+			}
 
-		yield(&ContractRangeStreamingResult{
-			ContractsRoot: contractRoot,
-			ClassesRoot:   classRoot,
-			Range:         states,
-			RangeProof:    Core2P2pProof(proofs),
-		}, nil)
+			shouldContinue := yield(&ContractRangeStreamingResult{
+				ContractsRoot: contractRoot,
+				ClassesRoot:   classRoot,
+				Range:         states,
+				RangeProof:    Core2P2pProof(proofs),
+			}, nil)
+
+			if finished || !shouldContinue {
+				break
+			}
+		}
+
+		yield(nil, nil)
 	}
-}
-
-func (b *snapServer) GetClasses(ctx context.Context, felts []*felt.Felt) ([]*spec.Class, error) {
-	classes := make([]*spec.Class, len(felts))
-	coreClasses, err := b.blockchain.GetClasses(felts)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, class := range coreClasses {
-		classes[i] = core2p2p.AdaptClass(class)
-	}
-
-	return classes, nil
 }
 
 func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeRequest) iter.Seq2[*StorageRangeStreamingResult, error] {
@@ -339,7 +269,6 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 					RangeProof:    Core2P2pProof(proofs),
 				}, nil)
 			})
-
 			if err != nil {
 				yield(nil, err)
 				return
@@ -354,14 +283,28 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 	}
 }
 
+func (b *snapServer) GetClasses(ctx context.Context, felts []*felt.Felt) ([]*spec.Class, error) {
+	classes := make([]*spec.Class, len(felts))
+	coreClasses, err := b.blockchain.GetClasses(felts)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, class := range coreClasses {
+		classes[i] = core2p2p.AdaptClass(class)
+	}
+
+	return classes, nil
+}
+
 func (b *snapServer) handleStorageRangeRequest(
 	ctx context.Context,
 	trie *trie.Trie,
 	request *spec.StorageRangeQuery,
 	maxChunkPerProof uint64,
 	nodeLimit uint64,
-	yield func([]*spec.ContractStoredValue, []trie.ProofNode)) (int64, error) {
-
+	yield func([]*spec.ContractStoredValue, []trie.ProofNode),
+) (int64, error) {
 	totalSent := int64(0)
 	finished := false
 	startAddr := p2p2core.AdaptFelt(request.Start.Key)
@@ -382,7 +325,7 @@ func (b *snapServer) handleStorageRangeRequest(
 			limit = nodeLimit
 		}
 
-		proofs, finished, err := iterateWithLimit(trie, startAddr, endAddr, limit, func(key, value *felt.Felt) error {
+		proofs, finish, err := iterateWithLimit(trie, startAddr, endAddr, limit, func(key, value *felt.Felt) error {
 			response = append(response, &spec.ContractStoredValue{
 				Key:   core2p2p.AdaptFelt(key),
 				Value: core2p2p.AdaptFelt(value),
@@ -391,6 +334,7 @@ func (b *snapServer) handleStorageRangeRequest(
 			startAddr = key
 			return nil
 		})
+		finished = finish
 
 		if err != nil {
 			return 0, err
@@ -414,4 +358,78 @@ func (b *snapServer) handleStorageRangeRequest(
 	}
 
 	return totalSent, nil
+}
+
+func iterateWithLimit(
+	srcTrie *trie.Trie,
+	startAddr *felt.Felt,
+	limitAddr *felt.Felt,
+	maxNodes uint64,
+	consumer func(key, value *felt.Felt) error,
+) ([]trie.ProofNode, bool, error) {
+	pathes := make([]*felt.Felt, 0)
+	hashes := make([]*felt.Felt, 0)
+
+	// TODO: Verify class trie
+	count := uint64(0)
+	proof, finished, err := srcTrie.IterateAndGenerateProof(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+		// Need at least one.
+		if limitAddr != nil && key.Cmp(limitAddr) > 1 && count > 0 {
+			return false, nil
+		}
+
+		pathes = append(pathes, key)
+		hashes = append(hashes, value)
+
+		err := consumer(key, value)
+		if err != nil {
+			return false, err
+		}
+
+		count++
+		if count >= maxNodes {
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return nil, finished, err
+	}
+
+	return proof, finished, err
+}
+
+func Core2P2pProof(proofs []trie.ProofNode) *spec.PatriciaRangeProof {
+	nodes := make([]*spec.PatriciaNode, len(proofs))
+
+	for i := range proofs {
+		if proofs[i].Binary != nil {
+			binary := proofs[i].Binary
+			nodes[i] = &spec.PatriciaNode{
+				Node: &spec.PatriciaNode_Binary_{
+					Binary: &spec.PatriciaNode_Binary{
+						Left:  core2p2p.AdaptFelt(binary.LeftHash),
+						Right: core2p2p.AdaptFelt(binary.RightHash),
+					},
+				},
+			}
+		}
+		if proofs[i].Edge != nil {
+			edge := proofs[i].Edge
+			pathfeld := edge.Path.Felt()
+			nodes[i] = &spec.PatriciaNode{
+				Node: &spec.PatriciaNode_Edge_{
+					Edge: &spec.PatriciaNode_Edge{
+						Length: uint32(edge.Path.Len()),
+						Path:   core2p2p.AdaptFelt(&pathfeld),
+						Value:  core2p2p.AdaptFelt(edge.Child),
+					},
+				},
+			}
+		}
+	}
+
+	return &spec.PatriciaRangeProof{
+		Nodes: nodes,
+	}
 }

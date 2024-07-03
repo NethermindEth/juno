@@ -4,26 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/adapters/core2p2p"
-	"github.com/NethermindEth/juno/adapters/p2p2core"
-	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
-	"github.com/NethermindEth/juno/starknetdata"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/sync/errgroup"
 	big "math/big"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/sync/errgroup"
 )
 
 type Blockchain interface {
@@ -457,7 +457,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			hasNext, err := VerifyTrie(response.ClassesRoot, paths, values, proofs, ClassTrieHeight, crypto.Poseidon)
+			hasNext, err := VerifyTrie(response.ClassesRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Poseidon)
 			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
@@ -547,9 +547,6 @@ func VerifyGlobalStateRoot(globalStateRoot *felt.Felt, classRoot *felt.Felt, sto
 	return nil
 }
 
-const ClassTrieHeight = 251
-const ContractTrieDepth = 251
-
 func CalculateClassHash(cls core.Class) *felt.Felt {
 	hash, err := cls.Hash()
 	if err != nil {
@@ -598,7 +595,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			hasNext, ierr := VerifyTrie(response.ContractsRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
+			hasNext, ierr := VerifyTrie(response.ContractsRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
 			if ierr != nil {
 				err = ierr
 				// The peer should get penalized in this case
@@ -829,7 +826,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			hasNext, err := VerifyTrie(job.storageRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
+			hasNext, err := VerifyTrie(job.storageRoot, paths, values, proofs, core.ContractStorageTrieHeight, crypto.Pedersen)
 			if err != nil {
 				// It is unclear how to distinguish if the peer is malicious/broken/non-bizantine or the contracts root is outdated.
 				err = s.queueStorageRefreshJob(ctx, job)
@@ -939,7 +936,6 @@ func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64) error {
 }
 
 func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
-
 	keyBatches := make([]*felt.Felt, 0)
 	for {
 
@@ -1108,7 +1104,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			_, err = VerifyTrie(response.ContractsRoot, paths, values, proofs, ContractTrieDepth, crypto.Pedersen)
+			_, err = VerifyTrie(response.ContractsRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
 			if err != nil {
 				// The peer should get penalized in this case
 				return false

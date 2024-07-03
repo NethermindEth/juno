@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"github.com/NethermindEth/juno/encoder"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"math/big"
 	"net/http"
 	"os"
@@ -17,8 +15,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,7 +74,6 @@ func V1ClassFromString(key, bytes string) (*felt.Felt, *felt.Felt, core.Class, e
 }
 
 func TestSnapOfflineCopy(t *testing.T) {
-
 	scenarios := []struct {
 		name     string
 		scenario func(t *testing.T, bc *blockchain.Blockchain) error
@@ -343,37 +342,37 @@ func (l localStarknetData) BlockLatest(ctx context.Context) (*core.Block, error)
 }
 
 func (l localStarknetData) BlockPending(ctx context.Context) (*core.Block, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (l localStarknetData) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (l localStarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (l localStarknetData) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (l localStarknetData) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (l localStarknetData) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (l localStarknetData) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

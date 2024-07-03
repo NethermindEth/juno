@@ -3,6 +3,7 @@ package blockchain
 import (
 	"errors"
 	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -23,7 +24,6 @@ func (b *Blockchain) GetStateForStateRoot(stateRoot *felt.Felt) (*core.State, er
 	snapshot, err := b.findSnapshotMatching(func(record *snapshotRecord) bool {
 		return record.stateRoot.Equal(stateRoot)
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,6 @@ func (b *Blockchain) GetClasses(felts []*felt.Felt) ([]core.Class, error) {
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +90,6 @@ func (b *Blockchain) GetDClasses(felts []*felt.Felt) ([]*core.DeclaredClass, err
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}

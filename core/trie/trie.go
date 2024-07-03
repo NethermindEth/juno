@@ -4,8 +4,6 @@ package trie
 import (
 	"errors"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"math/big"
 	"strings"
 	"sync"
@@ -13,6 +11,8 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
@@ -750,6 +750,7 @@ func (t *Trie) Iterate(startValue *felt.Felt, consumer func(key, value *felt.Fel
 	return t.doIterate(&startKey, t.rootKey, consumer)
 }
 
+// doIterate returns false if the end of the trie is reached, true otherwise
 func (t *Trie) doIterate(startKey, key *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error) {
 	if key == nil {
 		return false, nil

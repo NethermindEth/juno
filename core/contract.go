@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -9,7 +10,10 @@ import (
 )
 
 // contract storage has fixed height at 251
-const ContractStorageTrieHeight = 251
+const (
+	GlobalTrieHeight          = 251
+	ContractStorageTrieHeight = 251
+)
 
 var (
 	ErrContractNotDeployed     = errors.New("contract not deployed")
