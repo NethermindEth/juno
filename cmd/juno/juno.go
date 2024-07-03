@@ -38,56 +38,57 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 `
 
 const (
-	configF                = "config"
-	logLevelF              = "log-level"
-	httpF                  = "http"
-	httpHostF              = "http-host"
-	httpPortF              = "http-port"
-	wsF                    = "ws"
-	wsHostF                = "ws-host"
-	wsPortF                = "ws-port"
-	dbPathF                = "db-path"
-	networkF               = "network"
-	ethNodeF               = "eth-node"
-	pprofF                 = "pprof"
-	pprofHostF             = "pprof-host"
-	pprofPortF             = "pprof-port"
-	colourF                = "colour"
-	pendingPollIntervalF   = "pending-poll-interval"
-	p2pF                   = "p2p"
-	p2pAddrF               = "p2p-addr"
-	p2pPeersF              = "p2p-peers"
-	p2pFeederNodeF         = "p2p-feeder-node"
-	p2pPrivateKey          = "p2p-private-key"
-	metricsF               = "metrics"
-	metricsHostF           = "metrics-host"
-	metricsPortF           = "metrics-port"
-	grpcF                  = "grpc"
-	grpcHostF              = "grpc-host"
-	grpcPortF              = "grpc-port"
-	maxVMsF                = "max-vms"
-	maxVMQueueF            = "max-vm-queue"
-	remoteDBF              = "remote-db"
-	rpcMaxBlockScanF       = "rpc-max-block-scan"
-	dbCacheSizeF           = "db-cache-size"
-	dbMaxHandlesF          = "db-max-handles"
-	gwAPIKeyF              = "gw-api-key" //nolint: gosec
-	gwTimeoutF             = "gw-timeout" //nolint: gosec
-	cnNameF                = "cn-name"
-	cnFeederURLF           = "cn-feeder-url"
-	cnGatewayURLF          = "cn-gateway-url"
-	cnL1ChainIDF           = "cn-l1-chain-id"
-	cnL2ChainIDF           = "cn-l2-chain-id"
-	cnCoreContractAddressF = "cn-core-contract-address"
-	cnUnverifiableRangeF   = "cn-unverifiable-range"
-	callMaxStepsF          = "rpc-call-max-steps"
-	corsEnableF            = "rpc-cors-enable"
-	seqEnF                 = "seq-enable"
-	seqBlockTimeF          = "seq-block-time"
-	seqBootstrapF          = "seq-bootstrap"
-	seqBootstrapToBlockF   = "seq-bootstrap-to-block"
-	seqPrefundAccountsF    = "seq-prefund-accounts"
-	genesisFileF           = "genesis-file"
+	configF                 = "config"
+	logLevelF               = "log-level"
+	httpF                   = "http"
+	httpHostF               = "http-host"
+	httpPortF               = "http-port"
+	wsF                     = "ws"
+	wsHostF                 = "ws-host"
+	wsPortF                 = "ws-port"
+	dbPathF                 = "db-path"
+	networkF                = "network"
+	ethNodeF                = "eth-node"
+	pprofF                  = "pprof"
+	pprofHostF              = "pprof-host"
+	pprofPortF              = "pprof-port"
+	colourF                 = "colour"
+	pendingPollIntervalF    = "pending-poll-interval"
+	p2pF                    = "p2p"
+	p2pAddrF                = "p2p-addr"
+	p2pPeersF               = "p2p-peers"
+	p2pFeederNodeF          = "p2p-feeder-node"
+	p2pPrivateKey           = "p2p-private-key"
+	metricsF                = "metrics"
+	metricsHostF            = "metrics-host"
+	metricsPortF            = "metrics-port"
+	grpcF                   = "grpc"
+	grpcHostF               = "grpc-host"
+	grpcPortF               = "grpc-port"
+	maxVMsF                 = "max-vms"
+	maxVMQueueF             = "max-vm-queue"
+	remoteDBF               = "remote-db"
+	rpcMaxBlockScanF        = "rpc-max-block-scan"
+	dbCacheSizeF            = "db-cache-size"
+	dbMaxHandlesF           = "db-max-handles"
+	gwAPIKeyF               = "gw-api-key" //nolint: gosec
+	gwTimeoutF              = "gw-timeout" //nolint: gosec
+	cnNameF                 = "cn-name"
+	cnFeederURLF            = "cn-feeder-url"
+	cnGatewayURLF           = "cn-gateway-url"
+	cnL1ChainIDF            = "cn-l1-chain-id"
+	cnL2ChainIDF            = "cn-l2-chain-id"
+	cnCoreContractAddressF  = "cn-core-contract-address"
+	cnUnverifiableRangeF    = "cn-unverifiable-range"
+	callMaxStepsF           = "rpc-call-max-steps"
+	corsEnableF             = "rpc-cors-enable"
+	versionedConstantsFileF = "versioned-constants-file"
+	seqEnF                  = "seq-enable"
+	seqBlockTimeF           = "seq-block-time"
+	seqBootstrapF           = "seq-bootstrap"
+	seqBootstrapToBlockF    = "seq-bootstrap-to-block"
+	seqPrefundAccountsF     = "seq-prefund-accounts"
+	genesisFileF            = "genesis-file"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -123,6 +124,7 @@ const (
 	defaultCallMaxSteps             = 4_000_000
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
+	defaultVersionedConstantsFile   = ""
 	defaultSeqEn                    = false
 	defaultSeqBlockTime             = 60
 	defaultSeqBootstrapToBlock      = 0
@@ -177,13 +179,14 @@ const (
 	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
 	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
-	corsEnableUsage          = "Enable CORS on RPC endpoints"
-	seqEnUsage               = "Enables sequencer mode of operation"
-	seqBlockTimeUsage        = "Time to build a block, in seconds"
-	seqBootstrapToBlockUsage = "How many blocks to sycn from network before running sequencer"
-	seqBootstrapUsage        = "Enables sync from existing network before running sequencer mode"
-	seqPrefundAccountsUsage  = "Deploys some accounts and prefunds them with strk tokens"
-	genesisFileUsage         = "Path to the genesis file"
+	corsEnableUsage             = "Enable CORS on RPC endpoints"
+	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
+	seqEnUsage                  = "Enables sequencer mode of operation"
+	seqBlockTimeUsage           = "Time to build a block, in seconds"
+	seqBootstrapToBlockUsage    = "How many blocks to sycn from network before running sequencer"
+	seqBootstrapUsage           = "Enables sync from existing network before running sequencer mode"
+	seqPrefundAccountsUsage     = "Deploys some accounts and prefunds them with strk tokens"
+	genesisFileUsage            = "Path to the genesis file"
 )
 
 var Version string
@@ -363,6 +366,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
+	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.AddCommand(GenP2PKeyPair())
 	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)

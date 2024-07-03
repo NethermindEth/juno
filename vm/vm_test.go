@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"testing"
 
@@ -202,5 +203,20 @@ func TestExecute(t *testing.T) {
 			},
 		}, state, &network, false, false, false, false)
 		require.NoError(t, err)
+	})
+}
+
+func TestSetVersionedConstants(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		err := SetVersionedConstants("./rust/versioned_constants_13_1.json")
+		assert.NoError(t, err)
+	})
+	t.Run("not valid json", func(t *testing.T) {
+		fd, err := os.CreateTemp("", "versioned_constants_test*")
+		require.NoError(t, err)
+		defer os.Remove(fd.Name())
+
+		err = SetVersionedConstants(fd.Name())
+		assert.ErrorContains(t, err, "Failed to parse JSON")
 	})
 }
