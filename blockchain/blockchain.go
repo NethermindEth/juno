@@ -381,7 +381,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
-
 	if err != nil {
 		return err
 	}
