@@ -32,13 +32,13 @@ type schemaMetadata struct {
 type Migration interface {
 	Before(intermediateState []byte) error
 	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
-	Migrate(context.Context, db.Transaction, *utils.Network) ([]byte, error)
+	Migrate(context.Context, db.Transaction, *utils.Network, utils.SimpleLogger) ([]byte, error)
 }
 
 type MigrationFunc func(db.Transaction, *utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(_ context.Context, txn db.Transaction, network *utils.Network) ([]byte, error) {
+func (f MigrationFunc) Migrate(_ context.Context, txn db.Transaction, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	return nil, f(txn, network)
 }
 
@@ -112,7 +112,7 @@ func migrateIfNeeded(ctx context.Context, targetDB db.DB, network *utils.Network
 		for {
 			callWithNewTransaction := false
 			if dbErr := targetDB.Update(func(txn db.Transaction) error {
-				metadata.IntermediateState, err = migration.Migrate(ctx, txn, network)
+				metadata.IntermediateState, err = migration.Migrate(ctx, txn, network, log)
 				switch {
 				case err == nil || errors.Is(err, ctx.Err()):
 					if metadata.IntermediateState == nil {
@@ -366,7 +366,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 	return err
 }
 
-func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, _ *utils.Network) ([]byte, error) {
+func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, _ *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a cutom struct to force the encoder to use the default encoding.
 	var n node

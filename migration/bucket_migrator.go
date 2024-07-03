@@ -3,6 +3,10 @@ package migration
 import (
 	"bytes"
 	"context"
+	"errors"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
@@ -72,14 +76,43 @@ func (m *BucketMigrator) Before(_ []byte) error {
 	return nil
 }
 
-func (m *BucketMigrator) Migrate(_ context.Context, txn db.Transaction, network *utils.Network) ([]byte, error) {
+func (m *BucketMigrator) Migrate(ctx context.Context, txn db.Transaction, network *utils.Network, log utils.SimpleLogger) ([]byte, error) {
 	remainingInBatch := m.batchSize
 	iterator, err := txn.NewIterator()
 	if err != nil {
 		return nil, err
 	}
 
+	var (
+		firstInterrupt  = ctx.Done()
+		secondInterrupt chan os.Signal // initially nil
+	)
 	for iterator.Seek(m.startFrom); iterator.Valid(); iterator.Next() {
+		select {
+		case <-firstInterrupt:
+			if errors.Is(ctx.Err(), context.Canceled) {
+				msg := "WARNING: Migration is in progress, but you tried to interrupt it.\n" +
+					"Database may be in an inconsistent state.\n" +
+					"To force cancellation and potentially corrupt data, send interrupt signal again.\n" +
+					"Otherwise, please allow the migration to complete."
+				log.Warnw(msg)
+
+				// after context canceled on upper level there is no way to check how many interrupts were made from ctx.Done()
+				// but we can initialize additional channel to receive the signals, they will be copied by runtime and provided
+				// to all callers (i.e. here and on upper level)
+				secondInterrupt = make(chan os.Signal, 1)
+				signal.Notify(secondInterrupt, os.Interrupt, syscall.SIGTERM)
+				// if we don't set firstInterrupt to nil this case may be fired all the time because
+				// execution order of cases in select is not guaranteed and selecting from nil channel is blocked operation
+				firstInterrupt = nil
+			}
+		case <-secondInterrupt:
+			err := errors.New("migration interrupt")
+			return nil, utils.RunAndWrapOnError(iterator.Close, err)
+		default:
+			// keep going
+		}
+
 		key := iterator.Key()
 		if !bytes.HasPrefix(key, m.target.Key()) {
 			break
