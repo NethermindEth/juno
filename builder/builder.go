@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	stdsync "sync"
@@ -122,17 +121,19 @@ func (b *Builder) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	if b.prefundAccounts {
+	} else if b.prefundAccounts {
 		if err := b.GenesisPrefundAccounts(); err != nil {
 			return err
 		}
+	} else {
+		if err := b.bc.StoreGenesis(core.EmptyStateDiff(), map[felt.Felt]core.Class{}); err != nil {
+			return err
+		}
 	}
-
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
+
 	defer func() {
 		if pErr := b.ClearPending(); pErr != nil {
 			b.log.Errorw("clearing pending", "err", pErr)
@@ -384,15 +385,12 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			return err
 		}
 		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
-		qwe, _ := (userTxn.Transaction).(*core.InvokeTransaction)
-		fmt.Println("run txn", userTxn.Transaction, qwe.SenderAddress.String())
 		if err = b.runTxn(&userTxn); err != nil {
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
 				return err
 			}
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
-			fmt.Println("run txn err", err)
 		}
 
 		select {

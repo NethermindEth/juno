@@ -578,5 +578,4 @@ func TestPrefundedAccounts(t *testing.T) {
 		require.Equal(t, uint64(2), foundNumTxnsInBlock)
 		require.True(t, foundExpectedBalance)
 	})
-
 }
