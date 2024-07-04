@@ -98,7 +98,7 @@ func (m *BucketMigrator) Migrate(ctx context.Context, txn db.Transaction, networ
 				log.Warnw(msg)
 
 				// after context canceled on upper level there is no way to check how many interrupts were made from ctx.Done()
-				// but we can initialize additional channel to receive the signals, they will be copied by runtime and provided
+				// but we can Initialise additional channel to receive the signals, they will be copied by runtime and provided
 				// to all callers (i.e. here and on upper level)
 				secondInterrupt = make(chan os.Signal, 1)
 				signal.Notify(secondInterrupt, os.Interrupt, syscall.SIGTERM)
