@@ -122,6 +122,10 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
+	Sequencer = Network{
+		Name:      "sequencer",
+		L2ChainID: "SN_JUNO_SEQUENCER",
+	}
 )
 
 func (n *Network) String() string {
@@ -141,6 +145,7 @@ func (n *Network) Set(s string) error {
 		"mainnet":             Mainnet,
 		"sepolia":             Sepolia,
 		"sepolia-integration": SepoliaIntegration,
+		"sequencer":           Sequencer,
 	}
 
 	if network, ok := predefinedNetworks[strings.ToLower(s)]; ok {
@@ -167,7 +172,7 @@ func (n *Network) ProtocolID() protocol.ID {
 }
 
 func knownNetworkNames() []string {
-	networks := []Network{Mainnet, Sepolia, SepoliaIntegration}
+	networks := []Network{Mainnet, Sepolia, SepoliaIntegration, Sequencer}
 
 	return Map(networks, func(n Network) string {
 		return n.String()

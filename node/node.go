@@ -218,7 +218,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if synchronizer != nil {
 			syncReader = synchronizer
 		}
-
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 		rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	}
@@ -378,11 +377,10 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	// Todo: push to builder?
-	// if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
-	// 	n.log.Errorw("Error building genesis state", "err", err)
-	// 	return
-	// }
+	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
+		n.log.Errorw("Error building genesis state", "err", err)
+		return
+	}
 
 	for _, s := range n.services {
 		s := s

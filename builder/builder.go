@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	stdsync "sync"
@@ -125,11 +126,8 @@ func (b *Builder) Run(ctx context.Context) error {
 		if err := b.GenesisPrefundAccounts(); err != nil {
 			return err
 		}
-	} else {
-		if err := b.bc.StoreGenesis(core.EmptyStateDiff(), map[felt.Felt]core.Class{}); err != nil {
-			return err
-		}
 	}
+
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
@@ -426,7 +424,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("trace", trace)
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 
