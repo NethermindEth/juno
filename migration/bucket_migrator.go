@@ -137,6 +137,7 @@ func (m *BucketMigrator) Migrate(ctx context.Context, txn db.Transaction, networ
 			}
 		}
 	}
+	signal.Stop(secondInterrupt)
 
 	return nil, iterator.Close()
 }
