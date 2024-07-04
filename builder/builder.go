@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	stdsync "sync"
 	"time"
 
@@ -123,16 +125,7 @@ func (b *Builder) Run(ctx context.Context) error {
 	}
 
 	if b.prefundAccounts {
-		fmt.Println("building genesis state with prefunded accounts.")
-		initMintAmnt := new(felt.Felt).SetUint64(1_000_000_000_000)
-		classes := []string{"./genesis/testdata/strk.json", "./genesis/testdata/simpleAccount.json"}
-		genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
-		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, b.vm, b.bc.Network())
-		if err != nil {
-			return err
-		}
-		err = b.bc.StoreGenesis(stateDiff, newClasses)
-		if err != nil {
+		if err := b.GenesisPrefundAccounts(); err != nil {
 			return err
 		}
 	}
@@ -166,6 +159,26 @@ func (b *Builder) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (b *Builder) GenesisPrefundAccounts() error {
+	initMintAmnt := new(felt.Felt).SetUint64(1_000_000_000_000)
+	wd, err := os.Getwd()
+	base := wd[:strings.LastIndex(wd, "juno")+4]
+	if err != nil {
+		return err
+	}
+	classes := []string{base + "/genesis/classes/strk.json", base + "/genesis/classes/account.json"}
+	genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
+	stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, b.vm, b.bc.Network())
+	if err != nil {
+		return err
+	}
+	err = b.bc.StoreGenesis(stateDiff, newClasses)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (b *Builder) InitPendingBlock() error {

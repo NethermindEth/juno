@@ -545,7 +545,6 @@ func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jso
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err.Error())
 	}
-
 	if err = h.memPool.Push(&mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,

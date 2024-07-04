@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -480,68 +481,67 @@ func TestSepoliaBootstrap(t *testing.T) {
 	})
 }
 
-// Todo
 func TestPrefundedAccounts(t *testing.T) {
-	network := &utils.Sepolia
-
+	network := &utils.Mainnet
 	bc := blockchain.New(pebble.NewMemTest(t), network)
 	log := utils.NewNopZapLogger()
-
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), time.Millisecond, p, log).WithPrefundAccounts(true)
+	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 
-	// transfer 1 token from account 0x101 to account 0x102 (see genesis config)
-	invokeTxn := &core.InvokeTransaction{
-		SenderAddress:      utils.HexToFelt(t, "0x101"),
-		ContractAddress:    utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
-		EntryPointSelector: utils.HexToFelt(t, "0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-		Version:            new(core.TransactionVersion).SetUint64(1),
-		MaxFee:             new(felt.Felt).SetUint64(2000),
-		Nonce:              new(felt.Felt).SetUint64(0),
-		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x5aa5acdd766b9567aaec6cbf53c71e344718472b01a3779647f852aba33f78c"),
-			utils.HexToFelt(t, "0x57f441e40fe04c6b4189ef181d32f641d61080e927334f98b132267cfec5c5"),
-		},
-		CallData: []*felt.Felt{
-			utils.HexToFelt(t, "0x1"),
-			utils.HexToFelt(t, "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
-			utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-			utils.HexToFelt(t, "0x2"),
-			utils.HexToFelt(t, "0x102"),
-			utils.HexToFelt(t, "0x1"),
+	// transfer tokens to 0x101
+	invokeTxn := rpc.BroadcastedTransaction{
+		Transaction: rpc.Transaction{
+			Type:          rpc.TxnInvoke,
+			SenderAddress: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
+			Version:       new(felt.Felt).SetUint64(1),
+			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
+			Nonce:         new(felt.Felt).SetUint64(0),
+			Signature: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
+				utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
+			},
+			CallData: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				utils.HexToFelt(t, "0x3"),
+				utils.HexToFelt(t, "0x101"),
+				utils.HexToFelt(t, "0x12345678"),
+				utils.HexToFelt(t, "0x0"),
+			},
 		},
 	}
-	invokeTxn.TransactionHash, err = core.TransactionHash(invokeTxn, network)
-	require.NoError(t, err)
-	require.NoError(t, p.Push(&mempool.BroadcastedTransaction{Transaction: invokeTxn}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 700*time.Millisecond)
+	rpcHandler.AddTransaction(context.Background(), invokeTxn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1300*time.Millisecond)
 	defer cancel()
 	require.NoError(t, testBuilder.Run(ctx))
 
-	var totalTxns uint64
 	height, err := bc.Height()
-	fmt.Println("height", height)
 	require.NoError(t, err)
-	var bNum uint64
+	expectedBalance := utils.HexToFelt(t, "0xe8e6d96678")
+	foundExpectedBalance := false
 	for i := uint64(0); i < height; i++ {
-		block, err := bc.BlockByNumber(i + 1)
+		su, err := bc.StateUpdateByNumber(i + 1)
 		require.NoError(t, err)
-		totalTxns += block.TransactionCount
-		for _, qwe := range block.Transactions {
-			bNum = i
-			txnHash := qwe.Hash()
-			fmt.Println(txnHash.String())
-		}
-	}
-	require.NotEqual(t, 0, height)
-	require.Equal(t, uint64(1), totalTxns)
 
-	// Todo: test the balance of each account has changed...
-	su, err := bc.StateUpdateByNumber(bNum)
-	fmt.Println(su)
-	panic(1)
+		for addr, nonce := range su.StateDiff.Nonces {
+			require.Equal(t, addr.String(), "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923")
+			require.Equal(t, nonce.String(), "0x1")
+		}
+		for _, store := range su.StateDiff.StorageDiffs {
+			for _, val := range store {
+				if val.Equal(expectedBalance) {
+					foundExpectedBalance = true
+				}
+			}
+		}
+		break
+	}
+	require.True(t, foundExpectedBalance)
 }
