@@ -162,7 +162,7 @@ func (b *Builder) Run(ctx context.Context) error {
 }
 
 func (b *Builder) GenesisPrefundAccounts() error {
-	initMintAmnt := new(felt.Felt).SetUint64(1_000_000_000_000)
+	initMintAmnt := new(felt.Felt).SetUint64(1_000_000_000_000) //nolint: gomnd
 	wd, err := os.Getwd()
 	base := wd[:strings.LastIndex(wd, "juno")+4]
 	if err != nil {
@@ -320,29 +320,34 @@ func StateDiff(trace *vm.StateDiff) *core.StateDiff {
 	for _, sd := range trace.StorageDiffs {
 		entries := make(map[felt.Felt]*felt.Felt)
 		for _, entry := range sd.StorageEntries {
-			entries[entry.Key] = &entry.Value
+			val := entry.Value
+			entries[entry.Key] = &val
 		}
 		newStorageDiffs[sd.Address] = entries
 	}
 
 	newNonces := make(map[felt.Felt]*felt.Felt)
 	for _, nonce := range trace.Nonces {
-		newNonces[nonce.ContractAddress] = &nonce.Nonce
+		nonc := nonce.Nonce
+		newNonces[nonce.ContractAddress] = &nonc
 	}
 
 	newDeployedContracts := make(map[felt.Felt]*felt.Felt)
 	for _, dc := range trace.DeployedContracts {
-		newDeployedContracts[dc.Address] = &dc.ClassHash
+		ch := dc.ClassHash
+		newDeployedContracts[dc.Address] = &ch
 	}
 
 	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt)
 	for _, dc := range trace.DeclaredClasses {
-		newDeclaredV1Classes[dc.ClassHash] = &dc.CompiledClassHash
+		cch := dc.CompiledClassHash
+		newDeclaredV1Classes[dc.ClassHash] = &cch
 	}
 
 	newReplacedClasses := make(map[felt.Felt]*felt.Felt)
 	for _, rc := range trace.ReplacedClasses {
-		newReplacedClasses[rc.ContractAddress] = &rc.ClassHash
+		ch := rc.ClassHash
+		newReplacedClasses[rc.ContractAddress] = &ch
 	}
 
 	return &core.StateDiff{

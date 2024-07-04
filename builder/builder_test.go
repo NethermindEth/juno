@@ -541,7 +541,9 @@ func TestPrefundedAccounts(t *testing.T) {
 				}
 			}
 		}
-		break
+		if foundExpectedBalance {
+			break
+		}
 	}
 	require.True(t, foundExpectedBalance)
 }

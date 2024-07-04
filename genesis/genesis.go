@@ -125,12 +125,13 @@ func GenesisStateDiff(
 		if err != nil {
 			return nil, nil, fmt.Errorf("get contract class hash: %v", err)
 		}
+		callerAddress := fnCall.CallerAddress
 		callInfo := &vm.CallInfo{
 			ContractAddress: &contractAddress,
 			ClassHash:       classHash,
 			Selector:        &entryPointSelector,
 			Calldata:        fnCall.Calldata,
-			CallerAddress:   &fnCall.CallerAddress,
+			CallerAddress:   &callerAddress,
 		}
 		blockInfo := vm.BlockInfo{
 			Header: &core.Header{
@@ -214,8 +215,8 @@ func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) Genes
 	// strk params
 	whyIsThisNeeded := *new(felt.Felt).SetUint64(0) // Todo: Buffer for self parameter??
 	permissionedMinter := strToFelt("0x123456")
-	initialSupply := new(felt.Felt).Mul(&initMintAmnt, new(felt.Felt).SetUint64(uint64(len(accounts))+100))
-	strkAddress := strToFelt("0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7") // todo: chang from eth to strk
+	initialSupply := new(felt.Felt).Mul(&initMintAmnt, new(felt.Felt).SetUint64(uint64(len(accounts))+100)) //nolint: gomnd
+	strkAddress := strToFelt("0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")          // todo: chang from eth to strk
 	strkClassHash := strToFelt("0x04ad3c1dc8413453db314497945b6903e1c766495a1e60492d44da9c2a986e4b")
 	strkConstrcutorArgs := []felt.Felt{
 		strToFelt("0x537461726b6e657420546f6b656e"), // 1 name, felt
@@ -256,8 +257,9 @@ func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) Genes
 			FunctionCall{
 				ContractAddress:    strkAddress,
 				EntryPointSelector: strToFelt("0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"), // transfer
-				Calldata:           []felt.Felt{acnt.Address, initMintAmnt, whyIsThisNeeded},                        // todo
-				CallerAddress:      permissionedMinter,                                                              // Todo. Hack: remove assertion in strk so anyone can call mint.
+				Calldata:           []felt.Felt{acnt.Address, initMintAmnt, whyIsThisNeeded},
+				// Todo. Hack: must pass permissioned minter since strk contract doesn't allow zero address (update strk contract).
+				CallerAddress: permissionedMinter,
 			})
 	}
 
