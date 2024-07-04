@@ -489,7 +489,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), time.Millisecond, p, log).WithPrefundAccounts(true)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log).WithPrefundAccounts(true)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 
 	// transfer tokens to 0x101
@@ -515,35 +515,68 @@ func TestPrefundedAccounts(t *testing.T) {
 			},
 		},
 	}
+	invokeTxn2 := invokeTxn
+	invokeTxn2.Nonce = new(felt.Felt).SetUint64(1)
+	invokeTxn2.Signature = &[]*felt.Felt{
+		utils.HexToFelt(t, "0x1dd3f747f9d9c05e29c08acc6f2c27fcb6e00fcea9f192d367b900347a08c25"),
+		utils.HexToFelt(t, "0x46aabe43c9174e84b00b50258ed25086091d969fa12dc1f3d64f93114694b9"),
+	}
 
-	rpcHandler.AddTransaction(context.Background(), invokeTxn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1300*time.Millisecond)
-	defer cancel()
-	require.NoError(t, testBuilder.Run(ctx))
-
-	height, err := bc.Height()
-	require.NoError(t, err)
-	expectedBalance := utils.HexToFelt(t, "0xe8e6d96678")
-	foundExpectedBalance := false
-	for i := uint64(0); i < height; i++ {
-		su, err := bc.StateUpdateByNumber(i + 1)
-		require.NoError(t, err)
-
-		for addr, nonce := range su.StateDiff.Nonces {
-			require.Equal(t, addr.String(), "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923")
-			require.Equal(t, nonce.String(), "0x1")
+	addTransactionsAndRunTest := func(t *testing.T, txns ...rpc.BroadcastedTransaction) (uint64, *felt.Felt, bool) {
+		for _, txn := range txns {
+			rpcHandler.AddTransaction(context.Background(), txn)
 		}
-		for _, store := range su.StateDiff.StorageDiffs {
-			for _, val := range store {
-				if val.Equal(expectedBalance) {
-					foundExpectedBalance = true
-				}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1300*time.Millisecond)
+		defer cancel()
+		require.NoError(t, testBuilder.Run(ctx))
+
+		height, err := bc.Height()
+		require.NoError(t, err)
+		expectedBalance := utils.HexToFelt(t, "0xe8e6d96678")
+		if len(txns) > 1 {
+			expectedBalance = new(felt.Felt).SetUint64(1000610839792)
+		}
+
+		var foundNumTxnsInBlock uint64
+		for i := uint64(0); i < height; i++ {
+			block, err := bc.BlockByNumber(i + 1)
+			require.NoError(t, err)
+			if block.TransactionCount != 0 {
+				foundNumTxnsInBlock = block.TransactionCount
+				break
 			}
 		}
-		if foundExpectedBalance {
-			break
+
+		foundExpectedBalance := false
+		for i := uint64(0); i < height; i++ {
+			su, err := bc.StateUpdateByNumber(i + 1)
+			require.NoError(t, err)
+			for _, store := range su.StateDiff.StorageDiffs {
+				for _, val := range store {
+					if val.Equal(expectedBalance) {
+						foundExpectedBalance = true
+					}
+				}
+			}
+			if foundExpectedBalance {
+				break
+			}
 		}
+
+		return foundNumTxnsInBlock, expectedBalance, foundExpectedBalance
 	}
-	require.True(t, foundExpectedBalance)
+
+	t.Run("single transaction in the block", func(t *testing.T) {
+		foundNumTxnsInBlock, _, foundExpectedBalance := addTransactionsAndRunTest(t, invokeTxn)
+		require.Equal(t, uint64(1), foundNumTxnsInBlock)
+		require.True(t, foundExpectedBalance)
+	})
+
+	t.Run("two transactions in the same block", func(t *testing.T) {
+		foundNumTxnsInBlock, _, foundExpectedBalance := addTransactionsAndRunTest(t, invokeTxn, invokeTxn2)
+		require.Equal(t, uint64(2), foundNumTxnsInBlock)
+		require.True(t, foundExpectedBalance)
+	})
+
 }
