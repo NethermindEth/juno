@@ -314,7 +314,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_getBlockWithTxsAndReceipts",
-			Params:  []jsonrpc.Parameter{{Name: "id"}},
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithTxsAndReceipts,
 		},
 		{
