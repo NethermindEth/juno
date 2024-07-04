@@ -137,6 +137,13 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+type BlockWithTxsAndReceipts struct {
+	Status BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	Transactions             []*Transaction           `json:"transactions"`
+	TransactionsWithReceipts []TransactionWithReceipt `json:"transactionswithreceipts"`
+}
+
 /****************************************************
 		Block Handlers
 *****************************************************/
@@ -287,6 +294,44 @@ func (h *Handler) BlockWithTxsV0_6(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	resp.L1DAMode = nil
 	resp.L1DataGasPrice = nil
 	return resp, nil
+}
+
+func (h *Handler) BlockWithTxsAndReceipts(id BlockID) (*BlockWithTxsAndReceipts, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	status, rpcErr := h.blockStatus(id, block)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	finalityStatus := TxnAcceptedOnL2
+	if status == BlockAcceptedL1 {
+		finalityStatus = TxnAcceptedOnL1
+	}
+
+	txs := make([]*Transaction, len(block.Transactions))
+	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
+
+	for index, txn := range block.Transactions {
+		txs[index] = AdaptTransaction(txn)
+
+		r := block.Receipts[index]
+
+		txsWithReceipts[index] = TransactionWithReceipt{
+			Transaction: AdaptTransaction(txn),
+			Receipt:     AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
+		}
+	}
+
+	return &BlockWithTxsAndReceipts{
+		Status:                   status,
+		BlockHeader:              adaptBlockHeader(block.Header),
+		Transactions:             txs,
+		TransactionsWithReceipts: txsWithReceipts,
+	}, nil
 }
 
 func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {
