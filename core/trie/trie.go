@@ -184,6 +184,10 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 	return nodes, nil
 }
 
+func (t *Trie) NodesFromRoot(key *Key) ([]StorageNode, error) {
+	return t.nodesFromRoot(key)
+}
+
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	storageKey := t.feltToKey(key)
