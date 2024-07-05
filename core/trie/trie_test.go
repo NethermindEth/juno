@@ -1,6 +1,7 @@
 package trie_test
 
 import (
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -374,4 +375,119 @@ func BenchmarkTriePut(b *testing.B) {
 		}
 		return t.Commit()
 	}))
+}
+
+func numToFelt(num int) *felt.Felt {
+	return numToFeltBigInt(big.NewInt(int64(num)))
+}
+
+func numToFeltBigInt(num *big.Int) *felt.Felt {
+	f := felt.Zero
+	return f.SetBigInt(num)
+}
+
+func TestTrie_Iterate(t *testing.T) {
+	tr, err := trie.NewTriePedersen(trie.NewStorage(db.NewMemTransaction(), []byte{1}), 251)
+	assert.Nil(t, err)
+
+	for i := 0; i < 10; i++ {
+		_, err = tr.Put(numToFelt(i*10), numToFelt(i+10))
+		assert.Nil(t, err)
+	}
+	err = tr.Commit()
+	assert.Nil(t, err)
+
+	tests := []struct {
+		name           string
+		startKey       *felt.Felt
+		count          int
+		expectedKeys   []*felt.Felt
+		expectedValues []*felt.Felt
+	}{
+		{
+			name:     "all",
+			startKey: numToFelt(0),
+			count:    10,
+			expectedKeys: []*felt.Felt{
+				numToFelt(0),
+				numToFelt(10),
+				numToFelt(20),
+				numToFelt(30),
+				numToFelt(40),
+				numToFelt(50),
+				numToFelt(60),
+				numToFelt(70),
+				numToFelt(80),
+				numToFelt(90),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(10),
+				numToFelt(11),
+				numToFelt(12),
+				numToFelt(13),
+				numToFelt(14),
+				numToFelt(15),
+				numToFelt(16),
+				numToFelt(17),
+				numToFelt(18),
+				numToFelt(19),
+			},
+		},
+		{
+			name:     "limited",
+			startKey: numToFelt(0),
+			count:    2,
+			expectedKeys: []*felt.Felt{
+				numToFelt(0),
+				numToFelt(10),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(10),
+				numToFelt(11),
+			},
+		},
+		{
+			name:     "limited with offset",
+			startKey: numToFelt(30),
+			count:    2,
+			expectedKeys: []*felt.Felt{
+				numToFelt(30),
+				numToFelt(40),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(13),
+				numToFelt(14),
+			},
+		},
+		{
+			name:     "limited with offset that does not match a leaf",
+			startKey: numToFelt(25),
+			count:    2,
+			expectedKeys: []*felt.Felt{
+				numToFelt(30),
+				numToFelt(40),
+			},
+			expectedValues: []*felt.Felt{
+				numToFelt(13),
+				numToFelt(14),
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			keys := make([]*felt.Felt, 0)
+			values := make([]*felt.Felt, 0)
+
+			_, err := tr.Iterate(test.startKey, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+				keys = append(keys, key)
+				values = append(values, value)
+				return len(keys) < test.count, nil
+			})
+			assert.Nil(t, err)
+
+			assert.Equal(t, test.expectedKeys, keys)
+			assert.Equal(t, test.expectedValues, values)
+		})
+	}
 }
