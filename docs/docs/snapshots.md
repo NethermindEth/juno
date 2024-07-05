@@ -10,7 +10,7 @@ You can download a snapshot of the Juno database to reduce the network syncing t
 
 | Version      | Size       | Block      | Download Link                                                                                         |
 | ------------ | ---------- | ---------- | ----------------------------------------------------------------------------------------------------- |
-| **>=v0.9.2** | **172 GB** | **654464** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.9_654464.tar) |
+| **>=v0.9.2** | **172 GB** | **654881** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.9_654881.tar) |
 
 ## Sepolia
 
