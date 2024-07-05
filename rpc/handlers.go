@@ -318,6 +318,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.BlockWithTxsAndReceipts,
 		},
 		{
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.BlockWithTxsAndReceipts,
+		},
+		{
 			Name:    "juno_subscribeNewHeads",
 			Handler: h.SubscribeNewHeads,
 		},

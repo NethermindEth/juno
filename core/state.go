@@ -40,6 +40,7 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
+	ClassesTrie() (trie.ClassesTrie, func() error, error)
 }
 
 type State struct {
@@ -129,6 +130,10 @@ func (s *State) storage() (*trie.Trie, func() error, error) {
 
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
+}
+
+func (s *State) ClassesTrie() (trie.ClassesTrie, func() error, error) {
+	return s.classesTrie()
 }
 
 func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {

@@ -43,6 +43,12 @@ type Trie struct {
 	rootKeyIsDirty bool
 }
 
+//go:generate mockgen -destination=../mocks/mock_trie.go -package=mocks github.com/NethermindEth/juno/core/trie ClassesTrie
+type ClassesTrie interface {
+	NodesFromRoot(*Key) ([]StorageNode, error)
+	FeltToKey(*felt.Felt) Key
+}
+
 type NewTrieFunc func(*Storage, uint8) (*Trie, error)
 
 func NewTriePedersen(storage *Storage, height uint8) (*Trie, error) {
@@ -90,6 +96,10 @@ func RunOnTempTrie(height uint8, do func(*Trie) error) error {
 func (t *Trie) feltToKey(k *felt.Felt) Key {
 	kBytes := k.Bytes()
 	return NewKey(t.height, kBytes[:])
+}
+
+func (t *Trie) FeltToKey(k *felt.Felt) Key {
+	return t.feltToKey(k)
 }
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
@@ -182,6 +192,10 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 	}
 
 	return nodes, nil
+}
+
+func (t *Trie) NodesFromRoot(key *Key) ([]StorageNode, error) {
+	return t.nodesFromRoot(key)
 }
 
 // Get the corresponding `value` for a `key`

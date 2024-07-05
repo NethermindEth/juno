@@ -14,6 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	trie "github.com/NethermindEth/juno/core/trie"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -53,6 +54,22 @@ func (m *MockStateHistoryReader) Class(arg0 *felt.Felt) (*core.DeclaredClass, er
 func (mr *MockStateHistoryReaderMockRecorder) Class(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStateHistoryReader)(nil).Class), arg0)
+}
+
+// ClassesTrie mocks base method.
+func (m *MockStateHistoryReader) ClassesTrie() (trie.ClassesTrie, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClassesTrie")
+	ret0, _ := ret[0].(trie.ClassesTrie)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ClassesTrie indicates an expected call of ClassesTrie.
+func (mr *MockStateHistoryReaderMockRecorder) ClassesTrie() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClassesTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).ClassesTrie))
 }
 
 // ContractClassHash mocks base method.
