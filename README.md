@@ -111,7 +111,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.9.2**  | **182 GB** | **640855** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar) |
+| **>=v0.9.2**  | **172 GB** | **654881** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.9_654881.tar) |
 
 #### Sepolia
 
@@ -126,7 +126,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.9_654881.tar
    ```
 
 2. **Prepare Directory**
