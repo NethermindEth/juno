@@ -132,3 +132,14 @@ node3:
 	--p2p-private-key="54a695e2a5d5717d5ba8730efcafe6f17251a1955733cffc55a4085fbf7f5d2c1b4009314092069ef7ca9b364ce3eb3072531c64dfb2799c6bad76720a5bdff0" \
 	--metrics-port=9093
 
+sequencer:
+	./build/juno \
+	--http \
+	--http-port=6060 \
+	--http-host=0.0.0.0 \
+	--db-path=./seq-db \
+	--log-level=debug \
+	--seq-enable \
+	--seq-block-time=1 \
+	--network sequencer \
+	--rpc-call-max-steps=4123000

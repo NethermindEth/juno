@@ -86,7 +86,6 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 
 	metaInfo := network.BlockHashMetaInfo
 	unverifiableRange := metaInfo.UnverifiableRange
-
 	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
 
 	if !skipVerification {

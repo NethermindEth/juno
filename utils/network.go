@@ -123,8 +123,9 @@ var (
 		},
 	}
 	Sequencer = Network{
-		Name:      "sequencer",
-		L2ChainID: "SN_JUNO_SEQUENCER",
+		Name:              "sequencer",
+		L2ChainID:         "SN_JUNO_SEQUENCER",
+		BlockHashMetaInfo: &BlockHashMetaInfo{},
 	}
 )
 
