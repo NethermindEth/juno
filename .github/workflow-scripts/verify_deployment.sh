@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -ux
+
 URL=$1
 EXPECTED_VERSION=$2
 MAX_ATTEMPTS=30
