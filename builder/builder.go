@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	stdsync "sync"
@@ -314,9 +313,13 @@ func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.
 	}
 }
 
-func StateDiff(trace *vm.StateDiff) *core.StateDiff {
+func StateDiff(trace *vm.TransactionTrace) *core.StateDiff {
+	if trace.StateDiff == nil {
+		return nil
+	}
+	stateDiff := trace.StateDiff
 	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
-	for _, sd := range trace.StorageDiffs {
+	for _, sd := range stateDiff.StorageDiffs {
 		entries := make(map[felt.Felt]*felt.Felt)
 		for _, entry := range sd.StorageEntries {
 			val := entry.Value
@@ -326,25 +329,25 @@ func StateDiff(trace *vm.StateDiff) *core.StateDiff {
 	}
 
 	newNonces := make(map[felt.Felt]*felt.Felt)
-	for _, nonce := range trace.Nonces {
+	for _, nonce := range stateDiff.Nonces {
 		nonc := nonce.Nonce
 		newNonces[nonce.ContractAddress] = &nonc
 	}
 
 	newDeployedContracts := make(map[felt.Felt]*felt.Felt)
-	for _, dc := range trace.DeployedContracts {
+	for _, dc := range stateDiff.DeployedContracts {
 		ch := dc.ClassHash
 		newDeployedContracts[dc.Address] = &ch
 	}
 
 	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt)
-	for _, dc := range trace.DeclaredClasses {
+	for _, dc := range stateDiff.DeclaredClasses {
 		cch := dc.CompiledClassHash
 		newDeclaredV1Classes[dc.ClassHash] = &cch
 	}
 
 	newReplacedClasses := make(map[felt.Felt]*felt.Felt)
-	for _, rc := range trace.ReplacedClasses {
+	for _, rc := range stateDiff.ReplacedClasses {
 		ch := rc.ClassHash
 		newReplacedClasses[rc.ContractAddress] = &ch
 	}
@@ -353,7 +356,7 @@ func StateDiff(trace *vm.StateDiff) *core.StateDiff {
 		StorageDiffs:      newStorageDiffs,
 		Nonces:            newNonces,
 		DeployedContracts: newDeployedContracts,
-		DeclaredV0Classes: trace.DeprecatedDeclaredClasses,
+		DeclaredV0Classes: stateDiff.DeprecatedDeclaredClasses,
 		DeclaredV1Classes: newDeclaredV1Classes,
 		ReplacedClasses:   newReplacedClasses,
 	}
@@ -424,9 +427,6 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
-	if _, err := trace[0].Type.MarshalText(); err != nil {
-		return fmt.Errorf("error in vm.Execute: %s", err)
-	}
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 
@@ -438,7 +438,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0])
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
-	b.pendingBlock.StateUpdate.StateDiff = StateDiff(trace[0].StateDiff)
+	b.pendingBlock.StateUpdate.StateDiff = StateDiff(&trace[0])
 	return nil
 }
 
