@@ -6,10 +6,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 )
 
-type StateReader interface {
-	ClassesTrie() (*trie.Trie, func() error, error)
-}
-
 func (h *Handler) NodesFromRoot(key *felt.Felt) ([]trie.StorageNode, *jsonrpc.Error) {
 	stateReader, _, err := h.bcReader.HeadState()
 	if err != nil {
