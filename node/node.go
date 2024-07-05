@@ -376,10 +376,11 @@ func (n *Node) Run(ctx context.Context) {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
-
-	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
-		n.log.Errorw("Error building genesis state", "err", err)
-		return
+	if !n.cfg.SeqPrefundAccounts && !n.cfg.SeqBootstrap {
+		if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
+			n.log.Errorw("Error building genesis state", "err", err)
+			return
+		}
 	}
 
 	for _, s := range n.services {

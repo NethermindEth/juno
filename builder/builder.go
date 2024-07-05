@@ -424,7 +424,9 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("trace", trace)
+	if _, err := trace[0].Type.MarshalText(); err != nil {
+		return fmt.Errorf("error in vm.Execute: %s", err)
+	}
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 

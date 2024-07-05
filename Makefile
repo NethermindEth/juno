@@ -143,3 +143,16 @@ sequencer:
 	--seq-block-time=1 \
 	--network sequencer \
 	--rpc-call-max-steps=4123000
+
+sequencer-with-accounts:
+	./build/juno \
+    --http \
+    --http-port=6060 \
+    --http-host=0.0.0.0 \
+    --db-path=./seq-db \
+    --log-level=debug \
+    --seq-enable \
+    --seq-block-time=1 \
+    --seq-prefund-accounts \
+	--network sequencer \
+    --rpc-call-max-steps=4123000
