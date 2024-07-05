@@ -26,7 +26,7 @@ func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Cl
 	}
 }
 
-func (p *PendingState) ClassesTrie() (*trie.Trie, func() error, error) {
+func (p *PendingState) ClassesTrie() (trie.ClassesTrie, func() error, error) {
 	return p.head.ClassesTrie()
 }
 

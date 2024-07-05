@@ -57,10 +57,10 @@ func (mr *MockStateHistoryReaderMockRecorder) Class(arg0 any) *gomock.Call {
 }
 
 // ClassesTrie mocks base method.
-func (m *MockStateHistoryReader) ClassesTrie() (*trie.Trie, func() error, error) {
+func (m *MockStateHistoryReader) ClassesTrie() (trie.ClassesTrie, func() error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClassesTrie")
-	ret0, _ := ret[0].(*trie.Trie)
+	ret0, _ := ret[0].(trie.ClassesTrie)
 	ret1, _ := ret[1].(func() error)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2

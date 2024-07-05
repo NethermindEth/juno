@@ -43,6 +43,12 @@ type Trie struct {
 	rootKeyIsDirty bool
 }
 
+//go:generate mockgen -destination=../mocks/mock_trie.go -package=mocks github.com/NethermindEth/juno/core/trie ClassesTrie
+type ClassesTrie interface {
+	NodesFromRoot(*Key) ([]StorageNode, error)
+	FeltToKey(*felt.Felt) Key
+}
+
 type NewTrieFunc func(*Storage, uint8) (*Trie, error)
 
 func NewTriePedersen(storage *Storage, height uint8) (*Trie, error) {

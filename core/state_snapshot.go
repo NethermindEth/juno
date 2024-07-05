@@ -20,7 +20,7 @@ func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) StateReader 
 	}
 }
 
-func (s *stateSnapshot) ClassesTrie() (*trie.Trie, func() error, error) {
+func (s *stateSnapshot) ClassesTrie() (trie.ClassesTrie, func() error, error) {
 	return s.state.ClassesTrie()
 }
 
