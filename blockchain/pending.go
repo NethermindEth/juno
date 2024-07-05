@@ -3,6 +3,7 @@ package blockchain
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 )
 
 type Pending struct {
@@ -23,6 +24,10 @@ func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Cl
 		newClasses: newClasses,
 		head:       head,
 	}
+}
+
+func (p *PendingState) ClassesTrie() (*trie.Trie, func() error, error) {
+	return p.head.ClassesTrie()
 }
 
 func (p *PendingState) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
