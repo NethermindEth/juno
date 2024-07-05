@@ -92,6 +92,10 @@ func (t *Trie) feltToKey(k *felt.Felt) Key {
 	return NewKey(t.height, kBytes[:])
 }
 
+func (t *Trie) FeltToKey(k *felt.Felt) Key {
+	return t.feltToKey(k)
+}
+
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
