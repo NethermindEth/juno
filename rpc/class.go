@@ -168,3 +168,30 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 
 	return classHash, nil
 }
+
+func (h *Handler) ClassNodesFromRoot(hash felt.Felt) ([]map[string]string, *jsonrpc.Error) {
+	id := BlockID{Latest: true}
+	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassNodesFromRoot")
+
+	classRoot, _, err := stateReader.ClassesTrie()
+	if err != nil {
+		return nil, rpcErr
+	}
+
+	key := classRoot.FeltToKey(&hash)
+	nodesFromRoot, err := classRoot.NodesFromRoot(&key)
+	if err != nil {
+		return nil, rpcErr
+	}
+
+	res, err := classRoot.FormatNodes(nodesFromRoot)
+	if err != nil {
+		return nil, rpcErr
+	}
+
+	return res, nil
+}

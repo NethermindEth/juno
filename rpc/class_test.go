@@ -218,3 +218,23 @@ func TestClassHashAt(t *testing.T) {
 		assert.Equal(t, expectedClassHash, classHash)
 	})
 }
+
+func TestJunoGetNodesFromRoot(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, nil, "", log)
+
+	t.Run("Empty blockchain", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+
+		storage, rpcErr := handler.ClassNodesFromRoot(felt.Zero)
+		require.Nil(t, storage)
+
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+
+	})
+
+}

@@ -92,6 +92,22 @@ func (t *Trie) feltToKey(k *felt.Felt) Key {
 	return NewKey(t.height, kBytes[:])
 }
 
+func (t *Trie) FeltToKey(k *felt.Felt) Key {
+	return t.feltToKey(k)
+}
+
+func (t *Trie) FormatNodes(arr []StorageNode) ([]map[string]string, error) {
+	res := make([]map[string]string, 0)
+
+	for _, node := range arr {
+		res = append(res, map[string]string{
+			"key": node.key.String(),
+			"val": node.node.Value.String(),
+		})
+	}
+	return res, nil
+}
+
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
@@ -182,6 +198,10 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 	}
 
 	return nodes, nil
+}
+
+func (t *Trie) NodesFromRoot(key *Key) ([]StorageNode, error) {
+	return t.nodesFromRoot(key)
 }
 
 // Get the corresponding `value` for a `key`

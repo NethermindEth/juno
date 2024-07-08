@@ -40,6 +40,7 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
+	ClassesTrie() (*trie.Trie, func() error, error)
 }
 
 type State struct {
@@ -83,6 +84,10 @@ func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 // ContractStorage returns value of a key in the storage of the contract at the given address.
 func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 	return ContractStorage(addr, key, s.txn)
+}
+
+func (s *State) ClassesTrie() (*trie.Trie, func() error, error) {
+	return s.classesTrie()
 }
 
 // Root returns the state commitment.
