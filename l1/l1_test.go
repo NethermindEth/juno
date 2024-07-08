@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -15,6 +17,9 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -153,4 +158,102 @@ func TestEventListener(t *testing.T) {
 		BlockHash: new(felt.Felt),
 		StateRoot: new(felt.Felt),
 	}, got)
+}
+
+func newTestL1Client(service service) *rpc.Server {
+	server := rpc.NewServer()
+	if err := server.RegisterName("eth", service); err != nil {
+		panic(err)
+	}
+	return server
+}
+
+type service interface {
+	GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error)
+}
+
+type testService struct{}
+
+func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+	blockHeight := big.NewInt(100)
+	return types.Header{
+		ParentHash:  common.Hash{},
+		UncleHash:   common.Hash{},
+		Root:        common.Hash{},
+		TxHash:      common.Hash{},
+		ReceiptHash: common.Hash{},
+		Bloom:       types.Bloom{},
+		Difficulty:  big.NewInt(0),
+		Number:      blockHeight,
+		GasLimit:    0,
+		GasUsed:     0,
+		Time:        0,
+		Extra:       []byte{},
+	}, nil
+}
+
+type testEmptyService struct{}
+
+func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+	return nil, nil
+}
+
+type testFaultyService struct{}
+
+func (testFaultyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+	return uint(0), nil
+}
+
+func TestEthSubscriber_FinalisedHeight(t *testing.T) {
+	tests := map[string]struct {
+		service        service
+		expectedHeight uint64
+		expectedError  bool
+	}{
+		"testService": {
+			service:        testService{},
+			expectedHeight: 100,
+			expectedError:  false,
+		},
+		"testEmptyService": {
+			service:        testEmptyService{},
+			expectedHeight: 0,
+			expectedError:  true,
+		},
+		"testFaultyService": {
+			service:        testFaultyService{},
+			expectedHeight: 0,
+			expectedError:  true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			startServer := func(addr string, service service) (*rpc.Server, net.Listener) {
+				srv := newTestL1Client(service)
+				l, err := net.Listen("tcp", addr)
+				if err != nil {
+					t.Fatal("can't listen:", err)
+				}
+				go func() {
+					_ = http.Serve(l, srv.WebsocketHandler([]string{"*"}))
+				}()
+				return srv, l
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+			defer cancel()
+
+			server, listener := startServer("127.0.0.1:0", test.service)
+			defer server.Stop()
+
+			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), common.Address{})
+			require.NoError(t, err)
+			defer subscriber.Close()
+
+			height, err := subscriber.FinalisedHeight(ctx)
+			require.Equal(t, test.expectedHeight, height)
+			require.Equal(t, test.expectedError, err != nil)
+		})
+	}
 }
