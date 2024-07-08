@@ -50,7 +50,6 @@ func AdaptUint128(f *felt.Felt) *spec.Uint128 {
 	// bits represents value in little endian byte order
 	// i.e. first is least significant byte
 	bits := f.Bits()
-	// todo what should we do with the rest of bytes?
 	return &spec.Uint128{
 		Low:  bits[0],
 		High: bits[1],

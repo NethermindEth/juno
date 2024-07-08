@@ -151,55 +151,6 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 	})
 }
 
-/*
-func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (iter.Seq[proto.Message], error) {
-	it, err := h.newIterator(req.Iteration)
-	if err != nil {
-		return nil, err
-	}
-
-	fin := newFin(&spec.BlockBodiesResponse{
-		BodyMessage: &spec.BlockBodiesResponse_Fin{},
-	})
-
-	return func(yield func(proto.Message) bool) {
-	outerLoop:
-		for it.Valid() {
-			header, err := it.Header()
-			if err != nil {
-				h.log.Debugw("Failed to fetch header", "blockNumber", it.BlockNumber(), "err", err)
-				break
-			}
-
-			h.log.Debugw("Creating Block Body Iterator", "blockNumber", header.Number)
-			bodyIterator, err := newBlockBodyIterator(h.bcReader, header, h.log)
-			if err != nil {
-				h.log.Debugw("Failed to create block body iterator", "blockNumber", it.BlockNumber(), "err", err)
-				break
-			}
-
-			for bodyIterator.hasNext() {
-				msg, ok := bodyIterator.next()
-				if !ok {
-					break
-				}
-
-				if !yield(msg) {
-					break outerLoop
-				}
-			}
-
-			it.Next()
-		}
-
-		if finMs, ok := fin(); ok {
-			yield(finMs)
-		}
-		yield(finMsg)
-	}, nil
-}
-*/
-
 func (h *Handler) onEventsRequest(req *spec.EventsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.EventsResponse{
 		EventMessage: &spec.EventsResponse_Fin{},

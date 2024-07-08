@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
 	"time"
 
@@ -54,7 +53,6 @@ func (s *syncService) start(ctx context.Context) {
 
 	s.client = starknet.NewClient(s.randomPeerStream, s.network, s.log)
 
-	var randHeight int
 	for i := 0; ; i++ {
 		if err := ctx.Err(); err != nil {
 			break
@@ -70,7 +68,7 @@ func (s *syncService) start(ctx context.Context) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
-		s.log.Infow("Start Pipeline", "Random node height", randHeight, "Current height", nextHeight-1, "Start", nextHeight)
+		s.log.Infow("Start Pipeline", "Current height", nextHeight-1, "Start", nextHeight)
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
@@ -332,11 +330,6 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
 				return
-			}
-			if !coreBlock.Hash.Equal(h) {
-				spew.Dump("Receipts number:", coreBlock.Receipts, events)
-				spew.Dump("Hash mismtach", coreBlock)
-				os.Exit(1)
 			}
 			coreBlock.Hash = h
 
