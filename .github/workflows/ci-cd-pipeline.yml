@@ -137,7 +137,7 @@ jobs:
         run: |
           jf rt dpr juno/${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }} ${{ env.REPO_STAGING }} ${{ env.REPO_PROD }}
 
-   test_in_production:
+  test_in_production:
     needs: [promote_to_production]
     runs-on: ubuntu-latest
     environment:
