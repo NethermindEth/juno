@@ -25,7 +25,7 @@ package starknet_test
 //
 //	handlerHost := mockNet.Host(handlerID)
 //	handlerHost.SetStreamHandler(starknet.CurrentBlockHeaderPID(testNetwork), handler.CurrentBlockHeaderHandler)
-//	handlerHost.SetStreamHandler(starknet.BlockHeadersPID(&testNetwork), handler.BlockHeadersHandler)
+//	handlerHost.SetStreamHandler(starknet.HeadersPID(&testNetwork), handler.HeadersHandler)
 //	handlerHost.SetStreamHandler(starknet.BlockBodiesPID(&testNetwork), handler.BlockBodiesHandler)
 //	handlerHost.SetStreamHandler(starknet.EventsPID(&testNetwork), handler.EventsHandler)
 //	handlerHost.SetStreamHandler(starknet.ReceiptsPID(&testNetwork), handler.ReceiptsHandler)
