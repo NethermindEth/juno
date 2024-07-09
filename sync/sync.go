@@ -210,6 +210,8 @@ func (s *Synchronizer) getStateUpdate(i uint64) (*core.StateUpdate, *core.Block,
 	if adaptedBlock, err = sn2core.AdaptBlock(stateUpdate.Block, signature); err != nil {
 		return nil, nil, err
 	}
+	adaptedBlock.GasPriceSTRK = nil
+	adaptedBlock.L1DataGasPrice = nil
 
 	return adaptedState, adaptedBlock, nil
 }
