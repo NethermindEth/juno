@@ -407,7 +407,6 @@ func TestBlockWithTxs(t *testing.T) {
 		return nil, errors.New("txn not found")
 	}).Times(len(latestBlock.Transactions) * 5)
 
-	//nolint:dupl
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
@@ -573,7 +572,6 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
-	//nolint:dupl
 	t.Run("l1head failure", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
 		block := &core.Block{
