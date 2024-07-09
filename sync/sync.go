@@ -2,17 +2,24 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
@@ -24,9 +31,12 @@ var (
 )
 
 const (
-	OpVerify = "verify"
-	OpStore  = "store"
-	OpFetch  = "fetch"
+	OpVerify  = "verify"
+	OpStore   = "store"
+	OpFetch   = "fetch"
+	FeederURL = "https://alpha-mainnet.starknet.io/feeder_gateway/"
+	latestID  = "latest"
+	pendingID = "pending"
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
@@ -97,8 +107,113 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	s.syncBlocks(ctx)
+	// s.syncBlocks(ctx)
+	s.syncBlocks2(ctx)
 	return nil
+}
+
+func (s *Synchronizer) syncBlocks2(syncCtx context.Context) {
+	streamCtx, streamCancel := context.WithCancel(syncCtx)
+	i := s.nextHeight()
+	for ; ; i++ {
+		select {
+		case <-streamCtx.Done():
+			streamCancel()
+			return
+		default:
+			fmt.Println(i)
+			s.log.Infow("Fetching from feeder gateway")
+			stateUpdate, block, err := s.getStateUpdate(i)
+			if err != nil {
+				s.log.Errorw("Error getting a block: %v", err)
+			}
+			newClasses, err := s.fetchUnknownClasses(syncCtx, stateUpdate)
+			if err != nil {
+				s.log.Errorw("Error fetching unknown classes: %v", err)
+			}
+			commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+			if err != nil {
+				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
+			}
+			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
+			if err != nil {
+				s.log.Errorw("Error storing block: %v", err)
+			} else {
+				s.log.Infow("Stored Block", "number", block.Number, "hash", block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			}
+		}
+	}
+}
+
+func buildQueryString(endpoint string, args map[string]string) string {
+	base, err := url.Parse(FeederURL)
+	if err != nil {
+		panic("Malformed feeder base URL")
+	}
+
+	base.Path += endpoint
+
+	params := url.Values{}
+	for k, v := range args {
+		params.Add(k, v)
+	}
+	base.RawQuery = params.Encode()
+
+	return base.String()
+}
+
+func (s *Synchronizer) getStateUpdate(i uint64) (*core.StateUpdate, *core.Block, error) {
+	blockID := strconv.FormatUint(i, 10)
+
+	queryURLState := buildQueryString("get_state_update", map[string]string{
+		"blockNumber":  blockID,
+		"includeBlock": "true",
+	})
+
+	respState, err := http.Get(queryURLState)
+	if err != nil {
+		s.log.Errorw("Error getting response: %v", err)
+		return nil, nil, err
+	}
+	defer respState.Body.Close()
+
+	stateUpdate := new(starknet.StateUpdateWithBlock)
+	if err = json.NewDecoder(respState.Body).Decode(stateUpdate); err != nil {
+		s.log.Errorw("Failed to decode response: %v", err)
+		return nil, nil, err
+	}
+
+	queryURLSig := buildQueryString("get_signature", map[string]string{
+		"blockNumber": blockID,
+	})
+
+	respSig, err := http.Get(queryURLSig)
+	if err != nil {
+		s.log.Errorw("Error getting response: %v", err)
+		return nil, nil, err
+	}
+	defer respSig.Body.Close()
+
+	signature := new(starknet.Signature)
+	if err = json.NewDecoder(respSig.Body).Decode(signature); err != nil {
+		s.log.Errorw("Error getting response: %v", err)
+		return nil, nil, err
+	}
+
+	var adaptedState *core.StateUpdate
+	var adaptedBlock *core.Block
+
+	if adaptedState, err = sn2core.AdaptStateUpdate(stateUpdate.StateUpdate); err != nil {
+		return nil, nil, err
+	}
+
+	if adaptedBlock, err = sn2core.AdaptBlock(stateUpdate.Block, signature); err != nil {
+		return nil, nil, err
+	}
+	adaptedBlock.GasPriceSTRK = nil
+	adaptedBlock.L1DataGasPrice = nil
+
+	return adaptedState, adaptedBlock, nil
 }
 
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,

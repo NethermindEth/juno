@@ -20,52 +20,64 @@ func TestNodesFromRoot(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockTrie := mocks.NewMockClassesTrie(mockCtrl)
+
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 	zero := trie.NewKey(0, []byte{})
+	errUnmarshal := errors.New("size of input data is less than felt size")
+	nodes := []trie.StorageNode{*trie.NewStorageNode(&zero, &trie.Node{})}
 
-	t.Run("Empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+	type mockBehavior func(*mocks.MockReader, *mocks.MockStateHistoryReader, *mocks.MockClassesTrie)
+	type testCase struct {
+		name         string
+		input        *felt.Felt
+		mockBehavior mockBehavior
+		isErr        bool
+	}
 
-		nodes, err := handler.NodesFromRoot(&felt.Zero)
-		require.Nil(t, nodes)
-		assert.Equal(t, jsonrpc.InternalError, err.Code)
-	})
+	testTable := []testCase{
+		{
+			name:  "Empty blockchain",
+			input: &felt.Zero,
+			mockBehavior: func(mr *mocks.MockReader, _ *mocks.MockStateHistoryReader, _ *mocks.MockClassesTrie) {
+				mr.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+			},
+			isErr: true,
+		},
+		{
+			name:  "Key not found",
+			input: &felt.Zero,
+			mockBehavior: func(mr *mocks.MockReader, mshr *mocks.MockStateHistoryReader, _ *mocks.MockClassesTrie) {
+				mr.EXPECT().HeadState().Return(mshr, nil, nil)
+				mshr.EXPECT().ClassesTrie().Return(nil, nil, db.ErrKeyNotFound)
+			},
+			isErr: true,
+		},
+		{
+			name:  "trieInstance.NodesFromRoot error",
+			input: &felt.Zero,
+			mockBehavior: func(mr *mocks.MockReader, mshr *mocks.MockStateHistoryReader, mct *mocks.MockClassesTrie) {
+				mr.EXPECT().HeadState().Return(mshr, nil, nil)
+				mshr.EXPECT().ClassesTrie().Return(mockTrie, nil, nil)
+				mct.EXPECT().FeltToKey(&felt.Zero).Return(zero)
+				mct.EXPECT().NodesFromRoot(&zero).Return(nil, errUnmarshal)
+			},
+			isErr: true,
+		},
+	}
 
-	t.Run("Key not found", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nil, nil)
-		mockState.EXPECT().ClassesTrie().Return(nil, nil, db.ErrKeyNotFound)
-
-		nodes, err := handler.NodesFromRoot(&felt.Zero)
-		require.Nil(t, nodes)
-		assert.Equal(t, jsonrpc.InternalError, err.Code)
-	})
-
-	t.Run("trieInstance.NodesFromRoot error", func(t *testing.T) {
-		errUnmarshal := errors.New("size of input data is less than felt size")
-		mockReader.EXPECT().HeadState().Return(mockState, nil, nil)
-		mockState.EXPECT().ClassesTrie().Return(mockTrie, nil, nil)
-		mockTrie.EXPECT().FeltToKey(&felt.Zero).Return(zero)
-		mockTrie.EXPECT().NodesFromRoot(&zero).Return(nil, errUnmarshal)
-
-		nodes, err := handler.NodesFromRoot(&felt.Zero)
-		require.Nil(t, nodes)
-		assert.Equal(t, jsonrpc.InternalError, err.Code)
-	})
-
-	t.Run("OK zero", func(t *testing.T) {
-		nodes := []trie.StorageNode{
-			*trie.NewStorageNode(&zero, &trie.Node{}),
-		}
-
-		mockReader.EXPECT().HeadState().Return(mockState, nil, nil)
-		mockState.EXPECT().ClassesTrie().Return(mockTrie, nil, nil)
-		mockTrie.EXPECT().FeltToKey(&felt.Zero).Return(zero)
-		mockTrie.EXPECT().NodesFromRoot(&zero).Return(nodes, nil)
-
-		resp, err := handler.NodesFromRoot(&felt.Zero)
-		require.Nil(t, err)
-		assert.Equal(t, nodes, resp)
-	})
+	for _, test := range testTable {
+		t.Run(test.name, func(t *testing.T) {
+			test.mockBehavior(mockReader, mockState, mockTrie)
+			resp, err := handler.NodesFromRoot(test.input)
+			if test.isErr {
+				require.Nil(t, resp)
+				assert.Equal(t, jsonrpc.InternalError, err.Code)
+			} else {
+				require.Nil(t, err)
+				assert.Equal(t, nodes, resp)
+			}
+		})
+	}
 }
