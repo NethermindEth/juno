@@ -42,7 +42,8 @@ func TestService(t *testing.T) {
 	peerAddrs, err := peerA.ListenAddrs()
 	require.NoError(t, err)
 
-	var peerAddrsString []string
+	addrCount := len(peerAddrs)
+	peerAddrsString := make([]string, 0, addrCount)
 	for _, addr := range peerAddrs {
 		peerAddrsString = append(peerAddrsString, addr.String())
 	}
