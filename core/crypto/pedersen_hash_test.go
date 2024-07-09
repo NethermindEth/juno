@@ -58,8 +58,7 @@ func TestPedersenArray(t *testing.T) {
 		// Contract address calculation. See the following links for how the
 		// calculation is carried out and the result referenced.
 		//
-		// https://docs.starknet.io/documentation/develop/Contracts/contract-address/
-		// https://alpha4.starknet.io/feeder_gateway/get_transaction?transactionHash=0x1b50380d45ebd70876518203f131a12428b2ac1a3a75f1a74241a4abdd614e8
+		// https://docs.starknet.io/architecture-and-concepts/smart-contracts/contract-address/
 		{
 			input: []string{
 				// Hex representation of []byte("STARKNET_CONTRACT_ADDRESS").
