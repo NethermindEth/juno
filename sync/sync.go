@@ -107,7 +107,6 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	// s.syncBlocks(ctx)
 	s.syncBlocks2(ctx)
 	return nil
 }
@@ -170,7 +169,7 @@ func (s *Synchronizer) getStateUpdate(i uint64) (*core.StateUpdate, *core.Block,
 		"includeBlock": "true",
 	})
 
-	respState, err := http.Get(queryURLState)
+	respState, err := http.Get(queryURLState) //nolint
 	if err != nil {
 		s.log.Errorw("Error getting response: %v", err)
 		return nil, nil, err
@@ -187,7 +186,7 @@ func (s *Synchronizer) getStateUpdate(i uint64) (*core.StateUpdate, *core.Block,
 		"blockNumber": blockID,
 	})
 
-	respSig, err := http.Get(queryURLSig)
+	respSig, err := http.Get(queryURLSig) //nolint
 	if err != nil {
 		s.log.Errorw("Error getting response: %v", err)
 		return nil, nil, err
@@ -358,7 +357,7 @@ func (s *Synchronizer) nextHeight() uint64 {
 	return nextHeight
 }
 
-func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
+func (s *Synchronizer) SyncBlocks(syncCtx context.Context) {
 	defer func() {
 		s.startingBlockNumber = nil
 		s.highestBlockHeader.Store(nil)

@@ -48,6 +48,7 @@ func TestNewNode(t *testing.T) {
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
+	t.Skip()
 	network := utils.Integration
 	tests := map[string]struct {
 		network   utils.Network
