@@ -91,6 +91,7 @@ linters:
     - lll
     - misspell
     - nakedret
+    - nilerr
     - noctx
     - nolintlint
     - prealloc
