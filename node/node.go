@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"time"
@@ -40,6 +41,7 @@ const (
 	upgraderDelay    = 5 * time.Minute
 	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	peersDBPath      = "peers"
 )
 
 // Config is the top-level juno configuration.
@@ -114,15 +116,28 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""
-	var database db.DB
-	if dbIsRemote {
-		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	} else {
-		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
+	var (
+		database db.DB
+		peersDB  db.DB
+	)
+
+	createDB := func(dbPath string) (db.DB, error) { // Use appropriate return type
+		if dbIsRemote {
+			return remote.New(dbPath, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		}
+		return pebble.New(dbPath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
 	}
+
+	database, err = createDB(cfg.DatabasePath)
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
+
+	peersDB, err = createDB(filepath.Join(cfg.DatabasePath, peersDBPath))
+	if err != nil {
+		return nil, fmt.Errorf("open peers DB: %w", err)
+	}
+
 	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
 	services := make([]service.Service, 0)
@@ -164,7 +179,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, &cfg.Network, log)
+		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
+			chain, &cfg.Network, log, peersDB)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
