@@ -101,6 +101,7 @@ linters:
     - unconvert
     - unparam
     - unused
+    - usestdlibvars
     - whitespace
     - tparallel
     - gci
