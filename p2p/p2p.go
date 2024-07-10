@@ -438,35 +438,37 @@ func (s *Service) persistPeers() error {
 func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 	var peers []peer.AddrInfo
 
-	txn, err := database.NewTransaction(false)
+	err := database.View(func(txn db.Transaction) error {
+		it, err := txn.NewIterator()
+		if err != nil {
+			return fmt.Errorf("create iterator: %w", err)
+		}
+		defer it.Close()
+
+		for it.Next() {
+			peerIDBytes := it.Key()
+			peerID, err := peer.IDFromBytes(peerIDBytes)
+			if err != nil {
+				return fmt.Errorf("decode peer ID: %w", err)
+			}
+
+			val, err := it.Value()
+			if err != nil {
+				return fmt.Errorf("get value: %w", err)
+			}
+
+			addrs, err := DecodeAddrs(val)
+			if err != nil {
+				return fmt.Errorf("decode addresses for peer %s: %w", peerID, err)
+			}
+
+			peers = append(peers, peer.AddrInfo{ID: peerID, Addrs: addrs})
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("create transaction: %w", err)
-	}
-
-	it, err := txn.NewIterator()
-	if err != nil {
-		return nil, fmt.Errorf("create iterator: %w", err)
-	}
-	defer it.Close()
-
-	for it.Next() {
-		peerIDBytes := it.Key()
-		peerID, err := peer.IDFromBytes(peerIDBytes)
-		if err != nil {
-			return nil, fmt.Errorf("decode peer ID: %w", err)
-		}
-
-		val, err := it.Value()
-		if err != nil {
-			return nil, fmt.Errorf("get value: %w", err)
-		}
-
-		addrs, err := DecodeAddrs(val)
-		if err != nil {
-			return nil, fmt.Errorf("decode addresses for peer %s: %w", peerID, err)
-		}
-
-		peers = append(peers, peer.AddrInfo{ID: peerID, Addrs: addrs})
+		return nil, fmt.Errorf("load peers: %w", err)
 	}
 
 	return peers, nil
