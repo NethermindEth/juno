@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
@@ -183,7 +184,7 @@ func TestLoadAndPersistPeers(t *testing.T) {
 	encAddrs, err := p2p.EncodeAddrs(addrs)
 	require.NoError(t, err)
 
-	err = txn.Set([]byte(decodedID), encAddrs)
+	err = txn.Set(db.Peer.Key([]byte(decodedID)), encAddrs)
 	require.NoError(t, err)
 
 	err = txn.Commit()

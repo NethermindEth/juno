@@ -412,15 +412,17 @@ func (s *Service) persistPeers() error {
 		return fmt.Errorf("create transaction: %w", err)
 	}
 
-	for _, peerID := range s.host.Peerstore().Peers() {
-		peerInfo := s.host.Peerstore().PeerInfo(peerID)
+	store := s.host.Peerstore()
+	peers := store.Peers()
+	for _, peerID := range peers {
+		peerInfo := store.PeerInfo(peerID)
 
 		encodedAddrs, err := EncodeAddrs(peerInfo.Addrs)
 		if err != nil {
 			return fmt.Errorf("encode addresses for peer %s: %w", peerID, err)
 		}
 
-		if err := txn.Set([]byte(peerID), encodedAddrs); err != nil {
+		if err := txn.Set(db.Peer.Key([]byte(peerID)), encodedAddrs); err != nil {
 			return fmt.Errorf("set data for peer %s: %w", peerID, err)
 		}
 	}
@@ -429,7 +431,7 @@ func (s *Service) persistPeers() error {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
-	s.log.Infow("Stored peers", "num", len(s.host.Peerstore().Peers()))
+	s.log.Infow("Stored peers", "num", len(peers))
 
 	return nil
 }
@@ -445,8 +447,9 @@ func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 		}
 		defer it.Close()
 
-		for it.Next() {
-			peerIDBytes := it.Key()
+		prefix := db.Peer.Key()
+		for it.Seek(prefix); it.Valid(); it.Next() {
+			peerIDBytes := it.Key()[len(prefix):]
 			peerID, err := peer.IDFromBytes(peerIDBytes)
 			if err != nil {
 				return fmt.Errorf("decode peer ID: %w", err)
