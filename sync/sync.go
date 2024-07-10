@@ -113,11 +113,11 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 
 func (s *Synchronizer) syncBlocks2(syncCtx context.Context) {
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
+	defer streamCancel()
 	i := s.nextHeight()
 	for ; ; i++ {
 		select {
 		case <-streamCtx.Done():
-			streamCancel()
 			return
 		default:
 			fmt.Println(i)
@@ -125,18 +125,22 @@ func (s *Synchronizer) syncBlocks2(syncCtx context.Context) {
 			stateUpdate, block, err := s.getStateUpdate(i)
 			if err != nil {
 				s.log.Errorw("Error getting a block: %v", err)
+				return
 			}
 			newClasses, err := s.fetchUnknownClasses(syncCtx, stateUpdate)
 			if err != nil {
 				s.log.Errorw("Error fetching unknown classes: %v", err)
+				return
 			}
 			commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 			if err != nil {
 				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
+				return
 			}
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
 			if err != nil {
 				s.log.Errorw("Error storing block: %v", err)
+				return
 			} else {
 				s.log.Infow("Stored Block", "number", block.Number, "hash", block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 			}
