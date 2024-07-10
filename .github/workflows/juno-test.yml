@@ -4,7 +4,7 @@ on:
     branches:
       - main
       - develop
-  pull_request:
+  pull_request_target:
   workflow_dispatch:
 
 jobs:
@@ -19,6 +19,11 @@ jobs:
     env:
       VM_DEBUG: true
     steps:
+      - name: test-cover
+        run: |
+          echo ${{ github.event }}
+          echo ${{ github.event_name }}
+          exit 1
       - uses: actions/checkout@v3
       - name: Set up go
         uses: actions/setup-go@v4.1.0
