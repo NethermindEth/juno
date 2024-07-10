@@ -162,6 +162,7 @@ func TestValidKey(t *testing.T) {
 		nil,
 		&utils.Integration,
 		utils.NewNopZapLogger(),
+		nil,
 	)
 
 	require.NoError(t, err)
