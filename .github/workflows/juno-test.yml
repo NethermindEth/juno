@@ -55,11 +55,10 @@ jobs:
       - name: Benchmark
         run: make benchmarks
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4.2.0
+      - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest'
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
-          files: ./coverage/coverage.out
-          verbose: true
+          name: code_coverage
+          path: ./coverage/coverage.out
+          if-no-files-found: error
+          retention-days: 1

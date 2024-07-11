@@ -93,15 +93,21 @@ jobs:
     environment:
       name: Staging
     steps:
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: ${{ vars.JFROG_URL}}
-          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR }}
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
 
       - name: Promote to Staging
         run: |
-          jf rt dpr juno/${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }} ${{ env.REPO_DEV }} ${{ env.REPO_STAGING }}
+          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+
+          docker pull $OLD_TAG
+          docker tag $OLD_TAG $NEW_TAG
+          docker push $NEW_TAG
 
       - name: Verify Deployment Version (Staging)
         run: |
@@ -127,15 +133,18 @@ jobs:
     environment:
       name: Production
     steps:
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: ${{ vars.JFROG_URL}}
-          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR }}
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
 
       - name: Promote to Production
         run: |
-          jf rt dpr juno/${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }} ${{ env.REPO_STAGING }} ${{ env.REPO_PROD }}
+          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_PROD }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+
+          docker pull $OLD_TAG
+          docker tag $OLD_TAG $NEW_TAG
+          docker push $NEW_TAG
 
   test_in_production:
     needs: [promote_to_production]
