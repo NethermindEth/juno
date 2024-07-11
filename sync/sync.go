@@ -3,6 +3,8 @@ package sync
 import (
 	"context"
 	"errors"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -159,6 +161,38 @@ func (s *Synchronizer) nextHeight() uint64 {
 	return nextHeight
 }
 
+func (s *Synchronizer) getStateAndClasses(ctx context.Context, wg *sync.WaitGroup, blockHeight uint64,
+	resultChan chan<- GetResult) {
+	defer func() {
+		wg.Done()
+	}()
+
+	stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, blockHeight)
+	if err != nil {
+		resultChan <- GetResult{nil, nil, nil, err}
+	}
+
+	newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
+	if err != nil {
+		resultChan <- GetResult{nil, nil, nil, err}
+	}
+
+	resultChan <- GetResult{stateUpdate, block, newClasses, nil}
+}
+
+func (s *Synchronizer) sendHeadAndLog(block *core.Block) {
+	s.newHeads.Send(block.Header)
+	s.log.Infow("Stored Block", "number", block.Number, "hash",
+		block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+}
+
+type GetResult struct {
+	stateUpdate *core.StateUpdate
+	block       *core.Block
+	classes     map[felt.Felt]core.Class
+	err         error
+}
+
 func (s *Synchronizer) newSyncBlocks(ctx context.Context) {
 	blockHeight := s.nextHeight()
 
@@ -167,31 +201,51 @@ func (s *Synchronizer) newSyncBlocks(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, blockHeight)
-			if err != nil {
-				continue
+			var wg sync.WaitGroup
+			resultChan := make(chan GetResult, 6)
+
+			for i := 0; i <= 5; i++ {
+				wg.Add(1)
+				go s.getStateAndClasses(ctx, &wg, blockHeight+uint64(i), resultChan)
 			}
 
-			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
-			if err != nil {
-				continue
+			wg.Wait()
+			close(resultChan)
+
+			results := []GetResult{}
+			for result := range resultChan {
+				results = append(results, result)
 			}
 
-			commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-			if err != nil {
-				s.log.Warnw("Failed sanity check", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
-				continue
+			sort.Slice(results, func(i, j int) bool {
+				return results[i].block.Header.Number < results[j].block.Header.Number
+			})
+
+			i := 0
+			for i = 0; i <= 5; i++ {
+				block := results[i].block
+				stateUpdate := results[i].stateUpdate
+				newClasses := results[i].classes
+				err := results[i].err
+
+				if err != nil {
+					break
+				}
+				commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+				if err != nil {
+					s.log.Warnw("Failed sanity check", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
+					continue
+				}
+
+				err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
+				if err != nil {
+					continue
+				}
+
+				s.sendHeadAndLog(block)
 			}
 
-			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			if err != nil {
-				continue
-			}
-
-			s.newHeads.Send(block.Header)
-			s.log.Infow("Stored Block", "number", block.Number, "hash",
-				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
-			blockHeight++
+			blockHeight += uint64(i)
 		}
 
 	}
