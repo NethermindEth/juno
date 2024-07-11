@@ -167,17 +167,31 @@ func (s *Synchronizer) getStateAndClasses(ctx context.Context, wg *sync.WaitGrou
 		wg.Done()
 	}()
 
-	stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, blockHeight)
-	if err != nil {
-		resultChan <- GetResult{nil, nil, nil, err}
-	}
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, blockHeight)
+		if err != nil {
+			resultChan <- GetResult{nil, nil, nil, nil, err}
+			return
+		}
 
-	newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
-	if err != nil {
-		resultChan <- GetResult{nil, nil, nil, err}
-	}
+		newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
+		if err != nil {
+			resultChan <- GetResult{nil, nil, nil, nil, err}
+			return
+		}
 
-	resultChan <- GetResult{stateUpdate, block, newClasses, nil}
+		commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+		if err != nil {
+			s.log.Warnw("Failed sanity check", "number", block.Number, "hash", block.Hash.ShortString(), "err", err, commitments)
+			resultChan <- GetResult{nil, nil, nil, nil, err}
+			return
+		}
+
+		resultChan <- GetResult{stateUpdate, block, newClasses, commitments, nil}
+	}
 }
 
 func (s *Synchronizer) sendHeadAndLog(block *core.Block) {
@@ -190,6 +204,7 @@ type GetResult struct {
 	stateUpdate *core.StateUpdate
 	block       *core.Block
 	classes     map[felt.Felt]core.Class
+	commitments *core.BlockCommitments
 	err         error
 }
 
@@ -226,15 +241,11 @@ func (s *Synchronizer) newSyncBlocks(ctx context.Context) {
 				block := results[i].block
 				stateUpdate := results[i].stateUpdate
 				newClasses := results[i].classes
+				commitments := results[i].commitments
 				err := results[i].err
 
 				if err != nil {
 					break
-				}
-				commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-				if err != nil {
-					s.log.Warnw("Failed sanity check", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
-					continue
 				}
 
 				err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
