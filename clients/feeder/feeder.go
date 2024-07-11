@@ -209,7 +209,6 @@ func NewClient(clientURL string) *Client {
 
 // buildQueryString builds the query url with encoded parameters
 func (c *Client) buildQueryString(endpoint string, args map[string]string) string {
-
 	base, err := url.Parse(c.url)
 	if err != nil {
 		panic("Malformed feeder base URL")

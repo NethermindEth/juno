@@ -161,6 +161,7 @@ func (s *Synchronizer) nextHeight() uint64 {
 	return nextHeight
 }
 
+// Get stateupdate, classes and commitments with the given block height
 func (s *Synchronizer) getStateAndClasses(ctx context.Context, wg *sync.WaitGroup, blockHeight uint64,
 	resultChan chan<- GetResult) {
 	defer func() {
@@ -208,18 +209,31 @@ type GetResult struct {
 	err         error
 }
 
+// main loop for syncing blocks
+// Generates worker threads for fetching blocks, classes and sanity check
+// since those can be done in parallel
+// Waits for all current threads to finish and then stores blocks sequentially
+// Here bottleneck is waiting for all to finish but once a goroutine finishes fetching it can
+// start fetching the next block
+
+// Also it doesnt check right now if it caught the head of the chain
+// It is only on cathcup mode
+
+// Shouldn't be opening and closing threads continuously because it is costly
+// Implement it for simplicity but would be better to have a pool of threads
 func (s *Synchronizer) newSyncBlocks(ctx context.Context) {
 	blockHeight := s.nextHeight()
+	var wg sync.WaitGroup
+	var workerCount = 12
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			var wg sync.WaitGroup
-			resultChan := make(chan GetResult, 6)
+			resultChan := make(chan GetResult, workerCount)
 
-			for i := 0; i <= 5; i++ {
+			for i := 0; i < workerCount; i++ {
 				wg.Add(1)
 				go s.getStateAndClasses(ctx, &wg, blockHeight+uint64(i), resultChan)
 			}
@@ -237,7 +251,7 @@ func (s *Synchronizer) newSyncBlocks(ctx context.Context) {
 			})
 
 			i := 0
-			for i = 0; i <= 5; i++ {
+			for i = 0; i < workerCount; i++ {
 				block := results[i].block
 				stateUpdate := results[i].stateUpdate
 				newClasses := results[i].classes
