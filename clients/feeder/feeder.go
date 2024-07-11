@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -211,7 +210,6 @@ func NewClient(clientURL string) *Client {
 // buildQueryString builds the query url with encoded parameters
 func (c *Client) buildQueryString(endpoint string, args map[string]string) string {
 
-	fmt.Println(c.url)
 	base, err := url.Parse(c.url)
 	if err != nil {
 		panic("Malformed feeder base URL")
@@ -414,7 +412,6 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 }
 
 func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
-	fmt.Println(blockID)
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber":  blockID,
 		"includeBlock": "true",
