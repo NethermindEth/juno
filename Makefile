@@ -183,3 +183,19 @@ pathfinder: juno-cached
     	--p2p-peers=/ip4/127.0.0.1/tcp/8888/p2p/12D3KooWF1JrZWQoBiBSjsFSuLbDiDvqcmJQRLaFQLmpVkHA9duk \
     	--p2p-private-key="54a695e2a5d5717d5ba8730efcafe6f17251a1955733cffc55a4085fbf7f5d2c1b4009314092069ef7ca9b364ce3eb3072531c64dfb2799c6bad76720a5bdff0" \
     	--metrics-port=9094
+
+
+p2p-seq:
+        ./build/juno \
+        --network=sepolia \
+        --log-level=debug \
+        --db-path=./seq-db \
+        --p2p \
+        --p2p-feeder-node \
+        --p2p-addr=/ip4/0.0.0.0/tcp/7777 \
+        --p2p-private-key="5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089" \
+        --metrics-port=9090 \
+        --seq-enable \
+        --seq-block-time=5 \
+        --network sepolia \
+        --rpc-call-max-steps=4123000

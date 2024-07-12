@@ -178,8 +178,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			WithPrefundAccounts(cfg.SeqPrefundAccounts)
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
-	} else {
-		synchronizer := sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
 		gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		var p2pService *p2p.Service
@@ -189,10 +187,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			}
 			log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
 
-			if !cfg.P2PFeederNode {
-				// Do not start the feeder synchronisation
-				synchronizer = nil
-			}
+			
 			p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, &cfg.Network, log)
 			if err != nil {
 				return nil, fmt.Errorf("set up p2p service: %w", err)
@@ -203,23 +198,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if cfg.Metrics {
 			client.WithListener(makeFeederMetrics())
 			gatewayClient.WithListener(makeGatewayMetrics())
-			if synchronizer != nil {
-				synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
-			} else if p2pService != nil {
+			 if p2pService != nil {
 				// regular p2p node
 				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
 			}
 		}
-		if synchronizer != nil {
-			services = append(services, synchronizer)
-		}
-
-		var syncReader sync.Reader = &sync.NoopSynchronizer{}
-		if synchronizer != nil {
-			syncReader = synchronizer
-		}
-		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
-		rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		
 	}
 
 	services = append(services, rpcHandler)
