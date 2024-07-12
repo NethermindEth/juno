@@ -941,8 +941,8 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  latestHeader.ProtocolVersion,
 			EventsBloom:      core.EventsBloom(receipts),
-			GasPrice:         latestHeader.GasPrice,
-			GasPriceSTRK:     latestHeader.GasPriceSTRK,
+			GasPrice:         new(felt.Felt).SetUint64(1),
+			GasPriceSTRK:     new(felt.Felt).SetUint64(1),
 			L1DAMode: core.Blob,
 			L1DataGasPrice: &core.GasPrice{
 				PriceInFri: &felt.Zero,
