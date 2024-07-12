@@ -28,9 +28,11 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 }
 
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.SignedBlockHeader {
-	if header.L1DataGasPrice.PriceInFri==nil{
-		header.L1DataGasPrice.PriceInFri.SetUint64(1)
+	header.L1DataGasPrice = &core.GasPrice{
+		PriceInFri: new(felt.Felt).SetUint64(1),
+		PriceInWei: new(felt.Felt).SetUint64(1),
 	}
+	
 	return &spec.SignedBlockHeader{
 		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),
