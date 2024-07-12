@@ -21,6 +21,8 @@ permissions:
 jobs:
   build_docker_image:
     runs-on: ubuntu-latest
+    outputs:
+      DOCKER_IMAGE_TAG: ${{ steps.set_tag.outputs.DOCKER_IMAGE_TAG }}
 
     steps:
       - name: Checkout
@@ -29,8 +31,15 @@ jobs:
           fetch-depth: 0
 
       - name: Define image tag
+        id: set_tag
         run: |
-          echo "DOCKER_IMAGE_TAG=$(git describe --tags)" >> $GITHUB_ENV
+          export DOCKER_IMAGE_TAG=$(git describe --tags)
+
+          # This one is to be able to use the image tag in the next steps in this job
+          echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_ENV
+
+          # This one is to be able to use the image tag in the next jobs
+          echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -61,7 +70,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify Deployment Version (Dev)
-        run: bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ env.DOCKER_IMAGE_TAG }}
+        run: |
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
 
   dev-starknet-rs-tests:
     needs: [validate_dev]
@@ -83,15 +93,25 @@ jobs:
     environment:
       name: Staging
     steps:
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: ${{ vars.JFROG_URL}}
-          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR }}
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
 
       - name: Promote to Staging
         run: |
-          jf rt dpr juno/${{ env.DOCKER_IMAGE_TAG }} ${{ env.REPO_DEV }} ${{ env.REPO_STAGING }}
+          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+
+          docker pull $OLD_TAG
+          docker tag $OLD_TAG $NEW_TAG
+          docker push $NEW_TAG
+
+      - name: Verify Deployment Version (Staging)
+        run: |
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
 
   staging-starknet-rs-tests:
     needs: [promote_to_staging]
@@ -113,24 +133,37 @@ jobs:
     environment:
       name: Production
     steps:
-      - name: Setup JFrog CLI
-        uses: jfrog/setup-jfrog-cli@v4
-        env:
-          JF_URL: ${{ vars.JFROG_URL}}
-          JF_ACCESS_TOKEN: ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR }}
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
 
       - name: Promote to Production
         run: |
-          jf rt dpr juno/${{ env.DOCKER_IMAGE_TAG }} ${{ env.REPO_STAGING }} ${{ env.REPO_PROD }}
+          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_PROD }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+
+          docker pull $OLD_TAG
+          docker tag $OLD_TAG $NEW_TAG
+          docker push $NEW_TAG
+
+  test_in_production:
+    needs: [promote_to_production]
+    runs-on: ubuntu-latest
+    environment:
+      name: ProductionTests  # Artificial gate to enforce manual approval
+    steps:
+      - name: Starting production tests
+        run: |
+          echo "Tests in production will start shortly."
 
   prod-starknet-rs-tests:
-    needs: [promote_to_production]
+    needs: [test_in_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
       STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_6
 
   prod-starknet-js-tests:
-    needs: [promote_to_production]
+    needs: [test_in_production]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
