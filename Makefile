@@ -175,7 +175,7 @@ sequencer-shadow-sepolia:
 	--rpc-call-max-steps=4123000
 	
 pathfinder: juno-cached
-	./build/juno \
+		./build/juno \
     	--network=sepolia \
     	--log-level=debug \
     	--db-path=./p2p-dbs/node-pathfinder \
