@@ -351,6 +351,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.AddCommand(GenP2PKeyPair())
+	junoCmd.AddCommand(Ping())
 
 	return junoCmd
 }
@@ -385,6 +386,21 @@ func GenP2PKeyPair() *cobra.Command {
 
 			fmt.Println("P2P PeerID:", id)
 			return nil
+		},
+	}
+}
+
+func Ping() *cobra.Command {
+	return &cobra.Command{
+		Use:   "ping",
+		Short: "Ping a peer",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) != 1 {
+				fmt.Println("Please provide a peer address.")
+				return
+			}
+
+			p2p.Ping(args[0])
 		},
 	}
 }
