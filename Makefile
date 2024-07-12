@@ -186,7 +186,7 @@ pathfinder: juno-cached
 
 
 p2p-seq:
-        ./build/juno \
+		./build/juno \
         --network=sepolia \
         --log-level=debug \
         --db-path=./seq-db \
