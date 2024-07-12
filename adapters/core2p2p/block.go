@@ -27,7 +27,9 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 	}
 }
 
-func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.SignedBlockHeader {
+func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
+	stateDiffCommitment *felt.Felt,
+) *spec.SignedBlockHeader {
 	return &spec.SignedBlockHeader{
 		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),
@@ -44,12 +46,15 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
 		// todo fill receipts
-		Receipts:        nil,
+		Receipts:        &spec.Hash{},
 		ProtocolVersion: header.ProtocolVersion,
 		GasPriceFri:     AdaptUint128(header.GasPrice),
 		Signatures:      utils.Map(header.Signatures, AdaptSignature),
 		// todo(kirill) set these fields
-		StateDiffCommitment:    nil,
+		StateDiffCommitment: &spec.StateDiffCommitment{
+			StateDiffLength: uint64(len(stateDiffCommitment.Bytes())),
+			Root:            AdaptHash(stateDiffCommitment),
+		},
 		GasPriceWei:            AdaptUint128(header.GasPriceSTRK),
 		DataGasPriceFri:        AdaptUint128(header.L1DataGasPrice.PriceInFri),
 		DataGasPriceWei:        AdaptUint128(header.L1DataGasPrice.PriceInWei),

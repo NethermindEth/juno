@@ -143,9 +143,14 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 			return nil, err
 		}
 
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(header.Number)
+		if err != nil {
+			return nil, err
+		}
+
 		return &spec.BlockHeadersResponse{
 			HeaderMessage: &spec.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(header, commitments),
+				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Commitment()),
 			},
 		}, nil
 	})

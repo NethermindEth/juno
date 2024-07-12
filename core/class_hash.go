@@ -12,6 +12,7 @@ import "C"
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -24,6 +25,7 @@ func cairo0ClassHash(class *Cairo0Class) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("------------------>After makeDeprecatedVMClass")
 
 	classJSON, err := json.Marshal(definition)
 	if err != nil {

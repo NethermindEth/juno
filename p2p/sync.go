@@ -54,6 +54,7 @@ func (s *syncService) start(ctx context.Context) {
 	s.client = starknet.NewClient(s.randomPeerStream, s.network, s.log)
 
 	for i := 0; ; i++ {
+		time.Sleep(1 * time.Second)
 		if err := ctx.Err(); err != nil {
 			break
 		}
@@ -190,8 +191,8 @@ func (s *syncService) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debugw("Received Block Header with signatures", "blockNumber", p.blockNumber())
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
+						// fmt.Println(p.header.String())
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
@@ -334,8 +335,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			coreBlock.Hash = h
 
 			newClasses := make(map[felt.Felt]core.Class)
+			s.log.Debugw("len of the classes", "len", len(classes))
 			for _, cls := range classes {
 				coreC := p2p2core.AdaptClass(cls)
+				fmt.Println(reflect.TypeOf(coreC))
 				h, err = coreC.Hash()
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
@@ -656,6 +659,7 @@ func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID)
 	}
 	stream, err := s.host.NewStream(ctx, randPeer, pids...)
 	if err != nil {
+		s.log.Debugw("Error creating stream", "peer", randPeer, "err", err)
 		s.removePeer(randPeer)
 		return nil, err
 	}

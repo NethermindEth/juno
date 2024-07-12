@@ -126,7 +126,7 @@ node2:
 	--log-level=debug \
 	--db-path=./p2p-dbs/node2 \
 	--p2p \
-	--p2p-peers=/ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
+	--p2p-peers=/ip4/10.100.7.108/tcp/10000/p2p/12D3KooWDFYi71juk6dYWo3UDvqs5gAzGDc124LSvcR5d187Tdvi \
 	--p2p-private-key="2d87e1d1c9d8dda1cf9a662de1978d2cd0b96e6ba390c75ded87c6c4fab657057fa782ae5977c3bd02d58281dccd16f2c26990d1f6c22f818a84edac97957348" \
 	--metrics-port=9092
 

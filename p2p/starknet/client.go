@@ -69,6 +69,10 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	}
 
 	id := stream.ID()
+
+	// peerID := stream.Conn().RemotePeer()
+	// log.Debugw("sending request", "req", req, "streamID", id, "peerID", peerID)
+
 	if err := sendAndCloseWrite(stream, req); err != nil {
 		log.Errorw("sendAndCloseWrite (stream is not closed)", "err", err, "streamID", id)
 		return nil, err
@@ -92,6 +96,8 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 
 				break
 			}
+
+			// log.Infow("receiving response", "res", res, "streamID", id, "peerID", peerID)
 
 			if !yield(res.(ResT)) {
 				break
