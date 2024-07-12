@@ -1,7 +1,6 @@
 package core2p2p
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
@@ -29,8 +28,9 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 }
 
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.SignedBlockHeader {
-	qwe,_:=json.MarshalIndent(header," ", " ")
-	fmt.Println(string(qwe))
+	if header.L1DataGasPrice.PriceInFri==nil{
+		header.L1DataGasPrice.PriceInFri.SetUint64(1)
+	}
 	return &spec.SignedBlockHeader{
 		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),
