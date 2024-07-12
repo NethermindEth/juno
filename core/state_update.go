@@ -35,6 +35,21 @@ func EmptyStateDiff() *StateDiff {
 	}
 }
 
+func (d *StateDiff) Length() uint64 {
+	var length uint64
+
+	for _, storageDiff := range d.StorageDiffs {
+		length += uint64(len(storageDiff))
+	}
+	length += uint64(len(d.Nonces))
+	length += uint64(len(d.DeployedContracts))
+	length += uint64(len(d.DeclaredV0Classes))
+	length += uint64(len(d.DeclaredV1Classes))
+	length += uint64(len(d.ReplacedClasses))
+
+	return length
+}
+
 func (d *StateDiff) Commitment() *felt.Felt {
 	version := felt.Zero
 	var tmpFelt felt.Felt
