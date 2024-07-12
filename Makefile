@@ -197,5 +197,5 @@ p2p-seq:
         --metrics-port=9090 \
         --seq-enable \
         --seq-block-time=5 \
-        --network sepolia \
         --rpc-call-max-steps=4123000
+
