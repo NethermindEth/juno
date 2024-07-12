@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/telemetry"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"net/url"
 	"reflect"
 	"runtime"
@@ -86,6 +89,8 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+
+	TelemetryURL string `mapstructure:"telemetry-url"`
 }
 
 type Node struct {
@@ -239,6 +244,16 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if cfg.Pprof {
 		services = append(services, makePPROF(cfg.PprofHost, cfg.PprofPort))
 	}
+	if cfg.TelemetryURL != "" {
+		multiAddr, err := multiaddr.NewMultiaddr(cfg.P2PAddr)
+		if err != nil {
+			return nil, err
+		}
+		_, peerID := peer.SplitAddr(multiAddr)
+
+		telemetryService := telemetry.NewService(peerID, cfg.TelemetryURL, version)
+		services = append(services, telemetryService)
+	}
 
 	n := &Node{
 		cfg:            cfg,
@@ -351,6 +366,7 @@ func (n *Node) Run(ctx context.Context) {
 	for _, s := range n.services {
 		s := s
 		wg.Go(func() {
+			fmt.Println("Service run called")
 			// Immediately acknowledge panicing services by shutting down the node
 			// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 			defer cancel()
