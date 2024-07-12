@@ -366,7 +366,6 @@ func (n *Node) Run(ctx context.Context) {
 	for _, s := range n.services {
 		s := s
 		wg.Go(func() {
-			fmt.Println("Service run called")
 			// Immediately acknowledge panicing services by shutting down the node
 			// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 			defer cancel()
