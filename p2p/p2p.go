@@ -67,7 +67,7 @@ func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockch
 		return nil, err
 	}
 
-	p2pHost, err := libp2p.New(libp2p.ListenAddrs(sourceMultiAddr), libp2p.Identity(prvKey), libp2p.UserAgent(userAgent))
+	p2pHost, err := libp2p.New(libp2p.ListenAddrs(sourceMultiAddr), libp2p.Identity(prvKey), libp2p.UserAgent(userAgent), libp2p.EnableNATService())
 	if err != nil {
 		return nil, err
 	}
