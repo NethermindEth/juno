@@ -80,8 +80,9 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version  string
-	newHeads *feed.Feed[*core.Header]
+	version     string
+	newHeads    *feed.Feed[*core.Header]
+	newReceipts *feed.Feed[*core.TransactionReceipt]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -115,6 +116,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		},
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
+		newReceipts:   feed.New[*core.TransactionReceipt](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -150,8 +152,13 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
-	defer newHeadsSub.Unsubscribe()
+	newReceiptsSub := h.syncReader.SubscribeNewReceipts().Subscription
+	defer func() {
+		newHeadsSub.Unsubscribe()
+		newReceiptsSub.Unsubscribe()
+	}()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	feed.Tee[*core.TransactionReceipt](newReceiptsSub, h.newReceipts)
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -315,6 +322,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "juno_subscribeNewHeads",
 			Handler: h.SubscribeNewHeads,
+		},
+		{
+			Name:    "juno_subscribeTransactionReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.SubscribeTransactionReceipts,
 		},
 		{
 			Name:    "juno_unsubscribe",
