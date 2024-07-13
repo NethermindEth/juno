@@ -55,7 +55,7 @@ func TestBucketMover(t *testing.T) {
 	err = testDB.View(func(txn db.Transaction) error {
 		err = txn.Get(sourceBucket.Key(), func(b []byte) error {
 			if !bytes.Equal(b, []byte{44}) {
-				return errors.New("shouldnt have changed")
+				return errors.New("shouldn't have changed")
 			}
 			return nil
 		})

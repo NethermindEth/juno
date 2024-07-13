@@ -643,7 +643,7 @@ func TestPending(t *testing.T) {
 	su, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
-	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
+	t.Run("pending state shouldn't exist if no pending block", func(t *testing.T) {
 		_, _, err = chain.PendingState()
 		require.Error(t, err)
 	})
@@ -817,7 +817,7 @@ func TestMakeStateDiffForEmptyBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	t.Run("earlier blocks shouldnt have block hash in state", func(t *testing.T) {
+	t.Run("earlier blocks shouldn't have block hash in state", func(t *testing.T) {
 		for i := uint64(0); i < 10; i++ {
 			sd, err := blockchain.MakeStateDiffForEmptyBlock(mockReader, i)
 			require.NoError(t, err)

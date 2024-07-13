@@ -26,7 +26,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		classInfo.AbiLength = uint32(len(c.Abi))
 	case *core.Cairo1Class:
 		if c.Compiled == nil {
-			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
+			return nil, errors.New("sierra class doesn't have a compiled class associated with it")
 		}
 
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
