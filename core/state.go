@@ -502,7 +502,6 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 			continue
 		}
 
-		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
 		leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
 		if _, err = classesTrie.Put(&classHash, leafValue); err != nil {
 			return err

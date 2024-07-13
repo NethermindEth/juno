@@ -8,6 +8,7 @@ import (
 )
 
 // A Node represents a node in the [Trie]
+// https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#trie_construction
 type Node struct {
 	Value     *felt.Felt
 	Left      *Key
@@ -26,7 +27,6 @@ func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 	}
 
 	pathFelt := path.Felt()
-	// https://docs.starknet.io/documentation/develop/State/starknet-state/
 	hash := hashFunc(n.Value, &pathFelt)
 	pathFelt.SetUint64(uint64(path.Len()))
 	return hash.Add(hash, &pathFelt)
