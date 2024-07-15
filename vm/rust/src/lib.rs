@@ -31,6 +31,7 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
+use cairo_native::cache::{AotProgramCache, ProgramCache};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
@@ -144,7 +145,11 @@ pub extern "C" fn cairoVMCall(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
+
+    let native_context = cairo_native::context::NativeContext::new();
+    let mut native_cache= ProgramCache::Aot(AotProgramCache::new(&native_context));
+
+    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap(), Some(&mut native_cache)) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -217,6 +222,9 @@ pub extern "C" fn cairoVMExecute(
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
+    let native_context = cairo_native::context::NativeContext::new();
+    let mut native_cache= ProgramCache::Aot(AotProgramCache::new(&native_context));
+
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
@@ -264,11 +272,11 @@ pub extern "C" fn cairoVMExecute(
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache))
             }
             Transaction::L1HandlerTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache))
             }
         };
 

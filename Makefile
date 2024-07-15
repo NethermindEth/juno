@@ -18,7 +18,7 @@ rustdeps: vm core-rust compiler
 
 juno: rustdeps ## compile
 	@mkdir -p build
-	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+	@go build $(GO_TAGS) -a -ldflags='-X main.Version=$(shell git describe --tags), -extldflags "-lpthread -lstdc++ -lz -lncurses"' -o build/juno ./cmd/juno/
 
 juno-cached:
 	@mkdir -p build
