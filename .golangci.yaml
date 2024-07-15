@@ -94,7 +94,6 @@ linters:
     - nilerr
     - noctx
     - nolintlint
-    - prealloc
     - staticcheck
     - stylecheck
     - typecheck
@@ -118,6 +117,7 @@ linters:
   # - interfacer
   # - maligned
   # - nestif
+  # - prealloc
   # - testpackage
   # - revive
   # - wsl
