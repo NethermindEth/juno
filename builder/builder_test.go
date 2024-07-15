@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
@@ -489,6 +490,14 @@ func TestPrefundedAccounts(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
+
+	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
+	require.NoError(t, err)
+	genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), bc.Network())
+	require.NoError(t, err)
+	require.NoError(t, bc.StoreGenesis(diff, classes))
+
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log).WithPrefundAccounts(true)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 
@@ -533,9 +542,9 @@ func TestPrefundedAccounts(t *testing.T) {
 
 		height, err := bc.Height()
 		require.NoError(t, err)
-		expectedBalance := utils.HexToFelt(t, "0xe8e6d96678")
+		expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x123456789123"), utils.HexToFelt(t, "0x12345678"))
 		if len(txns) > 1 {
-			expectedBalance = new(felt.Felt).SetUint64(1000610839792)
+			expectedBalance = new(felt.Felt).Add(expectedBalance, utils.HexToFelt(t, "0x12345678"))
 		}
 
 		var foundNumTxnsInBlock uint64
@@ -543,10 +552,10 @@ func TestPrefundedAccounts(t *testing.T) {
 			block, err := bc.BlockByNumber(i + 1)
 			require.NoError(t, err)
 			if block.TransactionCount != 0 {
-				foundNumTxnsInBlock = block.TransactionCount
-				break
+				foundNumTxnsInBlock += block.TransactionCount
 			}
 		}
+		require.NotEqual(t, 0, foundNumTxnsInBlock, "Failed to find any transactions in the block")
 
 		foundExpectedBalance := false
 		for i := uint64(0); i < height; i++ {
