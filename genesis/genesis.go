@@ -3,7 +3,6 @@ package genesis
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -18,16 +17,16 @@ import (
 )
 
 type GenesisConfig struct {
-	Classes           []string                          `json:"classes"`        // []path-to-class.json
-	Contracts         map[felt.Felt]GenesisContractData `json:"contracts"`      // address -> {classHash, constructorArgs}
-	FunctionCalls     []FunctionCall                    `json:"function_calls"` // list of functionCalls to Call()
-	BootstrapAccounts []Account                         // accounts to prefund with strk token
+	Classes           []string                          `json:"classes"`            // []path-to-class.json
+	Contracts         map[felt.Felt]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
+	FunctionCalls     []FunctionCall                    `json:"function_calls"`     // list of functionCalls to Call()
+	BootstrapAccounts []Account                         `json:"bootstrap_accounts"` // accounts to prefund with strk token
 }
 
 type Account struct {
-	PubKey  felt.Felt
-	PrivKey felt.Felt
-	Address felt.Felt
+	Address felt.Felt `json:"address"`
+	PubKey  felt.Felt `json:"publicKey"`
+	PrivKey felt.Felt `json:"privateKey"`
 }
 
 func Read(path string) (*GenesisConfig, error) {
@@ -35,12 +34,37 @@ func Read(path string) (*GenesisConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var config GenesisConfig
-	if err = json.Unmarshal(file, &config); err != nil {
+	if err = config.UnmarshalJSON(file); err != nil {
 		return nil, err
 	}
 	return &config, err
+}
+
+func (gc *GenesisConfig) UnmarshalJSON(data []byte) error {
+	type auxConfig struct {
+		Classes           []string                       `json:"classes"`            // []path-to-class.json
+		Contracts         map[string]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
+		FunctionCalls     []FunctionCall                 `json:"function_calls"`     // list of functionCalls to Call()
+		BootstrapAccounts []Account                      `json:"bootstrap_accounts"` // accounts to prefund with strk token
+	}
+	var aux auxConfig
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	gc.Classes = aux.Classes
+	gc.FunctionCalls = aux.FunctionCalls
+	gc.BootstrapAccounts = aux.BootstrapAccounts
+	gc.Contracts = make(map[felt.Felt]GenesisContractData)
+	for k, v := range aux.Contracts {
+		key, err := new(felt.Felt).SetString(k)
+		if err != nil {
+			return err
+		}
+		gc.Contracts[*key] = v
+	}
+	return nil
 }
 
 type GenesisContractData struct {
@@ -180,90 +204,4 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 		classMap[*classhash] = coreClass
 	}
 	return classMap, nil
-}
-
-func GenesisConfigAccountsTokens(initMintAmnt felt.Felt, classes []string) GenesisConfig {
-	strToFelt := func(feltStr string) felt.Felt {
-		felt, _ := new(felt.Felt).SetString(feltStr)
-		return *felt
-	}
-
-	// accounts to deploy and prefund
-	accounts := []Account{
-		{
-			PubKey:  strToFelt("0x16d03d341717ab11083a481f53278d8e54f610af815cbdab4035b2df283fcc0"),
-			PrivKey: strToFelt("0x2bff1b26236b72d8a930be1dfbee09f79a536a49482a4c8b8f1030e2ab3bf1b"),
-			Address: strToFelt("0x101"),
-		},
-		{
-			PubKey:  strToFelt("0x3bc7ab4ca475e24a0053db47c3e5a2a53264a30639d8b2bd0a08407da3ca0c"),
-			PrivKey: strToFelt("0x43d8de30e55ed83b4436aea47e7517d4a52d06912938e2887cb1d33518daef1"),
-			Address: strToFelt("0x102"),
-		},
-		{
-			PubKey:  strToFelt("0x441973b4517116d46800d35eca3bbcd455e034045c39852e46a74376d6881f"),
-			PrivKey: strToFelt("0x03a4791edf67fa0b32b812e41bc8bc4e9b79915412b1331f7669cbe23e97e15a"),
-			Address: strToFelt("0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-		},
-	}
-
-	log.Printf("Pre-deployed accounts with %s strk tokens:", initMintAmnt.String())
-	for _, account := range accounts {
-		log.Printf("Account Address: %s, PubKey: %s, PrivKey: %s\n", account.Address.String(), account.PubKey.String(), account.PrivKey.String())
-	}
-
-	// strk params
-	whyIsThisNeeded := *new(felt.Felt).SetUint64(0) // Todo: Buffer for self parameter??
-	permissionedMinter := strToFelt("0x123456")
-	initialSupply := new(felt.Felt).Mul(&initMintAmnt, new(felt.Felt).SetUint64(uint64(len(accounts))+100)) //nolint: gomnd
-	strkAddress := strToFelt("0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")          // todo: chang from eth to strk
-	strkClassHash := strToFelt("0x04ad3c1dc8413453db314497945b6903e1c766495a1e60492d44da9c2a986e4b")
-	strkConstrcutorArgs := []felt.Felt{
-		strToFelt("0x537461726b6e657420546f6b656e"), // 1 name, felt
-		strToFelt("0x5354524b"),                     // 2 symbol, felt
-		strToFelt("0x12"),                           // 3 decimals, u8
-		*initialSupply,                              // 4 initial_supply, u256
-		permissionedMinter,                          // 5 recipient, ContractAddress
-		permissionedMinter,                          // 6 permitted_minter, ContractAddress
-		permissionedMinter,                          // 7 provisional_governance_admin, ContractAddress
-		strToFelt("0x1"),                            // 8 upgrade_delay, u128
-		whyIsThisNeeded,                             // Todo: ? ref self: ContractState ?
-	}
-
-	// account params
-	accountClassHash := strToFelt("0x01a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003")
-
-	genesisConfig := GenesisConfig{
-		Classes: classes,
-		Contracts: map[felt.Felt]GenesisContractData{
-			strkAddress: {
-				ClassHash:       strkClassHash,
-				ConstructorArgs: strkConstrcutorArgs,
-			},
-		},
-	}
-
-	// deploy accounts
-	for _, acnt := range accounts {
-		genesisConfig.Contracts[acnt.Address] = GenesisContractData{
-			ClassHash:       accountClassHash,
-			ConstructorArgs: []felt.Felt{acnt.PubKey, felt.Zero},
-		}
-	}
-
-	// fund accounts with strk token
-	for _, acnt := range accounts {
-		genesisConfig.FunctionCalls = append(genesisConfig.FunctionCalls,
-			FunctionCall{
-				ContractAddress:    strkAddress,
-				EntryPointSelector: strToFelt("0x0083afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"), // transfer
-				Calldata:           []felt.Felt{acnt.Address, initMintAmnt, whyIsThisNeeded},
-				// Todo. Hack: must pass permissioned minter since strk contract doesn't allow zero address (update strk contract).
-				CallerAddress: permissionedMinter,
-			})
-	}
-
-	genesisConfig.BootstrapAccounts = accounts
-
-	return genesisConfig
 }

@@ -426,7 +426,7 @@ func TestSepoliaBootstrap(t *testing.T) {
 	}
 
 	t.Run("Bootstrap", func(t *testing.T) {
-		err = testBuilder.BootstrapSeq(context.Background(), uint64(2))
+		err = testBuilder.SyncStore(context.Background(), uint64(2))
 		require.NoError(t, err)
 		head, err := bc.BlockByNumber(1)
 		require.NoError(t, err)

@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/genesis"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -40,10 +39,9 @@ func TestGenesisStateDiff(t *testing.T) {
 	})
 
 	t.Run("accounts with prefunded strk", func(t *testing.T) {
-		initMintAmnt := new(felt.Felt).SetUint64(100) // 0x64
-		classes := []string{"./classes/strk.json", "./classes/account.json"}
-		genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
-		stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
+		genesisConfig, err := genesis.Read("./genesis_prefund_accounts.json")
+		require.NoError(t, err)
+		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
 		require.Empty(t, stateDiff.Nonces)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
@@ -58,7 +56,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
 		for _, v := range strkTokenDiffs {
-			if v.Equal(initMintAmnt) {
+			if v.Equal(utils.HexToFelt(t, "0x64")) { // see genesis_prefunded_accounts.json
 				numFundedAccounts++
 			}
 		}

@@ -3,8 +3,6 @@ package builder
 import (
 	"context"
 	"errors"
-	"os"
-	"strings"
 	stdsync "sync"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
-	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
@@ -95,7 +92,7 @@ func (b *Builder) WithPrefundAccounts(prefundAccounts bool) *Builder {
 	return b
 }
 
-func (b *Builder) BootstrapSeq(ctx context.Context, toBlockNum uint64) error {
+func (b *Builder) SyncStore(ctx context.Context, toBlockNum uint64) error {
 	var i uint64
 	for i = 0; i < toBlockNum; i++ {
 		b.log.Infow("Sequencer, syncing block", "blockNumber", i)
@@ -117,12 +114,8 @@ func (b *Builder) BootstrapSeq(ctx context.Context, toBlockNum uint64) error {
 
 func (b *Builder) Run(ctx context.Context) error {
 	if b.bootstrap {
-		err := b.BootstrapSeq(ctx, b.bootstrapToBlock)
+		err := b.SyncStore(ctx, b.bootstrapToBlock)
 		if err != nil {
-			return err
-		}
-	} else if b.prefundAccounts {
-		if err := b.GenesisPrefundAccounts(); err != nil {
 			return err
 		}
 	}
@@ -157,26 +150,6 @@ func (b *Builder) Run(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-func (b *Builder) GenesisPrefundAccounts() error {
-	initMintAmnt := new(felt.Felt).SetUint64(1_000_000_000_000) //nolint: gomnd
-	wd, err := os.Getwd()
-	base := wd[:strings.LastIndex(wd, "juno")+4]
-	if err != nil {
-		return err
-	}
-	classes := []string{base + "/genesis/classes/strk.json", base + "/genesis/classes/account.json"}
-	genesisConfig := genesis.GenesisConfigAccountsTokens(*initMintAmnt, classes)
-	stateDiff, newClasses, err := genesis.GenesisStateDiff(&genesisConfig, b.vm, b.bc.Network())
-	if err != nil {
-		return err
-	}
-	err = b.bc.StoreGenesis(stateDiff, newClasses)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (b *Builder) InitPendingBlock() error {
