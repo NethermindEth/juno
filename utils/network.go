@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
 )
 
@@ -42,7 +41,7 @@ var (
 	_ pflag.Value              = (*Network)(nil)
 	_ encoding.TextUnmarshaler = (*Network)(nil)
 
-	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
+	// The docs states the addresses for each network: https://docs.starknet.io/tools/important-addresses/
 	Mainnet = Network{
 		Name:                "mainnet",
 		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway/",
@@ -166,10 +165,6 @@ func (n *Network) UnmarshalText(text []byte) error {
 
 func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
-}
-
-func (n *Network) ProtocolID() protocol.ID {
-	return protocol.ID(fmt.Sprintf("/starknet/%s", n.String()))
 }
 
 func knownNetworkNames() []string {

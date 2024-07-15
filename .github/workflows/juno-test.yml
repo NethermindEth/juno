@@ -19,12 +19,11 @@ jobs:
     env:
       VM_DEBUG: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up go
-        uses: actions/setup-go@v4.1.0
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -51,10 +50,9 @@ jobs:
         run: make benchmarks
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4.2.0
         if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
-          files: ./coverage/coverage.out
-          verbose: true
+          files: coverage.out
