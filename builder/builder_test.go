@@ -331,7 +331,7 @@ func TestBuildBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 
 	bc := blockchain.New(pebble.NewMemTest(t), &utils.Integration)
-	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), nil))
+	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), map[felt.Felt]core.Class{}))
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")

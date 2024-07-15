@@ -41,7 +41,7 @@ func Read(path string) (*GenesisConfig, error) {
 	return &config, err
 }
 
-func (gc *GenesisConfig) UnmarshalJSON(data []byte) error {
+func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
 	type auxConfig struct {
 		Classes           []string                       `json:"classes"`            // []path-to-class.json
 		Contracts         map[string]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
@@ -53,16 +53,16 @@ func (gc *GenesisConfig) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	gc.Classes = aux.Classes
-	gc.FunctionCalls = aux.FunctionCalls
-	gc.BootstrapAccounts = aux.BootstrapAccounts
-	gc.Contracts = make(map[felt.Felt]GenesisContractData)
+	g.Classes = aux.Classes
+	g.FunctionCalls = aux.FunctionCalls
+	g.BootstrapAccounts = aux.BootstrapAccounts
+	g.Contracts = make(map[felt.Felt]GenesisContractData)
 	for k, v := range aux.Contracts {
 		key, err := new(felt.Felt).SetString(k)
 		if err != nil {
 			return err
 		}
-		gc.Contracts[*key] = v
+		g.Contracts[*key] = v
 	}
 	return nil
 }

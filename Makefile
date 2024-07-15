@@ -159,6 +159,7 @@ sequencer-with-accounts:
     --seq-block-time=1 \
     --seq-prefund-accounts \
 	--network sequencer \
+	--genesis-file "./genesis/genesis_prefund_accounts.json" \
     --rpc-call-max-steps=4123000
 
 pathfinder: juno-cached
