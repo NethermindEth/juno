@@ -359,7 +359,7 @@ func TestBuildBlocks(t *testing.T) {
 
 		mockVM.EXPECT().Execute([]core.Transaction{invokeTxn}, gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), false, false, false, false).Return(
-			[]*felt.Felt{&felt.Zero}, []*felt.Felt{}, []vm.TransactionTrace{{}}, executionErr,
+			[]*felt.Felt{&felt.Zero}, []*felt.Felt{}, []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}}, executionErr,
 		)
 	}
 

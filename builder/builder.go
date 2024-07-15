@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"errors"
-	"fmt"
 	stdsync "sync"
 	"time"
 
@@ -379,7 +378,6 @@ func (b *Builder) depletePool(ctx context.Context) error {
 func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
-	fmt.Println(b.pendingBlock.StateUpdate.StateDiff, b.pendingBlock.NewClasses, b.headState)
 	state := blockchain.NewPendingStateWriter(b.pendingBlock.StateUpdate.StateDiff, b.pendingBlock.NewClasses, b.headState)
 	var classes []core.Class
 	if txn.DeclaredClass != nil {
