@@ -273,7 +273,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	var result []TracedBlockTransaction
+	result := make([]TracedBlockTransaction, 0, len(traces))
 	for index, trace := range traces {
 		if !v0_6Response {
 			feeUnit := feeUnit(block.Transactions[index])

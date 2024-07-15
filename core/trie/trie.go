@@ -264,7 +264,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 	if siblingIsParentProof {
 		newParent, err = t.GetNodeFromKey(&commonKey)
 		if err != nil {
-			return nil
+			return err
 		}
 		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Right = nodeKey

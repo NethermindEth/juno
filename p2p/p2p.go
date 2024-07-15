@@ -240,7 +240,7 @@ func (s *Service) ListenAddrs() ([]multiaddr.Multiaddr, error) {
 		return nil, err
 	}
 
-	var listenAddrs []multiaddr.Multiaddr
+	listenAddrs := make([]multiaddr.Multiaddr, 0, len(s.host.Addrs()))
 	for _, addr := range s.host.Addrs() {
 		listenAddrs = append(listenAddrs, addr.Encapsulate(pidmhash))
 	}
