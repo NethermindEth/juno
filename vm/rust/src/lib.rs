@@ -10,7 +10,7 @@ use std::{
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
     num::NonZeroU128,
     slice,
-    sync::Arc,
+    sync::{Arc, Mutex}, time::SystemTime,
 };
 
 use blockifier::{
@@ -19,8 +19,8 @@ use blockifier::{
     },
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
     execution::{
-        contract_class::ClassInfo,
-        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
+        contract_class::{ClassInfo, ContractClass},
+        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext}, native::utils::get_native_executor,
     },
     fee::fee_utils::calculate_tx_fee,
     state::{cached_state::CachedState, state_api::State},
@@ -31,6 +31,7 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
+use cairo_native::cache::{AotProgramCache, ProgramCache};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
@@ -88,6 +89,7 @@ pub extern "C" fn cairoVMCall(
     chain_id: *const c_char,
     max_steps: c_ulonglong,
 ) {
+    println!("===Starting rust call===");
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
@@ -144,7 +146,18 @@ pub extern "C" fn cairoVMCall(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
+
+    let now = SystemTime::now();
+    let result = entry_point.execute(&mut state, &mut resources, &mut context.unwrap(), None);
+    match now.elapsed() {
+        Ok(elapsed) => {
+            println!("Call execution took {}us", elapsed.as_micros());
+        }
+        Err(e) => println!("Error timing {e}"),
+        
+    }
+
+    match result {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -163,6 +176,8 @@ pub struct TxnAndQueryBit {
     pub query_bit: bool,
 }
 
+static A: Mutex<u64> = Mutex::new(0);
+
 #[no_mangle]
 pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
@@ -175,6 +190,14 @@ pub extern "C" fn cairoVMExecute(
     skip_validate: c_uchar,
     err_on_revert: c_uchar,
 ) {
+
+    {
+        let mut a = A.lock().unwrap();
+    
+        println!("===Starting rust execution {a}===");
+        *a += 1;
+    }
+
     let block_info = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
@@ -189,6 +212,7 @@ pub extern "C" fn cairoVMExecute(
     let mut classes: Result<Vec<Box<serde_json::value::RawValue>>, serde_json::Error> = Ok(vec![]);
     if !classes_json.is_null() {
         let classes_json_str = unsafe { CStr::from_ptr(classes_json) }.to_str().unwrap();
+        println!("Classes string: {classes_json_str}");
         classes = serde_json::from_str(classes_json_str);
     }
     if let Err(e) = classes {
@@ -217,7 +241,53 @@ pub extern "C" fn cairoVMExecute(
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
+    let native_context = cairo_native::context::NativeContext::new();
+    let mut native_cache= ProgramCache::Aot(AotProgramCache::new(&native_context));
+    println!("Created cache in juno vm");
+    // let precompile_class_hashes = vec![
+    //     ClassHash(StarkFelt::try_from("0x6C77D54BFCA18537162F6A2C67DB81783C6C414EDB68A1117B56B1E48B9EC8").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x816DD0297EFC55DC1E7559020A3A825E81EF734B558F03C83325D4DA7E6253").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x8FADE1A36F2BFCAA55B53C96DFB615E8E60110B87765CF449D09B6E0397B17").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0xAEF408EC73C83EDBC42D00AF164AE8073404AA665B9895041C705C871809F9").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0xFE95C251FA7185CFF0CCC2A9BCD7A2814F34A4EA202C62DB70CD6962DCDCE5").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x1A736D6ED154502257F02B1CCDF4D9D1089F80811CD6ACAD48E6B6A9D1F2003").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x229789B99574E92C01F99E9D6F16A3CC6326085733504A8B7CA367606B40AB4").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x231ADDE42526BAD434CA2EB983EFDD64472638702F87F97E6E3C084F264E06F").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x25EC026985A3BF9D0CC1FE17326B245DFDC3FF89B8FDE106542A3EA56C5A918").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x29927C8AF6BCCF3F6FDA035981E765A7BDBF18A2DC0D630494F8758AA908E2B").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x33434AD846CDD5F23EB73FF09FE6FDDD568284A0FB7D1BE20EE482F044DABE2").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x4B97896ABF7F4F55D6F87056573F78B3E6E923CB8BCD4270BF036E4EAFC2D1E").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x4F9849485E35F4A1C57D69B297FEDA94E743151F788202A6D731173BABF4AEC").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x514718BB56ED2A8607554C7D393C2FFD73CBAB971C120B00A2CE27CC58DD1C1").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x5327164FA21DCA89A92E8EAE8A5B7AB90F58373E71F0A16D285E5A4ABE5A3CF").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x5B9F8D0D8F1794053114F4180D1C4DD98A7A1DD1721A850EDEA299A7E2397B9").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x5EE939756C1A60B029C594DA00E637BF5923BF04A86FF163E877E899C0840EB").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x5FFBCFEB50D200A0677C48A129A11245A3FC519D1D98D76882D1C9A1B19C6ED").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x61896D5D084965AAFC7375A336CEAAAA4D95C9802E362C41E9A7F1A8330A195").unwrap()),
+    //     ClassHash(StarkFelt::try_from("0x72CCF820489B6A1EC30CFD68D045EF24929373284921BF199C00DBB6BAF6971").unwrap()),
+    // ];
+    // compile_and_cache(&precompile_class_hashes, &mut state, &mut native_cache);
+    // println!("Populated cache in juno vm");
+
+    let transaction_count = txns_and_query_bits.len();
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
+        println!("==Transaction {}/{transaction_count}==", txn_index+1);
+        match &txn_and_query_bit.txn {
+            StarknetApiTransaction::Invoke(tx) => {
+                match tx {
+                    starknet_api::transaction::InvokeTransaction::V0(_) => {
+                        println!("Invoke V0 with sender: {}", tx.sender_address().to_string());
+                    },
+                    starknet_api::transaction::InvokeTransaction::V1(tx) => {
+                        println!("Invoke V1 with sender: {}", tx.sender_address.to_string());
+                    }
+                    starknet_api::transaction::InvokeTransaction::V3(tx) => {
+                        println!("Invoke V3 with sender: {}", tx.sender_address.to_string());
+                    },
+                }
+            },
+            _ => println!("TODO: sender address")
+        }
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
@@ -264,17 +334,29 @@ pub extern "C" fn cairoVMExecute(
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                println!("Executing with account transaction base");
+                let now = SystemTime::now();
+
+                let result = t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache));
+                match now.elapsed() {
+                    Ok(elapsed) => {
+                        println!("Execute execution took {}s", (elapsed.as_micros() as f64)/(1000000 as f64));
+                    }
+                    Err(e) => println!("Error timing {e}"),
+                }
+                result
             }
             Transaction::L1HandlerTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                println!("Executing with l1 handler transaction base");
+                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache))
             }
         };
 
         match res {
             Err(error) => {
                 let err_string = error.to_string();
+                println!("Execution failed with error: {err_string}");
                 report_error(
                     reader_handle,
                     format!(
@@ -288,6 +370,7 @@ pub extern "C" fn cairoVMExecute(
             }
             Ok(mut t) => {
                 if t.is_reverted() && err_on_revert != 0 {
+                    println!("Transaction reverted");
                     report_error(
                         reader_handle,
                         format!("reverted: {}", t.revert_error.unwrap()).as_str(),
@@ -308,6 +391,7 @@ pub extern "C" fn cairoVMExecute(
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
                 if trace.is_err() {
+                    println!("Trace is error");
                     report_error(
                         reader_handle,
                         format!(
@@ -320,6 +404,7 @@ pub extern "C" fn cairoVMExecute(
                     return;
                 }
 
+                println!("Starting unsafe Juno append block");
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
                     JunoAppendDataGasConsumed(
@@ -327,11 +412,34 @@ pub extern "C" fn cairoVMExecute(
                         felt_to_byte_array(&data_gas_consumed).as_ptr(),
                     );
                 }
+                println!("Finished unsafe Juno append block, appending trace");
                 append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
             }
         }
+        println!("Applying transaction state changes");
         txn_state.commit();
     }
+}
+
+fn compile_and_cache(class_hashes: &[ClassHash], state: &mut dyn State, program_cache: &mut ProgramCache<'_, ClassHash>) {
+    println!("cache size: {}",program_cache.len());
+    for class_hash in class_hashes {
+        let already_cached = match program_cache {
+            ProgramCache::Aot(cache) => cache.get(class_hash).is_some(),
+            ProgramCache::Jit(cache) => cache.get(class_hash).is_some(),
+        };
+
+        if already_cached {
+            println!("Using cache for {class_hash}");
+        } else {
+            let contract_class = state.get_compiled_contract_class(*class_hash).unwrap();
+            if let ContractClass::V1Sierra(contract_class) = contract_class {
+                println!("Compiling for {class_hash}");
+                get_native_executor(*class_hash, &contract_class.sierra_program, program_cache);
+            };
+        }
+    }
+    println!("cache size: {}",program_cache.len());
 }
 
 fn felt_to_u128(felt: StarkFelt) -> u128 {

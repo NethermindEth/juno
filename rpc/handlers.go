@@ -1526,6 +1526,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
+	println("<=>SIMULATOR LOG<=>: Running SimulateTransactions")
 	return h.simulateTransactions(id, transactions, simulationFlags, false, false)
 }
 
@@ -1583,16 +1584,21 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 	useBlobData := !v0_6Response
+	println("Starting execute")
 	overallFees, dataGasConsumed, traces, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, useBlobData)
+	println("Finished execute")
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
+			println("Finished with error resource busy")
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
 		}
 		var txnExecutionError vm.TransactionExecutionError
 		if errors.As(err, &txnExecutionError) {
+			println("Finished with transaction execution error")
 			return nil, makeTransactionExecutionError(&txnExecutionError)
 		}
+		println("Finished with unexpected error")
 		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
@@ -1648,7 +1654,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			FeeEstimation:    estimate,
 		})
 	}
-
+	println("Finished successfully")
 	return result, nil
 }
 
