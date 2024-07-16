@@ -548,18 +548,19 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 		defer close(eventsCh)
 
 		var events []*spec.Event
-		eventsIt(func(res *spec.EventsResponse) bool {
+
+	loop:
+		for res := range eventsIt {
 			switch v := res.EventMessage.(type) {
 			case *spec.EventsResponse_Event:
 				events = append(events, v.Event)
-				return true
 			case *spec.EventsResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected EventMessage from getEvents", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
 
 		select {
 		case <-ctx.Done():
