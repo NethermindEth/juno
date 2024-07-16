@@ -3,7 +3,6 @@ package p2p
 import (
 	"bytes"
 	"context"
-	"encoding/gob"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -17,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -34,7 +34,6 @@ import (
 const (
 	keyLength                 = 2048
 	routingTableRefreshPeriod = 1 * time.Second
-	peersFile                 = "peers.json"
 )
 
 type Service struct {
@@ -91,11 +90,9 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		err            error
 	)
 
-	if database != nil {
-		storePeers, err = loadPeers(database)
-		if err != nil {
-			return nil, err
-		}
+	storePeers, err = loadPeers(database)
+	if err != nil {
+		log.Warnw("Failed to load peers", "err", err)
 	}
 
 	peersAddrInfoS = append(peersAddrInfoS, storePeers...)
@@ -379,7 +376,7 @@ func EncodeAddrs(addrs []multiaddr.Multiaddr) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(multiAddrBytes); err != nil {
+	if err := cbor.NewEncoder(&buf).Encode(multiAddrBytes); err != nil {
 		return nil, fmt.Errorf("encode addresses: %w", err)
 	}
 
@@ -389,7 +386,7 @@ func EncodeAddrs(addrs []multiaddr.Multiaddr) ([]byte, error) {
 // DecodeAddrs decodes a byte slice into a slice of multiaddrs
 func DecodeAddrs(b []byte) ([]multiaddr.Multiaddr, error) {
 	var multiAddrBytes [][]byte
-	if err := gob.NewDecoder(bytes.NewReader(b)).Decode(&multiAddrBytes); err != nil {
+	if err := cbor.NewDecoder(bytes.NewReader(b)).Decode(&multiAddrBytes); err != nil {
 		return nil, fmt.Errorf("decode addresses: %w", err)
 	}
 

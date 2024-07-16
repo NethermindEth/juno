@@ -114,20 +114,17 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""
-
-	createDB := func(dbPath string) (db.DB, error) {
-		if dbIsRemote {
-			return remote.New(dbPath, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		}
-		return pebble.New(dbPath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
+	var database db.DB
+	if dbIsRemote {
+		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
 	}
+	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
-	database, err := createDB(cfg.DatabasePath)
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
-
-	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
 	services := make([]service.Service, 0)
 
