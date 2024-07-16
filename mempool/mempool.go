@@ -66,7 +66,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		if err = p.putElem(txn, userTxn.Transaction.Hash(), &storageElem{
 			Txn: *userTxn,
 		}); err != nil {
-			return nil
+			return err
 		}
 
 		if tail != nil {
