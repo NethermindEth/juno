@@ -409,26 +409,25 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64)
 	go func() {
 		defer close(headersAndSigCh)
 
-		func() {
-			for res := range headersIt {
-				headerAndSig := specBlockHeaderAndSigs{}
-				switch v := res.HeaderMessage.(type) {
-				case *spec.BlockHeadersResponse_Header:
-					headerAndSig.header = v.Header
-				case *spec.BlockHeadersResponse_Fin:
-					return
-				default:
-					s.log.Warnw("Unexpected HeaderMessage from getBlockHeaders", "v", v)
-					return
-				}
-
-				select {
-				case <-ctx.Done():
-					return
-				case headersAndSigCh <- headerAndSig:
-				}
+	loop:
+		for res := range headersIt {
+			headerAndSig := specBlockHeaderAndSigs{}
+			switch v := res.HeaderMessage.(type) {
+			case *spec.BlockHeadersResponse_Header:
+				headerAndSig.header = v.Header
+			case *spec.BlockHeadersResponse_Fin:
+				break loop
+			default:
+				s.log.Warnw("Unexpected HeaderMessage from getBlockHeaders", "v", v)
+				break loop
 			}
-		}()
+
+			select {
+			case <-ctx.Done():
+				break loop
+			case headersAndSigCh <- headerAndSig:
+			}
+		}
 	}()
 
 	return headersAndSigCh, nil
