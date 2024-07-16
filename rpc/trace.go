@@ -200,9 +200,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, ErrUnexpectedError.CloneWithData(err.Error())
-		} else if (blockVer.Compare(traceFallbackVersion) != 1 && block.ProtocolVersion != excludedVersion) ||
-			h.forceFeederTracesForBlocks.Contains(block.Number) {
-			// version <= 0.13.1 and not 0.13.1.1 or forcing fetch some blocks from feeder gateway
+		} else if blockVer.Compare(traceFallbackVersion) != 1 && block.ProtocolVersion != excludedVersion {
+			// version <= 0.13.1 and not 0.13.1.1 fetch blocks from feeder gateway
 			return h.fetchTraces(ctx, block.Hash)
 		}
 
@@ -274,7 +273,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	var result []TracedBlockTransaction
+	result := make([]TracedBlockTransaction, 0, len(traces))
 	for index, trace := range traces {
 		if !v0_6Response {
 			feeUnit := feeUnit(block.Transactions[index])

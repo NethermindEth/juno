@@ -44,26 +44,27 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	HTTP                bool           `mapstructure:"http"`
-	HTTPHost            string         `mapstructure:"http-host"`
-	HTTPPort            uint16         `mapstructure:"http-port"`
-	RPCCorsEnable       bool           `mapstructure:"rpc-cors-enable"`
-	Websocket           bool           `mapstructure:"ws"`
-	WebsocketHost       string         `mapstructure:"ws-host"`
-	WebsocketPort       uint16         `mapstructure:"ws-port"`
-	GRPC                bool           `mapstructure:"grpc"`
-	GRPCHost            string         `mapstructure:"grpc-host"`
-	GRPCPort            uint16         `mapstructure:"grpc-port"`
-	DatabasePath        string         `mapstructure:"db-path"`
-	Network             utils.Network  `mapstructure:"network"`
-	EthNode             string         `mapstructure:"eth-node"`
-	Pprof               bool           `mapstructure:"pprof"`
-	PprofHost           string         `mapstructure:"pprof-host"`
-	PprofPort           uint16         `mapstructure:"pprof-port"`
-	Colour              bool           `mapstructure:"colour"`
-	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
-	RemoteDB            string         `mapstructure:"remote-db"`
+	LogLevel               utils.LogLevel `mapstructure:"log-level"`
+	HTTP                   bool           `mapstructure:"http"`
+	HTTPHost               string         `mapstructure:"http-host"`
+	HTTPPort               uint16         `mapstructure:"http-port"`
+	RPCCorsEnable          bool           `mapstructure:"rpc-cors-enable"`
+	Websocket              bool           `mapstructure:"ws"`
+	WebsocketHost          string         `mapstructure:"ws-host"`
+	WebsocketPort          uint16         `mapstructure:"ws-port"`
+	GRPC                   bool           `mapstructure:"grpc"`
+	GRPCHost               string         `mapstructure:"grpc-host"`
+	GRPCPort               uint16         `mapstructure:"grpc-port"`
+	DatabasePath           string         `mapstructure:"db-path"`
+	Network                utils.Network  `mapstructure:"network"`
+	EthNode                string         `mapstructure:"eth-node"`
+	Pprof                  bool           `mapstructure:"pprof"`
+	PprofHost              string         `mapstructure:"pprof-host"`
+	PprofPort              uint16         `mapstructure:"pprof-port"`
+	Colour                 bool           `mapstructure:"colour"`
+	PendingPollInterval    time.Duration  `mapstructure:"pending-poll-interval"`
+	RemoteDB               string         `mapstructure:"remote-db"`
+	VersionedConstantsFile string         `mapstructure:"versioned-constants-file"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -140,6 +141,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 
+	if cfg.VersionedConstantsFile != "" {
+		err = vm.SetVersionedConstants(cfg.VersionedConstantsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set versioned constants: %w", err)
+		}
+	}
+
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
@@ -174,7 +182,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		syncReader = synchronizer
 	}
 
-	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, &cfg.Network, log).WithGateway(gatewayClient).WithFeeder(client)
+	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS

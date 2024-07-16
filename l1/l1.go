@@ -178,6 +178,7 @@ func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 				return finalisedHeight
 			}
 			c.log.Debugw("Failed to retrieve L1 finalised height, retrying...", "error", err)
+			time.Sleep(c.resubscribeDelay)
 		}
 	}
 }

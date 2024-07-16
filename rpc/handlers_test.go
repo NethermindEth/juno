@@ -20,14 +20,14 @@ func nopCloser() error { return nil }
 func TestVersion(t *testing.T) {
 	const version = "1.2.3-rc1"
 
-	handler := rpc.New(nil, nil, nil, version, utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(nil, nil, nil, version, nil)
 	ver, err := handler.Version()
 	require.Nil(t, err)
 	assert.Equal(t, version, ver)
 }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.7.1", version)
@@ -45,7 +45,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, nil, throttledVM, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(mockReader, nil, throttledVM, "", nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"

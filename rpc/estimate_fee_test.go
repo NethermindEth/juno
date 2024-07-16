@@ -28,7 +28,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
-	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 	msg := rpc.MsgFromL1{
 		From:     common.HexToAddress("0xDEADBEEF"),
 		To:       *new(felt.Felt).SetUint64(1337),
@@ -102,7 +102,7 @@ func TestEstimateFee(t *testing.T) {
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, mockVM, "", n, log)
+	handler := rpc.New(mockReader, nil, mockVM, "", log)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
