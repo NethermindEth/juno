@@ -263,8 +263,8 @@ pub extern "C" fn cairoVMExecute(
             Err(error) => {
                 let err_string = match &error {
                     ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
-                        /*| ExecutionError(e)
-                        | ValidateTransactionError(e)*/
+                    ExecutionError {error: e, ..}
+                    | ValidateTransactionError {error: e, ..}  => format!("{error} {e}"),
                     other => other.to_string()
                 };
                 report_error(
@@ -422,7 +422,7 @@ fn build_block_context(
         },
         use_kzg_da: block_info.use_blob_data == 1,
     }, ChainInfo{
-        chain_id: ChainId::Other(chain_id_str.to_string()), // todo change that
+        chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
             // both addresses are the same for all networks
             eth_fee_token_address: ContractAddress::try_from(StarkHash::from_hex("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),

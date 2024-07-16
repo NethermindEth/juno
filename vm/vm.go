@@ -62,20 +62,21 @@ import (
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, useBlobData, concurrencyMode bool) ([]*felt.Felt, error)
+		maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-		concurrencyMode bool,
 	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error)
 }
 
 type vm struct {
-	log utils.SimpleLogger
+	log             utils.SimpleLogger
+	concurrencyMode bool
 }
 
-func New(log utils.SimpleLogger) VM {
+func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 	return &vm{
-		log: log,
+		log:             log,
+		concurrencyMode: concurrencyMode,
 	}
 }
 
@@ -218,7 +219,7 @@ func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, useBlobData, concurrencyMode bool,
+	network *utils.Network, maxSteps uint64, useBlobData bool,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -229,7 +230,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	defer handle.Delete()
 
 	var concurrencyModeByte byte
-	if concurrencyMode {
+	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
 	C.setVersionedConstants(C.CString("my_json"))
@@ -258,7 +259,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert, useBlobData, concurrencyMode bool,
+	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
 ) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error) {
 	context := &callContext{
 		state: state,
@@ -297,7 +298,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	}
 
 	var concurrencyModeByte byte
-	if concurrencyMode {
+	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
 

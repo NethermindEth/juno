@@ -298,10 +298,10 @@ pub struct Retdata(pub Vec<StarkFelt>);
 
 
 fn make_state_diff(
-    state: &mut TransactionalState<CachedState<JunoStateReader>>, // todo remove mut
+    state: &mut TransactionalState<CachedState<JunoStateReader>>,
     deprecated_declared_class: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
-    let diff: CommitmentStateDiff  = state.to_state_diff().unwrap().into();// todo remove unwrap
+    let diff: CommitmentStateDiff  = state.to_state_diff()?.into();
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 

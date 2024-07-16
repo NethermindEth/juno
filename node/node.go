@@ -86,6 +86,8 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+
+	VMConcurrencyMode bool `mapstructure:"vm-concurrency-mode"`
 }
 
 type Node struct {
@@ -175,7 +177,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, synchronizer)
 	}
 
-	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	throttledVM := NewThrottledVM(vm.New(cfg.VMConcurrencyMode, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
 	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 	if synchronizer != nil {
