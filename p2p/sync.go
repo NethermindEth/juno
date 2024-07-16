@@ -494,25 +494,28 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 	if err != nil {
 		return nil, err
 	}
+
 	stateDiffsCh := make(chan specContractDiffs)
 	go func() {
 		defer close(stateDiffsCh)
+
 		var contractDiffs []*spec.ContractDiff
-		stateDiffsIt(func(res *spec.StateDiffsResponse) bool {
+
+	loop:
+		for res := range stateDiffsIt {
 			switch v := res.StateDiffMessage.(type) {
 			case *spec.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
-				return true
 			case *spec.StateDiffsResponse_DeclaredClass:
 				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
-				return true
 			case *spec.StateDiffsResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getStateDiffs", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
+
 		select {
 		case <-ctx.Done():
 		case stateDiffsCh <- specContractDiffs{
