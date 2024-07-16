@@ -426,16 +426,6 @@ func TestSepoliaBootstrap(t *testing.T) {
 		snData.EXPECT().Class(context.Background(), classHash).Return(class, nil)
 	}
 
-	t.Run("Bootstrap", func(t *testing.T) {
-		err = testBuilder.SyncStore(context.Background(), uint64(2))
-		require.NoError(t, err)
-		head, err := bc.BlockByNumber(1)
-		require.NoError(t, err)
-		require.Equal(t, uint64(1), head.Number)
-		require.Equal(t, block.TransactionCount, head.TransactionCount, "TransactionCount diff")
-		require.Equal(t, block.GlobalStateRoot.String(), head.GlobalStateRoot.String(), "GlobalStateRoot diff")
-	})
-
 	t.Run("Bootstrap blocks 0 and 1 + Run block 2", func(t *testing.T) {
 		block, err := gw.BlockByNumber(context.Background(), 2)
 		require.NoError(t, err)
