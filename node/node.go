@@ -120,11 +120,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	} else {
 		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
 	}
-	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
+	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
 	services := make([]service.Service, 0)
 

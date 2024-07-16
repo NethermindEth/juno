@@ -1,7 +1,6 @@
 package p2p
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -16,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -86,16 +84,13 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
-		storePeers     []peer.AddrInfo
 		err            error
 	)
 
-	storePeers, err = loadPeers(database)
+	peersAddrInfoS, err = loadPeers(database)
 	if err != nil {
 		log.Warnw("Failed to load peers", "err", err)
 	}
-
-	peersAddrInfoS = append(peersAddrInfoS, storePeers...)
 
 	if peers != "" {
 		splitted := strings.Split(peers, ",")
@@ -368,40 +363,6 @@ func (s *Service) WithListener(l junoSync.EventListener) {
 	s.synchroniser.WithListener(l)
 }
 
-// EncodeAddrs encodes a slice of multiaddrs into a byte slice
-func EncodeAddrs(addrs []multiaddr.Multiaddr) ([]byte, error) {
-	multiAddrBytes := make([][]byte, len(addrs))
-	for i, addr := range addrs {
-		multiAddrBytes[i] = addr.Bytes()
-	}
-
-	var buf bytes.Buffer
-	if err := cbor.NewEncoder(&buf).Encode(multiAddrBytes); err != nil {
-		return nil, fmt.Errorf("encode addresses: %w", err)
-	}
-
-	return buf.Bytes(), nil
-}
-
-// DecodeAddrs decodes a byte slice into a slice of multiaddrs
-func DecodeAddrs(b []byte) ([]multiaddr.Multiaddr, error) {
-	var multiAddrBytes [][]byte
-	if err := cbor.NewDecoder(bytes.NewReader(b)).Decode(&multiAddrBytes); err != nil {
-		return nil, fmt.Errorf("decode addresses: %w", err)
-	}
-
-	addrs := make([]multiaddr.Multiaddr, 0, len(multiAddrBytes))
-	for _, addrBytes := range multiAddrBytes {
-		addr, err := multiaddr.NewMultiaddrBytes(addrBytes)
-		if err != nil {
-			return nil, fmt.Errorf("parse multiaddr: %w", err)
-		}
-		addrs = append(addrs, addr)
-	}
-
-	return addrs, nil
-}
-
 // persistPeers stores the given peers in the peers database
 func (s *Service) persistPeers() error {
 	txn, err := s.database.NewTransaction(true)
@@ -457,7 +418,7 @@ func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 				return fmt.Errorf("get value: %w", err)
 			}
 
-			addrs, err := DecodeAddrs(val)
+			addrs, err := decodeAddrs(val)
 			if err != nil {
 				return fmt.Errorf("decode addresses for peer %s: %w", peerID, err)
 			}
