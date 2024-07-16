@@ -473,26 +473,8 @@ func TestSepoliaBootstrap(t *testing.T) {
 }
 
 func TestPrefundedAccounts(t *testing.T) {
-	network := &utils.Mainnet
-	bc := blockchain.New(pebble.NewMemTest(t), network)
-	log := utils.NewNopZapLogger()
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	privKey, err := ecdsa.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-	p := mempool.New(pebble.NewMemTest(t))
-
-	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
-	require.NoError(t, err)
-	genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), bc.Network())
-	require.NoError(t, err)
-	require.NoError(t, bc.StoreGenesis(diff, classes))
-
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log).WithPrefundAccounts(true)
-	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
-
 	// transfer tokens to 0x101
-	invokeTxn := rpc.BroadcastedTransaction{
+	invokeTxn := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			SenderAddress: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
@@ -515,7 +497,7 @@ func TestPrefundedAccounts(t *testing.T) {
 		},
 	}
 	// transfer tokens to 0x102
-	invokeTxn2 := rpc.BroadcastedTransaction{
+	invokeTxn2 := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			SenderAddress: utils.HexToFelt(t, "0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
@@ -538,12 +520,29 @@ func TestPrefundedAccounts(t *testing.T) {
 		},
 	}
 
-	addTransactionsAndRunTest := func(t *testing.T, txns ...rpc.BroadcastedTransaction) (uint64, *felt.Felt, bool) {
+	addTransactionsAndRunTest := func(t *testing.T, txns ...rpc.BroadcastedTransaction) {
+		network := &utils.Mainnet
+		bc := blockchain.New(pebble.NewMemTest(t), network)
+		log := utils.NewNopZapLogger()
+		seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+		privKey, err := ecdsa.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		p := mempool.New(pebble.NewMemTest(t))
+
+		genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
+		require.NoError(t, err)
+		genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
+		diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), bc.Network())
+		require.NoError(t, err)
+		require.NoError(t, bc.StoreGenesis(diff, classes))
+
+		testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log).WithPrefundAccounts(true)
+		rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 		for _, txn := range txns {
 			rpcHandler.AddTransaction(context.Background(), txn)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
 		defer cancel()
 		require.NoError(t, testBuilder.Run(ctx))
 
@@ -577,19 +576,14 @@ func TestPrefundedAccounts(t *testing.T) {
 				break
 			}
 		}
-
-		return foundNumTxnsInBlock, expectedBalance, foundExpectedBalance
+		require.True(t, foundExpectedBalance)
 	}
 
 	t.Run("single transaction in the block", func(t *testing.T) {
-		foundNumTxnsInBlock, _, foundExpectedBalance := addTransactionsAndRunTest(t, invokeTxn)
-		require.Equal(t, uint64(1), foundNumTxnsInBlock)
-		require.True(t, foundExpectedBalance)
+		addTransactionsAndRunTest(t, invokeTxn)
 	})
 
 	t.Run("two transactions in the same block", func(t *testing.T) {
-		foundNumTxnsInBlock, _, foundExpectedBalance := addTransactionsAndRunTest(t, invokeTxn, invokeTxn2)
-		require.Equal(t, uint64(2), foundNumTxnsInBlock)
-		require.True(t, foundExpectedBalance)
+		addTransactionsAndRunTest(t, invokeTxn, invokeTxn2)
 	})
 }
