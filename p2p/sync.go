@@ -424,7 +424,7 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64)
 
 			select {
 			case <-ctx.Done():
-				break loop
+				break
 			case headersAndSigCh <- headerAndSig:
 			}
 		}
