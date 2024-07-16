@@ -598,20 +598,21 @@ func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (
 			transactions []*spec.Transaction
 			receipts     []*spec.Receipt
 		)
-		txsIt(func(res *spec.TransactionsResponse) bool {
+
+	loop:
+		for res := range txsIt {
 			switch v := res.TransactionMessage.(type) {
 			case *spec.TransactionsResponse_TransactionWithReceipt:
 				txWithReceipt := v.TransactionWithReceipt
 				transactions = append(transactions, txWithReceipt.Transaction)
 				receipts = append(receipts, txWithReceipt.Receipt)
-				return true
 			case *spec.TransactionsResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected TransactionMessage from getTransactions", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
 
 		s.log.Debugw("Transactions length", "len", len(transactions))
 		spexTxs := specTxWithReceipts{
