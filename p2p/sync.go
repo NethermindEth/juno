@@ -465,16 +465,15 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
 				break loop
 			}
+		}
 
-			select {
-			case <-ctx.Done():
-				break loop
-			case classesCh <- specClasses{
-				number:  blockNumber,
-				classes: classes,
-			}:
-				s.log.Debugw("Received classes for block", "blockNumber", blockNumber, "lenClasses", len(classes))
-			}
+		select {
+		case <-ctx.Done():
+		case classesCh <- specClasses{
+			number:  blockNumber,
+			classes: classes,
+		}:
+			s.log.Debugw("Received classes for block", "blockNumber", blockNumber, "lenClasses", len(classes))
 		}
 	}()
 	return classesCh, nil
@@ -495,11 +494,9 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 	if err != nil {
 		return nil, err
 	}
-
 	stateDiffsCh := make(chan specContractDiffs)
 	go func() {
 		defer close(stateDiffsCh)
-
 		var contractDiffs []*spec.ContractDiff
 		stateDiffsIt(func(res *spec.StateDiffsResponse) bool {
 			switch v := res.StateDiffMessage.(type) {
@@ -516,7 +513,6 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 				return false
 			}
 		})
-
 		select {
 		case <-ctx.Done():
 		case stateDiffsCh <- specContractDiffs{
@@ -561,15 +557,14 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 				s.log.Warnw("Unexpected EventMessage from getEvents", "v", v)
 				break loop
 			}
+		}
 
-			select {
-			case <-ctx.Done():
-				break loop
-			case eventsCh <- specEvents{
-				number: blockNumber,
-				events: events,
-			}:
-			}
+		select {
+		case <-ctx.Done():
+		case eventsCh <- specEvents{
+			number: blockNumber,
+			events: events,
+		}:
 		}
 	}()
 	return eventsCh, nil
