@@ -91,6 +91,7 @@ linters:
     - lll
     - misspell
     - nakedret
+    - nilerr
     - noctx
     - nolintlint
     - staticcheck
@@ -99,6 +100,7 @@ linters:
     - unconvert
     - unparam
     - unused
+    - usestdlibvars
     - whitespace
     - tparallel
     - gci
