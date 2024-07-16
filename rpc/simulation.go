@@ -77,7 +77,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, rpcErr
 	}
 
-	var txns []core.Transaction
+	txns := make([]core.Transaction, 0, len(transactions))
 	var classes []core.Class
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
@@ -119,7 +119,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	var result []SimulatedTransaction
+	result := make([]SimulatedTransaction, 0, len(overallFees))
 	for i, overallFee := range overallFees {
 		feeUnit := feeUnit(txns[i])
 

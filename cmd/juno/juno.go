@@ -248,7 +248,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		v.SetEnvPrefix("JUNO")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		if err := v.BindPFlags(cmd.Flags()); err != nil {
-			return nil
+			return nil //nolint:nilerr
 		}
 
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
