@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -48,10 +49,11 @@ type Service struct {
 	synchroniser *syncService
 
 	feederNode bool
+	database   db.DB
 }
 
 func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger,
+	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -74,17 +76,27 @@ func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockch
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
 }
 
 func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger,
+	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
-	peersAddrInfoS := []peer.AddrInfo{}
+	var (
+		peersAddrInfoS []peer.AddrInfo
+		err            error
+	)
+
+	peersAddrInfoS, err = loadPeers(database)
+	if err != nil {
+		log.Warnw("Failed to load peers", "err", err)
+	}
+
 	if peers != "" {
 		splitted := strings.Split(peers, ",")
 		for _, peerStr := range splitted {
-			peerAddr, err := peer.AddrInfoFromString(peerStr)
+			var peerAddr *peer.AddrInfo
+			peerAddr, err = peer.AddrInfoFromString(peerStr)
 			if err != nil {
 				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
 			}
@@ -110,6 +122,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		feederNode:   feederNode,
 		topics:       make(map[string]*pubsub.Topic),
 		handler:      starknet.NewHandler(bc, log),
+		database:     database,
 	}
 	return s, nil
 }
@@ -213,6 +226,9 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
+	if err := s.persistPeers(); err != nil {
+		s.log.Warnw("Failed to persist peers", "err", err)
+	}
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
@@ -345,4 +361,76 @@ func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Strea
 func (s *Service) WithListener(l junoSync.EventListener) {
 	runMetrics(s.host.Peerstore())
 	s.synchroniser.WithListener(l)
+}
+
+// persistPeers stores the given peers in the peers database
+func (s *Service) persistPeers() error {
+	txn, err := s.database.NewTransaction(true)
+	if err != nil {
+		return fmt.Errorf("create transaction: %w", err)
+	}
+
+	store := s.host.Peerstore()
+	peers := store.Peers()
+	for _, peerID := range peers {
+		peerInfo := store.PeerInfo(peerID)
+
+		encodedAddrs, err := EncodeAddrs(peerInfo.Addrs)
+		if err != nil {
+			return fmt.Errorf("encode addresses for peer %s: %w", peerID, err)
+		}
+
+		if err := txn.Set(db.Peer.Key([]byte(peerID)), encodedAddrs); err != nil {
+			return fmt.Errorf("set data for peer %s: %w", peerID, err)
+		}
+	}
+
+	if err := txn.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	s.log.Infow("Stored peers", "num", len(peers))
+
+	return nil
+}
+
+// loadPeers loads the previously stored peers from the database
+func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
+	var peers []peer.AddrInfo
+
+	err := database.View(func(txn db.Transaction) error {
+		it, err := txn.NewIterator()
+		if err != nil {
+			return fmt.Errorf("create iterator: %w", err)
+		}
+		defer it.Close()
+
+		prefix := db.Peer.Key()
+		for it.Seek(prefix); it.Valid(); it.Next() {
+			peerIDBytes := it.Key()[len(prefix):]
+			peerID, err := peer.IDFromBytes(peerIDBytes)
+			if err != nil {
+				return fmt.Errorf("decode peer ID: %w", err)
+			}
+
+			val, err := it.Value()
+			if err != nil {
+				return fmt.Errorf("get value: %w", err)
+			}
+
+			addrs, err := decodeAddrs(val)
+			if err != nil {
+				return fmt.Errorf("decode addresses for peer %s: %w", peerID, err)
+			}
+
+			peers = append(peers, peer.AddrInfo{ID: peerID, Addrs: addrs})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load peers: %w", err)
+	}
+
+	return peers, nil
 }
