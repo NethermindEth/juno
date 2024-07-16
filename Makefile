@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := help
 
+export GOEXPERIMENT=rangefunc
+
 .PHONY: vm
 
 ifeq ($(VM_DEBUG),true)
