@@ -514,11 +514,28 @@ func TestPrefundedAccounts(t *testing.T) {
 			},
 		},
 	}
-	invokeTxn2 := invokeTxn
-	invokeTxn2.Nonce = new(felt.Felt).SetUint64(1)
-	invokeTxn2.Signature = &[]*felt.Felt{
-		utils.HexToFelt(t, "0x1dd3f747f9d9c05e29c08acc6f2c27fcb6e00fcea9f192d367b900347a08c25"),
-		utils.HexToFelt(t, "0x46aabe43c9174e84b00b50258ed25086091d969fa12dc1f3d64f93114694b9"),
+	// transfer tokens to 0x102
+	invokeTxn2 := rpc.BroadcastedTransaction{
+		Transaction: rpc.Transaction{
+			Type:          rpc.TxnInvoke,
+			SenderAddress: utils.HexToFelt(t, "0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
+			Version:       new(felt.Felt).SetUint64(1),
+			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
+			Nonce:         new(felt.Felt).SetUint64(1),
+			Signature: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083"),
+				utils.HexToFelt(t, "0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5"),
+			},
+			CallData: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				utils.HexToFelt(t, "0x3"),
+				utils.HexToFelt(t, "0x102"),
+				utils.HexToFelt(t, "0x12345678"),
+				utils.HexToFelt(t, "0x0"),
+			},
+		},
 	}
 
 	addTransactionsAndRunTest := func(t *testing.T, txns ...rpc.BroadcastedTransaction) (uint64, *felt.Felt, bool) {
@@ -526,16 +543,13 @@ func TestPrefundedAccounts(t *testing.T) {
 			rpcHandler.AddTransaction(context.Background(), txn)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 1300*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Millisecond)
 		defer cancel()
 		require.NoError(t, testBuilder.Run(ctx))
 
 		height, err := bc.Height()
 		require.NoError(t, err)
 		expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x123456789123"), utils.HexToFelt(t, "0x12345678"))
-		if len(txns) > 1 {
-			expectedBalance = new(felt.Felt).Add(expectedBalance, utils.HexToFelt(t, "0x12345678"))
-		}
 
 		var foundNumTxnsInBlock uint64
 		for i := uint64(0); i < height; i++ {
@@ -543,9 +557,10 @@ func TestPrefundedAccounts(t *testing.T) {
 			require.NoError(t, err)
 			if block.TransactionCount != 0 {
 				foundNumTxnsInBlock += block.TransactionCount
+				break
 			}
 		}
-		require.NotEqual(t, 0, foundNumTxnsInBlock, "Failed to find any transactions in the block")
+		require.Equal(t, len(txns), int(foundNumTxnsInBlock), "Failed to find correct number of transactions in the block")
 
 		foundExpectedBalance := false
 		for i := uint64(0); i < height; i++ {

@@ -410,8 +410,35 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0])
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
-	b.pendingBlock.StateUpdate.StateDiff = StateDiff(&trace[0])
+	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
 	return nil
+}
+
+func mergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff {
+	mergeMaps := func(oldMap, newMap map[felt.Felt]*felt.Felt) {
+		for key, value := range newMap {
+			oldMap[key] = value
+		}
+	}
+
+	mergeStorageDiffs := func(oldMap, newMap map[felt.Felt]map[felt.Felt]*felt.Felt) {
+		for addr, newAddrStorage := range newMap {
+			if oldAddrStorage, exists := oldMap[addr]; exists {
+				mergeMaps(oldAddrStorage, newAddrStorage)
+			} else {
+				oldMap[addr] = newAddrStorage
+			}
+		}
+	}
+
+	mergeStorageDiffs(oldStateDiff.StorageDiffs, newStateDiff.StorageDiffs)
+	mergeMaps(oldStateDiff.Nonces, newStateDiff.Nonces)
+	mergeMaps(oldStateDiff.DeployedContracts, newStateDiff.DeployedContracts)
+	mergeMaps(oldStateDiff.DeclaredV1Classes, newStateDiff.DeclaredV1Classes)
+	mergeMaps(oldStateDiff.ReplacedClasses, newStateDiff.ReplacedClasses)
+	oldStateDiff.DeclaredV0Classes = append(oldStateDiff.DeclaredV0Classes, newStateDiff.DeclaredV0Classes...)
+
+	return oldStateDiff
 }
 
 func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdate,
