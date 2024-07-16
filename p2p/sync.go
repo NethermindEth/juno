@@ -454,18 +454,18 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 		defer close(classesCh)
 
 		var classes []*spec.Class
-		classesIt(func(res *spec.ClassesResponse) bool {
+	loop:
+		for res := range classesIt {
 			switch v := res.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
 				classes = append(classes, v.Class)
-				return true
 			case *spec.ClassesResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
 
 		select {
 		case <-ctx.Done():
