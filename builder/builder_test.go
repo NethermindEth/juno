@@ -520,6 +520,8 @@ func TestPrefundedAccounts(t *testing.T) {
 		},
 	}
 
+	expectedExnsInBlock := []rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
+
 	network := &utils.Mainnet
 	bc := blockchain.New(pebble.NewMemTest(t), network)
 	log := utils.NewNopZapLogger()
@@ -537,8 +539,9 @@ func TestPrefundedAccounts(t *testing.T) {
 
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
-	rpcHandler.AddTransaction(context.Background(), invokeTxn)
-	rpcHandler.AddTransaction(context.Background(), invokeTxn2)
+	for _, txn := range expectedExnsInBlock {
+		rpcHandler.AddTransaction(context.Background(), txn)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
 	defer cancel()
@@ -546,20 +549,17 @@ func TestPrefundedAccounts(t *testing.T) {
 
 	height, err := bc.Height()
 	require.NoError(t, err)
-	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x123456789123"), utils.HexToFelt(t, "0x12345678"))
-
-	var foundNumTxnsInBlock uint64
 	for i := uint64(0); i < height; i++ {
 		block, err := bc.BlockByNumber(i + 1)
 		require.NoError(t, err)
 		if block.TransactionCount != 0 {
-			foundNumTxnsInBlock += block.TransactionCount
-			break
+			require.Equal(t, len(expectedExnsInBlock), int(block.TransactionCount), "Failed to find correct number of transactions in the block")
 		}
 	}
-	require.Equal(t, 2, int(foundNumTxnsInBlock), "Failed to find correct number of transactions in the block")
 
+	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x123456789123"), utils.HexToFelt(t, "0x12345678"))
 	foundExpectedBalance := false
+	numExpectedBalance := 0
 	for i := uint64(0); i < height; i++ {
 		su, err := bc.StateUpdateByNumber(i + 1)
 		require.NoError(t, err)
@@ -567,6 +567,7 @@ func TestPrefundedAccounts(t *testing.T) {
 			for _, val := range store {
 				if val.Equal(expectedBalance) {
 					foundExpectedBalance = true
+					numExpectedBalance++
 				}
 			}
 		}
@@ -574,5 +575,6 @@ func TestPrefundedAccounts(t *testing.T) {
 			break
 		}
 	}
+	require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
 	require.True(t, foundExpectedBalance)
 }
