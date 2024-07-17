@@ -67,7 +67,6 @@ pub struct CallInfo {
     pub entry_point_selector: [c_uchar; 32],
     pub calldata: *const *const c_uchar,
     pub len_calldata: usize,
-    pub caller_address: [c_uchar; 32] // Useful for Genesis state logic
 }
 
 #[repr(C)]
@@ -98,7 +97,6 @@ pub extern "C" fn cairoVMCall(
     let call_info = unsafe { *call_info_ptr };
 
     let contract_addr_felt = StarkFelt::new(call_info.contract_address).unwrap();
-    let caller_addr_felt = StarkFelt::new(call_info.caller_address).unwrap();
     let class_hash = if call_info.class_hash == [0; 32] {
         None
     } else {
@@ -122,7 +120,6 @@ pub extern "C" fn cairoVMCall(
         EntryPointType::External
     };
 
-    let caller_contract_address = ContractAddress::try_from(caller_addr_felt).unwrap(); // Todo: remove. Hack to allow minting at genesis.
     let entry_point = CallEntryPoint {
         entry_point_type: caller_entry_point_type,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
@@ -131,7 +128,7 @@ pub extern "C" fn cairoVMCall(
         call_type: CallType::Call,
         class_hash: class_hash,
         code_address: None,
-        caller_address: caller_contract_address,
+        caller_address: ContractAddress::default(),
         initial_gas: get_versioned_constants(block_info.version).gas_cost("initial_gas_cost"),
     };
 

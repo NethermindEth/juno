@@ -76,7 +76,6 @@ type FunctionCall struct {
 	ContractAddress    felt.Felt   `json:"contract_address"`
 	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
 	Calldata           []felt.Felt `json:"calldata"`
-	CallerAddress      felt.Felt   `json:"caller_address"`
 }
 
 func (g *GenesisConfig) Validate() error {
@@ -147,13 +146,11 @@ func GenesisStateDiff(
 		if err != nil {
 			return nil, nil, fmt.Errorf("get contract class hash: %v", err)
 		}
-		callerAddress := fnCall.CallerAddress
 		callInfo := &vm.CallInfo{
 			ContractAddress: &contractAddress,
 			ClassHash:       classHash,
 			Selector:        &entryPointSelector,
 			Calldata:        fnCall.Calldata,
-			CallerAddress:   &callerAddress,
 		}
 		blockInfo := vm.BlockInfo{
 			Header: &core.Header{
