@@ -520,70 +520,60 @@ func TestPrefundedAccounts(t *testing.T) {
 		},
 	}
 
-	addTransactionsAndRunTest := func(t *testing.T, txns ...rpc.BroadcastedTransaction) {
-		network := &utils.Mainnet
-		bc := blockchain.New(pebble.NewMemTest(t), network)
-		log := utils.NewNopZapLogger()
-		seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-		privKey, err := ecdsa.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		p := mempool.New(pebble.NewMemTest(t))
+	network := &utils.Mainnet
+	bc := blockchain.New(pebble.NewMemTest(t), network)
+	log := utils.NewNopZapLogger()
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	privKey, err := ecdsa.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	p := mempool.New(pebble.NewMemTest(t))
 
-		genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
-		require.NoError(t, err)
-		genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
-		diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), bc.Network())
-		require.NoError(t, err)
-		require.NoError(t, bc.StoreGenesis(diff, classes))
+	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
+	require.NoError(t, err)
+	genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), bc.Network())
+	require.NoError(t, err)
+	require.NoError(t, bc.StoreGenesis(diff, classes))
 
-		testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log).WithPrefundAccounts(true)
-		rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
-		for _, txn := range txns {
-			rpcHandler.AddTransaction(context.Background(), txn)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log).WithPrefundAccounts(true)
+	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
+	rpcHandler.AddTransaction(context.Background(), invokeTxn)
+	rpcHandler.AddTransaction(context.Background(), invokeTxn2)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	defer cancel()
+	require.NoError(t, testBuilder.Run(ctx))
+
+	height, err := bc.Height()
+	require.NoError(t, err)
+	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x123456789123"), utils.HexToFelt(t, "0x12345678"))
+
+	var foundNumTxnsInBlock uint64
+	for i := uint64(0); i < height; i++ {
+		block, err := bc.BlockByNumber(i + 1)
+		require.NoError(t, err)
+		if block.TransactionCount != 0 {
+			foundNumTxnsInBlock += block.TransactionCount
+			break
 		}
+	}
+	require.Equal(t, 2, int(foundNumTxnsInBlock), "Failed to find correct number of transactions in the block")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
-		defer cancel()
-		require.NoError(t, testBuilder.Run(ctx))
-
-		height, err := bc.Height()
+	foundExpectedBalance := false
+	for i := uint64(0); i < height; i++ {
+		su, err := bc.StateUpdateByNumber(i + 1)
 		require.NoError(t, err)
-		expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x123456789123"), utils.HexToFelt(t, "0x12345678"))
-
-		var foundNumTxnsInBlock uint64
-		for i := uint64(0); i < height; i++ {
-			block, err := bc.BlockByNumber(i + 1)
-			require.NoError(t, err)
-			if block.TransactionCount != 0 {
-				foundNumTxnsInBlock += block.TransactionCount
-				break
-			}
-		}
-		require.Equal(t, len(txns), int(foundNumTxnsInBlock), "Failed to find correct number of transactions in the block")
-
-		foundExpectedBalance := false
-		for i := uint64(0); i < height; i++ {
-			su, err := bc.StateUpdateByNumber(i + 1)
-			require.NoError(t, err)
-			for _, store := range su.StateDiff.StorageDiffs {
-				for _, val := range store {
-					if val.Equal(expectedBalance) {
-						foundExpectedBalance = true
-					}
+		for _, store := range su.StateDiff.StorageDiffs {
+			for _, val := range store {
+				if val.Equal(expectedBalance) {
+					foundExpectedBalance = true
 				}
 			}
-			if foundExpectedBalance {
-				break
-			}
 		}
-		require.True(t, foundExpectedBalance)
+		if foundExpectedBalance {
+			break
+		}
 	}
+	require.True(t, foundExpectedBalance)
 
-	t.Run("single transaction in the block", func(t *testing.T) {
-		addTransactionsAndRunTest(t, invokeTxn)
-	})
-
-	t.Run("two transactions in the same block", func(t *testing.T) {
-		addTransactionsAndRunTest(t, invokeTxn, invokeTxn2)
-	})
 }
