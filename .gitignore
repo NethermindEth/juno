@@ -8,6 +8,7 @@ courtney/
 __pycache__/
 config/
 .envrc
+seq-db/
 
 # pyenv
 .python-version

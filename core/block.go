@@ -86,7 +86,6 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 
 	metaInfo := network.BlockHashMetaInfo
 	unverifiableRange := metaInfo.UnverifiableRange
-
 	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
 	// todo should we still keep it after p2p ?
 	if !skipVerification {
@@ -125,13 +124,11 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 // BlockHash assumes block.SequencerAddress is not nil as this is called with post v0.12.0
 // and by then issues with unverifiable block hash were resolved.
 // In future, this may no longer be required.
-func BlockHash(b *Block) (*felt.Felt, error) {
+func BlockHash(b *Block) (*felt.Felt, *BlockCommitments, error) {
 	if b.SequencerAddress == nil {
-		return nil, errors.New("block.SequencerAddress is nil")
+		return nil, nil, errors.New("block.SequencerAddress is nil")
 	}
-
-	h, _, err := post07Hash(b, nil)
-	return h, err
+	return post07Hash(b, nil)
 }
 
 // blockHash computes the block hash, with option to override sequence address
