@@ -54,7 +54,7 @@ test-race: clean-testcache rustdeps
 benchmarks: rustdeps ## benchmarking
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
-test-cover: rustdeps ## tests with coverage
+test-cover: clean-testcache rustdeps ## tests with coverage
 	mkdir -p coverage
 	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
