@@ -63,8 +63,8 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
-	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:gomnd
-	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:gomnd
+	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
+	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")

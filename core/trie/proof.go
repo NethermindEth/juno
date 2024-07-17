@@ -201,7 +201,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 				return false
 			}
 			expectedHash = proofNode.Edge.Child
-			remainingPath.Truncate(251 - proofNode.Edge.Path.Len()) //nolint:gomnd
+			remainingPath.Truncate(251 - proofNode.Edge.Path.Len()) //nolint:mnd
 		}
 	}
 
@@ -369,7 +369,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 		}
 
 		// Don't store leafs along proof paths
-		if parentKey.len == 251 { //nolint:gomnd
+		if parentKey.len == 251 { //nolint:mnd
 			break
 		}
 
@@ -458,7 +458,7 @@ func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []Proof
 		return nil, err
 	}
 
-	if crntKey.len+uint8(compressChild)+compressChildOffset == 251 { //nolint:gomnd
+	if crntKey.len+uint8(compressChild)+compressChildOffset == 251 { //nolint:mnd
 		return nilKey, nil
 	}
 
@@ -467,7 +467,7 @@ func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []Proof
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)
 func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt.Felt) (*Trie, error) { //nolint:gocyclo
-	tempTrie, err := NewTriePedersen(newMemStorage(), 251) //nolint:gomnd
+	tempTrie, err := NewTriePedersen(newMemStorage(), 251) //nolint:mnd
 	if err != nil {
 		return nil, err
 	}
