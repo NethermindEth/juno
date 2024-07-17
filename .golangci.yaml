@@ -31,7 +31,7 @@ linters-settings:
     min-complexity: 15
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
-  gomnd:
+  mnd:
     # don't include the "operation" and "assign"
     checks:
       - argument
@@ -82,7 +82,7 @@ linters:
     - gocritic
     - gocyclo
     - gofumpt
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - gosimple
@@ -127,7 +127,7 @@ issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
+        - mnd
         - funlen
         - lll
         - gosec
