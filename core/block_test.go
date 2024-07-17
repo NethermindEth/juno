@@ -257,3 +257,10 @@ func TestBlockHashP2P(t *testing.T) {
 		assert.EqualError(t, err, "block.SequencerAddress is nil")
 	})
 }
+
+func TestConcatCounts(t *testing.T) {
+	result := core.ConcatCounts(4, 3, 2, core.Blob)
+	expected := utils.HexToFelt(t, "0x0000000000000004000000000000000300000000000000028000000000000000")
+
+	assert.Equal(t, expected, result)
+}

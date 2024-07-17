@@ -117,6 +117,9 @@ type BuiltinInstanceCounter struct {
 	Keccak       uint64
 	Poseidon     uint64
 	SegmentArena uint64
+	AddMod       uint64
+	MulMod       uint64
+	RangeCheck96 uint64
 }
 
 type TransactionReceipt struct {
