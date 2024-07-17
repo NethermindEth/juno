@@ -50,6 +50,10 @@ jobs:
       - name: Tests (No Coverage)
         if: matrix.os != 'ubuntu-latest'
         run: make test
+        
+      - name: Tests (Race Detection)
+        if: matrix.os == 'ubuntu-latest'
+        run: make test-race
 
       - name: Benchmark
         run: make benchmarks
