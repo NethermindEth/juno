@@ -96,7 +96,6 @@ type Config struct {
 	SeqBlockTime        uint   `mapstructure:"seq-block-time"`
 	SeqBootstrap        bool   `mapstructure:"seq-bootstrap"`
 	SeqBootstrapToBlock uint64 `mapstructure:"seq-bootstrap-to-block"`
-	SeqPrefundAccounts  bool   `mapstructure:"seq-prefund-accounts"`
 	GenesisFile         string `mapstructure:"genesis-file"`
 }
 
@@ -175,8 +174,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
-			log).WithBootstrap(cfg.SeqBootstrap).WithStarknetData(starknetData).WithBootstrapToBlock(cfg.SeqBootstrapToBlock).
-			WithPrefundAccounts(cfg.SeqPrefundAccounts)
+			log).WithBootstrap(cfg.SeqBootstrap).WithStarknetData(starknetData).WithBootstrapToBlock(cfg.SeqBootstrapToBlock)
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {

@@ -87,8 +87,7 @@ const (
 	seqBlockTimeF           = "seq-block-time"
 	seqBootstrapF           = "seq-bootstrap"
 	seqBootstrapToBlockF    = "seq-bootstrap-to-block"
-	seqPrefundAccountsF     = "seq-prefund-accounts"
-	genesisFileF            = "genesis-file"
+	seqGenesisFileF         = "seq-genesis-file"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -129,8 +128,7 @@ const (
 	defaultSeqBlockTime             = 60
 	defaultSeqBootstrapToBlock      = 0
 	defaultSeqBootstrap             = false
-	defaultSeqPrefundAccounts       = false
-	defaultGenesisFile              = ""
+	defaultSeqGenesisFile           = ""
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -185,8 +183,7 @@ const (
 	seqBlockTimeUsage           = "Time to build a block, in seconds"
 	seqBootstrapToBlockUsage    = "How many blocks to sycn from network before running sequencer"
 	seqBootstrapUsage           = "Enables sync from existing network before running sequencer mode"
-	seqPrefundAccountsUsage     = "Deploys some accounts and prefunds them with strk tokens"
-	genesisFileUsage            = "Path to the genesis file"
+	seqGenesisFileUsage         = "Path to the genesis file"
 )
 
 var Version string
@@ -373,8 +370,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
 	junoCmd.Flags().Bool(seqBootstrapF, defaultSeqBootstrap, seqBootstrapUsage)
 	junoCmd.Flags().Uint(seqBootstrapToBlockF, defaultSeqBootstrapToBlock, seqBootstrapToBlockUsage)
-	junoCmd.Flags().Bool(seqPrefundAccountsF, defaultSeqPrefundAccounts, seqPrefundAccountsUsage)
-	junoCmd.Flags().String(genesisFileF, defaultGenesisFile, genesisFileUsage)
+	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 
 	return junoCmd
 }

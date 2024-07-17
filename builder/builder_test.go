@@ -535,7 +535,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(diff, classes))
 
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log).WithPrefundAccounts(true)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 100*time.Millisecond, p, log)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	rpcHandler.AddTransaction(context.Background(), invokeTxn)
 	rpcHandler.AddTransaction(context.Background(), invokeTxn2)

@@ -44,7 +44,6 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
-	prefundAccounts  bool
 	bootstrap        bool
 	bootstrapToBlock uint64
 	starknetData     starknetdata.StarknetData
@@ -84,11 +83,6 @@ func (b *Builder) WithStarknetData(starknetData starknetdata.StarknetData) *Buil
 
 func (b *Builder) WithBootstrapToBlock(bootstrapToBlock uint64) *Builder {
 	b.bootstrapToBlock = bootstrapToBlock
-	return b
-}
-
-func (b *Builder) WithPrefundAccounts(prefundAccounts bool) *Builder {
-	b.prefundAccounts = prefundAccounts
 	return b
 }
 
