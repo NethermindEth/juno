@@ -72,7 +72,7 @@ install-golangci-lint:
 
 lint:
 	@which golangci-lint || make install-golangci-lint
-	golangci-lint run 
+	golangci-lint run
 
 tidy: ## add missing and remove unused modules
 	 go mod tidy
