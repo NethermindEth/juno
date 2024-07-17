@@ -5,7 +5,7 @@
 	],
 	"contracts": {
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": {
-			"class_hash": "0x4ad3c1dc8413453db314497945b6903e1c766495a1e60492d44da9c2a986e4b",
+			"class_hash": "0x3182d1ef7f16f9f0e8481a10d0182eb6e4fb59d5ffd58ba8204d57322f4ab90",
 			"constructor_args": [
 				"0x537461726b6e657420546f6b656e",
 				"0x5354524b",
@@ -43,33 +43,33 @@
 	"function_calls": [
 		{
 			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-			"entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x101",
 				"0x123456789123",
 				"0x0"
 			],
-			"caller_address": "0x123456"
+			"caller_address": "0x0"
 		},
 		{
 			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-			"entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x102",
 				"0x123456789123",
 				"0x0"
 			],
-			"caller_address": "0x123456"
+			"caller_address": "0x0"
 		},
 		{
 			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-			"entry_point_selector": "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
 				"0x123456789123",
 				"0x0"
 			],
-			"caller_address": "0x123456"
+			"caller_address": "0x0"
 		}
 	],
 	"bootstrap_accounts": [
