@@ -6,7 +6,7 @@ import (
 
 type DataSize float64
 
-//nolint:gomnd
+//nolint:mnd
 func (d DataSize) String() string {
 	switch {
 	case d >= 1099511627776:

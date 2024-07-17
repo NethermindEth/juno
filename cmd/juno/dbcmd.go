@@ -219,6 +219,8 @@ func dbInspect(cmd *cobra.Command, args []string) error {
 			items = append(items, []string{"Temporary", item.getSize(), item.getCount()})
 		case db.SchemaIntermediateState:
 			items = append(items, []string{"SchemaIntermediateState", item.getSize(), item.getCount()})
+		case db.Peer:
+			items = append(items, []string{"Peer", item.getSize(), item.getCount()})
 		default:
 			items = append(items, []string{fmt.Sprintf("UnknownBucket(%d)", bucket), item.getSize(), item.getCount()})
 		}
