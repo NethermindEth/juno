@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -18,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -360,46 +358,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.AddCommand(DBSize())
 
 	return junoCmd
-}
-
-func GenP2PKeyPair() *cobra.Command {
-	return &cobra.Command{
-		Use:   "genp2pkeypair",
-		Short: "Generate private key pair for p2p.",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			priv, pub, id, err := p2p.GenKeyPair()
-			if err != nil {
-				return err
-			}
-
-			rawPriv, err := priv.Raw()
-			if err != nil {
-				return err
-			}
-
-			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
-			hex.Encode(privHex, rawPriv)
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P Private Key:", string(privHex))
-			if err != nil {
-				return err
-			}
-
-			rawPub, err := pub.Raw()
-			if err != nil {
-				return err
-			}
-
-			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
-			hex.Encode(pubHex, rawPub)
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P Public Key:", string(pubHex))
-			if err != nil {
-				return err
-			}
-
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "P2P PeerID:", id)
-			return err
-		},
-	}
 }
 
 func DBSize() *cobra.Command {
