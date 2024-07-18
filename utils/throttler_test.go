@@ -2,6 +2,8 @@ package utils_test
 
 import (
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,18 +15,22 @@ import (
 func TestThrottler(t *testing.T) {
 	throttledRes := utils.NewThrottler(2, new(int)).WithMaxQueueLen(2)
 	waitOn := make(chan struct{})
-	ranCount := 0
 
+	var runCount int64
 	doer := func(ptr *int) error {
 		if ptr == nil {
 			return errors.New("nilptr")
 		}
 		<-waitOn
-		ranCount++
+		atomic.AddInt64(&runCount, 1)
 		return nil
 	}
+
+	var wg sync.WaitGroup
 	do := func() {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			require.NoError(t, throttledRes.Do(doer))
 		}()
 		time.Sleep(time.Millisecond)
@@ -52,6 +58,6 @@ func TestThrottler(t *testing.T) {
 	// release the jobs waiting
 	waitOn <- struct{}{}
 	waitOn <- struct{}{}
-	time.Sleep(time.Millisecond)
-	assert.Equal(t, 4, ranCount)
+	wg.Wait()
+	assert.Equal(t, int64(4), runCount)
 }
