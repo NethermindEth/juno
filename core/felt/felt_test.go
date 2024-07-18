@@ -78,12 +78,12 @@ func FuzzUnmarshalJson(f *testing.F) {
 		if b := bytes[:]; len(b) > fp.Bits*3 {
 			isErr = true
 		} else {
-			if len(b) > 0 && b[0] == '"' && b[len(b)-1] == '"' {
+			if len(b) > 0 {
 				startsWithQuot := b[0] == '"'
 				endsWithQuot := b[len(b)-1] == '"'
 				if startsWithQuot != endsWithQuot || startsWithQuot && len(b) == 1 { // checks for `"*`, `*"` and `"` cases
 					isErr = true
-				} else {
+				} else if startsWithQuot && endsWithQuot {
 					b = b[1 : len(b)-1]
 				}
 			}
