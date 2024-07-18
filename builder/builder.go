@@ -3,9 +3,11 @@ package builder
 import (
 	"context"
 	"errors"
+	"fmt"
 	stdsync "sync"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/core2mempool"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -15,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -42,22 +45,53 @@ type Builder struct {
 	pendingBlock blockchain.Pending
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
+
+	shadowMode          bool
+	starknetData        starknetdata.StarknetData
+	chanNumTxnsToShadow chan int
+	chanFinaliseShadow  chan struct{}
+
+	chanFinalise chan struct{}
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger,
 ) *Builder {
 	return &Builder{
-		ownAddress: *ownAddr,
-		privKey:    privKey,
-		blockTime:  blockTime,
-		log:        log,
-		listener:   &SelectiveListener{},
+		ownAddress:   *ownAddr,
+		privKey:      privKey,
+		blockTime:    blockTime,
+		log:          log,
+		listener:     &SelectiveListener{},
+		chanFinalise: make(chan struct{}),
 
 		bc:       bc,
 		pool:     pool,
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
+	}
+}
+
+func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
+	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, shadowMode bool, starknetData starknetdata.StarknetData,
+) *Builder {
+	return &Builder{
+		ownAddress:   *ownAddr,
+		privKey:      privKey,
+		blockTime:    blockTime,
+		log:          log,
+		listener:     &SelectiveListener{},
+		chanFinalise: make(chan struct{}, 1),
+
+		bc:       bc,
+		pool:     pool,
+		vm:       builderVM,
+		newHeads: feed.New[*core.Header](),
+
+		shadowMode:          shadowMode,
+		starknetData:        starknetData,
+		chanNumTxnsToShadow: make(chan int, 1),
+		chanFinaliseShadow:  make(chan struct{}, 1),
 	}
 }
 
@@ -67,6 +101,13 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
+
+	if b.shadowMode {
+		if err := b.syncStore(2); err != nil {
+			return err
+		}
+	}
+
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
@@ -85,12 +126,41 @@ func (b *Builder) Run(ctx context.Context) error {
 		close(doneListen)
 	}()
 
+	if b.shadowMode {
+		go func() {
+			if pErr := b.shadowTxns(ctx); pErr != nil {
+				b.log.Errorw("listening pool", "err", pErr)
+			}
+		}()
+	}
+
+	go func() {
+		if b.shadowMode {
+			for {
+				select {
+				case <-b.chanFinaliseShadow:
+					b.chanFinalise <- struct{}{}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+		for {
+			select {
+			case <-time.After(b.blockTime):
+				b.chanFinalise <- struct{}{}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			<-doneListen
 			return nil
-		case <-time.After(b.blockTime):
+		case <-b.chanFinalise:
 			b.log.Debugw("Finalising new block")
 			if err := b.Finalise(); err != nil {
 				return err
@@ -314,6 +384,15 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 		}
 
+		if b.shadowMode {
+			fmt.Println("<-chanNumTxnsToShadow ")
+			numTxnsToExecute := <-b.chanNumTxnsToShadow
+			fmt.Println("chanNumTxnsToShadow <- <- ")
+			b.chanNumTxnsToShadow <- numTxnsToExecute - 1
+			if numTxnsToExecute-1 == 0 {
+				b.chanFinaliseShadow <- struct{}{}
+			}
+		}
 		select {
 		case <-ctx.Done():
 			return nil
@@ -386,4 +465,87 @@ func mergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff
 	oldStateDiff.DeclaredV0Classes = append(oldStateDiff.DeclaredV0Classes, newStateDiff.DeclaredV0Classes...)
 
 	return oldStateDiff
+}
+
+func (b *Builder) shadowTxns(ctx context.Context) error {
+	for {
+		builderHeadBlock, err := b.bc.Head()
+		if err != nil {
+			return err
+		}
+		snHeadBlock, err := b.starknetData.BlockLatest(ctx)
+		if err != nil {
+			return err
+		}
+		b.log.Debugw(fmt.Sprintf("Juno head at block %d, Sepolia at block %d, attempting to sequence next block", builderHeadBlock.Number, snHeadBlock.Number))
+		if builderHeadBlock.Number < snHeadBlock.Number {
+			block, _, _, err := b.getSyncData(builderHeadBlock.Number + 1) // todo: don't need state updates here
+			if err != nil {
+				return err
+			}
+			fmt.Println("chanNumTxnsToShadow <- ")
+			b.chanNumTxnsToShadow <- int(block.TransactionCount)
+			for _, txn := range block.Transactions {
+				bTxn, err := core2mempool.AdaptTransaction(&txn) // Todo
+				if err != nil {
+					return err
+				}
+				err = b.pool.Push(bTxn)
+				if err != nil {
+					return err
+				}
+				b.log.Debugw(fmt.Sprintf("Pushed txn number %d", snHeadBlock.Number)) // Todo : remove
+			}
+
+		} else {
+			var sleepTime uint = 1
+			b.log.Debugw("Juno Sequencer is at Sepolia chain head. Sleeping for %ds before querying for a new block.", sleepTime)
+			time.Sleep(time.Duration(sleepTime))
+		}
+	}
+}
+
+func (b *Builder) syncStore(toBlockNum uint64) error {
+	var i uint64
+	for i = 0; i < toBlockNum; i++ {
+		b.log.Infow("Sequencer, syncing block", "blockNumber", i)
+		block, su, classes, err := b.getSyncData(i)
+		if err != nil {
+			return err
+		}
+		commitments, err := b.bc.SanityCheckNewHeight(block, su, classes)
+		if err != nil {
+			return err
+		}
+		err = b.bc.Store(block, commitments, su, classes)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdate,
+	map[felt.Felt]core.Class, error,
+) {
+	block, err := b.starknetData.BlockByNumber(context.Background(), blockNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	su, err := b.starknetData.StateUpdate(context.Background(), blockNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	txns := block.Transactions
+	classes := make(map[felt.Felt]core.Class)
+	for _, txn := range txns {
+		if t, ok := txn.(*core.DeclareTransaction); ok {
+			class, err := b.starknetData.Class(context.Background(), t.ClassHash)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			classes[*t.ClassHash] = class
+		}
+	}
+	return block, su, classes, nil
 }
