@@ -1,10 +1,12 @@
 package felt_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +29,8 @@ func TestUnmarshalJson(t *testing.T) {
 		"0x2000000000000000000000000000000000000000000000000000000000000000000",
 		"0x800000000000011000000000000000000000000000000000000000000000001",
 		"0xfb01012100000000000000000000000000000000000000000000000000000000",
+		"0\"",
+		"\"",
 	}
 
 	for _, hex := range fails {
@@ -63,5 +67,42 @@ func TestShortString(t *testing.T) {
 		_, err := f.SetString("0x123456789")
 		require.NoError(t, err)
 		assert.Equal(t, "0x1234...6789", f.ShortString())
+	})
+}
+
+func FuzzUnmarshalJson(f *testing.F) {
+	var ft felt.Felt
+	f.Fuzz(func(t *testing.T, bytes []byte) {
+		isErr := false
+		expected := ""
+		if b := bytes[:]; len(b) > fp.Bits*3 {
+			isErr = true
+		} else {
+			if len(b) > 0 && b[0] == '"' && b[len(b)-1] == '"' {
+				startsWithQuot := b[0] == '"'
+				endsWithQuot := b[len(b)-1] == '"'
+				if startsWithQuot != endsWithQuot || startsWithQuot && len(b) == 1 { // checks for `"*`, `*"` and `"` cases
+					isErr = true
+				} else {
+					b = b[1 : len(b)-1]
+				}
+			}
+			_, err := ft.SetString(string(b))
+			expected = ft.ShortString()
+			if err != nil {
+				isErr = true
+			} else {
+				if !strings.HasPrefix(expected, "0x") {
+					expected = "0x" + expected
+				}
+			}
+		}
+		err := ft.UnmarshalJSON(bytes)
+		if isErr {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+			assert.Equal(t, expected, ft.ShortString())
+		}
 	})
 }
