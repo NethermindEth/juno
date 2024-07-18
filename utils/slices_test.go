@@ -73,3 +73,18 @@ func TestAnyOf(t *testing.T) {
 		assert.False(t, AnyOf("9", "1", "2", "3", "4", "5", "6"))
 	})
 }
+
+func FuzzFilter(f *testing.F) {
+	f.Fuzz(func(t *testing.T, bytes []byte) {
+		var expected []byte
+		for _, b := range bytes {
+			if b&1 == 0 {
+				expected = append(expected, b)
+			}
+		}
+		actual := Filter(bytes, func(x byte) bool {
+			return x&1 == 0
+		})
+		assert.Equal(t, expected, actual)
+	})
+}
