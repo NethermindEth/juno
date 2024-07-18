@@ -68,6 +68,10 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	if len(data) == 0 {
+		return errors.New("empty data")
+	}
+
 	_, err := z.SetString(string(data))
 	return err
 }

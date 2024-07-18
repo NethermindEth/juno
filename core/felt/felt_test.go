@@ -31,6 +31,7 @@ func TestUnmarshalJson(t *testing.T) {
 		"0xfb01012100000000000000000000000000000000000000000000000000000000",
 		"0\"",
 		"\"",
+		"",
 	}
 
 	for _, hex := range fails {
@@ -87,13 +88,17 @@ func FuzzUnmarshalJson(f *testing.F) {
 					b = b[1 : len(b)-1]
 				}
 			}
-			_, err := ft.SetString(string(b))
-			expected = ft.ShortString()
-			if err != nil {
+			if len(b) == 0 {
 				isErr = true
 			} else {
-				if !strings.HasPrefix(expected, "0x") {
-					expected = "0x" + expected
+				_, err := ft.SetString(string(b))
+				expected = ft.ShortString()
+				if err != nil {
+					isErr = true
+				} else {
+					if !strings.HasPrefix(expected, "0x") {
+						expected = "0x" + expected
+					}
 				}
 			}
 		}
