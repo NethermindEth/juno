@@ -49,7 +49,8 @@ test-cached: rustdeps ## tests with existing cache
 	go test $(GO_TAGS) ./...
 
 test-race: clean-testcache rustdeps
-	go test $(GO_TAGS) ./... -race
+# -ldflags here to fix linker warnings on macOS (see https://github.com/golang/go/issues/61229#issuecomment-1988965927)
+	go test $(GO_TAGS) ./... -race -ldflags=-extldflags=-Wl,-ld_classic
 
 benchmarks: rustdeps ## benchmarking
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem

@@ -24,8 +24,6 @@ import (
 const timeout = time.Second
 
 func TestSyncBlocks(t *testing.T) {
-	t.Parallel()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -139,7 +137,6 @@ func TestSyncBlocks(t *testing.T) {
 }
 
 func TestReorg(t *testing.T) {
-	t.Parallel()
 	mainClient := feeder.NewTestClient(t, &utils.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
 
@@ -150,22 +147,21 @@ func TestReorg(t *testing.T) {
 
 	// sync to integration for 2 blocks
 	bc := blockchain.New(testDB, &utils.Integration)
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), time.Duration(0), false)
+	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		t.Parallel()
-		bc = blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet)
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), time.Duration(0), false)
+		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false)
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
