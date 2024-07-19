@@ -160,7 +160,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
+		p2pService, err = p2p.New(cfg.P2PAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
 			chain, &cfg.Network, log, database)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
