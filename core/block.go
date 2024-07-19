@@ -4,12 +4,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"slices"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/sourcegraph/conc"
-	"slices"
 )
 
 type Header struct {
@@ -167,6 +168,7 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
 }
 
+//nolint:unused
 func newBlockHash(b *Block) (*felt.Felt, error) {
 	seqAddr := b.SequencerAddress
 	// todo override support?
@@ -281,7 +283,7 @@ func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *fe
 	binary.BigEndian.PutUint64(eventCountBytes[:], eventCount)
 	binary.BigEndian.PutUint64(stateDiffLenBytes[:], stateDiffLen)
 
-	zeroPadding := make([]byte, 7)
+	zeroPadding := make([]byte, 7) //nolint:mnd
 
 	concatBytes := slices.Concat(
 		txCountBytes[:],
