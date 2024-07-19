@@ -487,3 +487,24 @@ func TestPrefundedAccounts(t *testing.T) {
 	require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
 	require.True(t, foundExpectedBalance)
 }
+
+// func TestShadowSepolia(t *testing.T) {
+
+// 	network := &utils.Sepolia
+// 	bc := blockchain.New(pebble.NewMemTest(t), network)
+// 	sepoliaBc := blockchain.New(pebble.NewMemTest(t), network)
+
+// 	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), map[felt.Felt]core.Class{}))
+
+// 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+// 	privKey, err := ecdsa.GenerateKey(rand.Reader)
+// 	require.NoError(t, err)
+// 	p := mempool.New(pebble.NewMemTest(t))
+// 	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
+// 	testBuilder := builder.NewShadow(privKey, seqAddr, bc, vm.New(utils.NewNopZapLogger()), time.Millisecond, p, utils.NewNopZapLogger(), true, gw)
+
+// 	ctx, _ := context.WithCancel(context.Background())
+
+// 	require.NoError(t, testBuilder.Run(ctx))
+
+// }

@@ -7,7 +7,6 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/NethermindEth/juno/adapters/core2mempool"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -51,19 +50,21 @@ type Builder struct {
 	chanNumTxnsToShadow chan int
 	chanFinaliseShadow  chan struct{}
 
-	chanFinalise chan struct{}
+	chanFinalise  chan struct{}
+	chanFinalised chan struct{}
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger,
 ) *Builder {
 	return &Builder{
-		ownAddress:   *ownAddr,
-		privKey:      privKey,
-		blockTime:    blockTime,
-		log:          log,
-		listener:     &SelectiveListener{},
-		chanFinalise: make(chan struct{}),
+		ownAddress:    *ownAddr,
+		privKey:       privKey,
+		blockTime:     blockTime,
+		log:           log,
+		listener:      &SelectiveListener{},
+		chanFinalise:  make(chan struct{}),
+		chanFinalised: make(chan struct{}, 1),
 
 		bc:       bc,
 		pool:     pool,
@@ -76,12 +77,13 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, shadowMode bool, starknetData starknetdata.StarknetData,
 ) *Builder {
 	return &Builder{
-		ownAddress:   *ownAddr,
-		privKey:      privKey,
-		blockTime:    blockTime,
-		log:          log,
-		listener:     &SelectiveListener{},
-		chanFinalise: make(chan struct{}, 1),
+		ownAddress:    *ownAddr,
+		privKey:       privKey,
+		blockTime:     blockTime,
+		log:           log,
+		listener:      &SelectiveListener{},
+		chanFinalise:  make(chan struct{}, 1),
+		chanFinalised: make(chan struct{}, 1),
 
 		bc:       bc,
 		pool:     pool,
@@ -165,6 +167,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			if err := b.Finalise(); err != nil {
 				return err
 			}
+			<-b.chanFinalised
 		}
 	}
 }
@@ -391,6 +394,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			b.chanNumTxnsToShadow <- numTxnsToExecute - 1
 			if numTxnsToExecute-1 == 0 {
 				b.chanFinaliseShadow <- struct{}{}
+				<-b.chanNumTxnsToShadow
 			}
 		}
 		select {
@@ -469,6 +473,7 @@ func mergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff
 
 func (b *Builder) shadowTxns(ctx context.Context) error {
 	for {
+		b.chanFinalised <- struct{}{}
 		builderHeadBlock, err := b.bc.Head()
 		if err != nil {
 			return err
@@ -479,18 +484,24 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 		}
 		b.log.Debugw(fmt.Sprintf("Juno head at block %d, Sepolia at block %d, attempting to sequence next block", builderHeadBlock.Number, snHeadBlock.Number))
 		if builderHeadBlock.Number < snHeadBlock.Number {
-			block, _, _, err := b.getSyncData(builderHeadBlock.Number + 1) // todo: don't need state updates here
+			block, _, classes, err := b.getSyncData(builderHeadBlock.Number + 1) // todo: don't need state updates here
 			if err != nil {
 				return err
 			}
 			fmt.Println("chanNumTxnsToShadow <- ")
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
+			fmt.Println(" not blocking chanNumTxnsToShadow <- ")
 			for _, txn := range block.Transactions {
-				bTxn, err := core2mempool.AdaptTransaction(&txn) // Todo
-				if err != nil {
-					return err
+				var declaredClass core.Class
+				declareTxn, ok := txn.(*core.DeclareTransaction)
+				if ok {
+					declaredClass = classes[*declareTxn.ClassHash]
 				}
-				err = b.pool.Push(bTxn)
+				err = b.pool.Push(
+					&mempool.BroadcastedTransaction{
+						Transaction:   txn,
+						DeclaredClass: declaredClass,
+					})
 				if err != nil {
 					return err
 				}
