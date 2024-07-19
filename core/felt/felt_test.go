@@ -85,3 +85,23 @@ func FuzzUnmarshalJson(f *testing.F) {
 		assert.NoError(t, err, string(bytes))
 	})
 }
+
+func FuzzSetString(f *testing.F) {
+	digits := "abcdefABCDEF0123456789"
+	var ft felt.Felt
+	f.Fuzz(func(t *testing.T, bytes []byte) {
+		bytes = bytes[:len(bytes)%62]
+		bytes = append(bytes, digits[rand.Intn(len(digits))])
+		for i := range bytes {
+			bytes[i] = digits[int(bytes[i])%len(digits)]
+		}
+		str := string(bytes)
+
+		_, err := ft.SetString(str)
+		assert.NoError(t, err, str)
+
+		str = "0x" + str
+		_, err = ft.SetString(str)
+		assert.NoError(t, err, string(bytes))
+	})
+}
