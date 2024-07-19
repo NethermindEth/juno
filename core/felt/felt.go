@@ -57,19 +57,11 @@ func (z *Felt) UnmarshalJSON(data []byte) error {
 	}
 
 	// we accept numbers and strings, remove leading and trailing quotes if any
-	if len(data) > 0 {
-		startsWithQuot := data[0] == '"'
-		endsWithQuot := data[len(data)-1] == '"'
-		if startsWithQuot != endsWithQuot || startsWithQuot && len(data) == 1 { // checks for `"*`, `*"` and `"` cases
-			return errors.New("wrong format: quotation mark")
-		}
-		if startsWithQuot && endsWithQuot {
-			data = data[1 : len(data)-1]
-		}
+	if len(data) > 0 && data[0] == '"' {
+		data = data[1:]
 	}
-
-	if len(data) == 0 {
-		return errors.New("empty data")
+	if len(data) > 0 && data[len(data)-1] == '"' {
+		data = data[:len(data)-1]
 	}
 
 	_, err := z.SetString(string(data))

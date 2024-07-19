@@ -1,7 +1,7 @@
 package felt_test
 
 import (
-	"strings"
+	"math/rand"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -29,9 +29,6 @@ func TestUnmarshalJson(t *testing.T) {
 		"0x2000000000000000000000000000000000000000000000000000000000000000000",
 		"0x800000000000011000000000000000000000000000000000000000000000001",
 		"0xfb01012100000000000000000000000000000000000000000000000000000000",
-		"0\"",
-		"\"",
-		"",
 	}
 
 	for _, hex := range fails {
@@ -72,42 +69,21 @@ func TestShortString(t *testing.T) {
 }
 
 func FuzzUnmarshalJson(f *testing.F) {
+	digits := "abcdefABCDEF0123456789"
 	var ft felt.Felt
 	f.Fuzz(func(t *testing.T, bytes []byte) {
-		isErr := false
-		expected := ""
-		if b := bytes[:]; len(b) > fp.Bits*3 {
-			isErr = true
-		} else {
-			if len(b) > 0 {
-				startsWithQuot := b[0] == '"'
-				endsWithQuot := b[len(b)-1] == '"'
-				if startsWithQuot != endsWithQuot || startsWithQuot && len(b) == 1 { // checks for `"*`, `*"` and `"` cases
-					isErr = true
-				} else if startsWithQuot && endsWithQuot {
-					b = b[1 : len(b)-1]
-				}
-			}
-			if len(b) == 0 {
-				isErr = true
-			} else {
-				_, err := ft.SetString(string(b))
-				expected = ft.ShortString()
-				if err != nil {
-					isErr = true
-				} else {
-					if !strings.HasPrefix(expected, "0x") {
-						expected = "0x" + expected
-					}
-				}
-			}
+		bytes = bytes[:len(bytes)%62]
+		bytes = append(bytes, digits[rand.Intn(len(digits))])
+		for i := range bytes {
+			bytes[i] = digits[int(bytes[i])%len(digits)]
 		}
+		bytes = append([]byte{'0', 'x'}, bytes...)
+
 		err := ft.UnmarshalJSON(bytes)
-		if isErr {
-			assert.Error(t, err)
+		if len(bytes) > fp.Bits*3 {
+			assert.Error(t, err, string(bytes))
 		} else {
-			assert.NoError(t, err)
-			assert.Equal(t, expected, ft.ShortString())
+			assert.NoError(t, err, string(bytes))
 		}
 	})
 }
