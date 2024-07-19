@@ -441,8 +441,8 @@ func makeAgentName(version string) string {
 	modVer := "0.0.0"
 	semVer, err := semver.NewVersion(version)
 	if err == nil {
-		modVer = strings.Split(semVer.String(), "-")[0]
+		modVer = fmt.Sprintf("%d.%d.%d", semVer.Major(), semVer.Minor(), semVer.Patch())
 	}
 
-	return clientName + "/" + modVer
+	return fmt.Sprintf("%s/%s", clientName, modVer)
 }
