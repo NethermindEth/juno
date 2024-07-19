@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet"
@@ -32,6 +33,7 @@ import (
 const (
 	keyLength                 = 2048
 	routingTableRefreshPeriod = 1 * time.Second
+	clientName                = "juno"
 )
 
 type Service struct {
@@ -52,7 +54,7 @@ type Service struct {
 	database   db.DB
 }
 
-func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func New(addr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	if addr == "" {
@@ -69,7 +71,7 @@ func New(addr, userAgent, peers, privKeyStr string, feederNode bool, bc *blockch
 		return nil, err
 	}
 
-	p2pHost, err := libp2p.New(libp2p.ListenAddrs(sourceMultiAddr), libp2p.Identity(prvKey), libp2p.UserAgent(userAgent))
+	p2pHost, err := libp2p.New(libp2p.ListenAddrs(sourceMultiAddr), libp2p.Identity(prvKey), libp2p.UserAgent(makeAgentName(version)))
 	if err != nil {
 		return nil, err
 	}
@@ -433,4 +435,14 @@ func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 	}
 
 	return peers, nil
+}
+
+func makeAgentName(version string) string {
+	modVer := "0.0.0"
+	semVer, err := semver.NewVersion(version)
+	if err == nil {
+		modVer = strings.Split(semVer.String(), "-")[0]
+	}
+
+	return clientName + "/" + modVer
 }
