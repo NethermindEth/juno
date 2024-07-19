@@ -6,7 +6,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,18 +78,10 @@ func FuzzUnmarshalJson(f *testing.F) {
 		}
 
 		err := ft.UnmarshalJSON(bytes)
-		if len(bytes) > fp.Bits*3 {
-			assert.Error(t, err, string(bytes))
-		} else {
-			assert.NoError(t, err, string(bytes))
-		}
+		assert.NoError(t, err, string(bytes))
 
 		bytes = append([]byte{'0', 'x'}, bytes...)
 		err = ft.UnmarshalJSON(bytes)
-		if len(bytes) > fp.Bits*3 {
-			assert.Error(t, err, string(bytes))
-		} else {
-			assert.NoError(t, err, string(bytes))
-		}
+		assert.NoError(t, err, string(bytes))
 	})
 }
