@@ -1,17 +1,17 @@
 use blockifier;
-use blockifier::execution::entry_point::CallType;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
-use cairo_vm::types::builtin_name::BuiltinName;
-use blockifier::state::cached_state::{TransactionalState, CommitmentStateDiff};
+use blockifier::execution::entry_point::CallType;
+use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{State, StateReader};
+use cairo_vm::types::builtin_name::BuiltinName;
 use serde::Serialize;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey, EthAddress};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_types_core::felt::Felt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
-use blockifier::state::cached_state::CachedState;
+use starknet_types_core::felt::Felt;
 
 type StarkFelt = Felt;
 
@@ -21,7 +21,8 @@ use crate::juno_state_reader::JunoStateReader;
 #[serde(rename_all = "UPPERCASE")]
 pub enum TransactionType {
     // dummy type for implementing Default trait
-    #[default] Unknown,
+    #[default]
+    Unknown,
     Invoke,
     Declare,
     #[serde(rename = "DEPLOY_ACCOUNT")]
@@ -204,14 +205,38 @@ impl From<VmExecutionResources> for ExecutionResources {
             } else {
                 None
             },
-            range_check_builtin_applications: val.builtin_instance_counter.get(&BuiltinName::range_check).cloned(),
-            pedersen_builtin_applications: val.builtin_instance_counter.get(&BuiltinName::pedersen).cloned(),
-            poseidon_builtin_applications: val.builtin_instance_counter.get(&BuiltinName::poseidon).cloned(),
-            ec_op_builtin_applications: val.builtin_instance_counter.get(&BuiltinName::ec_op).cloned(),
-            ecdsa_builtin_applications: val.builtin_instance_counter.get(&BuiltinName::ecdsa).cloned(),
-            bitwise_builtin_applications: val.builtin_instance_counter.get(&BuiltinName::bitwise).cloned(),
-            keccak_builtin_applications: val.builtin_instance_counter.get(&BuiltinName::keccak).cloned(),
-            segment_arena_builtin: val.builtin_instance_counter.get(&BuiltinName::segment_arena).cloned(),
+            range_check_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::range_check)
+                .cloned(),
+            pedersen_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::pedersen)
+                .cloned(),
+            poseidon_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::poseidon)
+                .cloned(),
+            ec_op_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::ec_op)
+                .cloned(),
+            ecdsa_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::ecdsa)
+                .cloned(),
+            bitwise_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::bitwise)
+                .cloned(),
+            keccak_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::keccak)
+                .cloned(),
+            segment_arena_builtin: val
+                .builtin_instance_counter
+                .get(&BuiltinName::segment_arena)
+                .cloned(),
         }
     }
 }
@@ -296,12 +321,11 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 #[derive(Debug, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
-
 fn make_state_diff(
     state: &mut TransactionalState<CachedState<JunoStateReader>>,
     deprecated_declared_class: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
-    let diff: CommitmentStateDiff  = state.to_state_diff()?.into();
+    let diff: CommitmentStateDiff = state.to_state_diff()?.into();
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 
