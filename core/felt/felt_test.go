@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,11 +68,13 @@ func TestShortString(t *testing.T) {
 	})
 }
 
+// TODO: check input data length and update
 func FuzzUnmarshalJson(f *testing.F) {
 	digits := "abcdefABCDEF0123456789"
 	var ft felt.Felt
 	f.Fuzz(func(t *testing.T, bytes []byte) {
-		bytes = bytes[:len(bytes)%62]
+		// bytes = bytes[:len(bytes)%62]
+		bytes = bytes[:len(bytes)%(fp.Bits*3-1)] // Why Bits*3?
 		bytes = append(bytes, digits[rand.Intn(len(digits))])
 		for i := range bytes {
 			bytes[i] = digits[int(bytes[i])%len(digits)]
@@ -98,11 +101,11 @@ func FuzzSetString(f *testing.F) {
 		str := string(bytes)
 
 		_, err := ft.SetString(str)
-		assert.NoError(t, err, str)
+		assert.NoError(t, err, str, err)
 
 		str = "0x" + str
 		_, err = ft.SetString(str)
-		assert.NoError(t, err, string(bytes))
+		assert.NoError(t, err, str)
 	})
 }
 
