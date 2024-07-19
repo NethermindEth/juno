@@ -77,9 +77,16 @@ func FuzzUnmarshalJson(f *testing.F) {
 		for i := range bytes {
 			bytes[i] = digits[int(bytes[i])%len(digits)]
 		}
-		bytes = append([]byte{'0', 'x'}, bytes...)
 
 		err := ft.UnmarshalJSON(bytes)
+		if len(bytes) > fp.Bits*3 {
+			assert.Error(t, err, string(bytes))
+		} else {
+			assert.NoError(t, err, string(bytes))
+		}
+
+		bytes = append([]byte{'0', 'x'}, bytes...)
+		err = ft.UnmarshalJSON(bytes)
 		if len(bytes) > fp.Bits*3 {
 			assert.Error(t, err, string(bytes))
 		} else {
