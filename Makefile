@@ -12,8 +12,12 @@ endif
 
 ifeq ($(shell uname -s),Darwin)
 	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration
+	# for test-race we need to pass -ldflags to fix linker warnings on macOS
+	# see https://github.com/golang/go/issues/61229#issuecomment-1988965927
+	TEST_RACE_LDFLAGS=-ldflags=-extldflags=-Wl,-ld_classic
 else
 	export CGO_LDFLAGS=-ldl -lm
+	TEST_RACE_LDFLAGS=
 endif
 
 rustdeps: vm core-rust compiler
@@ -49,12 +53,12 @@ test-cached: rustdeps ## tests with existing cache
 	go test $(GO_TAGS) ./...
 
 test-race: clean-testcache rustdeps
-	go test $(GO_TAGS) ./... -race
+	go test $(GO_TAGS) ./... -race $(TEST_RACE_LDFLAGS)
 
 benchmarks: rustdeps ## benchmarking
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
-test-cover: rustdeps ## tests with coverage
+test-cover: clean-testcache rustdeps ## tests with coverage
 	mkdir -p coverage
 	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
@@ -68,7 +72,7 @@ install-mockgen:
 	go install go.uber.org/mock/mockgen@latest
 
 install-golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1
 
 lint:
 	@which golangci-lint || make install-golangci-lint

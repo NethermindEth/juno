@@ -2,6 +2,7 @@ package db
 
 import "slices"
 
+//go:generate go run github.com/dmarkham/enumer -type=Bucket -output=buckets_enumer.go
 type Bucket byte
 
 // Pebble does not support buckets to differentiate between groups of
@@ -32,6 +33,7 @@ const (
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
+	Peer // maps peer ID to peer multiaddresses
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
