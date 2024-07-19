@@ -147,9 +147,14 @@ pub extern "C" fn cairoVMCall(
     }
 
     let native_context = cairo_native::context::NativeContext::new();
-    let mut native_cache= ProgramCache::Aot(AotProgramCache::new(&native_context));
+    let mut native_cache = ProgramCache::Aot(AotProgramCache::new(&native_context));
 
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap(), Some(&mut native_cache)) {
+    match entry_point.execute(
+        &mut state,
+        &mut resources,
+        &mut context.unwrap(),
+        Some(&mut native_cache),
+    ) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -222,10 +227,18 @@ pub extern "C" fn cairoVMExecute(
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
+    println!("Juno: `cairoVMExecute`: Initializing Native Context");
     let native_context = cairo_native::context::NativeContext::new();
-    let mut native_cache= ProgramCache::Aot(AotProgramCache::new(&native_context));
+    println!("Juno: `cairoVMExecute`: Initializing Native Cache");
+    let mut native_cache = ProgramCache::Aot(AotProgramCache::new(&native_context));
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
+        println!(
+            "\n\nJuno: `cairoVMExecute`: executing transaction ({}/{}) {}",
+            txn_index,
+            txns_and_query_bits.len(),
+            txn_and_query_bit.txn_hash
+        );
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
@@ -272,11 +285,23 @@ pub extern "C" fn cairoVMExecute(
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache))
+                t.execute(
+                    &mut txn_state,
+                    &block_context,
+                    charge_fee,
+                    validate,
+                    Some(&mut native_cache),
+                )
             }
             Transaction::L1HandlerTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache))
+                t.execute(
+                    &mut txn_state,
+                    &block_context,
+                    charge_fee,
+                    validate,
+                    Some(&mut native_cache),
+                )
             }
         };
 

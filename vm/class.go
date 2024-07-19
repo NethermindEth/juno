@@ -9,7 +9,6 @@ import (
 )
 
 func marshalClassInfo(class core.Class) (json.RawMessage, error) {
-	println("Attempting to marshalClassInfo")
 	var classInfo struct {
 		Class        any    `json:"contract_class"`
 		AbiLength    uint32 `json:"abi_length"`
@@ -33,7 +32,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		} else {
 			hashStr = "error: " + err.Error()
 		}
-		println(fmt.Sprintf("Marshalling Cairo Zero class. Hash: %s Version: %v\n", hashStr, c.Version()))
+		println(fmt.Sprintf("Juno State Reader: marshalling Cairo Zero class. Hash: %s Version: %v", hashStr, c.Version()))
 	case *core.Cairo1Class:
 		if c.Compiled == nil {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
@@ -54,9 +53,8 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 			hashStr = "error: " + err.Error()
 		}
 
-		println(fmt.Sprintf("Marshalling Sierra class. Hash: %s Version: %v\n", hashStr, c.Version()))
+		println(fmt.Sprintf("Juno State Reader: marshalling Sierra class. Hash: %s Version: %v", hashStr, c.Version()))
 	default:
-		println("Failed marshalling, unknown type.")
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
 	return json.Marshal(classInfo)
