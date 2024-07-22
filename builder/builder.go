@@ -74,7 +74,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 }
 
 func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
-	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, shadowMode bool, starknetData starknetdata.StarknetData,
+	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, starknetData starknetdata.StarknetData,
 ) *Builder {
 	return &Builder{
 		ownAddress:    *ownAddr,
@@ -90,7 +90,7 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
 
-		shadowMode:          shadowMode,
+		shadowMode:          true,
 		starknetData:        starknetData,
 		chanNumTxnsToShadow: make(chan int, 1),
 		chanFinaliseShadow:  make(chan struct{}, 1),
@@ -103,9 +103,8 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
-
 	if b.shadowMode {
-		if err := b.syncStore(10); err != nil {
+		if err := b.syncStore(1); err != nil {
 			return err
 		}
 	}

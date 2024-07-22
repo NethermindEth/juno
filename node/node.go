@@ -179,7 +179,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			log)
 		if cfg.SeqShadowMode {
 			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
-				log, cfg.SeqShadowMode, starknetData)
+				log, starknetData)
 		}
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
