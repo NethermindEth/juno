@@ -106,3 +106,14 @@ func FuzzPoseidon(f *testing.F) {
 		crypto.Poseidon(a, b)
 	})
 }
+
+func FuzzPoseidonArray(f *testing.F) {
+	f.Fuzz(func(t *testing.T, bytes []byte, n uint8) {
+		data := make([]*felt.Felt, 0, n)
+		data = append(data, new(felt.Felt).SetBytes(bytes))
+		for range n {
+			data = append(data, crypto.PoseidonArray(data...))
+		}
+		crypto.PoseidonArray(data...)
+	})
+}
