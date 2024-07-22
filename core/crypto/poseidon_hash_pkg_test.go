@@ -18,7 +18,7 @@ func TestPermutate(t *testing.T) {
 
 func FuzzPermutate(f *testing.F) {
 	f.Fuzz(func(t *testing.T, bytes1, bytes2, bytes3 []byte) {
-		state := []felt.Felt{
+		state := []felt.Felt{ // is len(state) == 3 always?
 			*new(felt.Felt).SetBytes(bytes1),
 			*new(felt.Felt).SetBytes(bytes2),
 			*new(felt.Felt).SetBytes(bytes3),
