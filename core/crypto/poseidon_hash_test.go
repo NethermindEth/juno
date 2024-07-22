@@ -98,3 +98,11 @@ func BenchmarkPoseidon(b *testing.B) {
 	}
 	feltBench = f
 }
+
+func FuzzPoseidon(f *testing.F) {
+	f.Fuzz(func(t *testing.T, bytesA, bytesB []byte) {
+		a := new(felt.Felt).SetBytes(bytesA)
+		b := new(felt.Felt).SetBytes(bytesB)
+		crypto.Poseidon(a, b)
+	})
+}
