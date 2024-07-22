@@ -47,6 +47,8 @@ use starknet_api::{
     transaction::Fee,
 };
 use std::str::FromStr;
+use blockifier::transaction::account_transaction::AccountTransaction;
+use blockifier::transaction::transactions::L1HandlerTransaction;
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -147,7 +149,7 @@ pub extern "C" fn cairoVMCall(
     }
 
     let native_context = cairo_native::context::NativeContext::new();
-    let mut native_cache= ProgramCache::Aot(AotProgramCache::new(&native_context));
+    let mut native_cache = ProgramCache::Aot(AotProgramCache::new(&native_context));
 
     match entry_point.execute(&mut state, &mut resources, &mut context.unwrap(), Some(&mut native_cache)) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
@@ -272,11 +274,28 @@ pub extern "C" fn cairoVMExecute(
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache))
+                let tx_hash = match t {
+                    AccountTransaction::Declare(ref tx) => {
+                        tx.tx_hash
+                    }
+                    AccountTransaction::DeployAccount(ref tx) => {
+                        tx.tx_hash
+                    }
+                    AccountTransaction::Invoke(ref tx) => {
+                        tx.tx_hash
+                    }
+                };
+                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache), Some(tx_hash))
             }
             Transaction::L1HandlerTransaction(t) => {
                 fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache))
+                let tx_hash = match t {
+                    L1HandlerTransaction { tx_hash, .. } => {
+                        tx_hash
+                    }
+                };
+
+                t.execute(&mut txn_state, &block_context, charge_fee, validate, Some(&mut native_cache), Some(tx_hash))
             }
         };
 
