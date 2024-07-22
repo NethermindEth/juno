@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-#blockifier = { git = "https://github.com/NethermindEth/blockifier", branch = "native2.6.4" }
-blockifier = { path = "../../../blockifier-nethermind/crates/blockifier/" }
+blockifier = { git = "https://github.com/NethermindEth/blockifier", branch = "bohdan/mocked_resources" }
+#blockifier = { path = "../../../blockifier-nethermind/crates/blockifier/" }
 cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "72d10b7923cb4f97ae0b1688ea7de1d34297b0b2" }
 starknet_api = "=0.12.0-dev.1"
 cairo-vm = "=0.9.2"
