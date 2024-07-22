@@ -165,3 +165,11 @@ func BenchmarkPedersen(b *testing.B) {
 	}
 	feltBench = f
 }
+
+func FuzzPedersen(f *testing.F) {
+	f.Fuzz(func(t *testing.T, bytesA, bytesB []byte) {
+		a := new(felt.Felt).SetBytes(bytesA)
+		b := new(felt.Felt).SetBytes(bytesB)
+		crypto.Pedersen(a, b)
+	})
+}
