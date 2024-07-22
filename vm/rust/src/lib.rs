@@ -244,6 +244,7 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
+        // Todo: why was this added? L1 handler txns does not have paid_fees_on_l1 field
         let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {

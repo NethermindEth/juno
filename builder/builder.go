@@ -105,7 +105,7 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 func (b *Builder) Run(ctx context.Context) error {
 
 	if b.shadowMode {
-		if err := b.syncStore(2); err != nil {
+		if err := b.syncStore(10); err != nil {
 			return err
 		}
 	}
@@ -131,7 +131,7 @@ func (b *Builder) Run(ctx context.Context) error {
 	if b.shadowMode {
 		go func() {
 			if pErr := b.shadowTxns(ctx); pErr != nil {
-				b.log.Errorw("listening pool", "err", pErr)
+				b.log.Errorw("shadowTxns", "err", pErr)
 			}
 		}()
 	}
@@ -405,6 +405,26 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 }
 
+func getPaidOnL1Fees(txn *mempool.BroadcastedTransaction) ([]*felt.Felt, error) {
+	if tx, ok := (txn.Transaction).(*core.L1HandlerTransaction); ok {
+		handleDepositEPS, err := new(felt.Felt).SetString("0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5")
+		if err != nil {
+			return nil, err
+		}
+		handleTokenDepositEPS, err := new(felt.Felt).SetString("0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19")
+		if err != nil {
+			return nil, err
+		}
+		if tx.EntryPointSelector.Equal(handleDepositEPS) {
+			return []*felt.Felt{tx.CallData[2]}, nil
+		} else if tx.EntryPointSelector.Equal(handleTokenDepositEPS) {
+			return []*felt.Felt{tx.CallData[4]}, nil
+		}
+		return nil, fmt.Errorf("failed to get fees_paid_on_l1, unkmown entry point selector")
+	}
+	return []*felt.Felt{}, nil
+}
+
 func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
@@ -412,6 +432,11 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	var classes []core.Class
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
+	}
+
+	feesPaidOnL1, err := getPaidOnL1Fees(txn)
+	if err != nil {
+		return err
 	}
 
 	blockInfo := &vm.BlockInfo{
@@ -424,7 +449,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		},
 	}
 
-	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, []*felt.Felt{}, blockInfo, state,
+	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
 		b.bc.Network(), false, false, false, false)
 	if err != nil {
 		return err
@@ -491,7 +516,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			fmt.Println("chanNumTxnsToShadow <- ")
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			fmt.Println(" not blocking chanNumTxnsToShadow <- ")
-			for _, txn := range block.Transactions {
+			for i, txn := range block.Transactions {
 				var declaredClass core.Class
 				declareTxn, ok := txn.(*core.DeclareTransaction)
 				if ok {
@@ -505,7 +530,8 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 				if err != nil {
 					return err
 				}
-				b.log.Debugw(fmt.Sprintf("Pushed txn number %d", snHeadBlock.Number)) // Todo : remove
+				qwe := declaredClass == nil
+				b.log.Debugw(fmt.Sprintf("Pushed txn number %d, %v", i, qwe)) // Todo : remove
 			}
 
 		} else {
