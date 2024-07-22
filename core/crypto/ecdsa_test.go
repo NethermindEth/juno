@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/starknet.go/account"
 	"github.com/NethermindEth/starknet.go/curve"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/rand"
@@ -112,11 +113,18 @@ func FuzzVerify(f *testing.F) {
 			S: *s,
 		}
 
+		// OK
 		publicKey := crypto.NewPublicKey(pubKeyFelt)
 		ok, err := publicKey.Verify(&sig, msgHashFelt)
 
 		assert.Equal(t, true, ok, msgHashFelt, err)
 		assert.NoError(t, err, msgHashFelt, err)
-		// TODO: add err cases
+
+		// false
+		one := fp.NewElement(1)
+		oneFelt := felt.NewFelt(&one)
+		msgHashFelt.Add(msgHashFelt, oneFelt)
+		ok, _ = publicKey.Verify(&sig, msgHashFelt)
+		assert.Equal(t, false, ok)
 	})
 }
