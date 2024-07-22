@@ -2,8 +2,6 @@ package tendermint
 
 import (
 	"time"
-
-	"github.com/NethermindEth/juno/core/felt"
 )
 
 type step uint
@@ -14,48 +12,67 @@ const (
 	precommit
 )
 
-// Todo: refactor to use more stricter constraints on the interfaces. For example, instead of Application having a Id(),
-// the value of type T should be constraint to have ID() function.
+type Hash = [32]byte
 
-type Hashable[T felt.Felt | [32]byte] interface {
-	Id() T
+type Hashable interface {
+	Hash() Hash
 }
 
-type v struct{}
+// Todo: generics may not be required if the Hashable interfce is used as above, since the following interface would be
+// equivalent to Application interface:
+//	type Application2 interface {
+//		Value() Hashable
+//		Valid(Hashable) bool
+//	}
+// If however, Hashable can be used for multiple types then generic would be useful.
 
-func (v *v) Id() felt.Felt {
-	return felt.Zero
-}
-
-type Application[T any, K comparable] interface {
+type Application[V Hashable] interface {
 	// Value() returns the value to the Tendermint consensus algorith which can be proposed to other validators.
-	Value() T
+	Value() V
 
 	// Valid() returns true if the provided value is valid according to the application context.
-	Valid(T) bool
-
-	// Id() returns the id of the value which is a unique identifier of the value being consider for the current
-	// height. The votes include // the id of the value not the value itself
-	Id(T) K
+	Valid(V) bool
 }
 
-type Blockchain[T any] interface {
+type Blockchain[V Hashable] interface {
 	// Height() return the current blockchain height
 	Height() uint
 
 	// Commit() is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(T) error
+	Commit(V) error
 }
 
-type Validators[T any] interface {
+// Todo: decide how to represent Addresses
+type Validators[A any] interface {
 	// TotolVotingPower() represents N which is required to calculate the thresholds.
 	TotalVotingPower(height uint) uint
 
-	// ValidatorVotingPower() returns the voting power of the a single	  // validator. This is also required to implement various thresholds. // The assumption is that a single validator cannot have voting power // more than f.
-	ValidatorVotingPower(validatorAddr T) uint
+	// ValidatorVotingPower() returns the voting power of the a single validator. This is also required to implement
+	// various thresholds. The assumption is that a single validator cannot have voting power more than f.
+	ValidatorVotingPower(validatorAddr A) uint
 
 	// Proposer() returns the proposer of the current round and height.
-	Proposer(height, round uint) T
+	Proposer(height, round uint) A
+}
+
+type Slasher[M Message] interface {
+	// Equivocation() informs the slasher that a validator has sent conflicting messages. Thus it can decide whether to
+	// slash the validator and by how much.
+	Equivocation(msgs ...M)
+}
+
+type Listener[M Message] interface {
+	// Listen would return consensus messages to Tendermint which are set // by the validator set.
+	Listen() <-chan M
+}
+
+type Broadcaster[M Message, A any] interface {
+	// Broadcast() will broadcast the message to the whole validator set
+	Broadcast(msg any)
+
+	// SendMsg() would send a message to a specific validator. This would be required for helping send resquest and
+	// response message to help a specifc validator to catch up.
+	SendMsg(validatorAddr, msg any)
 }
 
 type timeoutFn func(round uint) time.Duration

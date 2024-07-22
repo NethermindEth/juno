@@ -1,22 +1,26 @@
 package tendermint
 
-type Proposal[T any] struct {
+type Message interface {
+	Proposal[Hashable] | Prevote | Precommit
+}
+
+type Proposal[V Hashable] struct {
 	height     uint
 	round      uint
 	validRound *uint
-	value      T
+	value      V
 }
 
-type Prevote[T comparable] struct {
-	vote[T]
+type Prevote struct {
+	vote
 }
 
-type Precommit[T comparable] struct {
-	vote[T]
+type Precommit struct {
+	vote
 }
 
-type vote[T comparable] struct {
+type vote struct {
 	height uint
 	round  uint
-	id     T
+	id     Hash
 }
