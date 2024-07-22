@@ -54,7 +54,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 	for i := 0; i < numberOfContracts; i++ {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 		// Use exampleBytes for the key suffix (the contract address) and the value.
-		err := txn.Set(db.Unused.Key(exampleBytes[:]), exampleBytes[:])
+		err := txn.Set(db.Peer.Key(exampleBytes[:]), exampleBytes[:])
 		require.NoError(t, err)
 	}
 
@@ -72,7 +72,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		}))
 
 		// Old entry does not exist.
-		oldKey := db.Unused.Key(exampleBytes[:])
+		oldKey := db.Peer.Key(exampleBytes[:])
 		err := txn.Get(oldKey, func(val []byte) error { return nil })
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 	}

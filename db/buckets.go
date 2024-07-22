@@ -10,7 +10,7 @@ type Bucket byte
 // man's bucket alternative.
 const (
 	StateTrie         Bucket = iota // state metadata (e.g., the state root)
-	Unused                          // Previously held contract storage roots and is now unused. May be reused in the future.
+	Peer                            // maps peer ID to peer multiaddresses
 	ContractClassHash               // maps contract addresses and class hashes
 	ContractStorage                 // contract storages
 	Class                           // maps class hashes to classes
@@ -33,7 +33,6 @@ const (
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
-	Peer // maps peer ID to peer multiaddresses
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
