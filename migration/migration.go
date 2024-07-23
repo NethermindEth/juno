@@ -210,7 +210,8 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error
 	// Iterate over all entries in the old bucket, copying each into memory.
 	// Even with millions of contracts, this shouldn't be too expensive.
 	oldEntries := make(map[string][]byte)
-	oldPrefix := db.Unused.Key()
+	// Previously ContractStorageRoot were stored in the Peer bucket.
+	oldPrefix := db.Peer.Key()
 	var value []byte
 	for it.Seek(oldPrefix); it.Valid(); it.Next() {
 		// Stop iterating once we're out of the old bucket.
