@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"fmt"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"golang.org/x/crypto/sha3"
 )
