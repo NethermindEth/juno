@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -40,5 +41,26 @@ func TestStateDiffCommitment(t *testing.T) {
 		require.NoError(t, err)
 		commitment := su.StateDiff.Commitment()
 		assert.Equal(t, utils.HexToFelt(t, test.expected), commitment)
+	}
+}
+
+func TestStateDiffLength(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	for _, test := range []struct {
+		blockNum       uint64
+		expectedLength uint64
+	}{
+		{blockNum: 0, expectedLength: 11},
+		{blockNum: 1, expectedLength: 1},
+		{blockNum: 2, expectedLength: 1},
+	} {
+		t.Run(fmt.Sprintf("blockNum=%d", test.blockNum), func(t *testing.T) {
+			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			require.NoError(t, err)
+			length := su.StateDiff.Length()
+			assert.Equal(t, test.expectedLength, length)
+		})
 	}
 }
