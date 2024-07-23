@@ -226,6 +226,7 @@ func TestJunoGetNodesFromRoot(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, nil, "", log)
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	t.Run("Empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -235,6 +236,15 @@ func TestJunoGetNodesFromRoot(t *testing.T) {
 
 		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 
+	})
+
+	t.Run("Non existent hash", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, db.ErrKeyNotFound)
+
+		storage, rpcErr := handler.ClassNodesFromRoot(felt.Zero)
+		require.Nil(t, storage)
+
+		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 
 }
