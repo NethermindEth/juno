@@ -22,9 +22,6 @@ func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionRe
 			Poseidon:     resources.Poseidon,
 			SegmentArena: resources.SegmentArena,
 			Output:       0, // todo(kirill) recheck, add Output field to core?
-			AddMod:       resources.AddMod,
-			MulMod:       resources.MulMod,
-			RangeCheck96: resources.RangeCheck96,
 		},
 		MemoryHoles:      resources.MemoryHoles,
 		Steps:            resources.Steps,

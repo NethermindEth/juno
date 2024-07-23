@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -67,7 +66,6 @@ type Block struct {
 type BlockCommitments struct {
 	TransactionCommitment *felt.Felt
 	EventCommitment       *felt.Felt
-	ReceiptCommitment     *felt.Felt
 }
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
@@ -169,60 +167,6 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
 }
 
-//nolint:unused
-func newBlockHash(b *Block) (*felt.Felt, error) {
-	seqAddr := b.SequencerAddress
-	// todo override support?
-
-	wg := conc.NewWaitGroup()
-	var txCommitment, eCommitment, rCommitment *felt.Felt
-	var tErr, eErr, rErr error
-
-	wg.Go(func() {
-		txCommitment, tErr = transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
-	})
-	wg.Go(func() {
-		eCommitment, eErr = eventCommitment(b.Receipts)
-	})
-	wg.Go(func() {
-		rCommitment, rErr = receiptCommitment(b.Receipts)
-	})
-	wg.Wait()
-
-	if tErr != nil {
-		return nil, tErr
-	}
-	if eErr != nil {
-		return nil, eErr
-	}
-	if rErr != nil {
-		return nil, rErr
-	}
-
-	// todo pass correct stateDiffLen
-	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, 0, b.L1DAMode)
-
-	return crypto.PoseidonArray(
-		new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
-		new(felt.Felt).SetUint64(b.Number),    // block number
-		b.GlobalStateRoot,                     // global state root
-		seqAddr,                               // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-		concatCounts,
-		&felt.Zero,     // todo state_diff_hash
-		txCommitment,   // transaction commitment
-		eCommitment,    // event commitment
-		rCommitment,    // receipt commitment
-		b.GasPrice,     // gas price in wei
-		b.GasPriceSTRK, // gas price in fri
-		b.L1DataGasPrice.PriceInWei,
-		b.L1DataGasPrice.PriceInFri,
-		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-		&felt.Zero,   // reserved: extra data
-		b.ParentHash, // parent block hash
-	), nil
-}
-
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
 func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
@@ -277,27 +221,4 @@ func MarshalBlockNumber(blockNumber uint64) []byte {
 	binary.BigEndian.PutUint64(numBytes, blockNumber)
 
 	return numBytes
-}
-
-func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
-	var l1DAByte byte
-	if l1Mode == Blob {
-		l1DAByte = 0b10000000
-	}
-
-	var txCountBytes, eventCountBytes, stateDiffLenBytes [8]byte
-	binary.BigEndian.PutUint64(txCountBytes[:], txCount)
-	binary.BigEndian.PutUint64(eventCountBytes[:], eventCount)
-	binary.BigEndian.PutUint64(stateDiffLenBytes[:], stateDiffLen)
-
-	zeroPadding := make([]byte, 7) //nolint:mnd
-
-	concatBytes := slices.Concat(
-		txCountBytes[:],
-		eventCountBytes[:],
-		stateDiffLenBytes[:],
-		[]byte{l1DAByte},
-		zeroPadding,
-	)
-	return new(felt.Felt).SetBytes(concatBytes)
 }

@@ -85,14 +85,6 @@ func RunOnTempTrie(height uint8, do func(*Trie) error) error {
 	return do(trie)
 }
 
-func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := NewTriePoseidon(newMemStorage(), height)
-	if err != nil {
-		return err
-	}
-	return do(trie)
-}
-
 // feltToBitSet Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) feltToKey(k *felt.Felt) Key {

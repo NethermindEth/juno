@@ -52,10 +52,6 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 			Keccak:       uint64(er.GetBuiltins().GetKeccak()),
 			Poseidon:     uint64(er.GetBuiltins().GetPoseidon()),
 			SegmentArena: 0, // todo(kirill) recheck
-			// todo(kirill) update spec for 0.13.2
-			AddMod:       0,
-			MulMod:       0,
-			RangeCheck96: 0,
 		},
 		DataAvailability: nil, // todo(kirill) recheck
 		MemoryHoles:      uint64(er.MemoryHoles),

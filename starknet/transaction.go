@@ -236,14 +236,6 @@ type BuiltinInstanceCounter struct {
 	Keccak       uint64 `json:"keccak_builtin"`
 	Poseidon     uint64 `json:"poseidon_builtin"`
 	SegmentArena uint64 `json:"segment_arena_builtin"`
-	AddMod       uint64 `json:"add_mod_builtin"`
-	MulMod       uint64 `json:"mul_mod_builtin"`
-	RangeCheck96 uint64 `json:"range_check96_builtin"`
-}
-
-type GasConsumed struct {
-	L1Gas     uint64 `json:"l1_gas"`
-	L1DataGas uint64 `json:"l1_data_gas"`
 }
 
 type TransactionReceipt struct {
@@ -261,5 +253,4 @@ type TransactionReceipt struct {
 	TransactionHash    *felt.Felt          `json:"transaction_hash"`
 	TransactionIndex   uint64              `json:"transaction_index"`
 	RevertError        string              `json:"revert_error"`
-	TotalGasConsumed   *GasConsumed        `json:"total_gas_consumed"`
 }

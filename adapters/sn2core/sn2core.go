@@ -76,18 +76,6 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 		L2ToL1Message:      utils.Map(utils.NonNilSlice(response.L2ToL1Message), AdaptL2ToL1Message),
 		Reverted:           response.ExecutionStatus == starknet.Reverted,
 		RevertReason:       response.RevertError,
-		TotalGasConsumed:   adaptGasConsumed(response.TotalGasConsumed),
-	}
-}
-
-func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
-	if response == nil {
-		return nil
-	}
-
-	return &core.GasConsumed{
-		L1Gas:     response.L1Gas,
-		L1DataGas: response.L1DataGas,
 	}
 }
 
