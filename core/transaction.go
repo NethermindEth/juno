@@ -122,18 +122,6 @@ type BuiltinInstanceCounter struct {
 	RangeCheck96 uint64
 }
 
-type TransactionReceipt struct {
-	Fee                *felt.Felt
-	FeeUnit            FeeUnit
-	Events             []*Event
-	ExecutionResources *ExecutionResources
-	L1ToL2Message      *L1ToL2Message
-	L2ToL1Message      []*L2ToL1Message
-	TransactionHash    *felt.Felt
-	Reverted           bool
-	RevertReason       string
-}
-
 type Transaction interface {
 	Hash() *felt.Felt
 	Signature() []*felt.Felt

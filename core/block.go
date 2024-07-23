@@ -67,6 +67,7 @@ type Block struct {
 type BlockCommitments struct {
 	TransactionCommitment *felt.Felt
 	EventCommitment       *felt.Felt
+	ReceiptCommitment     *felt.Felt
 }
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
@@ -174,14 +175,17 @@ func newBlockHash(b *Block) (*felt.Felt, error) {
 	// todo override support?
 
 	wg := conc.NewWaitGroup()
-	var txCommitment, eCommitment *felt.Felt
-	var tErr, eErr error
+	var txCommitment, eCommitment, rCommitment *felt.Felt
+	var tErr, eErr, rErr error
 
 	wg.Go(func() {
 		txCommitment, tErr = transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
 	})
 	wg.Go(func() {
 		eCommitment, eErr = eventCommitment(b.Receipts)
+	})
+	wg.Go(func() {
+		rCommitment, rErr = receiptCommitment(b.Receipts)
 	})
 	wg.Wait()
 
@@ -190,6 +194,9 @@ func newBlockHash(b *Block) (*felt.Felt, error) {
 	}
 	if eErr != nil {
 		return nil, eErr
+	}
+	if rErr != nil {
+		return nil, rErr
 	}
 
 	// todo pass correct stateDiffLen
@@ -202,12 +209,12 @@ func newBlockHash(b *Block) (*felt.Felt, error) {
 		seqAddr,                               // sequencer address
 		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 		concatCounts,
-		&felt.Zero,   // todo state_diff_hash
-		txCommitment, // transaction commitment
-		eCommitment,  // event commitment
-		&felt.Zero,   // todo receipt_commitment
-		&felt.Zero,   // todo gas_price_wei
-		&felt.Zero,   // todo gas_price_fri
+		&felt.Zero,     // todo state_diff_hash
+		txCommitment,   // transaction commitment
+		eCommitment,    // event commitment
+		rCommitment,    // receipt commitment
+		b.GasPrice,     // gas price in wei
+		b.GasPriceSTRK, // gas price in fri
 		b.L1DataGasPrice.PriceInWei,
 		b.L1DataGasPrice.PriceInFri,
 		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),

@@ -241,7 +241,7 @@ type BuiltinInstanceCounter struct {
 	RangeCheck96 uint64 `json:"range_check96_builtin"`
 }
 
-type TotalGasConsumed struct {
+type GasConsumed struct {
 	L1Gas     uint64 `json:"l1_gas"`
 	L1DataGas uint64 `json:"l1_data_gas"`
 }
@@ -261,5 +261,5 @@ type TransactionReceipt struct {
 	TransactionHash    *felt.Felt          `json:"transaction_hash"`
 	TransactionIndex   uint64              `json:"transaction_index"`
 	RevertError        string              `json:"revert_error"`
-	TotalGasConsumed   *TotalGasConsumed   `json:"total_gas_consumed"`
+	TotalGasConsumed   *GasConsumed        `json:"total_gas_consumed"`
 }
