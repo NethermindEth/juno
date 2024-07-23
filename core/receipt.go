@@ -68,7 +68,8 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 
 func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+
+	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, receipt := range receipts {
 			hash, err := receipt.Hash()
 			if err != nil {

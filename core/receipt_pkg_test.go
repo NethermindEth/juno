@@ -2,8 +2,6 @@ package core
 
 import (
 	"encoding/binary"
-	"fmt"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -84,7 +82,6 @@ func TestReceiptCommitment(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedRoot := utils.HexToFelt(t, "0x31963cb891ebb825e83514deb748c89b6967b5368cbc48a9b56193a1464ca87")
-	fmt.Println("Hash is ", root.String(), crypto.PoseidonArray(root))
 	assert.Equal(t, expectedRoot, root)
 }
 
