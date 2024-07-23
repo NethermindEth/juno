@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -16,7 +15,6 @@ import (
 
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -193,7 +191,10 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		fmt.Printf(greeting, Version)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), greeting, Version)
+		if err != nil {
+			return err
+		}
 
 		n, err := node.New(config, Version)
 		if err != nil {
@@ -220,7 +221,7 @@ func main() {
 //nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
-		Use:     "juno [flags]",
+		Use:     "juno",
 		Short:   "Starknet client implementation in Go.",
 		Version: Version,
 		RunE:    run,
@@ -354,41 +355,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.Flags().Bool(vmConcurrencyModeF, defaultVMConcurrencyModeF, vmConcurrencyModeUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
+
 	junoCmd.AddCommand(GenP2PKeyPair())
+	junoCmd.AddCommand(DBSize())
 
 	return junoCmd
-}
-
-func GenP2PKeyPair() *cobra.Command {
-	return &cobra.Command{
-		Use:   "genp2pkeypair",
-		Short: "Generate private key pair for p2p.",
-		RunE: func(*cobra.Command, []string) error {
-			priv, pub, id, err := p2p.GenKeyPair()
-			if err != nil {
-				return err
-			}
-
-			rawPriv, err := priv.Raw()
-			if err != nil {
-				return err
-			}
-
-			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
-			hex.Encode(privHex, rawPriv)
-			fmt.Println("P2P Private Key:", string(privHex))
-
-			rawPub, err := pub.Raw()
-			if err != nil {
-				return err
-			}
-
-			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
-			hex.Encode(pubHex, rawPub)
-			fmt.Println("P2P Public Key:", string(pubHex))
-
-			fmt.Println("P2P PeerID:", id)
-			return nil
-		},
-	}
 }
