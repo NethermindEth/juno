@@ -210,8 +210,6 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
 
-    println!("JSON: {}", raw_json);
-    let _ = ContractClassV0::try_from_json_string(class_def.as_str()).unwrap();
     let class: ContractClass =
         if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
             class.into()

@@ -17,7 +17,6 @@ use blockifier::blockifier::block::{
     pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
-use blockifier::state::global_cache::GlobalContractCache;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
@@ -318,7 +317,7 @@ pub extern "C" fn cairoVMExecute(
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
-                    // t.transaction_receipt.fee = calculate_tx_fee(t.transaction_receipt.resources, &block_context, &fee_type).unwrap();
+//                     t.transaction_receipt.fee = calculate_tx_fee(t.transaction_receipt.resources, &block_context, &fee_type).unwrap();
                 }
 
                 let actual_fee = t.transaction_receipt.fee.0.into();
@@ -479,7 +478,7 @@ fn build_block_context(
         },
     };
 
-    pre_process_block(state, old_block_number_and_hash, block_info.block_number.next().unwrap()).unwrap();
+    pre_process_block(state, old_block_number_and_hash, block_info.block_number).unwrap();
     BlockContext::new(block_info, chain_info, constants, BouncerConfig::max())
 }
 
