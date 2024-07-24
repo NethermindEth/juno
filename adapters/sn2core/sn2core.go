@@ -256,15 +256,11 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 	class.ProgramHash = crypto.PoseidonArray(class.Program...)
 
 	class.Abi = response.Abi
-	class.AbiHash, err = crypto.StarknetKeccak([]byte(class.Abi))
-	if err != nil {
-		return nil, err
-	}
+	class.AbiHash = crypto.StarknetKeccak([]byte(class.Abi))
 
 	adapt := func(ep starknet.SierraEntryPoint) core.SierraEntryPoint {
 		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
 	}
-
 	class.EntryPoints.External = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
 	class.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
 	class.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)
