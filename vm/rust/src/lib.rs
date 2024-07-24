@@ -13,13 +13,13 @@ use std::{
     sync::Arc,
 };
 
+use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
 use blockifier::blockifier::block::{
     pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
 };
-use blockifier::transaction::objects::GasVector;
-use blockifier::fee::{fee_utils, gas_usage};
-use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
 use blockifier::bouncer::BouncerConfig;
+use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::transaction::objects::GasVector;
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
     execution::{
@@ -280,9 +280,8 @@ pub extern "C" fn cairoVMExecute(
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector = Some(
-                    gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap()
-                );
+                minimal_l1_gas_amount_vector =
+                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
@@ -324,17 +323,26 @@ pub extern "C" fn cairoVMExecute(
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
-                    let minimal_l1_gas_amount_vector = minimal_l1_gas_amount_vector.unwrap_or_default();
-                    let gas_consumed = t.transaction_receipt.gas.l1_gas.max(minimal_l1_gas_amount_vector.l1_gas);
-                    let data_gas_consumed = t.transaction_receipt.gas.l1_data_gas.max(minimal_l1_gas_amount_vector.l1_data_gas);
+                    let minimal_l1_gas_amount_vector =
+                        minimal_l1_gas_amount_vector.unwrap_or_default();
+                    let gas_consumed = t
+                        .transaction_receipt
+                        .gas
+                        .l1_gas
+                        .max(minimal_l1_gas_amount_vector.l1_gas);
+                    let data_gas_consumed = t
+                        .transaction_receipt
+                        .gas
+                        .l1_data_gas
+                        .max(minimal_l1_gas_amount_vector.l1_data_gas);
 
                     t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
-                        GasVector{
+                        GasVector {
                             l1_data_gas: data_gas_consumed,
                             l1_gas: gas_consumed,
                         },
-                        &fee_type
+                        &fee_type,
                     )
                 }
 
@@ -448,7 +456,9 @@ fn build_block_context(
     // STORED_BLOCK_HASH_BUFFER const is 10 for now
     if block_info.block_number >= STORED_BLOCK_HASH_BUFFER {
         old_block_number_and_hash = Some(BlockNumberHashPair {
-            number: starknet_api::block::BlockNumber(block_info.block_number - STORED_BLOCK_HASH_BUFFER),
+            number: starknet_api::block::BlockNumber(
+                block_info.block_number - STORED_BLOCK_HASH_BUFFER,
+            ),
             hash: BlockHash(StarkFelt::from_bytes_be(
                 &block_info.block_hash_to_be_revealed,
             )),
