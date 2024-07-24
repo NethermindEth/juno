@@ -17,7 +17,7 @@ use blockifier::blockifier::block::{
     pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::transaction::objects::GasVector;
-use blockifier::fee::fee_utils;
+use blockifier::fee::{fee_utils, gas_usage};
 use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::{
@@ -276,13 +276,18 @@ pub extern "C" fn cairoVMExecute(
 
         let mut txn_state = CachedState::create_transactional(&mut state);
         let fee_type;
+        let minimal_l1_gas_amount_vector: Option<GasVector>;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
+                minimal_l1_gas_amount_vector = Some(
+                    gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap()
+                );
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
                 fee_type = t.fee_type();
+                minimal_l1_gas_amount_vector = None;
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
@@ -319,8 +324,9 @@ pub extern "C" fn cairoVMExecute(
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
-                    let gas_consumed = t.transaction_receipt.gas.l1_gas;
-                    let data_gas_consumed = t.transaction_receipt.gas.l1_data_gas;
+                    let minimal_l1_gas_amount_vector = minimal_l1_gas_amount_vector.unwrap_or_default();
+                    let gas_consumed = t.transaction_receipt.gas.l1_gas.max(minimal_l1_gas_amount_vector.l1_gas);
+                    let data_gas_consumed = t.transaction_receipt.gas.l1_data_gas.max(minimal_l1_gas_amount_vector.l1_data_gas);
 
                     t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
