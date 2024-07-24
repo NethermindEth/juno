@@ -12,7 +12,6 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-  pull_request:  # FIXME: Remove this line when the pipeline is passing
   workflow_dispatch:
 
 permissions:
