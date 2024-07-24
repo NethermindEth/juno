@@ -16,6 +16,8 @@ use std::{
 use blockifier::blockifier::block::{
     pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
 };
+use blockifier::transaction::objects::GasVector;
+use blockifier::fee::fee_utils;
 use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::{
@@ -317,7 +319,17 @@ pub extern "C" fn cairoVMExecute(
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
-//                     t.transaction_receipt.fee = calculate_tx_fee(t.transaction_receipt.resources, &block_context, &fee_type).unwrap();
+                    let gas_consumed = t.transaction_receipt.gas.l1_gas;
+                    let data_gas_consumed = t.transaction_receipt.gas.l1_data_gas;
+
+                    t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                        block_context.block_info(),
+                        GasVector{
+                            l1_data_gas: data_gas_consumed,
+                            l1_gas: gas_consumed,
+                        },
+                        &fee_type
+                    )
                 }
 
                 let actual_fee = t.transaction_receipt.fee.0.into();
