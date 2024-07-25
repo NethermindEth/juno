@@ -81,7 +81,10 @@ lint:
 tidy: ## add missing and remove unused modules
 	 go mod tidy
 
-format: ## run go formatter
+format: ## run go & rust formatters
+	$(MAKE) -C vm/rust format
+	$(MAKE) -C core/rust format
+	$(MAKE) -C starknet/rust format
 	gofumpt -l -w .
 
 clean: ## clean project builds
