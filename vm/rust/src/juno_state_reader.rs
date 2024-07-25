@@ -179,9 +179,9 @@ impl StateReader for JunoStateReader {
 impl UpdatableState for JunoStateReader {
     fn apply_writes(
         &mut self,
-        writes: &StateMaps,
-        class_hash_to_class: &ContractClassMapping,
-        visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
+        _writes: &StateMaps,
+        _class_hash_to_class: &ContractClassMapping,
+        _visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
     ) {
         unimplemented!()
     }

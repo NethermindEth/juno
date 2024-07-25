@@ -43,13 +43,13 @@ use serde::Deserialize;
 use starknet_api::{
     block::BlockHash,
     core::PatriciaKey,
-    transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash},
+    deprecated_contract_class::EntryPointType,
+    transaction::{Calldata, Fee, Transaction as StarknetApiTransaction, TransactionHash},
 };
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
 };
-use starknet_api::{deprecated_contract_class::EntryPointType, transaction::Fee};
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 
@@ -443,7 +443,7 @@ fn build_block_context(
     block_info: &BlockInfo,
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
-    concurrency_mode: bool,
+    _concurrency_mode: bool,
 ) -> BlockContext {
     let sequencer_addr = StarkFelt::from_bytes_be(&block_info.sequencer_address);
     let gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.gas_price_wei);

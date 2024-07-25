@@ -172,8 +172,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, synchronizer)
 	}
 
-	const concurrencyMode = false
-	throttledVM := NewThrottledVM(vm.New(concurrencyMode, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	throttledVM := NewThrottledVM(vm.New(false, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
 	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 	if synchronizer != nil {

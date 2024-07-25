@@ -107,7 +107,7 @@ pub fn new_transaction_trace(
     state: &mut TransactionalState<CachedState<JunoStateReader>>,
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
-    let mut deprecated_declared_class: Option<ClassHash> = None;
+    let mut deprecated_declared_class_hash: Option<ClassHash> = None;
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             trace.function_invocation = info.execute_call_info.map(|v| v.into());
@@ -134,7 +134,7 @@ pub fn new_transaction_trace(
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
             trace.r#type = TransactionType::Declare;
-            deprecated_declared_class = if info.revert_error.is_none() {
+            deprecated_declared_class_hash = if info.revert_error.is_none() {
                 match declare_txn {
                     DeclareTransaction::V0(_) => Some(declare_txn.class_hash()),
                     DeclareTransaction::V1(_) => Some(declare_txn.class_hash()),
@@ -150,7 +150,7 @@ pub fn new_transaction_trace(
         }
     };
 
-    trace.state_diff = make_state_diff(state, deprecated_declared_class)?;
+    trace.state_diff = make_state_diff(state, deprecated_declared_class_hash)?;
     Ok(trace)
 }
 
@@ -323,7 +323,7 @@ pub struct Retdata(pub Vec<StarkFelt>);
 
 fn make_state_diff(
     state: &mut TransactionalState<CachedState<JunoStateReader>>,
-    deprecated_declared_class: Option<ClassHash>,
+    deprecated_declared_class_hash: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
     let diff: CommitmentStateDiff = state.to_state_diff()?.into();
     let mut deployed_contracts = Vec::new();
@@ -349,7 +349,7 @@ fn make_state_diff(
     }
 
     let mut deprecated_declared_classes = Vec::default();
-    if let Some(v) = deprecated_declared_class {
+    if let Some(v) = deprecated_declared_class_hash {
         deprecated_declared_classes.push(v.0)
     }
     Ok(StateDiff {
