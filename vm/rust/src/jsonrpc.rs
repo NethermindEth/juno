@@ -367,7 +367,7 @@ fn make_state_diff(
             class_hash: v.0.0,
             compiled_class_hash: v.1.0,
         }).collect(),
-        deprecated_declared_class_hashes,
+        deprecated_declared_classes: deprecated_declared_class_hashes,
         #[rustfmt::skip]
         nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
           contract_address: *v.0.0.key(),
