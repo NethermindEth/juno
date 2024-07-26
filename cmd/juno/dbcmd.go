@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -23,8 +22,11 @@ var dbCmd = &cobra.Command{
 }
 
 func InitDBCommand() {
+	defaultDBPath, dbPathShort := "", "p"
+	dbCmd.PersistentFlags().StringP(dbPathF, dbPathShort, defaultDBPath, dbPathUsage)
+
 	dbCmd.AddCommand(DBInfoCmd())
-	dbCmd.AddCommand(DBInspectCmd())
+	dbCmd.AddCommand(DBSizeCmd())
 }
 
 type DBInfo struct {
@@ -46,12 +48,12 @@ func DBInfoCmd() *cobra.Command {
 	}
 }
 
-func DBInspectCmd() *cobra.Command {
+func DBSizeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "inspect",
-		Short: "Inspect the database to obtain storage information",
+		Use:   "size",
+		Short: "Calculate database size information for each data type",
 		Long:  `This subcommand retrieves and displays the storage of each data type stored in the database.`,
-		RunE:  dbInspect,
+		RunE:  dbSize,
 	}
 }
 
@@ -66,8 +68,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	log := utils.NewNopZapLogger()
-	database, err := pebble.New(dbPath, defaultCacheSizeMb, defaultMaxHandles, log)
+	database, err := pebble.New(dbPath)
 	if err != nil {
 		return fmt.Errorf("open DB: %w", err)
 	}
@@ -106,11 +107,14 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-//nolint:funlen,gocyclo
-func dbInspect(cmd *cobra.Command, args []string) error {
+func dbSize(cmd *cobra.Command, args []string) error {
 	dbPath, err := cmd.Flags().GetString(dbPathF)
 	if err != nil {
 		return err
+	}
+
+	if dbPath == "" {
+		return fmt.Errorf("--%v cannot be empty", dbPathF)
 	}
 
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
@@ -118,119 +122,60 @@ func dbInspect(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	log := utils.NewNopZapLogger()
-	database, err := pebble.New(dbPath, defaultCacheSizeMb, defaultMaxHandles, log)
+	pebbleDB, err := pebble.New(dbPath)
 	if err != nil {
-		return fmt.Errorf("open DB: %w", err)
+		return err
 	}
-
-	txn, err := database.NewTransaction(false)
-	if err != nil {
-		return fmt.Errorf("new transaction: %w", err)
-	}
-
-	it, err := txn.NewIterator()
-	if err != nil {
-		return fmt.Errorf("new iterator: %w", err)
-	}
-	defer it.Close()
 
 	var (
-		start   = time.Now()
-		logged  = time.Now()
-		buckets = make(map[db.Bucket]*item)
-
 		totalSize  utils.DataSize
 		totalCount int64
+
+		withHistorySize    utils.DataSize
+		withoutHistorySize utils.DataSize
+
+		withHistoryCount    int64
+		withoutHistoryCount int64
+
+		items [][]string
 	)
 
-	for it.Next() {
-		key := it.Key()
-		val, err := it.Value()
+	for _, b := range db.BucketValues() {
+		fmt.Fprintf(cmd.OutOrStdout(), "Calculating size of %s, remaining buckets: %d\n", b, len(db.BucketValues())-int(b)-1)
+		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)})
 		if err != nil {
-			return fmt.Errorf("get value: %w", err)
+			return err
+		}
+		items = append(items, []string{b.String(), bucketItem.Size.String(), fmt.Sprintf("%d", bucketItem.Count)})
+
+		totalSize += bucketItem.Size
+		totalCount += bucketItem.Count
+
+		if utils.AnyOf(b, db.StateTrie, db.ContractStorage, db.Class, db.ContractNonce, db.ContractDeploymentHeight) {
+			withoutHistorySize += bucketItem.Size
+			withHistorySize += bucketItem.Size
+
+			withoutHistoryCount += bucketItem.Count
+			withHistoryCount += bucketItem.Count
 		}
 
-		size := utils.DataSize(len(key) + len(val))
-		totalSize += size
-
-		bucket := db.Bucket(key[0])
-		if _, ok := buckets[bucket]; !ok {
-			buckets[bucket] = &item{}
-		}
-
-		buckets[bucket].add(size)
-		totalCount++
-
-		if totalCount%1000 == 0 && time.Since(logged) > 8*time.Second {
-			fmt.Println("Inspecting database", "count", totalCount, "size", totalSize.String(), "elapsed", time.Since(start).String())
-			logged = time.Now()
-		}
-	}
-
-	items := [][]string{}
-	for bucket, item := range buckets {
-		switch bucket {
-		case db.StateTrie:
-			items = append(items, []string{"StateTrie", item.getSize(), item.getCount()})
-		case db.Unused:
-			items = append(items, []string{"Unused", item.getSize(), item.getCount()})
-		case db.ContractClassHash:
-			items = append(items, []string{"ContractClassHash", item.getSize(), item.getCount()})
-		case db.ContractStorage:
-			items = append(items, []string{"ContractStorage", item.getSize(), item.getCount()})
-		case db.Class:
-			items = append(items, []string{"Class", item.getSize(), item.getCount()})
-		case db.ContractNonce:
-			items = append(items, []string{"ContractNonce", item.getSize(), item.getCount()})
-		case db.ChainHeight:
-			items = append(items, []string{"ChainHeight", item.getSize(), item.getCount()})
-		case db.BlockHeaderNumbersByHash:
-			items = append(items, []string{"BlockHeaderNumbersByHash", item.getSize(), item.getCount()})
-		case db.BlockHeadersByNumber:
-			items = append(items, []string{"BlockHeadersByNumber", item.getSize(), item.getCount()})
-		case db.TransactionBlockNumbersAndIndicesByHash:
-			items = append(items, []string{"TransactionBlockNumbersAndIndicesByHash", item.getSize(), item.getCount()})
-		case db.TransactionsByBlockNumberAndIndex:
-			items = append(items, []string{"TransactionsByBlockNumberAndIndex", item.getSize(), item.getCount()})
-		case db.ReceiptsByBlockNumberAndIndex:
-			items = append(items, []string{"ReceiptsByBlockNumberAndIndex", item.getSize(), item.getCount()})
-		case db.StateUpdatesByBlockNumber:
-			items = append(items, []string{"StateUpdatesByBlockNumber", item.getSize(), item.getCount()})
-		case db.ClassesTrie:
-			items = append(items, []string{"ClassesTrie", item.getSize(), item.getCount()})
-		case db.ContractStorageHistory:
-			items = append(items, []string{"ContractStorageHistory", item.getSize(), item.getCount()})
-		case db.ContractNonceHistory:
-			items = append(items, []string{"ContractNonceHistory", item.getSize(), item.getCount()})
-		case db.ContractClassHashHistory:
-			items = append(items, []string{"ContractClassHashHistory", item.getSize(), item.getCount()})
-		case db.ContractDeploymentHeight:
-			items = append(items, []string{"ContractDeploymentHeight", item.getSize(), item.getCount()})
-		case db.L1Height:
-			items = append(items, []string{"L1Height", item.getSize(), item.getCount()})
-		case db.SchemaVersion:
-			items = append(items, []string{"SchemaVersion", item.getSize(), item.getCount()})
-		case db.Pending:
-			items = append(items, []string{"Pending", item.getSize(), item.getCount()})
-		case db.BlockCommitments:
-			items = append(items, []string{"BlockCommitments", item.getSize(), item.getCount()})
-		case db.Temporary:
-			items = append(items, []string{"Temporary", item.getSize(), item.getCount()})
-		case db.SchemaIntermediateState:
-			items = append(items, []string{"SchemaIntermediateState", item.getSize(), item.getCount()})
-		case db.Peer:
-			items = append(items, []string{"Peer", item.getSize(), item.getCount()})
-		default:
-			items = append(items, []string{fmt.Sprintf("UnknownBucket(%d)", bucket), item.getSize(), item.getCount()})
+		if utils.AnyOf(b, db.ContractStorageHistory, db.ContractNonceHistory, db.ContractClassHashHistory) {
+			withHistorySize += bucketItem.Size
+			withHistoryCount += bucketItem.Count
 		}
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Bucket", "Size", "Count"})
-	table.SetFooter([]string{"Total", totalSize.String(), fmt.Sprintf("%d", totalCount)})
 	table.AppendBulk(items)
+	table.SetFooter([]string{"Total", totalSize.String(), fmt.Sprintf("%d", totalCount)})
 	table.Render()
+
+	tableState := tablewriter.NewWriter(os.Stdout)
+	tableState.SetHeader([]string{"State", "Size", "Count"})
+	tableState.Append([]string{"Without history", withoutHistorySize.String(), fmt.Sprintf("%d", withoutHistoryCount)})
+	tableState.Append([]string{"With history", withHistorySize.String(), fmt.Sprintf("%d", withHistoryCount)})
+	tableState.Render()
 
 	return nil
 }
@@ -250,22 +195,4 @@ func getNetwork(head *core.Block) string {
 	}
 
 	return "unknown"
-}
-
-type item struct {
-	count int
-	size  utils.DataSize
-}
-
-func (i *item) add(size utils.DataSize) {
-	i.count++
-	i.size += size
-}
-
-func (i *item) getSize() string {
-	return i.size.String()
-}
-
-func (i *item) getCount() string {
-	return fmt.Sprintf("%d", i.count)
 }

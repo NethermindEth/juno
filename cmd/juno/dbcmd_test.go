@@ -25,7 +25,7 @@ func TestDBCmd(t *testing.T) {
 	})
 
 	t.Run("inspect db when db contains block0", func(t *testing.T) {
-		cmd := juno.DBInspectCmd()
+		cmd := juno.DBSizeCmd()
 		executeCmdInDB(t, cmd)
 	})
 }
@@ -42,7 +42,7 @@ func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 	require.NoError(t, err)
 
 	dbPath := t.TempDir()
-	testDB, _ := pebble.New(dbPath, 8, 8, nil)
+	testDB, _ := pebble.New(dbPath)
 	chain := blockchain.New(testDB, &utils.Mainnet)
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 	testDB.Close()
