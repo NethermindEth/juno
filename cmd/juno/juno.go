@@ -358,7 +358,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	InitDBCommand()
 	junoCmd.AddCommand(GenP2PKeyPair(), dbCmd)
-	junoCmd.AddCommand(DBSize())
 
 	return junoCmd
 }
