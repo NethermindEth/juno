@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"time"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -106,6 +107,7 @@ type TransactionTrace struct {
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
+	Duration              *time.Duration      `json:"duration"`
 }
 
 func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
