@@ -2241,7 +2241,7 @@
         "type": "const"
       },
       "__main__.MyContract.XOR_COUNTERS_SELECTOR": {
-        "value": 2.110467368733643e+74,
+        "value": 211046736873364296151239729186038899848347343952293323847223056826502574523,
         "type": "const"
       },
       "__main__.MyContract.alloc": {
@@ -2479,7 +2479,7 @@
         "type": "namespace"
       },
       "__main__.TestContract.ADD_VALUE_SELECTOR": {
-        "value": 2.4411612835849817e+74,
+        "value": 244116128358498188146337218061232635775543270890529169229936851982759783745,
         "type": "const"
       },
       "__main__.TestContract.Args": {
@@ -2489,7 +2489,7 @@
         "type": "struct"
       },
       "__main__.TestContract.GET_VALUE_SELECTOR": {
-        "value": 1.0885146295340279e+75,
+        "value": 1088514629534027837943348492744869453336870381453867699032131389309368223152,
         "type": "const"
       },
       "__main__.TestContract.ImplicitArgs": {
@@ -2499,7 +2499,7 @@
         "type": "struct"
       },
       "__main__.TestContract.RECURSIVE_ADD_VALUE_SELECTOR": {
-        "value": 7.654053920263021e+74,
+        "value": 765405392026302060765493145401186690085677257617346482214524097030498511379,
         "type": "const"
       },
       "__main__.TestContract.Return": {
@@ -2509,7 +2509,7 @@
         "type": "struct"
       },
       "__main__.TestContract.SET_VALUE_SELECTOR": {
-        "value": 1.73780683489166e+75,
+        "value": 1737806834891659957988373423388711239891733974125793472992920296585311412419,
         "type": "const"
       },
       "__main__.TestContract.SIZEOF_LOCALS": {
@@ -2517,7 +2517,7 @@
         "type": "const"
       },
       "__main__.TestContract.TEST_CALL_WITH_ARRAY_SELECTOR": {
-        "value": 1.6915849605193468e+74,
+        "value": 169158496051934688234187956926971713028507353560320644280269082964139402353,
         "type": "const"
       },
       "__main__.TestContract.add_value": {
@@ -14017,7 +14017,7 @@
         "type": "const"
       },
       "starkware.cairo.common.bitwise.ALL_ONES": {
-        "value": -1.0671072950157357e+59,
+        "value": -106710729501573572985208420194530329073740042555888586719234,
         "type": "const"
       },
       "starkware.cairo.common.bitwise.BitwiseBuiltin": {
@@ -14427,7 +14427,7 @@
         "type": "struct"
       },
       "starkware.cairo.common.math.assert_250_bit.HIGH_BOUND": {
-        "value": 5.316911983139664e+36,
+        "value": 5316911983139663491615228241121378304,
         "type": "const"
       },
       "starkware.cairo.common.math.assert_250_bit.ImplicitArgs": {
@@ -14448,7 +14448,7 @@
         "type": "struct"
       },
       "starkware.cairo.common.math.assert_250_bit.SHIFT": {
-        "value": 3.402823669209385e+38,
+        "value": 340282366920938463463374607431768211456,
         "type": "const"
       },
       "starkware.cairo.common.math.assert_250_bit.SIZEOF_LOCALS": {
@@ -14456,7 +14456,7 @@
         "type": "const"
       },
       "starkware.cairo.common.math.assert_250_bit.UPPER_BOUND": {
-        "value": 1.8092513943330656e+75,
+        "value": 1809251394333065553493296640760748560207343510400633813116524750123642650624,
         "type": "const"
       },
       "starkware.cairo.common.math.assert_250_bit.__temp1": {
@@ -15296,7 +15296,7 @@
         "type": "reference"
       },
       "starkware.starknet.common.storage.ADDR_BOUND": {
-        "value": -1.0671072950157357e+59,
+        "value": -106710729501573572985208420194530329073740042555888586719489,
         "type": "const"
       },
       "starkware.starknet.common.storage.MAX_STORAGE_ITEM_SIZE": {
@@ -15520,7 +15520,7 @@
         "type": "reference"
       },
       "starkware.starknet.common.syscalls.CALL_CONTRACT_SELECTOR": {
-        "value": 2.0853273475220474e+28,
+        "value": 20853273475220472486191784820,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.CallContract": {
@@ -15581,7 +15581,7 @@
         "type": "struct"
       },
       "starkware.starknet.common.syscalls.DELEGATE_CALL_SELECTOR": {
-        "value": 2.1167594061783206e+28,
+        "value": 21167594061783206823196716140,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.DictAccess": {
@@ -15589,19 +15589,19 @@
         "type": "alias"
       },
       "starkware.starknet.common.syscalls.GET_CALLER_ADDRESS_SELECTOR": {
-        "value": 9.490196778139308e+37,
+        "value": 94901967781393078444254803017658102643,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.GET_CONTRACT_ADDRESS_SELECTOR": {
-        "value": 6.219495360805491e+42,
+        "value": 6219495360805491471215297013070624192820083,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.GET_SEQUENCER_ADDRESS_SELECTOR": {
-        "value": 1.5921908335819916e+45,
+        "value": 1592190833581991703053805829594610833820054387,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.GET_TX_SIGNATURE_SELECTOR": {
-        "value": 1.44808912865234e+33,
+        "value": 1448089128652340074717162277007973,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.GetCallerAddress": {
@@ -15757,15 +15757,15 @@
         "type": "struct"
       },
       "starkware.starknet.common.syscalls.SEND_MESSAGE_TO_L1_SELECTOR": {
-        "value": 4.3301790876830345e+35,
+        "value": 433017908768303439907196859243777073,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.STORAGE_READ_SELECTOR": {
-        "value": 1.0089069337060175e+26,
+        "value": 100890693370601760042082660,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.STORAGE_WRITE_SELECTOR": {
-        "value": 2.582801750287405e+28,
+        "value": 25828017502874050592466629733,
         "type": "const"
       },
       "starkware.starknet.common.syscalls.SendMessageToL1SysCall": {

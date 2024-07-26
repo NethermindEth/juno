@@ -1,0 +1,26 @@
+{
+  "execution_status": "SUCCEEDED",
+  "finality_status": "ACCEPTED_ON_L1",
+  "status": "ACCEPTED_ON_L1",
+  "block_hash": "0x402da3c006558fa241c0e1c4c5154f2b18eb1d52091afd3fdfc026ab64eb0b5",
+  "block_number": 60004,
+  "transaction_index": 3,
+  "transaction": {
+    "transaction_hash": "0x2f1ebaeae4cecb1bda1f2e98ff75152c39afe2a71652f3f404e8f1fe21a7e93",
+    "version": "0x1",
+    "max_fee": "0x2865a35b6642",
+    "signature": [
+      "0x27451728425e8d2ad924cab10a8a5c052682549e5d660e9b9bde85c87a11d85",
+      "0x34ca83ac537208e87e9e02ae63c46a599d80ef3b080a88dbfe58abdd5039307"
+    ],
+    "nonce": "0x0",
+    "contract_address": "0x588c097b051bbba1f3a29318cf93e29474b05f880f601283d4c813d0057f8fe",
+    "contract_address_salt": "0x52a760d516f0b5aa0875d018c5331401e5101d97f6ec578071fb9e98df77b86",
+    "class_hash": "0x29927c8af6bccf3f6fda035981e765a7bdbf18a2dc0d630494f8758aa908e2b",
+    "constructor_calldata": [
+      "0x52a760d516f0b5aa0875d018c5331401e5101d97f6ec578071fb9e98df77b86",
+      "0x0"
+    ],
+    "type": "DEPLOY_ACCOUNT"
+  }
+}

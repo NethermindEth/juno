@@ -1,0 +1,21 @@
+{
+  "execution_status": "SUCCEEDED",
+  "finality_status": "ACCEPTED_ON_L1",
+  "status": "ACCEPTED_ON_L1",
+  "block_hash": "0xb3ca92727a5dd92157884c0f759e8dc36c6797a00a66a65307f58f7490f42b",
+  "block_number": 44266,
+  "transaction_index": 8,
+  "transaction": {
+    "transaction_hash": "0x1e36b82b3f24251e9ed8e693d5830c64790238a22ec7e46655083231d222df",
+    "version": "0x1",
+    "max_fee": "0x3c7ecb3ed13c00",
+    "signature": [
+      "0x4bd022ad8f795f651008786e01f5d33e4c93c5453717e5885c36072ccb87ef5",
+      "0x6ebc4d2b5ac856fbfaa897435a747c00791f81be51220129e93ba486ba9947f"
+    ],
+    "nonce": "0x9",
+    "class_hash": "0x3ae2f9b340e70e3c6ae2101715ccde645f3766283bd3bfade4b5ce7cd7dc9c6",
+    "sender_address": "0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+    "type": "DECLARE"
+  }
+}
