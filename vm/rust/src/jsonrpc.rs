@@ -1,20 +1,19 @@
 use blockifier;
-use blockifier::execution::entry_point::CallType;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME,
-    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
-    SEGMENT_ARENA_BUILTIN_NAME,
-};
-use blockifier::state::cached_state::TransactionalState;
+use blockifier::execution::entry_point::CallType;
+use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::{State, StateReader};
+use blockifier::state::state_api::StateReader;
+use cairo_vm::types::builtin_name::BuiltinName;
 use serde::Serialize;
-use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, PatriciaKey, EthAddress};
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
+use starknet_types_core::felt::Felt;
+
+type StarkFelt = Felt;
 
 use crate::juno_state_reader::JunoStateReader;
 
@@ -22,7 +21,8 @@ use crate::juno_state_reader::JunoStateReader;
 #[serde(rename_all = "UPPERCASE")]
 pub enum TransactionType {
     // dummy type for implementing Default trait
-    #[default] Unknown,
+    #[default]
+    Unknown,
     Invoke,
     Declare,
     #[serde(rename = "DEPLOY_ACCOUNT")]
@@ -104,10 +104,10 @@ type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionIn
 pub fn new_transaction_trace(
     tx: &StarknetApiTransaction,
     info: BlockifierTxInfo,
-    state: &mut TransactionalState<JunoStateReader>,
+    state: &mut TransactionalState<CachedState<JunoStateReader>>,
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
-    let mut deprecated_declared_class: Option<ClassHash> = None;
+    let mut deprecated_declared_class_hash: Option<ClassHash> = None;
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             trace.function_invocation = info.execute_call_info.map(|v| v.into());
@@ -134,7 +134,7 @@ pub fn new_transaction_trace(
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
             trace.r#type = TransactionType::Declare;
-            deprecated_declared_class = if info.revert_error.is_none() {
+            deprecated_declared_class_hash = if info.revert_error.is_none() {
                 match declare_txn {
                     DeclareTransaction::V0(_) => Some(declare_txn.class_hash()),
                     DeclareTransaction::V1(_) => Some(declare_txn.class_hash()),
@@ -150,7 +150,7 @@ pub fn new_transaction_trace(
         }
     };
 
-    trace.state_diff = make_state_diff(state, deprecated_declared_class)?;
+    trace.state_diff = make_state_diff(state, deprecated_declared_class_hash)?;
     Ok(trace)
 }
 
@@ -205,14 +205,38 @@ impl From<VmExecutionResources> for ExecutionResources {
             } else {
                 None
             },
-            range_check_builtin_applications: val.builtin_instance_counter.get(RANGE_CHECK_BUILTIN_NAME).cloned(),
-            pedersen_builtin_applications: val.builtin_instance_counter.get(HASH_BUILTIN_NAME).cloned(),
-            poseidon_builtin_applications: val.builtin_instance_counter.get(POSEIDON_BUILTIN_NAME).cloned(),
-            ec_op_builtin_applications: val.builtin_instance_counter.get(EC_OP_BUILTIN_NAME).cloned(),
-            ecdsa_builtin_applications: val.builtin_instance_counter.get(SIGNATURE_BUILTIN_NAME).cloned(),
-            bitwise_builtin_applications: val.builtin_instance_counter.get(BITWISE_BUILTIN_NAME).cloned(),
-            keccak_builtin_applications: val.builtin_instance_counter.get(KECCAK_BUILTIN_NAME).cloned(),
-            segment_arena_builtin: val.builtin_instance_counter.get(SEGMENT_ARENA_BUILTIN_NAME).cloned(),
+            range_check_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::range_check)
+                .cloned(),
+            pedersen_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::pedersen)
+                .cloned(),
+            poseidon_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::poseidon)
+                .cloned(),
+            ec_op_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::ec_op)
+                .cloned(),
+            ecdsa_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::ecdsa)
+                .cloned(),
+            bitwise_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::bitwise)
+                .cloned(),
+            keccak_builtin_applications: val
+                .builtin_instance_counter
+                .get(&BuiltinName::keccak)
+                .cloned(),
+            segment_arena_builtin: val
+                .builtin_instance_counter
+                .get(&BuiltinName::segment_arena)
+                .cloned(),
         }
     }
 }
@@ -298,33 +322,35 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 pub struct Retdata(pub Vec<StarkFelt>);
 
 fn make_state_diff(
-    state: &mut TransactionalState<JunoStateReader>,
-    deprecated_declared_class: Option<ClassHash>,
+    state: &mut TransactionalState<CachedState<JunoStateReader>>,
+    deprecated_declared_class_hash: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
-    let diff = state.to_state_diff();
+    let diff: CommitmentStateDiff = state.to_state_diff()?.into();
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 
-    for pair in diff.address_to_class_hash {
-        let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
+    for (addr, class_hash) in diff.address_to_class_hash {
+        let existing_class_hash = state.state.get_class_hash_at(addr)?;
+        let addr: StarkFelt = addr.into();
+
         if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
-                address: *pair.0.0.key(),
-                class_hash: pair.1.0,
+                address: addr,
+                class_hash: class_hash.0,
             });
         } else {
             #[rustfmt::skip]
             replaced_classes.push(ReplacedClass {
-                contract_address: *pair.0.0.key(),
-                class_hash: pair.1.0,
+                contract_address: addr,
+                class_hash: class_hash.0,
             });
         }
     }
 
-    let mut deprecated_declared_classes = Vec::default();
-    if let Some(v) = deprecated_declared_class {
-        deprecated_declared_classes.push(v.0)
+    let mut deprecated_declared_class_hashes = Vec::default();
+    if let Some(v) = deprecated_declared_class_hash {
+        deprecated_declared_class_hashes.push(v.0)
     }
     Ok(StateDiff {
         deployed_contracts,
@@ -341,7 +367,7 @@ fn make_state_diff(
             class_hash: v.0.0,
             compiled_class_hash: v.1.0,
         }).collect(),
-        deprecated_declared_classes,
+        deprecated_declared_classes: deprecated_declared_class_hashes,
         #[rustfmt::skip]
         nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
           contract_address: *v.0.0.key(),
