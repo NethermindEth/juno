@@ -174,8 +174,6 @@ const (
 
 var Version string
 
-var defaultDBPath = getDefaultDBPath()
-
 func main() {
 	if _, err := maxprocs.Set(); err != nil {
 		fmt.Printf("error: set maxprocs: %v", err)
@@ -292,6 +290,15 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		return nil
 	}
 
+	var defaultDBPath string
+	defaultDBPath, cwdErr = os.Getwd()
+	// Use empty string if we can't get the working directory.
+	// We don't want to return an error here since that would make `--help` fail.
+	// If the error is non-nil and a db path is not provided by the user, we'll return it in PreRunE.
+	if cwdErr == nil {
+		defaultDBPath = filepath.Join(defaultDBPath, "juno")
+	}
+
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
@@ -307,7 +314,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
 	junoCmd.Flags().String(wsHostF, defaulHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
-	junoCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
+	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
 	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
 	junoCmd.Flags().String(cnFeederURLF, defaultCNFeederURL, networkCustomFeederUsage)
