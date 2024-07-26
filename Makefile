@@ -20,6 +20,12 @@ juno: rustdeps ## compile
 	@mkdir -p build
 	@go build $(GO_TAGS) -a -ldflags='-X main.Version=$(shell git describe --tags), -extldflags "-lpthread -lstdc++ -lz -lncurses"' -o build/juno ./cmd/juno/
 
+juno-tracing:
+	@$(MAKE) VM_TARGET=tracing vm
+	@$(MAKE) VM_TARGET=all core-rust compiler
+	@mkdir -p build
+	@go build $(GO_TAGS) -a -ldflags='-X main.Version=$(shell git describe --tags), -extldflags "-lpthread -lstdc++ -lz -lncurses"' -o build/juno ./cmd/juno/
+
 juno-cached:
 	@mkdir -p build
 	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/

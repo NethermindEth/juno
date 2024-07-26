@@ -1,6 +1,9 @@
 all:
 	cargo build --release
 
+tracing:
+	cargo build --release --features tracing
+
 debug:
 	cargo build
 

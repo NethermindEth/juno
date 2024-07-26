@@ -1,3 +1,6 @@
+#[cfg(feature = "tracing")]
+use std::time::Duration;
+
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
@@ -46,6 +49,9 @@ pub struct TransactionTrace {
     function_invocation: Option<FunctionInvocation>,
     r#type: TransactionType,
     state_diff: StateDiff,
+    #[cfg(feature = "tracing")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    duration: Option<u64>,
 }
 
 #[derive(Serialize, Default)]
@@ -109,6 +115,12 @@ pub fn new_transaction_trace(
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
     let mut deprecated_declared_class: Option<ClassHash> = None;
+
+    #[cfg(feature = "tracing")]
+    {
+        trace.duration = info.duration.as_secs();
+    }
+
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             trace.function_invocation = info.execute_call_info.map(|v| v.into());
