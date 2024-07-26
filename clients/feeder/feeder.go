@@ -2,13 +2,13 @@ package feeder
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,10 +18,14 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
+var (
+	//go:embed testdata
+	testData embed.FS
+
+	ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
+)
 
 type Backoff func(wait time.Duration) time.Duration
 
@@ -128,10 +132,6 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
 		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
-		wd, err := os.Getwd()
-		require.NoError(t, err)
-
-		base := wd[:strings.LastIndex(wd, "juno")+4]
 		queryArg := ""
 		dir := ""
 		const blockNumberArg = "blockNumber"
@@ -173,8 +173,7 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 			return
 		}
 
-		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
-		read, err := os.ReadFile(path)
+		read, err := testData.ReadFile(filepath.Join("testdata", network.String(), dir, fileName[0]+".json"))
 		if err != nil {
 			handleNotFound(dir, queryArg, w)
 			return
