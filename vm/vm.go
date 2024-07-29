@@ -315,7 +315,10 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshal trace: %v", err)
 		}
-		//
+	}
+
+	for index, trace := range traces {
+		v.log.Debugw("Trace", "trace index", index, "trace", trace)
 	}
 
 	return context.actualFees, context.dataGasConsumed, traces, nil
