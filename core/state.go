@@ -404,11 +404,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	for _, key := range keys {
 		contractAddr := key
 		contractUpdaters.Go(func() (*db.BufferedTransactionWithAddress, error) {
-			result, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
-			if err != nil {
-				return nil, err
-			}
-			return result, nil
+			return s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
 		})
 	}
 
