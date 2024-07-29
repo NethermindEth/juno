@@ -403,9 +403,8 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	contractUpdaters := pool.NewWithResults[*db.BufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
 		contractAddr := key
-		updateDiff := diffs[contractAddr]
 		contractUpdaters.Go(func() (*db.BufferedTransactionWithAddress, error) {
-			result, err := s.updateStorageBuffered(&contractAddr, updateDiff, blockNumber, logChanges)
+			result, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
 			if err != nil {
 				return nil, err
 			}
