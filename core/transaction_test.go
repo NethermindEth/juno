@@ -350,3 +350,20 @@ func TestDeclareV0TransactionHash(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedHash, got)
 }
+
+func TestTransactionCommitmentPoseidon(t *testing.T) {
+	data := txData{
+		hash: new(felt.Felt).SetUint64(1),
+		signatures: []*felt.Felt{
+			new(felt.Felt).SetUint64(2),
+			new(felt.Felt).SetUint64(3),
+		},
+	}
+	transactions := []core.Transaction{data, data}
+
+	h, err := core.TransactionCommitmentPoseidon(transactions)
+	require.NoError(t, err)
+
+	expected := utils.HexToFelt(t, "0x0282b635972328bd1cfa86496fe920d20bd9440cd78ee8dc90ae2b383d664dcf")
+	assert.Equal(t, expected, h)
+}

@@ -170,7 +170,7 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 }
 
 //nolint:unused
-func newBlockHash(b *Block) (*felt.Felt, error) {
+func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*felt.Felt, error) {
 	seqAddr := b.SequencerAddress
 	// todo override support?
 
@@ -179,7 +179,7 @@ func newBlockHash(b *Block) (*felt.Felt, error) {
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
+		txCommitment, tErr = TransactionCommitmentPoseidon(b.Transactions)
 	})
 	wg.Go(func() {
 		eCommitment, eErr = eventCommitment(b.Receipts)
@@ -199,8 +199,7 @@ func newBlockHash(b *Block) (*felt.Felt, error) {
 		return nil, rErr
 	}
 
-	// todo pass correct stateDiffLen
-	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, 0, b.L1DAMode)
+	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, stateDiffLen, b.L1DAMode)
 
 	return crypto.PoseidonArray(
 		new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
@@ -209,7 +208,7 @@ func newBlockHash(b *Block) (*felt.Felt, error) {
 		seqAddr,                               // sequencer address
 		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 		concatCounts,
-		&felt.Zero,     // todo state_diff_hash
+		stateDiffHash,
 		txCommitment,   // transaction commitment
 		eCommitment,    // event commitment
 		rCommitment,    // receipt commitment

@@ -664,6 +664,28 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 	})
 }
 
+func TransactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
+	var commitment *felt.Felt
+	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
+		for i, transaction := range transactions {
+			hashElems := []*felt.Felt{transaction.Hash()}
+			// todo handle empty signature
+			hashElems = append(hashElems, transaction.Signature()...)
+			hash := crypto.PoseidonArray(hashElems...)
+
+			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), hash); err != nil {
+				return err
+			}
+		}
+		root, err := trie.Root()
+		if err != nil {
+			return err
+		}
+		commitment = root
+		return nil
+	})
+}
+
 // ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
 func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	if protocolVersion == "" {

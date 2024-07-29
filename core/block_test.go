@@ -2,7 +2,9 @@ package core_test
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -244,6 +246,79 @@ func TestBlockHash(t *testing.T) {
 	})
 }
 
+type txData struct {
+	hash       *felt.Felt
+	version    *core.TransactionVersion
+	signatures []*felt.Felt
+}
+
+func (t txData) Hash() *felt.Felt {
+	return t.hash
+}
+
+func (t txData) Signature() []*felt.Felt {
+	return t.signatures
+}
+
+func (t txData) TxVersion() *core.TransactionVersion {
+	return t.version
+}
+
+func TestPost0132Hash(t *testing.T) {
+	txHash := new(felt.Felt).SetUint64(1)
+
+	block := &core.Block{
+		Header: &core.Header{
+			Number:           1,
+			GlobalStateRoot:  new(felt.Felt).SetUint64(2),
+			SequencerAddress: new(felt.Felt).SetUint64(3),
+			Timestamp:        4,
+			L1DAMode:         core.Blob,
+			ProtocolVersion:  "10",
+			GasPrice:         new(felt.Felt).SetUint64(7),
+			GasPriceSTRK:     new(felt.Felt).SetUint64(6),
+			L1DataGasPrice: &core.GasPrice{
+				PriceInFri: new(felt.Felt).SetUint64(10),
+				PriceInWei: new(felt.Felt).SetUint64(9),
+			},
+			ParentHash:       new(felt.Felt).SetUint64(11),
+			TransactionCount: 1,
+			EventCount:       0,
+		},
+		Transactions: []core.Transaction{
+			txData{
+				hash: txHash,
+				signatures: []*felt.Felt{
+					new(felt.Felt).SetUint64(2),
+					new(felt.Felt).SetUint64(3),
+				},
+			},
+		},
+		Receipts: []*core.TransactionReceipt{
+			{
+				Fee: new(felt.Felt).SetUint64(99804),
+				L2ToL1Message: []*core.L2ToL1Message{
+					createL2ToL1Message(34),
+					createL2ToL1Message(56),
+				},
+				TransactionHash: txHash,
+				Reverted:        true,
+				RevertReason:    "aborted",
+				TotalGasConsumed: &core.GasConsumed{
+					L1Gas:     16580,
+					L1DataGas: 32,
+				},
+			},
+		},
+	}
+
+	h, err := core.Post0132Hash(block, 10, utils.HexToFelt(t, "0x281f5966e49ad7dad9323826d53d1d27c0c4e6ebe5525e2e2fbca549bfa0a67"))
+	require.NoError(t, err)
+
+	expected := utils.HexToFelt(t, "0x061e4998d51a248f1d0288d7e17f6287757b0e5e6c5e1e58ddf740616e312134")
+	assert.Equal(t, expected, h)
+}
+
 func TestBlockHashP2P(t *testing.T) {
 	mainnetGW := adaptfeeder.New(feeder.NewTestClient(t, &utils.Mainnet))
 
@@ -263,4 +338,18 @@ func TestConcatCounts(t *testing.T) {
 	expected := utils.HexToFelt(t, "0x0000000000000004000000000000000300000000000000028000000000000000")
 
 	assert.Equal(t, expected, result)
+}
+
+func createL2ToL1Message(seed uint64) *core.L2ToL1Message {
+	addrBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(addrBytes, seed+1)
+
+	return &core.L2ToL1Message{
+		From: new(felt.Felt).SetUint64(seed),
+		To:   common.BytesToAddress(addrBytes),
+		Payload: []*felt.Felt{
+			new(felt.Felt).SetUint64(seed + 2),
+			new(felt.Felt).SetUint64(seed + 3),
+		},
+	}
 }
