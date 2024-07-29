@@ -2,8 +2,6 @@ package db
 
 import (
 	"errors"
-
-	"github.com/NethermindEth/juno/core/felt"
 )
 
 // BufferedTransaction buffers the updates in the memory to be later flushed to the underlying Transaction
@@ -12,22 +10,10 @@ type BufferedTransaction struct {
 	txn     Transaction
 }
 
-type BufferedTransactionWithAddress struct {
-	Txn     *BufferedTransaction
-	Address *felt.Felt
-}
-
 func NewBufferedTransaction(txn Transaction) *BufferedTransaction {
 	return &BufferedTransaction{
 		txn:     txn,
 		updates: make(map[string][]byte),
-	}
-}
-
-func NewBufferedTransactionWithAddress(txn *BufferedTransaction, address *felt.Felt) *BufferedTransactionWithAddress {
-	return &BufferedTransactionWithAddress{
-		Txn:     txn,
-		Address: address,
 	}
 }
 

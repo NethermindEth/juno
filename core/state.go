@@ -341,14 +341,14 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
-	*db.BufferedTransactionWithAddress, error,
+	*db.BufferedTransaction, *felt.Felt, error,
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
 	bufferedTxn := db.NewBufferedTransaction(s.txn)
 	bufferedState := NewState(bufferedTxn)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	onValueChanged := func(location, oldValue *felt.Felt) error {
@@ -359,10 +359,10 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 	}
 
 	if err = bufferedContract.UpdateStorage(updateDiff, onValueChanged); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return db.NewBufferedTransactionWithAddress(bufferedTxn, contractAddr), nil
+	return bufferedTxn, contractAddr, nil
 }
 
 // updateContractStorage applies the diff set to the Trie of the
@@ -370,6 +370,11 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
 	blockNumber uint64, logChanges bool,
 ) error {
+	type BufferedTransactionWithAddress struct {
+		Txn     *db.BufferedTransaction
+		Address *felt.Felt
+	}
+
 	// make sure all noClassContracts are deployed
 	for addr := range diffs {
 		if _, ok := noClassContracts[addr]; !ok {
@@ -400,11 +405,16 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	})
 
 	// update per-contract storage Tries concurrently
-	contractUpdaters := pool.NewWithResults[*db.BufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	// contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	contractUpdaters := pool.NewWithResults[*BufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
 		contractAddr := key
-		contractUpdaters.Go(func() (*db.BufferedTransactionWithAddress, error) {
-			return s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
+		contractUpdaters.Go(func() (*BufferedTransactionWithAddress, error) {
+			bufferedTxn, addr, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
+			if err != nil {
+				return nil, err
+			}
+			return &BufferedTransactionWithAddress{Txn: bufferedTxn, Address: addr}, nil
 		})
 	}
 
@@ -419,7 +429,10 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// flush buffered txns
 	for _, bufferedTxnsSlice := range bufferedTxns {
-		bufferedTxnsSlice.Txn.Flush()
+		err := bufferedTxnsSlice.Txn.Flush()
+		if err != nil {
+			return err
+		}
 	}
 
 	for addr := range diffs {
