@@ -50,6 +50,41 @@ func (d *StateDiff) Length() uint64 {
 	return uint64(length)
 }
 
+func (d *StateDiff) Hash() *felt.Felt {
+	prefixHash, err := new(felt.Felt).SetString("STARKNET_STATE_DIFF0")
+	if err != nil {
+		// shouldn't happen
+		panic(err)
+	}
+
+	hashElems := []*felt.Felt{prefixHash}
+
+	// updated contracts
+	numOfUpdatedContracts := len(d.DeployedContracts) + len(d.ReplacedClasses)
+	hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(numOfUpdatedContracts)))
+	// todo sort
+	for addr, classHash := range d.DeployedContracts {
+		hashElems = append(hashElems, &addr, classHash)
+	}
+	// todo sort
+	for addr, classHash := range d.ReplacedClasses {
+		hashElems = append(hashElems, &addr, classHash)
+	}
+
+	// declared classes
+	numOfDeclaredClasses := len(d.DeclaredV1Classes)
+	hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(numOfDeclaredClasses)))
+	for classHash, compiledClasshash := range d.DeclaredV1Classes {
+		hashElems = append(hashElems, &classHash, compiledClasshash)
+	}
+
+	/*Poseidon(
+	    "STARKNET_STATE_DIFF0", deployed_contracts, declared_classes, deprecated_declared_classes,
+	    1, 0, storage_diffs, nonces
+	)*/
+	return crypto.PoseidonArray(hashElems...)
+}
+
 func (d *StateDiff) Commitment() *felt.Felt {
 	version := felt.Zero
 	var tmpFelt felt.Felt

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/Masterminds/semver/v3"
 	"slices"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -101,6 +102,13 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 	if metaInfo.FallBackSequencerAddress != nil {
 		fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
 	}
+
+	blockVer, err := ParseBlockVersion(b.ProtocolVersion)
+	if err != nil {
+		return nil, err
+	}
+	v0_13_2 := semver.MustParse("0.13.2")
+
 	for _, fallbackSeq := range fallbackSeqAddresses {
 		var overrideSeq *felt.Felt
 		if b.SequencerAddress == nil {
@@ -112,11 +120,10 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 			commitments *BlockCommitments
 			err         error
 		)
-
-		if b.ProtocolVersion == "0.13.2" {
-			hash, commitments, err = Post0132Hash(b, stateDiff.Length(), stateDiff.Commitment())
-		} else {
+		if blockVer.LessThan(v0_13_2) {
 			hash, commitments, err = blockHash(b, network, overrideSeq)
+		} else {
+			hash, commitments, err = Post0132Hash(b, stateDiff.Length(), stateDiff.Commitment())
 		}
 		if err != nil {
 			return nil, err
