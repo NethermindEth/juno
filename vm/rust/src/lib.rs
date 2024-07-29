@@ -13,12 +13,13 @@ use std::{
     sync::Arc,
 };
 
+use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
 use blockifier::blockifier::block::{
     pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
 };
-use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
-use blockifier::state::global_cache::GlobalContractCache;
 use blockifier::bouncer::BouncerConfig;
+use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::transaction::objects::GasVector;
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
     execution::{
@@ -42,13 +43,13 @@ use serde::Deserialize;
 use starknet_api::{
     block::BlockHash,
     core::PatriciaKey,
-    transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash},
+    deprecated_contract_class::EntryPointType,
+    transaction::{Calldata, Fee, Transaction as StarknetApiTransaction, TransactionHash},
 };
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
 };
-use starknet_api::{deprecated_contract_class::EntryPointType, transaction::Fee};
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 
@@ -275,13 +276,17 @@ pub extern "C" fn cairoVMExecute(
 
         let mut txn_state = CachedState::create_transactional(&mut state);
         let fee_type;
+        let minimal_l1_gas_amount_vector: Option<GasVector>;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
+                minimal_l1_gas_amount_vector =
+                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
                 fee_type = t.fee_type();
+                minimal_l1_gas_amount_vector = None;
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
@@ -318,7 +323,27 @@ pub extern "C" fn cairoVMExecute(
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
-                    // t.transaction_receipt.fee = calculate_tx_fee(t.transaction_receipt.resources, &block_context, &fee_type).unwrap();
+                    let minimal_l1_gas_amount_vector =
+                        minimal_l1_gas_amount_vector.unwrap_or_default();
+                    let gas_consumed = t
+                        .transaction_receipt
+                        .gas
+                        .l1_gas
+                        .max(minimal_l1_gas_amount_vector.l1_gas);
+                    let data_gas_consumed = t
+                        .transaction_receipt
+                        .gas
+                        .l1_data_gas
+                        .max(minimal_l1_gas_amount_vector.l1_data_gas);
+
+                    t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                        block_context.block_info(),
+                        GasVector {
+                            l1_data_gas: data_gas_consumed,
+                            l1_gas: gas_consumed,
+                        },
+                        &fee_type,
+                    )
                 }
 
                 let actual_fee = t.transaction_receipt.fee.0.into();
@@ -418,7 +443,7 @@ fn build_block_context(
     block_info: &BlockInfo,
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
-    concurrency_mode: bool,
+    _concurrency_mode: bool,
 ) -> BlockContext {
     let sequencer_addr = StarkFelt::from_bytes_be(&block_info.sequencer_address);
     let gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.gas_price_wei);
@@ -431,7 +456,9 @@ fn build_block_context(
     // STORED_BLOCK_HASH_BUFFER const is 10 for now
     if block_info.block_number >= STORED_BLOCK_HASH_BUFFER {
         old_block_number_and_hash = Some(BlockNumberHashPair {
-            number: starknet_api::block::BlockNumber(block_info.block_number - STORED_BLOCK_HASH_BUFFER),
+            number: starknet_api::block::BlockNumber(
+                block_info.block_number - STORED_BLOCK_HASH_BUFFER,
+            ),
             hash: BlockHash(StarkFelt::from_bytes_be(
                 &block_info.block_hash_to_be_revealed,
             )),
@@ -479,7 +506,7 @@ fn build_block_context(
         },
     };
 
-    pre_process_block(state, old_block_number_and_hash, block_info.block_number.next().unwrap()).unwrap();
+    pre_process_block(state, old_block_number_and_hash, block_info.block_number).unwrap();
     BlockContext::new(block_info, chain_info, constants, BouncerConfig::max())
 }
 
@@ -514,6 +541,8 @@ fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
         CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
     } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str(&"0.13.2").unwrap() {
+        CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
     }

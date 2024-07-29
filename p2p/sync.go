@@ -656,6 +656,7 @@ func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID)
 	}
 	stream, err := s.host.NewStream(ctx, randPeer, pids...)
 	if err != nil {
+		s.log.Debugw("Error creating stream", "peer", randPeer, "err", err)
 		s.removePeer(randPeer)
 		return nil, err
 	}
