@@ -24,3 +24,4 @@ format:
 
 install-rustfmt:
 	cargo install rustfmt
+
