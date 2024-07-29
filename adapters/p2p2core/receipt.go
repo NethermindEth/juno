@@ -34,6 +34,7 @@ func AdaptReceipt(r *spec.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
 		TransactionHash:    txHash,
 		Reverted:           common.RevertReason != nil, // todo is it correct?
 		RevertReason:       common.GetRevertReason(),
+		TotalGasConsumed:   nil, // todo(kirill) set field after spec update
 	}
 }
 
@@ -52,7 +53,7 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 			Keccak:       uint64(er.GetBuiltins().GetKeccak()),
 			Poseidon:     uint64(er.GetBuiltins().GetPoseidon()),
 			SegmentArena: 0, // todo(kirill) recheck
-			// todo(kirill) update spec for 0.13.2
+			// todo(kirill) set fields after spec update
 			AddMod:       0,
 			MulMod:       0,
 			RangeCheck96: 0,

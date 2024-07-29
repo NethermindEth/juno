@@ -2,12 +2,13 @@ package core
 
 import (
 	"encoding/binary"
+	"testing"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestReceiptHash(t *testing.T) {

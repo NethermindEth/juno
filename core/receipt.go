@@ -27,12 +27,7 @@ type TransactionReceipt struct {
 func (r *TransactionReceipt) Hash() (*felt.Felt, error) {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {
-		// todo remove error because it's unneccessary
-		var err error
-		revertReasonHash, err = crypto.StarknetKeccak([]byte(r.RevertReason))
-		if err != nil {
-			return nil, err
-		}
+		revertReasonHash = crypto.StarknetKeccak([]byte(r.RevertReason))
 	}
 
 	var totalGasConsumed GasConsumed
