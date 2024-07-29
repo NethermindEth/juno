@@ -72,7 +72,7 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error) {
+func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
@@ -107,7 +107,17 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 			overrideSeq = fallbackSeq
 		}
 
-		hash, commitments, err := blockHash(b, network, overrideSeq)
+		var (
+			hash        *felt.Felt
+			commitments *BlockCommitments
+			err         error
+		)
+
+		if b.ProtocolVersion == "0.13.2" {
+			hash, commitments, err = Post0132Hash(b, stateDiff.Length(), stateDiff.Commitment())
+		} else {
+			hash, commitments, err = blockHash(b, network, overrideSeq)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +180,7 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 }
 
 //nolint:unused
-func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*felt.Felt, error) {
+func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	// todo override support?
 
@@ -182,44 +192,49 @@ func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*fel
 		txCommitment, tErr = TransactionCommitmentPoseidon(b.Transactions)
 	})
 	wg.Go(func() {
-		eCommitment, eErr = eventCommitment(b.Receipts)
+		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts)
 	})
 	wg.Go(func() {
 		rCommitment, rErr = receiptCommitment(b.Receipts)
 	})
 	wg.Wait()
 
+	fmt.Println("Commitments", txCommitment, eCommitment, rCommitment, stateDiffLen, stateDiffHash)
+
 	if tErr != nil {
-		return nil, tErr
+		return nil, nil, tErr
 	}
 	if eErr != nil {
-		return nil, eErr
+		return nil, nil, eErr
 	}
 	if rErr != nil {
-		return nil, rErr
+		return nil, nil, rErr
 	}
 
 	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, stateDiffLen, b.L1DAMode)
 
 	return crypto.PoseidonArray(
-		new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
-		new(felt.Felt).SetUint64(b.Number),    // block number
-		b.GlobalStateRoot,                     // global state root
-		seqAddr,                               // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-		concatCounts,
-		stateDiffHash,
-		txCommitment,   // transaction commitment
-		eCommitment,    // event commitment
-		rCommitment,    // receipt commitment
-		b.GasPrice,     // gas price in wei
-		b.GasPriceSTRK, // gas price in fri
-		b.L1DataGasPrice.PriceInWei,
-		b.L1DataGasPrice.PriceInFri,
-		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-		&felt.Zero,   // reserved: extra data
-		b.ParentHash, // parent block hash
-	), nil
+			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
+			new(felt.Felt).SetUint64(b.Number),    // block number
+			b.GlobalStateRoot,                     // global state root
+			seqAddr,                               // sequencer address
+			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+			concatCounts,
+			stateDiffHash,
+			txCommitment,   // transaction commitment
+			eCommitment,    // event commitment
+			rCommitment,    // receipt commitment
+			b.GasPrice,     // gas price in wei
+			b.GasPriceSTRK, // gas price in fri
+			b.L1DataGasPrice.PriceInWei,
+			b.L1DataGasPrice.PriceInFri,
+			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+			&felt.Zero,   // reserved: extra data
+			b.ParentHash, // parent block hash
+		), &BlockCommitments{
+			TransactionCommitment: txCommitment,
+			EventCommitment:       eCommitment,
+		}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0

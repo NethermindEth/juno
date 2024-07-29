@@ -450,7 +450,7 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 		}
 
 		workerPool.Go(func() error {
-			commitments, err := core.VerifyBlockHash(block, network)
+			commitments, err := core.VerifyBlockHash(block, network, nil)
 			if err != nil {
 				return err
 			}

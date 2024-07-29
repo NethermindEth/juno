@@ -34,7 +34,6 @@ func AdaptReceipt(r *spec.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
 		TransactionHash:    txHash,
 		Reverted:           common.RevertReason != nil, // todo is it correct?
 		RevertReason:       common.GetRevertReason(),
-		TotalGasConsumed:   nil, // todo(kirill) set field after spec update
 	}
 }
 
@@ -61,6 +60,7 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 		DataAvailability: nil, // todo(kirill) recheck
 		MemoryHoles:      uint64(er.MemoryHoles),
 		Steps:            uint64(er.Steps), // todo SPEC 32 -> 64 bytes
+		TotalGasConsumed: nil,              // todo(kirill) fill after spec update
 	}
 }
 

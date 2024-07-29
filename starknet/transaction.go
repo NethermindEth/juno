@@ -219,6 +219,7 @@ type ExecutionResources struct {
 	BuiltinInstanceCounter BuiltinInstanceCounter `json:"builtin_instance_counter"`
 	MemoryHoles            uint64                 `json:"n_memory_holes"`
 	DataAvailability       *DataAvailability      `json:"data_availability"`
+	TotalGasConsumed       *GasConsumed           `json:"total_gas_consumed"`
 }
 
 type DataAvailability struct {
@@ -261,5 +262,4 @@ type TransactionReceipt struct {
 	TransactionHash    *felt.Felt          `json:"transaction_hash"`
 	TransactionIndex   uint64              `json:"transaction_index"`
 	RevertError        string              `json:"revert_error"`
-	TotalGasConsumed   *GasConsumed        `json:"total_gas_consumed"`
 }

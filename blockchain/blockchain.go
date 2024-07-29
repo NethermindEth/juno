@@ -51,7 +51,7 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	supportedStarknetVersion  = semver.MustParse("0.13.1")
+	supportedStarknetVersion  = semver.MustParse("0.13.2")
 )
 
 func checkBlockVersion(protocolVersion string) error {
@@ -340,6 +340,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
+		return errors.New("temp error")
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
@@ -636,7 +637,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return nil, err
 	}
 
-	return core.VerifyBlockHash(block, b.network)
+	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
 }
 
 type txAndReceiptDBKey struct {

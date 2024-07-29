@@ -21,7 +21,6 @@ type TransactionReceipt struct {
 	TransactionHash    *felt.Felt
 	Reverted           bool
 	RevertReason       string
-	TotalGasConsumed   *GasConsumed
 }
 
 func (r *TransactionReceipt) Hash() (*felt.Felt, error) {
@@ -31,9 +30,9 @@ func (r *TransactionReceipt) Hash() (*felt.Felt, error) {
 	}
 
 	var totalGasConsumed GasConsumed
-	// pre 0.13.2 this property is not set, in this case we use zero values in totalGasConsumed
-	if r.TotalGasConsumed != nil {
-		totalGasConsumed = *r.TotalGasConsumed
+	// pre 0.13.2 TotalGasConsumed property is not set, in this case we rely on zero value above
+	if r.ExecutionResources != nil && r.ExecutionResources.TotalGasConsumed != nil {
+		totalGasConsumed = *r.ExecutionResources.TotalGasConsumed
 	}
 
 	return crypto.PoseidonArray(
