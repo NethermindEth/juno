@@ -8,6 +8,8 @@ use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    fs,
+    io::Write,
     num::NonZeroU128,
     slice,
     sync::Arc,
@@ -232,6 +234,20 @@ pub extern "C" fn cairoVMExecute(
     println!("Juno: `cairoVMExecute`: Initializing Native Cache");
     let mut native_cache = ProgramCache::Aot(AotProgramCache::new(&native_context));
 
+    // Create trace file to write to
+    #[cfg(feature = "tracing")]
+    let trace_file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .append(false)
+        .open("trace.csv")
+        .unwrap();
+    #[cfg(feature = "tracing")]
+    let mut writer = std::io::BufWriter::new(trace_file);
+    #[cfg(feature = "tracing")]
+    writer.write_all(b"txn_hash,duration\n").unwrap();
+
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
         println!(
             "\n\nJuno: `cairoVMExecute`: executing transaction ({}/{}) {}",
@@ -285,6 +301,7 @@ pub extern "C" fn cairoVMExecute(
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
+
                 t.execute(
                     &mut txn_state,
                     &block_context,
@@ -338,6 +355,18 @@ pub extern "C" fn cairoVMExecute(
                 let actual_fee = t.actual_fee.0.into();
                 let data_gas_consumed = t.da_gas.l1_data_gas.into();
 
+                // write trace to file
+                #[cfg(feature = "tracing")]
+                {
+                    let duration = t.duration.unwrap();
+                    writer
+                        .write_all(
+                            format!("{},{}\n", txn_and_query_bit.txn_hash, duration.as_nanos())
+                                .as_bytes(),
+                        )
+                        .unwrap();
+                }
+
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
                 if trace.is_err() {
@@ -364,6 +393,9 @@ pub extern "C" fn cairoVMExecute(
             }
         }
         txn_state.commit();
+
+        #[cfg(feature = "tracing")]
+        writer.flush().unwrap();
     }
 }
 

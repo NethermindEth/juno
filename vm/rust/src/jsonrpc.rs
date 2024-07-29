@@ -1,6 +1,3 @@
-#[cfg(feature = "tracing")]
-use std::time::Duration;
-
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
@@ -51,7 +48,7 @@ pub struct TransactionTrace {
     state_diff: StateDiff,
     #[cfg(feature = "tracing")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    duration: Option<u64>,
+    pub duration: Option<u128>,
 }
 
 #[derive(Serialize, Default)]
@@ -118,7 +115,7 @@ pub fn new_transaction_trace(
 
     #[cfg(feature = "tracing")]
     {
-        trace.duration = info.duration.as_secs();
+        trace.duration = info.duration.map(|duration| duration.as_nanos());
     }
 
     match tx {
