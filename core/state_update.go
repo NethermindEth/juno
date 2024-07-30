@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 
@@ -66,12 +67,8 @@ func (d *StateDiff) Hash() *felt.Felt {
 	// - deployed and have its class replaced in the same state diff, or
 	// - have its class replaced multiple times in the same state diff.
 	updatedContracts := make(map[felt.Felt]*felt.Felt)
-	for k, v := range d.DeployedContracts {
-		updatedContracts[k] = v
-	}
-	for k, v := range d.ReplacedClasses {
-		updatedContracts[k] = v
-	}
+	maps.Copy(updatedContracts, d.DeployedContracts)
+	maps.Copy(updatedContracts, d.ReplacedClasses)
 
 	sortedUpdatedContractsHashes := sortedFeltKeys(updatedContracts)
 	for _, hash := range sortedUpdatedContractsHashes {
@@ -94,7 +91,6 @@ func (d *StateDiff) Hash() *felt.Felt {
 	numOfDeclaredV0Classes := uint64(len(d.DeclaredV0Classes))
 	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredV0Classes))
 
-	// Todo: consider make a copy of d.DeclaredV0Classes?
 	slices.SortFunc(d.DeclaredV0Classes, func(a, b *felt.Felt) int { return a.Cmp(b) })
 	digest.Update(d.DeclaredV0Classes...)
 

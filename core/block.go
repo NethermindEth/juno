@@ -214,8 +214,6 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	wg.Wait()
 
-	fmt.Println("Commitments", txCommitment, eCommitment, rCommitment, sdLength, sdCommitment)
-
 	if tErr != nil {
 		return nil, nil, tErr
 	}
