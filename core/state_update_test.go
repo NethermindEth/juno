@@ -37,10 +37,12 @@ func TestStateDiffCommitment(t *testing.T) {
 			expected: "0x32a531da56a82f993a29b3cfe4102b1589ddbc64bfd7be24706ab2b5ac2dba5",
 		},
 	} {
-		su, err := gw.StateUpdate(context.Background(), test.blockNum)
-		require.NoError(t, err)
-		commitment := su.StateDiff.Commitment()
-		assert.Equal(t, utils.HexToFelt(t, test.expected), commitment)
+		t.Run(fmt.Sprintf("blockNum=%d", test.blockNum), func(t *testing.T) {
+			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			require.NoError(t, err)
+			commitment := su.StateDiff.Commitment()
+			assert.Equal(t, utils.HexToFelt(t, test.expected), commitment)
+		})
 	}
 }
 
