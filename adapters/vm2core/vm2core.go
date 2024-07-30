@@ -11,7 +11,7 @@ import (
 )
 
 func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionResources {
-	return &core.ExecutionResources{ //nolint:exhaustruct
+	return &core.ExecutionResources{
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
 			Pedersen:     resources.Pedersen,
 			RangeCheck:   resources.RangeCheck,
@@ -29,6 +29,7 @@ func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionRe
 		MemoryHoles:      resources.MemoryHoles,
 		Steps:            resources.Steps,
 		DataAvailability: adaptDA(resources.DataAvailability),
+		TotalGasConsumed: nil, // todo: fill after 0.13.2
 	}
 }
 
