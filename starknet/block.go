@@ -15,7 +15,7 @@ type Block struct {
 	TransactionCommitment *felt.Felt            `json:"transaction_commitment"`
 	EventCommitment       *felt.Felt            `json:"event_commitment"`
 	ReceiptCommitment     *felt.Felt            `json:"receipt_commitment"`
-	StateDiffcommitment   *felt.Felt            `json:"state_diff_commitment"`
+	StateDiffCommitment   *felt.Felt            `json:"state_diff_commitment"`
 	StateDiffLength       uint64                `json:"state_diff_length"`
 	Status                string                `json:"status"`
 	Transactions          []*Transaction        `json:"transactions"`
