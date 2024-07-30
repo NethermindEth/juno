@@ -65,10 +65,8 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, receipt := range receipts {
-			hash := receipt.hash()
-
 			receiptTrieKey := new(felt.Felt).SetUint64(uint64(i))
-			_, err := trie.Put(receiptTrieKey, hash)
+			_, err := trie.Put(receiptTrieKey, receipt.hash())
 			if err != nil {
 				return err
 			}
