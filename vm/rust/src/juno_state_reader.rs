@@ -4,7 +4,7 @@ use std::{
     sync::Mutex,
 };
 
-use blockifier::execution::contract_class::{ContractClass, SierraContractClassV1};
+use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
 use blockifier::state::errors::StateError;
 use blockifier::{
     execution::contract_class::{
@@ -214,7 +214,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
             class.into()
         } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
             class.into()
-        } else if let Ok(class) = SierraContractClassV1::try_from_json_string(class_def.as_str()) {
+        } else if let Ok(class) = NativeContractClassV1::try_from_json_string(class_def.as_str()) {
             class.into()
         } else {
             return Err("not a valid contract class".to_string());
