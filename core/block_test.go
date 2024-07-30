@@ -244,7 +244,7 @@ func TestBlockHash(t *testing.T) {
 	})
 }
 
-func Test0132BlocHash(t *testing.T) {
+func Test0132BlockHash(t *testing.T) {
 	t.Parallel()
 	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	gw := adaptfeeder.New(client)
