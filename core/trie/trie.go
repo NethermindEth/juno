@@ -76,9 +76,17 @@ func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
 	}, nil
 }
 
-// RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
-func RunOnTempTrie(height uint8, do func(*Trie) error) error {
+// RunOnTempTriePedersen creates an in-memory Trie of height `height` and runs `do` on that Trie
+func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 	trie, err := NewTriePedersen(newMemStorage(), height)
+	if err != nil {
+		return err
+	}
+	return do(trie)
+}
+
+func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
+	trie, err := NewTriePoseidon(newMemStorage(), height)
 	if err != nil {
 		return err
 	}
