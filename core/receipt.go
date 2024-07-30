@@ -23,7 +23,7 @@ type TransactionReceipt struct {
 	RevertReason       string
 }
 
-func (r *TransactionReceipt) Hash() (*felt.Felt, error) {
+func (r *TransactionReceipt) hash() *felt.Felt {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {
 		revertReasonHash = crypto.StarknetKeccak([]byte(r.RevertReason))
@@ -43,7 +43,7 @@ func (r *TransactionReceipt) Hash() (*felt.Felt, error) {
 		&felt.Zero, // L2 gas consumed
 		new(felt.Felt).SetUint64(totalGasConsumed.L1Gas),
 		new(felt.Felt).SetUint64(totalGasConsumed.L1DataGas),
-	), nil
+	)
 }
 
 func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
@@ -65,13 +65,10 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, receipt := range receipts {
-			hash, err := receipt.Hash()
-			if err != nil {
-				return err
-			}
+			hash := receipt.hash()
 
 			receiptTrieKey := new(felt.Felt).SetUint64(uint64(i))
-			_, err = trie.Put(receiptTrieKey, hash)
+			_, err := trie.Put(receiptTrieKey, hash)
 			if err != nil {
 				return err
 			}

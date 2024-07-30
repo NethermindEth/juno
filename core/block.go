@@ -168,7 +168,7 @@ func blockHash(b *Block, network *utils.Network, overrideSeqAddr *felt.Felt) (*f
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
-	txCommitment, err := transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
+	txCommitment, err := transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -199,7 +199,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
-		txCommitment, tErr = TransactionCommitmentPoseidon(b.Transactions)
+		txCommitment, tErr = transactionCommitmentPoseidon(b.Transactions)
 	})
 	wg.Go(func() {
 		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts)
@@ -225,7 +225,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		return nil, nil, rErr
 	}
 
-	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
+	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
 	return crypto.PoseidonArray(
 			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
@@ -265,10 +265,10 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 	var tErr, eErr error
 
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitment(b.Transactions, b.Header.ProtocolVersion)
+		txCommitment, tErr = transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion)
 	})
 	wg.Go(func() {
-		eCommitment, eErr = eventCommitment(b.Receipts)
+		eCommitment, eErr = eventCommitmentPedersen(b.Receipts)
 	})
 	wg.Wait()
 
@@ -309,7 +309,7 @@ func MarshalBlockNumber(blockNumber uint64) []byte {
 	return numBytes
 }
 
-func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
+func concatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
 	var l1DAByte byte
 	if l1Mode == Blob {
 		l1DAByte = 0b10000000

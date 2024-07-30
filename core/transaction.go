@@ -630,12 +630,12 @@ func VerifyTransactions(txs []Transaction, n *utils.Network, protocolVersion str
 
 const commitmentTrieHeight = 64
 
-// transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
+// transactionCommitmentPedersen is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
+func transactionCommitmentPedersen(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	v0_11_1 := semver.MustParse("0.11.1")
-	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
 		blockVersion, err := ParseBlockVersion(protocolVersion)
 		if err != nil {
 			return err
@@ -665,7 +665,7 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 	})
 }
 
-func TransactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
+func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, transaction := range transactions {
@@ -706,7 +706,7 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	return semver.NewVersion(strings.Join(digits[:3], sep))
 }
 
-// eventCommitment computes the event commitment for a block.
+// eventCommitmentPoseidon computes the event commitment for a block.
 func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
@@ -768,10 +768,10 @@ func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error)
 	})
 }
 
-// eventCommitment computes the event commitment for a block.
-func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+// eventCommitmentPedersen computes the event commitment for a block.
+func eventCommitmentPedersen(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
 		eventCount := uint64(0)
 		numWorkers := runtime.GOMAXPROCS(0)
 		receiptPerWorker := len(receipts) / numWorkers
