@@ -809,7 +809,6 @@ func TestVerifyRangeProof(t *testing.T) {
 		require.NoError(t, err)
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
 		require.NoError(t, err)
-		//proofs[0] = append(proofs[0], proofs[1]...)
 		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
 		require.NoError(t, err)
 		require.True(t, verif)
