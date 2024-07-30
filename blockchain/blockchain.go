@@ -340,8 +340,8 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
-		return errors.New("temp error")
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil { //nolint:govet
+
+		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
