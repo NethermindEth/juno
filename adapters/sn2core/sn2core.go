@@ -79,6 +79,17 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 	}
 }
 
+func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
+	if response == nil {
+		return nil
+	}
+
+	return &core.GasConsumed{
+		L1Gas:     response.L1Gas,
+		L1DataGas: response.L1DataGas,
+	}
+}
+
 func AdaptEvent(response *starknet.Event) *core.Event {
 	if response == nil {
 		return nil
@@ -101,6 +112,7 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
 		DataAvailability:       (*core.DataAvailability)(response.DataAvailability),
+		TotalGasConsumed:       adaptGasConsumed(response.TotalGasConsumed),
 	}
 }
 

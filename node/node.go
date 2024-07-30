@@ -131,8 +131,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("get head block from database: %v", err)
 	}
 	if head != nil {
+		stateUpdate, err := chain.StateUpdateByNumber(head.Number)
+		if err != nil {
+			return nil, err
+		}
+
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
-		if _, err = core.VerifyBlockHash(head, &cfg.Network); err != nil {
+		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
 		}
 	}
