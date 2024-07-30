@@ -14,8 +14,13 @@ import (
 func TestReceiptHash(t *testing.T) {
 	t.Run("with gas_consumed", func(t *testing.T) {
 		receipt := &TransactionReceipt{
-			Fee:                new(felt.Felt).SetUint64(99804),
-			ExecutionResources: nil,
+			Fee: new(felt.Felt).SetUint64(99804),
+			ExecutionResources: &ExecutionResources{
+				TotalGasConsumed: &GasConsumed{
+					L1Gas:     16580,
+					L1DataGas: 32,
+				},
+			},
 			L2ToL1Message: []*L2ToL1Message{
 				createL2ToL1Message(34),
 				createL2ToL1Message(56),
@@ -23,10 +28,6 @@ func TestReceiptHash(t *testing.T) {
 			TransactionHash: new(felt.Felt).SetUint64(1234),
 			Reverted:        true,
 			RevertReason:    "aborted",
-			TotalGasConsumed: &GasConsumed{
-				L1Gas:     16580,
-				L1DataGas: 32,
-			},
 		}
 
 		hash, err := receipt.Hash()
@@ -58,8 +59,13 @@ func TestReceiptHash(t *testing.T) {
 
 func TestReceiptCommitment(t *testing.T) {
 	receipt := &TransactionReceipt{
-		Fee:                new(felt.Felt).SetUint64(99804),
-		ExecutionResources: nil,
+		Fee: new(felt.Felt).SetUint64(99804),
+		ExecutionResources: &ExecutionResources{
+			TotalGasConsumed: &GasConsumed{
+				L1Gas:     16580,
+				L1DataGas: 32,
+			},
+		},
 		L2ToL1Message: []*L2ToL1Message{
 			createL2ToL1Message(34),
 			createL2ToL1Message(56),
@@ -67,10 +73,6 @@ func TestReceiptCommitment(t *testing.T) {
 		TransactionHash: new(felt.Felt).SetUint64(1234),
 		Reverted:        true,
 		RevertReason:    "aborted",
-		TotalGasConsumed: &GasConsumed{
-			L1Gas:     16580,
-			L1DataGas: 32,
-		},
 	}
 
 	hash, err := receipt.Hash()

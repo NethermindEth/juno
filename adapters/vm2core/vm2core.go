@@ -11,7 +11,7 @@ import (
 )
 
 func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionResources {
-	return &core.ExecutionResources{
+	return &core.ExecutionResources{ //nolint:exhaustruct
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
 			Pedersen:     resources.Pedersen,
 			RangeCheck:   resources.RangeCheck,
