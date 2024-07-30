@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/Masterminds/semver/v3"
 	"slices"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -73,6 +73,8 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
+//
+//nolint:gocyclo
 func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
@@ -186,7 +188,6 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
 }
 
-//nolint:unused
 func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	// todo override support?

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -51,38 +52,91 @@ func (d *StateDiff) Length() uint64 {
 }
 
 func (d *StateDiff) Hash() *felt.Felt {
-	prefixHash, err := new(felt.Felt).SetString("STARKNET_STATE_DIFF0")
-	if err != nil {
-		// shouldn't happen
-		panic(err)
+	var digest crypto.PoseidonDigest
+
+	digest.Update(new(felt.Felt).SetBytes([]byte("STARKNET_STATE_DIFF0")))
+
+	// updated_contracts = deployedContracts + replacedClasses
+	// Digest: [number_of_updated_contracts, address_0, class_hash_0, address_1, class_hash_1, ...].
+	numOfUpdatedContracts := uint64(len(d.DeployedContracts) + len(d.ReplacedClasses))
+	digest.Update(new(felt.Felt).SetUint64(numOfUpdatedContracts))
+
+	// The sequencer guarantees that a contract cannot be:
+	// - deployed twice,
+	// - deployed and have its class replaced in the same state diff, or
+	// - have its class replaced multiple times in the same state diff.
+	updatedContracts := make(map[felt.Felt]*felt.Felt)
+	for k, v := range d.DeployedContracts {
+		updatedContracts[k] = v
+	}
+	for k, v := range d.ReplacedClasses {
+		updatedContracts[k] = v
 	}
 
-	hashElems := []*felt.Felt{prefixHash}
-
-	// updated contracts
-	numOfUpdatedContracts := len(d.DeployedContracts) + len(d.ReplacedClasses)
-	hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(numOfUpdatedContracts)))
-	// todo sort
-	for addr, classHash := range d.DeployedContracts {
-		hashElems = append(hashElems, &addr, classHash)
-	}
-	// todo sort
-	for addr, classHash := range d.ReplacedClasses {
-		hashElems = append(hashElems, &addr, classHash)
+	sortedUpdatedContractsHashes := sortedFeltKeys(updatedContracts)
+	for _, hash := range sortedUpdatedContractsHashes {
+		digest.Update(&hash, updatedContracts[hash])
 	}
 
 	// declared classes
-	numOfDeclaredClasses := len(d.DeclaredV1Classes)
-	hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(numOfDeclaredClasses)))
-	for classHash, compiledClasshash := range d.DeclaredV1Classes {
-		hashElems = append(hashElems, &classHash, compiledClasshash)
+	// Digest: [number_of_declared_classes, class_hash_0, compiled_class_hash_0, class_hash_1, compiled_class_hash_1,
+	// ...].
+	numOfDeclaredClasses := uint64(len(d.DeclaredV1Classes))
+	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredClasses))
+
+	sortedDeclaredV1ClassHashes := sortedFeltKeys(d.DeclaredV1Classes)
+	for _, classHash := range sortedDeclaredV1ClassHashes {
+		digest.Update(&classHash, d.DeclaredV1Classes[classHash])
+	}
+
+	// deprecated_declared_classes
+	// Digest: [number_of_old_declared_classes, class_hash_0, class_hash_1, ...].
+	numOfDeclaredV0Classes := uint64(len(d.DeclaredV0Classes))
+	digest.Update(new(felt.Felt).SetUint64(numOfDeclaredV0Classes))
+
+	// Todo: consider make a copy of d.DeclaredV0Classes?
+	slices.SortFunc(d.DeclaredV0Classes, func(a, b *felt.Felt) int { return a.Cmp(b) })
+	digest.Update(d.DeclaredV0Classes...)
+
+	// Placeholder values
+	digest.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(0))
+
+	// storage_diffs
+	// Digest: [
+	//	number_of_updated_contracts,
+	//  contract_address_0, number_of_updates_in_contract_0, key_0, value0, key1, value1, ...,
+	//  contract_address_1, number_of_updates_in_contract_1, key_0, value0, key1, value1, ...,
+	// ]
+	numOfStorageDiffs := uint64(len(d.StorageDiffs))
+	digest.Update(new(felt.Felt).SetUint64(numOfStorageDiffs))
+
+	sortedStorageDiffAddrs := sortedFeltKeys(d.StorageDiffs)
+	for _, addr := range sortedStorageDiffAddrs {
+		digest.Update(&addr)
+
+		sortedDiffKeys := sortedFeltKeys(d.StorageDiffs[addr])
+		digest.Update(new(felt.Felt).SetUint64(uint64(len(sortedDiffKeys))))
+
+		for _, k := range sortedDiffKeys {
+			digest.Update(&k, d.StorageDiffs[addr][k])
+		}
+	}
+
+	// nonces
+	// Digest: [number_of_updated_contracts nonces, contract_address_0, nonce_0, contract_address_1, nonce_1, ...]
+	numOfNonces := uint64(len(d.Nonces))
+	digest.Update(new(felt.Felt).SetUint64(numOfNonces))
+
+	sortedNoncesAddrs := sortedFeltKeys(d.Nonces)
+	for _, addr := range sortedNoncesAddrs {
+		digest.Update(&addr, d.Nonces[addr])
 	}
 
 	/*Poseidon(
-	    "STARKNET_STATE_DIFF0", deployed_contracts, declared_classes, deprecated_declared_classes,
+	    "STARKNET_STATE_DIFF0", deployed_contracts_and_replaced_classes, declared_classes, deprecated_declared_classes,
 	    1, 0, storage_diffs, nonces
 	)*/
-	return crypto.PoseidonArray(hashElems...)
+	return digest.Finish()
 }
 
 func (d *StateDiff) Commitment() *felt.Felt {
