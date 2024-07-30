@@ -69,6 +69,7 @@ type BlockCommitments struct {
 	TransactionCommitment *felt.Felt
 	EventCommitment       *felt.Felt
 	ReceiptCommitment     *felt.Felt
+	StateDiffCommitment   *felt.Felt
 }
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
@@ -247,6 +248,8 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		), &BlockCommitments{
 			TransactionCommitment: txCommitment,
 			EventCommitment:       eCommitment,
+			ReceiptCommitment:     rCommitment,
+			StateDiffCommitment:   sdCommitment,
 		}, nil
 }
 
