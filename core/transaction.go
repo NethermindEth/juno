@@ -669,12 +669,16 @@ func TransactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, erro
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, transaction := range transactions {
-			hashElems := []*felt.Felt{transaction.Hash()}
-			// todo handle empty signature
-			hashElems = append(hashElems, transaction.Signature()...)
-			hash := crypto.PoseidonArray(hashElems...)
+			var digest crypto.PoseidonDigest
+			digest.Update(transaction.Hash())
 
-			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), hash); err != nil {
+			if txSignature := transaction.Signature(); len(txSignature) > 0 {
+				digest.Update(txSignature...)
+			} else {
+				digest.Update(&felt.Zero)
+			}
+
+			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), digest.Finish()); err != nil {
 				return err
 			}
 		}

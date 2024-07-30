@@ -125,7 +125,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 		if blockVer.LessThan(v0_13_2) {
 			hash, commitments, err = blockHash(b, network, overrideSeq)
 		} else {
-			hash, commitments, err = Post0132Hash(b, stateDiff.Length(), stateDiff.Commitment())
+			hash, commitments, err = Post0132Hash(b, stateDiff)
 		}
 		if err != nil {
 			return nil, err
@@ -188,12 +188,13 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
 }
 
-func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
+func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
 	seqAddr := b.SequencerAddress
 	// todo override support?
 
 	wg := conc.NewWaitGroup()
-	var txCommitment, eCommitment, rCommitment *felt.Felt
+	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
+	var sdLength uint64
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
@@ -205,9 +206,15 @@ func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*fel
 	wg.Go(func() {
 		rCommitment, rErr = receiptCommitment(b.Receipts)
 	})
+
+	wg.Go(func() {
+		sdLength = stateDiff.Length()
+		sdCommitment = stateDiff.Hash()
+	})
+
 	wg.Wait()
 
-	fmt.Println("Commitments", txCommitment, eCommitment, rCommitment, stateDiffLen, stateDiffHash)
+	fmt.Println("Commitments", txCommitment, eCommitment, rCommitment, sdLength, sdCommitment)
 
 	if tErr != nil {
 		return nil, nil, tErr
@@ -219,7 +226,7 @@ func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*fel
 		return nil, nil, rErr
 	}
 
-	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, stateDiffLen, b.L1DAMode)
+	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
 	return crypto.PoseidonArray(
 			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
@@ -228,7 +235,7 @@ func Post0132Hash(b *Block, stateDiffLen uint64, stateDiffHash *felt.Felt) (*fel
 			seqAddr,                               // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			concatCounts,
-			stateDiffHash,
+			sdCommitment,
 			txCommitment,   // transaction commitment
 			eCommitment,    // event commitment
 			rCommitment,    // receipt commitment
