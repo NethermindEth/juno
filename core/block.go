@@ -74,8 +74,6 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-//
-//nolint:gocyclo
 func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
@@ -106,28 +104,13 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 		fallbackSeqAddresses = append(fallbackSeqAddresses, metaInfo.FallBackSequencerAddress)
 	}
 
-	blockVer, err := ParseBlockVersion(b.ProtocolVersion)
-	if err != nil {
-		return nil, err
-	}
-	v0_13_2 := semver.MustParse("0.13.2")
-
 	for _, fallbackSeq := range fallbackSeqAddresses {
 		var overrideSeq *felt.Felt
 		if b.SequencerAddress == nil {
 			overrideSeq = fallbackSeq
 		}
 
-		var (
-			hash        *felt.Felt
-			commitments *BlockCommitments
-			err         error
-		)
-		if blockVer.LessThan(v0_13_2) {
-			hash, commitments, err = blockHash(b, network, overrideSeq)
-		} else {
-			hash, commitments, err = Post0132Hash(b, stateDiff)
-		}
+		hash, commitments, err := blockHash(b, stateDiff, network, overrideSeq)
 		if err != nil {
 			return nil, err
 		}
@@ -147,6 +130,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 // BlockHash assumes block.SequencerAddress is not nil as this is called with post v0.12.0
 // and by then issues with unverifiable block hash were resolved.
 // In future, this may no longer be required.
+// Todo: Pass stateDiff so that p2p layer can calculate post 0.13.2 Block Hash
 func BlockHash(b *Block) (*felt.Felt, error) {
 	if b.SequencerAddress == nil {
 		return nil, errors.New("block.SequencerAddress is nil")
@@ -157,13 +141,25 @@ func BlockHash(b *Block) (*felt.Felt, error) {
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
+func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
+	*BlockCommitments, error,
+) {
 	metaInfo := network.BlockHashMetaInfo
 
-	if b.Number < metaInfo.First07Block {
-		return pre07Hash(b, network.L2ChainIDFelt())
+	blockVer, err := ParseBlockVersion(b.ProtocolVersion)
+	if err != nil {
+		return nil, nil, err
 	}
-	return post07Hash(b, overrideSeqAddr)
+	v0_13_2 := semver.MustParse("0.13.2")
+
+	if blockVer.LessThan(v0_13_2) {
+		if b.Number < metaInfo.First07Block {
+			return pre07Hash(b, network.L2ChainIDFelt())
+		}
+		return post07Hash(b, overrideSeqAddr)
+	}
+
+	return Post0132Hash(b, stateDiff)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
@@ -190,9 +186,6 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 }
 
 func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	seqAddr := b.SequencerAddress
-	// todo override support?
-
 	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
@@ -231,7 +224,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
-			seqAddr,                               // sequencer address
+			b.SequencerAddress,                    // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			concatCounts,
 			sdCommitment,
