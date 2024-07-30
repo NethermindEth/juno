@@ -252,6 +252,45 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
+func noDuplicates(proofNodes []trie.ProofNode) bool {
+	seen := make(map[string]bool)
+	for _, pNode := range proofNodes {
+		if _, ok := seen[pNode.Hash(crypto.Pedersen).String()]; ok {
+			return false
+		}
+		seen[pNode.Hash(crypto.Pedersen).String()] = true
+	}
+	return true
+}
+
+func containsAll(proofNodes []trie.ProofNode, expectedProofNodes []trie.ProofNode) bool {
+	for _, pNode := range expectedProofNodes {
+		found := false
+		for _, p := range proofNodes {
+			if p.Hash(crypto.Pedersen).String() == pNode.Hash(crypto.Pedersen).String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func isSameProofPath(proofNodes []trie.ProofNode, expectedProofNodes []trie.ProofNode) bool {
+	if len(proofNodes) != len(expectedProofNodes) {
+		return false
+	}
+	for i := range proofNodes {
+		if proofNodes[i].Hash(crypto.Pedersen).String() != expectedProofNodes[i].Hash(crypto.Pedersen).String() {
+			return false
+		}
+	}
+	return true
+}
+
 func TestGetProof(t *testing.T) {
 	t.Run("GP Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
@@ -868,5 +907,150 @@ func TestVerifyRangeProof(t *testing.T) {
 		verif, err := trie.VerifyRangeProof(rootCommitment, keys, values, proofKeys, proofValues, proofs, crypto.Pedersen)
 		require.NoError(t, err)
 		require.True(t, verif)
+	})
+}
+
+func TestMergeProofPaths(t *testing.T) {
+	t.Run("3Key Trie no duplicates and all values exist in merged path", func(t *testing.T) {
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
+		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
+
+		tri := build3KeyTrie(t)
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &twoLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		containsLeft := containsAll(mergedProofs, proofs[0])
+		require.True(t, containsLeft)
+		containsRight := containsAll(mergedProofs, proofs[1])
+		require.True(t, containsRight)
+		checkDuplicates := noDuplicates(mergedProofs)
+		require.True(t, checkDuplicates)
+	})
+
+	t.Run("4Key Trie two common ancestors", func(t *testing.T) {
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
+		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
+
+		tri := build4KeyTrie(t)
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &twoLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		containsLeft := containsAll(mergedProofs, proofs[0])
+		require.True(t, containsLeft)
+		containsRight := containsAll(mergedProofs, proofs[1])
+		require.True(t, containsRight)
+		checkDuplicates := noDuplicates(mergedProofs)
+		require.True(t, checkDuplicates)
+	})
+
+	t.Run("4Key Trie one common ancestor", func(t *testing.T) {
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
+		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
+
+		tri := build4KeyTrie(t)
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		containsLeft := containsAll(mergedProofs, proofs[0])
+		require.True(t, containsLeft)
+		containsRight := containsAll(mergedProofs, proofs[1])
+		require.True(t, containsRight)
+		checkDuplicates := noDuplicates(mergedProofs)
+		require.True(t, checkDuplicates)
+	})
+}
+
+func TestSplitProofPaths(t *testing.T) {
+	t.Run("3Key Trie retrieved right and left proofs are same with the merged ones", func(t *testing.T) {
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
+		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
+
+		tri := build3KeyTrie(t)
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &twoLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, crypto.Pedersen)
+		require.NoError(t, err)
+
+		leftIsSame := isSameProofPath(leftSplit, proofs[0])
+		require.True(t, leftIsSame)
+		rightIsSame := isSameProofPath(rightSplit, proofs[1])
+		require.True(t, rightIsSame)
+	})
+
+	t.Run("4Key Trie two common ancestors retrieved right and left proofs are same with the merged ones", func(t *testing.T) {
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
+		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
+
+		tri := build4KeyTrie(t)
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &twoLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, crypto.Pedersen)
+		require.NoError(t, err)
+
+		leftIsSame := isSameProofPath(leftSplit, proofs[0])
+		require.True(t, leftIsSame)
+		rightIsSame := isSameProofPath(rightSplit, proofs[1])
+		require.True(t, rightIsSame)
+	})
+
+	t.Run("4Key Trie one common ancestor retrieved right and left proofs are same with the merged ones", func(t *testing.T) {
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
+		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
+
+		tri := build4KeyTrie(t)
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, crypto.Pedersen)
+		require.NoError(t, err)
+
+		leftIsSame := isSameProofPath(leftSplit, proofs[0])
+		require.True(t, leftIsSame)
+		rightIsSame := isSameProofPath(rightSplit, proofs[1])
+		require.True(t, rightIsSame)
 	})
 }

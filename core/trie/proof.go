@@ -133,7 +133,8 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
-func mergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, error) {
+// Remove duplicates and merges proof paths into a single path
+func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, error) {
 	merged := []ProofNode{}
 	minLen := min(len(leftPath), len(rightPath))
 
@@ -166,7 +167,7 @@ func mergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNod
 	return merged, nil
 }
 
-func splitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []ProofNode, error) {
+func SplitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []ProofNode, error) {
 	leftPath := []ProofNode{}
 	rightPath := []ProofNode{}
 
@@ -187,8 +188,8 @@ func splitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []Proof
 		}
 		switch {
 		case currNode.Binary != nil:
-			expectedHashLeft := currNode.Binary.RightHash
-			expectedHashRight := currNode.Binary.LeftHash
+			expectedHashLeft := currNode.Binary.LeftHash
+			expectedHashRight := currNode.Binary.RightHash
 
 			if mergedPath[i].Hash(hash).Equal(expectedHashLeft) {
 				leftPath = append(leftPath, mergedPath[i])
@@ -196,6 +197,7 @@ func splitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []Proof
 					// Here we found the node which has both left and right hashes in the merged path
 					rightPath = append(rightPath, mergedPath[i+1])
 					breakLoop = true
+					i++
 				} else {
 					rightPath = append(rightPath, mergedPath[i])
 				}
@@ -208,30 +210,56 @@ func splitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []Proof
 			}
 			currNode = mergedPath[i]
 		case currNode.Edge != nil:
-			// Not exactly sure if this case should be considered
+			leftPath = append(leftPath, mergedPath[i])
+			rightPath = append(rightPath, mergedPath[i])
+			currNode = mergedPath[i]
 		}
 	}
 
 	leftCurr := leftPath[len(leftPath)-1]
 	rightCurr := rightPath[len(rightPath)-1]
 
-	// Should cover edge cases here
-
 	// Append to left path if it is a child of the left path
 	j := i
 	for ; i < len(mergedPath); i++ {
-		if mergedPath[i].Hash(hash).Equal(leftCurr.Binary.LeftHash) || mergedPath[i].Hash(hash).Equal(rightCurr.Binary.LeftHash) {
-			leftPath = append(leftPath, mergedPath[i])
-			leftCurr = mergedPath[i]
+		mergedNodeHash := mergedPath[i].Hash(hash)
+
+		if mergedPath[i].Edge != nil {
+			mergedNodeHash = mergedPath[i].Edge.Child
+		}
+		if leftCurr.Binary != nil {
+
+			if mergedNodeHash.Equal(leftCurr.Binary.LeftHash) || mergedNodeHash.Equal(leftCurr.Binary.RightHash) {
+				leftPath = append(leftPath, mergedPath[i])
+				leftCurr = mergedPath[i]
+			}
+
+		} else if leftCurr.Edge != nil {
+			if mergedNodeHash.Equal(leftCurr.Edge.Child) {
+				leftPath = append(leftPath, mergedPath[i])
+				leftCurr = mergedPath[i]
+			}
 		}
 	}
 
 	// Append to right path if it is a child of the right path
-
 	for ; j < len(mergedPath); j++ {
-		if mergedPath[j].Hash(hash).Equal(rightCurr.Binary.LeftHash) || mergedPath[j].Hash(hash).Equal(rightCurr.Binary.RightHash) {
-			rightPath = append(rightPath, mergedPath[j])
-			rightCurr = mergedPath[j]
+		mergedNodeHash := mergedPath[j].Hash(hash)
+
+		if mergedPath[j].Edge != nil {
+			mergedNodeHash = mergedPath[j].Edge.Child
+		}
+		if rightCurr.Binary != nil {
+			if mergedNodeHash.Equal(rightCurr.Binary.LeftHash) || mergedNodeHash.Equal(rightCurr.Binary.RightHash) {
+				rightPath = append(rightPath, mergedPath[j])
+				rightCurr = mergedPath[j]
+			}
+
+		} else if rightCurr.Edge != nil {
+			if mergedNodeHash.Equal(rightCurr.Edge.Child) {
+				rightPath = append(rightPath, mergedPath[j])
+				rightCurr = mergedPath[j]
+			}
 		}
 	}
 
@@ -251,8 +279,6 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 	var parentKey *Key
 
 	for i, sNode := range nodesFromRoot {
-		fmt.Println(i, sNode.key.String())
-		fmt.Println(sNode.node.Value)
 		sNodeEdge, sNodeBinary, err := transformNode(tri, parentKey, sNode)
 		if err != nil {
 			return nil, err
@@ -279,9 +305,6 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 	expectedHash := root
 	remainingPath := NewKey(key.len, key.bitset[:])
 	for i, proofNode := range proofs {
-		fmt.Println(expectedHash)
-		fmt.Println(proofNode.Hash(hash))
-		fmt.Println(remainingPath.String())
 		if !proofNode.Hash(hash).Equal(expectedHash) {
 			return false
 		}
@@ -349,9 +372,7 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 	var err error
 	for i := 0; i < 2; i++ {
 		if proofs[i] != nil {
-			fmt.Println("Verifying proof ", i)
 			if !VerifyProof(root, proofKeys[i], proofValues[i], proofs[i], hash) {
-				fmt.Println("Proof verification failed")
 				return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
 			}
 
@@ -362,27 +383,20 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 		}
 	}
 
-	fmt.Println("Building trie")
-
 	// Step 2: Build trie from proofPaths and keys
 	tmpTrie, err := BuildTrie(proofPaths[0], proofPaths[1], keys, values)
 	if err != nil {
-		fmt.Println("Failed to build trie")
 		return false, err
 	}
 
 	// Verify that the recomputed root hash matches the provided root hash
 	recomputedRoot, err := tmpTrie.Root()
 	if err != nil {
-		fmt.Println("Failed to get root")
 		return false, err
 	}
 	if !recomputedRoot.Equal(root) {
-		fmt.Println("Root hash mismatch")
 		return false, errors.New("root hash mismatch")
 	}
-
-	fmt.Println("Return true")
 
 	return true, nil
 }
