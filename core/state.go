@@ -401,8 +401,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
-	for _, key := range keys {
-		conractAddr := key
+	for _, conractAddr := range keys {
 		updateDiff := diffs[conractAddr]
 		contractUpdaters.Go(func() (*db.BufferedTransaction, error) {
 			return s.updateStorageBuffered(&conractAddr, updateDiff, blockNumber, logChanges)

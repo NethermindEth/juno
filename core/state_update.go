@@ -136,8 +136,8 @@ func (d *StateDiff) Commitment() *felt.Felt {
 	commitmentDigest := new(crypto.PoseidonDigest)
 	commitmentDigest.Update(&version, hashOfDeployedContracts.Finish(), hashOfDeclaredClasses.Finish(), hashOfOldDeclaredClasses.Finish())
 	commitmentDigest.Update(tmpFelt.SetUint64(uint64(len(hashOfStorageDomains))))
-	for idx := range hashOfStorageDomains {
-		commitmentDigest.Update(tmpFelt.SetUint64(uint64(idx)), hashOfStorageDomains[idx].Finish())
+	for idx, hash := range hashOfStorageDomains {
+		commitmentDigest.Update(tmpFelt.SetUint64(uint64(idx)), hash.Finish())
 	}
 	return commitmentDigest.Finish()
 }

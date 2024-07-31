@@ -507,7 +507,7 @@ func BuildTrie(leftProofPath, rightProofPath []StorageNode, keys, values []*felt
 		}
 	}
 
-	for i := range len(keys) {
+	for i := range keys {
 		_, err := tempTrie.PutWithProof(keys[i], values[i], leftProofPath, rightProofPath)
 		if err != nil {
 			return nil, err

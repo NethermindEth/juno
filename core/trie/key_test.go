@@ -147,9 +147,8 @@ func TestTruncate(t *testing.T) {
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
-			copyKey := test.key
-			copyKey.Truncate(test.newLen)
-			assert.Equal(t, test.expectedKey, copyKey)
+			test.key.Truncate(test.newLen)
+			assert.Equal(t, test.expectedKey, test.key)
 		})
 	}
 }
