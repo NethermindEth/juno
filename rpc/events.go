@@ -96,6 +96,54 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	return id, nil
 }
 
+func (h *Handler) SubscribeTransactionReceipts(ctx context.Context, txHash *felt.Felt) (uint64, *jsonrpc.Error) {
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	id := h.idgen()
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	sub := &subscription{
+		cancel: subscriptionCtxCancel,
+		conn:   w,
+	}
+	h.mu.Lock()
+	h.subscriptions[id] = sub
+	h.mu.Unlock()
+	receiptSub := h.newReceipts.Subscribe()
+	sub.wg.Go(func() {
+		defer func() {
+			receiptSub.Unsubscribe()
+			h.unsubscribe(sub, id)
+		}()
+		for {
+			select {
+			case <-subscriptionCtx.Done():
+				return
+			case receipt := <-receiptSub.Recv():
+				resp, err := json.Marshal(jsonrpc.Request{
+					Version: "2.0",
+					Method:  "juno_subscribeTransactionReceipts",
+					Params: map[string]any{
+						"result":       receipt,
+						"subscription": id,
+					},
+				})
+				if err != nil {
+					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					return
+				}
+				if _, err = w.Write(resp); err != nil {
+					h.log.Warnw("Error writing a subscription reply", "err", err)
+					return
+				}
+			}
+		}
+	})
+	return id, nil
+}
+
 func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {

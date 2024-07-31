@@ -34,6 +34,10 @@ type HeaderSubscription struct {
 	*feed.Subscription[*core.Header]
 }
 
+type ReceiptSubscription struct {
+	*feed.Subscription[*core.TransactionReceipt]
+}
+
 // Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
@@ -41,6 +45,7 @@ type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
+	SubscribeNewReceipts() ReceiptSubscription
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -58,6 +63,10 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
 }
 
+func (n *NoopSynchronizer) SubscribeNewReceipts() ReceiptSubscription {
+	return ReceiptSubscription{feed.New[*core.TransactionReceipt]().Subscribe()}
+}
+
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
@@ -66,6 +75,7 @@ type Synchronizer struct {
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
+	newReceipts         *feed.Feed[*core.TransactionReceipt]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -82,6 +92,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
+		newReceipts:         feed.New[*core.TransactionReceipt](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -229,6 +240,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 
 			s.newHeads.Send(block.Header)
+			s.newReceipts.Send(block.Receipts[0])
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
@@ -441,5 +453,11 @@ func (s *Synchronizer) HighestBlockHeader() *core.Header {
 func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{
 		Subscription: s.newHeads.Subscribe(),
+	}
+}
+
+func (s *Synchronizer) SubscribeNewReceipts() ReceiptSubscription {
+	return ReceiptSubscription{
+		Subscription: s.newReceipts.Subscribe(),
 	}
 }
