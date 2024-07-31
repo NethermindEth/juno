@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -120,7 +121,7 @@ func TestEvents(t *testing.T) {
 			for i := 0; i < len(allEvents)+1; i++ {
 				events, err := handler.Events(args)
 				require.Nil(t, err)
-				accEvents = append(accEvents, events.Events...)
+				accEvents = slices.Concat(accEvents, events.Events)
 				args.ContinuationToken = events.ContinuationToken
 				if args.ContinuationToken == "" {
 					break
