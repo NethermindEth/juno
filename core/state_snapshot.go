@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -17,6 +18,9 @@ func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) StateReader 
 		blockNumber: blockNumber,
 		state:       state,
 	}
+}
+func (s *stateSnapshot) GetClassesTrie() (*trie.Trie, func() error, error) {
+	return s.state.GetClassesTrie()
 }
 
 func (s *stateSnapshot) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
