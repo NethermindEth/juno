@@ -3,7 +3,8 @@ package sync
 import (
 	"context"
 	"errors"
-	"runtime"
+	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/sourcegraph/conc/stream"
 )
 
 var (
@@ -97,35 +97,8 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
-	s.syncBlocks(ctx)
+	s.newSyncBlocks(ctx)
 	return nil
-}
-
-func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
-	resetStreams context.CancelFunc,
-) stream.Callback {
-	for {
-		select {
-		case <-ctx.Done():
-			return func() {}
-		default:
-			stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, height)
-			if err != nil {
-				continue
-			}
-
-			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
-			if err != nil {
-				continue
-			}
-
-			return func() {
-				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, block, stateUpdate, newClasses, resetStreams)
-				})
-			}
-		}
-	}
 }
 
 func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
@@ -180,61 +153,6 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 	return newClasses, closer()
 }
 
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
-) stream.Callback {
-	verifyTimer := time.Now()
-	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	if err == nil {
-		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
-	}
-	return func() {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
-				resetStreams()
-				return
-			}
-			storeTimer := time.Now()
-			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			if err != nil {
-				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
-					// revert the head and restart the sync process, hoping that the reorg is not deep
-					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
-					// blocks
-					s.revertHead(block)
-				} else {
-					s.log.Warnw("Failed storing Block", "number", block.Number,
-						"hash", block.Hash.ShortString(), "err", err)
-				}
-				resetStreams()
-				return
-			}
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
-
-			highestBlockHeader := s.highestBlockHeader.Load()
-			if highestBlockHeader != nil {
-				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
-				if s.catchUpMode != isBehind {
-					resetStreams()
-				}
-				s.catchUpMode = isBehind
-			}
-
-			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
-				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
-			}
-
-			s.newHeads.Send(block.Header)
-			s.log.Infow("Stored Block", "number", block.Number, "hash",
-				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
-		}
-	}
-}
-
 func (s *Synchronizer) nextHeight() uint64 {
 	nextHeight := uint64(0)
 	if h, err := s.blockchain.Height(); err == nil {
@@ -243,188 +161,119 @@ func (s *Synchronizer) nextHeight() uint64 {
 	return nextHeight
 }
 
-func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
+// Get stateupdate, classes and commitments with the given block height
+func (s *Synchronizer) getStateAndClasses(ctx context.Context, wg *sync.WaitGroup, blockHeight uint64,
+	resultChan chan<- GetResult) {
 	defer func() {
-		s.startingBlockNumber = nil
-		s.highestBlockHeader.Store(nil)
+		wg.Done()
 	}()
 
-	nextHeight := s.nextHeight()
-	startingHeight := nextHeight
-	s.startingBlockNumber = &startingHeight
-
-	latestSem := make(chan struct{}, 1)
-	if s.readOnlyBlockchain {
-		s.pollLatest(syncCtx, latestSem)
+	select {
+	case <-ctx.Done():
 		return
+	default:
+		stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, blockHeight)
+		if err != nil {
+			resultChan <- GetResult{nil, nil, nil, nil, err}
+			return
+		}
+
+		newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
+		if err != nil {
+			resultChan <- GetResult{nil, nil, nil, nil, err}
+			return
+		}
+
+		commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+		if err != nil {
+			s.log.Warnw("Failed sanity check", "number", block.Number, "hash", block.Hash.ShortString(), "err", err, commitments)
+			resultChan <- GetResult{nil, nil, nil, nil, err}
+			return
+		}
+
+		resultChan <- GetResult{stateUpdate, block, newClasses, commitments, nil}
 	}
+}
 
-	fetchers, verifiers := s.setupWorkers()
-	streamCtx, streamCancel := context.WithCancel(syncCtx)
+func (s *Synchronizer) sendHeadAndLog(block *core.Block) {
+	s.newHeads.Send(block.Header)
+	s.log.Infow("Stored Block", "number", block.Number, "hash",
+		block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+}
 
-	go s.pollLatest(syncCtx, latestSem)
-	pendingSem := make(chan struct{}, 1)
-	go s.pollPending(syncCtx, pendingSem)
+type GetResult struct {
+	stateUpdate *core.StateUpdate
+	block       *core.Block
+	classes     map[felt.Felt]core.Class
+	commitments *core.BlockCommitments
+	err         error
+}
+
+// main loop for syncing blocks
+// Generates worker threads for fetching blocks, classes and sanity check
+// since those can be done in parallel
+// Waits for all current threads to finish and then stores blocks sequentially
+// Here bottleneck is waiting for all to finish but once a goroutine finishes fetching it can
+// start fetching the next block
+
+// Also it doesnt check right now if it caught the head of the chain
+// It is only on cathcup mode
+
+// Shouldn't be opening and closing threads continuously because it is costly
+// Implement it for simplicity but would be better to have a pool of threads
+func (s *Synchronizer) newSyncBlocks(ctx context.Context) {
+	blockHeight := s.nextHeight()
+	var wg sync.WaitGroup
+	var workerCount = 12
 
 	for {
 		select {
-		case <-streamCtx.Done():
-			streamCancel()
-			fetchers.Wait()
-			verifiers.Wait()
-
-			select {
-			case <-syncCtx.Done():
-				pendingSem <- struct{}{}
-				latestSem <- struct{}{}
-				return
-			default:
-				streamCtx, streamCancel = context.WithCancel(syncCtx)
-				nextHeight = s.nextHeight()
-				fetchers, verifiers = s.setupWorkers()
-				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
-			}
+		case <-ctx.Done():
+			return
 		default:
-			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
-			fetchers.Go(func() stream.Callback {
-				fetchTimer := time.Now()
-				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
-				s.listener.OnSyncStepDone(OpFetch, curHeight, time.Since(fetchTimer))
-				return cb
+			resultChan := make(chan GetResult, workerCount)
+
+			for i := 0; i < workerCount; i++ {
+				wg.Add(1)
+				go s.getStateAndClasses(ctx, &wg, blockHeight+uint64(i), resultChan)
+			}
+
+			wg.Wait()
+			close(resultChan)
+
+			results := []GetResult{}
+			for result := range resultChan {
+				results = append(results, result)
+			}
+
+			sort.Slice(results, func(i, j int) bool {
+				return results[i].block.Header.Number < results[j].block.Header.Number
 			})
-			nextHeight++
-		}
-	}
-}
 
-func maxWorkers() int {
-	m, mProcs := 16, runtime.GOMAXPROCS(0)
-	if mProcs > m {
-		return m
-	}
-	return mProcs
-}
+			i := 0
+			for i = 0; i < workerCount; i++ {
+				block := results[i].block
+				stateUpdate := results[i].stateUpdate
+				newClasses := results[i].classes
+				commitments := results[i].commitments
+				err := results[i].err
 
-func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
-	numWorkers := 1
-	if s.catchUpMode {
-		numWorkers = maxWorkers()
-	}
-	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
-}
-
-func (s *Synchronizer) revertHead(forkBlock *core.Block) {
-	var localHead *felt.Felt
-	head, err := s.blockchain.HeadsHeader()
-	if err == nil {
-		localHead = head.Hash
-	}
-
-	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
-
-	err = s.blockchain.RevertHead()
-	if err != nil {
-		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
-	} else {
-		s.log.Infow("Reverted HEAD", "reverted", localHead)
-	}
-	s.listener.OnReorg(head.Number)
-}
-
-func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
-	if s.pendingPollInterval == time.Duration(0) {
-		return
-	}
-
-	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
-	for {
-		select {
-		case <-ctx.Done():
-			pendingPollTicker.Stop()
-			return
-		case <-pendingPollTicker.C:
-			select {
-			case sem <- struct{}{}:
-				go func() {
-					defer func() {
-						<-sem
-					}()
-					err := s.fetchAndStorePending(ctx)
-					if err != nil {
-						s.log.Debugw("Error while trying to poll pending block", "err", err)
-					}
-				}()
-			default:
-			}
-		}
-	}
-}
-
-func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
-	poll := func() {
-		select {
-		case sem <- struct{}{}:
-			go func() {
-				defer func() {
-					<-sem
-				}()
-				highestBlock, err := s.starknetData.BlockLatest(ctx)
 				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err)
-				} else {
-					s.highestBlockHeader.Store(highestBlock.Header)
+					break
 				}
-			}()
-		default:
+
+				err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
+				if err != nil {
+					continue
+				}
+
+				s.sendHeadAndLog(block)
+			}
+
+			blockHeight += uint64(i)
 		}
+
 	}
-
-	ticker := time.NewTicker(time.Minute)
-	poll()
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			poll()
-		}
-	}
-}
-
-func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
-	highestBlockHeader := s.highestBlockHeader.Load()
-	if highestBlockHeader == nil {
-		return nil
-	}
-
-	head, err := s.blockchain.HeadsHeader()
-	if err != nil {
-		return err
-	}
-
-	// not at the tip of the chain yet, no need to poll pending
-	if highestBlockHeader.Number > head.Number {
-		return nil
-	}
-
-	pendingStateUpdate, pendingBlock, err := s.starknetData.StateUpdatePendingWithBlock(ctx)
-	if err != nil {
-		return err
-	}
-
-	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
-	if err != nil {
-		return err
-	}
-
-	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
-	return s.blockchain.StorePending(&blockchain.Pending{
-		Block:       pendingBlock,
-		StateUpdate: pendingStateUpdate,
-		NewClasses:  newClasses,
-	})
 }
 
 func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
