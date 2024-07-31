@@ -329,7 +329,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll
-	txnJSONs := []json.RawMessage{}
+	txnJSONs := make([]json.RawMessage, 0, len(txns))
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)
 		if err != nil {
@@ -338,7 +338,7 @@ func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []co
 		txnJSONs = append(txnJSONs, txnJSON)
 	}
 
-	classJSONs := []json.RawMessage{}
+	classJSONs := make([]json.RawMessage, 0, len(declaredClasses))
 	for _, declaredClass := range declaredClasses {
 		declaredClassJSON, cErr := marshalClassInfo(declaredClass)
 		if cErr != nil {

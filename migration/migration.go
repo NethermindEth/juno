@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -550,7 +551,7 @@ func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc 
 		}
 
 		orgKeyPrefix[0] = byte(db.Temporary) // move the node to temporary bucket
-		return txn.Set(append(orgKeyPrefix, keyBuffer.Bytes()...), tempBuf.Bytes())
+		return txn.Set(slices.Concat(orgKeyPrefix, keyBuffer.Bytes()), tempBuf.Bytes())
 	}
 }
 

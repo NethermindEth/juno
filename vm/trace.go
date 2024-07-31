@@ -150,7 +150,7 @@ func (t *TransactionTrace) RevertReason() string {
 func (t *TransactionTrace) AllEvents() []OrderedEvent {
 	events := make([]OrderedEvent, 0)
 	for _, invocation := range t.allInvocations() {
-		events = append(events, invocation.allEvents()...)
+		events = slices.Concat(events, invocation.allEvents())
 	}
 	return events
 }
@@ -158,7 +158,7 @@ func (t *TransactionTrace) AllEvents() []OrderedEvent {
 func (t *TransactionTrace) AllMessages() []OrderedL2toL1Message {
 	messages := make([]OrderedL2toL1Message, 0)
 	for _, invocation := range t.allInvocations() {
-		messages = append(messages, invocation.allMessages()...)
+		messages = slices.Concat(messages, invocation.allMessages())
 	}
 	return messages
 }
@@ -181,17 +181,17 @@ type FunctionInvocation struct {
 func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
 	events := make([]OrderedEvent, 0)
 	for i := range invocation.Calls {
-		events = append(events, invocation.Calls[i].allEvents()...)
+		events = slices.Concat(events, invocation.Calls[i].allEvents())
 	}
-	return append(events, invocation.Events...)
+	return slices.Concat(events, invocation.Events)
 }
 
 func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
 	messages := make([]OrderedL2toL1Message, 0)
 	for i := range invocation.Calls {
-		messages = append(messages, invocation.Calls[i].allMessages()...)
+		messages = slices.Concat(messages, invocation.Calls[i].Messages)
 	}
-	return append(messages, invocation.Messages...)
+	return slices.Concat(messages, invocation.Messages)
 }
 
 type ExecuteInvocation struct {

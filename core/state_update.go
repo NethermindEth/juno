@@ -2,7 +2,7 @@ package core
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -52,18 +52,15 @@ func (d *StateDiff) Commitment() *felt.Felt {
 		deployedReplacedAddresses = append(deployedReplacedAddresses, addr)
 	}
 	hashOfDeployedContracts.Update(tmpFelt.SetUint64(uint64(len(deployedReplacedAddresses))))
-	sort.Slice(deployedReplacedAddresses, func(i, j int) bool {
-		switch deployedReplacedAddresses[i].Cmp(&deployedReplacedAddresses[j]) {
-		case -1:
-			return true
-		case 1:
-			return false
-		default:
+	slices.SortFunc(deployedReplacedAddresses, func(a, b felt.Felt) int {
+		if res := a.Cmp(&b); res == 0 {
+			panic(fmt.Sprintf("address appears twice in deployed and replaced addresses: %s", &a))
+		} else {
+			return res
 			// The sequencer guarantees that a contract cannot be:
 			// - deployed twice,
 			// - deployed and have its class replaced in the same state diff, or
 			// - have its class replaced multiple times in the same state diff.
-			panic(fmt.Sprintf("address appears twice in deployed and replaced addresses: %s", &deployedReplacedAddresses[i]))
 		}
 	})
 	for idx := range deployedReplacedAddresses {
@@ -92,9 +89,7 @@ func (d *StateDiff) Commitment() *felt.Felt {
 	*/
 	var hashOfOldDeclaredClasses crypto.PoseidonDigest
 	hashOfOldDeclaredClasses.Update(tmpFelt.SetUint64(uint64(len(d.DeclaredV0Classes))))
-	sort.Slice(d.DeclaredV0Classes, func(i, j int) bool {
-		return d.DeclaredV0Classes[i].Cmp(d.DeclaredV0Classes[j]) == -1
-	})
+	slices.SortFunc(d.DeclaredV0Classes, func(a, b *felt.Felt) int { return a.Cmp(b) })
 	hashOfOldDeclaredClasses.Update(d.DeclaredV0Classes...)
 
 	/*
@@ -145,9 +140,7 @@ func sortedFeltKeys[V any](m map[felt.Felt]V) []felt.Felt {
 	for addr := range m {
 		keys = append(keys, addr)
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i].Cmp(&keys[j]) == -1
-	})
+	slices.SortFunc(keys, func(a, b felt.Felt) int { return a.Cmp(&b) })
 
 	return keys
 }
