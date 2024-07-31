@@ -570,7 +570,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n *utils.Network) (*felt.
 }
 
 func deployAccountTransactionHash(d *DeployAccountTransaction, n *utils.Network) (*felt.Felt, error) {
-	callData := slices.Concat([]*felt.Felt{d.ClassHash, d.ContractAddressSalt}, d.ConstructorCallData)
+	callData := append([]*felt.Felt{d.ClassHash, d.ContractAddressSalt}, d.ConstructorCallData...)
 	// There is no version 0 for deploy account
 	switch {
 	case d.Version.Is(1):
@@ -698,7 +698,7 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 
 	sep := "."
 	// pad with 3 zeros in case version has less than 3 digits
-	digits := slices.Concat(strings.Split(protocolVersion, sep), []string{"0", "0", "0"})
+	digits := append(strings.Split(protocolVersion, sep), []string{"0", "0", "0"}...)
 
 	// get first 3 digits only
 	return semver.NewVersion(strings.Join(digits[:3], sep))
