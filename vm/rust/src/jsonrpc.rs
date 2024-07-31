@@ -302,21 +302,22 @@ fn make_state_diff<S: State>(
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 
+    // Todo: handle replaced classes. Note: previous logic assumes class hash is not set yet, which doesn't seem to be the case.
     for pair in diff.address_to_class_hash {
-        let existing_class_hash = state.get_class_hash_at(pair.0)?;
-        if existing_class_hash == ClassHash::default() {
+        // let existing_class_hash = state.get_class_hash_at(pair.0)?;
+        // if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
                 address: *pair.0.0.key(),
                 class_hash: pair.1.0,
             });
-        } else {
-            #[rustfmt::skip]
-            replaced_classes.push(ReplacedClass {
-                contract_address: *pair.0.0.key(),
-                class_hash: pair.1.0,
-            });
-        }
+        // } else {
+        //     #[rustfmt::skip]
+        //     replaced_classes.push(ReplacedClass {
+        //         contract_address: *pair.0.0.key(),
+        //         class_hash: pair.1.0,
+        //     });
+        // }
     }
 
     let mut deprecated_declared_classes = Vec::default();
