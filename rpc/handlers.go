@@ -326,6 +326,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
 		},
+		{
+			Name:    "juno_getBlockWithTxsAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithTxsAndReceipts,
+		},
 	}, "/v0_7"
 }
 
