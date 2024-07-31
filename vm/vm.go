@@ -95,6 +95,7 @@ type callContext struct {
 	actualFees      []*felt.Felt
 	traces          []json.RawMessage
 	dataGasConsumed []*felt.Felt
+	executionSteps  uint64
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -136,6 +137,12 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
 	context.dataGasConsumed = append(context.dataGasConsumed, makeFeltFromPtr(ptr))
+}
+
+//export JunoAddExecutionSteps
+func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.long) {
+	context := unwrapContext(readerHandle)
+	context.executionSteps += uint64(execSteps) // todo: assumes initial default value is zero even in ffi
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
