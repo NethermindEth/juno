@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
@@ -23,7 +22,7 @@ func TestKey(t *testing.T) {
 		for _, k := range keys {
 			t.Run(string(rune(len(k))), func(t *testing.T) {
 				expectedKey := []byte{byte(db.StateTrie)}
-				expectedKey = slices.Concat(expectedKey, k)
+				expectedKey = append(expectedKey, k...)
 				assert.Equal(t, expectedKey, db.StateTrie.Key(k))
 			})
 		}

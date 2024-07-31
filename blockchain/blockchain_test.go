@@ -3,7 +3,6 @@ package blockchain_test
 import (
 	"context"
 	"fmt"
-	"slices"
 	"testing"
 	"time"
 
@@ -516,7 +515,7 @@ func TestEvents(t *testing.T) {
 				for i := 0; i < len(allEvents)+1; i++ {
 					gotEvents, lastToken, err = filter.Events(lastToken, chunkSize)
 					require.NoError(t, err)
-					accEvents = slices.Concat(accEvents, gotEvents)
+					accEvents = append(accEvents, gotEvents...)
 					if lastToken == nil {
 						break
 					}
