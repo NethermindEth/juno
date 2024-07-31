@@ -189,7 +189,7 @@ func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
 func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
 	messages := make([]OrderedL2toL1Message, 0)
 	for i := range invocation.Calls {
-		messages = append(messages, invocation.Calls[i].Messages...)
+		messages = append(messages, invocation.Calls[i].allMessages()...)
 	}
 	return append(messages, invocation.Messages...)
 }
