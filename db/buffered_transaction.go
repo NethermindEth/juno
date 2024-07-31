@@ -2,7 +2,6 @@ package db
 
 import (
 	"errors"
-	"slices"
 )
 
 // BufferedTransaction buffers the updates in the memory to be later flushed to the underlying Transaction
@@ -36,7 +35,7 @@ func (t *BufferedTransaction) Commit() error {
 // Set : see db.Transaction.Set
 func (t *BufferedTransaction) Set(key, val []byte) error {
 	valueCopy := make([]byte, 0, len(val))
-	t.updates[string(key)] = slices.Concat(valueCopy, val)
+	t.updates[string(key)] = append(valueCopy, val...)
 	return nil
 }
 
