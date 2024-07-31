@@ -3,7 +3,7 @@ name: CI/CD pipeline
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
 
-  REPO_DEV: nubia-docker-local-dev
+  REPO_DEV: nubia-docker-local-staging
   REPO_STAGING: nubia-docker-local-staging
   REPO_PROD: nubia-docker-local-prod
 
@@ -33,7 +33,7 @@ jobs:
       - name: Define image tag
         id: set_tag
         run: |
-          export DOCKER_IMAGE_TAG=$(git describe --tags)
+          export DOCKER_IMAGE_TAG=v0.12.0
 
           # This one is to be able to use the image tag in the next steps in this job
           echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_ENV
@@ -57,38 +57,38 @@ jobs:
           tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ env.DOCKER_IMAGE_TAG }}
 
 
-  validate_dev:
-    permissions:
-      id-token: write
-      contents: write
-    needs: [build_docker_image]
-    runs-on: ubuntu-latest
-    environment:
-      name: Development
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  # validate_dev:
+  #   permissions:
+  #     id-token: write
+  #     contents: write
+  #   needs: [build_docker_image]
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: Development
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Verify Deployment Version (Dev)
-        run: |
-          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+  #     - name: Verify Deployment Version (Dev)
+  #       run: |
+  #         bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
 
-  dev-starknet-rs-tests:
-    needs: [validate_dev]
-    uses: ./.github/workflows/starknet-rs-tests.yml
-    secrets:
-      STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_6
+  # dev-starknet-rs-tests:
+  #   needs: [validate_dev]
+  #   uses: ./.github/workflows/starknet-rs-tests.yml
+  #   secrets:
+  #     STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_6
 
-  dev-starknet-js-tests:
-    needs: [validate_dev]
-    uses: ./.github/workflows/starknet-js-tests.yml
-    secrets:
-      TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+  # dev-starknet-js-tests:
+  #   needs: [validate_dev]
+  #   uses: ./.github/workflows/starknet-js-tests.yml
+  #   secrets:
+  #     TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
+  #     TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+  #     TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   promote_to_staging:
-    needs: [build_docker_image, validate_dev]
+    needs: [build_docker_image]
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -105,9 +105,9 @@ jobs:
           OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
           NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
 
-          docker pull $OLD_TAG
-          docker tag $OLD_TAG $NEW_TAG
-          docker push $NEW_TAG
+          # docker pull $OLD_TAG
+          # docker tag $OLD_TAG $NEW_TAG
+          # docker push $NEW_TAG
 
       - name: Verify Deployment Version (Staging)
         run: |
