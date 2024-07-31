@@ -61,7 +61,7 @@ extern "C" {
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendDataGasConsumed(reader_handle: usize, ptr: *const c_uchar);
-    fn JunoAddExecutionSteps(reader_handle: usize, execSteps: c_longlong);
+    fn JunoAddExecutionSteps(reader_handle: usize, execSteps: c_ulonglong);
 }
 
 #[repr(C)]

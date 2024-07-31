@@ -140,7 +140,7 @@ func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 }
 
 //export JunoAddExecutionSteps
-func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.long) {
+func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.ulonglong) {
 	context := unwrapContext(readerHandle)
 	context.executionSteps += uint64(execSteps) // todo: assumes initial default value is zero even in ffi
 }
