@@ -106,8 +106,8 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 		l1Gas = AdaptFelt(new(felt.Felt).SetUint64(da.L1Gas))
 		l1DataGas = AdaptFelt(new(felt.Felt).SetUint64(da.L1DataGas))
 	}
-	return &spec.Receipt_ExecutionResources{
-		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{
+	return &spec.Receipt_ExecutionResources{ //nolint:exhaustruct
+		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{ //nolint:exhaustruct
 			Bitwise:    uint32(er.BuiltinInstanceCounter.Bitwise),
 			Ecdsa:      uint32(er.BuiltinInstanceCounter.Ecsda),
 			EcOp:       uint32(er.BuiltinInstanceCounter.EcOp),
