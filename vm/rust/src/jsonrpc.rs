@@ -14,6 +14,7 @@ use starknet_api::deprecated_contract_class::EntryPointType;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
+use blockifier::state::cached_state::CommitmentStateDiff;
 
 #[derive(Serialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
@@ -98,10 +99,11 @@ pub enum ExecuteInvocation {
 }
 
 type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionInfo;
-pub fn new_transaction_trace<S: State>(
+pub fn new_transaction_trace(
     tx: &StarknetApiTransaction,
     info: BlockifierTxInfo,
-    state: &mut S,
+    state: &mut JunoState,
+    commitment_state_diff: CommitmentStateDiff,
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
     let mut deprecated_declared_class: Option<ClassHash> = None;
@@ -147,7 +149,7 @@ pub fn new_transaction_trace<S: State>(
         }
     };
 
-    trace.state_diff = make_state_diff(state, deprecated_declared_class)?;
+    trace.state_diff = make_state_diff(state, deprecated_declared_class, commitment_state_diff)?;
     Ok(trace)
 }
 
@@ -294,15 +296,15 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 #[derive(Debug, Serialize)]
 pub struct Retdata(pub Vec<StarkFelt>);
 
-fn make_state_diff<S: State>(
-    state: &mut S,
+fn make_state_diff(
+    state: &mut JunoState,
     deprecated_declared_class: Option<ClassHash>,
+    commitment_state_diff:CommitmentStateDiff,
 ) -> Result<StateDiff, StateError> {
-    let diff = state.to_state_diff();
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 
-    for pair in diff.address_to_class_hash {
+    for pair in commitment_state_diff.address_to_class_hash {
         let existing_class_hash = state.get_class_hash_at(pair.0)?;
         if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
@@ -326,7 +328,7 @@ fn make_state_diff<S: State>(
     Ok(StateDiff {
         deployed_contracts,
         #[rustfmt::skip]
-        storage_diffs: diff.storage_updates.into_iter().map(| v | StorageDiff {
+        storage_diffs: commitment_state_diff.storage_updates.into_iter().map(| v | StorageDiff {
             address: *v.0.0.key(),
             storage_entries: v.1.into_iter().map(| e | Entry {
                 key: *e.0.0.key(),
@@ -334,13 +336,13 @@ fn make_state_diff<S: State>(
             }).collect()
         }).collect(),
         #[rustfmt::skip]
-        declared_classes: diff.class_hash_to_compiled_class_hash.into_iter().map(| v | DeclaredClass {
+        declared_classes: commitment_state_diff.class_hash_to_compiled_class_hash.into_iter().map(| v | DeclaredClass {
             class_hash: v.0.0,
             compiled_class_hash: v.1.0,
         }).collect(),
         deprecated_declared_classes,
         #[rustfmt::skip]
-        nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
+        nonces: commitment_state_diff.address_to_nonce.into_iter().map(| v | Nonce {
           contract_address: *v.0.0.key(),
           nonce: v.1.0,
         }).collect(),

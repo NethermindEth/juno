@@ -319,8 +319,9 @@ pub extern "C" fn cairoVMExecute(
                 let actual_fee = t.actual_fee.0.into();
                 let data_gas_consumed = t.da_gas.l1_data_gas.into();
 
+                let mut reader_hack = JunoState::new(reader_handle, block_info.block_number);
                 let trace =
-                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
+                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut reader_hack,txn_state.to_state_diff());
                 if trace.is_err() {
                     report_error(
                         reader_handle,
