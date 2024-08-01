@@ -133,6 +133,32 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
+// Checks if the checkNodeHash is a child of the currNode
+func isChild(currNode ProofNode, checkNodeHash *felt.Felt) bool {
+	if currNode.Binary != nil {
+		if checkNodeHash.Equal(currNode.Binary.LeftHash) || checkNodeHash.Equal(currNode.Binary.RightHash) {
+			return true
+		}
+	} else if currNode.Edge != nil {
+		if checkNodeHash.Equal(currNode.Edge.Child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Hash function does not work for edges this also returns hash for edges
+func getProofNodeHash(node ProofNode, hash hashFunc) *felt.Felt {
+	nodeHash := node.Hash(hash)
+
+	if node.Edge != nil {
+		nodeHash = node.Edge.Child
+	}
+
+	return nodeHash
+}
+
 // Remove duplicates and merges proof paths into a single path
 func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, error) {
 	merged := []ProofNode{}
@@ -201,7 +227,6 @@ func SplitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []Proof
 				} else {
 					rightPath = append(rightPath, mergedPath[i])
 				}
-
 			} else if mergedPath[i].Hash(hash).Equal(expectedHashRight) {
 				// Since left and right path inserted into merged path in order, we can assume that
 				// if the next hash is equal to the right hash, then there is no left hash in the merged path
@@ -220,46 +245,18 @@ func SplitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []Proof
 	rightCurr := rightPath[len(rightPath)-1]
 
 	// Append to left path if it is a child of the left path
-	j := i
-	for ; i < len(mergedPath); i++ {
-		mergedNodeHash := mergedPath[i].Hash(hash)
-
-		if mergedPath[i].Edge != nil {
-			mergedNodeHash = mergedPath[i].Edge.Child
-		}
-		if leftCurr.Binary != nil {
-
-			if mergedNodeHash.Equal(leftCurr.Binary.LeftHash) || mergedNodeHash.Equal(leftCurr.Binary.RightHash) {
-				leftPath = append(leftPath, mergedPath[i])
-				leftCurr = mergedPath[i]
-			}
-
-		} else if leftCurr.Edge != nil {
-			if mergedNodeHash.Equal(leftCurr.Edge.Child) {
-				leftPath = append(leftPath, mergedPath[i])
-				leftCurr = mergedPath[i]
-			}
-		}
-	}
-
 	// Append to right path if it is a child of the right path
-	for ; j < len(mergedPath); j++ {
-		mergedNodeHash := mergedPath[j].Hash(hash)
+	for ; i < len(mergedPath); i++ {
+		mergedNodeHash := getProofNodeHash(mergedPath[i], hash)
 
-		if mergedPath[j].Edge != nil {
-			mergedNodeHash = mergedPath[j].Edge.Child
+		if isChild(leftCurr, mergedNodeHash) {
+			leftPath = append(leftPath, mergedPath[i])
+			leftCurr = mergedPath[i]
 		}
-		if rightCurr.Binary != nil {
-			if mergedNodeHash.Equal(rightCurr.Binary.LeftHash) || mergedNodeHash.Equal(rightCurr.Binary.RightHash) {
-				rightPath = append(rightPath, mergedPath[j])
-				rightCurr = mergedPath[j]
-			}
 
-		} else if rightCurr.Edge != nil {
-			if mergedNodeHash.Equal(rightCurr.Edge.Child) {
-				rightPath = append(rightPath, mergedPath[j])
-				rightCurr = mergedPath[j]
-			}
+		if isChild(rightCurr, mergedNodeHash) {
+			rightPath = append(rightPath, mergedPath[i])
+			rightCurr = mergedPath[i]
 		}
 	}
 

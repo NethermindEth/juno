@@ -263,7 +263,7 @@ func noDuplicates(proofNodes []trie.ProofNode) bool {
 	return true
 }
 
-func containsAll(proofNodes []trie.ProofNode, expectedProofNodes []trie.ProofNode) bool {
+func containsAll(proofNodes, expectedProofNodes []trie.ProofNode) bool {
 	for _, pNode := range expectedProofNodes {
 		found := false
 		for _, p := range proofNodes {
@@ -279,7 +279,7 @@ func containsAll(proofNodes []trie.ProofNode, expectedProofNodes []trie.ProofNod
 	return true
 }
 
-func isSameProofPath(proofNodes []trie.ProofNode, expectedProofNodes []trie.ProofNode) bool {
+func isSameProofPath(proofNodes, expectedProofNodes []trie.ProofNode) bool {
 	if len(proofNodes) != len(expectedProofNodes) {
 		return false
 	}
@@ -911,12 +911,14 @@ func TestVerifyRangeProof(t *testing.T) {
 
 func TestMergeProofPaths(t *testing.T) {
 	t.Run("3Key Trie no duplicates and all values exist in merged path", func(t *testing.T) {
+		tri := build3KeyTrie(t)
+
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+
 		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
 		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
 
-		tri := build3KeyTrie(t)
 		proofKeys := [2]*trie.Key{&zeroLeafkey, &twoLeafkey}
 
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
@@ -934,12 +936,14 @@ func TestMergeProofPaths(t *testing.T) {
 	})
 
 	t.Run("4Key Trie two common ancestors", func(t *testing.T) {
-		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
-		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
 		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
 		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
 
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+
 		tri := build4KeyTrie(t)
+
 		proofKeys := [2]*trie.Key{&zeroLeafkey, &twoLeafkey}
 
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
@@ -956,13 +960,14 @@ func TestMergeProofPaths(t *testing.T) {
 		require.True(t, checkDuplicates)
 	})
 
-	t.Run("4Key Trie one common ancestor", func(t *testing.T) {
-		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
-		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
-		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
-		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
-
+	t.Run("Trie 4Key one ancestor", func(t *testing.T) {
 		tri := build4KeyTrie(t)
+		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+
+		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+
 		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
 
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
@@ -1006,12 +1011,14 @@ func TestSplitProofPaths(t *testing.T) {
 	})
 
 	t.Run("4Key Trie two common ancestors retrieved right and left proofs are same with the merged ones", func(t *testing.T) {
-		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
-		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
-		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
-		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
-
 		tri := build4KeyTrie(t)
+
+		twoFeltBytes := new(felt.Felt).SetUint64(2).Bytes()
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+
+		twoLeafkey := trie.NewKey(251, twoFeltBytes[:])
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+
 		proofKeys := [2]*trie.Key{&zeroLeafkey, &twoLeafkey}
 
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
@@ -1030,12 +1037,12 @@ func TestSplitProofPaths(t *testing.T) {
 	})
 
 	t.Run("4Key Trie one common ancestor retrieved right and left proofs are same with the merged ones", func(t *testing.T) {
+		tri := build4KeyTrie(t)
 		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
 		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
 		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
 		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
 
-		tri := build4KeyTrie(t)
 		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
 
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
