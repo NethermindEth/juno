@@ -13,6 +13,7 @@ use blockifier::{
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
+use cairo_native::executor::AotNativeExecutor;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -214,7 +215,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
             class.into()
         } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
             class.into()
-        } else if let Ok(class) = NativeContractClassV1::try_from_json_string(class_def.as_str()) {
+        } else if let Ok(class) = native_try_from_json_string(class_def.as_str()) {
             class.into()
         } else {
             return Err("not a valid contract class".to_string());
@@ -225,4 +226,38 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         class_info.abi_length,
     )
     .unwrap());
+}
+
+fn native_try_from_json_string(
+    raw_contract_class: &str,
+) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
+    // Compile the Sierra Program to native code and loads it into the process'
+    // memory space.
+    fn compile_and_load(
+        sierra_program: &cairo_lang_sierra::program::Program,
+    ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
+        let native_context = cairo_native::context::NativeContext::new();
+        let native_program = native_context.compile(sierra_program, None)?;
+        Ok(AotNativeExecutor::from_native_module(
+            native_program,
+            cairo_native::OptLevel::Default,
+        ))
+    }
+
+    let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
+        serde_json::from_str(raw_contract_class)?;
+
+    // todo(rodro): we are having two instances of a sierra program, one it's object form
+    // and another in its felt encoded form. This can be avoided by either:
+    //   1. Having access to the encoding/decoding functions
+    //   2. Refactoring the code on the Cairo mono-repo
+
+    let sierra_program = sierra_contract_class.extract_sierra_program()?;
+    let executor = compile_and_load(&sierra_program)?;
+
+    Ok(NativeContractClassV1::new(
+        &sierra_program,
+        executor,
+        sierra_contract_class,
+    )?)
 }
