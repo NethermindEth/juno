@@ -101,25 +101,30 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 		return nil
 	}
 
-	var l1Gas, l1DataGas *spec.Felt252
+	var l1Gas, l1DataGas, totalL1Gas *spec.Felt252
 	if da := er.DataAvailability; da != nil { // todo(kirill) check that it might be null
 		l1Gas = AdaptFelt(new(felt.Felt).SetUint64(da.L1Gas))
 		l1DataGas = AdaptFelt(new(felt.Felt).SetUint64(da.L1DataGas))
+		totalL1Gas = AdaptFelt(new(felt.Felt).SetUint64(da.L1Gas + da.L1DataGas))
 	}
-	return &spec.Receipt_ExecutionResources{ //nolint:exhaustruct
-		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{ //nolint:exhaustruct
-			Bitwise:    uint32(er.BuiltinInstanceCounter.Bitwise),
-			Ecdsa:      uint32(er.BuiltinInstanceCounter.Ecsda),
-			EcOp:       uint32(er.BuiltinInstanceCounter.EcOp),
-			Pedersen:   uint32(er.BuiltinInstanceCounter.Pedersen),
-			RangeCheck: uint32(er.BuiltinInstanceCounter.RangeCheck),
-			Poseidon:   uint32(er.BuiltinInstanceCounter.Poseidon),
-			Keccak:     uint32(er.BuiltinInstanceCounter.Keccak),
-			Output:     uint32(er.BuiltinInstanceCounter.Output),
+	return &spec.Receipt_ExecutionResources{
+		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{
+			Bitwise:      uint32(er.BuiltinInstanceCounter.Bitwise),
+			Ecdsa:        uint32(er.BuiltinInstanceCounter.Ecsda),
+			EcOp:         uint32(er.BuiltinInstanceCounter.EcOp),
+			Pedersen:     uint32(er.BuiltinInstanceCounter.Pedersen),
+			RangeCheck:   uint32(er.BuiltinInstanceCounter.RangeCheck),
+			Poseidon:     uint32(er.BuiltinInstanceCounter.Poseidon),
+			Keccak:       uint32(er.BuiltinInstanceCounter.Keccak),
+			Output:       uint32(er.BuiltinInstanceCounter.Output),
+			AddMod:       uint32(er.BuiltinInstanceCounter.AddMod),
+			MulMod:       uint32(er.BuiltinInstanceCounter.MulMod),
+			RangeCheck96: uint32(er.BuiltinInstanceCounter.RangeCheck96),
 		},
 		Steps:       uint32(er.Steps),
 		MemoryHoles: uint32(er.MemoryHoles),
 		L1Gas:       l1Gas,
 		L1DataGas:   l1DataGas,
+		TotalL1Gas:  totalL1Gas,
 	}
 }
