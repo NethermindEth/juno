@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         go: [ '1.22.2' ]
-        os: [ ubuntu-latest, macos-latest, self-hosted-linux-arm64]
+        os: [ ubuntu-latest, macos-latest, self-hosted-linux-arm64, ubuntu-arm64-2-core, ubuntu-arm64-2-core, ubuntu-arm64-2-core, ubuntu-arm64-4-core]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
