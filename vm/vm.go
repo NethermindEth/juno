@@ -142,7 +142,7 @@ func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 //export JunoAddExecutionSteps
 func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.ulonglong) {
 	context := unwrapContext(readerHandle)
-	context.executionSteps += uint64(execSteps) // todo: assumes initial default value is zero even in ffi
+	context.executionSteps += uint64(execSteps) // assumes initial default value is zero even in ffi
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -336,13 +336,13 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 				Cause: errors.New(context.err),
 			}
 		}
-		return nil, nil, nil, context.executionSteps, errors.New(context.err)
+		return nil, nil, nil, 0, errors.New(context.err)
 	}
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return nil, nil, nil, context.executionSteps, fmt.Errorf("unmarshal trace: %v", err)
+			return nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
 		}
 		//
 	}
