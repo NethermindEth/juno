@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/db"
@@ -93,13 +94,13 @@ func (h Handler) handleTxCursor(
 
 	switch cur.Op {
 	case gen.Op_SEEK:
-		key := append(cur.BucketName, cur.K...)
+		key := slices.Concat(cur.BucketName, cur.K)
 		if it.Seek(key) {
 			responsePair.K = it.Key()
 			responsePair.V, err = it.Value()
 		}
 	case gen.Op_SEEK_EXACT:
-		key := append(cur.BucketName, cur.K...)
+		key := slices.Concat(cur.BucketName, cur.K)
 		if it.Seek(key) && bytes.Equal(it.Key(), key) {
 			responsePair.K = it.Key()
 			responsePair.V, err = it.Value()
