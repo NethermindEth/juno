@@ -353,7 +353,21 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if txn.Transaction.TxVersion().Is(3) {
 		feeUnit = core.STRK
 	}
-
+	if trace[0].StateDiff.DeclaredClasses != nil {
+		switch t := (txn.Transaction).(type) {
+		case *core.DeclareTransaction:
+			err := state.SetContractClass(t.ClassHash, txn.DeclaredClass)
+			if err != nil {
+				b.log.Errorw("failed to set contract class : %s", err)
+			}
+			if t.CompiledClassHash != nil {
+				err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash)
+				if err != nil {
+					b.log.Errorw("failed to SetCompiledClassHash  : %s", err)
+				}
+			}
+		}
+	}
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0])
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
