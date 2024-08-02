@@ -101,11 +101,10 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 		return nil
 	}
 
-	var l1Gas, l1DataGas, totalL1Gas *spec.Felt252
+	var l1Gas, l1DataGas *spec.Felt252
 	if da := er.DataAvailability; da != nil { // todo(kirill) check that it might be null
 		l1Gas = AdaptFelt(new(felt.Felt).SetUint64(da.L1Gas))
 		l1DataGas = AdaptFelt(new(felt.Felt).SetUint64(da.L1DataGas))
-		totalL1Gas = AdaptFelt(new(felt.Felt).SetUint64(da.L1Gas + da.L1DataGas))
 	}
 	return &spec.Receipt_ExecutionResources{
 		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{
@@ -125,6 +124,6 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 		MemoryHoles: uint32(er.MemoryHoles),
 		L1Gas:       l1Gas,
 		L1DataGas:   l1DataGas,
-		TotalL1Gas:  totalL1Gas,
+		TotalL1Gas:  AdaptFelt(new(felt.Felt).SetUint64(er.TotalGasConsumed.L1Gas)),
 	}
 }
