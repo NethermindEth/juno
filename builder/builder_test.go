@@ -442,11 +442,11 @@ func TestPrefundedAccounts(t *testing.T) {
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
 	genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), bc.Network())
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network())
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(diff, classes))
 
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(log), 1000*time.Millisecond, p, log)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(context.Background(), txn)

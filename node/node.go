@@ -117,17 +117,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
-	if err != nil {
-		return nil, fmt.Errorf("create DB logger: %w", err)
-	}
-
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.DB
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
+		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
 	}
 
 	if err != nil {
@@ -145,8 +140,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("get head block from database: %v", err)
 	}
 	if head != nil {
+		stateUpdate, err := chain.StateUpdateByNumber(head.Number)
+		if err != nil {
+			return nil, err
+		}
+
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
-		if _, err = core.VerifyBlockHash(head, &cfg.Network); err != nil {
+		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
 		}
 	}
@@ -158,7 +158,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 
-	nodeVM := vm.New(log)
+	nodeVM := vm.New(false, log)
 	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
@@ -374,7 +374,7 @@ func (n *Node) Run(ctx context.Context) {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
-	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(n.log)); err != nil {
+	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(false, n.log)); err != nil {
 		n.log.Errorw("Error building genesis state", "err", err)
 		return
 	}

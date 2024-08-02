@@ -34,7 +34,7 @@ func TestGenesisStateDiff(t *testing.T) {
 
 	t.Run("empty genesis config", func(t *testing.T) {
 		genesisConfig := genesis.GenesisConfig{}
-		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
+		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(false, log), network)
 		require.NoError(t, err)
 	})
 
@@ -42,7 +42,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		genesisConfig, err := genesis.Read("./genesis_prefund_accounts.json")
 		require.NoError(t, err)
 		genesisConfig.Classes = []string{"./classes/strk.json", "./classes/account.json"}
-		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(log), network)
+		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), network)
 		require.NoError(t, err)
 		require.Empty(t, stateDiff.Nonces)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))

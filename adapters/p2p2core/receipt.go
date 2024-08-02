@@ -52,10 +52,15 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 			Keccak:       uint64(er.GetBuiltins().GetKeccak()),
 			Poseidon:     uint64(er.GetBuiltins().GetPoseidon()),
 			SegmentArena: 0, // todo(kirill) recheck
+			// todo(kirill) set fields after spec update
+			AddMod:       0,
+			MulMod:       0,
+			RangeCheck96: 0,
 		},
 		DataAvailability: nil, // todo(kirill) recheck
 		MemoryHoles:      uint64(er.MemoryHoles),
 		Steps:            uint64(er.Steps), // todo SPEC 32 -> 64 bytes
+		TotalGasConsumed: nil,              // todo(kirill) fill after spec update
 	}
 }
 

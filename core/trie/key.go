@@ -30,7 +30,7 @@ func (k *Key) SubKey(n uint8) (*Key, error) {
 	}
 
 	newKey := &Key{len: n}
-	copy(newKey.bitset[:], k.bitset[len(k.bitset)-int((k.len+7)/8):]) //nolint:gomnd
+	copy(newKey.bitset[:], k.bitset[len(k.bitset)-int((k.len+7)/8):]) //nolint:mnd
 
 	// Shift right by the number of bits that are not needed
 	shift := k.len - n

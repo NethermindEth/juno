@@ -63,8 +63,8 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
-	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:gomnd
-	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:gomnd
+	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
+	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -210,7 +210,8 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error
 	// Iterate over all entries in the old bucket, copying each into memory.
 	// Even with millions of contracts, this shouldn't be too expensive.
 	oldEntries := make(map[string][]byte)
-	oldPrefix := db.Unused.Key()
+	// Previously ContractStorageRoot were stored in the Peer bucket.
+	oldPrefix := db.Peer.Key()
 	var value []byte
 	for it.Seek(oldPrefix); it.Valid(); it.Next() {
 		// Stop iterating once we're out of the old bucket.
@@ -449,7 +450,7 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 		}
 
 		workerPool.Go(func() error {
-			commitments, err := core.VerifyBlockHash(block, network)
+			commitments, err := core.VerifyBlockHash(block, network, nil)
 			if err != nil {
 				return err
 			}

@@ -35,10 +35,7 @@ func AdaptClass(class *spec.Class) core.Class {
 		}
 	case *spec.Class_Cairo1:
 		cairo1 := cls.Cairo1
-		abiHash, err := crypto.StarknetKeccak([]byte(cairo1.Abi))
-		if err != nil {
-			panic(err)
-		}
+		abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 		program := utils.Map(cairo1.Program, AdaptFelt)
 		compiled, err := createCompiledClass(cairo1)

@@ -64,7 +64,7 @@ type ResourceBounds struct {
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
-	maxAmountBytes := make([]byte, 8) //nolint:gomnd
+	maxAmountBytes := make([]byte, 8) //nolint:mnd
 	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
 	maxPriceBytes := rb.MaxPricePerUnit.Bytes()
 	return slices.Concat(
@@ -100,6 +100,7 @@ type ExecutionResources struct {
 	MemoryHoles            uint64
 	Steps                  uint64
 	DataAvailability       *DataAvailability
+	TotalGasConsumed       *GasConsumed
 }
 
 type DataAvailability struct {
@@ -117,18 +118,9 @@ type BuiltinInstanceCounter struct {
 	Keccak       uint64
 	Poseidon     uint64
 	SegmentArena uint64
-}
-
-type TransactionReceipt struct {
-	Fee                *felt.Felt
-	FeeUnit            FeeUnit
-	Events             []*Event
-	ExecutionResources *ExecutionResources
-	L1ToL2Message      *L1ToL2Message
-	L2ToL1Message      []*L2ToL1Message
-	TransactionHash    *felt.Felt
-	Reverted           bool
-	RevertReason       string
+	AddMod       uint64
+	MulMod       uint64
+	RangeCheck96 uint64
 }
 
 type Transaction interface {
@@ -638,12 +630,12 @@ func VerifyTransactions(txs []Transaction, n *utils.Network, protocolVersion str
 
 const commitmentTrieHeight = 64
 
-// transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
+// transactionCommitmentPedersen is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
+func transactionCommitmentPedersen(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	v0_11_1 := semver.MustParse("0.11.1")
-	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
 		blockVersion, err := ParseBlockVersion(protocolVersion)
 		if err != nil {
 			return err
@@ -673,6 +665,32 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 	})
 }
 
+func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
+	var commitment *felt.Felt
+	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
+		for i, transaction := range transactions {
+			var digest crypto.PoseidonDigest
+			digest.Update(transaction.Hash())
+
+			if txSignature := transaction.Signature(); len(txSignature) > 0 {
+				digest.Update(txSignature...)
+			} else {
+				digest.Update(&felt.Zero)
+			}
+
+			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), digest.Finish()); err != nil {
+				return err
+			}
+		}
+		root, err := trie.Root()
+		if err != nil {
+			return err
+		}
+		commitment = root
+		return nil
+	})
+}
+
 // ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
 func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	if protocolVersion == "" {
@@ -688,10 +706,72 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	return semver.NewVersion(strings.Join(digits[:3], sep))
 }
 
-// eventCommitment computes the event commitment for a block.
-func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+// eventCommitmentPoseidon computes the event commitment for a block.
+func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
+		eventCount := uint64(0)
+		numWorkers := runtime.GOMAXPROCS(0)
+		receiptPerWorker := len(receipts) / numWorkers
+		if receiptPerWorker == 0 {
+			receiptPerWorker = 1
+		}
+		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
+		var trieMutex sync.Mutex
+
+		for receiptIdx := range receipts {
+			if receiptIdx%receiptPerWorker == 0 {
+				curReceiptIdx := receiptIdx
+				curEventIdx := eventCount
+
+				workerPool.Go(func() error {
+					maxIndex := curReceiptIdx + receiptPerWorker
+					if maxIndex > len(receipts) {
+						maxIndex = len(receipts)
+					}
+					receiptsSliced := receipts[curReceiptIdx:maxIndex]
+
+					for _, receipt := range receiptsSliced {
+						for _, event := range receipt.Events {
+							hashElems := []*felt.Felt{event.From, receipt.TransactionHash}
+							hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(len(event.Keys))))
+							hashElems = append(hashElems, event.Keys...)
+							hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(len(event.Data))))
+							hashElems = append(hashElems, event.Data...)
+
+							eventHash := crypto.PoseidonArray(hashElems...)
+
+							eventTrieKey := new(felt.Felt).SetUint64(curEventIdx)
+							trieMutex.Lock()
+							_, err := trie.Put(eventTrieKey, eventHash)
+							trieMutex.Unlock()
+							if err != nil {
+								return err
+							}
+							curEventIdx++
+						}
+					}
+					return nil
+				})
+			}
+			eventCount += uint64(len(receipts[receiptIdx].Events))
+		}
+		if err := workerPool.Wait(); err != nil {
+			return err
+		}
+		root, err := trie.Root()
+		if err != nil {
+			return err
+		}
+		commitment = root
+		return nil
+	})
+}
+
+// eventCommitmentPedersen computes the event commitment for a block.
+func eventCommitmentPedersen(receipts []*TransactionReceipt) (*felt.Felt, error) {
+	var commitment *felt.Felt
+	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
 		eventCount := uint64(0)
 		numWorkers := runtime.GOMAXPROCS(0)
 		receiptPerWorker := len(receipts) / numWorkers
