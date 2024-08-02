@@ -409,7 +409,6 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	for _, key := range keys {
 		contractAddr := key
 		contractUpdaters.Go(func() (*bufferedTransactionWithAddress, error) {
-			// 2 return values because right now you return contractAddr unmodified as second return value
 			bufferedTxn, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
 			if err != nil {
 				return nil, err
@@ -423,6 +422,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		return err
 	}
 
+	// we sort bufferedTxns in ascending contract address order to achieve an additional speedup
 	sort.Slice(bufferedTxns, func(i, j int) bool {
 		return bufferedTxns[i].Address.Cmp(bufferedTxns[j].Address) < 0
 	})
