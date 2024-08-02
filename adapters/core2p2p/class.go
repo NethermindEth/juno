@@ -20,11 +20,6 @@ func AdaptClass(class core.Class) *spec.Class {
 
 	switch v := class.(type) {
 	case *core.Cairo0Class:
-		hash, err := v.Hash()
-		if err != nil {
-			panic(fmt.Errorf("failed to hash Cairo0Class: %w", err))
-		}
-		AdaptHash(hash)
 		return &spec.Class{
 			Class: &spec.Class_Cairo0{
 				Cairo0: &spec.Cairo0Class{
@@ -39,10 +34,6 @@ func AdaptClass(class core.Class) *spec.Class {
 			ClassHash: AdaptHash(hash),
 		}
 	case *core.Cairo1Class:
-		hash, err := v.Hash()
-		if err != nil {
-			panic(fmt.Errorf("failed to hash Cairo1Class: %w", err))
-		}
 		return &spec.Class{
 			Class: &spec.Class_Cairo1{
 				Cairo1: &spec.Cairo1Class{
