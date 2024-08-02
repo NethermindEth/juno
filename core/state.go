@@ -511,7 +511,6 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 			continue
 		}
 
-		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
 		leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
 		if _, err = classesTrie.Put(&classHash, leafValue); err != nil {
 			return err
@@ -603,7 +602,8 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 }
 
 func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt, v1Classes map[felt.Felt]*felt.Felt) error {
-	var classHashes []*felt.Felt
+	totalCapacity := len(v0Classes) + len(v1Classes)
+	classHashes := make([]*felt.Felt, 0, totalCapacity)
 	classHashes = append(classHashes, v0Classes...)
 	for classHash := range v1Classes {
 		classHashes = append(classHashes, classHash.Clone())

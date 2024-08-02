@@ -8,7 +8,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
 )
 
@@ -33,8 +32,6 @@ type BlockHashMetaInfo struct {
 	First07Block uint64 `json:"first_07_block" validate:"required"`
 	// Range of blocks that are not verifiable
 	UnverifiableRange []uint64 `json:"unverifiable_range" validate:"required"`
-	// Block ids for which we fetch traces from feeder gateway instead of getting them from blockifier
-	ForceFetchingTracesForBlocks []uint64 `json:"force_fetching_traces_for_blocks"`
 }
 
 var (
@@ -44,7 +41,7 @@ var (
 	_ pflag.Value              = (*Network)(nil)
 	_ encoding.TextUnmarshaler = (*Network)(nil)
 
-	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
+	// The docs states the addresses for each network: https://docs.starknet.io/tools/important-addresses/
 	Mainnet = Network{
 		Name:                "mainnet",
 		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway/",
@@ -55,35 +52,6 @@ var (
 		BlockHashMetaInfo: &BlockHashMetaInfo{
 			First07Block:             833,
 			FallBackSequencerAddress: fallBackSequencerAddressMainnet,
-			ForceFetchingTracesForBlocks: []uint64{
-				611294, 611505, 612469, 613231, 614631, 614849, 615085,
-				615449, 615839, 615978, 616658, 617479, 617507, 617582,
-				617593, 617828, 618166, 618260, 618320, 618406, 618423,
-				618776, 618884, 618975, 619052, 619128, 619171, 619467,
-				619513, 619553, 619596, 619631, 619721, 619951, 619960,
-				620018, 620066, 620235, 620423, 620530, 620678, 620749,
-				620847, 621350, 621369, 621843, 621897, 621995, 622027,
-				622063, 622244, 622768, 622786, 622873, 622930, 623034,
-				623156, 623252, 623372, 623428, 623562, 623736, 623792,
-				624045, 624082, 624114, 624236, 624378, 624487, 624690,
-				624757, 624812, 624875, 624894, 624905, 624929, 625300,
-				625403, 625441, 625525, 625741, 625767, 625794, 625802,
-				625820, 625849, 625851, 625879, 625935, 625971, 626008,
-				626019, 626176, 626193, 626204, 626236, 626285, 626335,
-				626370, 626371, 626457, 626683, 626738, 626792, 626820,
-				626835, 626962, 627015, 627049, 627100, 627135, 627138,
-				627164, 627186, 627243, 627246, 627276, 627291, 627322,
-				627351, 627389, 627404, 627428, 627591, 627623, 627624,
-				627640, 627645, 627676, 627968, 628183, 628425, 628449,
-				628511, 628561, 628682, 628746, 628772, 628778, 628819,
-				628915, 628944, 629003, 629122, 629382, 629397, 629432,
-				629484, 629500, 629831, 629853, 629893, 629908, 629916,
-				630423, 631040, 631041, 631091, 631136, 631142, 631144,
-				631149, 631155, 631204, 631269, 631368, 631602, 631685,
-				631739, 631741, 631760, 631811, 631861, 631927, 632072,
-				632073, 632074, 632075, 632076, 632077, 632078, 632079,
-				632081, 632202, 632206, 632237, 632241, 632271, 632845,
-			},
 		},
 	}
 	Goerli = Network{
@@ -91,7 +59,7 @@ var (
 		FeederURL:  "https://alpha4.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha4.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -105,7 +73,7 @@ var (
 		FeederURL:  "https://alpha4-2.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha4-2.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI2",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -118,7 +86,7 @@ var (
 		FeederURL:  "https://external.integration.starknet.io/feeder_gateway/",
 		GatewayURL: "https://external.integration.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -132,7 +100,7 @@ var (
 		FeederURL:  "https://alpha-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_SEPOLIA",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -145,7 +113,7 @@ var (
 		FeederURL:  "https://integration-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://integration-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_INTEGRATION_SEPOLIA",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -191,10 +159,6 @@ func (n *Network) UnmarshalText(text []byte) error {
 
 func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
-}
-
-func (n *Network) ProtocolID() protocol.ID {
-	return protocol.ID(fmt.Sprintf("/starknet/%s", n.String()))
 }
 
 func knownNetworkNames() []string {

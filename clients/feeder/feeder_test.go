@@ -334,6 +334,22 @@ func TestBlockHeaderV0131Unmarshal(t *testing.T) {
 	require.Equal(t, uint64(128), block.Receipts[0].ExecutionResources.DataAvailability.L1DataGas)
 }
 
+func TestBlockHeaderv0132Unmarshal(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	block, err := client.Block(context.Background(), "35748")
+	require.NoError(t, err)
+
+	// Only focus on checking the new fields
+	require.Equal(t, utils.HexToFelt(t, "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x77140bef51bbb4d1932f17cc5081825ff18465a1df4440ca0429a4fa80f1dc5"), block.ParentHash)
+	require.Equal(t, utils.HexToFelt(t, "0x6f12628d21a8df7f158b631d801fc0dd20034b9e22eca255bddc0c1c1bc283f"), block.ReceiptCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x23587c54d590b57b8e25acbf1e1a422eb4cd104e95ee4a681021a6bb7456afa"), block.StateDiffCommitment)
+	require.Equal(t, uint64(6), block.StateDiffLength)
+	require.Equal(t, "0.13.2", block.Version)
+	require.Equal(t, uint64(117620), block.Receipts[0].ExecutionResources.TotalGasConsumed.L1Gas)
+	require.Equal(t, uint64(192), block.Receipts[0].ExecutionResources.TotalGasConsumed.L1DataGas)
+}
+
 func TestClassV0Unmarshal(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 

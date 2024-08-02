@@ -58,3 +58,18 @@ func TestAll(t *testing.T) {
 		assert.True(t, allOdd)
 	})
 }
+
+func TestAnyOf(t *testing.T) {
+	t.Run("nil args", func(t *testing.T) {
+		var input []int
+		assert.False(t, AnyOf(0, input...))
+	})
+
+	t.Run("element is in args", func(t *testing.T) {
+		assert.True(t, AnyOf("2", "1", "2", "3", "4", "5", "6"))
+	})
+
+	t.Run("element is not in args", func(t *testing.T) {
+		assert.False(t, AnyOf("9", "1", "2", "3", "4", "5", "6"))
+	})
+}

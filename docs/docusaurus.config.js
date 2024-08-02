@@ -58,6 +58,25 @@ const config = {
         highlightSearchTermsOnTargetPage: true,
       },
     ],
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          {
+            from: "/config",
+            to: "/configuring",
+          },
+          {
+            from: "/installing-on-gcp",
+            to: "/running-on-gcp",
+          },
+          {
+            from: "/updating_node",
+            to: "/updating",
+          },
+        ],
+      },
+    ],
   ],
 
   themeConfig:

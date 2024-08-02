@@ -29,14 +29,18 @@ typedef struct BlockInfo {
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps);
+	unsigned long long max_steps, unsigned char concurrency_mode);
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
-					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert);
+					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
+					unsigned char concurrency_mode);
 
-#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -ldl -lm
-#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -ldl -lm
+extern char* setVersionedConstants(char* json);
+extern void freeString(char* str);
+
+#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs
+#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs
 */
 import "C"
 
@@ -44,6 +48,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"runtime"
 	"runtime/cgo"
 	"unsafe"
@@ -55,19 +61,22 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, useBlobData bool) ([]*felt.Felt, error) //nolint:lll
+	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+		maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
 	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error)
 }
 
 type vm struct {
-	log utils.SimpleLogger
+	log             utils.SimpleLogger
+	concurrencyMode bool
 }
 
-func New(log utils.SimpleLogger) VM {
+func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 	return &vm{
-		log: log,
+		log:             log,
+		concurrencyMode: concurrencyMode,
 	}
 }
 
@@ -220,6 +229,12 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
+	var concurrencyModeByte byte
+	if v.concurrencyMode {
+		concurrencyModeByte = 1
+	}
+	C.setVersionedConstants(C.CString("my_json"))
+
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
@@ -228,7 +243,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.ulonglong(maxSteps), //nolint:gocritic
+		C.ulonglong(maxSteps),        //nolint:gocritic
+		C.uchar(concurrencyModeByte), //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -281,6 +297,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		errOnRevertByte = 1
 	}
 
+	var concurrencyModeByte byte
+	if v.concurrencyMode {
+		concurrencyModeByte = 1
+	}
+
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
@@ -291,7 +312,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		chainID,
 		C.uchar(skipChargeFeeByte),
 		C.uchar(skipValidateByte),
-		C.uchar(errOnRevertByte), //nolint:gocritic
+		C.uchar(errOnRevertByte),     //nolint:gocritic
+		C.uchar(concurrencyModeByte), //nolint:gocritic
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -350,4 +372,31 @@ func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []co
 	}
 
 	return txnsJSON, classesJSON, nil
+}
+
+func SetVersionedConstants(filename string) error {
+	fd, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	buff, err := io.ReadAll(fd)
+	if err != nil {
+		return err
+	}
+
+	jsonStr := C.CString(string(buff))
+	if errCStr := C.setVersionedConstants(jsonStr); errCStr != nil {
+		var errStr string = C.GoString(errCStr)
+		// empty string is not an error
+		if errStr != "" {
+			err = errors.New(errStr)
+		}
+		// here we rely on free call on Rust side, because on Go side we can have different allocator
+		C.freeString((*C.char)(unsafe.Pointer(errCStr)))
+	}
+	C.free(unsafe.Pointer(jsonStr))
+
+	return err
 }

@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"testing"
 
@@ -49,7 +50,7 @@ func TestV0Call(t *testing.T) {
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
-	ret, err := New(nil).Call(&CallInfo{
+	ret, err := New(false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
@@ -69,7 +70,7 @@ func TestV0Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = New(nil).Call(&CallInfo{
+	ret, err = New(false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
@@ -115,7 +116,7 @@ func TestV1Call(t *testing.T) {
 	// test_storage_read
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
-	ret, err := New(log).Call(&CallInfo{
+	ret, err := New(false, log).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		Selector:        entryPoint,
 		Calldata: []felt.Felt{
@@ -137,7 +138,7 @@ func TestV1Call(t *testing.T) {
 		},
 	}, nil))
 
-	ret, err = New(log).Call(&CallInfo{
+	ret, err = New(false, log).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		Selector:        entryPoint,
 		Calldata: []felt.Felt{
@@ -181,7 +182,7 @@ func TestCall_MaxSteps(t *testing.T) {
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
-	_, err = New(nil).Call(&CallInfo{
+	_, err = New(false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
@@ -202,7 +203,7 @@ func TestExecute(t *testing.T) {
 	state := core.NewState(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
-		_, _, _, err := New(nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
+		_, _, _, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
@@ -214,7 +215,7 @@ func TestExecute(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, _, _, err := New(nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
+		_, _, _, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
 				GasPrice:         &felt.Zero,
@@ -222,5 +223,20 @@ func TestExecute(t *testing.T) {
 			},
 		}, state, &network, false, false, false, false)
 		require.NoError(t, err)
+	})
+}
+
+func TestSetVersionedConstants(t *testing.T) {
+	t.Run("ok", func(t *testing.T) {
+		err := SetVersionedConstants("./rust/versioned_constants_13_1.json")
+		assert.NoError(t, err)
+	})
+	t.Run("not valid json", func(t *testing.T) {
+		fd, err := os.CreateTemp("", "versioned_constants_test*")
+		require.NoError(t, err)
+		defer os.Remove(fd.Name())
+
+		err = SetVersionedConstants(fd.Name())
+		assert.ErrorContains(t, err, "Failed to parse JSON")
 	})
 }

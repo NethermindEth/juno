@@ -24,12 +24,11 @@ func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
 
-	// The purpose of these tests are to ensure the precedence of our config
+	// The purpose of these tests is to ensure the precedence of our config
 	// values is respected. Since viper offers this feature, it would be
 	// redundant to enumerate all combinations. Thus, only a select few are
 	// tested for sanity. These tests are not intended to perform semantics
-	// checks on the config, those will be checked by the StarknetNode
-	// implementation.
+	// checks on the config, those will be checked by the node implementation.
 	defaultHost := "localhost"
 	defaultLogLevel := utils.INFO
 	defaultHTTP := false

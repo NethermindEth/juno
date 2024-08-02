@@ -67,6 +67,7 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 	}
 
 	return &core.TransactionReceipt{
+		FeeUnit:            0, // todo(kirill) recheck
 		Fee:                response.ActualFee,
 		TransactionHash:    response.TransactionHash,
 		Events:             utils.Map(utils.NonNilSlice(response.Events), AdaptEvent),
@@ -75,6 +76,17 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 		L2ToL1Message:      utils.Map(utils.NonNilSlice(response.L2ToL1Message), AdaptL2ToL1Message),
 		Reverted:           response.ExecutionStatus == starknet.Reverted,
 		RevertReason:       response.RevertError,
+	}
+}
+
+func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
+	if response == nil {
+		return nil
+	}
+
+	return &core.GasConsumed{
+		L1Gas:     response.L1Gas,
+		L1DataGas: response.L1DataGas,
 	}
 }
 
@@ -100,6 +112,7 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
 		DataAvailability:       (*core.DataAvailability)(response.DataAvailability),
+		TotalGasConsumed:       adaptGasConsumed(response.TotalGasConsumed),
 	}
 }
 
@@ -255,15 +268,11 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 	class.ProgramHash = crypto.PoseidonArray(class.Program...)
 
 	class.Abi = response.Abi
-	class.AbiHash, err = crypto.StarknetKeccak([]byte(class.Abi))
-	if err != nil {
-		return nil, err
-	}
+	class.AbiHash = crypto.StarknetKeccak([]byte(class.Abi))
 
 	adapt := func(ep starknet.SierraEntryPoint) core.SierraEntryPoint {
 		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
 	}
-
 	class.EntryPoints.External = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
 	class.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
 	class.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)

@@ -6,8 +6,8 @@ package starknet
 // extern char* compileSierraToCasm(char* sierra_json);
 // extern void freeCstr(char* ptr);
 //
-// #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_compiler_rs -ldl -lm
-// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_compiler_rs -ldl -lm
+// #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_compiler_rs
+// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_compiler_rs
 import "C"
 
 import (

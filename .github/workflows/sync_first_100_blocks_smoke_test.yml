@@ -13,11 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "juno,juno-smoke-tests"
+
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4.1.0
+        uses: actions/setup-go@v5.0.2
         with:
           go-version-file: go.mod
           cache: true
@@ -27,12 +36,12 @@ jobs:
 
       - name: Build docker image
         run: docker build --build-arg VM_DEBUG=true -t nethermindeth/juno .
-        
+
       - name: Checkout Juno Smoke Tests
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v4
         with:
           repository: NethermindEth/juno-smoke-tests
-          token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Run smoke tests
         run: |

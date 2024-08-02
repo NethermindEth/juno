@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/iter"
@@ -21,15 +22,21 @@ import (
 
 type Handler struct {
 	bcReader blockchain.Reader
-	ctx      context.Context
 	log      utils.SimpleLogger
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Handler{
 		bcReader: bcReader,
 		log:      log,
-		ctx:      context.Background(),
+		ctx:      ctx,
+		cancel:   cancel,
+		wg:       sync.WaitGroup{},
 	}
 }
 
@@ -46,9 +53,12 @@ func getBuffer() *bytes.Buffer {
 	return buffer
 }
 
-func streamHandler[ReqT proto.Message](ctx context.Context, stream network.Stream,
-	reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
+func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
+	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
 ) {
+	wg.Add(1)
+	defer wg.Done()
+
 	defer func() {
 		if err := stream.Close(); err != nil {
 			log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
@@ -95,55 +105,29 @@ func streamHandler[ReqT proto.Message](ctx context.Context, stream network.Strea
 	})
 }
 
-func (h *Handler) BlockHeadersHandler(stream network.Stream) {
-	streamHandler[*spec.BlockHeadersRequest](h.ctx, stream, h.onBlockHeadersRequest, h.log)
-}
-
-func (h *Handler) BlockBodiesHandler(stream network.Stream) {
-	streamHandler[*spec.BlockBodiesRequest](h.ctx, stream, h.onBlockBodiesRequest, h.log)
+func (h *Handler) HeadersHandler(stream network.Stream) {
+	streamHandler[*spec.BlockHeadersRequest](h.ctx, &h.wg, stream, h.onHeadersRequest, h.log)
 }
 
 func (h *Handler) EventsHandler(stream network.Stream) {
-	streamHandler[*spec.EventsRequest](h.ctx, stream, h.onEventsRequest, h.log)
-}
-
-func (h *Handler) ReceiptsHandler(stream network.Stream) {
-	streamHandler[*spec.ReceiptsRequest](h.ctx, stream, h.onReceiptsRequest, h.log)
+	streamHandler[*spec.EventsRequest](h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
 }
 
 func (h *Handler) TransactionsHandler(stream network.Stream) {
-	streamHandler[*spec.TransactionsRequest](h.ctx, stream, h.onTransactionsRequest, h.log)
+	streamHandler[*spec.TransactionsRequest](h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
 }
 
-func (h *Handler) CurrentBlockHeaderHandler(stream network.Stream) {
-	streamHandler[*spec.CurrentBlockHeaderRequest](h.ctx, stream, h.onCurrentBlockHeaderRequest, h.log)
+func (h *Handler) ClassesHandler(stream network.Stream) {
+	streamHandler[*spec.ClassesRequest](h.ctx, &h.wg, stream, h.onClassesRequest, h.log)
 }
 
-func (h *Handler) onCurrentBlockHeaderRequest(*spec.CurrentBlockHeaderRequest) (iter.Seq[proto.Message], error) {
-	curHeight, err := h.bcReader.Height()
-	if err != nil {
-		return nil, err
-	}
-
-	return h.onBlockHeadersRequest(&spec.BlockHeadersRequest{
-		Iteration: &spec.Iteration{
-			Start: &spec.Iteration_BlockNumber{
-				BlockNumber: curHeight,
-			},
-			Direction: spec.Iteration_Forward,
-			Limit:     1,
-			Step:      1,
-		},
-	})
+func (h *Handler) StateDiffHandler(stream network.Stream) {
+	streamHandler[*spec.StateDiffsRequest](h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
 }
 
-func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
+func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.BlockHeadersResponse{
-		Part: []*spec.BlockHeadersResponsePart{
-			{
-				HeaderMessage: &spec.BlockHeadersResponsePart_Fin{},
-			},
-		},
+		HeaderMessage: &spec.BlockHeadersResponse_Fin{},
 	}
 
 	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
@@ -159,137 +143,243 @@ func (h *Handler) onBlockHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq
 			return nil, err
 		}
 
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(header.Number)
+		if err != nil {
+			return nil, err
+		}
+
 		return &spec.BlockHeadersResponse{
-			Part: []*spec.BlockHeadersResponsePart{
-				{
-					HeaderMessage: &spec.BlockHeadersResponsePart_Header{
-						Header: core2p2p.AdaptHeader(header, commitments),
-					},
-				},
-				{
-					HeaderMessage: &spec.BlockHeadersResponsePart_Signatures{
-						Signatures: &spec.Signatures{
-							Block:      core2p2p.AdaptBlockID(header),
-							Signatures: utils.Map(header.Signatures, core2p2p.AdaptSignature),
-						},
-					},
-				},
+			HeaderMessage: &spec.BlockHeadersResponse_Header{
+				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Commitment(),
+					stateUpdate.StateDiff.Length()),
 			},
 		}, nil
 	})
-}
-
-func (h *Handler) onBlockBodiesRequest(req *spec.BlockBodiesRequest) (iter.Seq[proto.Message], error) {
-	it, err := h.newIterator(req.Iteration)
-	if err != nil {
-		return nil, err
-	}
-
-	return func(yield func(proto.Message) bool) {
-	outerLoop:
-		for it.Valid() {
-			header, err := it.Header()
-			if err != nil {
-				h.log.Debugw("Failed to fetch header", "blockNumber", it.BlockNumber(), "err", err)
-				break
-			}
-
-			h.log.Debugw("Creating Block Body Iterator", "blockNumber", header.Number)
-			bodyIterator, err := newBlockBodyIterator(h.bcReader, header, h.log)
-			if err != nil {
-				h.log.Debugw("Failed to create block body iterator", "blockNumber", it.BlockNumber(), "err", err)
-				break
-			}
-
-			for bodyIterator.hasNext() {
-				msg, ok := bodyIterator.next()
-				if !ok {
-					break
-				}
-
-				if !yield(msg) {
-					break outerLoop
-				}
-			}
-
-			it.Next()
-		}
-
-		finMsg := &spec.BlockBodiesResponse{
-			BodyMessage: &spec.BlockBodiesResponse_Fin{},
-		}
-		yield(finMsg)
-	}, nil
 }
 
 func (h *Handler) onEventsRequest(req *spec.EventsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.EventsResponse{
-		Responses: &spec.EventsResponse_Fin{},
+		EventMessage: &spec.EventsResponse_Fin{},
 	}
-	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
+	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
 		block, err := it.Block()
 		if err != nil {
 			return nil, err
 		}
 
-		events := make([]*spec.Event, 0, len(block.Receipts))
+		responses := make([]proto.Message, 0, len(block.Receipts))
 		for _, receipt := range block.Receipts {
 			for _, event := range receipt.Events {
-				events = append(events, core2p2p.AdaptEvent(event, receipt.TransactionHash))
+				responses = append(responses, &spec.EventsResponse{
+					EventMessage: &spec.EventsResponse_Event{
+						Event: core2p2p.AdaptEvent(event, receipt.TransactionHash),
+					},
+				})
 			}
 		}
 
-		return &spec.EventsResponse{
-			Id: core2p2p.AdaptBlockID(block.Header),
-			Responses: &spec.EventsResponse_Events{
-				Events: &spec.Events{
-					Items: events,
-				},
-			},
-		}, nil
-	})
-}
-
-func (h *Handler) onReceiptsRequest(req *spec.ReceiptsRequest) (iter.Seq[proto.Message], error) {
-	finMsg := &spec.ReceiptsResponse{Responses: &spec.ReceiptsResponse_Fin{}}
-	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
-		block, err := it.Block()
-		if err != nil {
-			return nil, err
-		}
-
-		receipts := make([]*spec.Receipt, len(block.Receipts))
-		for i := 0; i < len(block.Receipts); i++ {
-			receipts[i] = core2p2p.AdaptReceipt(block.Receipts[i], block.Transactions[i])
-		}
-
-		return &spec.ReceiptsResponse{
-			Id: core2p2p.AdaptBlockID(block.Header),
-			Responses: &spec.ReceiptsResponse_Receipts{
-				Receipts: &spec.Receipts{Items: receipts},
-			},
-		}, nil
+		return responses, nil
 	})
 }
 
 func (h *Handler) onTransactionsRequest(req *spec.TransactionsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.TransactionsResponse{
-		Responses: &spec.TransactionsResponse_Fin{},
+		TransactionMessage: &spec.TransactionsResponse_Fin{},
 	}
-	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
+	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
 		block, err := it.Block()
 		if err != nil {
 			return nil, err
 		}
 
-		return &spec.TransactionsResponse{
-			Id: core2p2p.AdaptBlockID(block.Header),
-			Responses: &spec.TransactionsResponse_Transactions{
-				Transactions: &spec.Transactions{
-					Items: utils.Map(block.Transactions, core2p2p.AdaptTransaction),
+		responses := make([]proto.Message, len(block.Transactions))
+		for i, tx := range block.Transactions {
+			receipt := block.Receipts[i]
+
+			responses[i] = &spec.TransactionsResponse{
+				TransactionMessage: &spec.TransactionsResponse_TransactionWithReceipt{
+					TransactionWithReceipt: &spec.TransactionWithReceipt{
+						Transaction: core2p2p.AdaptTransaction(tx),
+						Receipt:     core2p2p.AdaptReceipt(receipt, tx),
+					},
 				},
-			},
-		}, nil
+			}
+		}
+
+		return responses, nil
+	})
+}
+
+//nolint:gocyclo
+func (h *Handler) onStateDiffRequest(req *spec.StateDiffsRequest) (iter.Seq[proto.Message], error) {
+	finMsg := &spec.StateDiffsResponse{
+		StateDiffMessage: &spec.StateDiffsResponse_Fin{},
+	}
+	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
+		block, err := it.Block()
+		if err != nil {
+			return nil, err
+		}
+		blockNumber := block.Number
+
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
+		if err != nil {
+			return nil, err
+		}
+		diff := stateUpdate.StateDiff
+
+		type contractDiff struct {
+			address      *felt.Felt
+			storageDiffs map[felt.Felt]*felt.Felt
+			nonce        *felt.Felt
+			classHash    *felt.Felt // set only if contract deployed or replaced
+		}
+		modifiedContracts := make(map[felt.Felt]*contractDiff)
+
+		initContractDiff := func(addr *felt.Felt) *contractDiff {
+			return &contractDiff{address: addr}
+		}
+		updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
+			cDiff, ok := modifiedContracts[addr]
+			if !ok {
+				cDiff = initContractDiff(&addr)
+				if err != nil {
+					return err
+				}
+				modifiedContracts[addr] = cDiff
+			}
+
+			f(cDiff)
+			return nil
+		}
+
+		for addr, n := range diff.Nonces {
+			err = updateModifiedContracts(addr, func(diff *contractDiff) {
+				diff.nonce = n
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		for addr, sDiff := range diff.StorageDiffs {
+			err = updateModifiedContracts(addr, func(diff *contractDiff) {
+				diff.storageDiffs = sDiff
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		for addr, classHash := range diff.DeployedContracts {
+			classHashCopy := classHash
+			err = updateModifiedContracts(addr, func(diff *contractDiff) {
+				diff.classHash = classHashCopy
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		for addr, classHash := range diff.ReplacedClasses {
+			classHashCopy := classHash
+			err = updateModifiedContracts(addr, func(diff *contractDiff) {
+				diff.classHash = classHashCopy
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		var responses []proto.Message
+		for _, c := range modifiedContracts {
+			responses = append(responses, &spec.StateDiffsResponse{
+				StateDiffMessage: &spec.StateDiffsResponse_ContractDiff{
+					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, c.classHash, c.storageDiffs),
+				},
+			})
+		}
+
+		for _, classHash := range diff.DeclaredV0Classes {
+			responses = append(responses, &spec.StateDiffsResponse{
+				StateDiffMessage: &spec.StateDiffsResponse_DeclaredClass{
+					DeclaredClass: &spec.DeclaredClass{
+						ClassHash:         core2p2p.AdaptHash(classHash),
+						CompiledClassHash: nil, // for cairo0 it's nil
+					},
+				},
+			})
+		}
+		for classHash, compiledHash := range diff.DeclaredV1Classes {
+			responses = append(responses, &spec.StateDiffsResponse{
+				StateDiffMessage: &spec.StateDiffsResponse_DeclaredClass{
+					DeclaredClass: &spec.DeclaredClass{
+						ClassHash:         core2p2p.AdaptHash(&classHash),
+						CompiledClassHash: core2p2p.AdaptHash(compiledHash),
+					},
+				},
+			})
+		}
+
+		return responses, nil
+	})
+}
+
+func (h *Handler) onClassesRequest(req *spec.ClassesRequest) (iter.Seq[proto.Message], error) {
+	finMsg := &spec.ClassesResponse{
+		ClassMessage: &spec.ClassesResponse_Fin{},
+	}
+	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
+		block, err := it.Block()
+		if err != nil {
+			return nil, err
+		}
+		blockNumber := block.Number
+
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
+		if err != nil {
+			return nil, err
+		}
+
+		stateReader, closer, err := h.bcReader.StateAtBlockNumber(blockNumber)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if closeErr := closer(); closeErr != nil {
+				h.log.Errorw("Failed to close state reader", "err", closeErr)
+			}
+		}()
+
+		stateDiff := stateUpdate.StateDiff
+
+		var responses []proto.Message
+		for _, hash := range stateDiff.DeclaredV0Classes {
+			cls, err := stateReader.Class(hash)
+			if err != nil {
+				return nil, err
+			}
+
+			responses = append(responses, &spec.ClassesResponse{
+				ClassMessage: &spec.ClassesResponse_Class{
+					Class: core2p2p.AdaptClass(cls.Class),
+				},
+			})
+		}
+		for classHash := range stateDiff.DeclaredV1Classes {
+			cls, err := stateReader.Class(&classHash)
+			if err != nil {
+				return nil, err
+			}
+
+			responses = append(responses, &spec.ClassesResponse{
+				ClassMessage: &spec.ClassesResponse_Class{
+					Class: core2p2p.AdaptClass(cls.Class),
+				},
+			})
+		}
+
+		return responses, nil
 	})
 }
 
@@ -342,6 +432,45 @@ func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg prot
 	}, nil
 }
 
+type iterationProcessorMulti = func(it blockDataAccessor) ([]proto.Message, error)
+
+func (h *Handler) processIterationRequestMulti(iteration *spec.Iteration, finMsg proto.Message,
+	getMsg iterationProcessorMulti,
+) (iter.Seq[proto.Message], error) {
+	it, err := h.newIterator(iteration)
+	if err != nil {
+		return nil, err
+	}
+
+	type yieldFunc = func(proto.Message) bool
+	return func(yield yieldFunc) {
+		// while iterator is valid
+		for it.Valid() {
+			// pass it to handler function (some might be interested in header, others in entire block)
+			messages, err := getMsg(it)
+			if err != nil {
+				h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+				break
+			}
+
+			for _, msg := range messages {
+				// push generated msg to caller
+				if !yield(msg) {
+					// if caller is not interested in remaining data (example: connection to a peer is closed) exit
+					// note that in this case we won't send finMsg
+					return
+				}
+			}
+
+			it.Next()
+		}
+
+		// either we iterated over whole sequence or reached break statement in loop above
+		// note that return value of yield is not checked because this is the last message anyway
+		yield(finMsg)
+	}, nil
+}
+
 func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
 	forward := it.Direction == spec.Iteration_Forward
 	// todo restrict limit max value ?
@@ -353,4 +482,12 @@ func (h *Handler) newIterator(it *spec.Iteration) (*iterator, error) {
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)
 	}
+}
+
+func (h *Handler) Close() {
+	fmt.Println("Canceling")
+	h.cancel()
+	fmt.Println("Waiting")
+	h.wg.Wait()
+	fmt.Println("Done")
 }

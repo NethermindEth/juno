@@ -30,7 +30,7 @@ func TestStateUpdate(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", n, nil)
+			handler := rpc.New(chain, nil, nil, "", nil)
 
 			update, rpcErr := handler.StateUpdate(id)
 			assert.Nil(t, update)
@@ -40,7 +40,7 @@ func TestStateUpdate(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)

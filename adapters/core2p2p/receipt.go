@@ -2,6 +2,7 @@ package core2p2p
 
 import (
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -62,12 +63,28 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 }
 
 func receiptCommon(r *core.TransactionReceipt) *spec.Receipt_Common {
+	var revertReason *string
+	if r.RevertReason != "" {
+		revertReason = &r.RevertReason
+	}
+
 	return &spec.Receipt_Common{
-		TransactionHash:    AdaptHash(r.TransactionHash),
 		ActualFee:          AdaptFelt(r.Fee),
+		PriceUnit:          adaptPriceUnit(r.FeeUnit),
 		MessagesSent:       utils.Map(r.L2ToL1Message, AdaptMessageToL1),
 		ExecutionResources: AdaptExecutionResources(r.ExecutionResources),
-		RevertReason:       r.RevertReason,
+		RevertReason:       revertReason,
+	}
+}
+
+func adaptPriceUnit(unit core.FeeUnit) spec.PriceUnit {
+	switch unit {
+	case core.WEI:
+		return spec.PriceUnit_Wei
+	case core.STRK:
+		return spec.PriceUnit_Fri // todo(kirill) recheck
+	default:
+		panic("unreachable adaptPriceUnit")
 	}
 }
 
@@ -84,6 +101,11 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 		return nil
 	}
 
+	var l1Gas, l1DataGas *spec.Felt252
+	if da := er.DataAvailability; da != nil { // todo(kirill) check that it might be null
+		l1Gas = AdaptFelt(new(felt.Felt).SetUint64(da.L1Gas))
+		l1DataGas = AdaptFelt(new(felt.Felt).SetUint64(da.L1DataGas))
+	}
 	return &spec.Receipt_ExecutionResources{
 		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{
 			Bitwise:    uint32(er.BuiltinInstanceCounter.Bitwise),
@@ -93,8 +115,11 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 			RangeCheck: uint32(er.BuiltinInstanceCounter.RangeCheck),
 			Poseidon:   uint32(er.BuiltinInstanceCounter.Poseidon),
 			Keccak:     uint32(er.BuiltinInstanceCounter.Keccak),
+			Output:     uint32(er.BuiltinInstanceCounter.Output),
 		},
 		Steps:       uint32(er.Steps),
 		MemoryHoles: uint32(er.MemoryHoles),
+		L1Gas:       l1Gas,
+		L1DataGas:   l1DataGas,
 	}
 }
