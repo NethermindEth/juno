@@ -255,9 +255,5 @@ fn native_try_from_json_string(
     let sierra_program = sierra_contract_class.extract_sierra_program()?;
     let executor = compile_and_load(&sierra_program)?;
 
-    Ok(NativeContractClassV1::new(
-        &sierra_program,
-        executor,
-        sierra_contract_class,
-    )?)
+    Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
 }
