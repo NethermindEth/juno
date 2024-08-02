@@ -81,31 +81,34 @@ func (s *syncService) start(ctx context.Context) {
 
 		txsCh, err := s.genTransactions(iterCtx, blockNumber)
 		if err != nil {
-			s.logError("Failed to get transactions", err)
+			s.log.Errorw("Failed to get transactions")
 			cancelIteration()
 			continue
 		}
 
 		eventsCh, err := s.genEvents(iterCtx, blockNumber)
 		if err != nil {
-			s.logError("Failed to get classes", err)
+			s.log.Errorw("Failed to get classes")
 			cancelIteration()
 			continue
 		}
 
 		classesCh, err := s.genClasses(iterCtx, blockNumber)
 		if err != nil {
-			s.logError("Failed to get classes", err)
+			s.log.Errorw("Failed to get classes")
 			cancelIteration()
 			continue
 		}
 
 		stateDiffsCh, err := s.genStateDiffs(iterCtx, blockNumber)
 		if err != nil {
-			s.logError("Failed to get state diffs", err)
+			s.log.Errorw("Failed to get state diffs")
 			cancelIteration()
 			continue
 		}
+
+		s.log.Infow("MARIO: Forcefully cancelling Iteraction...")
+		cancelIteration()
 
 		blocksCh := pipeline.Bridge(iterCtx, s.processSpecBlockParts(iterCtx, uint64(nextHeight), pipeline.FanIn(iterCtx,
 			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
