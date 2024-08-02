@@ -371,8 +371,8 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	blockNumber uint64, logChanges bool,
 ) error {
 	type bufferedTransactionWithAddress struct {
-		Txn     *db.BufferedTransaction
-		Address *felt.Felt
+		txn  *db.BufferedTransaction
+		addr *felt.Felt
 	}
 
 	// make sure all noClassContracts are deployed
@@ -413,7 +413,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			if err != nil {
 				return nil, err
 			}
-			return &bufferedTransactionWithAddress{Txn: bufferedTxn, Address: &contractAddr}, nil
+			return &bufferedTransactionWithAddress{txn: bufferedTxn, addr: &contractAddr}, nil
 		})
 	}
 
@@ -424,12 +424,12 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// we sort bufferedTxns in ascending contract address order to achieve an additional speedup
 	sort.Slice(bufferedTxns, func(i, j int) bool {
-		return bufferedTxns[i].Address.Cmp(bufferedTxns[j].Address) < 0
+		return bufferedTxns[i].addr.Cmp(bufferedTxns[j].addr) < 0
 	})
 
 	// flush buffered txns
 	for _, txnWithAddress := range bufferedTxns {
-		err := txnWithAddress.Txn.Flush()
+		err := txnWithAddress.txn.Flush()
 		if err != nil {
 			return err
 		}
