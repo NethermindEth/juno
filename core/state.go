@@ -429,8 +429,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// flush buffered txns
 	for _, txnWithAddress := range bufferedTxns {
-		err := txnWithAddress.txn.Flush()
-		if err != nil {
+		if err := txnWithAddress.txn.Flush(); err != nil {
 			return err
 		}
 	}
