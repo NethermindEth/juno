@@ -341,14 +341,14 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
-	*db.BufferedTransaction, *felt.Felt, error,
+	*db.BufferedTransaction, error,
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
 	bufferedTxn := db.NewBufferedTransaction(s.txn)
 	bufferedState := NewState(bufferedTxn)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	onValueChanged := func(location, oldValue *felt.Felt) error {
@@ -359,10 +359,10 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 	}
 
 	if err = bufferedContract.UpdateStorage(updateDiff, onValueChanged); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return bufferedTxn, contractAddr, nil
+	return bufferedTxn, nil
 }
 
 // updateContractStorage applies the diff set to the Trie of the
@@ -410,11 +410,12 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	for _, key := range keys {
 		contractAddr := key
 		contractUpdaters.Go(func() (*BufferedTransactionWithAddress, error) {
-			bufferedTxn, addr, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
+			// 2 return values because right now you return contractAddr unmodified as second return value
+			bufferedTxn, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
 			if err != nil {
 				return nil, err
 			}
-			return &BufferedTransactionWithAddress{Txn: bufferedTxn, Address: addr}, nil
+			return &BufferedTransactionWithAddress{Txn: bufferedTxn, Address: &contractAddr}, nil
 		})
 	}
 
