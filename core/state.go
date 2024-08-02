@@ -370,7 +370,7 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
 	blockNumber uint64, logChanges bool,
 ) error {
-	type BufferedTransactionWithAddress struct {
+	type bufferedTransactionWithAddress struct {
 		Txn     *db.BufferedTransaction
 		Address *felt.Felt
 	}
@@ -405,16 +405,16 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	})
 
 	// update per-contract storage Tries concurrently
-	contractUpdaters := pool.NewWithResults[*BufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
 		contractAddr := key
-		contractUpdaters.Go(func() (*BufferedTransactionWithAddress, error) {
+		contractUpdaters.Go(func() (*bufferedTransactionWithAddress, error) {
 			// 2 return values because right now you return contractAddr unmodified as second return value
 			bufferedTxn, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
 			if err != nil {
 				return nil, err
 			}
-			return &BufferedTransactionWithAddress{Txn: bufferedTxn, Address: &contractAddr}, nil
+			return &bufferedTransactionWithAddress{Txn: bufferedTxn, Address: &contractAddr}, nil
 		})
 	}
 
