@@ -2,6 +2,7 @@ package trie_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -152,4 +153,68 @@ func TestTruncate(t *testing.T) {
 			assert.Equal(t, test.expectedKey, copyKey)
 		})
 	}
+}
+
+func Test_cmp(t *testing.T) {
+	tests := []struct {
+		n1       int
+		n2       int
+		isHigher bool
+	}{
+		{
+			n1:       10,
+			n2:       0,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       0,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       4,
+			isHigher: true,
+		},
+		{
+			n1:       5,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       4,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       0,
+			n2:       5,
+			isHigher: false,
+		},
+		{
+			n1:       300,
+			n2:       1,
+			isHigher: true,
+		},
+		{
+			n1:       1,
+			n2:       300,
+			isHigher: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%d %d %v", test.n1, test.n2, test.isHigher), func(t *testing.T) {
+			k1 := numToKey(test.n1)
+			k2 := numToKey(test.n2)
+
+			assert.Equal(t,
+				k1.CmpAligned(&k2) > 0,
+				test.isHigher)
+		})
+	}
+}
+
+func numToKey(num int) trie.Key {
+	return trie.NewKey(8, []byte{byte(num)})
 }
