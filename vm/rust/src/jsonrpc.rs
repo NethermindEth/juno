@@ -5,7 +5,7 @@ use blockifier::execution::entry_point::CallType;
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::{ StateReader};
+use blockifier::state::state_api::StateReader;
 use cairo_vm::types::builtin_name::BuiltinName;
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};

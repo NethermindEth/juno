@@ -15,7 +15,7 @@ use blockifier::blockifier::block::{
 use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
 use blockifier::state::cached_state::{CachedState, MutRefState};
-use blockifier::state::state_api::State;
+use blockifier::state::state_api::{State, UpdatableState};
 use blockifier::transaction::objects::GasVector;
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
@@ -33,6 +33,7 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
+use std::borrow::Borrow;
 use std::{
     collections::HashMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
@@ -100,12 +101,10 @@ pub extern "C" fn cairoVMCall(
     chain_id: *const c_char,
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
-    mutable_state: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -144,22 +143,13 @@ pub extern "C" fn cairoVMCall(
         initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
     };
 
-    // Todo : fix. execute no longer accepts MutRef because it doesn't satisfy the State trait?
-    let juno_state_reader = JunoStateReader::new(reader_handle, block_info.block_number);
-    let mut cached_juno_state: CachedState<JunoStateReader>;
-    let mut state: MutRefState<'_, dyn State> = if mutable_state == 0 {
-    let mut cached_juno_state = CachedState::new(juno_state_reader);
-        MutRefState::new(&mut cached_juno_state)
-    } else {
-        MutRefState::new(&mut juno_state_reader)
-    };
-    
+    let mut juno_state = JunoStateReader::new(reader_handle, block_info.block_number);
     let concurrency_mode = concurrency_mode == 1;
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
             block_context: build_block_context(
-                &mut state,
+                &mut juno_state,
                 &block_info,
                 chain_id_str,
                 Some(max_steps),
@@ -174,11 +164,7 @@ pub extern "C" fn cairoVMCall(
         return;
     }
 
-    match entry_point.execute(
-        &mut state,
-        &mut resources,
-        &mut context.unwrap(),
-    ) {
+    match entry_point.execute(&mut juno_state, &mut resources, &mut context.unwrap()) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -187,7 +173,7 @@ pub extern "C" fn cairoVMCall(
                 };
             }
         }
-    }
+    };
 }
 
 #[derive(Deserialize)]

@@ -29,7 +29,7 @@ typedef struct BlockInfo {
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps, unsigned char concurrency_mode, unsigned char mutable_state);
+	unsigned long long max_steps, unsigned char concurrency_mode);
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
@@ -275,9 +275,6 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
-
-	_, isMutableState := context.state.(StateReadWriter)
-	mutableStateByte := makeByteFromBool(isMutableState)
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,
@@ -285,7 +282,6 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		chainID,
 		C.ulonglong(maxSteps),        //nolint:gocritic
 		C.uchar(concurrencyModeByte), //nolint:gocritic
-		C.uchar(mutableStateByte),    //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
