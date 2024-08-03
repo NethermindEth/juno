@@ -92,9 +92,10 @@ type Config struct {
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 
-	Sequencer    bool   `mapstructure:"seq-enable"`
-	SeqBlockTime uint   `mapstructure:"seq-block-time"`
-	GenesisFile  string `mapstructure:"seq-genesis-file"`
+	Sequencer      bool   `mapstructure:"seq-enable"`
+	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
+	SeqGenesisFile string `mapstructure:"seq-genesis-file"`
+	SeqShadowMode  bool   `mapstructure:"seq-shadow-mode"`
 }
 
 type Node struct {
@@ -165,6 +166,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	starknetData := adaptfeeder.New(client)
 	var rpcHandler *rpc.Handler
 	if cfg.Sequencer {
+		if cfg.SeqShadowMode && chain.Network().L2ChainID != utils.Sepolia.L2ChainID {
+			return nil, fmt.Errorf("the sequencers shadow mode can only be used for %v network. Provided network: %v", utils.Sepolia, cfg.Network)
+		}
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader)
 		if kErr != nil {
 			return nil, kErr
@@ -173,6 +177,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		p := mempool.New(poolDB)
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
 			time.Second*time.Duration(cfg.SeqBlockTime), p, log)
+		if cfg.SeqShadowMode {
+			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
+				log, starknetData)
+		}
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {
@@ -374,7 +382,7 @@ func (n *Node) Run(ctx context.Context) {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
-	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+	if err = buildGenesis(n.cfg.SeqGenesisFile, n.cfg.Sequencer, n.cfg.SeqShadowMode, n.blockchain, vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 		n.log.Errorw("Error building genesis state", "err", err)
 		return
 	}
