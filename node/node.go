@@ -171,8 +171,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
-			log)
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
+			time.Second*time.Duration(cfg.SeqBlockTime), p, log)
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {
@@ -374,7 +374,7 @@ func (n *Node) Run(ctx context.Context) {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
-	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(false, n.log)); err != nil {
+	if err = buildGenesis(n.cfg.GenesisFile, n.cfg.Sequencer, n.blockchain, vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 		n.log.Errorw("Error building genesis state", "err", err)
 		return
 	}

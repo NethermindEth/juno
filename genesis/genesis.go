@@ -88,6 +88,7 @@ func GenesisStateDiff(
 	config *GenesisConfig,
 	v vm.VM,
 	network *utils.Network,
+	maxSteps uint64,
 ) (*core.StateDiff, map[felt.Felt]core.Class, error) {
 	newClasses, err := loadClasses(config.Classes)
 	if err != nil {
@@ -132,7 +133,6 @@ func GenesisStateDiff(
 					Timestamp: 0,
 				},
 			}
-			maxSteps := uint64(100000) //nolint:gomnd
 			// Call the constructors
 			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
 				return nil, nil, fmt.Errorf("execute function call: %v", err)
@@ -158,7 +158,6 @@ func GenesisStateDiff(
 				Timestamp: 0,
 			},
 		}
-		maxSteps := uint64(100000) //nolint:gomnd
 		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}

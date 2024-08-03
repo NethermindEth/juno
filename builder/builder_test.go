@@ -442,7 +442,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
 	genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network())
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(diff, classes))
 

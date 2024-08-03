@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-func buildGenesis(genesisPath string, sequencerMode bool, bc *blockchain.Blockchain, v vm.VM) error {
+func buildGenesis(genesisPath string, sequencerMode bool, bc *blockchain.Blockchain, v vm.VM, maxSteps uint64) error {
 	if _, err := bc.Height(); !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
@@ -25,7 +25,7 @@ func buildGenesis(genesisPath string, sequencerMode bool, bc *blockchain.Blockch
 			return err
 		}
 
-		diff, classes, err = genesis.GenesisStateDiff(genesisConfig, v, bc.Network())
+		diff, classes, err = genesis.GenesisStateDiff(genesisConfig, v, bc.Network(), maxSteps)
 		if err != nil {
 			return err
 		}

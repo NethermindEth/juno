@@ -354,8 +354,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		feeUnit = core.STRK
 	}
 	if trace[0].StateDiff.DeclaredClasses != nil {
-		switch t := (txn.Transaction).(type) {
-		case *core.DeclareTransaction:
+		if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 			err := state.SetContractClass(t.ClassHash, txn.DeclaredClass)
 			if err != nil {
 				b.log.Errorw("failed to set contract class : %s", err)
