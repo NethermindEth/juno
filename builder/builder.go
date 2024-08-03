@@ -45,10 +45,11 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
-	shadowMode          bool
-	starknetData        starknetdata.StarknetData
-	chanNumTxnsToShadow chan int
-	chanFinaliseShadow  chan struct{}
+	shadowMode            bool
+	shadowGlobalStateRoot *felt.Felt
+	starknetData          starknetdata.StarknetData
+	chanNumTxnsToShadow   chan int
+	chanFinaliseShadow    chan struct{}
 
 	chanFinalise  chan struct{}
 	chanFinalised chan struct{}
@@ -206,7 +207,7 @@ func (b *Builder) Finalise() error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
 
-	if err := b.bc.Finalise(&b.pendingBlock, b.Sign); err != nil {
+	if err := b.bc.Finalise(&b.pendingBlock, b.Sign, b.shadowGlobalStateRoot); err != nil {
 		return err
 	}
 	b.log.Infow("Finalised block", "number", b.pendingBlock.Block.Number, "hash",
@@ -517,6 +518,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		b.shadowGlobalStateRoot = snHeadBlock.GlobalStateRoot
 		b.log.Debugw(fmt.Sprintf("Juno head at block %d, Sepolia at block %d, attempting to sequence next block", builderHeadBlock.Number, snHeadBlock.Number))
 		if builderHeadBlock.Number < snHeadBlock.Number {
 			block, _, classes, err := b.getSyncData(builderHeadBlock.Number + 1) // todo: don't need state updates here
@@ -526,7 +528,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			fmt.Println("chanNumTxnsToShadow <- ")
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			fmt.Println(" not blocking chanNumTxnsToShadow <- ")
-			for i, txn := range block.Transactions {
+			for _, txn := range block.Transactions {
 				var declaredClass core.Class
 				declareTxn, ok := txn.(*core.DeclareTransaction)
 				if ok {
@@ -540,8 +542,6 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 				if err != nil {
 					return err
 				}
-				qwe := declaredClass == nil
-				b.log.Debugw(fmt.Sprintf("Pushed txn number %d, %v", i, qwe)) // Todo : remove
 			}
 
 		} else {
