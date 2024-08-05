@@ -128,10 +128,8 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
 		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
-		wd, err := os.Getwd()
 		require.NoError(t, err)
 
-		base := wd[:strings.LastIndex(wd, "juno")+4]
 		queryArg := ""
 		dir := ""
 		const blockNumberArg = "blockNumber"
@@ -173,7 +171,11 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 			return
 		}
 
-		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
+		dataPath, err := findTargetDirectory("clients/feeder/testdata")
+		if err != nil {
+			t.Fatalf("failed to find testdata directory: %v", err)
+		}
+		path := filepath.Join(dataPath, network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
 			handleNotFound(dir, queryArg, w)
