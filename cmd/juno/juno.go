@@ -356,8 +356,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 
-	InitDBCommand()
-	junoCmd.AddCommand(GenP2PKeyPair(), dbCmd)
+	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd())
 
 	return junoCmd
 }

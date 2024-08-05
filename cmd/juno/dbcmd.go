@@ -15,20 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var dbCmd = &cobra.Command{
-	Use:   "db",
-	Short: "Database related operations",
-	Long:  `This command allows you to perform database operations.`,
-}
-
-func InitDBCommand() {
-	defaultDBPath, dbPathShort := "", "p"
-	dbCmd.PersistentFlags().StringP(dbPathF, dbPathShort, defaultDBPath, dbPathUsage)
-
-	dbCmd.AddCommand(DBInfoCmd())
-	dbCmd.AddCommand(DBSizeCmd())
-}
-
 type DBInfo struct {
 	Network         string     `json:"network"`
 	ChainHeight     uint64     `json:"chain_height"`
@@ -37,6 +23,17 @@ type DBInfo struct {
 	L1Height        uint64     `json:"l1_height"`
 	L1BlockHash     *felt.Felt `json:"l1_block_hash"`
 	L1StateRoot     *felt.Felt `json:"l1_state_root"`
+}
+
+func DBCmd() *cobra.Command {
+	dbCmd := &cobra.Command{
+		Use:   "db",
+		Short: "Database related operations",
+		Long:  `This command allows you to perform database operations.`,
+	}
+	dbCmd.PersistentFlags().StringP(dbPathF, "p", "", dbPathUsage)
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd())
+	return dbCmd
 }
 
 func DBInfoCmd() *cobra.Command {
@@ -134,13 +131,13 @@ func dbSize(cmd *cobra.Command, args []string) error {
 
 	var (
 		totalSize  utils.DataSize
-		totalCount int64
+		totalCount uint
 
 		withHistorySize    utils.DataSize
 		withoutHistorySize utils.DataSize
 
-		withHistoryCount    int64
-		withoutHistoryCount int64
+		withHistoryCount    uint
+		withoutHistoryCount uint
 
 		items [][]string
 	)

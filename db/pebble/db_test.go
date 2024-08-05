@@ -10,6 +10,7 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -425,7 +426,8 @@ func TestCalculatePrefixSize(t *testing.T) {
 
 		s, err := pebble.CalculatePrefixSize(context.Background(), testDB, []byte("0"))
 		require.NoError(t, err)
-		assert.Equal(t, uint(0), s)
+		assert.Equal(t, uint(0), s.Count)
+		assert.Equal(t, utils.DataSize(0), s.Size)
 	})
 
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
@@ -435,7 +437,8 @@ func TestCalculatePrefixSize(t *testing.T) {
 		}))
 		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), []byte("1"))
 		require.NoError(t, err)
-		assert.Equal(t, uint(0), s)
+		assert.Equal(t, uint(0), s.Count)
+		assert.Equal(t, utils.DataSize(0), s.Size)
 	})
 
 	t.Run("size of all key value pair with the same prefix", func(t *testing.T) {
@@ -454,7 +457,8 @@ func TestCalculatePrefixSize(t *testing.T) {
 
 		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), p)
 		require.NoError(t, err)
-		assert.Equal(t, expectedSize, s)
+		assert.Equal(t, uint(3), s.Count)
+		assert.Equal(t, utils.DataSize(expectedSize), s.Size)
 
 		t.Run("exit when context is cancelled", func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -462,7 +466,8 @@ func TestCalculatePrefixSize(t *testing.T) {
 
 			s, err := pebble.CalculatePrefixSize(ctx, testDB.(*pebble.DB), p)
 			assert.EqualError(t, err, context.Canceled.Error())
-			assert.Equal(t, uint(0), s)
+			assert.Equal(t, uint(0), s.Count)
+			assert.Equal(t, utils.DataSize(0), s.Size)
 		})
 	})
 }

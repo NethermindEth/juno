@@ -119,7 +119,7 @@ func (d *DB) Impl() any {
 }
 
 type Item struct {
-	Count int64
+	Count uint
 	Size  utils.DataSize
 }
 
