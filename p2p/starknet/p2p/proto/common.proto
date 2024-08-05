@@ -34,7 +34,7 @@ message ConsensusSignature {
 
 message Patricia {
     uint64 n_leaves = 1;  // needed to know the height, so as to how many nodes to expect in a proof.
-    // and also when receiving all leaves, how many to expect
+                          // and also when receiving all leaves, how many to expect
     Hash root = 2;
 }
 
