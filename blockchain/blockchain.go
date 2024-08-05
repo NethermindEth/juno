@@ -931,6 +931,18 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 	return nil
 }
 
+func (b *Blockchain) CleanPendingState() error {
+	header, err := b.HeadsHeader()
+	if err != nil {
+		return err
+	}
+	txn, err := b.database.NewTransaction(true)
+	if err != nil {
+		return err
+	}
+	return b.storeEmptyPending(txn, header)
+}
+
 func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
@@ -1125,6 +1137,9 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 			pending.StateUpdate.StateDiff.Print()
 			shadowStateUpdate.StateDiff.Print()
 			pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff)
+			if err := txn.Discard(); err != nil {
+				return err
+			}
 			return fmt.Errorf("sequencers state root %s != shadow block state root %s",
 				pending.Block.GlobalStateRoot.String(), shadowStateUpdate.NewRoot.String())
 		}

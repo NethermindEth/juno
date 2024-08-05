@@ -114,6 +114,10 @@ func (b *Builder) Run(ctx context.Context) error {
 			if err := b.syncStore(block.Number, syncToBlockNum); err != nil {
 				return err
 			}
+		} else {
+			if err := b.bc.CleanPendingState(); err != nil {
+				return err
+			}
 		}
 
 	}
@@ -520,15 +524,16 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		nextBlockToSequence := builderHeadBlock.Number + 1
 		snHeadBlock, err := b.starknetData.BlockLatest(ctx)
 		if err != nil {
 			return err
 		}
 
-		b.log.Debugw(fmt.Sprintf("Juno currently at block %d, Sepolia at block %d. Attempting to sequencer block %d.",
-			builderHeadBlock.Number, snHeadBlock.Number, builderHeadBlock.Number+1))
+		b.log.Debugw(fmt.Sprintf("Juno currently at block %d, Sepolia at block %d. Attempting to sequence block %d.",
+			builderHeadBlock.Number, snHeadBlock.Number, nextBlockToSequence))
 		if builderHeadBlock.Number < snHeadBlock.Number {
-			block, su, classes, err := b.getSyncData(builderHeadBlock.Number + 1) // todo: don't need state updates here
+			block, su, classes, err := b.getSyncData(nextBlockToSequence)
 			if err != nil {
 				return err
 			}

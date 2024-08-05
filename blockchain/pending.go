@@ -93,6 +93,7 @@ func (p *PendingStateWriter) SetStorage(contractAddress, key, value *felt.Felt) 
 }
 
 func (p *PendingStateWriter) IncrementNonce(contractAddress *felt.Felt) error {
+	fmt.Println("      -> IncrementNonce", contractAddress.String())
 	currentNonce, err := p.ContractNonce(contractAddress)
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
