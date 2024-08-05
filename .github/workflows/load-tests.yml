@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout Juno Smoke Tests
-        uses: actions/checkout@v3.5.2
+        uses: actions/checkout@v4
         with:
           repository: NethermindEth/juno-smoke-tests
           token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}

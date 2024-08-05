@@ -109,15 +109,27 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 #### Mainnet
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2**  | **172 GB** | **654881** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.9_654881.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/files/mainnet/latest) |
 
 #### Sepolia
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2** | **5 GB** | **66477** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.7_66477.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
+
+### Getting the size for each snapshot
+```console
+$date
+Thu  1 Aug 2024 09:49:30 BST
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+172.47 GB
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+5.67 GB
+```
 
 ### Run Juno Using Snapshot
 
@@ -126,7 +138,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.9_654881.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/files/mainnet/latest
    ```
 
 2. **Prepare Directory**

@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
             fetch-depth: 0
 
@@ -35,7 +35,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: 'linux/amd64'
@@ -44,10 +44,10 @@ jobs:
 
   build_and_push_docker_image_arm:
     if: github.repository_owner == 'NethermindEth'
-    runs-on: self-hosted
+    runs-on: ubuntu-arm64-4-core
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
             fetch-depth: 0
 
@@ -61,7 +61,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push ARM
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: 'linux/arm64'

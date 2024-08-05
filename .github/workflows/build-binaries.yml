@@ -16,13 +16,13 @@ jobs:
             architecture: amd64
           - os: macOS-latest
             architecture: amd64
-          - os: self-hosted
+          - os: ubuntu-arm64-4-core
             architecture: arm64
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -30,7 +30,7 @@ jobs:
         id: tag
         run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
 
-      - name: Install dependencies (Ubuntu or self-hosted)
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y upx-ucl build-essential cargo git golang libjemalloc-dev libjemalloc2 -y
 
