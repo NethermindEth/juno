@@ -6,7 +6,6 @@ import (
 
 type DataSize float64
 
-//nolint:mnd
 func (d DataSize) String() string {
 	switch {
 	case d >= Terabyte:
