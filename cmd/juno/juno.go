@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"math"
@@ -57,6 +58,7 @@ const (
 	p2pPeersF               = "p2p-peers"
 	p2pFeederNodeF          = "p2p-feeder-node"
 	p2pPrivateKey           = "p2p-private-key"
+	p2pPrivateKeyFile       = "p2p-private-key-file"
 	metricsF                = "metrics"
 	metricsHostF            = "metrics-host"
 	metricsPortF            = "metrics-port"
@@ -98,6 +100,7 @@ const (
 	defaultP2pPeers                 = ""
 	defaultP2pFeederNode            = false
 	defaultP2pPrivateKey            = ""
+	defaultP2pPrivateKeyFile        = ""
 	defaultMetrics                  = false
 	defaultMetricsPort              = 9090
 	defaultGRPC                     = false
@@ -148,22 +151,23 @@ const (
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
-	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
-	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
-	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
-	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
-	grpcUsage            = "Enable the HTTP gRPC server on the default port."
-	grpcHostUsage        = "The interface on which the gRPC server will listen for requests."
-	grpcPortUsage        = "The port on which the gRPC server will listen for requests."
-	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
-	remoteDBUsage        = "gRPC URL of a remote Juno node"
-	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
-	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
-	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
+	p2pPrivateKeyUsage     = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	p2pPrivateKeyUsageFile = "EXPERIMENTAL: File containing the private key. The key can also be prefixed with 'P2P Private Key:'."
+	metricsUsage           = "Enables the Prometheus metrics endpoint on the default port."
+	metricsHostUsage       = "The interface on which the Prometheus endpoint will listen for requests."
+	metricsPortUsage       = "The port on which the Prometheus endpoint will listen for requests."
+	grpcUsage              = "Enable the HTTP gRPC server on the default port."
+	grpcHostUsage          = "The interface on which the gRPC server will listen for requests."
+	grpcPortUsage          = "The port on which the gRPC server will listen for requests."
+	maxVMsUsage            = "Maximum number for VM instances to be used for RPC calls concurrently"
+	maxVMQueueUsage        = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
+	remoteDBUsage          = "gRPC URL of a remote Juno node"
+	rpcMaxBlockScanUsage   = "Maximum number of blocks scanned in single starknet_getEvents call"
+	dbCacheSizeUsage       = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	dbMaxHandlesUsage      = "A soft limit on the number of open files that can be used by the DB"
+	gwAPIKeyUsage          = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	gwTimeoutUsage         = "Timeout for requests made to the gateway"          //nolint: gosec
+	callMaxStepsUsage      = "Maximum number of steps to be executed in starknet_call requests. " +
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
@@ -215,7 +219,7 @@ func main() {
 //  3. The config struct is populated.
 //  4. Cobra calls the run function.
 //
-//nolint:funlen
+//nolint:funlen,gocyclo
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
 		Use:     "juno",
@@ -284,6 +288,29 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 			}
 		}
 
+		// Extract private key if provided in a file
+		if v.IsSet(p2pPrivateKeyFile) {
+			if v.IsSet(p2pPrivateKey) {
+				return fmt.Errorf("cannot provide both %s and %s", p2pPrivateKey, p2pPrivateKeyFile)
+			}
+
+			if _, err := os.Stat(v.GetString(p2pPrivateKeyFile)); err == nil {
+				file, err := os.Open(v.GetString(p2pPrivateKeyFile))
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+
+				scanner := bufio.NewScanner(file)
+				scanner.Scan()
+				config.P2PPrivateKey = strings.TrimSpace(strings.TrimPrefix(scanner.Text(), "P2P Private Key:"))
+
+				if err := scanner.Err(); err != nil {
+					return err
+				}
+			}
+		}
+
 		return nil
 	}
 
@@ -331,6 +358,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
+	junoCmd.Flags().String(p2pPrivateKeyFile, defaultP2pPrivateKeyFile, p2pPrivateKeyUsageFile)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
