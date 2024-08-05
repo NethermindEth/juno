@@ -38,7 +38,7 @@ jobs:
           NODE_URL: ${{ github.event.inputs.NODE_URL }}
 
       - name: Upload performance test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: k6-report
           path: results.json
