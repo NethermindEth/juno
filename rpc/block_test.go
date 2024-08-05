@@ -52,7 +52,6 @@ func TestBlockId(t *testing.T) {
 		},
 	}
 	for name, test := range tests {
-		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			var blockID rpc.BlockID
@@ -81,7 +80,6 @@ func TestBlockId(t *testing.T) {
 		},
 	}
 	for name, test := range failingTests {
-		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			var blockID rpc.BlockID
