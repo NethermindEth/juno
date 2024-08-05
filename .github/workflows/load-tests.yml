@@ -28,7 +28,7 @@ jobs:
           token: ${{ secrets.REPOSITORY_DISPATCH_TOKEN }}
 
       - name: Run local k6 test
-        uses: grafana/k6-action@v0.3.0
+        uses: grafana/k6-action@v0.3.1
         with:
           filename: load-tests/test_cases.js
           flags: --out json=results.json
@@ -38,7 +38,7 @@ jobs:
           NODE_URL: ${{ github.event.inputs.NODE_URL }}
 
       - name: Upload performance test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: k6-report
           path: results.json
