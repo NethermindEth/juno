@@ -183,18 +183,18 @@ func dbSize(cmd *cobra.Command, args []string) error {
 }
 
 func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
-	networks := map[string]*utils.Network{
-		"mainnet":             &utils.Mainnet,
-		"sepolia":             &utils.Sepolia,
-		"goerli":              &utils.Goerli,
-		"goerli2":             &utils.Goerli2,
-		"integration":         &utils.Integration,
-		"sepolia-integration": &utils.SepoliaIntegration,
+	networks := []*utils.Network{
+		&utils.Mainnet,
+		&utils.Sepolia,
+		&utils.Goerli,
+		&utils.Goerli2,
+		&utils.Integration,
+		&utils.SepoliaIntegration,
 	}
 
-	for network, util := range networks {
-		if _, err := core.VerifyBlockHash(head, util, stateDiff); err == nil {
-			return network
+	for _, network := range networks {
+		if _, err := core.VerifyBlockHash(head, network, stateDiff); err == nil {
+			return network.Name
 		}
 	}
 
