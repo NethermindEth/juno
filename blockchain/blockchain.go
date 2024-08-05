@@ -1099,7 +1099,7 @@ type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt
 
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the
 // blockchain
-func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowGlobalStateRoot *felt.Felt) error {
+func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateUpdate *core.StateUpdate) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		var err error
 
@@ -1121,9 +1121,12 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowGlobal
 		if err != nil {
 			return err
 		}
-		if shadowGlobalStateRoot != nil && !shadowGlobalStateRoot.Equal(pending.Block.GlobalStateRoot) {
+		if shadowStateUpdate != nil && !shadowStateUpdate.NewRoot.Equal(pending.Block.GlobalStateRoot) {
+			pending.StateUpdate.StateDiff.Print()
+			shadowStateUpdate.StateDiff.Print()
+			pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff)
 			return fmt.Errorf("sequencers state root %s != shadow block state root %s",
-				pending.Block.GlobalStateRoot.String(), shadowGlobalStateRoot.String())
+				pending.Block.GlobalStateRoot.String(), shadowStateUpdate.NewRoot.String())
 		}
 		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
 

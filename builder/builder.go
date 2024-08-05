@@ -45,11 +45,11 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
-	shadowMode            bool
-	shadowGlobalStateRoot *felt.Felt
-	starknetData          starknetdata.StarknetData
-	chanNumTxnsToShadow   chan int
-	chanFinaliseShadow    chan struct{}
+	shadowMode          bool
+	shadowStateUpdate   *core.StateUpdate
+	starknetData        starknetdata.StarknetData
+	chanNumTxnsToShadow chan int
+	chanFinaliseShadow  chan struct{}
 
 	chanFinalise  chan struct{}
 	chanFinalised chan struct{}
@@ -105,9 +105,17 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 
 func (b *Builder) Run(ctx context.Context) error {
 	if b.shadowMode {
-		if err := b.syncStore(1); err != nil {
+		syncToBlockNum := uint64(5)
+		block, err := b.bc.Head()
+		if err != nil {
 			return err
 		}
+		if block.Number < syncToBlockNum {
+			if err := b.syncStore(block.Number, syncToBlockNum); err != nil {
+				return err
+			}
+		}
+
 	}
 
 	if err := b.InitPendingBlock(); err != nil {
@@ -207,7 +215,7 @@ func (b *Builder) Finalise() error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
 
-	if err := b.bc.Finalise(&b.pendingBlock, b.Sign, b.shadowGlobalStateRoot); err != nil {
+	if err := b.bc.Finalise(&b.pendingBlock, b.Sign, b.shadowStateUpdate); err != nil {
 		return err
 	}
 	b.log.Infow("Finalised block", "number", b.pendingBlock.Block.Number, "hash",
@@ -386,9 +394,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 		}
 
 		if b.shadowMode {
-			fmt.Println("<-chanNumTxnsToShadow ")
 			numTxnsToExecute := <-b.chanNumTxnsToShadow
-			fmt.Println("chanNumTxnsToShadow <- <- ")
 			b.chanNumTxnsToShadow <- numTxnsToExecute - 1
 			if numTxnsToExecute-1 == 0 {
 				b.chanFinaliseShadow <- struct{}{}
@@ -448,7 +454,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	}
 
 	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
-		b.bc.Network(), false, false, false, false)
+		b.bc.Network(), false, false, true, false)
 	if err != nil {
 		return err
 	}
@@ -518,16 +524,16 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		b.shadowGlobalStateRoot = snHeadBlock.GlobalStateRoot
-		b.log.Debugw(fmt.Sprintf("Juno head at block %d, Sepolia at block %d, attempting to sequence next block", builderHeadBlock.Number, snHeadBlock.Number))
+
+		b.log.Debugw(fmt.Sprintf("Juno currently at block %d, Sepolia at block %d. Attempting to sequencer block %d.",
+			builderHeadBlock.Number, snHeadBlock.Number, builderHeadBlock.Number+1))
 		if builderHeadBlock.Number < snHeadBlock.Number {
-			block, _, classes, err := b.getSyncData(builderHeadBlock.Number + 1) // todo: don't need state updates here
+			block, su, classes, err := b.getSyncData(builderHeadBlock.Number + 1) // todo: don't need state updates here
 			if err != nil {
 				return err
 			}
-			fmt.Println("chanNumTxnsToShadow <- ")
+			b.shadowStateUpdate = su
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
-			fmt.Println(" not blocking chanNumTxnsToShadow <- ")
 			for _, txn := range block.Transactions {
 				var declaredClass core.Class
 				declareTxn, ok := txn.(*core.DeclareTransaction)
@@ -552,9 +558,9 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 	}
 }
 
-func (b *Builder) syncStore(toBlockNum uint64) error {
+func (b *Builder) syncStore(curBlockNum, toBlockNum uint64) error {
 	var i uint64
-	for i = 0; i < toBlockNum; i++ {
+	for i = curBlockNum; i < toBlockNum; i++ {
 		b.log.Infow("Sequencer, syncing block", "blockNumber", i)
 		block, su, classes, err := b.getSyncData(i)
 		if err != nil {
@@ -567,6 +573,14 @@ func (b *Builder) syncStore(toBlockNum uint64) error {
 		err = b.bc.Store(block, commitments, su, classes)
 		if err != nil {
 			return err
+		}
+		seqBlock, err := b.bc.BlockByNumber(i)
+		if err != nil {
+			return err
+		}
+		if !seqBlock.GlobalStateRoot.Equal(block.GlobalStateRoot) {
+			return fmt.Errorf("sequencers state root %s != shadow block state root %s",
+				seqBlock.GlobalStateRoot.String(), block.GlobalStateRoot.String())
 		}
 	}
 	return nil

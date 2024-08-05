@@ -1,7 +1,9 @@
 package core
 
 import (
+	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -22,6 +24,118 @@ type StateDiff struct {
 	DeclaredV0Classes []*felt.Felt                           // class hashes
 	DeclaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
 	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
+}
+
+func (sd *StateDiff) Print() {
+	fmt.Println("StateDiff {")
+	fmt.Println("  StorageDiffs:")
+	for addr, keyValueMap := range sd.StorageDiffs {
+		fmt.Printf("    %s:\n", addr.String())
+		for key, value := range keyValueMap {
+			fmt.Printf("      %s: %s\n", key.String(), value.String())
+		}
+	}
+	fmt.Println("  Nonces:")
+	for addr, nonce := range sd.Nonces {
+		fmt.Printf("    %s: %s\n", addr.String(), nonce.String())
+	}
+	fmt.Println("  DeployedContracts:")
+	for addr, classHash := range sd.DeployedContracts {
+		fmt.Printf("    %s: %s\n", addr.String(), classHash.String())
+	}
+	fmt.Println("  DeclaredV0Classes:")
+	for _, classHash := range sd.DeclaredV0Classes {
+		fmt.Printf("    %s\n", classHash.String())
+	}
+	fmt.Println("  DeclaredV1Classes:")
+	for classHash, compiledClassHash := range sd.DeclaredV1Classes {
+		fmt.Printf("    %s: %s\n", classHash.String(), compiledClassHash.String())
+	}
+	fmt.Println("  ReplacedClasses:")
+	for addr, classHash := range sd.ReplacedClasses {
+		fmt.Printf("    %s: %s\n", addr.String(), classHash.String())
+	}
+	fmt.Println("}")
+}
+
+func (sd *StateDiff) Diff(other *StateDiff) {
+	fmt.Println("Differences between StateDiffs:")
+
+	fmt.Println("  StorageDiffs:")
+	compareMapsOfMaps(sd.StorageDiffs, other.StorageDiffs)
+
+	fmt.Println("  Nonces:")
+	compareMaps(sd.Nonces, other.Nonces)
+
+	fmt.Println("  DeployedContracts:")
+	compareMaps(sd.DeployedContracts, other.DeployedContracts)
+
+	fmt.Println("  DeclaredV0Classes:")
+	compareSlices(sd.DeclaredV0Classes, other.DeclaredV0Classes)
+
+	fmt.Println("  DeclaredV1Classes:")
+	compareMaps(sd.DeclaredV1Classes, other.DeclaredV1Classes)
+
+	fmt.Println("  ReplacedClasses:")
+	compareMaps(sd.ReplacedClasses, other.ReplacedClasses)
+}
+
+func compareMapsOfMaps(m1, m2 map[felt.Felt]map[felt.Felt]*felt.Felt) {
+	for k1, v1 := range m1 {
+		if v2, exists := m2[k1]; exists {
+			for k2, v := range v1 {
+				if v2Val, exists := v2[k2]; !exists || !reflect.DeepEqual(v, v2Val) {
+					fmt.Printf("    %s: %s -> %s (changed or missing in second map)\n", k1.String(), k2.String(), v.String())
+				}
+			}
+			for k2 := range v2 {
+				if _, exists := v1[k2]; !exists {
+					fmt.Printf("    %s: %s -> %s (missing in first map)\n", k1.String(), k2.String(), v2[k2].String())
+				}
+			}
+		} else {
+			fmt.Printf("    %s: %v (missing in second map)\n", k1.String(), v1)
+		}
+	}
+	for k1 := range m2 {
+		if _, exists := m1[k1]; !exists {
+			fmt.Printf("    %s: %v (missing in first map)\n", k1.String(), m2[k1])
+		}
+	}
+}
+
+func compareMaps(m1, m2 map[felt.Felt]*felt.Felt) {
+	for k, v := range m1 {
+		if v2, exists := m2[k]; !exists || !reflect.DeepEqual(v, v2) {
+			fmt.Printf("    %s: %s -> %s (changed or missing in second map)\n", k.String(), v.String(), v2.String())
+		}
+	}
+	for k, v := range m2 {
+		if _, exists := m1[k]; !exists {
+			fmt.Printf("    %s: %s (missing in first map)\n", k.String(), v.String())
+		}
+	}
+}
+
+func compareSlices(s1, s2 []*felt.Felt) {
+	len1 := len(s1)
+	len2 := len(s2)
+	maxLen := len1
+	if len2 > len1 {
+		maxLen = len2
+	}
+
+	for i := 0; i < maxLen; i++ {
+		if i < len1 && i < len2 {
+			if !reflect.DeepEqual(s1[i], s2[i]) {
+				fmt.Printf("    %s -> %s (changed)\n", s1[i].String(), s2[i].String())
+			}
+		} else if i < len1 {
+			fmt.Printf("    %s (missing in second slice)\n", s1[i].String())
+		} else {
+			fmt.Printf("    %s (missing in first slice)\n", s2[i].String())
+		}
+	}
 }
 
 func EmptyStateDiff() *StateDiff {
