@@ -78,14 +78,19 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 
 	// Get the latest block information
 	headBlock, err := chain.Head()
-	if err == nil {
-		info.Network = getNetwork(headBlock)
-		info.ChainHeight = headBlock.Number
-		info.LatestBlockHash = headBlock.Hash
-		info.LatestStateRoot = headBlock.GlobalStateRoot
-	} else {
-		fmt.Printf("Failed to get the latest block information: %v\n", err)
+	if err != nil {
+		return fmt.Errorf("failed to get the latest block information: %v", err)
 	}
+
+	stateUpdate, err := chain.StateUpdateByNumber(headBlock.Number)
+	if err != nil {
+		return fmt.Errorf("failed to get the state update: %v", err)
+	}
+
+	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
+	info.ChainHeight = headBlock.Number
+	info.LatestBlockHash = headBlock.Hash
+	info.LatestStateRoot = headBlock.GlobalStateRoot
 
 	// Get the latest L1 block information
 	l1Head, err := chain.L1Head()
@@ -180,16 +185,18 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getNetwork(head *core.Block) string {
+func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	networks := map[string]*utils.Network{
-		"mainnet": &utils.Mainnet,
-		"sepolia": &utils.Sepolia,
-		"goerli":  &utils.Goerli,
-		"goerli2": &utils.Goerli2,
+		"mainnet":             &utils.Mainnet,
+		"sepolia":             &utils.Sepolia,
+		"goerli":              &utils.Goerli,
+		"goerli2":             &utils.Goerli2,
+		"integration":         &utils.Integration,
+		"sepolia-integration": &utils.SepoliaIntegration,
 	}
 
 	for network, util := range networks {
-		if _, err := core.VerifyBlockHash(head, util); err == nil {
+		if _, err := core.VerifyBlockHash(head, util, stateDiff); err == nil {
 			return network
 		}
 	}
