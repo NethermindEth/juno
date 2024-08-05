@@ -2,6 +2,8 @@ package tendermint
 
 import (
 	"time"
+
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 type step uint
@@ -12,21 +14,20 @@ const (
 	precommit
 )
 
-type Hash = [32]byte
-
-type Hashable interface {
-	Hash() Hash
+type Addr interface {
+	// Ethereum Addresses are 20 bytes
+	~[20]byte | felt.Felt
 }
 
-// Todo: generics may not be required if the Hashable interfce is used as above, since the following interface would be
-// equivalent to Application interface:
-//	type Application2 interface {
-//		Value() Hashable
-//		Valid(Hashable) bool
-//	}
-// If however, Hashable can be used for multiple types then generic would be useful.
+type Hash interface {
+	~[32]byte | felt.Felt
+}
 
-type Application[V Hashable] interface {
+type Hashable[H Hash] interface {
+	Hash() H
+}
+
+type Application[V Hashable[H], H Hash] interface {
 	// Value() returns the value to the Tendermint consensus algorith which can be proposed to other validators.
 	Value() V
 
@@ -34,7 +35,7 @@ type Application[V Hashable] interface {
 	Valid(V) bool
 }
 
-type Blockchain[V Hashable] interface {
+type Blockchain[V Hashable[H], H Hash] interface {
 	// Height() return the current blockchain height
 	Height() uint
 
@@ -43,7 +44,7 @@ type Blockchain[V Hashable] interface {
 }
 
 // Todo: decide how to represent Addresses
-type Validators[A any] interface {
+type Validators[A Addr] interface {
 	// TotolVotingPower() represents N which is required to calculate the thresholds.
 	TotalVotingPower(height uint) uint
 
@@ -55,18 +56,18 @@ type Validators[A any] interface {
 	Proposer(height, round uint) A
 }
 
-type Slasher[M Message] interface {
+type Slasher[M Message[V, H], V Hashable[H], H Hash] interface {
 	// Equivocation() informs the slasher that a validator has sent conflicting messages. Thus it can decide whether to
 	// slash the validator and by how much.
 	Equivocation(msgs ...M)
 }
 
-type Listener[M Message] interface {
+type Listener[M Message[V, H], V Hashable[H], H Hash] interface {
 	// Listen would return consensus messages to Tendermint which are set // by the validator set.
 	Listen() <-chan M
 }
 
-type Broadcaster[M Message, A any] interface {
+type Broadcaster[M Message[V, H], V Hashable[H], H Hash, A Addr] interface {
 	// Broadcast() will broadcast the message to the whole validator set
 	Broadcast(msg any)
 
@@ -77,13 +78,13 @@ type Broadcaster[M Message, A any] interface {
 
 type timeoutFn func(round uint) time.Duration
 
-type state[T any] struct {
+type state[V Hashable[H], H Hash] struct {
 	height uint
 	round  uint
 	step   step
 
-	lockedValue T
-	validValue  T
+	lockedValue V
+	validValue  V
 
 	// The default value of lockedRound and validRound is -1. However, using int for one value is not good use of space,
 	// therefore, uint is used and nil would represent -1.
@@ -100,14 +101,14 @@ type state[T any] struct {
 	timeoutPrecommit timeoutFn
 }
 
-func (s *state[T]) OnTimeoutPropose() {
+func (s *state[V, H]) OnTimeoutPropose() {
 	// To be executed after proposeTimeout expiry
 }
 
-func (s *state[T]) OnTimeoutPrevote() {
+func (s *state[V, H]) OnTimeoutPrevote() {
 	// To be executed after prevoteTimeout expiry
 }
 
-func (s *state[T]) OnTimeoutPrecommit() {
+func (s *state[V, H]) OnTimeoutPrecommit() {
 	// To be executed after precommitTimeout expiry
 }
