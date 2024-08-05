@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"slices"
+	"sort"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -400,7 +401,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	for key := range diffs {
 		keys = append(keys, key)
 	}
-	slices.SortStableFunc(keys, func(a, b felt.Felt) int { return a.Cmp(&b) })
+	slices.SortStableFunc(keys, func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
