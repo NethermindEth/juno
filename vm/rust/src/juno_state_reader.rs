@@ -242,10 +242,9 @@ fn native_try_from_json_string(
         class_hash: ClassHash,
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
         let native_context = cairo_native::context::NativeContext::new();
-        let native_program = native_context.compile(sierra_program, None)?;
+        let mut native_module = native_context.compile(sierra_program, None)?;
         // Redoing work from compile because we can't get the
         let program_registry = ProgramRegistry::new(sierra_program).unwrap();
-        let gas_metadata = get_gas_metadata(sierra_program)?;
 
         let opt_level = cairo_native::OptLevel::Default;
 
@@ -268,7 +267,7 @@ fn native_try_from_json_string(
         if !library_path.is_file() {
             println!("compiling {}", library_path.display());
             let object_data =
-                cairo_native::module_to_object(native_program.module(), opt_level).unwrap();
+                cairo_native::module_to_object(native_module.module(), opt_level).unwrap();
             cairo_native::object_to_shared_lib(&object_data, &library_path).unwrap();
         } else {
             println!("Loading {}", library_path.display());
@@ -280,7 +279,7 @@ fn native_try_from_json_string(
             unsafe { Library::new(library_path).unwrap() },
             program_registry,
             // This could use the get
-            gas_metadata,
+            native_module.remove_metadata().unwrap(),
         ))
     }
 
@@ -296,22 +295,4 @@ fn native_try_from_json_string(
     let executor = compile_and_load(&sierra_program, class_hash)?;
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
-}
-
-fn get_gas_metadata(
-    sierra_program: &cairo_lang_sierra::program::Program,
-) -> Result<cairo_native::metadata::gas::GasMetadata, cairo_native::error::Error> {
-    let has_gas_builtin = sierra_program
-        .type_declarations
-        .iter()
-        .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
-    let gas_metadata = if has_gas_builtin {
-        cairo_native::metadata::gas::GasMetadata::new(
-            sierra_program,
-            Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
-        )
-    } else {
-        cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
-    }?;
-    Ok(gas_metadata)
 }
