@@ -22,7 +22,7 @@ pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char) -> *mut c_char
     if let Err(e) = casm_json {
         return raw_cstr(e.to_string());
     }
-    return raw_cstr(casm_json.unwrap());
+    raw_cstr(casm_json.unwrap())
 }
 
 fn raw_cstr(str: String) -> *mut c_char {
