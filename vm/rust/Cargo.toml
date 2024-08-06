@@ -13,7 +13,11 @@ blockifier = { git = "https://github.com/NethermindEth/blockifier", branch = "na
 cairo-lang-sierra = "2.7.0"
 cairo-lang-starknet = "2.7.0"
 cairo-lang-starknet-classes = "2.7.0"
-starknet-types-core = { version = "0.1.5", features = ["hash", "prime-bigint", "serde"] }
+starknet-types-core = { version = "0.1.5", features = [
+    "hash",
+    "prime-bigint",
+    "serde",
+] }
 cairo-native = { git = "https://github.com/lambdaclass/cairo_native", branch = "cairo-lang2.7.0-rc.3" } # main
 starknet_api = "=0.13.0-rc.0"
 cairo-vm = "1.0.0"
@@ -23,6 +27,7 @@ once_cell = "1.18.0"
 lazy_static = "1.4.0"
 semver = "1.0.22"
 anyhow = "1.0.81"
+libloading = "0.8.5"
 
 [lib]
 crate-type = ["staticlib"]
@@ -30,4 +35,3 @@ crate-type = ["staticlib"]
 [build-dependencies]
 toml = "0.8.19"
 url = "2.5.2"
-

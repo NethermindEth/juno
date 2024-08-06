@@ -1,6 +1,6 @@
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
-    slice,
+    fs, slice,
     sync::Mutex,
 };
 use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
@@ -12,7 +12,9 @@ use blockifier::{
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
+use cairo_lang_sierra::program_registry::ProgramRegistry;
 use cairo_native::executor::AotNativeExecutor;
+use libloading::Library;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -155,7 +157,7 @@ impl StateReader for JunoStateReader {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
-            let class_info_res = class_info_from_json_str(json_str);
+            let class_info_res = class_info_from_json_str(json_str, class_hash);
             if let Ok(class_info) = &class_info_res {
                 CLASS_CACHE.lock().unwrap().cache_set(
                     class_hash,
@@ -203,7 +205,10 @@ pub struct ClassInfo {
     abi_length: usize,
 }
 
-pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
+pub fn class_info_from_json_str(
+    raw_json: &str,
+    class_hash: ClassHash,
+) -> Result<BlockifierClassInfo, String> {
     let class_info: ClassInfo = serde_json::from_str(raw_json)
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
@@ -213,7 +218,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
             class.into()
         } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
             class.into()
-        } else if let Ok(class) = native_try_from_json_string(class_def.as_str()) {
+        } else if let Ok(class) = native_try_from_json_string(class_def.as_str(), class_hash) {
             class.into()
         } else {
             return Err("not a valid contract class".to_string());
@@ -228,17 +233,67 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
 
 fn native_try_from_json_string(
     raw_contract_class: &str,
+    class_hash: ClassHash,
 ) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
     // Compile the Sierra Program to native code and loads it into the process'
     // memory space.
     fn compile_and_load(
         sierra_program: &cairo_lang_sierra::program::Program,
+        class_hash: ClassHash,
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
         let native_context = cairo_native::context::NativeContext::new();
         let native_program = native_context.compile(sierra_program, None)?;
-        Ok(AotNativeExecutor::from_native_module(
-            native_program,
-            cairo_native::OptLevel::Default,
+        let opt_level = cairo_native::OptLevel::Default;
+
+        let mut library_path = std::env::current_dir().unwrap();
+        library_path.push("native_cache");
+        library_path.push(env!("NATIVE_VERSION"));
+        // TODO(xrvdg) don't create directory on every compile
+        let _ = fs::create_dir_all(&library_path);
+        // TODO(xrvdg) class hash without
+        library_path.push(class_hash.to_string());
+        // todo(xrvdg) thread through class hash
+        // library_path.push(class_hash);
+
+        // check if file exist, if not compile
+        // file path will be the same either way
+
+        // inlining from_native_module
+
+        let object_data =
+            cairo_native::module_to_object(native_program.module(), opt_level).unwrap();
+        cairo_native::object_to_shared_lib(&object_data, &library_path).unwrap();
+
+        // Redoing work from compile
+        let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+
+        let has_gas_builtin = sierra_program
+            .type_declarations
+            .iter()
+            .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
+
+        let mut metadata = cairo_native::metadata::MetadataStorage::new();
+        // Make the runtime library available.
+        metadata.insert(cairo_native::metadata::runtime_bindings::RuntimeBindingsMeta::default());
+        // We assume that GasMetadata will be always present when the program uses the gas builtin.
+        let gas_metadata = if has_gas_builtin {
+            cairo_native::metadata::gas::GasMetadata::new(
+                sierra_program,
+                Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
+            )
+        } else {
+            cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
+        }?;
+        // Unwrapping here is not necessary since the insertion will only fail if there was
+        // already some metadata of the same type.
+        metadata.insert(gas_metadata);
+
+        // Create the Sierra program registry
+
+        Ok(AotNativeExecutor::new(
+            unsafe { Library::new(library_path).unwrap() },
+            program_registry,
+            metadata.remove().unwrap(),
         ))
     }
 
@@ -251,7 +306,7 @@ fn native_try_from_json_string(
     //   2. Refactoring the code on the Cairo mono-repo
 
     let sierra_program = sierra_contract_class.extract_sierra_program()?;
-    let executor = compile_and_load(&sierra_program)?;
+    let executor = compile_and_load(&sierra_program, class_hash)?;
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
 }
