@@ -8,15 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type testFelt felt.Felt
+type testValue uint64
 
-func (t testFelt) Hash() felt.Felt {
-	r, _ := new(felt.Felt).SetRandom()
-	return *r
+func (t testValue) Hash() felt.Felt {
+	return *new(felt.Felt).SetUint64(uint64(t))
 }
 
 func TestState(t *testing.T) {
+	//t.Run("initial tendermint state", func(t *testing.T) {
+	//	s := New()
+	//})
 	// Does nothing, for now, just here to easily check for compilation issues.
-	s := state[Message[testFelt, felt.Felt], testFelt, felt.Felt, felt.Felt]{}
+	s := state[testValue, felt.Felt]{}
 	assert.Nil(t, s.lockedRound)
 }
