@@ -12,7 +12,6 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,9 +41,11 @@ func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 	require.NoError(t, err)
 
 	dbPath := t.TempDir()
-	testDB, _ := pebble.New(dbPath)
+	testDB, err := pebble.New(dbPath)
+	require.NoError(t, err)
+
 	chain := blockchain.New(testDB, &utils.Mainnet)
-	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+	require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 	testDB.Close()
 
 	require.NoError(t, cmd.Flags().Set("db-path", dbPath))

@@ -1,8 +1,8 @@
 package utils
 
 const (
-	KiloByte = 1024
-	Megabyte = 1024 * 1024
-	Gigabyte = 1024 * 1024 * 1024
-	Terabyte = 1024 * 1024 * 1024 * 1024
+	Kilobyte = 1024
+	Megabyte = 1024 * Kilobyte
+	Gigabyte = 1024 * Megabyte
+	Terabyte = 1024 * Gigabyte
 )

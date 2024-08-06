@@ -61,7 +61,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
-		fmt.Println("Database path does not exist")
+		fmt.Fprintln(cmd.OutOrStdout(), "Database path does not exist")
 		return nil
 	}
 
@@ -104,7 +104,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("marshal JSON: %w", err)
 	}
 
-	fmt.Println(string(jsonData))
+	fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
 
 	return nil
 }
@@ -120,7 +120,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	}
 
 	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
-		fmt.Println("Database path does not exist")
+		fmt.Fprintln(cmd.OutOrStdout(), "Database path does not exist")
 		return nil
 	}
 

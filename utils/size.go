@@ -14,8 +14,8 @@ func (d DataSize) String() string {
 		return fmt.Sprintf("%.2f GiB", d/Gigabyte)
 	case d >= Megabyte:
 		return fmt.Sprintf("%.2f MiB", d/Megabyte)
-	case d >= KiloByte:
-		return fmt.Sprintf("%.2f KiB", d/KiloByte)
+	case d >= Kilobyte:
+		return fmt.Sprintf("%.2f KiB", d/Kilobyte)
 	}
 	return fmt.Sprintf("%.2f B", d)
 }

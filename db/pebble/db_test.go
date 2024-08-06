@@ -426,8 +426,8 @@ func TestCalculatePrefixSize(t *testing.T) {
 
 		s, err := pebble.CalculatePrefixSize(context.Background(), testDB, []byte("0"))
 		require.NoError(t, err)
-		assert.Equal(t, uint(0), s.Count)
-		assert.Equal(t, utils.DataSize(0), s.Size)
+		assert.Zero(t, s.Count)
+		assert.Zero(t, s.Size)
 	})
 
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
@@ -437,8 +437,8 @@ func TestCalculatePrefixSize(t *testing.T) {
 		}))
 		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), []byte("1"))
 		require.NoError(t, err)
-		assert.Equal(t, uint(0), s.Count)
-		assert.Equal(t, utils.DataSize(0), s.Size)
+		assert.Zero(t, s.Count)
+		assert.Zero(t, s.Size)
 	})
 
 	t.Run("size of all key value pair with the same prefix", func(t *testing.T) {
@@ -466,8 +466,8 @@ func TestCalculatePrefixSize(t *testing.T) {
 
 			s, err := pebble.CalculatePrefixSize(ctx, testDB.(*pebble.DB), p)
 			assert.EqualError(t, err, context.Canceled.Error())
-			assert.Equal(t, uint(0), s.Count)
-			assert.Equal(t, utils.DataSize(0), s.Size)
+			assert.Zero(t, s.Count)
+			assert.Zero(t, s.Size)
 		})
 	})
 }
