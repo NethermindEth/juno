@@ -26,3 +26,8 @@ anyhow = "1.0.81"
 
 [lib]
 crate-type = ["staticlib"]
+
+[build-dependencies]
+toml = "0.8.19"
+url = "2.5.2"
+
