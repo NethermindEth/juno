@@ -216,10 +216,10 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         } else {
             return Err("not a valid contract class".to_string());
         };
-    return Ok(BlockifierClassInfo::new(
-        &class.into(),
+    Ok(BlockifierClassInfo::new(
+        &class,
         class_info.sierra_program_length,
         class_info.abi_length,
     )
-    .unwrap());
+    .unwrap())
 }
