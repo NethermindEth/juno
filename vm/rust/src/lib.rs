@@ -89,6 +89,7 @@ pub struct BlockInfo {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const BlockInfo,
@@ -172,6 +173,7 @@ pub struct TxnAndQueryBit {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
     classes_json: *const c_char,
@@ -584,6 +586,7 @@ impl FromStr for StarknetVersion {
 static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_char {
     let json_str = unsafe {
         match CStr::from_ptr(json_bytes).to_str() {
@@ -606,6 +609,7 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn freeString(s: *mut c_char) {
     if !s.is_null() {
         unsafe {
