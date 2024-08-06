@@ -29,7 +29,7 @@ typedef struct BlockInfo {
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps, unsigned char concurrency_mode);
+	unsigned long long max_steps, unsigned char concurrency_mode, unsigned char is_mutable);
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
@@ -80,6 +80,15 @@ func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 	}
 }
 
+type StateReadWriter interface {
+	core.StateReader
+	SetStorage(contractAddress, storageKey, value *felt.Felt) error
+	IncrementNonce(contractAddress *felt.Felt) error
+	SetClassHash(contractAddress, classHash *felt.Felt) error
+	SetContractClass(classHash *felt.Felt, contractClass core.Class) error
+	SetCompiledClassHash(classHash *felt.Felt, compiledClassHash *felt.Felt) error
+}
+
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
@@ -95,6 +104,26 @@ type callContext struct {
 	actualFees      []*felt.Felt
 	traces          []json.RawMessage
 	dataGasConsumed []*felt.Felt
+
+	declaredClasses map[felt.Felt]core.Class
+}
+
+func newContext(state core.StateReader, log utils.SimpleLogger, declaredClasses []core.Class) (*callContext, error) {
+	declaredClassesMap := make(map[felt.Felt]core.Class)
+	for _, declaredClass := range declaredClasses {
+		classHash, err := declaredClass.Hash()
+		if err != nil {
+			return nil, fmt.Errorf("calculate declared class hash: %v", err)
+		}
+		declaredClassesMap[*classHash] = declaredClass
+	}
+
+	return &callContext{
+		state:           state,
+		response:        []*felt.Felt{},
+		log:             log,
+		declaredClasses: declaredClassesMap,
+	}, nil
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -218,14 +247,22 @@ func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
 	return cBlockInfo
 }
 
+func makeByteFromBool(b bool) byte {
+	var boolByte byte
+	if b {
+		boolByte = 1
+	}
+	return boolByte
+}
+
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
 	network *utils.Network, maxSteps uint64, useBlobData bool,
 ) ([]*felt.Felt, error) {
-	context := &callContext{
-		state:    state,
-		response: []*felt.Felt{},
-		log:      v.log,
+	context, err := newContext(state, v.log, nil)
+	if err != nil {
+		return nil, err
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -233,6 +270,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 	C.setVersionedConstants(C.CString("my_json"))
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
@@ -245,6 +284,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		chainID,
 		C.ulonglong(maxSteps),        //nolint:gocritic
 		C.uchar(concurrencyModeByte), //nolint:gocritic
+		C.uchar(mutableStateByte),    //nolint:gocritic
+
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -265,6 +306,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		state: state,
 		log:   v.log,
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 

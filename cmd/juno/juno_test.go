@@ -64,6 +64,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultGwTimeout := 5 * time.Second
+	defaultSeqBlockTime := uint(60)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -110,6 +111,7 @@ func TestConfigPrecedence(t *testing.T) {
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"custom network config file": {
@@ -155,6 +157,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"default config with no flags": {
@@ -187,6 +190,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"config file path is empty string": {
@@ -219,6 +223,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"config file doesn't exist": {
@@ -256,6 +261,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -295,6 +301,7 @@ pprof: true
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -331,6 +338,7 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"all flags without config file": {
@@ -366,6 +374,7 @@ http-port: 4576
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				PendingPollInterval: defaultPendingPollInterval,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"some flags without config file": {
@@ -401,6 +410,7 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -460,6 +470,7 @@ db-cache-size: 8
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -498,6 +509,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -532,6 +544,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"only set env variables": {
@@ -564,6 +577,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -597,6 +611,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -631,6 +646,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 			},
 		},
 	}

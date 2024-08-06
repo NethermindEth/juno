@@ -81,6 +81,9 @@ const (
 	callMaxStepsF           = "rpc-call-max-steps"
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
+	seqEnF                  = "seq-enable"
+	seqBlockTimeF           = "seq-block-time"
+	seqGenesisFileF         = "seq-genesis-file"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -117,6 +120,9 @@ const (
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
+	defaultSeqEn                    = false
+	defaultSeqBlockTime             = 60
+	defaultSeqGenesisFile           = ""
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -167,6 +173,9 @@ const (
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
+	seqEnUsage                  = "Enables sequencer mode of operation"
+	seqBlockTimeUsage           = "Time to build a block, in seconds"
+	seqGenesisFileUsage         = "Path to the genesis file"
 )
 
 var Version string
@@ -351,8 +360,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
-
 	junoCmd.AddCommand(GenP2PKeyPair())
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
+	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 	junoCmd.AddCommand(DBSize())
 
 	return junoCmd
