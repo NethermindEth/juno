@@ -243,8 +243,13 @@ fn native_try_from_json_string(
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
         let native_context = cairo_native::context::NativeContext::new();
         let native_program = native_context.compile(sierra_program, None)?;
+        // Redoing work from compile because we can't get the
+        let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+        let gas_metadata = get_gas_metadata(sierra_program)?;
+
         let opt_level = cairo_native::OptLevel::Default;
 
+        // TODO(xrvdg) choose where you want to have the directory
         let mut library_path = std::env::current_dir().unwrap();
         library_path.push("native_cache");
         library_path.push(env!("NATIVE_VERSION"));
@@ -269,36 +274,13 @@ fn native_try_from_json_string(
             println!("Loading {}", library_path.display());
         }
 
-        // Redoing work from compile
-        let program_registry = ProgramRegistry::new(sierra_program).unwrap();
-
-        let has_gas_builtin = sierra_program
-            .type_declarations
-            .iter()
-            .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
-
-        let mut metadata = cairo_native::metadata::MetadataStorage::new();
-        // Make the runtime library available.
-        metadata.insert(cairo_native::metadata::runtime_bindings::RuntimeBindingsMeta::default());
-        // We assume that GasMetadata will be always present when the program uses the gas builtin.
-        let gas_metadata = if has_gas_builtin {
-            cairo_native::metadata::gas::GasMetadata::new(
-                sierra_program,
-                Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
-            )
-        } else {
-            cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
-        }?;
-        // Unwrapping here is not necessary since the insertion will only fail if there was
-        // already some metadata of the same type.
-        metadata.insert(gas_metadata);
-
         // Create the Sierra program registry
 
         Ok(AotNativeExecutor::new(
             unsafe { Library::new(library_path).unwrap() },
             program_registry,
-            metadata.remove().unwrap(),
+            // This could use the get
+            gas_metadata,
         ))
     }
 
@@ -314,4 +296,22 @@ fn native_try_from_json_string(
     let executor = compile_and_load(&sierra_program, class_hash)?;
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
+}
+
+fn get_gas_metadata(
+    sierra_program: &cairo_lang_sierra::program::Program,
+) -> Result<cairo_native::metadata::gas::GasMetadata, cairo_native::error::Error> {
+    let has_gas_builtin = sierra_program
+        .type_declarations
+        .iter()
+        .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
+    let gas_metadata = if has_gas_builtin {
+        cairo_native::metadata::gas::GasMetadata::new(
+            sierra_program,
+            Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
+        )
+    } else {
+        cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
+    }?;
+    Ok(gas_metadata)
 }
