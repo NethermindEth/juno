@@ -260,9 +260,14 @@ fn native_try_from_json_string(
 
         // inlining from_native_module
 
-        let object_data =
-            cairo_native::module_to_object(native_program.module(), opt_level).unwrap();
-        cairo_native::object_to_shared_lib(&object_data, &library_path).unwrap();
+        if !library_path.is_file() {
+            println!("compiling {}", library_path.display());
+            let object_data =
+                cairo_native::module_to_object(native_program.module(), opt_level).unwrap();
+            cairo_native::object_to_shared_lib(&object_data, &library_path).unwrap();
+        } else {
+            println!("Loading {}", library_path.display());
+        }
 
         // Redoing work from compile
         let program_registry = ProgramRegistry::new(sierra_program).unwrap();
