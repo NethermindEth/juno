@@ -189,8 +189,6 @@ impl UpdatableState for JunoStateReader {
 
 pub fn felt_to_byte_array(felt: &StarkFelt) -> [u8; 32] {
     felt.to_bytes_be()
-        .try_into()
-        .expect("StarkFelt not [u8; 32]")
 }
 
 pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
