@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"slices"
 	"sort"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -370,6 +371,11 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
 	blockNumber uint64, logChanges bool,
 ) error {
+	type bufferedTransactionWithAddress struct {
+		txn  *db.BufferedTransaction
+		addr *felt.Felt
+	}
+
 	// make sure all noClassContracts are deployed
 	for addr := range diffs {
 		if _, ok := noClassContracts[addr]; !ok {
@@ -395,17 +401,18 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	for key := range diffs {
 		keys = append(keys, key)
 	}
-	sort.SliceStable(keys, func(i, j int) bool {
-		return len(diffs[keys[i]]) > len(diffs[keys[j]])
-	})
+	slices.SortStableFunc(keys, func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 
 	// update per-contract storage Tries concurrently
-	contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
-		conractAddr := key
-		updateDiff := diffs[conractAddr]
-		contractUpdaters.Go(func() (*db.BufferedTransaction, error) {
-			return s.updateStorageBuffered(&conractAddr, updateDiff, blockNumber, logChanges)
+		contractAddr := key
+		contractUpdaters.Go(func() (*bufferedTransactionWithAddress, error) {
+			bufferedTxn, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
+			if err != nil {
+				return nil, err
+			}
+			return &bufferedTransactionWithAddress{txn: bufferedTxn, addr: &contractAddr}, nil
 		})
 	}
 
@@ -414,9 +421,14 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		return err
 	}
 
+	// we sort bufferedTxns in ascending contract address order to achieve an additional speedup
+	sort.Slice(bufferedTxns, func(i, j int) bool {
+		return bufferedTxns[i].addr.Cmp(bufferedTxns[j].addr) < 0
+	})
+
 	// flush buffered txns
-	for _, bufferedTxn := range bufferedTxns {
-		if err = bufferedTxn.Flush(); err != nil {
+	for _, txnWithAddress := range bufferedTxns {
+		if err := txnWithAddress.txn.Flush(); err != nil {
 			return err
 		}
 	}
