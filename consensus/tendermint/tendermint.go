@@ -50,12 +50,6 @@ type Slasher[M Message[V, H], V Hashable[H], H Hash] interface {
 	Equivocation(msgs ...M)
 }
 
-// Todo: Constraining the Listern interface to Message mean that at instantiation type the specific message (Proposal,
-// Prevote or Precommit) would need to be provided. This mean that 3 separete listener would need to be instantiated
-// each with it own message type. The advantage of this is there is type safety and no type swtiching would need to
-// done. The other option is to have Listener and Broadcaster  operate on any and loose all type saftey but it will
-// mean there is need for only 1 Listener and Broadcaster. This also simplifyies message handling logic since there will
-// only be one channel to read from instead of 3 channels
 type Listener[M Message[V, H], V Hashable[H], H Hash] interface {
 	// Listen would return consensus messages to Tendermint which are set // by the validator set.
 	Listen() <-chan M
@@ -75,7 +69,37 @@ type Listeners[V Hashable[H], H Hash] struct {
 	prevoteListener   Listener[Prevote[H], V, H]
 	precommitListener Listener[Precommit[H], V, H]
 }
+
+type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
+	proposalBroadcaster  Broadcaster[Proposal[V, H], V, H, A]
+	prevoteBroadcaster   Broadcaster[Prevote[H], V, H, A]
+	precommitBroadcaster Broadcaster[Precommit[H], V, H, A]
+}
+
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
-	messages messages[V, H, A]
+	// Todo: Does state need to be protected?
 	state    state[V, H]
+	messages messages[V, H, A]
+
+	application Application[V, H]
+	blockchain  Blockchain[V, H]
+	validators  Validators[A]
+
+	listeners    Listeners[V, H]
+	broadcasters Broadcasters[V, H, A]
+}
+
+// Todo: Add Slashers later
+func New[V Hashable[H], H Hash, A Addr](app Application[V, H], chain Blockchain[V, H], vals Validators[A],
+	listeners Listeners[V, H], broadcasters Broadcasters[V, H, A],
+) Tendermint[V, H, A] {
+	return Tendermint[V, H, A]{
+		state:        state[V, H]{},
+		messages:     newMessages[V, H, A](),
+		application:  app,
+		blockchain:   chain,
+		validators:   vals,
+		listeners:    listeners,
+		broadcasters: broadcasters,
+	}
 }

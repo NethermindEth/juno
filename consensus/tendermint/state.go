@@ -37,22 +37,6 @@ type state[V Hashable[H], H Hash] struct {
 	timeoutPrecommit timeoutFn
 }
 
-//func New[M Message[V, H], V Hashable[H], H Hash, A Addr](app Application[V, H], chain Blockchain[V, H],
-//	validators Validators[A], ) {
-//}
-
-func (s *state[V, H]) Start() {
-	go s.startRound(0)
-
-	//for m := range s.listener.Listen() {
-	//	switch any(m).(type) {
-	//	case Proposal[V, H]:
-	//	case Precommit[H]:
-	//	case Prevote[H]:
-	//	}
-	//}
-}
-
 func (s *state[V, H]) startRound(r uint) {
 }
 

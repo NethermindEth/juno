@@ -32,3 +32,11 @@ type messages[V Hashable[H], H Hash, A Addr] struct {
 	prevotes   map[uint]map[uint]map[A][]Prevote[H]
 	precommits map[uint]map[uint]map[A][]Precommit[H]
 }
+
+func newMessages[V Hashable[H], H Hash, A Addr]() messages[V, H, A] {
+	return messages[V, H, A]{
+		proposals:  make(map[uint]map[uint]map[A][]Proposal[V, H]),
+		prevotes:   make(map[uint]map[uint]map[A][]Prevote[H]),
+		precommits: make(map[uint]map[uint]map[A][]Precommit[H]),
+	}
+}
