@@ -126,7 +126,7 @@ pub extern "C" fn cairoVMCall(
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
         call_type: CallType::Call,
-        class_hash: class_hash,
+        class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
         initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
