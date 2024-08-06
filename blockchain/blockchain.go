@@ -931,6 +931,18 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 	return nil
 }
 
+func (b *Blockchain) CleanPendingState() error {
+	header, err := b.HeadsHeader()
+	if err != nil {
+		return err
+	}
+	txn, err := b.database.NewTransaction(true)
+	if err != nil {
+		return err
+	}
+	return b.storeEmptyPending(txn, header)
+}
+
 func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
@@ -1099,7 +1111,7 @@ type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt
 
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the
 // blockchain
-func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
+func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateUpdate *core.StateUpdate) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		var err error
 
@@ -1120,6 +1132,16 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc) error {
 		pending.Block.GlobalStateRoot, err = state.Root()
 		if err != nil {
 			return err
+		}
+		if shadowStateUpdate != nil && !shadowStateUpdate.NewRoot.Equal(pending.Block.GlobalStateRoot) {
+			pending.StateUpdate.StateDiff.Print()
+			shadowStateUpdate.StateDiff.Print()
+			pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff)
+			if err := txn.Discard(); err != nil {
+				return err
+			}
+			return fmt.Errorf("sequencers state root %s != shadow block state root %s",
+				pending.Block.GlobalStateRoot.String(), shadowStateUpdate.NewRoot.String())
 		}
 		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
 
@@ -1171,5 +1193,5 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 	}
 	return b.Finalise(&pendingGenesis, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
 		return nil, nil
-	})
+	}, nil)
 }

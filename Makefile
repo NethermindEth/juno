@@ -168,6 +168,20 @@ sequencer-with-accounts:
 	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
     --rpc-call-max-steps=4123000
 
+
+sequencer-shadow-sepolia:
+	./build/juno \
+    --http \
+    --http-port=6060 \
+    --http-host=0.0.0.0 \
+    --db-path=./seq-db \
+    --log-level=debug \
+    --seq-enable \
+	--seq-shadow-mode \
+    --seq-block-time=5 \
+	--network sepolia \
+    --rpc-call-max-steps=4123000
+	
 pathfinder: juno-cached
 	./build/juno \
 	--network=sepolia \

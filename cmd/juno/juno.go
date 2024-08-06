@@ -84,6 +84,7 @@ const (
 	seqEnF                  = "seq-enable"
 	seqBlockTimeF           = "seq-block-time"
 	seqGenesisFileF         = "seq-genesis-file"
+	seqShadowModeF          = "seq-shadow-mode"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -123,6 +124,7 @@ const (
 	defaultSeqEn                    = false
 	defaultSeqBlockTime             = 60
 	defaultSeqGenesisFile           = ""
+	defaultSeqShadowMode            = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -176,6 +178,7 @@ const (
 	seqEnUsage                  = "Enables sequencer mode of operation"
 	seqBlockTimeUsage           = "Time to build a block, in seconds"
 	seqGenesisFileUsage         = "Path to the genesis file"
+	seqShadowModeUsage          = "Launches the sequencer in shadow mode (note: network must be set to Sepolia)"
 )
 
 var Version string
@@ -364,6 +367,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
 	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
 	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
+	junoCmd.Flags().Bool(seqShadowModeF, defaultSeqShadowMode, seqShadowModeUsage)
 	junoCmd.AddCommand(DBSize())
 
 	return junoCmd

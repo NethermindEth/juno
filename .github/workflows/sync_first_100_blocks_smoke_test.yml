@@ -23,7 +23,7 @@ jobs:
           repositories: "juno,juno-smoke-tests"
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5.0.2
@@ -32,13 +32,13 @@ jobs:
           cache: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Build docker image
         run: docker build --build-arg VM_DEBUG=true -t nethermindeth/juno .
 
       - name: Checkout Juno Smoke Tests
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4
         with:
           repository: NethermindEth/juno-smoke-tests
           token: ${{ steps.generate-token.outputs.token }}

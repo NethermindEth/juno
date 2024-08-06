@@ -102,7 +102,6 @@ func TestUpgrader(t *testing.T) {
 	}
 
 	for description, test := range tests {
-		test := test
 		t.Run(description, func(t *testing.T) {
 			t.Parallel()
 			srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {

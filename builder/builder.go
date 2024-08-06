@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"errors"
+	"fmt"
 	stdsync "sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -42,22 +44,57 @@ type Builder struct {
 	pendingBlock blockchain.Pending
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
+
+	shadowMode          bool
+	shadowStateUpdate   *core.StateUpdate
+	starknetData        starknetdata.StarknetData
+	chanNumTxnsToShadow chan int
+	chanFinaliseShadow  chan struct{}
+
+	chanFinalise  chan struct{}
+	chanFinalised chan struct{}
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger,
 ) *Builder {
 	return &Builder{
-		ownAddress: *ownAddr,
-		privKey:    privKey,
-		blockTime:  blockTime,
-		log:        log,
-		listener:   &SelectiveListener{},
+		ownAddress:    *ownAddr,
+		privKey:       privKey,
+		blockTime:     blockTime,
+		log:           log,
+		listener:      &SelectiveListener{},
+		chanFinalise:  make(chan struct{}),
+		chanFinalised: make(chan struct{}, 1),
 
 		bc:       bc,
 		pool:     pool,
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
+	}
+}
+
+func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
+	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, starknetData starknetdata.StarknetData,
+) *Builder {
+	return &Builder{
+		ownAddress:    *ownAddr,
+		privKey:       privKey,
+		blockTime:     blockTime,
+		log:           log,
+		listener:      &SelectiveListener{},
+		chanFinalise:  make(chan struct{}, 1),
+		chanFinalised: make(chan struct{}, 1),
+
+		bc:       bc,
+		pool:     pool,
+		vm:       builderVM,
+		newHeads: feed.New[*core.Header](),
+
+		shadowMode:          true,
+		starknetData:        starknetData,
+		chanNumTxnsToShadow: make(chan int, 1),
+		chanFinaliseShadow:  make(chan struct{}, 1),
 	}
 }
 
@@ -67,6 +104,24 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
+	if b.shadowMode {
+		syncToBlockNum := uint64(5)
+		block, err := b.bc.Head()
+		if err != nil {
+			return err
+		}
+		if block.Number < syncToBlockNum {
+			if err := b.syncStore(block.Number, syncToBlockNum); err != nil {
+				return err
+			}
+		} else {
+			if err := b.bc.CleanPendingState(); err != nil {
+				return err
+			}
+		}
+
+	}
+
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
@@ -84,17 +139,45 @@ func (b *Builder) Run(ctx context.Context) error {
 		}
 		close(doneListen)
 	}()
+	if b.shadowMode {
+		go func() {
+			if pErr := b.shadowTxns(ctx); pErr != nil {
+				b.log.Errorw("shadowTxns", "err", pErr)
+			}
+		}()
+	}
 
+	go func() {
+		if b.shadowMode {
+			for {
+				select {
+				case <-b.chanFinaliseShadow:
+					b.chanFinalise <- struct{}{}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+		for {
+			select {
+			case <-time.After(b.blockTime):
+				b.chanFinalise <- struct{}{}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			<-doneListen
 			return nil
-		case <-time.After(b.blockTime):
+		case <-b.chanFinalise:
 			b.log.Debugw("Finalising new block")
 			if err := b.Finalise(); err != nil {
 				return err
 			}
+			<-b.chanFinalised
 		}
 	}
 }
@@ -136,7 +219,7 @@ func (b *Builder) Finalise() error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
 
-	if err := b.bc.Finalise(&b.pendingBlock, b.Sign); err != nil {
+	if err := b.bc.Finalise(&b.pendingBlock, b.Sign, b.shadowStateUpdate); err != nil {
 		return err
 	}
 	b.log.Infow("Finalised block", "number", b.pendingBlock.Block.Number, "hash",
@@ -314,12 +397,41 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 		}
 
+		if b.shadowMode {
+			numTxnsToExecute := <-b.chanNumTxnsToShadow
+			b.chanNumTxnsToShadow <- numTxnsToExecute - 1
+			if numTxnsToExecute-1 == 0 {
+				b.chanFinaliseShadow <- struct{}{}
+				<-b.chanNumTxnsToShadow
+			}
+		}
+
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
 		}
 	}
+}
+
+func getPaidOnL1Fees(txn *mempool.BroadcastedTransaction) ([]*felt.Felt, error) {
+	if tx, ok := (txn.Transaction).(*core.L1HandlerTransaction); ok {
+		handleDepositEPS, err := new(felt.Felt).SetString("0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5")
+		if err != nil {
+			return nil, err
+		}
+		handleTokenDepositEPS, err := new(felt.Felt).SetString("0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19")
+		if err != nil {
+			return nil, err
+		}
+		if tx.EntryPointSelector.Equal(handleDepositEPS) {
+			return []*felt.Felt{tx.CallData[2]}, nil
+		} else if tx.EntryPointSelector.Equal(handleTokenDepositEPS) {
+			return []*felt.Felt{tx.CallData[4]}, nil
+		}
+		return nil, fmt.Errorf("failed to get fees_paid_on_l1, unkmown entry point selector")
+	}
+	return []*felt.Felt{}, nil
 }
 
 func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
@@ -331,6 +443,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		classes = append(classes, txn.DeclaredClass)
 	}
 
+	feesPaidOnL1, err := getPaidOnL1Fees(txn)
+	if err != nil {
+		return err
+	}
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
 			Number:           b.pendingBlock.Block.Number,
@@ -341,8 +457,8 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		},
 	}
 
-	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, []*felt.Felt{}, blockInfo, state,
-		b.bc.Network(), false, false, false, false)
+	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
+		b.bc.Network(), false, false, true, false)
 	if err != nil {
 		return err
 	}
@@ -399,4 +515,103 @@ func mergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff
 	oldStateDiff.DeclaredV0Classes = append(oldStateDiff.DeclaredV0Classes, newStateDiff.DeclaredV0Classes...)
 
 	return oldStateDiff
+}
+
+func (b *Builder) shadowTxns(ctx context.Context) error {
+	for {
+		b.chanFinalised <- struct{}{}
+		builderHeadBlock, err := b.bc.Head()
+		if err != nil {
+			return err
+		}
+		nextBlockToSequence := builderHeadBlock.Number + 1
+		snHeadBlock, err := b.starknetData.BlockLatest(ctx)
+		if err != nil {
+			return err
+		}
+
+		b.log.Debugw(fmt.Sprintf("Juno currently at block %d, Sepolia at block %d. Attempting to sequence block %d.",
+			builderHeadBlock.Number, snHeadBlock.Number, nextBlockToSequence))
+		if builderHeadBlock.Number < snHeadBlock.Number {
+			block, su, classes, err := b.getSyncData(nextBlockToSequence)
+			if err != nil {
+				return err
+			}
+			b.shadowStateUpdate = su
+			b.chanNumTxnsToShadow <- int(block.TransactionCount)
+			for _, txn := range block.Transactions {
+				var declaredClass core.Class
+				declareTxn, ok := txn.(*core.DeclareTransaction)
+				if ok {
+					declaredClass = classes[*declareTxn.ClassHash]
+				}
+				err = b.pool.Push(
+					&mempool.BroadcastedTransaction{
+						Transaction:   txn,
+						DeclaredClass: declaredClass,
+					})
+				if err != nil {
+					return err
+				}
+			}
+
+		} else {
+			var sleepTime uint = 1
+			b.log.Debugw("Juno Sequencer is at Sepolia chain head. Sleeping for %ds before querying for a new block.", sleepTime)
+			time.Sleep(time.Duration(sleepTime))
+		}
+	}
+}
+
+func (b *Builder) syncStore(curBlockNum, toBlockNum uint64) error {
+	var i uint64
+	for i = curBlockNum; i < toBlockNum; i++ {
+		b.log.Infow("Sequencer, syncing block", "blockNumber", i)
+		block, su, classes, err := b.getSyncData(i)
+		if err != nil {
+			return err
+		}
+		commitments, err := b.bc.SanityCheckNewHeight(block, su, classes)
+		if err != nil {
+			return err
+		}
+		err = b.bc.Store(block, commitments, su, classes)
+		if err != nil {
+			return err
+		}
+		seqBlock, err := b.bc.BlockByNumber(i)
+		if err != nil {
+			return err
+		}
+		if !seqBlock.GlobalStateRoot.Equal(block.GlobalStateRoot) {
+			return fmt.Errorf("sequencers state root %s != shadow block state root %s",
+				seqBlock.GlobalStateRoot.String(), block.GlobalStateRoot.String())
+		}
+	}
+	return nil
+}
+
+func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdate,
+	map[felt.Felt]core.Class, error,
+) {
+	block, err := b.starknetData.BlockByNumber(context.Background(), blockNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	su, err := b.starknetData.StateUpdate(context.Background(), blockNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	txns := block.Transactions
+	classes := make(map[felt.Felt]core.Class)
+	for _, txn := range txns {
+		if t, ok := txn.(*core.DeclareTransaction); ok {
+			class, err := b.starknetData.Class(context.Background(), t.ClassHash)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			classes[*t.ClassHash] = class
+		}
+	}
+	return block, su, classes, nil
 }

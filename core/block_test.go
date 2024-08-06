@@ -171,8 +171,7 @@ func TestBlockHash(t *testing.T) {
 		},
 	}
 
-	for _, testcase := range tests {
-		tc := testcase
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			client := feeder.NewTestClient(t, &tc.chain)

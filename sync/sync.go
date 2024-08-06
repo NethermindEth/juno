@@ -298,11 +298,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 }
 
 func maxWorkers() int {
-	m, mProcs := 16, runtime.GOMAXPROCS(0)
-	if mProcs > m {
-		return m
-	}
-	return mProcs
+	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
 }
 
 func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
