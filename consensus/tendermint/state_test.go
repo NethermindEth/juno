@@ -11,11 +11,12 @@ import (
 type testFelt felt.Felt
 
 func (t testFelt) Hash() felt.Felt {
-	return *new(felt.Felt).SetBytes([]byte("Some random felt's hash"))
+	r, _ := new(felt.Felt).SetRandom()
+	return *r
 }
 
 func TestState(t *testing.T) {
 	// Does nothing, for now, just here to easily check for compilation issues.
-	s := state[testFelt, felt.Felt]{}
+	s := state[Message[testFelt, felt.Felt], testFelt, felt.Felt, felt.Felt]{}
 	assert.Nil(t, s.lockedRound)
 }

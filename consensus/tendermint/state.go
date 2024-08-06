@@ -23,6 +23,7 @@ type Hash interface {
 	~[32]byte | felt.Felt
 }
 
+// Hashable's Hash() is used as ID()
 type Hashable[H Hash] interface {
 	Hash() H
 }
@@ -43,7 +44,6 @@ type Blockchain[V Hashable[H], H Hash] interface {
 	Commit(V) error
 }
 
-// Todo: decide how to represent Addresses
 type Validators[A Addr] interface {
 	// TotolVotingPower() represents N which is required to calculate the thresholds.
 	TotalVotingPower(height uint) uint
@@ -62,6 +62,12 @@ type Slasher[M Message[V, H], V Hashable[H], H Hash] interface {
 	Equivocation(msgs ...M)
 }
 
+// Todo: Constraining the Listern interface to Message mean that at instantiation type the specific message (Proposal,
+// Prevote or Precommit) would need to be provided. This mean that 3 separete listener would need to be instantiated
+// each with it own message type. The advantage of this is there is type safety and no type swtiching would need to
+// done. The other option is to have Listener and Broadcaster  operate on any and loose all type saftey but it will
+// mean there is need for only 1 Listener and Broadcaster. This also simplifyies message handling logic since there will
+// only be one channel to read from instead of 3 channels
 type Listener[M Message[V, H], V Hashable[H], H Hash] interface {
 	// Listen would return consensus messages to Tendermint which are set // by the validator set.
 	Listen() <-chan M
@@ -69,16 +75,17 @@ type Listener[M Message[V, H], V Hashable[H], H Hash] interface {
 
 type Broadcaster[M Message[V, H], V Hashable[H], H Hash, A Addr] interface {
 	// Broadcast() will broadcast the message to the whole validator set
-	Broadcast(msg any)
+	Broadcast(msg M)
 
 	// SendMsg() would send a message to a specific validator. This would be required for helping send resquest and
 	// response message to help a specifc validator to catch up.
-	SendMsg(validatorAddr, msg any)
+	SendMsg(validatorAddr A, msg M)
 }
 
 type timeoutFn func(round uint) time.Duration
 
-type state[V Hashable[H], H Hash] struct {
+// Todo: Remove M as a constraint from state since it is too strict
+type state[M Message[V, H], V Hashable[H], H Hash, A Addr] struct {
 	height uint
 	round  uint
 	step   step
@@ -99,16 +106,35 @@ type state[V Hashable[H], H Hash] struct {
 	timeoutPropose   timeoutFn
 	timeoutPrevote   timeoutFn
 	timeoutPrecommit timeoutFn
+
+	messages messages[V, H, A]
+
+	listener Listener[M, V, H]
 }
 
-func (s *state[V, H]) OnTimeoutPropose() {
+func (s *state[M, V, H, A]) Start() {
+	go s.startRound(0)
+
+	for m := range s.listener.Listen() {
+		switch any(m).(type) {
+		case Proposal[V, H]:
+		case Precommit[H]:
+		case Prevote[H]:
+		}
+	}
+}
+
+func (s *state[M, V, H, A]) startRound(r uint) {
+}
+
+func (s *state[M, V, H, A]) OnTimeoutPropose() {
 	// To be executed after proposeTimeout expiry
 }
 
-func (s *state[V, H]) OnTimeoutPrevote() {
+func (s *state[M, V, H, A]) OnTimeoutPrevote() {
 	// To be executed after prevoteTimeout expiry
 }
 
-func (s *state[V, H]) OnTimeoutPrecommit() {
+func (s *state[M, V, H, A]) OnTimeoutPrecommit() {
 	// To be executed after precommitTimeout expiry
 }

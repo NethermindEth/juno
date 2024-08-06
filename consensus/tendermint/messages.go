@@ -25,10 +25,10 @@ type vote[H Hash] struct {
 	id     H
 }
 
-type messageSet[M Message[V, H], V Hashable[H], H Hash, A Addr] map[uint]map[uint]map[A]M
-
-type messages struct {
-	// proposals  messageSet[]
-	// prevotes   messageSet[]
-	// precommits messageSet[]
+// messages keep tracks of all the proposals, prevotes, precommits by creating a map structure as follows:
+// height->round->address->[]Message
+type messages[V Hashable[H], H Hash, A Addr] struct {
+	proposals  map[uint]map[uint]map[A][]Proposal[V, H]
+	prevotes   map[uint]map[uint]map[A][]Prevote[H]
+	precommits map[uint]map[uint]map[A][]Precommit[H]
 }
