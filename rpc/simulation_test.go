@@ -39,8 +39,9 @@ func TestSimulateTransactions(t *testing.T) {
 		}, mockState, n, true, false, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, httpHeader, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		require.Nil(t, err)
+		require.NotNil(t, httpHeader)
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
@@ -49,8 +50,9 @@ func TestSimulateTransactions(t *testing.T) {
 		}, mockState, n, false, false, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Nil(t, err)
+		require.NotNil(t, httpHeader)
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
@@ -62,11 +64,12 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: errors.New("oops"),
 			})
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)
+		require.NotNil(t, httpHeader)
 
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
@@ -76,9 +79,10 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: errors.New("oops"),
 			})
 
-		_, err = handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, httpHeader, err = handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
 			RevertError: "oops",
 		}), err)
+		require.NotNil(t, httpHeader)
 	})
 }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"reflect"
 	"strings"
 	"sync"
@@ -205,6 +206,7 @@ type connection struct {
 	w         io.Writer
 	activated <-chan struct{}
 
+	//todo: guard against this in the code! don't depend on devs finding out about this!
 	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
 	initialErr error
 }
@@ -255,7 +257,8 @@ func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
 		activated: activated,
 	}
 	msgCtx := context.WithValue(ctx, ConnKey{}, conn)
-	resp, err := s.HandleReader(msgCtx, rw)
+	// header is unnecessary for read-writer(websocket)
+	resp, _, err := s.HandleReader(msgCtx, rw)
 	if err != nil {
 		conn.initialErr = err
 		return err
@@ -272,12 +275,14 @@ func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
 // HandleReader processes a request to the server
 // It returns the response in a byte array, only returns an
 // error if it can not create the response byte array
-func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, error) {
+func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, http.Header, error) {
 	bufferedReader := bufio.NewReaderSize(reader, bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
 	res := &response{
 		Version: "2.0",
 	}
+
+	var header http.Header
 
 	dec := json.NewDecoder(bufferedReader)
 	dec.UseNumber()
@@ -286,13 +291,15 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
 			res.Error = Err(InvalidJSON, jsonErr.Error())
-		} else if resObject, handleErr := s.handleRequest(ctx, req); handleErr != nil {
+		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
 				res.ID = req.ID
 			}
 			res.Error = Err(InvalidRequest, handleErr.Error())
+			header = httpHeader
 		} else {
 			res = resObject
+			header = httpHeader
 		}
 	} else {
 		var batchReq []json.RawMessage
@@ -306,24 +313,24 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, er
 		}
 	}
 
-	if res == nil {
-		return nil, nil
-	}
-	return json.Marshal(res)
+	result, err := json.Marshal(res)
+	return result, header, err
 }
 
-func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, error) {
+func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, http.Header, error) {
 	var (
 		responses []json.RawMessage
 		mutex     sync.Mutex
+		headers   []http.Header
 	)
 
-	addResponse := func(response any) {
+	addResponse := func(response any, header http.Header) {
 		if responseJSON, err := json.Marshal(response); err != nil {
 			s.log.Errorw("failed to marshal response", "err", err)
 		} else {
 			mutex.Lock()
 			responses = append(responses, responseJSON)
+			headers = append(headers, header)
 			mutex.Unlock()
 		}
 	}
@@ -341,7 +348,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 			addResponse(&response{
 				Version: "2.0",
 				Error:   Err(InvalidRequest, err.Error()),
-			})
+			}, http.Header{})
 			continue
 		}
 
@@ -349,7 +356,7 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 		s.pool.Go(func() {
 			defer wg.Done()
 
-			resp, err := s.handleRequest(ctx, req)
+			resp, header, err := s.handleRequest(ctx, req)
 			if err != nil {
 				resp = &response{
 					Version: "2.0",
@@ -359,9 +366,9 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 					resp.ID = req.ID
 				}
 			}
-			// for notification request response is nil
+			// for notification request response is nil and header is irrelevant for now
 			if resp != nil {
-				addResponse(resp)
+				addResponse(resp, header)
 			}
 		})
 	}
@@ -369,10 +376,12 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	wg.Wait()
 	// according to the spec if there are no response objects server must not return empty array
 	if len(responses) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	return json.Marshal(responses)
+	result, err := json.Marshal(responses)
+
+	return result, headers[0], err // todo: fix batch request aggregate header
 }
 
 func isBatch(reader *bufio.Reader) bool {
@@ -396,11 +405,13 @@ func isNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
-func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, error) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
 	s.log.Tracew("Received request", "req", req)
+
+	header := http.Header{}
 	if err := req.isSane(); err != nil {
 		s.log.Tracew("Request sanity check failed", "err", err)
-		return nil, err
+		return nil, header, err
 	}
 
 	res := &response{
@@ -412,7 +423,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	if !found {
 		res.Error = Err(MethodNotFound, nil)
 		s.log.Tracew("Method not found in request", "method", req.Method)
-		return res, nil
+		return res, header, nil
 	}
 
 	handlerTimer := time.Now()
@@ -421,7 +432,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	if err != nil {
 		res.Error = Err(InvalidParams, err.Error())
 		s.log.Tracew("Error building arguments for RPC call", "err", err)
-		return res, nil
+		return res, header, nil
 	}
 	defer func() {
 		s.listener.OnRequestHandled(req.Method, time.Since(handlerTimer))
@@ -430,10 +441,16 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 	tuple := reflect.ValueOf(calledMethod.Handler).Call(args)
 	if res.ID == nil { // notification
 		s.log.Tracew("Notification received, no response expected")
-		return nil, nil
+		return nil, header, nil
 	}
 
-	if errAny := tuple[1].Interface(); !isNil(errAny) {
+	errorIndex := 1
+	if len(tuple) == 3 {
+		errorIndex = 2
+		header = (tuple[1].Interface()).(http.Header)
+	}
+
+	if errAny := tuple[errorIndex].Interface(); !isNil(errAny) {
 		res.Error = errAny.(*Error)
 		if res.Error.Code == InternalError {
 			s.listener.OnRequestFailed(req.Method, res.Error)
@@ -441,11 +458,11 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, er
 			errJSON, _ := json.Marshal(res.Error)
 			s.log.Debugw("Failed handing RPC request", "req", string(reqJSON), "res", string(errJSON))
 		}
-		return res, nil
+		return res, header, nil
 	}
 	res.Result = tuple[0].Interface()
 
-	return res, nil
+	return res, header, nil
 }
 
 func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {

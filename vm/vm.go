@@ -331,7 +331,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	if context.err != "" {
 		if context.errTxnIndex >= 0 {
-			return nil, nil, nil, context.executionSteps, TransactionExecutionError{
+			return nil, nil, nil, 0, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),
 				Cause: errors.New(context.err),
 			}

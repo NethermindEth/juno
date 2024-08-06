@@ -3,7 +3,9 @@ package rpc
 import (
 	"context"
 	"errors"
+	"net/http"
 	"slices"
+	"strconv"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
@@ -129,18 +131,21 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
 	return h.traceTransaction(ctx, &hash, false)
 }
 
-func (h *Handler) TraceTransactionV0_6(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) TraceTransactionV0_6(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
 	return h.traceTransaction(ctx, &hash, true)
 }
 
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
+	httpHeader := http.Header{}
+	httpHeader.Set(ExecutionStepsHeader, "0")
+
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		return nil, httpHeader, ErrTxnHashNotFound
 	}
 
 	var block *core.Block
@@ -150,14 +155,14 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 		pending, err = h.bcReader.Pending()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
-			return nil, ErrTxnHashNotFound
+			return nil, httpHeader, ErrTxnHashNotFound
 		}
 		block = pending.Block
 	} else {
 		block, err = h.bcReader.BlockByHash(blockHash)
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
-			return nil, ErrTxnHashNotFound
+			return nil, httpHeader, ErrTxnHashNotFound
 		}
 	}
 
@@ -165,57 +170,66 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 		return tx.Hash().Equal(hash)
 	})
 	if txIndex == -1 {
-		return nil, ErrTxnHashNotFound
+		return nil, httpHeader, ErrTxnHashNotFound
 	}
 
-	traceResults, traceBlockErr := h.traceBlockTransactions(ctx, block, v0_6Response)
+	traceResults, header, traceBlockErr := h.traceBlockTransactions(ctx, block, v0_6Response)
 	if traceBlockErr != nil {
-		return nil, traceBlockErr
+		return nil, header, traceBlockErr
 	}
 
-	return traceResults[txIndex].TraceRoot, nil
+	return traceResults[txIndex].TraceRoot, header, nil
 }
 
-func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
-		return nil, rpcErr
+		execStepsHeader := http.Header{}
+		execStepsHeader.Set(ExecutionStepsHeader, "0")
+		return nil, execStepsHeader, rpcErr
 	}
 
 	return h.traceBlockTransactions(ctx, block, false)
 }
 
-func (h *Handler) TraceBlockTransactionsV0_6(ctx context.Context, id BlockID) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) TraceBlockTransactionsV0_6(ctx context.Context, id BlockID) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
-		return nil, rpcErr
+		execStepsHeader := http.Header{}
+		execStepsHeader.Set(ExecutionStepsHeader, "0")
+		return nil, execStepsHeader, rpcErr
 	}
 
 	return h.traceBlockTransactions(ctx, block, true)
 }
 
 func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, v0_6Response bool, //nolint: gocyclo, funlen
-) ([]TracedBlockTransaction, *jsonrpc.Error) {
+) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
+
+	execStepsHeader := http.Header{}
+	execStepsHeader.Set(ExecutionStepsHeader, "0")
+
 	isPending := block.Hash == nil
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
-			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+			return nil, execStepsHeader, ErrUnexpectedError.CloneWithData(err.Error())
 		} else if blockVer.Compare(traceFallbackVersion) != 1 && block.ProtocolVersion != excludedVersion {
 			// version <= 0.13.1 and not 0.13.1.1 fetch blocks from feeder gateway
-			return h.fetchTraces(ctx, block.Hash)
+			result, err := h.fetchTraces(ctx, block.Hash)
+			return result, execStepsHeader, err
 		}
 
 		if trace, hit := h.blockTraceCache.Get(traceCacheKey{
 			blockHash:    *block.Hash,
 			v0_6Response: v0_6Response,
 		}); hit {
-			return trace, nil
+			return trace, execStepsHeader, nil
 		}
 	}
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
-		return nil, ErrBlockNotFound
+		return nil, execStepsHeader, ErrBlockNotFound
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
@@ -229,7 +243,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		headState, headStateCloser, err = h.bcReader.HeadState()
 	}
 	if err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		return nil, execStepsHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
@@ -241,7 +255,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		case *core.DeclareTransaction:
 			class, stateErr := headState.Class(tx.ClassHash)
 			if stateErr != nil {
-				return nil, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
+				return nil, execStepsHeader, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
 			}
 			classes = append(classes, class.Class)
 		case *core.L1HandlerTransaction:
@@ -252,7 +266,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(block.Number)
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, execStepsHeader, ErrInternal.CloneWithData(err)
 	}
 	network := h.bcReader.Network()
 	header := block.Header
@@ -262,15 +276,18 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, _, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
+	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
 		false, false, useBlobData)
+
+	execStepsHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
+
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(throttledVMErr)
+			return nil, execStepsHeader, ErrInternal.CloneWithData(throttledVMErr)
 		}
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
 		// report them as unexpected errors
-		return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, execStepsHeader, ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	result := make([]TracedBlockTransaction, 0, len(traces))
@@ -317,7 +334,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}, result)
 	}
 
-	return result, nil
+	return result, execStepsHeader, nil
 }
 
 func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {

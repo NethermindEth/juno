@@ -472,8 +472,9 @@ func TestHandle(t *testing.T) {
 			oldRequestFailedEventCount := len(listener.OnRequestFailedCalls)
 			oldRequestHandledCalls := len(listener.OnRequestHandledCalls)
 
-			res, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
+			res, header, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
 			require.NoError(t, err)
+			require.NotNil(t, header)
 
 			if test.isBatch {
 				assertBatchResponse(t, test.res, string(res))
@@ -515,8 +516,9 @@ func BenchmarkHandle(b *testing.B) {
 
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
 	for i := 0; i < b.N; i++ {
-		_, err := server.HandleReader(context.Background(), strings.NewReader(request))
+		_, header, err := server.HandleReader(context.Background(), strings.NewReader(request))
 		require.NoError(b, err)
+		require.NotNil(b, header)
 	}
 }
 
@@ -531,9 +533,10 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 			return 0, nil
 		},
 	}))
-	res, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	res, header, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
+	require.NotNil(t, header)
 }
 
 type fakeConn struct{}

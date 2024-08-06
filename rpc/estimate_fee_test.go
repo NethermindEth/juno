@@ -38,8 +38,9 @@ func TestEstimateMessageFee(t *testing.T) {
 
 	t.Run("block not found", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-		_, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpc.ErrBlockNotFound, err)
+		require.NotNil(t, httpHeader)
 	})
 
 	latestHeader := &core.Header{
