@@ -25,6 +25,8 @@ type Reader interface {
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
+	BlockP2PHashByNumber(number uint64) (hash *felt.Felt, err error)
+
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
@@ -206,6 +208,16 @@ func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 	})
 }
 
+func (b *Blockchain) BlockP2PHashByNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("BlockP2PHashByNumber")
+	var hash *felt.Felt
+	return hash, b.database.View(func(txn db.Transaction) error {
+		var err error
+		hash, err = blockP2PHashByNumber(txn, number)
+		return err
+	})
+}
+
 func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
 	b.listener.OnRead("StateUpdateByNumber")
 	var update *core.StateUpdate
@@ -359,6 +371,11 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
+		// todo only for <0.13.2 blocks
+		if err := storeP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
+			return err
+		}
+
 		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
 		}
@@ -378,6 +395,36 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return b.database.View(func(txn db.Transaction) error {
 		return verifyBlock(txn, block)
+	})
+}
+
+func storeP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
+	originalParentHash := block.ParentHash
+	if block.Number > 0 {
+		prevP2PHash, err := blockP2PHashByNumber(txn, block.Number-1)
+		if err != nil {
+			return err
+		}
+		block.ParentHash = prevP2PHash
+	}
+
+	numBytes := core.MarshalBlockNumber(block.Number)
+	hash, _, err := core.Post0132Hash(block, stateDiff)
+	if err != nil {
+		return err
+	}
+	block.ParentHash = originalParentHash
+
+	hashBytes := hash.Bytes()
+	return txn.Set(db.P2PHash.Key(numBytes), hashBytes[:])
+}
+
+func blockP2PHashByNumber(txn db.Transaction, blockNumber uint64) (*felt.Felt, error) {
+	var blockHash *felt.Felt
+	numBytes := core.MarshalBlockNumber(blockNumber)
+	return blockHash, txn.Get(db.P2PHash.Key(numBytes), func(bytes []byte) error {
+		blockHash = new(felt.Felt).SetBytes(bytes)
+		return nil
 	})
 }
 
@@ -624,7 +671,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
 func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
+	newClasses map[felt.Felt]core.Class, force0132Hash bool,
 ) (*core.BlockCommitments, error) {
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
 		return nil, errors.New("block hashes do not match")
@@ -637,7 +684,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return nil, err
 	}
 
-	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
+	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff, force0132Hash)
 }
 
 type txAndReceiptDBKey struct {

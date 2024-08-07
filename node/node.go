@@ -139,7 +139,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
-		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff); err != nil {
+		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff, false); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
 		}
 	}

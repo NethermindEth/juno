@@ -20,7 +20,7 @@ func AdaptBlockID(header *core.Header) *spec.BlockID {
 	}
 }
 
-func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
+func adaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 	return &spec.ConsensusSignature{
 		R: AdaptFelt(sig[0]),
 		S: AdaptFelt(sig[1]),
@@ -30,6 +30,7 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 	stateDiffCommitment *felt.Felt, stateDiffLength uint64,
 ) *spec.SignedBlockHeader {
+	fmt.Printf("Adapting %v\n", header.Hash)
 	return &spec.SignedBlockHeader{
 		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),
@@ -45,11 +46,10 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 			NLeaves: header.EventCount,
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
-		// todo fill receipts with receipt commitment
-		Receipts:        AdaptHash(&felt.Zero),
+		Receipts:        AdaptHash(commitments.ReceiptCommitment),
 		ProtocolVersion: header.ProtocolVersion,
 		GasPriceFri:     AdaptUint128(header.GasPrice),
-		Signatures:      utils.Map(header.Signatures, AdaptSignature),
+		Signatures:      utils.Map(header.Signatures, adaptSignature),
 		StateDiffCommitment: &spec.StateDiffCommitment{
 			StateDiffLength: stateDiffLength,
 			Root:            AdaptHash(stateDiffCommitment),
