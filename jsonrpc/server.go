@@ -9,10 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/http"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -404,16 +402,14 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 }
 
 func mergeHeaders(headers []http.Header) http.Header {
-	var totalExec uint64
 	finalHeaders := http.Header{}
 	for _, header := range headers {
-		val, err := strconv.ParseUint(header.Get(ExecutionStepsHeaderUint64), 10, 64)
-		if err == nil {
-			totalExec += val
+		for k, v := range header {
+			for _, e := range v {
+				finalHeaders.Add(k, e)
+			}
 		}
-		maps.Copy(finalHeaders, header)
 	}
-	finalHeaders.Set(ExecutionStepsHeaderUint64, strconv.FormatUint(totalExec, 10))
 	return finalHeaders
 }
 
