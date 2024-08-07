@@ -34,7 +34,6 @@ func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 func AdaptUint128(u *spec.Uint128) *felt.Felt {
 	bytes := make([]byte, 16)
 
-	// Fill the byte slice with the High and Low parts in big-endian order
 	binary.BigEndian.PutUint64(bytes[:8], u.High)
 	binary.BigEndian.PutUint64(bytes[8:], u.Low)
 
