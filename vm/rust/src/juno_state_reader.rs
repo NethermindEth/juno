@@ -1,6 +1,8 @@
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
-    fs, slice,
+    fs,
+    path::PathBuf,
+    slice,
     sync::Mutex,
 };
 use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
@@ -13,7 +15,10 @@ use blockifier::{
 };
 use cached::{Cached, SizedCache};
 use cairo_lang_sierra::program_registry::ProgramRegistry;
-use cairo_native::executor::AotNativeExecutor;
+use cairo_native::{
+    error::Error as NativeError, executor::AotNativeExecutor, metadata::gas::GasMetadata,
+    module::NativeModule,
+};
 use libloading::Library;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
@@ -244,63 +249,42 @@ fn native_try_from_json_string(
         sierra_program: &cairo_lang_sierra::program::Program,
         class_hash: ClassHash,
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
-        // Redoing work from compile because we can't get the
-        // if persist_from_native_module we can move this together with with_gas
-        let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+        let library_output_path = generate_library_path(class_hash);
 
-        // TODO(xrvdg) choose where you want to have the directory
-        let mut library_path = std::env::current_dir().unwrap();
-        library_path.push("native_cache");
-        library_path.push(env!("NATIVE_VERSION"));
-        // TODO(xrvdg) don't create directory on every compile
-        let _ = fs::create_dir_all(&library_path);
-        // TODO(xrvdg) class hash without
-        library_path.push(class_hash.to_string());
-
-        // let start = std::time::Instant::now();
-        // TODO(xrvdg) check if shared object is already in memory
-        // RTLD_NOLOAD on library, Windows seems to have something similar
-        // TODO(xrvdg) not incurring the cost of gas creation twice
-        // get it into this part
-        let gas_metadata = if !library_path.is_file() {
-            println!("compiling {}", library_path.display());
-            // This is from_native_module
+        // Loading a library is so fast that we do not check if it's already loaded in memory.
+        // Therefore we only check whether the library exists on disk
+        let gas_metadata = if !library_output_path.is_file() {
+            // library not found compile
+            println!("compiling {}", library_output_path.display());
             let native_context = cairo_native::context::NativeContext::new();
             let mut native_module = native_context.compile(sierra_program, None)?;
-            let opt_level = cairo_native::OptLevel::Default;
-            let object_data =
-                cairo_native::module_to_object(native_module.module(), opt_level).unwrap();
-            cairo_native::object_to_shared_lib(&object_data, &library_path).unwrap();
-            native_module.remove_metadata().unwrap()
+            persist_from_native_module(&native_module, &library_output_path)?;
+            native_module
+                .remove_metadata()
+                .expect("native_module should have set gas_metadata")
         } else {
-            // Taken from [cairo_native::context::compile]
+            // Gas calculation taken from [cairo_native::context::compile] but edited for brevity
             let has_gas_builtin = sierra_program
                 .type_declarations
                 .iter()
                 .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
 
+            let config = has_gas_builtin.then_some(Default::default());
             // creating the gas metadata is kind of expensive, but still cheaper than creating a native module
-            let gas_metadata = if has_gas_builtin {
-                cairo_native::metadata::gas::GasMetadata::new(
-                    sierra_program,
-                    Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
-                )
-            } else {
-                cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
-            }?;
-
-            gas_metadata
+            GasMetadata::new(sierra_program, config)?
         };
 
-        println!("Loading {}", library_path.display());
+        println!("Loading {}", library_output_path.display());
 
-        let aot_native_executor = AotNativeExecutor::new(
-            unsafe { Library::new(library_path).unwrap() },
+        // Native Module also contains the program registry but we can't unpack it.
+        // luckily it's cheap to create
+        let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+
+        Ok(AotNativeExecutor::new(
+            unsafe { Library::new(library_output_path).unwrap() },
             program_registry,
             gas_metadata,
-        );
-
-        Ok(aot_native_executor)
+        ))
     }
 
     let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
@@ -315,4 +299,27 @@ fn native_try_from_json_string(
     let executor = compile_and_load(&sierra_program, class_hash)?;
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
+}
+
+fn generate_library_path(class_hash: ClassHash) -> PathBuf {
+    // TODO(xrvdg) choose where you want to have the directory
+    let mut path = std::env::current_dir().unwrap();
+    path.push("native_cache");
+    path.push(env!("NATIVE_VERSION"));
+    // TODO(xrvdg) don't create directory on every compile. It isn't expensive but doesn't feel right
+    let _ = fs::create_dir_all(&path);
+    // TODO(xrvdg) class hash without
+    path.push(class_hash.to_string());
+    path
+}
+
+// upstream to cairo native
+fn persist_from_native_module(
+    native_module: &NativeModule,
+    library_path: &PathBuf,
+) -> Result<(), cairo_native::error::Error> {
+    let object_data = cairo_native::module_to_object(native_module.module(), Default::default())
+        .map_err(|err| NativeError::LLVMCompileError(err.to_string()))?; // cairo native didn't include a from instance
+    cairo_native::object_to_shared_lib(&object_data, library_path)
+        .map_err(|err| NativeError::Error(err.to_string()))
 }
