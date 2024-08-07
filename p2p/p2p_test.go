@@ -139,6 +139,7 @@ func TestService(t *testing.T) {
 func TestInvalidKey(t *testing.T) {
 	_, err := p2p.New(
 		"/ip4/127.0.0.1/tcp/30301",
+		"",
 		"peerA",
 		"",
 		"something",
@@ -156,6 +157,7 @@ func TestValidKey(t *testing.T) {
 	t.Skip("TestValidKey")
 	_, err := p2p.New(
 		"/ip4/127.0.0.1/tcp/30301",
+		"",
 		"peerA",
 		"",
 		"08011240333b4a433f16d7ca225c0e99d0d8c437b835cb74a98d9279c561977690c80f681b25ccf3fa45e2f2de260149c112fa516b69057dd3b0151a879416c0cb12d9b3",
@@ -192,6 +194,7 @@ func TestLoadAndPersistPeers(t *testing.T) {
 
 	_, err = p2p.New(
 		"/ip4/127.0.0.1/tcp/30301",
+		"",
 		"peerA",
 		"",
 		"5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089",

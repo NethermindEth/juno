@@ -570,8 +570,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n *utils.Network) (*felt.
 }
 
 func deployAccountTransactionHash(d *DeployAccountTransaction, n *utils.Network) (*felt.Felt, error) {
-	callData := []*felt.Felt{d.ClassHash, d.ContractAddressSalt}
-	callData = append(callData, d.ConstructorCallData...)
+	callData := append([]*felt.Felt{d.ClassHash, d.ContractAddressSalt}, d.ConstructorCallData...)
 	// There is no version 0 for deploy account
 	switch {
 	case d.Version.Is(1):

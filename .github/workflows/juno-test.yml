@@ -14,14 +14,14 @@ jobs:
       fail-fast: false
       matrix:
         go: [ '1.22.2' ]
-        os: [ ubuntu-latest, macos-latest, self-hosted-linux-arm64]
+        os: [ ubuntu-latest, macos-latest, ubuntu-arm64-2-core]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v5.0.2
         with:
           go-version-file: go.mod
       - uses: dtolnay/rust-toolchain@stable
@@ -35,7 +35,7 @@ jobs:
       - name: Install deps
         run: make install-deps
 
-      - name: Install Jemalloc (Ubuntu or self-hosted)
+      - name: Install Jemalloc (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 -y
 
