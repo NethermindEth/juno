@@ -139,7 +139,8 @@ func (h *Handler) TraceTransactionV0_6(ctx context.Context, hash felt.Felt) (*vm
 	return h.traceTransaction(ctx, &hash, true)
 }
 
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
+func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace,
+	http.Header, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
@@ -205,7 +206,6 @@ func (h *Handler) TraceBlockTransactionsV0_6(ctx context.Context, id BlockID) ([
 
 func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, v0_6Response bool, //nolint: gocyclo, funlen
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-
 	execStepsHeader := http.Header{}
 	execStepsHeader.Set(ExecutionStepsHeader, "0")
 
@@ -276,8 +276,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
-		false, false, useBlobData)
+	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+		&blockInfo, state, network, false, false, false, useBlobData)
 
 	execStepsHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
 
