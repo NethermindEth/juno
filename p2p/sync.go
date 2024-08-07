@@ -249,8 +249,10 @@ func (s *syncService) processSpecBlockParts(
 							}
 						}
 
-						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, diffs.contractDiffs,
-							cls.classes, txs.txs, txs.receipts, es.events, prevBlockRoot)
+						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(
+							ctx, headerAndSig.header, diffs.contractDiffs, diffs.declaredClasses,
+							cls.classes, txs.txs, txs.receipts, es.events, prevBlockRoot,
+						)
 					}
 
 					if curBlockNum > 0 {
@@ -271,6 +273,7 @@ func (s *syncService) adaptAndSanityCheckBlock(
 	ctx context.Context,
 	header *spec.SignedBlockHeader,
 	contractDiffs []*spec.ContractDiff,
+	declaredClasses []*spec.DeclaredClass,
 	classes []*spec.Class,
 	txs []*spec.Transaction,
 	receipts []*spec.Receipt,
@@ -390,12 +393,7 @@ func (s *syncService) adaptAndSanityCheckBlock(
 
 			select {
 			case <-ctx.Done():
-			case bodyCh <- blockBody{
-				block:       coreBlock,
-				stateUpdate: stateUpdate,
-				newClasses:  newClasses,
-				commitments: commitments,
-			}:
+			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
 			}
 		}
 	}()
@@ -497,8 +495,9 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 }
 
 type specContractDiffs struct {
-	number        uint64
-	contractDiffs []*spec.ContractDiff
+	number          uint64
+	contractDiffs   []*spec.ContractDiff
+	declaredClasses []*spec.DeclaredClass
 }
 
 func (s specContractDiffs) blockNumber() uint64 {
@@ -517,6 +516,7 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 		defer close(stateDiffsCh)
 
 		var contractDiffs []*spec.ContractDiff
+		var declaredClasses []*spec.DeclaredClass
 
 	loop:
 		for res := range stateDiffsIt {
@@ -524,7 +524,8 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 			case *spec.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
 			case *spec.StateDiffsResponse_DeclaredClass:
-				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
+				declaredClasses = append(declaredClasses, v.DeclaredClass)
+				return true
 			case *spec.StateDiffsResponse_Fin:
 				break loop
 			default:
@@ -536,8 +537,9 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 		select {
 		case <-ctx.Done():
 		case stateDiffsCh <- specContractDiffs{
-			number:        blockNumber,
-			contractDiffs: contractDiffs,
+			number:          blockNumber,
+			contractDiffs:   contractDiffs,
+			declaredClasses: declaredClasses,
 		}:
 		}
 	}()
