@@ -1,7 +1,8 @@
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
-    fs, slice,
+    fs, mem, slice,
     sync::Mutex,
+    time,
 };
 use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
 use blockifier::state::errors::StateError;
@@ -150,12 +151,15 @@ impl StateReader for JunoStateReader {
                 return Ok(cached_class.definition.clone());
             }
         }
+        // lower number than previously cached or no cache
+        // but same block will trigger a lot of loading
 
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
         let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
+            // Invariant here we know that the contract does exist comparatively our reference block.
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
             let class_info_res = class_info_from_json_str(json_str, class_hash);
             if let Ok(class_info) = &class_info_res {
@@ -241,13 +245,24 @@ fn native_try_from_json_string(
         sierra_program: &cairo_lang_sierra::program::Program,
         class_hash: ClassHash,
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
+        let start = std::time::Instant::now();
         let native_context = cairo_native::context::NativeContext::new();
+        println!(
+            "native context creation duration: {}ms",
+            start.elapsed().as_millis()
+        );
+        let start = std::time::Instant::now();
         let mut native_module = native_context.compile(sierra_program, None)?;
+        println!("native compile duration: {}ms", start.elapsed().as_millis());
         // Redoing work from compile because we can't get the
+        let start = std::time::Instant::now();
         let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+        println!(
+            "program registry duration: {}ms",
+            start.elapsed().as_millis()
+        );
 
-        let opt_level = cairo_native::OptLevel::Default;
-
+        let start = std::time::Instant::now();
         // TODO(xrvdg) choose where you want to have the directory
         let mut library_path = std::env::current_dir().unwrap();
         library_path.push("native_cache");
@@ -256,31 +271,31 @@ fn native_try_from_json_string(
         let _ = fs::create_dir_all(&library_path);
         // TODO(xrvdg) class hash without
         library_path.push(class_hash.to_string());
-        // todo(xrvdg) thread through class hash
-        // library_path.push(class_hash);
 
-        // check if file exist, if not compile
-        // file path will be the same either way
+        println!("library_path duration: {}ms", start.elapsed().as_millis());
 
-        // inlining from_native_module
-
+        let start = std::time::Instant::now();
+        // TODO(xrvdg) check if shared object is already in memory
+        // RTLD_NOLOAD on library, Windows seems to have something similar
         if !library_path.is_file() {
             println!("compiling {}", library_path.display());
+            let opt_level = cairo_native::OptLevel::Default;
             let object_data =
                 cairo_native::module_to_object(native_module.module(), opt_level).unwrap();
             cairo_native::object_to_shared_lib(&object_data, &library_path).unwrap();
-        } else {
-            println!("Loading {}", library_path.display());
         }
+        println!("is_file duration: {}ms", start.elapsed().as_millis());
+        println!("Loading {}", library_path.display());
 
-        // Create the Sierra program registry
-
-        Ok(AotNativeExecutor::new(
+        let start = std::time::Instant::now();
+        let aot_native_executor = AotNativeExecutor::new(
             unsafe { Library::new(library_path).unwrap() },
             program_registry,
-            // This could use the get
             native_module.remove_metadata().unwrap(),
-        ))
+        );
+        println!("loading duration: {}ms", start.elapsed().as_millis());
+
+        Ok(aot_native_executor)
     }
 
     let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
