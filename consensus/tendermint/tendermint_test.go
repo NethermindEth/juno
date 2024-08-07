@@ -92,7 +92,6 @@ func (v *validators) Proposer(_, _ uint) felt.Felt {
 	for _, val := range v.vals {
 		if val.currentWeight > valWithHighestWeight.currentWeight {
 			valWithHighestWeight = val
-			break
 		}
 	}
 
