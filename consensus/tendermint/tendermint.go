@@ -78,6 +78,7 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 	// Todo: Does state need to be protected?
+	height   uint
 	state    state[V, H]
 	messages messages[V, H, A]
 
@@ -91,15 +92,17 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 
 // Todo: Add Slashers later
 func New[V Hashable[H], H Hash, A Addr](app Application[V, H], chain Blockchain[V, H], vals Validators[A],
-	listeners Listeners[V, H], broadcasters Broadcasters[V, H, A],
+
+// listeners Listeners[V, H], broadcasters Broadcasters[V, H, A],
 ) Tendermint[V, H, A] {
 	return Tendermint[V, H, A]{
-		state:        state[V, H]{},
-		messages:     newMessages[V, H, A](),
-		application:  app,
-		blockchain:   chain,
-		validators:   vals,
-		listeners:    listeners,
-		broadcasters: broadcasters,
+		height:      chain.Height(),
+		state:       state[V, H]{},
+		messages:    newMessages[V, H, A](),
+		application: app,
+		blockchain:  chain,
+		validators:  vals,
+		// listeners:    listeners,
+		// broadcasters: broadcasters,
 	}
 }

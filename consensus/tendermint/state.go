@@ -15,9 +15,8 @@ const (
 type timeoutFn func(round uint) time.Duration
 
 type state[V Hashable[H], H Hash] struct {
-	height uint
-	round  uint
-	step   step
+	round uint
+	step  step
 
 	lockedValue V
 	validValue  V
