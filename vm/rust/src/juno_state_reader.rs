@@ -1,8 +1,7 @@
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
-    fs, mem, slice,
+    fs, slice,
     sync::Mutex,
-    time,
 };
 use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
 use blockifier::state::errors::StateError;
@@ -245,20 +244,24 @@ fn native_try_from_json_string(
         sierra_program: &cairo_lang_sierra::program::Program,
         class_hash: ClassHash,
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
-        let start = std::time::Instant::now();
-        let native_context = cairo_native::context::NativeContext::new();
-        println!(
-            "native context creation duration: {}ms",
-            start.elapsed().as_millis()
-        );
-        let start = std::time::Instant::now();
-        let mut native_module = native_context.compile(sierra_program, None)?;
-        println!("native compile duration: {}ms", start.elapsed().as_millis());
         // Redoing work from compile because we can't get the
         let start = std::time::Instant::now();
         let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+        let has_gas_builtin = sierra_program
+            .type_declarations
+            .iter()
+            .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
+
+        let gas_metadata = if has_gas_builtin {
+            cairo_native::metadata::gas::GasMetadata::new(
+                sierra_program,
+                Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
+            )
+        } else {
+            cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
+        }?;
         println!(
-            "program registry duration: {}ms",
+            "program registry + gas duration: {}ms",
             start.elapsed().as_millis()
         );
 
@@ -279,6 +282,8 @@ fn native_try_from_json_string(
         // RTLD_NOLOAD on library, Windows seems to have something similar
         if !library_path.is_file() {
             println!("compiling {}", library_path.display());
+            let native_context = cairo_native::context::NativeContext::new();
+            let native_module = native_context.compile(sierra_program, None)?;
             let opt_level = cairo_native::OptLevel::Default;
             let object_data =
                 cairo_native::module_to_object(native_module.module(), opt_level).unwrap();
@@ -291,7 +296,7 @@ fn native_try_from_json_string(
         let aot_native_executor = AotNativeExecutor::new(
             unsafe { Library::new(library_path).unwrap() },
             program_registry,
-            native_module.remove_metadata().unwrap(),
+            gas_metadata,
         );
         println!("loading duration: {}ms", start.elapsed().as_millis());
 
