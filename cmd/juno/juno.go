@@ -12,15 +12,37 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"crypto/rand"
+	// "log"
+	stdsync "sync"
+	"encoding/json"
+	"encoding/binary"
 
 	_ "github.com/NethermindEth/juno/jemalloc"
+	// "github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/utils"
+	// "github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/automaxprocs/maxprocs"
+	// "github.com/ethereum/go-ethereum/rpc"
+	//  "github.com/ethereum/go-ethereum/log"
+    // "github.com/ethereum/go-ethereum/metrics"
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
+	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/sourcegraph/conc"
+	// "github.com/NethermindEth/juno/db/pebble"
+	
 )
 
 const greeting = `
@@ -168,8 +190,91 @@ const (
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 )
+type Gateway interface {
+	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
+}
+type subscription struct {
+	cancel func()
+	wg     conc.WaitGroup
+	conn   jsonrpc.Conn
+}
+type traceCacheKey struct {
+	blockHash    felt.Felt
+	v0_6Response bool
+}
+type TracedBlockTransaction struct {
+	TraceRoot       *vm.TransactionTrace `json:"trace_root,omitempty"`
+	TransactionHash *felt.Felt           `json:"transaction_hash,omitempty"`
+}
+const (
+	traceCacheSize     = 128
+)
+type Handler struct {
+	bcReader      blockchain.Reader
+	syncReader    sync.Reader
+	gatewayClient Gateway
+	feederClient  *feeder.Client
+	vm            vm.VM
+	log           utils.Logger
 
+	version  string
+	newHeads *feed.Feed[*core.Header]
+
+	idgen         func() uint64
+	mu            stdsync.Mutex // protects subscriptions.
+	subscriptions map[uint64]*subscription
+
+	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+
+	filterLimit  uint
+	callMaxSteps uint64
+}
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
+	logger utils.Logger,
+) *Handler {
+	return &Handler{
+		bcReader:   bcReader,
+		syncReader: syncReader,
+		log:        logger,
+		vm:         virtualMachine,
+		idgen: func() uint64 {
+			var n uint64
+			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
+			}
+			return n
+		},
+		version:       version,
+		newHeads:      feed.New[*core.Header](),
+		subscriptions: make(map[uint64]*subscription),
+
+		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
+		filterLimit:     math.MaxUint,
+	}
+}
 var Version string
+func Newt(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
+	logger utils.Logger,
+) *Handler {
+	return &Handler{
+		bcReader:   bcReader,
+		syncReader: syncReader,
+		log:        logger,
+		vm:         virtualMachine,
+		idgen: func() uint64 {
+			var n uint64
+			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
+			}
+			return n
+		},
+		version:       version,
+		newHeads:      feed.New[*core.Header](),
+		subscriptions: make(map[uint64]*subscription),
+
+		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
+		filterLimit:     math.MaxUint,
+	}
+}
+
 
 func main() {
 	if _, err := maxprocs.Set(); err != nil {
@@ -205,7 +310,45 @@ func main() {
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
+	// log := utils.NewNopZapLogger()
+	//  n := utils.Ptr(utils.Mainnet)
+	//  database := db.New()
+	// chain := blockchain.New(database, n)
+	// handler := rpc.Newt(chain, nil, nil, "", log)
+
+//  rpcServer := jsonrpc.NewServer(10, log)
+    
+//     // Define the methods to register
+//     methods := []jsonrpc.Method{
+//         {
+//             Name:    "starknet_getBlockWithTxnHashesAndReceipts",
+//             Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+//             Handler: handler.BlockWithTxnHashesAndReceipts,
+//         },
+//         {
+//             Name:    "starknet_getBlockWithTxHashes",
+//             Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+//             Handler: handler.BlockWithTxHashes,
+//         },
+//         // Add other methods as needed...
+//     }
+
+    // Register the methods using RegisterMethods
+    // if err := rpcServer.RegisterMethods(methods...); err != nil {
+    //     log.Fatalf("Failed to register methods: %v", err)
+    // }
+
+    // // Ensure the RPC server starts
+    // if err := rpcServer.Start(":8545"); err != nil {
+    //     log.Fatalf("Failed to start RPC server: %v", err)
+    // }
+	
 }
+
+// RegisterHandlers registers the RPC handlers
+
+
+
 
 // NewCmd returns a command that can be executed with any of the Cobra Execute* functions.
 // The RunE field is set to the user-provided run function, allowing for robust testing setups.

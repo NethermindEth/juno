@@ -95,7 +95,7 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 
 // feltToBitSet Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) feltToKey(k *felt.Felt) Key {
+func (t *Trie) FeltToKey(k *felt.Felt) Key {
 	kBytes := k.Bytes()
 	return NewKey(t.height, kBytes[:])
 }
@@ -156,7 +156,7 @@ func NewStorageNode(key *Key, node *Node) *StorageNode {
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
+func (t *Trie) NodesFromRoot(key *Key) ([]StorageNode, error) {
 	var nodes []StorageNode
 	cur := t.rootKey
 	for cur != nil {
@@ -192,7 +192,7 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
-	storageKey := t.feltToKey(key)
+	storageKey := t.FeltToKey(key)
 	value, err := t.storage.Get(&storageKey)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -328,7 +328,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	}
 
 	old := felt.Zero
-	nodeKey := t.feltToKey(key)
+	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
 	}
@@ -339,7 +339,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return oldValue, err
 	}
 
-	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
+	nodes, err := t.NodesFromRoot(&nodeKey) // correct for key,value
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 	}
 
 	old := felt.Zero
-	nodeKey := t.feltToKey(key)
+	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
 	}
@@ -390,7 +390,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 		return oldValue, err
 	}
 
-	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
+	nodes, err := t.NodesFromRoot(&nodeKey) // correct for key,value
 	if err != nil {
 		return nil, err
 	}

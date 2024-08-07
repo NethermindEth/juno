@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/sync"
@@ -19,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/sourcegraph/conc"
+	// "github.com/NethermindEth/juno/core/trie"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -91,6 +93,7 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
+	trie         *trie.Trie
 }
 
 type subscription struct {
@@ -99,8 +102,17 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
+// func RegisterHandlers(rpcServer *jsonrpc.Server, h *Handler) {
+
+//	    rpcServer.RegisterMethods(jsonrpc.Method{
+//	        Name:    "starknet_getBlockWithTxnHashesandReceipts",
+//	        Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+//	        Handler: h.BlockWithTxHashesandReceipts,
+//	    })
+//	    // Register other methods...
+//	}
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
-	logger utils.Logger,
+	logger utils.Logger, trie *trie.Trie,
 ) *Handler {
 	return &Handler{
 		bcReader:   bcReader,
@@ -119,6 +131,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
+		trie:            trie,
 	}
 }
 
@@ -186,14 +199,25 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.BlockHashAndNumber,
 		},
 		{
-			Name:    "starknet_getBlockWithTxHashes",
+			Name:    "BlockwithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithTxHashes,
 		},
 		{
+			Name:    "juno_getBlockWithTxnHashesAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithTxHashesandReceipts,
+		},
+
+		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithTxs,
+		},
+		{
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.GetNodesFromRoot,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
@@ -340,11 +364,16 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.BlockNumber,
 		},
 		{
+			Name:    "juno_getBlockWithTxnHashesAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithTxHashesandReceipts,
+		},
+		{
 			Name:    "starknet_blockHashAndNumber",
 			Handler: h.BlockHashAndNumber,
 		},
 		{
-			Name:    "starknet_getBlockWithTxHashes",
+			Name:    "starknet_getBlockwithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithTxHashesV0_6,
 		},
@@ -480,4 +509,16 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.Unsubscribe,
 		},
 	}, "/v0_6"
+
+}
+func RegisterHandlers(rpcServer *jsonrpc.Server, h *Handler) error {
+
+	method := jsonrpc.Method{
+
+		Name:    "starknet_getBlockWithTxHashesandReceipts",
+		Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+		Handler: h.BlockWithTxHashesandReceipts,
+	}
+
+	return rpcServer.RegisterMethod(method)
 }

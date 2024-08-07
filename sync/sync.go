@@ -201,23 +201,27 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
 			if err != nil {
-				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
-					// revert the head and restart the sync process, hoping that the reorg is not deep
-					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
-					// blocks
-					s.revertHead(block)
-				} else {
+				
 					s.log.Warnw("Failed storing Block", "number", block.Number,
 						"hash", block.Hash.ShortString(), "err", err)
-				}
+				// }
 				resetStreams()
 				return
 			}
 			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			highestBlockHeader := s.highestBlockHeader.Load()
+
 			if highestBlockHeader != nil {
-				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
+				m, mProcs := 16, runtime.GOMAXPROCS(0)
+				maxWorkers := mProcs
+				if mProcs >  m{
+					maxWorkers = m
+				} else {
+					maxWorkers = mProcs 
+				}
+
+				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers)
 				if s.catchUpMode != isBehind {
 					resetStreams()
 				}
@@ -235,13 +239,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 	}
 }
 
-func (s *Synchronizer) nextHeight() uint64 {
-	nextHeight := uint64(0)
-	if h, err := s.blockchain.Height(); err == nil {
-		nextHeight = h + 1
-	}
-	return nextHeight
-}
+
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
@@ -249,22 +247,121 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 		s.highestBlockHeader.Store(nil)
 	}()
 
-	nextHeight := s.nextHeight()
+var nextHeight uint64
+	if h, err := s.blockchain.Height(); err == nil {
+		nextHeight = h + 1
+	} else {
+		nextHeight = 0
+	} 
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
-
+pendingSem := make(chan struct{}, 1)
 	latestSem := make(chan struct{}, 1)
 	if s.readOnlyBlockchain {
-		s.pollLatest(syncCtx, latestSem)
+		// Polling for the latest block in read-only mode
+		go func() {
+			poll := func() {
+				select {
+				case latestSem <- struct{}{}:
+					go func() {
+						defer func() { <-latestSem }()
+						highestBlock, err := s.starknetData.BlockLatest(syncCtx)
+						if err != nil {
+							s.log.Warnw("Failed fetching latest block", "err", err)
+						} else {
+							s.highestBlockHeader.Store(highestBlock.Header)
+						}
+					}()
+				default:
+				}
+			}
+
+			ticker := time.NewTicker(time.Minute)
+			defer ticker.Stop()
+			poll()
+
+			for {
+				select {
+				case <-syncCtx.Done():
+					return
+				case <-ticker.C:
+					poll()
+				}
+			}
+		}()
 		return
 	}
-
-	fetchers, verifiers := s.setupWorkers()
+numWorkers := 1
+	if s.catchUpMode {
+		m, mProcs := 16, runtime.GOMAXPROCS(0)
+		if mProcs > m {
+			numWorkers = m
+			} else {
+				numWorkers = mProcs
+			}
+		}
+	fetchers, verifiers := stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
 
-	go s.pollLatest(syncCtx, latestSem)
-	pendingSem := make(chan struct{}, 1)
-	go s.pollPending(syncCtx, pendingSem)
+	go func() {
+		pollLatest := func() {
+			select {
+			case latestSem <- struct{}{}:
+				go func() {
+					defer func() { <-latestSem }()
+					highestBlock, err := s.starknetData.BlockLatest(syncCtx)
+					if err != nil {
+						s.log.Warnw("Failed fetching latest block", "err", err)
+					} else {
+						s.highestBlockHeader.Store(highestBlock.Header)
+					}
+				}()
+			default:
+			}
+		}
+
+		latestTicker := time.NewTicker(time.Minute)
+		defer latestTicker.Stop()
+		pollLatest()
+
+		for {
+			select {
+			case <-syncCtx.Done():
+				return
+			case <-latestTicker.C:
+				pollLatest()
+			}
+		}
+	}()
+
+	// Polling for pending blocks
+	go func() {
+		if s.pendingPollInterval == time.Duration(0) {
+			return
+		}
+
+		pendingPollTicker := time.NewTicker(s.pendingPollInterval)
+		defer pendingPollTicker.Stop()
+
+		for {
+			select {
+			case <-syncCtx.Done():
+				return
+			case <-pendingPollTicker.C:
+				select {
+				case pendingSem <- struct{}{}:
+					go func() {
+						defer func() { <-pendingSem }()
+						err := s.fetchAndStorePending(syncCtx)
+						if err != nil {
+							s.log.Debugw("Error while trying to poll pending block", "err", err)
+						}
+					}()
+				default:
+				}
+			}
+		}
+	}()
 
 	for {
 		select {
@@ -280,8 +377,17 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				return
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
-				nextHeight = s.nextHeight()
-				fetchers, verifiers = s.setupWorkers()
+				var t_nextHeight uint64
+	if h, err := s.blockchain.Height(); err == nil {
+		t_nextHeight = h + 1
+	} else {
+		t_nextHeight = 0
+	} 
+	
+
+	
+				nextHeight = t_nextHeight
+				fetchers, verifiers = stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
 		default:
@@ -293,102 +399,6 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				return cb
 			})
 			nextHeight++
-		}
-	}
-}
-
-func maxWorkers() int {
-	m, mProcs := 16, runtime.GOMAXPROCS(0)
-	if mProcs > m {
-		return m
-	}
-	return mProcs
-}
-
-func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
-	numWorkers := 1
-	if s.catchUpMode {
-		numWorkers = maxWorkers()
-	}
-	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
-}
-
-func (s *Synchronizer) revertHead(forkBlock *core.Block) {
-	var localHead *felt.Felt
-	head, err := s.blockchain.HeadsHeader()
-	if err == nil {
-		localHead = head.Hash
-	}
-
-	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
-
-	err = s.blockchain.RevertHead()
-	if err != nil {
-		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
-	} else {
-		s.log.Infow("Reverted HEAD", "reverted", localHead)
-	}
-	s.listener.OnReorg(head.Number)
-}
-
-func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
-	if s.pendingPollInterval == time.Duration(0) {
-		return
-	}
-
-	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
-	for {
-		select {
-		case <-ctx.Done():
-			pendingPollTicker.Stop()
-			return
-		case <-pendingPollTicker.C:
-			select {
-			case sem <- struct{}{}:
-				go func() {
-					defer func() {
-						<-sem
-					}()
-					err := s.fetchAndStorePending(ctx)
-					if err != nil {
-						s.log.Debugw("Error while trying to poll pending block", "err", err)
-					}
-				}()
-			default:
-			}
-		}
-	}
-}
-
-func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
-	poll := func() {
-		select {
-		case sem <- struct{}{}:
-			go func() {
-				defer func() {
-					<-sem
-				}()
-				highestBlock, err := s.starknetData.BlockLatest(ctx)
-				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err)
-				} else {
-					s.highestBlockHeader.Store(highestBlock.Header)
-				}
-			}()
-		default:
-		}
-	}
-
-	ticker := time.NewTicker(time.Minute)
-	poll()
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			poll()
 		}
 	}
 }

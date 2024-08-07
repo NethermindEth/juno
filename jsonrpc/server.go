@@ -161,14 +161,14 @@ func (s *Server) WithListener(listener EventListener) *Server {
 // by the handler
 func (s *Server) RegisterMethods(methods ...Method) error {
 	for idx := range methods {
-		if err := s.registerMethod(methods[idx]); err != nil {
+		if err := s.RegisterMethod(methods[idx]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Server) registerMethod(method Method) error {
+func (s *Server) RegisterMethod(method Method) error {
 	handlerT := reflect.TypeOf(method.Handler)
 	if handlerT.Kind() != reflect.Func {
 		return errors.New("handler must be a function")

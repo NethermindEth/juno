@@ -4,15 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
+    // "context"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/core/trie"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
 type BlockStatus uint8
-
+type kimaw struct {
+    trie *trie.Trie
+}
 const (
 	BlockPending BlockStatus = iota
 	BlockAcceptedL2
@@ -145,6 +148,18 @@ type BlockWithReceipts struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L500
+
+type BlockWithTxHashesandReceipts struct {
+	Status BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	TxnHashes []*felt.Felt `json:"transactions"`
+	Transactions []TransactionWithReceipt `json:"transactions"`
+}
+
+
+
+
+
 func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 	num, err := h.bcReader.Height()
 	if err != nil {
@@ -203,18 +218,66 @@ func (h *Handler) BlockWithTxHashesV0_6(id BlockID) (*BlockWithTxHashes, *jsonrp
 	resp.L1DataGasPrice = nil
 	return resp, nil
 }
+func (h *Handler) BlockWithTxHashesandReceipts(id BlockID) (*BlockWithTxHashesandReceipts, *jsonrpc.Error) {
+    block, rpcErr := h.blockByID(&id)
+    if rpcErr != nil {
+        return nil, rpcErr
+    }
+
+    blockStatus, rpcErr := h.blockStatus(id, block)
+    if rpcErr != nil {
+        return nil, rpcErr
+    }
+
+    finalityStatus := TxnAcceptedOnL2
+    if blockStatus == BlockAcceptedL1 {
+        finalityStatus = TxnAcceptedOnL1
+    }
+
+    txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
+    txnHashes := make([]*felt.Felt, len(block.Transactions))
+    for index, txn := range block.Transactions {
+        r := block.Receipts[index]
+        txnHashes[index] = txn.Hash()
+        txsWithReceipts[index] = TransactionWithReceipt{
+            Transaction: AdaptTransaction(txn),
+            Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
+        }
+    }
+
+    return &BlockWithTxHashesandReceipts{
+        Status:       blockStatus,
+        BlockHeader:  adaptBlockHeader(block.Header),
+        TxnHashes:    txnHashes,
+        Transactions: txsWithReceipts,
+    }, nil
+}
 
 // BlockTransactionCount returns the number of transactions in a block
 // identified by the given BlockID.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
+
 func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
 	header, rpcErr := h.blockHeaderByID(&id)
 	if rpcErr != nil {
 		return 0, rpcErr
 	}
 	return header.TransactionCount, nil
+}
+
+// GetNodesFromRoot is the new RPC method
+func (h *Handler) GetNodesFromRoot( key *felt.Felt) ([]trie.StorageNode, *jsonrpc.Error) {
+    convertedKey := h.trie.FeltToKey(key) // Call the feltToKey function
+    nodes, err := h.trie.NodesFromRoot(&convertedKey) // Pass a pointer to NodesFromRoot
+    if err != nil {
+        return nil, &jsonrpc.Error{
+            Code:    jsonrpc.InternalError,
+            Message: err.Error(),
+        }
+    }
+	 return nodes, nil
 }
 
 func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {

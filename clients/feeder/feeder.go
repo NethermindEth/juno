@@ -228,88 +228,88 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 }
 
 // get performs a "GET" http request with the given URL and returns the response body
-func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
-	var res *http.Response
-	var err error
-	wait := time.Duration(0)
-	for i := 0; i <= c.maxRetries; i++ {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(wait):
-			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
-			if err != nil {
-				return nil, err
-			}
-			if c.userAgent != "" {
-				req.Header.Set("User-Agent", c.userAgent)
-			}
-			if c.apiKey != "" {
-				req.Header.Set("X-Throttling-Bypass", c.apiKey)
-			}
-
-			reqTimer := time.Now()
-			res, err = c.client.Do(req)
-			if err == nil {
-				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
-				if res.StatusCode == http.StatusOK {
-					return res.Body, nil
-				} else {
-					err = errors.New(res.Status)
+	func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
+		var res *http.Response
+		var err error
+		wait := time.Duration(0)
+		for i := 0; i <= c.maxRetries; i++ {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(wait):
+				var req *http.Request
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
+				if err != nil {
+					return nil, err
+				}
+				if c.userAgent != "" {
+					req.Header.Set("User-Agent", c.userAgent)
+				}
+				if c.apiKey != "" {
+					req.Header.Set("X-Throttling-Bypass", c.apiKey)
 				}
 
-				res.Body.Close()
-			}
+				reqTimer := time.Now()
+				res, err = c.client.Do(req)
+				if err == nil {
+					c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
+					if res.StatusCode == http.StatusOK {
+						return res.Body, nil
+					} else {
+						err = errors.New(res.Status)
+					}
 
-			if wait < c.minWait {
-				wait = c.minWait
+					res.Body.Close()
+				}
+
+				if wait < c.minWait {
+					wait = c.minWait
+				}
+				wait = c.backoff(wait)
+				if wait > c.maxWait {
+					wait = c.maxWait
+				}
+				c.log.Debugw("Failed query to feeder, retrying...", "req", req.URL.String(), "retryAfter", wait.String(), "err", err)
 			}
-			wait = c.backoff(wait)
-			if wait > c.maxWait {
-				wait = c.maxWait
-			}
-			c.log.Debugw("Failed query to feeder, retrying...", "req", req.URL.String(), "retryAfter", wait.String(), "err", err)
 		}
-	}
-	return nil, err
-}
-
-func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
-	queryURL := c.buildQueryString("get_state_update", map[string]string{
-		"blockNumber": blockID,
-	})
-
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
 		return nil, err
 	}
-	defer body.Close()
 
-	update := new(starknet.StateUpdate)
-	if err = json.NewDecoder(body).Decode(update); err != nil {
-		return nil, err
+	func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.StateUpdate, error) {
+		queryURL := c.buildQueryString("get_state_update", map[string]string{
+			"blockNumber": blockID,
+		})
+
+		body, err := c.get(ctx, queryURL)
+		if err != nil {
+			return nil, err
+		}
+		defer body.Close()
+
+		update := new(starknet.StateUpdate)
+		if err = json.NewDecoder(body).Decode(update); err != nil {
+			return nil, err
+		}
+		return update, nil
 	}
-	return update, nil
-}
 
-func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
-	queryURL := c.buildQueryString("get_transaction", map[string]string{
-		"transactionHash": transactionHash.String(),
-	})
+	func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
+		queryURL := c.buildQueryString("get_transaction", map[string]string{
+			"transactionHash": transactionHash.String(),
+		})
 
-	body, err := c.get(ctx, queryURL)
-	if err != nil {
-		return nil, err
+		body, err := c.get(ctx, queryURL)
+		if err != nil {
+			return nil, err
+		}
+		defer body.Close()
+
+		txStatus := new(starknet.TransactionStatus)
+		if err = json.NewDecoder(body).Decode(txStatus); err != nil {
+			return nil, err
+		}
+		return txStatus, nil
 	}
-	defer body.Close()
-
-	txStatus := new(starknet.TransactionStatus)
-	if err = json.NewDecoder(body).Decode(txStatus); err != nil {
-		return nil, err
-	}
-	return txStatus, nil
-}
 
 func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, error) {
 	queryURL := c.buildQueryString("get_block", map[string]string{

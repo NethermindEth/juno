@@ -3,18 +3,22 @@ package rpc_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -95,7 +99,7 @@ func TestBlockNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		expectedHeight := uint64(0)
@@ -122,7 +126,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
@@ -155,7 +159,7 @@ func TestBlockTransactionCount(t *testing.T) {
 
 	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -227,6 +231,173 @@ func TestBlockTransactionCount(t *testing.T) {
 	})
 }
 
+type MockTrie struct {
+	*trie.Trie
+	
+	feltToKeyFunc     func(*felt.Felt) *trie.Key
+	nodesFromRootFunc func(*trie.Key) ([]trie.StorageNode, error)
+}
+
+func (m *MockTrie) FeltToKey(f *felt.Felt) *trie.Key {
+	if m.feltToKeyFunc != nil {
+		return m.feltToKeyFunc(f)
+	}
+	return &trie.Key{} // Return a default value or mock value
+}
+func (m *MockTrie) ToTrie() *trie.Trie {
+    return m.Trie
+}
+// func (m *MockTrie) FeltToKey(f *felt.Felt) trie.Key {
+// 	return m.feltToKeyFunc(f)
+// }
+
+func (m *MockTrie) NodesFromRoot(k *trie.Key) ([]trie.StorageNode, error) {
+	 if m.nodesFromRootFunc != nil {
+        return m.nodesFromRootFunc(k)
+    }
+    return nil, nil
+}
+// type StorageNode struct {
+//     Key  *trie.Key
+//     Node *trie.Node
+// }
+
+func TestGetNodesFromRoot(t *testing.T) {
+	var element fp.Element
+	element.SetUint64(123)
+	key := felt.NewFelt(&element)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	// convertedKey := &trie.Key{Bytes: []byte{1, 2, 3}}
+	mockTrie := &MockTrie{
+		Trie: &trie.Trie{},
+        feltToKeyFunc: func(f *felt.Felt) *trie.Key {
+            // Return a mock key
+            return &trie.Key{}
+        },
+		nodesFromRootFunc: func(k *trie.Key) ([]trie.StorageNode, error) {
+            // Return a mock response
+            return []trie.StorageNode{}, nil
+        },
+    }
+
+// 	handler := rpc.New(mockReader, nil, nil, "", nil, mockTrie.Trie)
+
+//  trieInstance := mockTrie.ToTrie()	
+	//  handler.*trie.Trie = mockTrie
+	convertedKey := mockTrie.feltToKeyFunc(key)
+_ = convertedKey
+anotherKey := mockTrie.FeltToKey(felt.NewFelt(&fp.Element{}))
+ 
+// 	
+	// Define test cases
+	tests := []struct {
+		name              string
+		feltToKeyFunc     func(*felt.Felt) *trie.Key
+		nodesFromRootFunc func(*trie.Key) ([]trie.StorageNode, error)
+		expectErr         *jsonrpc.Error
+	}{
+		{
+			name: "successful retrieval",
+			feltToKeyFunc: func(f *felt.Felt) *trie.Key {
+				return convertedKey
+			},
+			nodesFromRootFunc: func(k *trie.Key) ([]trie.StorageNode, error) {
+				return []trie.StorageNode{
+					*trie.NewStorageNode(convertedKey, &trie.Node{}),
+				}, nil
+			},
+			expectErr: nil,
+			
+		},
+		{
+			name: "error in NodesFromRoot",
+			feltToKeyFunc: func(f *felt.Felt) *trie.Key {
+				return convertedKey
+			},
+			nodesFromRootFunc: func(k *trie.Key) ([]trie.StorageNode, error) {
+				return nil, fmt.Errorf("some error")
+			},
+			expectErr: &jsonrpc.Error{
+				Code:    jsonrpc.InternalError,
+				Message: "some error",
+			},
+		},
+		{
+			name: "empty trie",
+			feltToKeyFunc: func(f *felt.Felt) *trie.Key {
+				return convertedKey
+			},
+			nodesFromRootFunc: func(k *trie.Key) ([]trie.StorageNode, error) {
+				return []trie.StorageNode{}, nil
+			},
+			expectErr: nil,
+		},
+		{
+			name: "nil key",
+			feltToKeyFunc: func(f *felt.Felt) *trie.Key {
+				return &trie.Key{}
+			},
+			nodesFromRootFunc: func(k *trie.Key) ([]trie.StorageNode, error) {
+				return nil, fmt.Errorf("nil key error")
+			},
+			expectErr: &jsonrpc.Error{
+				Code:    jsonrpc.InternalError,
+				Message: "nil key error",
+			},
+		},
+		{
+			name: "key not found",
+			feltToKeyFunc: func(f *felt.Felt) *trie.Key {
+				return convertedKey
+			},
+			nodesFromRootFunc: func(k *trie.Key) ([]trie.StorageNode, error) {
+				return nil, fmt.Errorf("key not found")
+			},
+			expectErr: &jsonrpc.Error{
+				Code:    jsonrpc.InternalError,
+				Message: "key not found",
+			},
+		},
+		{
+			name: "multiple nodes",
+			feltToKeyFunc: func(f *felt.Felt) *trie.Key {
+				return convertedKey
+			},
+			nodesFromRootFunc: func(k *trie.Key) ([]trie.StorageNode, error) {
+				return []trie.StorageNode{
+					*trie.NewStorageNode(convertedKey, &trie.Node{}),
+				*trie.NewStorageNode(anotherKey, &trie.Node{}),
+				}, nil
+			},
+			expectErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockTrie := &MockTrie{
+				feltToKeyFunc:     tt.feltToKeyFunc,
+				nodesFromRootFunc: tt.nodesFromRootFunc,
+			}
+
+			// handler := &rpc.Handler{
+			// 	trie:  mockTrie,
+			// }
+				handler := rpc.New(nil, nil, nil, "", nil, mockTrie.Trie)
+
+			nodes, err := handler.GetNodesFromRoot(key)
+			if tt.expectErr != nil {
+				assert.Nil(t, nodes)
+				assert.Equal(t, tt.expectErr, err)
+			} else {
+				assert.NotNil(t, nodes)
+				assert.Nil(t, err)
+			}
+		})
+	}
+}
 func TestBlockWithTxHashes(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
@@ -240,7 +411,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
 			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", log)
+			handler := rpc.New(chain, nil, nil, "", log, nil)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
 			assert.Nil(t, block)
@@ -253,7 +424,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -359,7 +530,7 @@ func TestBlockWithTxs(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
 			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", log)
+			handler := rpc.New(chain, nil, nil, "", log, nil)
 
 			block, rpcErr := handler.BlockWithTxs(id)
 			assert.Nil(t, block)
@@ -372,7 +543,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -492,7 +663,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	blockNumber := uint64(16350)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
@@ -560,7 +731,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
@@ -673,14 +844,131 @@ func TestBlockWithReceipts(t *testing.T) {
 		}, resp)
 	})
 }
+func TestBlockWithTxHashesandReceipts(t *testing.T) {
+	errTests := map[string]rpc.BlockID{
+		"latest":  {Latest: true},
+		"pending": {Pending: true},
+		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
+		"number":  {Number: 1},
+	}
 
+	for description, id := range errTests {
+		t.Run(description, func(t *testing.T) {
+			log := utils.NewNopZapLogger()
+			n := utils.Ptr(utils.Mainnet)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
+			handler := rpc.New(chain, nil, nil, "", log, nil)
+
+			block, rpcErr := handler.BlockWithTxHashesandReceipts(id)
+			assert.Nil(t, block)
+			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		})
+	}
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	n := utils.Ptr(utils.Sepolia)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
+
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
+
+	latestBlockNumber := uint64(56377)
+	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+	require.NoError(t, err)
+	latestBlockHash := latestBlock.Hash
+
+	checkBlock := func(t *testing.T, b *rpc.BlockWithTxHashesandReceipts) {
+		t.Helper()
+		assert.Equal(t, latestBlock.Hash, b.Hash)
+		assert.Equal(t, latestBlock.GlobalStateRoot, b.NewRoot)
+		assert.Equal(t, latestBlock.ParentHash, b.ParentHash)
+		assert.Equal(t, latestBlock.SequencerAddress, b.SequencerAddress)
+		assert.Equal(t, latestBlock.Timestamp, b.Timestamp)
+		assert.Equal(t, len(latestBlock.Transactions), len(b.TxnHashes))
+		for i := 0; i < len(latestBlock.Transactions); i++ {
+			assert.Equal(t, latestBlock.Transactions[i].Hash(), b.TxnHashes[i])
+		}
+	}
+
+	checkLatestBlock := func(t *testing.T, b *rpc.BlockWithTxHashesandReceipts) {
+		t.Helper()
+		if latestBlock.Hash != nil {
+			assert.Equal(t, latestBlock.Number, *b.Number)
+		} else {
+			assert.Nil(t, b.Number)
+			assert.Equal(t, rpc.BlockPending, b.Status)
+		}
+		checkBlock(t, b)
+	}
+
+	t.Run("blockID - latest", func(t *testing.T) {
+		mockReader.EXPECT().Head().Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxHashesandReceipts(rpc.BlockID{Latest: true})
+		require.Nil(t, rpcErr)
+
+		checkLatestBlock(t, block)
+	})
+
+	t.Run("blockID - hash", func(t *testing.T) {
+		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxHashesandReceipts(rpc.BlockID{Hash: latestBlockHash})
+		require.Nil(t, rpcErr)
+
+		checkLatestBlock(t, block)
+	})
+
+	t.Run("blockID - number", func(t *testing.T) {
+		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxHashesandReceipts(rpc.BlockID{Number: latestBlockNumber})
+		require.Nil(t, rpcErr)
+
+		checkLatestBlock(t, block)
+	})
+
+	t.Run("blockID - number accepted on l1", func(t *testing.T) {
+		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+			BlockNumber: latestBlockNumber,
+			BlockHash:   latestBlockHash,
+			StateRoot:   latestBlock.GlobalStateRoot,
+		}, nil)
+
+		block, rpcErr := handler.BlockWithTxHashesandReceipts(rpc.BlockID{Number: latestBlockNumber})
+		require.Nil(t, rpcErr)
+
+		assert.Equal(t, rpc.BlockAcceptedL1, block.Status)
+		checkBlock(t, block)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+			Block: latestBlock,
+		}, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxHashesandReceipts(rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
+		checkLatestBlock(t, block)
+	})
+}
 func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
 	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, nil, nil, "", nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)

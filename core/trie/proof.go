@@ -137,7 +137,7 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 // GetProof generates a set of proof nodes from the root to the leaf.
 // The proof never contains the leaf node if it is set, as we already know it's hash.
 func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
-	nodesFromRoot, err := tri.nodesFromRoot(key)
+	nodesFromRoot, err := tri.NodesFromRoot(key)
 	if err != nil {
 		return nil, err
 	}
