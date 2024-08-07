@@ -184,11 +184,18 @@ func (s *Server) registerMethod(method Method) error {
 	if numArgs != len(method.Params) {
 		return errors.New("number of non-context function params and param names must match")
 	}
-	if handlerT.NumOut() != 2 {
-		return errors.New("handler must return 2 values")
+	outSize := handlerT.NumOut()
+	if outSize < 2 || outSize > 3 {
+		return errors.New("handler must return 2 or 3 values")
 	}
-	if handlerT.Out(1) != reflect.TypeOf(&Error{}) {
-		return errors.New("second return value must be a *jsonrpc.Error")
+	if outSize == 2 && handlerT.Out(1) != reflect.TypeOf(&Error{}) {
+		return errors.New("second return value must be a *jsonrpc.Error for 2 tuple handler")
+	} else if outSize == 3 && handlerT.Out(2) != reflect.TypeOf(&Error{}) {
+		return errors.New("third return value must be a *jsonrpc.Error for 3 tuple handler")
+	}
+
+	if outSize == 3 && handlerT.Out(1) != reflect.TypeOf(http.Header{}) {
+		return errors.New("second return value must be a http.Header for 3 tuple handler")
 	}
 
 	// The method is valid. Mutate the appropriate fields and register on the server.
@@ -206,7 +213,7 @@ type connection struct {
 	w         io.Writer
 	activated <-chan struct{}
 
-	//todo: guard against this in the code! don't depend on devs finding out about this!
+	//todo: guard for this in the code! don't depend on devs finding out about this!
 	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
 	initialErr error
 }
@@ -282,7 +289,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		Version: "2.0",
 	}
 
-	var header http.Header
+	header := http.Header{}
 
 	dec := json.NewDecoder(bufferedReader)
 	dec.UseNumber()
@@ -311,6 +318,10 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 		} else {
 			return s.handleBatchRequest(ctx, batchReq)
 		}
+	}
+
+	if res == nil {
+		return nil, header, nil
 	}
 
 	result, err := json.Marshal(res)
@@ -376,10 +387,14 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	wg.Wait()
 	// according to the spec if there are no response objects server must not return empty array
 	if len(responses) == 0 {
-		return nil, nil, nil
+		return nil, http.Header{}, nil
 	}
 
 	result, err := json.Marshal(responses)
+
+	if len(headers) == 0 {
+		return result, http.Header{}, err
+	}
 
 	return result, headers[0], err // todo: fix batch request aggregate header
 }

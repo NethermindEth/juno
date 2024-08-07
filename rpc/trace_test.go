@@ -62,11 +62,13 @@ func TestTraceFallback(t *testing.T) {
 			_, httpHeader, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: test.blockNumber})
 			require.Equal(t, rpc.ErrInternal.Code, jErr.Code)
 			require.NotNil(t, httpHeader)
+			require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 
 			handler = handler.WithFeeder(client)
 			trace, httpHeader, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: test.blockNumber})
 			require.Nil(t, jErr)
 			require.NotNil(t, httpHeader)
+			require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 			jsonStr, err := json.Marshal(trace)
 			require.NoError(t, err)
 			assert.JSONEq(t, test.want, string(jsonStr))
@@ -92,6 +94,7 @@ func TestTraceTransaction(t *testing.T) {
 		assert.Nil(t, trace)
 		assert.Equal(t, rpc.ErrTxnHashNotFound, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 	t.Run("ok", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
@@ -168,6 +171,7 @@ func TestTraceTransaction(t *testing.T) {
 		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			ComputationResources: vm.ComputationResources{
@@ -257,6 +261,7 @@ func TestTraceTransaction(t *testing.T) {
 		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			// other of fields are zero
@@ -285,6 +290,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 		trace, httpHeader, err := handler.TraceTransactionV0_6(context.Background(), *hash)
 		assert.Nil(t, trace)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 		assert.Equal(t, rpc.ErrTxnHashNotFound, err)
 	})
 	t.Run("ok", func(t *testing.T) {
@@ -339,6 +345,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 		trace, httpHeader, err := handler.TraceTransactionV0_6(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 		assert.Equal(t, vmTrace, trace)
 	})
 	t.Run("pending block", func(t *testing.T) {
@@ -396,6 +403,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 		trace, httpHeader, err := handler.TraceTransactionV0_6(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 		assert.Equal(t, vmTrace, trace)
 	})
 }
@@ -420,6 +428,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			update, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
 			assert.Nil(t, update)
 			require.NotNil(t, httpHeader)
+			require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 		})
 	}
@@ -490,6 +499,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 		assert.Equal(t, &vm.TransactionTrace{
 			ValidateInvocation:    &vm.FunctionInvocation{},
 			ExecuteInvocation:     &vm.ExecuteInvocation{},
@@ -564,6 +574,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 		assert.Equal(t, expectedResult, result)
 	})
 }

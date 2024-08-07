@@ -41,6 +41,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		_, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpc.ErrBlockNotFound, err)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 
 	latestHeader := &core.Header{
@@ -80,8 +81,11 @@ func TestEstimateMessageFee(t *testing.T) {
 		},
 	)
 
-	estimateFee, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
+	estimateFee, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 	require.Nil(t, err)
+	require.NotNil(t, httpHeader)
+	require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
+
 	feeUnit := rpc.WEI
 	require.Equal(t, rpc.FeeEstimate{
 		GasConsumed: expectedGasConsumed,
@@ -114,7 +118,9 @@ func TestEstimateFee(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
-		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
+		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 		require.Nil(t, err)
 	})
 
@@ -122,8 +128,10 @@ func TestEstimateFee(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
-		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
+		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
@@ -133,11 +141,13 @@ func TestEstimateFee(t *testing.T) {
 				Cause: errors.New("oops"),
 			})
 
-		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)
+		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, false, true, true, false).
 			Return(nil, nil, vm.TransactionExecutionError{

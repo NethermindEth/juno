@@ -63,6 +63,7 @@ func TestThrottledVMError(t *testing.T) {
 		_, httpHeader, rpcErr := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 
 	t.Run("trace", func(t *testing.T) {
@@ -99,5 +100,6 @@ func TestThrottledVMError(t *testing.T) {
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		require.NotNil(t, httpHeader)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 }
