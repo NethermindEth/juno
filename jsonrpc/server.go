@@ -9,8 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +27,10 @@ const (
 	MethodNotFound = -32601 // The method does not exist / is not available.
 	InvalidParams  = -32602 // Invalid method parameter(s).
 	InternalError  = -32603 // Internal JSON-RPC error.
+)
+
+const (
+	ExecutionStepsHeaderUint64 string = "X-Cairo-Steps"
 )
 
 var (
@@ -392,11 +398,23 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 
 	result, err := json.Marshal(responses)
 
-	if len(headers) == 0 {
-		return result, http.Header{}, err
-	}
+	header := mergeHeaders(headers)
 
-	return result, headers[0], err // todo: fix batch request aggregate header
+	return result, header, err // todo: fix batch request aggregate header
+}
+
+func mergeHeaders(headers []http.Header) http.Header {
+	var totalExec uint64
+	finalHeaders := http.Header{}
+	for _, header := range headers {
+		val, err := strconv.ParseUint(header.Get(ExecutionStepsHeaderUint64), 10, 64)
+		if err == nil {
+			totalExec += val
+		}
+		maps.Copy(finalHeaders, header)
+	}
+	finalHeaders.Set(ExecutionStepsHeaderUint64, strconv.FormatUint(totalExec, 10))
+	return finalHeaders
 }
 
 func isBatch(reader *bufio.Reader) bool {
