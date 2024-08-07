@@ -27,10 +27,6 @@ const (
 	InternalError  = -32603 // Internal JSON-RPC error.
 )
 
-const (
-	ExecutionStepsHeaderUint64 string = "X-Cairo-Steps"
-)
-
 var (
 	ErrInvalidID = errors.New("id should be a string or an integer")
 
@@ -389,19 +385,8 @@ func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMess
 	}
 
 	wg.Wait()
-	// according to the spec if there are no response objects server must not return empty array
-	if len(responses) == 0 {
-		return nil, http.Header{}, nil
-	}
 
-	result, err := json.Marshal(responses)
-
-	header := mergeHeaders(headers)
-
-	return result, header, err // todo: fix batch request aggregate header
-}
-
-func mergeHeaders(headers []http.Header) http.Header {
+	// merge headers
 	finalHeaders := http.Header{}
 	for _, header := range headers {
 		for k, v := range header {
@@ -410,7 +395,15 @@ func mergeHeaders(headers []http.Header) http.Header {
 			}
 		}
 	}
-	return finalHeaders
+
+	// according to the spec if there are no response objects server must not return empty array
+	if len(responses) == 0 {
+		return nil, finalHeaders, nil
+	}
+
+	result, err := json.Marshal(responses)
+
+	return result, finalHeaders, err // todo: fix batch request aggregate header
 }
 
 func isBatch(reader *bufio.Reader) bool {
