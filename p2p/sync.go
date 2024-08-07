@@ -107,13 +107,18 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		blocksCh := pipeline.Bridge(iterCtx, s.processSpecBlockParts(iterCtx, uint64(nextHeight), pipeline.FanIn(iterCtx,
-			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
-			pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
-			pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
-			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
-			pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
-		)))
+		blocksCh := pipeline.Bridge(
+			iterCtx,
+			s.processSpecBlockParts(iterCtx, uint64(nextHeight),
+				pipeline.FanIn(iterCtx,
+					pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+					pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
+					pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
+					pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
+					pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
+				),
+			),
+		)
 
 		for b := range blocksCh {
 			if b.err != nil {
@@ -262,8 +267,15 @@ func (s *syncService) processSpecBlockParts(
 }
 
 //nolint:gocyclo,funlen
-func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
-	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
+func (s *syncService) adaptAndSanityCheckBlock(
+	ctx context.Context,
+	header *spec.SignedBlockHeader,
+	contractDiffs []*spec.ContractDiff,
+	classes []*spec.Class,
+	txs []*spec.Transaction,
+	receipts []*spec.Receipt,
+	events []*spec.Event,
+	prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
@@ -333,7 +345,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			}
 			coreBlock.Hash = h
 
-			newClasses := make(map[felt.Felt]core.Class)
+			newClasses := make(map[felt.Felt]core.Class, len(classes))
 			for _, cls := range classes {
 				coreC := p2p2core.AdaptClass(cls)
 				h, err = coreC.Hash()
@@ -378,7 +390,12 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 
 			select {
 			case <-ctx.Done():
-			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
+			case bodyCh <- blockBody{
+				block:       coreBlock,
+				stateUpdate: stateUpdate,
+				newClasses:  newClasses,
+				commitments: commitments,
+			}:
 			}
 		}
 	}()
