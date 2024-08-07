@@ -1,20 +1,17 @@
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
-use blockifier::state::cached_state::TransactionalState;
+use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, KECCAK_BUILTIN_NAME,
-    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SEGMENT_ARENA_BUILTIN_NAME,
-    SIGNATURE_BUILTIN_NAME,
-};
+use cairo_vm::types::builtin_name::BuiltinName;
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
+use starknet_types_core::felt::Felt;
 
 use crate::juno_state_reader::JunoStateReader;
 
@@ -53,45 +50,45 @@ struct StateDiff {
     storage_diffs: Vec<StorageDiff>,
     nonces: Vec<Nonce>,
     deployed_contracts: Vec<DeployedContract>,
-    deprecated_declared_classes: Vec<StarkFelt>,
+    deprecated_declared_classes: Vec<Felt>,
     declared_classes: Vec<DeclaredClass>,
     replaced_classes: Vec<ReplacedClass>,
 }
 
 #[derive(Serialize)]
 struct Nonce {
-    contract_address: StarkFelt,
-    nonce: StarkFelt,
+    contract_address: Felt,
+    nonce: Felt,
 }
 
 #[derive(Serialize)]
 struct StorageDiff {
-    address: StarkFelt,
+    address: Felt,
     storage_entries: Vec<Entry>,
 }
 
 #[derive(Serialize)]
 struct Entry {
-    key: StarkFelt,
-    value: StarkFelt,
+    key: Felt,
+    value: Felt,
 }
 
 #[derive(Serialize)]
 struct DeployedContract {
-    address: StarkFelt,
-    class_hash: StarkFelt,
+    address: Felt,
+    class_hash: Felt,
 }
 
 #[derive(Serialize)]
 struct ReplacedClass {
-    contract_address: StarkFelt,
-    class_hash: StarkFelt,
+    contract_address: Felt,
+    class_hash: Felt,
 }
 
 #[derive(Serialize)]
 struct DeclaredClass {
-    class_hash: StarkFelt,
-    compiled_class_hash: StarkFelt,
+    class_hash: Felt,
+    compiled_class_hash: Felt,
 }
 
 #[derive(Serialize)]
@@ -105,10 +102,10 @@ type BlockifierTxInfo = blockifier::transaction::objects::TransactionExecutionIn
 pub fn new_transaction_trace(
     tx: &StarknetApiTransaction,
     info: BlockifierTxInfo,
-    state: &mut TransactionalState<JunoStateReader>,
+    state: &mut TransactionalState<CachedState<JunoStateReader>>,
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
-    let mut deprecated_declared_class: Option<ClassHash> = None;
+    let mut deprecated_declared_class_hash: Option<ClassHash> = None;
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
             trace.function_invocation = info.execute_call_info.map(|v| v.into());
@@ -135,7 +132,7 @@ pub fn new_transaction_trace(
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
             trace.r#type = TransactionType::Declare;
-            deprecated_declared_class = if info.revert_error.is_none() {
+            deprecated_declared_class_hash = if info.revert_error.is_none() {
                 match declare_txn {
                     DeclareTransaction::V0(_) => Some(declare_txn.class_hash()),
                     DeclareTransaction::V1(_) => Some(declare_txn.class_hash()),
@@ -151,7 +148,7 @@ pub fn new_transaction_trace(
         }
     };
 
-    trace.state_diff = make_state_diff(state, deprecated_declared_class)?;
+    trace.state_diff = make_state_diff(state, deprecated_declared_class_hash)?;
     Ok(trace)
 }
 
@@ -208,35 +205,35 @@ impl From<VmExecutionResources> for ExecutionResources {
             },
             range_check_builtin_applications: val
                 .builtin_instance_counter
-                .get(RANGE_CHECK_BUILTIN_NAME)
+                .get(&BuiltinName::range_check)
                 .cloned(),
             pedersen_builtin_applications: val
                 .builtin_instance_counter
-                .get(HASH_BUILTIN_NAME)
+                .get(&BuiltinName::pedersen)
                 .cloned(),
             poseidon_builtin_applications: val
                 .builtin_instance_counter
-                .get(POSEIDON_BUILTIN_NAME)
+                .get(&BuiltinName::poseidon)
                 .cloned(),
             ec_op_builtin_applications: val
                 .builtin_instance_counter
-                .get(EC_OP_BUILTIN_NAME)
+                .get(&BuiltinName::ec_op)
                 .cloned(),
             ecdsa_builtin_applications: val
                 .builtin_instance_counter
-                .get(SIGNATURE_BUILTIN_NAME)
+                .get(&BuiltinName::ecdsa)
                 .cloned(),
             bitwise_builtin_applications: val
                 .builtin_instance_counter
-                .get(BITWISE_BUILTIN_NAME)
+                .get(&BuiltinName::bitwise)
                 .cloned(),
             keccak_builtin_applications: val
                 .builtin_instance_counter
-                .get(KECCAK_BUILTIN_NAME)
+                .get(&BuiltinName::keccak)
                 .cloned(),
             segment_arena_builtin: val
                 .builtin_instance_counter
-                .get(SEGMENT_ARENA_BUILTIN_NAME)
+                .get(&BuiltinName::segment_arena)
                 .cloned(),
         }
     }
@@ -250,7 +247,7 @@ pub struct FunctionInvocation {
     pub class_hash: Option<ClassHash>,
     pub entry_point_type: EntryPointType,
     pub call_type: String,
-    pub result: Vec<StarkFelt>,
+    pub result: Vec<Felt>,
     pub calls: Vec<FunctionInvocation>,
     pub events: Vec<OrderedEvent>,
     pub messages: Vec<OrderedMessage>,
@@ -267,7 +264,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
                 CallType::Call => "CALL",
                 CallType::Delegate => "DELEGATE",
             }
-            .to_string(),
+                .to_string(),
             caller_address: val.call.caller_address,
             class_hash: val.call.class_hash,
             result: val.execution.retdata.0,
@@ -320,36 +317,38 @@ impl From<OrderedL2ToL1Message> for OrderedMessage {
 }
 
 #[derive(Debug, Serialize)]
-pub struct Retdata(pub Vec<StarkFelt>);
+pub struct Retdata(pub Vec<Felt>);
 
 fn make_state_diff(
-    state: &mut TransactionalState<JunoStateReader>,
-    deprecated_declared_class: Option<ClassHash>,
+    state: &mut TransactionalState<CachedState<JunoStateReader>>,
+    deprecated_declared_class_hash: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
-    let diff = state.to_state_diff();
+    let diff: CommitmentStateDiff = state.to_state_diff()?.into();
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 
-    for pair in diff.address_to_class_hash {
-        let existing_class_hash = state.state.get_class_hash_at(pair.0)?;
+    for (addr, class_hash) in diff.address_to_class_hash {
+        let existing_class_hash = state.state.get_class_hash_at(addr)?;
+        let addr: Felt = addr.into();
+
         if existing_class_hash == ClassHash::default() {
             #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
-                address: *pair.0.0.key(),
-                class_hash: pair.1.0,
+                address: addr,
+                class_hash: class_hash.0,
             });
         } else {
             #[rustfmt::skip]
             replaced_classes.push(ReplacedClass {
-                contract_address: *pair.0.0.key(),
-                class_hash: pair.1.0,
+                contract_address: addr,
+                class_hash: class_hash.0,
             });
         }
     }
 
-    let mut deprecated_declared_classes = Vec::default();
-    if let Some(v) = deprecated_declared_class {
-        deprecated_declared_classes.push(v.0)
+    let mut deprecated_declared_class_hashes = Vec::default();
+    if let Some(v) = deprecated_declared_class_hash {
+        deprecated_declared_class_hashes.push(v.0)
     }
     Ok(StateDiff {
         deployed_contracts,
@@ -366,11 +365,11 @@ fn make_state_diff(
             class_hash: v.0.0,
             compiled_class_hash: v.1.0,
         }).collect(),
-        deprecated_declared_classes,
+        deprecated_declared_classes: deprecated_declared_class_hashes,
         #[rustfmt::skip]
         nonces: diff.address_to_nonce.into_iter().map(| v | Nonce {
-          contract_address: *v.0.0.key(),
-          nonce: v.1.0,
+            contract_address: *v.0.0.key(),
+            nonce: v.1.0,
         }).collect(),
         replaced_classes,
     })

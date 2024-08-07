@@ -3,7 +3,6 @@ use std::{
     slice,
     sync::Mutex,
 };
-
 use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
 use blockifier::state::errors::StateError;
 use blockifier::{
@@ -17,8 +16,8 @@ use cairo_native::executor::AotNativeExecutor;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 
 extern "C" {
     fn JunoFree(ptr: *const c_void);
@@ -64,7 +63,7 @@ impl StateReader for JunoStateReader {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let storage_key = felt_to_byte_array(key.0.key());
         let ptr =
@@ -105,7 +104,7 @@ impl StateReader for JunoStateReader {
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         println!(
             "Juno State Reader(Rust): calling `get_class_hash_at` {0}",
-            contract_address.to_string()
+            contract_address
         );
         let addr = felt_to_byte_array(contract_address.0.key());
         let ptr = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr()) };
@@ -120,7 +119,7 @@ impl StateReader for JunoStateReader {
 
             println!(
                 "Juno State Reader(Rust): returning `get_class_hash_at` {0} ",
-                contract_address.to_string()
+                contract_address
             );
             Ok(ClassHash(felt_val))
         }
@@ -188,14 +187,13 @@ impl StateReader for JunoStateReader {
     }
 }
 
-pub fn felt_to_byte_array(felt: &StarkFelt) -> [u8; 32] {
-    *felt.bytes()
+pub fn felt_to_byte_array(felt: &Felt) -> [u8; 32] {
+    felt.to_bytes_be().try_into().expect("Felt not [u8; 32]")
 }
 
-pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
+pub fn ptr_to_felt(bytes: *const c_uchar) -> Felt {
     let slice = unsafe { slice::from_raw_parts(bytes, 32) };
-    StarkFelt::new(slice.try_into().expect("Juno felt not [u8; 32]"))
-        .expect("cannot new Starkfelt from Juno bytes")
+    Felt::from_bytes_be(slice.try_into().expect("Juno felt not [u8; 32]"))
 }
 
 #[derive(Deserialize)]
