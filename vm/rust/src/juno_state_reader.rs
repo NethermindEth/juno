@@ -16,8 +16,8 @@ use blockifier::{
 use cached::{Cached, SizedCache};
 use cairo_lang_sierra::program_registry::ProgramRegistry;
 use cairo_native::{
-    error::Error as NativeError, executor::AotNativeExecutor, metadata::gas::GasMetadata,
-    module::NativeModule,
+    context::NativeContext, error::Error as NativeError, executor::AotNativeExecutor,
+    metadata::gas::GasMetadata, module::NativeModule,
 };
 use libloading::Library;
 use once_cell::sync::Lazy;
@@ -253,15 +253,26 @@ fn native_try_from_json_string(
 
         // Loading a library is so fast that we do not check if it's already loaded in memory.
         // Therefore we only check whether the library exists on disk
-        let gas_metadata = if !library_output_path.is_file() {
+        if !library_output_path.is_file() {
             // library not found compile
             println!("compiling {}", library_output_path.display());
-            let native_context = cairo_native::context::NativeContext::new();
+            let native_context = NativeContext::new();
             let mut native_module = native_context.compile(sierra_program, None)?;
             persist_from_native_module(&native_module, &library_output_path)?;
-            native_module
+
+            let gas_metadata = native_module
                 .remove_metadata()
-                .expect("native_module should have set gas_metadata")
+                .expect("native_module should have set gas_metadata");
+
+            // Native Module also contains the program registry but we can't unpack it.
+            // luckily it's cheap to create
+            let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+
+            Ok(AotNativeExecutor::new(
+                unsafe { Library::new(library_output_path).unwrap() },
+                program_registry,
+                gas_metadata,
+            ))
         } else {
             // Gas calculation taken from [cairo_native::context::compile] but edited for brevity
             let has_gas_builtin = sierra_program
@@ -271,20 +282,16 @@ fn native_try_from_json_string(
 
             let config = has_gas_builtin.then_some(Default::default());
             // creating the gas metadata is kind of expensive, but still cheaper than creating a native module
-            GasMetadata::new(sierra_program, config)?
+            let gas_metadata = GasMetadata::new(sierra_program, config)?;
+
+            let program_registry = ProgramRegistry::new(sierra_program).unwrap();
+
+            Ok(AotNativeExecutor::new(
+                unsafe { Library::new(library_output_path).unwrap() },
+                program_registry,
+                gas_metadata,
+            ))
         };
-
-        println!("Loading {}", library_output_path.display());
-
-        // Native Module also contains the program registry but we can't unpack it.
-        // luckily it's cheap to create
-        let program_registry = ProgramRegistry::new(sierra_program).unwrap();
-
-        Ok(AotNativeExecutor::new(
-            unsafe { Library::new(library_output_path).unwrap() },
-            program_registry,
-            gas_metadata,
-        ))
     }
 
     let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
