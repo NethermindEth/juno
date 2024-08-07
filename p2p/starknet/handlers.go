@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/Masterminds/semver/v3"
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -131,26 +132,48 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 	}
 
 	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
-		header, err := it.Header()
+		block, err := it.Block()
 		if err != nil {
 			return nil, err
 		}
 
-		h.log.Debugw("Created Header Iterator", "blockNumber", header.Number)
+		h.log.Debugw("Created Header Iterator", "blockNumber", block.Number)
 
-		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
+		commitments, err := h.bcReader.BlockCommitmentsByNumber(block.Number)
 		if err != nil {
 			return nil, err
 		}
 
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(header.Number)
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(block.Number)
 		if err != nil {
 			return nil, err
+		}
+
+		v0_13_2 := semver.MustParse("0.13.2")
+		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		if blockVer.LessThan(v0_13_2) {
+			p2pHash, err := h.bcReader.BlockP2PHashByNumber(block.Number)
+			if err != nil {
+				return nil, err
+			}
+			block.Hash = p2pHash
+
+			if block.Number > 0 {
+				prevP2PHash, err := h.bcReader.BlockP2PHashByNumber(block.Number - 1)
+				if err != nil {
+					return nil, err
+				}
+				block.ParentHash = prevP2PHash
+			}
 		}
 
 		return &spec.BlockHeadersResponse{
 			HeaderMessage: &spec.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Commitment(),
+				Header: core2p2p.AdaptHeader(block.Header, commitments, stateUpdate.StateDiff.Commitment(),
 					stateUpdate.StateDiff.Length()),
 			},
 		}, nil

@@ -74,7 +74,7 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
+func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff, force0132Hash bool) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
@@ -92,7 +92,9 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 	unverifiableRange := metaInfo.UnverifiableRange
 
 	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
-	// todo should we still keep it after p2p ?
+	if force0132Hash {
+		skipVerification = false
+	}
 	if !skipVerification {
 		if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
 			return nil, err
@@ -110,7 +112,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 			overrideSeq = fallbackSeq
 		}
 
-		hash, commitments, err := blockHash(b, stateDiff, network, overrideSeq)
+		hash, commitments, err := blockHash(b, stateDiff, network, overrideSeq, force0132Hash)
 		if err != nil {
 			return nil, err
 		}
@@ -141,18 +143,22 @@ func BlockHash(b *Block) (*felt.Felt, error) {
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
-	*BlockCommitments, error,
-) {
+func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network,
+	overrideSeqAddr *felt.Felt, force0132Hash bool) (*felt.Felt, *BlockCommitments, error) {
 	metaInfo := network.BlockHashMetaInfo
 
-	blockVer, err := ParseBlockVersion(b.ProtocolVersion)
-	if err != nil {
-		return nil, nil, err
-	}
-	v0_13_2 := semver.MustParse("0.13.2")
+	usePre0132Hash := !force0132Hash
+	if usePre0132Hash {
+		blockVer, err := ParseBlockVersion(b.ProtocolVersion)
+		if err != nil {
+			return nil, nil, err
+		}
 
-	if blockVer.LessThan(v0_13_2) {
+		v0_13_2 := semver.MustParse("0.13.2")
+		usePre0132Hash = blockVer.LessThan(v0_13_2)
+	}
+
+	if usePre0132Hash {
 		if b.Number < metaInfo.First07Block {
 			return pre07Hash(b, network.L2ChainIDFelt())
 		}
