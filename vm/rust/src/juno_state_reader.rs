@@ -245,27 +245,9 @@ fn native_try_from_json_string(
         class_hash: ClassHash,
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
         // Redoing work from compile because we can't get the
-        let start = std::time::Instant::now();
+        // if persist_from_native_module we can move this together with with_gas
         let program_registry = ProgramRegistry::new(sierra_program).unwrap();
-        let has_gas_builtin = sierra_program
-            .type_declarations
-            .iter()
-            .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
 
-        let gas_metadata = if has_gas_builtin {
-            cairo_native::metadata::gas::GasMetadata::new(
-                sierra_program,
-                Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
-            )
-        } else {
-            cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
-        }?;
-        println!(
-            "program registry + gas duration: {}ms",
-            start.elapsed().as_millis()
-        );
-
-        let start = std::time::Instant::now();
         // TODO(xrvdg) choose where you want to have the directory
         let mut library_path = std::env::current_dir().unwrap();
         library_path.push("native_cache");
@@ -275,30 +257,48 @@ fn native_try_from_json_string(
         // TODO(xrvdg) class hash without
         library_path.push(class_hash.to_string());
 
-        println!("library_path duration: {}ms", start.elapsed().as_millis());
-
-        let start = std::time::Instant::now();
+        // let start = std::time::Instant::now();
         // TODO(xrvdg) check if shared object is already in memory
         // RTLD_NOLOAD on library, Windows seems to have something similar
-        if !library_path.is_file() {
+        // TODO(xrvdg) not incurring the cost of gas creation twice
+        // get it into this part
+        let gas_metadata = if !library_path.is_file() {
             println!("compiling {}", library_path.display());
+            // This is from_native_module
             let native_context = cairo_native::context::NativeContext::new();
-            let native_module = native_context.compile(sierra_program, None)?;
+            let mut native_module = native_context.compile(sierra_program, None)?;
             let opt_level = cairo_native::OptLevel::Default;
             let object_data =
                 cairo_native::module_to_object(native_module.module(), opt_level).unwrap();
             cairo_native::object_to_shared_lib(&object_data, &library_path).unwrap();
-        }
-        println!("is_file duration: {}ms", start.elapsed().as_millis());
+            native_module.remove_metadata().unwrap()
+        } else {
+            // Taken from [cairo_native::context::compile]
+            let has_gas_builtin = sierra_program
+                .type_declarations
+                .iter()
+                .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
+
+            // creating the gas metadata is kind of expensive, but still cheaper than creating a native module
+            let gas_metadata = if has_gas_builtin {
+                cairo_native::metadata::gas::GasMetadata::new(
+                    sierra_program,
+                    Some(cairo_native::metadata::gas::MetadataComputationConfig::default()),
+                )
+            } else {
+                cairo_native::metadata::gas::GasMetadata::new(sierra_program, None)
+            }?;
+
+            gas_metadata
+        };
+
         println!("Loading {}", library_path.display());
 
-        let start = std::time::Instant::now();
         let aot_native_executor = AotNativeExecutor::new(
             unsafe { Library::new(library_path).unwrap() },
             program_registry,
             gas_metadata,
         );
-        println!("loading duration: {}ms", start.elapsed().as_millis());
 
         Ok(aot_native_executor)
     }
