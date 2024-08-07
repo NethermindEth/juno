@@ -1,7 +1,6 @@
 package tendermint_test
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -109,34 +108,44 @@ func (v *validators) addValidator(addr felt.Felt, power uint) {
 	v.totalVotingPower += power
 }
 
+// Implements Listener[M Message[V, H], V Hashable[H], H Hash] and Broadcasters[V Hashable[H], H Hash, A Addr] interface
+type senderAndReceiver[M tendermint.Message[V, H], V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] struct {
+	mCh chan M
+}
+
+func (r *senderAndReceiver[M, _, _, _]) send(m M) {
+	r.mCh <- m
+}
+
+func (r *senderAndReceiver[M, _, _, _]) Listen() <-chan M {
+	return r.mCh
+}
+
+func (r *senderAndReceiver[M, _, _, _]) Broadcast(msg M) {}
+
+func (r *senderAndReceiver[M, _, _, A]) SendMsg(validatorAddr A, msg M) {}
+
+func newReceiver[M tendermint.Message[V, H], V tendermint.Hashable[H], H tendermint.Hash,
+	A tendermint.Addr]() *senderAndReceiver[M, V, H, A] {
+	return &senderAndReceiver[M, V, H, A]{mCh: make(chan M, 0)}
+}
+
 func TestTendermint(t *testing.T) {
-	//t.Run("initial tendermint state", func(t *testing.T) {
-	//	s := New()
-	//})
-	// Dzes nothing, for now, just here to easily check for compilation issues.
-	tendermint.New[value, felt.Felt, felt.Felt](newApp(), newChain(), newVals())
-	// s := state[value, felt.Felt]{}
-	// assert.Nil(t, s.lockedRound)
+	proposalSenderAndReceiver := newReceiver[tendermint.Proposal[value, felt.Felt], value, felt.Felt, felt.Felt]()
+	prevoteSenderAndReceiver := newReceiver[tendermint.Prevote[felt.Felt], value, felt.Felt, felt.Felt]()
+	precommitSenderAndReceiver := newReceiver[tendermint.Precommit[felt.Felt], value, felt.Felt, felt.Felt]()
 
-	validatorSet := newVals()
-	validatorSet.addValidator(*(new(felt.Felt).SetUint64(1)), 2)
-	validatorSet.addValidator(*(new(felt.Felt).SetUint64(2)), 2)
-	validatorSet.addValidator(*(new(felt.Felt).SetUint64(3)), 2)
-
-	fmt.Println("Initialise validators")
-	fmt.Println("Total voting power:", validatorSet.totalVotingPower)
-	for _, val := range validatorSet.vals {
-		fmt.Println("Validator Addr", val.addr.String(), "power", val.power, "currentWeight", val.currentWeight)
+	listeners := tendermint.Listeners[value, felt.Felt]{
+		ProposalListener:  proposalSenderAndReceiver,
+		PrevoteListener:   prevoteSenderAndReceiver,
+		PrecommitListener: precommitSenderAndReceiver,
 	}
-	fmt.Println()
 
-	for i := 0; i < 30; i++ {
-		fmt.Println("i =", i)
-		p := validatorSet.Proposer(0, 0)
-		fmt.Println("Proposer is", (&p).String())
-		for _, val := range validatorSet.vals {
-			fmt.Println("Validator Addr", val.addr.String(), "power", val.power, "currentWeight", val.currentWeight)
-		}
-		fmt.Println()
+	broadcasters := tendermint.Broadcasters[value, felt.Felt, felt.Felt]{
+		ProposalBroadcaster:  proposalSenderAndReceiver,
+		PrevoteBroadcaster:   prevoteSenderAndReceiver,
+		PrecommitBroadcaster: precommitSenderAndReceiver,
 	}
+
+	tendermint.New[value, felt.Felt, felt.Felt](newApp(), newChain(), newVals(), listeners, broadcasters)
 }

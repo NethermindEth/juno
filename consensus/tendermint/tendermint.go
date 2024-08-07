@@ -65,15 +65,15 @@ type Broadcaster[M Message[V, H], V Hashable[H], H Hash, A Addr] interface {
 }
 
 type Listeners[V Hashable[H], H Hash] struct {
-	proposalListener  Listener[Proposal[V, H], V, H]
-	prevoteListener   Listener[Prevote[H], V, H]
-	precommitListener Listener[Precommit[H], V, H]
+	ProposalListener  Listener[Proposal[V, H], V, H]
+	PrevoteListener   Listener[Prevote[H], V, H]
+	PrecommitListener Listener[Precommit[H], V, H]
 }
 
 type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
-	proposalBroadcaster  Broadcaster[Proposal[V, H], V, H, A]
-	prevoteBroadcaster   Broadcaster[Prevote[H], V, H, A]
-	precommitBroadcaster Broadcaster[Precommit[H], V, H, A]
+	ProposalBroadcaster  Broadcaster[Proposal[V, H], V, H, A]
+	PrevoteBroadcaster   Broadcaster[Prevote[H], V, H, A]
+	PrecommitBroadcaster Broadcaster[Precommit[H], V, H, A]
 }
 
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
@@ -92,17 +92,16 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 
 // Todo: Add Slashers later
 func New[V Hashable[H], H Hash, A Addr](app Application[V, H], chain Blockchain[V, H], vals Validators[A],
-
-// listeners Listeners[V, H], broadcasters Broadcasters[V, H, A],
+	listeners Listeners[V, H], broadcasters Broadcasters[V, H, A],
 ) Tendermint[V, H, A] {
 	return Tendermint[V, H, A]{
-		height:      chain.Height(),
-		state:       state[V, H]{},
-		messages:    newMessages[V, H, A](),
-		application: app,
-		blockchain:  chain,
-		validators:  vals,
-		// listeners:    listeners,
-		// broadcasters: broadcasters,
+		height:       chain.Height(),
+		state:        state[V, H]{},
+		messages:     newMessages[V, H, A](),
+		application:  app,
+		blockchain:   chain,
+		validators:   vals,
+		listeners:    listeners,
+		broadcasters: broadcasters,
 	}
 }
