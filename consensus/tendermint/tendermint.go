@@ -1,6 +1,20 @@
 package tendermint
 
-import "github.com/NethermindEth/juno/core/felt"
+import (
+	"time"
+
+	"github.com/NethermindEth/juno/core/felt"
+)
+
+type step uint
+
+const (
+	propose step = iota
+	prevote
+	precommit
+)
+
+type timeoutFn func(round uint) time.Duration
 
 type Addr interface {
 	// Ethereum Addresses are 20 bytes
@@ -77,10 +91,15 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
-	// Todo: Does state need to be protected?
+	nodeAddr A
+
 	height   uint
-	state    state[V, H]
+	state    state[V, H] // Todo: Does state need to be protected?
 	messages messages[V, H, A]
+
+	timeoutPropose   timeoutFn
+	timeoutPrevote   timeoutFn
+	timeoutPrecommit timeoutFn
 
 	application Application[V, H]
 	blockchain  Blockchain[V, H]
@@ -90,18 +109,107 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 	broadcasters Broadcasters[V, H, A]
 }
 
+type state[V Hashable[H], H Hash] struct {
+	round uint
+	step  step
+
+	lockedValue *V
+	validValue  *V
+
+	// The default value of lockedRound and validRound is -1. However, using int for one value is not good use of space,
+	// therefore, uint is used and nil would represent -1.
+	lockedRound *uint
+	validRound  *uint
+
+	// The following are round level variable therefore when a round changes they must be reset.
+	line34Executed bool
+	line36Executed bool
+	line47Executed bool
+}
+
 // Todo: Add Slashers later
-func New[V Hashable[H], H Hash, A Addr](app Application[V, H], chain Blockchain[V, H], vals Validators[A],
-	listeners Listeners[V, H], broadcasters Broadcasters[V, H, A],
-) Tendermint[V, H, A] {
-	return Tendermint[V, H, A]{
-		height:       chain.Height(),
-		state:        state[V, H]{},
-		messages:     newMessages[V, H, A](),
-		application:  app,
-		blockchain:   chain,
-		validators:   vals,
-		listeners:    listeners,
-		broadcasters: broadcasters,
+func New[V Hashable[H], H Hash, A Addr](addr A, app Application[V, H], chain Blockchain[V, H], vals Validators[A],
+	listeners Listeners[V, H], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
+) *Tendermint[V, H, A] {
+	return &Tendermint[V, H, A]{
+		nodeAddr:         addr,
+		height:           chain.Height(),
+		state:            state[V, H]{},
+		messages:         newMessages[V, H, A](),
+		timeoutPropose:   tmPropose,
+		timeoutPrevote:   tmPrevote,
+		timeoutPrecommit: tmPrecommit,
+		application:      app,
+		blockchain:       chain,
+		validators:       vals,
+		listeners:        listeners,
+		broadcasters:     broadcasters,
 	}
 }
+
+func (t *Tendermint[V, H, A]) Start() {
+	go t.startRound(0)
+
+	for {
+		select {
+		// case proposal := <-t.listeners.ProposalListener.Listen():
+		// case prevote := <-t.listeners.PrevoteListener.Listen():
+		// case precommit := <-t.listeners.PrecommitListener.Listen():
+		// todo: deal with timeouts here?
+		}
+	}
+}
+
+func (t *Tendermint[V, H, A]) startRound(r uint) {
+	if r <= t.state.round {
+		return
+	}
+
+	t.state.round = r
+	t.state.step = propose
+
+	t.state.line34Executed = false
+	t.state.line36Executed = false
+	t.state.line47Executed = false
+
+	if t.validators.Proposer(t.height, r) == t.nodeAddr {
+		var proposalValue *V
+		if t.state.validValue != nil {
+			proposalValue = t.state.validValue
+		} else {
+			v := t.application.Value()
+			proposalValue = &v
+		}
+
+		proposalMessage := Proposal[V, H]{
+			height:     t.height,
+			round:      r,
+			validRound: t.state.validRound,
+			value:      proposalValue,
+		}
+
+		t.broadcasters.ProposalBroadcaster.Broadcast(proposalMessage)
+	} else {
+		// Todo: do timeout need to be cancelled?
+		time.AfterFunc(t.timeoutPropose(r), func() { t.OnTimeoutPropose(t.height, r) })
+	}
+}
+
+func (t *Tendermint[_, H, _]) OnTimeoutPropose(h, r uint) {
+	if t.height == h && t.state.round == r && t.state.step == propose {
+		t.broadcasters.PrevoteBroadcaster.Broadcast(Prevote[H]{
+			vote: vote[H]{
+				height: t.height,
+				round:  t.state.round,
+				id:     nil,
+			},
+		})
+		t.state.step = prevote
+	}
+}
+
+func (t *Tendermint[_, _, _]) OnTimeoutPrevote() {
+	// To be executed after prevoteTimeout expiry
+}
+
+func (t *Tendermint[_, _, _]) OnTimeoutPrecommit() {}

@@ -8,7 +8,7 @@ type Proposal[V Hashable[H], H Hash] struct {
 	height     uint
 	round      uint
 	validRound *uint
-	value      V
+	value      *V
 }
 
 type Prevote[H Hash] struct {
@@ -22,7 +22,7 @@ type Precommit[H Hash] struct {
 type vote[H Hash] struct {
 	height uint
 	round  uint
-	id     H
+	id     *H
 }
 
 // messages keep tracks of all the proposals, prevotes, precommits by creating a map structure as follows:

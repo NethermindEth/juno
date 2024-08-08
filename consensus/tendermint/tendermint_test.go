@@ -3,6 +3,7 @@ package tendermint_test
 import (
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/core/felt"
@@ -146,6 +147,9 @@ func TestTendermint(t *testing.T) {
 		PrevoteBroadcaster:   prevoteSenderAndReceiver,
 		PrecommitBroadcaster: precommitSenderAndReceiver,
 	}
+	nodeAddr := new(felt.Felt).SetBytes([]byte("my node address"))
+	tm := func(r uint) time.Duration { return time.Duration(r) * time.Millisecond }
 
-	tendermint.New[value, felt.Felt, felt.Felt](newApp(), newChain(), newVals(), listeners, broadcasters)
+	tendermint.New[value, felt.Felt, felt.Felt](*nodeAddr, newApp(), newChain(), newVals(), listeners, broadcasters,
+		tm, tm, tm)
 }
