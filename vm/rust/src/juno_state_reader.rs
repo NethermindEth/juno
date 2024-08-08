@@ -155,15 +155,12 @@ impl StateReader for JunoStateReader {
                 return Ok(cached_class.definition.clone());
             }
         }
-        // lower number than previously cached or no cache
-        // but same block will trigger a lot of loading
 
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
         let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
-            // Invariant here we know that the contract does exist comparatively our reference block.
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
             let class_info_res = class_info_from_json_str(json_str, class_hash);
             if let Ok(class_info) = &class_info_res {
@@ -213,8 +210,8 @@ pub struct ClassInfo {
     abi_length: usize,
 }
 
-// todo(xrvdg) This should be private to juno state manager now it bypasses the cache
-// when used for declare_transactions
+// todo(xrvdg) This should be private to juno state manager that way
+// caching can also be used for declare_transactions
 pub fn class_info_from_json_str(
     raw_json: &str,
     class_hash: ClassHash,
@@ -223,7 +220,7 @@ pub fn class_info_from_json_str(
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
 
-    // todo(xrvdg) Throws away errors
+    // todo(xrvdg) Don't throw away errors
     let class: ContractClass =
         if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
             class.into()
@@ -248,6 +245,11 @@ pub fn class_info_from_json_str(
 
 /// Compiled Native contracts
 
+/// Load a compiled native contract into memory
+///
+/// Tries to load the compiled contract class from library_output_path if it
+/// exists, otherwise it will compile the raw_contract_class, load it into memory
+/// and save the compilation artifact to library_output_path.
 fn native_try_from_json_string(
     raw_contract_class: &str,
     library_output_path: &PathBuf,
@@ -283,8 +285,10 @@ fn native_try_from_json_string(
 }
 
 /// Load a contract that is already compiled.
-/// If the contract still has to be compiled, use [persist_from_native_module] instead, it compiles and load.
-/// The reason for these to be like this is that there are expensive computations that on compiling is already available.
+///
+/// Returns None if the contract does not exist at the output_path.
+///
+/// To compile and load a contract use [persist_from_native_module] instead.
 fn load_compiled_contract(
     sierra_program: &Program,
     library_output_path: &PathBuf,
@@ -310,14 +314,13 @@ fn load_compiled_contract(
         ))
     }
 
-    match library_output_path.is_file() {
-        true => Some(load(sierra_program, library_output_path)),
-        false => None,
-    }
+    library_output_path
+        .is_file()
+        .then_some(load(sierra_program, library_output_path))
 }
 
 // todo(xrvdg) once [class_info_from_json_str] is part of JunoStateReader
-// setup can move there
+// setup can move there.
 lazy_static! {
     static ref JUNO_NATIVE_CACHE_DIR: PathBuf = setup_native_cache_dir();
 }
@@ -341,7 +344,6 @@ fn setup_native_cache_dir() -> PathBuf {
 
 fn generate_library_path(class_hash: ClassHash) -> PathBuf {
     let mut path = JUNO_NATIVE_CACHE_DIR.clone();
-
     path.push(class_hash.to_string().trim_start_matches("0x"));
     path
 }
@@ -365,8 +367,7 @@ fn persist_from_native_module(
         .remove_metadata()
         .expect("native_module should have set gas_metadata");
 
-    // Native Module also contains the program registry but we can't unpack it.
-    // luckily it's cheap to create
+    // Recreate the program registry as it can't be moved out of native module.
     let program_registry = ProgramRegistry::new(sierra_program)?;
 
     let library = unsafe {
