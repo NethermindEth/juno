@@ -330,11 +330,13 @@ fn load_compiled_contract(
     }
 }
 
-//
-// todo(xrvdg) lift out generate_library_path can be put in juno state reader
-fn generate_library_path(class_hash: ClassHash) -> PathBuf {
-    // TODO(xrvdg) ideally we would pass around a config parameter. Can't capture initialization order
-    // make this a lazy static
+// todo(xrvdg) once [class_info_from_json_str] is part of JunoStateReader
+// setup can move there
+lazy_static! {
+    static ref JUNO_NATIVE_CACHE_DIR: PathBuf = setup_native_cache_dir();
+}
+
+fn setup_native_cache_dir() -> PathBuf {
     let mut path: PathBuf = match std::env::var("JUNO_NATIVE_CACHE_DIR") {
         Ok(path) => path.into(),
         Err(_err) => {
@@ -343,10 +345,16 @@ fn generate_library_path(class_hash: ClassHash) -> PathBuf {
             path
         }
     };
-    // Cache invalidation strategy is
+    // The cache is invalidated by moving to a new native revision.
+    // This environment variable is a compile time variable and set
+    // by build.rs
     path.push(env!("NATIVE_VERSION"));
-    // TODO(xrvdg) don't create directory on every compile. It isn't expensive but doesn't feel right
     let _ = fs::create_dir_all(&path);
+    path
+}
+
+fn generate_library_path(class_hash: ClassHash) -> PathBuf {
+    let mut path = JUNO_NATIVE_CACHE_DIR.clone();
 
     path.push(class_hash.to_string().trim_start_matches("0x"));
     path
