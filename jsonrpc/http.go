@@ -1,6 +1,7 @@
 package jsonrpc
 
 import (
+	"maps"
 	"net/http"
 
 	"github.com/NethermindEth/juno/utils"
@@ -46,8 +47,11 @@ func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	h.listener.OnNewRequest("any")
-	resp, err := h.rpc.HandleReader(req.Context(), req.Body)
+	resp, header, err := h.rpc.HandleReader(req.Context(), req.Body)
+
 	writer.Header().Set("Content-Type", "application/json")
+	maps.Copy(writer.Header(), header) // overwrites duplicate headers
+
 	if err != nil {
 		h.log.Errorw("Handler failure", "err", err)
 		writer.WriteHeader(http.StatusInternalServerError)
