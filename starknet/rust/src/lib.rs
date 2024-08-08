@@ -6,23 +6,22 @@ use std::ffi::{c_char, CStr, CString};
 pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char) -> *mut c_char {
     let sierra_json_str = unsafe { CStr::from_ptr(sierra_json) }.to_str().unwrap();
 
-    let sierra_class = serde_json::from_str(sierra_json_str).map_err(|err| err.to_string());
-    if let Err(e) = sierra_class {
-        return raw_cstr(e);
-    }
+    let sierra_class = match serde_json::from_str(sierra_json_str) {
+        Ok(value) => value,
+        Err(e) => return raw_cstr(e.to_string()),
+    };
 
-    let casm_class =
-        CasmContractClass::from_contract_class(sierra_class.unwrap(), true, usize::MAX)
-            .map_err(|err| err.to_string());
-    if let Err(e) = casm_class {
-        return raw_cstr(e);
-    }
+    let casm_class = match CasmContractClass::from_contract_class(sierra_class, true, usize::MAX) {
+        Ok(value) => value,
+        Err(e) => return raw_cstr(e.to_string()),
+    };
 
-    let casm_json = serde_json::to_string(&casm_class.unwrap());
-    if let Err(e) = casm_json {
-        return raw_cstr(e.to_string());
-    }
-    raw_cstr(casm_json.unwrap())
+    let casm_json = match serde_json::to_string(&casm_class) {
+        Ok(value) => value,
+        Err(e) => return raw_cstr(e.to_string()),
+    };
+
+    raw_cstr(casm_json)
 }
 
 fn raw_cstr(str: String) -> *mut c_char {
