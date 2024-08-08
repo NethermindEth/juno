@@ -273,28 +273,14 @@ fn native_try_from_json_string(
 
     // todo(xrvdg) lift this match out of the function once we do not need sierra_program anymore
     let executor = match load_compiled_contract(&sierra_program, library_output_path) {
-        Ok(executor) => Ok(executor),
-        Err(LoadError::NotFound) => compile_and_load(sierra_program, library_output_path),
-        Err(LoadError::Native(_err)) => {
-            // todo(xrvdg) add warning message
-            compile_and_load(sierra_program, library_output_path)
+        Some(executor) => {
+            executor.or_else(|_err| compile_and_load(sierra_program, library_output_path))
         }
+        None => compile_and_load(sierra_program, library_output_path),
     }?;
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
 }
-
-enum LoadError {
-    NotFound,
-    Native(NativeError),
-}
-
-impl From<NativeError> for LoadError {
-    fn from(value: NativeError) -> Self {
-        LoadError::Native(value)
-    }
-}
-// todo(xrvdg) Error implementation
 
 /// Load a contract that is already compiled.
 /// If the contract still has to be compiled, use [persist_from_native_module] instead, it compiles and load.
@@ -302,7 +288,7 @@ impl From<NativeError> for LoadError {
 fn load_compiled_contract(
     sierra_program: &Program,
     library_output_path: &PathBuf,
-) -> Result<AotNativeExecutor, LoadError> {
+) -> Option<Result<AotNativeExecutor, NativeError>> {
     fn load(
         sierra_program: &Program,
         library_output_path: &PathBuf,
@@ -325,8 +311,8 @@ fn load_compiled_contract(
     }
 
     match library_output_path.is_file() {
-        true => Ok(load(sierra_program, library_output_path)?),
-        false => Err(LoadError::NotFound),
+        true => Some(load(sierra_program, library_output_path)),
+        false => None,
     }
 }
 
