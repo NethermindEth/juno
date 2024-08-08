@@ -211,6 +211,61 @@ func (x *DeclaredClass) GetCompiledClassHash() *Hash {
 	return nil
 }
 
+type Classes struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Domain  uint32   `protobuf:"varint,1,opt,name=domain,proto3" json:"domain,omitempty"`
+	Classes []*Class `protobuf:"bytes,2,rep,name=classes,proto3" json:"classes,omitempty"`
+}
+
+func (x *Classes) Reset() {
+	*x = Classes{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_state_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Classes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Classes) ProtoMessage() {}
+
+func (x *Classes) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_state_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Classes.ProtoReflect.Descriptor instead.
+func (*Classes) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_state_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Classes) GetDomain() uint32 {
+	if x != nil {
+		return x.Domain
+	}
+	return 0
+}
+
+func (x *Classes) GetClasses() []*Class {
+	if x != nil {
+		return x.Classes
+	}
+	return nil
+}
+
 type StateDiffsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
