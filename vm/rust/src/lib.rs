@@ -351,14 +351,10 @@ pub extern "C" fn cairoVMExecute(
 
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
-                if trace.is_err() {
+                if let Err(e) = trace {
                     report_error(
                         reader_handle,
-                        format!(
-                            "failed building txn state diff reason: {:?}",
-                            trace.err().unwrap()
-                        )
-                        .as_str(),
+                        format!("failed building txn state diff reason: {:?}", e).as_str(),
                         txn_index as i64,
                     );
                     return;
