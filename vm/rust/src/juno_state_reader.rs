@@ -221,6 +221,7 @@ pub fn class_info_from_json_str(
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
 
+    // Throws away error
     let class: ContractClass =
         if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
             class.into()
@@ -228,7 +229,7 @@ pub fn class_info_from_json_str(
             class.into()
         } else if let Ok(class) = {
             let library_output_path = generate_library_path(class_hash);
-            native_try_from_json_string(class_def.as_str(), &library_output_path)
+            compile_native_contract(class_def.as_str(), &library_output_path)
         } {
             class.into()
         } else {
@@ -243,29 +244,17 @@ pub fn class_info_from_json_str(
     .map_err(|err| err.to_string());
 }
 
-fn native_try_from_json_string(
+fn compile_native_contract(
     raw_contract_class: &str,
     library_output_path: &PathBuf,
 ) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
-    // Compile the Sierra Program to native code and loads it into the process'
-    // memory space.
     fn compile_and_load(
-        sierra_program: &Program,
+        sierra_program: Program,
         library_output_path: &PathBuf,
-    ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
-        // Loading a library is so fast that we do not check if it's already loaded in memory.
-        // Therefore we only check whether the library exists on disk
-        if !library_output_path.is_file() {
-            // library not found compile
-            println!("compiling {}", library_output_path.display());
-            let native_context = NativeContext::new();
-            let native_module = native_context.compile(sierra_program, None)?;
-            persist_from_native_module(native_module, sierra_program, library_output_path)
-        } else {
-            // TODO(xrvdg) can be lifted out once we have sierra_program
-            // Add check to compiled contract and use that result to do compiling
-            load_compiled_contract(sierra_program, library_output_path)
-        }
+    ) -> Result<AotNativeExecutor, NativeError> {
+        let native_context = NativeContext::new();
+        let native_module = native_context.compile(&sierra_program, None)?;
+        persist_from_native_module(native_module, &sierra_program, library_output_path)
     }
 
     let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
@@ -277,10 +266,31 @@ fn native_try_from_json_string(
     //   2. Refactoring the code on the Cairo mono-repo
 
     let sierra_program = sierra_contract_class.extract_sierra_program()?;
-    let executor = compile_and_load(&sierra_program, library_output_path)?;
+
+    // todo(xrvdg) lift this match out of the function once we do not need sierra_program anymore
+    let executor = match load_compiled_contract(&sierra_program, library_output_path) {
+        Ok(executor) => Ok(executor),
+        Err(LoadError::NotFound) => compile_and_load(sierra_program, library_output_path),
+        Err(LoadError::Native(_err)) => {
+            // todo(xrvdg) add warning message
+            compile_and_load(sierra_program, library_output_path)
+        }
+    }?;
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
 }
+
+enum LoadError {
+    NotFound,
+    Native(NativeError),
+}
+
+impl From<NativeError> for LoadError {
+    fn from(value: NativeError) -> Self {
+        LoadError::Native(value)
+    }
+}
+// todo(xrvdg) Error implementation
 
 /// Load a contract that is already compiled.
 /// If the contract still has to be compiled, use [persist_from_native_module] instead, it compiles and load.
@@ -288,27 +298,32 @@ fn native_try_from_json_string(
 fn load_compiled_contract(
     sierra_program: &Program,
     library_output_path: &PathBuf,
-) -> Result<AotNativeExecutor, NativeError> {
-    // Gas calculation taken from [cairo_native::context::compile] and edited for brevity
-    let has_gas_builtin = sierra_program
-        .type_declarations
-        .iter()
-        .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
-    let config = has_gas_builtin.then_some(Default::default());
-    // TODO(xrvdg) This call is what makes loading a compiled contract expensive, is there a way around it?
-    let gas_metadata = GasMetadata::new(sierra_program, config)?;
+) -> Result<AotNativeExecutor, LoadError> {
+    fn load(
+        sierra_program: &Program,
+        library_output_path: &PathBuf,
+    ) -> Result<AotNativeExecutor, NativeError> {
+        let has_gas_builtin = sierra_program
+            .type_declarations
+            .iter()
+            .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
+        let config = has_gas_builtin.then_some(Default::default());
+        let gas_metadata = GasMetadata::new(sierra_program, config)?;
+        let program_registry = ProgramRegistry::new(sierra_program)?;
+        let library = unsafe {
+            Library::new(library_output_path).map_err(|err| NativeError::Error(err.to_string()))?
+        };
+        Ok(AotNativeExecutor::new(
+            library,
+            program_registry,
+            gas_metadata,
+        ))
+    }
 
-    let program_registry = ProgramRegistry::new(sierra_program)?;
-
-    let library = unsafe {
-        Library::new(library_output_path).map_err(|err| NativeError::Error(err.to_string()))?
-    };
-
-    Ok(AotNativeExecutor::new(
-        library,
-        program_registry,
-        gas_metadata,
-    ))
+    match library_output_path.is_file() {
+        true => Ok(load(sierra_program, library_output_path)?),
+        false => Err(LoadError::NotFound),
+    }
 }
 
 //
