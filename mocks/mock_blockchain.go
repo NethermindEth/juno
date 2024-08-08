@@ -118,6 +118,21 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderByNumber), arg0)
 }
 
+// BlockP2PHashByNumber mocks base method.
+func (m *MockReader) BlockP2PHashByNumber(arg0 uint64) (*felt.Felt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockP2PHashByNumber", arg0)
+	ret0, _ := ret[0].(*felt.Felt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BlockP2PHashByNumber indicates an expected call of BlockP2PHashByNumber.
+func (mr *MockReaderMockRecorder) BlockP2PHashByNumber(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockP2PHashByNumber", reflect.TypeOf((*MockReader)(nil).BlockP2PHashByNumber), arg0)
+}
+
 // EventFilter mocks base method.
 func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 [][]felt.Felt) (*blockchain.EventFilter, error) {
 	m.ctrl.T.Helper()
