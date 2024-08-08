@@ -409,26 +409,25 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64)
 	go func() {
 		defer close(headersAndSigCh)
 
-		headersIt(func(res *spec.BlockHeadersResponse) bool {
+	loop:
+		for res := range headersIt {
 			headerAndSig := specBlockHeaderAndSigs{}
 			switch v := res.HeaderMessage.(type) {
 			case *spec.BlockHeadersResponse_Header:
 				headerAndSig.header = v.Header
 			case *spec.BlockHeadersResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected HeaderMessage from getBlockHeaders", "v", v)
-				return false
+				break loop
 			}
 
 			select {
 			case <-ctx.Done():
-				return false
+				break
 			case headersAndSigCh <- headerAndSig:
 			}
-
-			return true
-		})
+		}
 	}()
 
 	return headersAndSigCh, nil
@@ -455,18 +454,18 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 		defer close(classesCh)
 
 		var classes []*spec.Class
-		classesIt(func(res *spec.ClassesResponse) bool {
+	loop:
+		for res := range classesIt {
 			switch v := res.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
 				classes = append(classes, v.Class)
-				return true
 			case *spec.ClassesResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
 
 		select {
 		case <-ctx.Done():
@@ -501,21 +500,21 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 		defer close(stateDiffsCh)
 
 		var contractDiffs []*spec.ContractDiff
-		stateDiffsIt(func(res *spec.StateDiffsResponse) bool {
+
+	loop:
+		for res := range stateDiffsIt {
 			switch v := res.StateDiffMessage.(type) {
 			case *spec.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
-				return true
 			case *spec.StateDiffsResponse_DeclaredClass:
 				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
-				return true
 			case *spec.StateDiffsResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getStateDiffs", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
 
 		select {
 		case <-ctx.Done():
@@ -549,18 +548,19 @@ func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan
 		defer close(eventsCh)
 
 		var events []*spec.Event
-		eventsIt(func(res *spec.EventsResponse) bool {
+
+	loop:
+		for res := range eventsIt {
 			switch v := res.EventMessage.(type) {
 			case *spec.EventsResponse_Event:
 				events = append(events, v.Event)
-				return true
 			case *spec.EventsResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected EventMessage from getEvents", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
 
 		select {
 		case <-ctx.Done():
@@ -598,20 +598,21 @@ func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (
 			transactions []*spec.Transaction
 			receipts     []*spec.Receipt
 		)
-		txsIt(func(res *spec.TransactionsResponse) bool {
+
+	loop:
+		for res := range txsIt {
 			switch v := res.TransactionMessage.(type) {
 			case *spec.TransactionsResponse_TransactionWithReceipt:
 				txWithReceipt := v.TransactionWithReceipt
 				transactions = append(transactions, txWithReceipt.Transaction)
 				receipts = append(receipts, txWithReceipt.Receipt)
-				return true
 			case *spec.TransactionsResponse_Fin:
-				return false
+				break loop
 			default:
 				s.log.Warnw("Unexpected TransactionMessage from getTransactions", "v", v)
-				return false
+				break loop
 			}
-		})
+		}
 
 		s.log.Debugw("Transactions length", "len", len(transactions))
 		spexTxs := specTxWithReceipts{

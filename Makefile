@@ -1,5 +1,8 @@
 .DEFAULT_GOAL := help
 
+#TODO remove it after updating to Go 1.23
+export GOEXPERIMENT=rangefunc
+
 .PHONY: vm
 
 ifeq ($(VM_DEBUG),true)
