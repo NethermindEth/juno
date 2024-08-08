@@ -226,11 +226,15 @@ pub fn class_info_from_json_str(
             class.into()
         } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
             class.into()
-        } else if let Ok(class) = native_try_from_json_string(class_def.as_str(), class_hash) {
+        } else if let Ok(class) = {
+            let library_output_path = generate_library_path(class_hash);
+            native_try_from_json_string(class_def.as_str(), &library_output_path)
+        } {
             class.into()
         } else {
             return Err("not a valid contract class".to_string());
         };
+
     return BlockifierClassInfo::new(
         &class.into(),
         class_info.sierra_program_length,
@@ -241,16 +245,14 @@ pub fn class_info_from_json_str(
 
 fn native_try_from_json_string(
     raw_contract_class: &str,
-    class_hash: ClassHash,
+    library_output_path: &PathBuf,
 ) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
     // Compile the Sierra Program to native code and loads it into the process'
     // memory space.
     fn compile_and_load(
         sierra_program: &Program,
-        class_hash: ClassHash,
+        library_output_path: &PathBuf,
     ) -> Result<AotNativeExecutor, cairo_native::error::Error> {
-        let library_output_path = generate_library_path(class_hash);
-
         // Loading a library is so fast that we do not check if it's already loaded in memory.
         // Therefore we only check whether the library exists on disk
         if !library_output_path.is_file() {
@@ -258,8 +260,10 @@ fn native_try_from_json_string(
             println!("compiling {}", library_output_path.display());
             let native_context = NativeContext::new();
             let native_module = native_context.compile(sierra_program, None)?;
-            persist_from_native_module(native_module, sierra_program, &library_output_path)
+            persist_from_native_module(native_module, sierra_program, library_output_path)
         } else {
+            // TODO(xrvdg) can be lifted out once we have sierra_program
+            // Add check to compiled contract and use that result to do compiling
             load_compiled_contract(sierra_program, library_output_path)
         }
     }
@@ -273,7 +277,7 @@ fn native_try_from_json_string(
     //   2. Refactoring the code on the Cairo mono-repo
 
     let sierra_program = sierra_contract_class.extract_sierra_program()?;
-    let executor = compile_and_load(&sierra_program, class_hash)?;
+    let executor = compile_and_load(&sierra_program, library_output_path)?;
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
 }
@@ -283,7 +287,7 @@ fn native_try_from_json_string(
 /// The reason for these to be like this is that there are expensive computations that on compiling is already available.
 fn load_compiled_contract(
     sierra_program: &Program,
-    library_output_path: PathBuf,
+    library_output_path: &PathBuf,
 ) -> Result<AotNativeExecutor, NativeError> {
     // Gas calculation taken from [cairo_native::context::compile] and edited for brevity
     let has_gas_builtin = sierra_program
@@ -307,7 +311,10 @@ fn load_compiled_contract(
     ))
 }
 
+//
+// lift out generate_library_path
 fn generate_library_path(class_hash: ClassHash) -> PathBuf {
+    // TODO(xrvdg) ideally we would pass around a config parameter. Can't capture initialization order
     let mut path: PathBuf = match std::env::var("JUNO_NATIVE_CACHE_DIR") {
         Ok(path) => path.into(),
         Err(_err) => {
@@ -317,22 +324,24 @@ fn generate_library_path(class_hash: ClassHash) -> PathBuf {
         }
     };
 
+    // Cache invalidation strategy is
     path.push(env!("NATIVE_VERSION"));
+
     // TODO(xrvdg) don't create directory on every compile. It isn't expensive but doesn't feel right
     let _ = fs::create_dir_all(&path);
-    // TODO(xrvdg) class hash without
-    path.push(class_hash.to_string());
+    path.push(class_hash.to_string().trim_start_matches("0x"));
     path
 }
 
 /// Compiles and load contract
-// Once we upstream we can remove the sierra_program argument
-// [AotNativeExecutor::from_native_module]
+///
+/// Modelled after [AotNativeExecutor::from_native_module].
+/// Needs a sierra_program to workaround limitations of NativeModule
 fn persist_from_native_module(
     mut native_module: NativeModule,
     sierra_program: &Program,
     library_output_path: &PathBuf,
-) -> Result<AotNativeExecutor, cairo_native::error::Error> {
+) -> Result<AotNativeExecutor, NativeError> {
     let object_data = cairo_native::module_to_object(native_module.module(), Default::default())
         .map_err(|err| NativeError::LLVMCompileError(err.to_string()))?; // cairo native didn't include a from instance
 
