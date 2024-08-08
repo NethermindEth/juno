@@ -231,12 +231,12 @@ pub fn class_info_from_json_str(
         } else {
             return Err("not a valid contract class".to_string());
         };
-    return Ok(BlockifierClassInfo::new(
+    return BlockifierClassInfo::new(
         &class.into(),
         class_info.sierra_program_length,
         class_info.abi_length,
     )
-    .unwrap());
+    .map_err(|err| err.to_string());
 }
 
 fn native_try_from_json_string(
@@ -308,9 +308,15 @@ fn load_compiled_contract(
 }
 
 fn generate_library_path(class_hash: ClassHash) -> PathBuf {
-    // TODO(xrvdg) choose where you want to have the directory
-    let mut path = std::env::current_dir().unwrap();
-    path.push("native_cache");
+    let mut path: PathBuf = match std::env::var("JUNO_NATIVE_CACHE_DIR") {
+        Ok(path) => path.into(),
+        Err(_err) => {
+            let mut path = std::env::current_dir().unwrap();
+            path.push("native_cache");
+            path
+        }
+    };
+
     path.push(env!("NATIVE_VERSION"));
     // TODO(xrvdg) don't create directory on every compile. It isn't expensive but doesn't feel right
     let _ = fs::create_dir_all(&path);
@@ -321,6 +327,7 @@ fn generate_library_path(class_hash: ClassHash) -> PathBuf {
 
 /// Compiles and load contract
 // Once we upstream we can remove the sierra_program argument
+// [AotNativeExecutor::from_native_module]
 fn persist_from_native_module(
     mut native_module: NativeModule,
     sierra_program: &Program,
