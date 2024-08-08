@@ -213,6 +213,8 @@ pub struct ClassInfo {
     abi_length: usize,
 }
 
+// todo(xrvdg) This should be private to juno state manager now it bypasses the cache
+// when used for declare_transactions
 pub fn class_info_from_json_str(
     raw_json: &str,
     class_hash: ClassHash,
@@ -221,7 +223,7 @@ pub fn class_info_from_json_str(
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
 
-    // Throws away error
+    // todo(xrvdg) Throws away errors
     let class: ContractClass =
         if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
             class.into()
@@ -229,7 +231,7 @@ pub fn class_info_from_json_str(
             class.into()
         } else if let Ok(class) = {
             let library_output_path = generate_library_path(class_hash);
-            compile_native_contract(class_def.as_str(), &library_output_path)
+            native_try_from_json_string(class_def.as_str(), &library_output_path)
         } {
             class.into()
         } else {
@@ -237,14 +239,16 @@ pub fn class_info_from_json_str(
         };
 
     return BlockifierClassInfo::new(
-        &class.into(),
+        &class,
         class_info.sierra_program_length,
         class_info.abi_length,
     )
     .map_err(|err| err.to_string());
 }
 
-fn compile_native_contract(
+/// Compiled Native contracts
+
+fn native_try_from_json_string(
     raw_contract_class: &str,
     library_output_path: &PathBuf,
 ) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
@@ -327,9 +331,10 @@ fn load_compiled_contract(
 }
 
 //
-// lift out generate_library_path
+// todo(xrvdg) lift out generate_library_path can be put in juno state reader
 fn generate_library_path(class_hash: ClassHash) -> PathBuf {
     // TODO(xrvdg) ideally we would pass around a config parameter. Can't capture initialization order
+    // make this a lazy static
     let mut path: PathBuf = match std::env::var("JUNO_NATIVE_CACHE_DIR") {
         Ok(path) => path.into(),
         Err(_err) => {
@@ -338,12 +343,11 @@ fn generate_library_path(class_hash: ClassHash) -> PathBuf {
             path
         }
     };
-
     // Cache invalidation strategy is
     path.push(env!("NATIVE_VERSION"));
-
     // TODO(xrvdg) don't create directory on every compile. It isn't expensive but doesn't feel right
     let _ = fs::create_dir_all(&path);
+
     path.push(class_hash.to_string().trim_start_matches("0x"));
     path
 }
