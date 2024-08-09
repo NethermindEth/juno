@@ -61,3 +61,45 @@ func TestThrottler(t *testing.T) {
 	wg.Wait()
 	assert.Equal(t, int64(4), runCount)
 }
+
+func FuzzThrottler(f *testing.F) {
+	f.Fuzz(func(t *testing.T, concurrencyBudget uint, resource int) {
+		throttledRes := utils.NewThrottler(concurrencyBudget, &resource)
+		wg := &sync.WaitGroup{}
+		waitOn := make(chan struct{})
+		var ranCount uint32
+
+		doer := func(ptr *int) error {
+			if ptr == nil {
+				return errors.New("nilptr")
+			}
+			<-waitOn
+			atomic.AddUint32(&ranCount, 1)
+			return nil
+		}
+
+		do := func() {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				require.NoError(t, throttledRes.Do(doer))
+			}()
+			time.Sleep(time.Millisecond)
+		}
+
+		for i := 0; i < int(concurrencyBudget); i++ {
+			do()
+		}
+		assert.Equal(t, 0, throttledRes.QueueLen(), "queue should be empty")
+		do()
+		assert.Equal(t, 1, throttledRes.QueueLen(), "queue should be 1")
+
+		for i := 0; i < int(concurrencyBudget+1); i++ {
+			waitOn <- struct{}{}
+		}
+
+		wg.Wait()
+		assert.Equal(t, 0, throttledRes.QueueLen(), "queue should be empty")
+		assert.Equal(t, int(concurrencyBudget)+1, int(atomic.LoadUint32(&ranCount)), "ranCount should be concurrencyBudget+1")
+	})
+}
