@@ -349,13 +349,7 @@ func (s *syncService) adaptAndSanityCheckBlock(
 
 			newClasses := make(map[felt.Felt]core.Class, len(classes))
 			for _, cls := range classes {
-				coreC := p2p2core.AdaptClass(cls)
-				h, err = coreC.Hash()
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
-					return
-				}
-				newClasses[*h] = coreC
+				newClasses[*p2p2core.AdaptHash(cls.ClassHash)] = p2p2core.AdaptClass(cls)
 			}
 
 			// Build State update
