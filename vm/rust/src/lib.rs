@@ -529,9 +529,14 @@ lazy_static! {
 
 #[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    let version_str = unsafe { CStr::from_ptr(version) }.to_str().unwrap();
-    let version = StarknetVersion::from_str(version_str)
-        .unwrap_or(StarknetVersion::from_str("0.0.0").unwrap());
+    let version_str = unsafe { CStr::from_ptr(version) }
+        .to_str()
+        .unwrap_or("0.0.0");
+
+    let version = match StarknetVersion::from_str(version_str) {
+        Ok(v) => v,
+        Err(_) => StarknetVersion::from_str("0.0.0").unwrap(),
+    };
 
     if let Some(constants) = unsafe { &CUSTOM_VERSIONED_CONSTANTS } {
         constants.clone()
