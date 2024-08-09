@@ -14,8 +14,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestSimulateTransactions(t *testing.T) {
-	t.Skip()
+//nolint:dupl
+func TestSimulateTransactionsV0_6(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -34,51 +34,55 @@ func TestSimulateTransactions(t *testing.T) {
 	mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil).AnyTimes()
 
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
 		}, mockState, n, true, false, false, false).
-			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
+			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		require.Nil(t, err)
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, false, false, false).
-			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
+		}, mockState, n, false, true, false, false).
+			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Nil(t, err)
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
-			Header: headsHeader,
-		}, mockState, n, false, false, false, false).
-			Return(nil, nil, vm.TransactionExecutionError{
-				Index: 44,
-				Cause: errors.New("oops"),
-			})
+		t.Run("v0_6", func(t *testing.T) { //nolint:dupl
+			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				Header: headsHeader,
+			}, mockState, n, false, true, false, false).
+				Return(nil, nil, nil, vm.TransactionExecutionError{
+					Index: 44,
+					Cause: errors.New("oops"),
+				})
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
-		require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
-			TransactionIndex: 44,
-			ExecutionError:   "oops",
-		}), err)
+			_, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+			require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+				TransactionIndex: 44,
+				ExecutionError:   "oops",
+			}), err)
+		})
+		t.Run("v0_7", func(t *testing.T) { //nolint:dupl
+			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+				Header: headsHeader,
+			}, mockState, n, false, true, false, true).
+				Return(nil, nil, nil, vm.TransactionExecutionError{
+					Index: 44,
+					Cause: errors.New("oops"),
+				})
 
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
-			Header: headsHeader,
-		}, mockState, n, false, true, true, false).
-			Return(nil, nil, vm.TransactionExecutionError{
-				Index: 44,
-				Cause: errors.New("oops"),
-			})
-
-		_, err = handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
-		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
-			RevertError: "oops",
-		}), err)
+			_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+			require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+				TransactionIndex: 44,
+				ExecutionError:   "oops",
+			}), err)
+		})
 	})
 }
