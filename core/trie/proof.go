@@ -133,6 +133,136 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
+// Checks if the checkNodeHash is a child of the currNode
+func isChild(currNode ProofNode, checkNodeHash *felt.Felt) bool {
+	if currNode.Binary != nil {
+		if checkNodeHash.Equal(currNode.Binary.LeftHash) || checkNodeHash.Equal(currNode.Binary.RightHash) {
+			return true
+		}
+	} else if currNode.Edge != nil {
+		if checkNodeHash.Equal(currNode.Edge.Child) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Hash function does not work for edges this also returns hash for edges
+func getProofNodeHash(node ProofNode, hash hashFunc) *felt.Felt {
+	nodeHash := node.Hash(hash)
+
+	if node.Edge != nil {
+		nodeHash = node.Edge.Child
+	}
+
+	return nodeHash
+}
+
+// Remove duplicates and merges proof paths into a single path
+func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, error) {
+	merged := []ProofNode{}
+	minLen := min(len(leftPath), len(rightPath))
+
+	// Get duplicates and insert by one
+	i := 0
+	for i = 0; i < minLen; i++ {
+		leftNode := leftPath[i]
+		rightNode := rightPath[i]
+
+		if leftNode.Hash(hash).Equal(rightNode.Hash(hash)) {
+			merged = append(merged, leftNode)
+		} else {
+			break
+		}
+	}
+
+	// Add rest of the nodes one from left and one from right
+	// until we reach the end of the shortest path
+	for ; i < minLen; i++ {
+		merged = append(merged, leftPath[i], rightPath[i])
+	}
+
+	// Add the rest of the nodes from the longest path
+	if len(leftPath) > minLen {
+		merged = append(merged, leftPath[i:]...)
+	} else if len(rightPath) > minLen {
+		merged = append(merged, rightPath[i:]...)
+	}
+
+	return merged, nil
+}
+
+func SplitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []ProofNode, error) {
+	leftPath := []ProofNode{}
+	rightPath := []ProofNode{}
+
+	if len(mergedPath) == 0 {
+		return leftPath, rightPath, nil
+	}
+
+	currNode := mergedPath[0]
+	leftPath = append(leftPath, currNode)
+	rightPath = append(rightPath, currNode)
+
+	// Loop through the merged path find the first node which has both left and right hashes in the merged path
+	breakLoop := false
+	i := 1
+	for ; i < len(mergedPath)-1; i++ {
+		if breakLoop {
+			break
+		}
+		switch {
+		case currNode.Binary != nil:
+			expectedHashLeft := currNode.Binary.LeftHash
+			expectedHashRight := currNode.Binary.RightHash
+
+			if mergedPath[i].Hash(hash).Equal(expectedHashLeft) {
+				leftPath = append(leftPath, mergedPath[i])
+				if mergedPath[i+1].Hash(hash).Equal(expectedHashRight) {
+					// Here we found the node which has both left and right hashes in the merged path
+					rightPath = append(rightPath, mergedPath[i+1])
+					breakLoop = true
+					i++
+				} else {
+					rightPath = append(rightPath, mergedPath[i])
+				}
+			} else if mergedPath[i].Hash(hash).Equal(expectedHashRight) {
+				// Since left and right path inserted into merged path in order, we can assume that
+				// if the next hash is equal to the right hash, then there is no left hash in the merged path
+				leftPath = append(leftPath, mergedPath[i])
+				rightPath = append(rightPath, mergedPath[i])
+			}
+			currNode = mergedPath[i]
+		case currNode.Edge != nil:
+			leftPath = append(leftPath, mergedPath[i])
+			rightPath = append(rightPath, mergedPath[i])
+			currNode = mergedPath[i]
+		}
+	}
+
+	leftCurr := leftPath[len(leftPath)-1]
+	rightCurr := rightPath[len(rightPath)-1]
+
+	// Append to left path if it is a child of the left path
+	// Append to right path if it is a child of the right path
+	for ; i < len(mergedPath); i++ {
+		mergedNodeHash := getProofNodeHash(mergedPath[i], hash)
+
+		if isChild(leftCurr, mergedNodeHash) {
+			leftPath = append(leftPath, mergedPath[i])
+			leftCurr = mergedPath[i]
+		}
+
+		if isChild(rightCurr, mergedNodeHash) {
+			rightPath = append(rightPath, mergedPath[i])
+			rightCurr = mergedPath[i]
+		}
+	}
+
+	return leftPath, rightPath, nil
+}
+
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
 // GetProof generates a set of proof nodes from the root to the leaf.
 // The proof never contains the leaf node if it is set, as we already know it's hash.
