@@ -411,7 +411,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				return false
 			}
 
-			if response.Range == nil && response.RangeProof == nil {
+			if response == nil || (response.Range == nil && response.RangeProof == nil) {
 				// State root missing.
 				return false
 			}
@@ -574,7 +574,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr), "addr", startAddr)
 			rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
-			if response.Range == nil && response.RangeProof == nil {
+			if response == nil || (response.Range == nil && response.RangeProof == nil) {
 				// State root missing.
 				return false
 			}
@@ -758,7 +758,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				jobs = append(jobs, job)
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(time.Second * 1):
+			case <-time.After(time.Second * 10):
 				if len(jobs) > 0 {
 					break requestloop
 				}
@@ -949,7 +949,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 				if len(keyBatches) > 0 {
 					break requestloop
 				}
-				s.log.Infow("waiting for more storage job", "count", s.storageRangeJobCount)
+				s.log.Infow("waiting for more class job", "count", s.storageRangeJobCount)
 			case key := <-s.classesJob:
 				if key == nil {
 					// channel finished.

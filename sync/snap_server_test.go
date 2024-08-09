@@ -20,7 +20,7 @@ import (
 
 func TestClassRange(t *testing.T) {
 	var d db.DB
-	//t.Skip("You need to provide a valid path to the snapshot")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -68,7 +68,7 @@ func TestClassRange(t *testing.T) {
 
 func TestContractRange(t *testing.T) {
 	var d db.DB
-	//t.Skip("You need to provide a valid path to the snapshot")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -145,7 +145,7 @@ func TestContractStorageRange(t *testing.T) {
 	}
 
 	var d db.DB
-	//t.Skip("You need to provide a valid path to the snapshot")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered

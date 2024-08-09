@@ -380,7 +380,6 @@ func BenchmarkTriePut(b *testing.B) {
 func TestTrieIterate(t *testing.T) {
 	t.Run("iterate standard", func(t *testing.T) {
 		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
-
 			expectedKeys := []*felt.Felt{}
 			expectedValues := []*felt.Felt{}
 			for i := 0; i < 2; i++ {
