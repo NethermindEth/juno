@@ -4,7 +4,15 @@ use std::ffi::{c_char, CStr, CString};
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char, result: *mut *mut c_char) -> u8 {
-    let sierra_json_str = unsafe { CStr::from_ptr(sierra_json) }.to_str().unwrap();
+    let sierra_json_str = match unsafe { CStr::from_ptr(sierra_json) }.to_str() {
+        Ok(value) => value,
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
+    };
 
     let sierra_class = match serde_json::from_str(sierra_json_str) {
         Ok(value) => value,
