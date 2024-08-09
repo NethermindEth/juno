@@ -1,10 +1,3 @@
-use std::{
-    ffi::{c_char, c_uchar, c_void, CStr},
-    fs,
-    path::PathBuf,
-    slice,
-    sync::Mutex,
-};
 use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
 use blockifier::state::errors::StateError;
 use blockifier::{
@@ -25,6 +18,13 @@ use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
+use std::{
+    ffi::{c_char, c_uchar, c_void, CStr},
+    fs,
+    path::PathBuf,
+    slice,
+    sync::Mutex,
+};
 
 extern "C" {
     fn JunoFree(ptr: *const c_void);
@@ -257,7 +257,7 @@ fn native_try_from_json_string(
     fn compile_and_load(
         sierra_program: Program,
         library_output_path: &PathBuf,
-    ) -> Result<AotNativeExecutor, NativeError> {
+    ) -> Result<AotNativeExecutor, Box<dyn std::error::Error>> {
         let native_context = NativeContext::new();
         let native_module = native_context.compile(&sierra_program, None)?;
         persist_from_native_module(native_module, &sierra_program, library_output_path)
@@ -292,11 +292,11 @@ fn native_try_from_json_string(
 fn load_compiled_contract(
     sierra_program: &Program,
     library_output_path: &PathBuf,
-) -> Option<Result<AotNativeExecutor, NativeError>> {
+) -> Option<Result<AotNativeExecutor, Box<dyn std::error::Error>>> {
     fn load(
         sierra_program: &Program,
         library_output_path: &PathBuf,
-    ) -> Result<AotNativeExecutor, NativeError> {
+    ) -> Result<AotNativeExecutor, Box<dyn std::error::Error>> {
         let has_gas_builtin = sierra_program
             .type_declarations
             .iter()
@@ -304,9 +304,7 @@ fn load_compiled_contract(
         let config = has_gas_builtin.then_some(Default::default());
         let gas_metadata = GasMetadata::new(sierra_program, config)?;
         let program_registry = ProgramRegistry::new(sierra_program)?;
-        let library = unsafe {
-            Library::new(library_output_path).map_err(|err| NativeError::Error(err.to_string()))?
-        };
+        let library = unsafe { Library::new(library_output_path)? };
         Ok(AotNativeExecutor::new(
             library,
             program_registry,
@@ -356,12 +354,11 @@ fn persist_from_native_module(
     mut native_module: NativeModule,
     sierra_program: &Program,
     library_output_path: &PathBuf,
-) -> Result<AotNativeExecutor, NativeError> {
+) -> Result<AotNativeExecutor, Box<dyn std::error::Error>> {
     let object_data = cairo_native::module_to_object(native_module.module(), Default::default())
         .map_err(|err| NativeError::LLVMCompileError(err.to_string()))?; // cairo native didn't include a from instance
 
-    cairo_native::object_to_shared_lib(&object_data, library_output_path)
-        .map_err(|err| NativeError::Error(err.to_string()))?;
+    cairo_native::object_to_shared_lib(&object_data, library_output_path)?;
 
     let gas_metadata = native_module
         .remove_metadata()
@@ -370,9 +367,7 @@ fn persist_from_native_module(
     // Recreate the program registry as it can't be moved out of native module.
     let program_registry = ProgramRegistry::new(sierra_program)?;
 
-    let library = unsafe {
-        Library::new(library_output_path).map_err(|err| NativeError::Error(err.to_string()))?
-    };
+    let library = unsafe { Library::new(library_output_path)? };
 
     Ok(AotNativeExecutor::new(
         library,
