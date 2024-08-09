@@ -466,8 +466,7 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 		for res := range classesIt {
 			switch v := res.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
-				coreC := p2p2core.AdaptClass(v.Class)
-				hash, err := coreC.Hash()
+				hash, err := p2p2core.AdaptClass(v.Class).Hash()
 				if err != nil {
 					s.log.Warnw("Failed to calculate class hash", "err", err)
 					return false
