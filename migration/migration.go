@@ -65,6 +65,7 @@ var defaultMigrations = []Migration{
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
+	MigrationFunc(removePendingBlock),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -267,6 +268,10 @@ func recalculateBloomFilters(txn db.Transaction, _ *utils.Network) error {
 			return err
 		}
 	}
+}
+
+func removePendingBlock(txn db.Transaction, _ *utils.Network) error {
+	return txn.Delete(db.Unused.Key())
 }
 
 // changeTrieNodeEncoding migrates to using a custom encoding for trie nodes

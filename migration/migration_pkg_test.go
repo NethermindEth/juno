@@ -80,7 +80,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 func TestRecalculateBloomFilters(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Mainnet)
+	chain := blockchain.New(testdb, &utils.Mainnet, nil)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -103,6 +103,30 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, core.EventsBloom(b.Receipts), b.EventsBloom)
 	}
+}
+
+func TestRemovePending(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	pendingBlockBytes := []byte("some pending block bytes")
+	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+		if err := txn.Set(db.Unused.Key(), pendingBlockBytes); err != nil {
+			return err
+		}
+
+		if err := txn.Get(db.Unused.Key(), func(_ []byte) error { return nil }); err != nil {
+			return err
+		}
+
+		if err := removePendingBlock(txn, nil); err != nil {
+			return err
+		}
+
+		assert.EqualError(t, db.ErrKeyNotFound, testDB.View(func(txn db.Transaction) error {
+			return txn.Get(db.Unused.Key(), nil)
+		}).Error())
+
+		return nil
+	}))
 }
 
 func TestChangeTrieNodeEncoding(t *testing.T) {
@@ -164,7 +188,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 func TestCalculateBlockCommitments(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Mainnet)
+	chain := blockchain.New(testdb, &utils.Mainnet, nil)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 

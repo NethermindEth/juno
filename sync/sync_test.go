@@ -55,8 +55,8 @@ func TestSyncBlocks(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, &utils.Mainnet)
-		synchronizer := sync.New(bc, gw, log, time.Duration(0), false)
+		bc := blockchain.New(testDB, &utils.Mainnet, nil)
+		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -67,14 +67,14 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, nil)
 		b0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, gw, log, time.Duration(0), false)
+		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -85,7 +85,7 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, nil)
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
 
@@ -126,7 +126,7 @@ func TestSyncBlocks(t *testing.T) {
 			return gw.BlockLatest(context.Background())
 		}).AnyTimes()
 
-		synchronizer := sync.New(bc, mockSNData, log, time.Duration(0), false)
+		synchronizer := sync.New(bc, mockSNData, log, time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -146,22 +146,22 @@ func TestReorg(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
 	// sync to integration for 2 blocks
-	bc := blockchain.New(testDB, &utils.Integration)
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false)
+	bc := blockchain.New(testDB, &utils.Integration, nil)
+	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false, testDB)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, nil)
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false)
+		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, testDB)
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
@@ -173,37 +173,15 @@ func TestReorg(t *testing.T) {
 	})
 }
 
-func TestPending(t *testing.T) {
-	t.Parallel()
-
-	client := feeder.NewTestClient(t, &utils.Mainnet)
-	gw := adaptfeeder.New(client)
-
-	testDB := pebble.NewMemTest(t)
-	log := utils.NewNopZapLogger()
-	bc := blockchain.New(testDB, &utils.Mainnet)
-	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-
-	require.NoError(t, synchronizer.Run(ctx))
-	cancel()
-
-	head, err := bc.HeadsHeader()
-	require.NoError(t, err)
-	pending, err := bc.Pending()
-	require.NoError(t, err)
-	assert.Equal(t, head.Hash, pending.Block.ParentHash)
-}
-
 func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
 	testDB := pebble.NewMemTest(t)
 	log := utils.NewNopZapLogger()
 	integration := utils.Integration
-	chain := blockchain.New(testDB, &integration)
+	chain := blockchain.New(testDB, &integration, nil)
 	integrationClient := feeder.NewTestClient(t, &integration)
 	gw := adaptfeeder.New(integrationClient)
-	syncer := sync.New(chain, gw, log, 0, false)
+	syncer := sync.New(chain, gw, log, 0, false, testDB)
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -217,4 +195,104 @@ func TestSubscribeNewHeads(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, want.Header, got)
 	sub.Unsubscribe()
+}
+
+func TestPendingSync(t *testing.T) {
+	t.Parallel()
+
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	var synchronizer *sync.Synchronizer
+	testDB := pebble.NewMemTest(t)
+	log := utils.NewNopZapLogger()
+	bc := blockchain.New(testDB, &utils.Mainnet, synchronizer.PendingBlock)
+	synchronizer = sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	require.NoError(t, synchronizer.Run(ctx))
+	cancel()
+
+	head, err := bc.HeadsHeader()
+	require.NoError(t, err)
+	pending, err := synchronizer.Pending()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, pending.Block.ParentHash)
+}
+
+func TestPending(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	var synchronizer *sync.Synchronizer
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(testDB, &utils.Mainnet, synchronizer.PendingBlock)
+	synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, false, testDB)
+
+	b, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
+		_, _, err = synchronizer.PendingState()
+		require.Error(t, err)
+	})
+
+	t.Run("cannot store unsupported pending block version", func(t *testing.T) {
+		pending := &sync.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+		require.Error(t, synchronizer.StorePending(pending))
+	})
+
+	t.Run("store genesis as pending", func(t *testing.T) {
+		pendingGenesis := &sync.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, synchronizer.StorePending(pendingGenesis))
+
+		gotPending, pErr := synchronizer.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, pendingGenesis, gotPending)
+	})
+
+	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+
+	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 2)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 2)
+		require.NoError(t, err)
+
+		notExpectedPending := sync.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+	})
+
+	t.Run("store expected pending block", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 1)
+		require.NoError(t, err)
+
+		expectedPending := &sync.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, synchronizer.StorePending(expectedPending))
+
+		gotPending, pErr := synchronizer.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, expectedPending, gotPending)
+	})
+
+	t.Run("get pending state", func(t *testing.T) {
+		_, pendingStateCloser, pErr := synchronizer.PendingState()
+		t.Cleanup(func() {
+			require.NoError(t, pendingStateCloser())
+		})
+		require.NoError(t, pErr)
+	})
 }

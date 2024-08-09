@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -21,6 +22,8 @@ import (
 var (
 	_ service.Service = (*Synchronizer)(nil)
 	_ Reader          = (*Synchronizer)(nil)
+
+	ErrPendingBlockNotFound = errors.New("pending block not found")
 )
 
 const (
@@ -41,13 +44,17 @@ type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
+
+	Pending() (*Pending, error)
+	PendingBlock() *core.Block
+	PendingState() (core.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
 type NoopSynchronizer struct{}
 
 func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
-	return 0, nil
+	return 0, errors.New("StartingBlockNumber not implemented")
 }
 
 func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
@@ -58,9 +65,22 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
 }
 
+func (n *NoopSynchronizer) PendingBlock() *core.Block {
+	return nil
+}
+
+func (n *NoopSynchronizer) Pending() (*Pending, error) {
+	return nil, errors.New("Pending() is not implemented")
+}
+
+func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+	return nil, nil, errors.New("PendingState() not implemented")
+}
+
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
+	db                  db.DB
 	readOnlyBlockchain  bool
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
@@ -70,15 +90,17 @@ type Synchronizer struct {
 	log      utils.SimpleLogger
 	listener EventListener
 
+	pending             atomic.Pointer[Pending]
 	pendingPollInterval time.Duration
 	catchUpMode         bool
 }
 
-func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
-	log utils.SimpleLogger, pendingPollInterval time.Duration, readOnlyBlockchain bool,
+func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
+	pendingPollInterval time.Duration, readOnlyBlockchain bool, database db.DB,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
+		db:                  database,
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
@@ -416,7 +438,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	}
 
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
-	return s.blockchain.StorePending(&blockchain.Pending{
+	return s.StorePending(&Pending{
 		Block:       pendingBlock,
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,
@@ -438,4 +460,79 @@ func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{
 		Subscription: s.newHeads.Subscribe(),
 	}
+}
+
+// StorePending stores a pending block given that it is for the next height
+func (s *Synchronizer) StorePending(p *Pending) error {
+	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+
+	expectedParentHash := new(felt.Felt)
+	h, err := s.blockchain.HeadsHeader()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	} else if err == nil {
+		expectedParentHash = h.Hash
+	}
+
+	if !expectedParentHash.Equal(p.Block.ParentHash) {
+		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
+	}
+
+	if existingPending, err := s.Pending(); err == nil {
+		if existingPending.Block.TransactionCount >= p.Block.TransactionCount {
+			// ignore the incoming pending if it has fewer transactions than the one we already have
+			return nil
+		}
+	} else if !errors.Is(err, ErrPendingBlockNotFound) {
+		return err
+	}
+	s.pending.Store(p)
+
+	return nil
+}
+
+func (s *Synchronizer) Pending() (*Pending, error) {
+	p := s.pending.Load()
+	if p == nil {
+		return nil, ErrPendingBlockNotFound
+	}
+
+	expectedParentHash := &felt.Zero
+	if head, err := s.blockchain.HeadsHeader(); err == nil {
+		expectedParentHash = head.Hash
+	}
+	if p.Block.ParentHash.Equal(expectedParentHash) {
+		return p, nil
+	}
+
+	// Since the pending block in the cache is outdated remove it
+	s.pending.Store(nil)
+
+	return nil, ErrPendingBlockNotFound
+}
+
+func (s *Synchronizer) PendingBlock() *core.Block {
+	pending, err := s.Pending()
+	if err != nil {
+		return nil
+	}
+	return pending.Block
+}
+
+// PendingState returns the state resulting from execution of the pending block
+func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+	txn, err := s.db.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pending, err := s.Pending()
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
 }

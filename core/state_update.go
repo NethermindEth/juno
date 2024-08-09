@@ -24,17 +24,6 @@ type StateDiff struct {
 	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
-func EmptyStateDiff() *StateDiff {
-	return &StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
-		Nonces:            make(map[felt.Felt]*felt.Felt),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt),
-		DeclaredV0Classes: make([]*felt.Felt, 0),
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
-	}
-}
-
 func (d *StateDiff) Length() uint64 {
 	var length int
 
