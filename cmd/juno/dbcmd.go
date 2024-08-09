@@ -100,7 +100,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Failed to get the latest L1 block information: %v\n", err)
 	}
 
-	jsonData, err := json.Marshal(info)
+	jsonData, err := json.MarshalIndent(info, "", "")
 	if err != nil {
 		return fmt.Errorf("marshal JSON: %w", err)
 	}
