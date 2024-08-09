@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
@@ -72,6 +73,7 @@ type Synchronizer struct {
 
 	pendingPollInterval time.Duration
 	catchUpMode         bool
+	plugin              *junoplugin.Plugin
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -86,6 +88,12 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
 	}
+	return s
+}
+
+// WithPlugin registers an plugin
+func (s *Synchronizer) WithPlugin(plugin junoplugin.Plugin) *Synchronizer {
+	s.plugin = &plugin
 	return s
 }
 
@@ -206,6 +214,13 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
 					// blocks
 					s.revertHead(block)
+					if s.plugin != nil {
+						// Todo: we should actually push the block, reverse-state-diff and reverse-newClasses
+						err := s.plugin.Plugin.RevertBlock(block, stateUpdate, newClasses)
+						if err != nil {
+							s.log.Errorw("Plugin RevertBlock failure:", err)
+						}
+					}
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,
 						"hash", block.Hash.ShortString(), "err", err)
@@ -231,6 +246,12 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			s.newHeads.Send(block.Header)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			if s.plugin != nil {
+				err := s.plugin.Plugin.NewBlock(block, stateUpdate, newClasses)
+				if err != nil {
+					s.log.Errorw("Plugin NewBlock failure:", err)
+				}
+			}
 		}
 	}
 }

@@ -6,6 +6,8 @@ build/
 coverage/*
 config/
 .envrc
+plugin/example/example.so
+
 # Default path for Juno DB files.  It will get created if you follow the
 # README and/or run `./build/juno` command.
 juno/
