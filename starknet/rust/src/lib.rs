@@ -3,25 +3,43 @@ use std::ffi::{c_char, CStr, CString};
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char) -> *mut c_char {
+pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char, result: *mut *mut c_char) -> u8 {
     let sierra_json_str = unsafe { CStr::from_ptr(sierra_json) }.to_str().unwrap();
 
     let sierra_class = match serde_json::from_str(sierra_json_str) {
         Ok(value) => value,
-        Err(e) => return raw_cstr(e.to_string()),
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
     };
 
     let casm_class = match CasmContractClass::from_contract_class(sierra_class, true, usize::MAX) {
         Ok(value) => value,
-        Err(e) => return raw_cstr(e.to_string()),
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
     };
 
     let casm_json = match serde_json::to_string(&casm_class) {
         Ok(value) => value,
-        Err(e) => return raw_cstr(e.to_string()),
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
     };
 
-    raw_cstr(casm_json)
+    unsafe {
+        *result = raw_cstr(casm_json);
+    }
+    1
 }
 
 fn raw_cstr(str: String) -> *mut c_char {
