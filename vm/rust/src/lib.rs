@@ -224,14 +224,17 @@ pub extern "C" fn cairoVMExecute(
             txn_and_query_bit.txn_hash
         );
         let class_info = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::Declare(_declare_transaction) => {
+            StarknetApiTransaction::Declare(declare_transaction) => {
                 if classes.is_empty() {
                     report_error(reader_handle, "missing declared class", txn_index as i64);
                     return;
                 }
                 let class_json_str = classes.remove(0);
 
-                let maybe_cc = class_info_from_json_str(class_json_str.get());
+                let maybe_cc = class_info_from_json_str(
+                    class_json_str.get(),
+                    declare_transaction.class_hash(),
+                );
 
                 if let Err(e) = &maybe_cc {
                     report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
