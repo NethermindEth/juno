@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 	"os"
@@ -677,6 +678,58 @@ network: sepolia
 func TestGenP2PKeyPair(t *testing.T) {
 	cmd := juno.GenP2PKeyPair()
 	require.NoError(t, cmd.Execute())
+
+	tmpfile, err := os.CreateTemp("", "temp")
+	require.NoError(t, err)
+	cmd.SetArgs([]string{"--file", tmpfile.Name()})
+	require.NoError(t, cmd.Execute())
+}
+
+func TestP2PPrivateKeyFile(t *testing.T) {
+	privateKey := "38c54451f80617955671608da06ed6dd1749d66263103a9118235ab1ea2b3e4503bb86b895e17fc1618359d13e998ca05aa60751b762bf26ac570ac1e575ad81"
+
+	t.Run("private key with formatted message in a file", func(t *testing.T) {
+		tmpfile, err := os.CreateTemp("", "temp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+
+		content := fmt.Sprintf("P2P Private Key: %s\n", privateKey)
+		if _, err := tmpfile.WriteString(content); err != nil {
+			t.Fatal(err)
+		}
+		if err := tmpfile.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		config := new(node.Config)
+		cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+		cmd.SetArgs([]string{"--p2p-private-key-file", tmpfile.Name()})
+		require.NoError(t, cmd.Execute())
+		require.Equal(t, privateKey, config.P2PPrivateKey)
+	})
+
+	t.Run("plain private key in a file", func(t *testing.T) {
+		tmpfile, err := os.CreateTemp("", "temp")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(tmpfile.Name())
+
+		if _, err := tmpfile.WriteString(privateKey); err != nil {
+			t.Fatal(err)
+		}
+		if err := tmpfile.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		config := new(node.Config)
+		cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
+		cmd.SetArgs([]string{"--p2p-private-key-file", tmpfile.Name()})
+		require.NoError(t, cmd.Execute())
+		require.Equal(t, privateKey, config.P2PPrivateKey)
+	})
 }
 
 func tempCfgFile(t *testing.T, cfg string) string {
