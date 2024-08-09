@@ -828,6 +828,26 @@ func (b *Blockchain) RevertHead() error {
 	return b.database.Update(b.revertHead)
 }
 
+func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
+	var reverseStateDiff *core.StateDiff
+	return reverseStateDiff, b.database.View(func(txn db.Transaction) error {
+		blockNumber, err := chainHeight(txn)
+		if err != nil {
+			return err
+		}
+		stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
+		if err != nil {
+			return err
+		}
+		state := core.NewState(txn)
+		reverseStateDiff, err = state.BuildReverseDiff(blockNumber, stateUpdate.StateDiff)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
 func (b *Blockchain) revertHead(txn db.Transaction) error {
 	blockNumber, err := chainHeight(txn)
 	if err != nil {
@@ -874,7 +894,6 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	}
 
 	// Revert chain height and pending.
-
 	if genesisBlock {
 		if err = txn.Delete(db.Pending.Key()); err != nil {
 			return err
