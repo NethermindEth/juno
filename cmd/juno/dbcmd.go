@@ -25,13 +25,14 @@ type DBInfo struct {
 	L1StateRoot     *felt.Felt `json:"l1_state_root"`
 }
 
-func DBCmd() *cobra.Command {
+func DBCmd(defaultDBPath string) *cobra.Command {
 	dbCmd := &cobra.Command{
 		Use:   "db",
 		Short: "Database related operations",
 		Long:  `This command allows you to perform database operations.`,
 	}
-	dbCmd.PersistentFlags().StringP(dbPathF, "p", "", dbPathUsage)
+
+	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
 	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd())
 	return dbCmd
 }
