@@ -33,6 +33,7 @@ const (
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
+	P2PHash
 	L1HandlerTxnHashByMsgHash // maps l1 handler msg hash to l1 handler txn hash
 )
 
