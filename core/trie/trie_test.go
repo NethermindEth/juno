@@ -138,7 +138,7 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 					val, err := tempTrie.Get(key)
 
-					assert.NoError(t, err, "shouldnt return an error when access a deleted key")
+					assert.NoError(t, err, "shouldn't return an error when access a deleted key")
 					assert.Equal(t, &felt.Zero, val, "should return zero value when access a deleted key")
 				}
 

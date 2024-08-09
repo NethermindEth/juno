@@ -662,7 +662,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	declareDiff.OldRoot = declareDiff.NewRoot
 	require.NoError(t, state.Update(1, declareDiff, newClasses))
 
-	t.Run("re-declaring a class shouldnt change it's DeclaredAt attribute", func(t *testing.T) {
+	t.Run("re-declaring a class shouldn't change it's DeclaredAt attribute", func(t *testing.T) {
 		declaredClass, err = state.Class(classHash)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(0), declaredClass.At)
@@ -673,7 +673,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 
 	require.NoError(t, state.Revert(1, declareDiff))
 
-	t.Run("reverting a re-declaration shouldnt change state commitment or remove class definitions", func(t *testing.T) {
+	t.Run("reverting a re-declaration shouldn't change state commitment or remove class definitions", func(t *testing.T) {
 		declaredClass, err = state.Class(classHash)
 		require.NoError(t, err)
 		assert.Equal(t, uint64(0), declaredClass.At)
