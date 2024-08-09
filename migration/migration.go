@@ -67,6 +67,30 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
 	MigrationFunc(calculateL1MsgHashes),
+	MigrationFunc(calculateP2PHash),
+}
+
+func calculateP2PHash(txn db.Transaction, network *utils.Network) error {
+	blockchain.RegisterCoreTypesToEncoder()
+	for blockNumber := uint64(0); ; blockNumber++ {
+		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return nil
+			}
+			return err
+		}
+
+		stateUpdate, err := blockchain.StateUpdateByNumber(txn, block.Number)
+		if err != nil {
+			return err
+		}
+
+		err = blockchain.StoreP2PHash(txn, block, stateUpdate.StateDiff)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -602,14 +626,17 @@ type oldStorageDiff struct {
 	Key   *felt.Felt
 	Value *felt.Felt
 }
+
 type oldAddressClassHashPair struct {
 	Address   *felt.Felt
 	ClassHash *felt.Felt
 }
+
 type oldDeclaredV1Class struct {
 	ClassHash         *felt.Felt
 	CompiledClassHash *felt.Felt
 }
+
 type oldStateDiff struct {
 	StorageDiffs      map[felt.Felt][]oldStorageDiff
 	Nonces            map[felt.Felt]*felt.Felt
@@ -618,6 +645,7 @@ type oldStateDiff struct {
 	DeclaredV1Classes []oldDeclaredV1Class
 	ReplacedClasses   []oldAddressClassHashPair
 }
+
 type oldStateUpdate struct {
 	BlockHash *felt.Felt
 	NewRoot   *felt.Felt
