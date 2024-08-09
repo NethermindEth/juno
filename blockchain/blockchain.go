@@ -223,7 +223,7 @@ func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, erro
 	var update *core.StateUpdate
 	return update, b.database.View(func(txn db.Transaction) error {
 		var err error
-		update, err = stateUpdateByNumber(txn, number)
+		update, err = StateUpdateByNumber(txn, number)
 		return err
 	})
 }
@@ -372,7 +372,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		}
 
 		// todo only for <0.13.2 blocks
-		if err := storeP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
+		if err := StoreP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
 			return err
 		}
 
@@ -398,7 +398,7 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	})
 }
 
-func storeP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
+func StoreP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
 	originalParentHash := block.ParentHash
 	if block.Number > 0 {
 		prevP2PHash, err := blockP2PHashByNumber(txn, block.Number-1)
@@ -647,7 +647,7 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 	return txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes)
 }
 
-func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
+func StateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	var update *core.StateUpdate
@@ -664,7 +664,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 	var update *core.StateUpdate
 	return update, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
 		var err error
-		update, err = stateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
+		update, err = StateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
@@ -882,7 +882,7 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	}
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
-	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
+	stateUpdate, err := StateUpdateByNumber(txn, blockNumber)
 	if err != nil {
 		return err
 	}

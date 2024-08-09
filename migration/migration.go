@@ -66,6 +66,30 @@ var defaultMigrations = []Migration{
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
+	MigrationFunc(calculateP2PHash),
+}
+
+func calculateP2PHash(txn db.Transaction, network *utils.Network) error {
+	blockchain.RegisterCoreTypesToEncoder()
+	for blockNumber := uint64(0); ; blockNumber++ {
+		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return nil
+			}
+			return err
+		}
+
+		stateUpdate, err := blockchain.StateUpdateByNumber(txn, block.Number)
+		if err != nil {
+			return err
+		}
+
+		err = blockchain.StoreP2PHash(txn, block, stateUpdate.StateDiff)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
