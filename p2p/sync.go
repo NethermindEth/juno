@@ -107,13 +107,18 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		blocksCh := pipeline.Bridge(iterCtx, s.processSpecBlockParts(iterCtx, uint64(nextHeight), pipeline.FanIn(iterCtx,
-			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
-			pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
-			pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
-			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
-			pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
-		)))
+		blocksCh := pipeline.Bridge(
+			iterCtx,
+			s.processSpecBlockParts(iterCtx, uint64(nextHeight),
+				pipeline.FanIn(iterCtx,
+					pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+					pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
+					pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
+					pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
+					pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
+				),
+			),
+		)
 
 		for b := range blocksCh {
 			if b.err != nil {
@@ -244,8 +249,10 @@ func (s *syncService) processSpecBlockParts(
 							}
 						}
 
-						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, diffs.contractDiffs,
-							cls.classes, txs.txs, txs.receipts, es.events, prevBlockRoot)
+						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(
+							ctx, headerAndSig.header, diffs.contractDiffs,
+							cls.classes, txs.txs, txs.receipts, es.events, prevBlockRoot,
+						)
 					}
 
 					if curBlockNum > 0 {
@@ -262,8 +269,15 @@ func (s *syncService) processSpecBlockParts(
 }
 
 //nolint:gocyclo,funlen
-func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
-	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
+func (s *syncService) adaptAndSanityCheckBlock(
+	ctx context.Context,
+	header *spec.SignedBlockHeader,
+	contractDiffs []*spec.ContractDiff,
+	classes []*spec.Class,
+	txs []*spec.Transaction,
+	receipts []*spec.Receipt,
+	events []*spec.Event,
+	prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
@@ -333,15 +347,9 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			}
 			coreBlock.Hash = h
 
-			newClasses := make(map[felt.Felt]core.Class)
+			newClasses := make(map[felt.Felt]core.Class, len(classes))
 			for _, cls := range classes {
-				coreC := p2p2core.AdaptClass(cls)
-				h, err = coreC.Hash()
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
-					return
-				}
-				newClasses[*h] = coreC
+				newClasses[*p2p2core.AdaptHash(cls.ClassHash)] = p2p2core.AdaptClass(cls)
 			}
 
 			// Build State update
@@ -458,6 +466,15 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 		classesIt(func(res *spec.ClassesResponse) bool {
 			switch v := res.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
+				hash, err := p2p2core.AdaptClass(v.Class).Hash()
+				if err != nil {
+					s.log.Warnw("Failed to calculate class hash", "err", err)
+					return false
+				}
+				if adaptedHash := p2p2core.AdaptHash(v.Class.ClassHash); !adaptedHash.Equal(hash) {
+					s.log.Warnw("Class hash mismatch", "receivedHash", adaptedHash, "calculatedHash", hash)
+					return false
+				}
 				classes = append(classes, v.Class)
 				return true
 			case *spec.ClassesResponse_Fin:
