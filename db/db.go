@@ -33,6 +33,8 @@ type DB interface {
 
 	// WithListener registers an EventListener
 	WithListener(listener EventListener) DB
+
+	PersistedView() (Transaction, func() error, error)
 }
 
 // Iterator is an iterator over a DB's key/value pairs.
