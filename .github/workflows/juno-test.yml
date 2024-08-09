@@ -56,9 +56,6 @@ jobs:
 #        if: matrix.os == 'ubuntu-latest'
 #        run: make test-race
 
-      - name: Benchmark
-        run: make benchmarks
-
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v4
