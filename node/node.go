@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
+	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -87,6 +88,8 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+
+	PluginPath string `mapstructure:"plugin-path"`
 }
 
 type Node struct {
@@ -154,6 +157,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+
+	if cfg.PluginPath != "" {
+		plugin, err := junoplugin.Load(cfg.PluginPath)
+		if err != nil {
+			return nil, err
+		}
+		synchronizer.WithPlugin(plugin)
+	}
 
 	var p2pService *p2p.Service
 	if cfg.P2P {

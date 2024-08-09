@@ -33,7 +33,7 @@ MAKEFLAGS += -j$(NPROCS)
 
 rustdeps: vm core-rust compiler
 
-juno: rustdeps ## compile
+juno: plugin ## compile
 	@mkdir -p build
 	@go build $(GO_TAGS) -a -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
 
@@ -57,21 +57,29 @@ generate: ## generate
 clean-testcache:
 	go clean -testcache
 
-test: clean-testcache rustdeps ## tests
+plugin: rustdeps
+	@mkdir -p build
+	@go build $(GO_TAGS) -a -buildmode=plugin -ldflags="-X main.Version=$(shell git describe --tags)" -o build/plugin.so plugin/example/example.go
+
+plugin-cover: rustdeps
+	mkdir -p build
+	go build $(GO_TAGS) -a -covermode=atomic -coverpkg=./... -buildmode=plugin -ldflags="-X main.Version=$(shell git describe --tags)" -o build/plugin.so plugin/example/example.go
+
+test: clean-testcache plugin ## tests
 	go test $(GO_TAGS) ./...
 
-test-cached: rustdeps ## tests with existing cache
+test-cached: plugin ## tests with existing cache
 	go test $(GO_TAGS) ./...
 
-test-race: clean-testcache rustdeps
+test-race: clean-testcache plugin
 	go test $(GO_TAGS) ./... -race $(TEST_RACE_LDFLAGS)
 
-benchmarks: rustdeps ## benchmarking
+benchmarks: plugin ## benchmarking
 	go test $(GO_TAGS) ./... -run=^# -bench=. -benchmem
 
-test-cover: clean-testcache rustdeps ## tests with coverage
+test-cover: clean-testcache plugin-cover ## tests with coverage
 	mkdir -p coverage
-	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
+	go test $(GO_TAGS) -a -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
 install-deps: | install-gofumpt install-mockgen install-golangci-lint## install some project dependencies
