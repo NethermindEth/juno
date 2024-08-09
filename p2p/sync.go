@@ -124,6 +124,7 @@ func (s *syncService) start(ctx context.Context) {
 			}
 
 			storeTimer := time.Now()
+			fmt.Printf("Storing %d block with hash %v\n", b.block.Number, b.block.Hash)
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
@@ -326,17 +327,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				return
 			}
 
-			h, err := core.BlockHash(coreBlock)
-			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
-				return
-			}
-			coreBlock.Hash = h
-
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, cls := range classes {
 				coreC := p2p2core.AdaptClass(cls)
-				h, err = coreC.Hash()
+				h, err := coreC.Hash()
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
 					return
@@ -370,7 +364,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				StateDiff: p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes),
 			}
 
-			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
+			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses, true)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
 				return

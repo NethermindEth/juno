@@ -184,7 +184,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
 	verifyTimer := time.Now()
-	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
+	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses, false)
 	if err == nil {
 		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
 	}
