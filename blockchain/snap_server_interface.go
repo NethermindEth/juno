@@ -103,20 +103,20 @@ func (b *Blockchain) seedSnapshot() error {
 		return err
 	}
 
-	state, scloser, err := b.HeadState()
+	stateR, srCloser, err := b.HeadState()
 	if err != nil {
 		return err
 	}
 
-	defer scloser()
+	defer srCloser()
 
-	stateS := state.(*core.State)
-	contractsRoot, theclassroot, err := stateS.StateAndClassRoot()
+	state := stateR.(*core.State)
+	contractsRoot, classRoot, err := state.StateAndClassRoot()
 	if err != nil {
 		return err
 	}
 
-	thestateroot, err := stateS.Root()
+	stateRoot, err := state.Root()
 	if err != nil {
 		return err
 	}
@@ -127,15 +127,15 @@ func (b *Blockchain) seedSnapshot() error {
 	}
 
 	dbsnap := snapshotRecord{
-		stateRoot:     thestateroot,
+		stateRoot:     stateRoot,
 		contractsRoot: contractsRoot,
-		classRoot:     theclassroot,
+		classRoot:     classRoot,
 		blockHash:     headheader.Hash,
 		txn:           txn,
 		closer:        closer,
 	}
 
-	fmt.Printf("Snapshot %d %s %s\n", headheader.Number, headheader.GlobalStateRoot, thestateroot)
+	fmt.Printf("Snapshot %d %s %s\n", headheader.Number, headheader.GlobalStateRoot, stateRoot)
 
 	// TODO: Reorgs
 	b.snapshots = append(b.snapshots, &dbsnap)
