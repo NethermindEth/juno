@@ -100,3 +100,13 @@ import ConfigOptions from "./_config-options.md";
 
 <ConfigOptions />
 ```
+
+## Subcommands
+
+Below is a list of subcommands to perform specific tasks or operations:
+
+- `genp2pkeypair`: Generate a private key pair for p2p.
+
+- `db` subcommands: Perform database-related operations
+  - `db info`: Retrieve information about the database.
+  - `db size`: Calculate database size information for each data type.
