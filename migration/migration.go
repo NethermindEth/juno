@@ -10,6 +10,7 @@ import (
 	"maps"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -70,27 +71,58 @@ var defaultMigrations = []Migration{
 	MigrationFunc(calculateP2PHash),
 }
 
-func calculateP2PHash(txn db.Transaction, network *utils.Network) error {
+func calculateP2PHash(txn db.Transaction, _ *utils.Network) error {
 	blockchain.RegisterCoreTypesToEncoder()
-	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := blockchain.BlockByNumber(txn, blockNumber)
-		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
-				return nil
-			}
-			return err
-		}
 
-		stateUpdate, err := blockchain.StateUpdateByNumber(txn, block.Number)
-		if err != nil {
-			return err
-		}
+	var blockNumber uint64
 
-		err = blockchain.StoreP2PHash(txn, block, stateUpdate.StateDiff)
-		if err != nil {
-			return err
-		}
+	var (
+		errs   []error
+		errsMx sync.Mutex
+	)
+	addError := func(err error) {
+		errsMx.Lock()
+		errs = append(errs, err)
+		errsMx.Unlock()
 	}
+
+	var wg sync.WaitGroup
+	maxGoroutines := runtime.GOMAXPROCS(0)
+	for range maxGoroutines {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for {
+				number := atomic.AddUint64(&blockNumber, 1)
+				block, err := blockchain.BlockByNumber(txn, number)
+				if err != nil {
+					if errors.Is(err, db.ErrKeyNotFound) {
+						// no more blocks to migrate
+						break
+					}
+
+					addError(err)
+					return
+				}
+
+				stateUpdate, err := blockchain.StateUpdateByNumber(txn, block.Number)
+				if err != nil {
+					addError(err)
+					return
+				}
+
+				err = blockchain.StoreP2PHash(txn, block, stateUpdate.StateDiff)
+				if err != nil {
+					addError(err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	return errors.Join(errs...)
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
