@@ -77,10 +77,9 @@ install-mockgen:
 	go install go.uber.org/mock/mockgen@latest
 
 install-golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1
+@which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1
 
-lint:
-	@which golangci-lint || make install-golangci-lint
+lint: install-golangci-lint
 	golangci-lint run
 
 tidy: ## add missing and remove unused modules
