@@ -20,10 +20,16 @@ ifeq ($(shell uname -s),Darwin)
 	# for test-race we need to pass -ldflags to fix linker warnings on macOS
 	# see https://github.com/golang/go/issues/61229#issuecomment-1988965927
 	TEST_RACE_LDFLAGS=-ldflags=-extldflags=-Wl,-ld_classic
+
+	# Number of processes
+	NPROCS = $(shell sysctl hw.ncpu  | grep -o '[0-9]\+')
 else
 	export CGO_LDFLAGS=-ldl -lm
 	TEST_RACE_LDFLAGS=
+	NPROCS = $(shell grep -c 'processor' /proc/cpuinfo)
 endif
+
+MAKEFLAGS += -j$(NPROCS)
 
 rustdeps: vm core-rust compiler
 
@@ -77,7 +83,7 @@ install-mockgen:
 	go install go.uber.org/mock/mockgen@latest
 
 install-golangci-lint:
-@which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1
+	@which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1
 
 lint: install-golangci-lint
 	golangci-lint run
