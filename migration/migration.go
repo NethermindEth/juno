@@ -10,8 +10,8 @@ import (
 	"maps"
 	"runtime"
 	"sync"
-	"sync/atomic"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -74,55 +74,88 @@ var defaultMigrations = []Migration{
 func calculateP2PHash(txn db.Transaction, _ *utils.Network) error {
 	blockchain.RegisterCoreTypesToEncoder()
 
-	var blockNumber uint64
-
-	var (
-		errs   []error
-		errsMx sync.Mutex
-	)
-	addError := func(err error) {
-		errsMx.Lock()
-		errs = append(errs, err)
-		errsMx.Unlock()
+	type result struct {
+		blockNumber uint64
+		p2pHash     *felt.Felt
 	}
+	results := make(chan result, 1000)
 
-	var wg sync.WaitGroup
-	maxGoroutines := runtime.GOMAXPROCS(0)
-	for range maxGoroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	ctx, cancel := context.WithCancel(context.Background())
 
-			for {
-				number := atomic.AddUint64(&blockNumber, 1)
-				block, err := blockchain.BlockByNumber(txn, number)
-				if err != nil {
-					if errors.Is(err, db.ErrKeyNotFound) {
-						// no more blocks to migrate
-						break
-					}
+	p := pool.New().WithErrors()
+	p.Go(func() error {
+		defer close(results)
 
-					addError(err)
-					return
+		v0_13_2 := semver.MustParse("0.13.2")
+
+		prevP2PHash := &felt.Zero
+		for blockNumber := uint64(0); ; blockNumber++ {
+			block, err := blockchain.BlockByNumber(txn, blockNumber)
+			if err != nil {
+				if errors.Is(err, db.ErrKeyNotFound) {
+					// no more blocks to migrate
+					return nil
 				}
 
-				stateUpdate, err := blockchain.StateUpdateByNumber(txn, block.Number)
-				if err != nil {
-					addError(err)
-					return
-				}
-
-				err = blockchain.StoreP2PHash(txn, block, stateUpdate.StateDiff)
-				if err != nil {
-					addError(err)
-					return
-				}
+				return err
 			}
-		}()
-	}
-	wg.Wait()
 
-	return errors.Join(errs...)
+			blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+			if err != nil {
+				return err
+			}
+
+			// for blocks >= 0.13.2 don't do anything
+			if !blockVer.LessThan(v0_13_2) {
+				return nil
+			}
+
+			stateUpdate, err := blockchain.StateUpdateByNumber(txn, block.Number)
+			if err != nil {
+				return err
+			}
+
+			// override it for correct hash calculation
+			block.ParentHash = prevP2PHash
+
+			hash, _, err := core.Post0132Hash(block, stateUpdate.StateDiff)
+			if err != nil {
+				return err
+			}
+			prevP2PHash = hash
+
+			newResult := result{
+				blockNumber: block.Number,
+				p2pHash:     hash,
+			}
+			select {
+			case results <- newResult:
+				fmt.Println("Generated block", newResult.blockNumber)
+			case <-ctx.Done():
+				return nil
+			}
+
+		}
+	})
+
+	p.Go(func() error {
+		// todo comment
+		defer cancel()
+
+		for r := range results {
+			// todo move to function
+			numBytes := core.MarshalBlockNumber(r.blockNumber)
+			hashBytes := r.p2pHash.Bytes()
+			err := txn.Set(db.P2PHash.Key(numBytes), hashBytes[:])
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return p.Wait()
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
