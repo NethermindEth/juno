@@ -5,8 +5,13 @@ use std::{
 };
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn Cairo0ClassHash(class_json_str: *const c_char, hash: *mut c_uchar) {
-    let class_json = unsafe { CStr::from_ptr(class_json_str) }.to_str().unwrap();
+    let class_json = unsafe { CStr::from_ptr(class_json_str) };
+    let class_json = match class_json.to_str() {
+        Ok(s) => s,
+        Err(_) => return,
+    };
     let class: Result<LegacyContractClass, serde_json::Error> = serde_json::from_str(class_json);
 
     let class = match class {
