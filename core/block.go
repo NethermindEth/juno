@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
@@ -207,12 +208,32 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
-	return crypto.PoseidonArray(
-			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
-			new(felt.Felt).SetUint64(b.Number),    // block number
-			b.GlobalStateRoot,                     // global state root
-			b.SequencerAddress,                    // sequencer address
-			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+	hash := crypto.PoseidonArray(
+		new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
+		new(felt.Felt).SetUint64(b.Number),    // block number
+		b.GlobalStateRoot,                     // global state root
+		b.SequencerAddress,                    // sequencer address
+		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		concatCounts,
+		sdCommitment,
+		txCommitment,   // transaction commitment
+		eCommitment,    // event commitment
+		rCommitment,    // receipt commitment
+		b.GasPrice,     // gas price in wei
+		b.GasPriceSTRK, // gas price in fri
+		b.L1DataGasPrice.PriceInWei,
+		b.L1DataGasPrice.PriceInFri,
+		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+		&felt.Zero,   // reserved: extra data
+		b.ParentHash, // parent block hash
+	)
+
+	if b.Number == 24521 {
+		spew.Dump(
+			b.Number,           // block number
+			b.GlobalStateRoot,  // global state root
+			b.SequencerAddress, // sequencer address
+			b.Timestamp,        // block timestamp
 			concatCounts,
 			sdCommitment,
 			txCommitment,   // transaction commitment
@@ -222,15 +243,19 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			b.GasPriceSTRK, // gas price in fri
 			b.L1DataGasPrice.PriceInWei,
 			b.L1DataGasPrice.PriceInFri,
-			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+			b.ProtocolVersion,
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
-		), &BlockCommitments{
-			TransactionCommitment: txCommitment,
-			EventCommitment:       eCommitment,
-			ReceiptCommitment:     rCommitment,
-			StateDiffCommitment:   sdCommitment,
-		}, nil
+			fmt.Sprintf("new hash is %v", hash),
+		)
+	}
+
+	return hash, &BlockCommitments{
+		TransactionCommitment: txCommitment,
+		EventCommitment:       eCommitment,
+		ReceiptCommitment:     rCommitment,
+		StateDiffCommitment:   sdCommitment,
+	}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
