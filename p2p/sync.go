@@ -386,7 +386,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			}
 
 			fmt.Printf("For block %d hash is %v, parent hash is %v\n", coreBlock.Number, coreBlock.Hash, coreBlock.ParentHash)
-			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses, false)
+			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
 				return
