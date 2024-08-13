@@ -1,0 +1,9 @@
+/Users/daniilankusin/juno/starknet/rust/target/debug/deps/libunicode_segmentation-dcd47dee4bc4a1c9.rmeta: /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/lib.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/grapheme.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/sentence.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/word.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/tables.rs
+
+/Users/daniilankusin/juno/starknet/rust/target/debug/deps/unicode_segmentation-dcd47dee4bc4a1c9.d: /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/lib.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/grapheme.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/sentence.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/word.rs /Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/tables.rs
+
+/Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/lib.rs:
+/Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/grapheme.rs:
+/Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/sentence.rs:
+/Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/word.rs:
+/Users/daniilankusin/.cargo/registry/src/index.crates.io-6f17d22bba15001f/unicode-segmentation-1.11.0/src/tables.rs:
