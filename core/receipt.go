@@ -1,9 +1,11 @@
 package core
 
 import (
+	"fmt"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type GasConsumed struct {
@@ -66,6 +68,10 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		for i, receipt := range receipts {
 			receiptTrieKey := new(felt.Felt).SetUint64(uint64(i))
+			fmt.Printf("Receipt %d hash %v\n", i, receipt.hash())
+			if i == 4 {
+				spew.Dump("4th receipt", receipt, receipt.hash())
+			}
 			_, err := trie.Put(receiptTrieKey, receipt.hash())
 			if err != nil {
 				return err
