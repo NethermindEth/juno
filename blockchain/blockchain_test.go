@@ -194,7 +194,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 		require.NoError(t, err)
 
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
-		_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil, false)
+		_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
 		assert.EqualError(t, err, "block hashes do not match")
 	})
 
@@ -204,7 +204,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 			require.NoError(t, err)
 			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
-			_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil, false)
+			_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
 			assert.EqualError(t, err, "block's GlobalStateRoot does not match state update's NewRoot")
 		})
 }
