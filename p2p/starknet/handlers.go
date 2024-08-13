@@ -179,14 +179,6 @@ func (h *Handler) updateHashes(block *core.Block) error {
 	}
 	block.Hash = p2pHash
 
-	if block.Number > 0 {
-		prevP2PHash, err := h.bcReader.BlockP2PHashByNumber(block.Number - 1)
-		if err != nil {
-			return err
-		}
-		block.ParentHash = prevP2PHash
-	}
-
 	return nil
 }
 
