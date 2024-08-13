@@ -218,6 +218,16 @@ func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 	})
 }
 
+func (b *Blockchain) BlockP2PHashByNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("BlockP2PHashByNumber")
+	var hash *felt.Felt
+	return hash, b.database.View(func(txn db.Transaction) error {
+		var err error
+		hash, err = p2pHashByNumber(txn, number)
+		return err
+	})
+}
+
 func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
 	b.listener.OnRead("StateUpdateByNumber")
 	var update *core.StateUpdate
@@ -381,9 +391,15 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		// todo only for <0.13.2 blocks
-		if err := StoreP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
+		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+		if err != nil {
 			return err
+		}
+
+		if blockVer.LessThan(core.Ver0_13_2) {
+			if err := ComputeAndStoreP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
+				return err
+			}
 		}
 
 		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
@@ -412,28 +428,22 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	})
 }
 
-func StoreP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
-	originalParentHash := block.ParentHash
-	if block.Number > 0 {
-		prevP2PHash, err := blockP2PHashByNumber(txn, block.Number-1)
-		if err != nil {
-			return err
-		}
-		block.ParentHash = prevP2PHash
-	}
-
-	numBytes := core.MarshalBlockNumber(block.Number)
+func ComputeAndStoreP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
 	hash, _, err := core.Post0132Hash(block, stateDiff)
 	if err != nil {
 		return err
 	}
-	block.ParentHash = originalParentHash
 
-	hashBytes := hash.Bytes()
+	return StoreP2PHash(txn, block.Number, hash)
+}
+
+func StoreP2PHash(txn db.Transaction, blockNumber uint64, p2pHash *felt.Felt) error {
+	hashBytes := p2pHash.Bytes()
+	numBytes := core.MarshalBlockNumber(blockNumber)
 	return txn.Set(db.P2PHash.Key(numBytes), hashBytes[:])
 }
 
-func blockP2PHashByNumber(txn db.Transaction, blockNumber uint64) (*felt.Felt, error) {
+func p2pHashByNumber(txn db.Transaction, blockNumber uint64) (*felt.Felt, error) {
 	var blockHash *felt.Felt
 	numBytes := core.MarshalBlockNumber(blockNumber)
 	return blockHash, txn.Get(db.P2PHash.Key(numBytes), func(bytes []byte) error {
