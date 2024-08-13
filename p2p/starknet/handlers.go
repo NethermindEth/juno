@@ -170,18 +170,6 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 	})
 }
 
-// updateHashes updates a block hashes (blockHash, parentHash) for p2p
-// caller is responsible to check that block.version < 0.13.2 before applying this method
-func (h *Handler) updateHashes(block *core.Block) error {
-	p2pHash, err := h.bcReader.BlockP2PHashByNumber(block.Number)
-	if err != nil {
-		return err
-	}
-	block.Hash = p2pHash
-
-	return nil
-}
-
 func (h *Handler) onEventsRequest(req *spec.EventsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &spec.EventsResponse{
 		EventMessage: &spec.EventsResponse_Fin{},

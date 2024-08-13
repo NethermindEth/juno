@@ -128,7 +128,9 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
+func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
+	*BlockCommitments, error,
+) {
 	metaInfo := network.BlockHashMetaInfo
 
 	blockVer, err := ParseBlockVersion(b.ProtocolVersion)
