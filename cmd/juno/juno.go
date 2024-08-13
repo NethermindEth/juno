@@ -82,6 +82,7 @@ const (
 	callMaxStepsF           = "rpc-call-max-steps"
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
+	pluginF                 = "plugin-file"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -354,6 +355,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
+	junoCmd.Flags().String(pluginF, "", "")
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))

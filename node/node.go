@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"plugin"
 	"reflect"
 	"runtime"
 	"time"
@@ -76,6 +77,8 @@ type Config struct {
 	P2PPeers      string `mapstructure:"p2p-peers"`
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
+
+	PluginFile string `mapstructure:"plugin-file"`
 
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
@@ -154,6 +157,36 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+
+	if cfg.PluginFile != "" {
+		p, err := plugin.Open(cfg.PluginFile)
+		if err != nil {
+			return nil, err
+		}
+
+		initSymbol, err := p.Lookup("Init")
+		if err != nil {
+			return nil, err
+		}
+		if pluginInit, ok := initSymbol.(func() error); ok {
+			err = pluginInit()
+			if err != nil {
+				return nil, err
+			}
+
+			getVarSymbol, err := p.Lookup("GetVar")
+			if err != nil {
+				return nil, err
+			}
+
+			pluginGetVar := getVarSymbol.(func() string)
+
+			fmt.Println("Plugin response: ", pluginGetVar())
+			time.Sleep(time.Hour) // for illustration ^
+		} else {
+			return nil, fmt.Errorf("Wrong signature of Init function")
+		}
+	}
 
 	var p2pService *p2p.Service
 	if cfg.P2P {
