@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
@@ -174,11 +173,11 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 }
 
 func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
+	wg := conc.NewWaitGroup()
 	wg.Go(func() {
 		txCommitment, tErr = transactionCommitmentPoseidon(b.Transactions)
 	})
@@ -188,12 +187,10 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	wg.Go(func() {
 		rCommitment, rErr = receiptCommitment(b.Receipts)
 	})
-
 	wg.Go(func() {
 		sdLength = stateDiff.Length()
 		sdCommitment = stateDiff.Hash()
 	})
-
 	wg.Wait()
 
 	if tErr != nil {
@@ -208,32 +205,12 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
-	hash := crypto.PoseidonArray(
-		new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
-		new(felt.Felt).SetUint64(b.Number),    // block number
-		b.GlobalStateRoot,                     // global state root
-		b.SequencerAddress,                    // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-		concatCounts,
-		sdCommitment,
-		txCommitment,   // transaction commitment
-		eCommitment,    // event commitment
-		rCommitment,    // receipt commitment
-		b.GasPrice,     // gas price in wei
-		b.GasPriceSTRK, // gas price in fri
-		b.L1DataGasPrice.PriceInWei,
-		b.L1DataGasPrice.PriceInFri,
-		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-		&felt.Zero,   // reserved: extra data
-		b.ParentHash, // parent block hash
-	)
-
-	if b.Number == 24521 {
-		spew.Dump(
-			b.Number,           // block number
-			b.GlobalStateRoot,  // global state root
-			b.SequencerAddress, // sequencer address
-			b.Timestamp,        // block timestamp
+	return crypto.PoseidonArray(
+			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
+			new(felt.Felt).SetUint64(b.Number),    // block number
+			b.GlobalStateRoot,                     // global state root
+			b.SequencerAddress,                    // sequencer address
+			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			concatCounts,
 			sdCommitment,
 			txCommitment,   // transaction commitment
@@ -243,19 +220,15 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			b.GasPriceSTRK, // gas price in fri
 			b.L1DataGasPrice.PriceInWei,
 			b.L1DataGasPrice.PriceInFri,
-			b.ProtocolVersion,
+			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
-			fmt.Sprintf("new hash is %v", hash),
-		)
-	}
-
-	return hash, &BlockCommitments{
-		TransactionCommitment: txCommitment,
-		EventCommitment:       eCommitment,
-		ReceiptCommitment:     rCommitment,
-		StateDiffCommitment:   sdCommitment,
-	}, nil
+		), &BlockCommitments{
+			TransactionCommitment: txCommitment,
+			EventCommitment:       eCommitment,
+			ReceiptCommitment:     rCommitment,
+			StateDiffCommitment:   sdCommitment,
+		}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
