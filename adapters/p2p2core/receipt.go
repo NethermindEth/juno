@@ -32,7 +32,7 @@ func AdaptReceipt(r *spec.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
 		L1ToL2Message:      nil,
 		L2ToL1Message:      utils.Map(common.MessagesSent, adaptMessageToL1),
 		TransactionHash:    txHash,
-		Reverted:           common.RevertReason != nil, // todo is it correct?
+		Reverted:           common.RevertReason != nil, // in case it's empty string we should treat it as reverted
 		RevertReason:       common.GetRevertReason(),
 	}
 }
