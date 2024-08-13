@@ -697,8 +697,9 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	}
 
 	sep := "."
+	digits := strings.Split(protocolVersion, sep)
 	// pad with 3 zeros in case version has less than 3 digits
-	digits := append(strings.Split(protocolVersion, sep), []string{"0", "0", "0"}...)
+	digits = append(digits, []string{"0", "0", "0"}...)
 
 	// get first 3 digits only
 	return semver.NewVersion(strings.Join(digits[:3], sep))
