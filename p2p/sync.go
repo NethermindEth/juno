@@ -124,7 +124,6 @@ func (s *syncService) start(ctx context.Context) {
 			}
 
 			storeTimer := time.Now()
-			fmt.Printf("Storing %d block with hash %v\n", b.block.Number, b.block.Hash)
 			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
 			if err != nil {
 				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
@@ -392,7 +391,6 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				StateDiff: stateDiff,
 			}
 
-			fmt.Printf("For block %d hash is %v, parent hash is %v\n", coreBlock.Number, coreBlock.Hash, coreBlock.ParentHash)
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/Masterminds/semver/v3"
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -149,17 +148,17 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 			return nil, err
 		}
 
-		v0_13_2 := semver.MustParse("0.13.2")
 		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
 		if err != nil {
 			return nil, err
 		}
 
-		if blockVer.LessThan(v0_13_2) {
-			err = h.updateHashes(block)
+		if blockVer.LessThan(core.Ver0_13_2) {
+			p2pHash, err := h.bcReader.BlockP2PHashByNumber(block.Number)
 			if err != nil {
 				return nil, err
 			}
+			block.Hash = p2pHash
 		}
 
 		return &spec.BlockHeadersResponse{
@@ -169,18 +168,6 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 			},
 		}, nil
 	})
-}
-
-// updateHashes updates a block hashes (blockHash, parentHash) for p2p
-// caller is responsible to check that block.version < 0.13.2 before applying this method
-func (h *Handler) updateHashes(block *core.Block) error {
-	p2pHash, err := h.bcReader.BlockP2PHashByNumber(block.Number)
-	if err != nil {
-		return err
-	}
-	block.Hash = p2pHash
-
-	return nil
 }
 
 func (h *Handler) onEventsRequest(req *spec.EventsRequest) (iter.Seq[proto.Message], error) {
