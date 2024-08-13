@@ -280,7 +280,6 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			for _, tx := range txs {
 				coreTxs = append(coreTxs, p2p2core.AdaptTransaction(tx, s.network))
 			}
-
 			coreBlock.Transactions = coreTxs
 
 			txHashEventsM := make(map[felt.Felt][]*core.Event)
@@ -296,12 +295,12 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 					spew.Dump(coreTxs[i])
 					panic(fmt.Errorf("TX hash %d is nil", i))
 				}
-				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, txHash))
+
+				coreReceipt := p2p2core.AdaptReceipt(r, txHash)
+				coreReceipt.Events = txHashEventsM[*coreReceipt.TransactionHash]
+
+				coreReceipts = append(coreReceipts, coreReceipt)
 			}
-			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
-				r.Events = txHashEventsM[*r.TransactionHash]
-				return r
-			})
 			coreBlock.Receipts = coreReceipts
 
 			eventsBloom := core.EventsBloom(coreBlock.Receipts)
