@@ -246,7 +246,7 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	}
 
 	for _, network := range networks {
-		if _, err := core.VerifyBlockHash(head, network, stateDiff, false); err == nil {
+		if _, err := core.VerifyBlockHash(head, network, stateDiff); err == nil {
 			return network.Name
 		}
 	}

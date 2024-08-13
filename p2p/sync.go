@@ -349,14 +349,44 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				}
 			}()
 
+			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+
+			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
+			if err != nil {
+				bodyCh <- blockBody{err: fmt.Errorf("failed to parse block version: %w", err)}
+				return
+			}
+
+			if blockVer.LessThan(core.Ver0_13_2) {
+				expectedHash, _, err := core.Post0132Hash(coreBlock, stateDiff)
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
+					return
+				}
+
+				if !coreBlock.Hash.Equal(expectedHash) {
+					err = fmt.Errorf("received p2p hash %v doesn't match expected %v", coreBlock.Hash, expectedHash)
+					bodyCh <- blockBody{err: err}
+					return
+				}
+
+				// todo comment
+				coreBlock.Hash, err = core.BlockHash(coreBlock)
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("failed to generate block hash: %w", err)}
+					return
+				}
+			}
+
 			stateUpdate := &core.StateUpdate{
 				BlockHash: coreBlock.Hash,
 				NewRoot:   coreBlock.GlobalStateRoot,
 				OldRoot:   prevBlockRoot,
-				StateDiff: p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes),
+				StateDiff: stateDiff,
 			}
 
-			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
+			fmt.Printf("For block %d hash is %v, parent hash is %v\n", coreBlock.Number, coreBlock.Hash, coreBlock.ParentHash)
+			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses, false)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
 				return
