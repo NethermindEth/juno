@@ -426,7 +426,8 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 					return
 				}
 
-				// todo comment
+				// once we verified p2p hash with received one above
+				// we need to overwrite it with old scheme hash
 				coreBlock.Hash, err = core.BlockHash(coreBlock)
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("failed to generate block hash: %w", err)}
