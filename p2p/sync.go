@@ -75,6 +75,62 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
+		txsCh, err := s.genTransactions(iterCtx, blockNumber)
+		if err != nil {
+			s.logError("Failed to get transactions", err)
+			cancelIteration()
+			continue
+		}
+
+		eventsCh, err := s.genEvents(iterCtx, blockNumber)
+		if err != nil {
+			s.logError("Failed to get classes", err)
+			cancelIteration()
+			continue
+		}
+
+		classesCh, err := s.genClasses(iterCtx, blockNumber)
+		if err != nil {
+			s.logError("Failed to get classes", err)
+			cancelIteration()
+			continue
+		}
+
+		stateDiffsCh, err := s.genStateDiffs(iterCtx, blockNumber)
+		if err != nil {
+			s.logError("Failed to get state diffs", err)
+			cancelIteration()
+			continue
+		}
+
+		blocksCh := pipeline.Bridge(iterCtx, s.processSpecBlockParts(iterCtx, uint64(nextHeight), pipeline.FanIn(iterCtx,
+			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+			pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
+			pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
+			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
+			pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
+		)))
+
+		for b := range blocksCh {
+			if b.err != nil {
+				// cannot process any more blocks
+				s.log.Errorw("Failed to process block", "err", b.err)
+				cancelIteration()
+				break
+			}
+
+			storeTimer := time.Now()
+			err = s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses)
+			if err != nil {
+				s.log.Errorw("Failed to Store Block", "number", b.block.Number, "err", err)
+				cancelIteration()
+				break
+			}
+
+			s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(),
+				"root", b.block.GlobalStateRoot.ShortString())
+			s.listener.OnSyncStepDone(junoSync.OpStore, b.block.Number, time.Since(storeTimer))
+		}
 		cancelIteration()
 	}
 }
@@ -385,7 +441,6 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				StateDiff: stateDiff,
 			}
 
-			fmt.Printf("For block %d hash is %v, parent hash is %v\n", coreBlock.Number, coreBlock.Hash, coreBlock.ParentHash)
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
