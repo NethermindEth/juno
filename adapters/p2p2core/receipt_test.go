@@ -1,11 +1,12 @@
 package p2p2core_test
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestAdaptReceipt(t *testing.T) {
