@@ -5,13 +5,12 @@ mod juno_state_reader;
 extern crate lazy_static;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
-use std::{
-    collections::HashMap,
-    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
-    num::NonZeroU128,
-    slice,
-    sync::Arc,
+use blockifier::bouncer::BouncerConfig;
+use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::transaction::errors::TransactionExecutionError::{
+    ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
 };
+use blockifier::transaction::objects::GasVector;
 use blockifier::{
     blockifier::block::{
         pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
@@ -32,18 +31,19 @@ use blockifier::{
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
-use starknet_api::{
-    transaction::{Transaction as StarknetApiTransaction},
-};
-use std::str::FromStr;
-use blockifier::bouncer::BouncerConfig;
-use blockifier::fee::{fee_utils, gas_usage};
-use blockifier::transaction::errors::TransactionExecutionError::{ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError};
-use blockifier::transaction::objects::GasVector;
 use starknet_api::block::BlockHash;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::transaction::Transaction as StarknetApiTransaction;
 use starknet_api::transaction::{Calldata, Fee, TransactionHash};
 use starknet_types_core::felt::Felt;
+use std::str::FromStr;
+use std::{
+    collections::HashMap,
+    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    num::NonZeroU128,
+    slice,
+    sync::Arc,
+};
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -174,9 +174,6 @@ pub extern "C" fn cairoVMExecute(
     skip_validate: c_uchar,
     err_on_revert: c_uchar,
 ) {
-    let block_info = unsafe { *block_info_ptr };
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
-    let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
@@ -184,6 +181,11 @@ pub extern "C" fn cairoVMExecute(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
+    let txns_and_query_bits = txns_and_query_bits.unwrap();
+
+    let block_info = unsafe { *block_info_ptr };
+
+    let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
     let mut classes: Result<Vec<Box<serde_json::value::RawValue>>, serde_json::Error> = Ok(vec![]);
     if !classes_json.is_null() {
@@ -195,10 +197,16 @@ pub extern "C" fn cairoVMExecute(
         return;
     }
 
+    let classes = classes.unwrap();
+
+    let charge_fee = skip_charge_fee == 0;
+    let validate = skip_validate == 0;
+
     let paid_fees_on_l1_json_str = unsafe { CStr::from_ptr(paid_fees_on_l1_json) }
         .to_str()
         .unwrap();
-    let mut paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
+
+    let paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
         Ok(f) => f,
         Err(e) => {
             report_error(reader_handle, e.to_string().as_str(), -1);
@@ -206,13 +214,35 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
+    cairo_vm_execute(
+        txns_and_query_bits,
+        classes,
+        paid_fees_on_l1,
+        block_info,
+        reader_handle,
+        chain_id_str,
+        charge_fee,
+        validate,
+        err_on_revert,
+    )
+}
+
+fn cairo_vm_execute(
+    txns_and_query_bits: Vec<TxnAndQueryBit>,
+    mut classes: Vec<Box<serde_json::value::RawValue>>,
+    mut paid_fees_on_l1: Vec<Box<Fee>>,
+    block_info: BlockInfo,
+    reader_handle: usize,
+    chain_id: &str,
+    charge_fee: bool,
+    validate: bool,
+    err_on_revert: c_uchar,
+) {
+    // These two can be extracted out
+    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let mut state = CachedState::new(reader);
-    let txns_and_query_bits = txns_and_query_bits.unwrap();
-    let mut classes = classes.unwrap();
-    let block_context: BlockContext =
-        build_block_context(&mut state, &block_info, chain_id_str, None);
-    let charge_fee = skip_charge_fee == 0;
-    let validate = skip_validate == 0;
+
+    let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id, None);
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
@@ -237,7 +267,7 @@ pub extern "C" fn cairoVMExecute(
                 );
 
                 if let Err(e) = &maybe_cc {
-                    report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
+                    report_error(reader_handle, e.as_str(), txn_index as i64);
                     return;
                 }
                 Some(maybe_cc.unwrap())
@@ -300,7 +330,7 @@ pub extern "C" fn cairoVMExecute(
                         "failed txn {} reason: {}",
                         txn_and_query_bit.txn_hash, err_string,
                     )
-                        .as_str(),
+                    .as_str(),
                     txn_index as i64,
                 );
                 return;
@@ -352,7 +382,7 @@ pub extern "C" fn cairoVMExecute(
                             "failed building txn state diff reason: {:?}",
                             trace.err().unwrap()
                         )
-                            .as_str(),
+                        .as_str(),
                         txn_index as i64,
                     );
                     return;
@@ -481,25 +511,20 @@ fn build_block_context(
                 Felt::from_hex(
                     "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
                 )
-                    .unwrap(),
-            )
                 .unwrap(),
+            )
+            .unwrap(),
             strk_fee_token_address: ContractAddress::try_from(
                 Felt::from_hex(
                     "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
                 )
-                    .unwrap(),
-            )
                 .unwrap(),
+            )
+            .unwrap(),
         },
     };
 
-    pre_process_block(
-        state,
-        old_block_number_and_hash,
-        block_info.block_number,
-    )
-    .unwrap();
+    pre_process_block(state, old_block_number_and_hash, block_info.block_number).unwrap();
 
     BlockContext::new(block_info, chain_info, constants, BouncerConfig::max())
 }
