@@ -28,6 +28,7 @@ func TestEvents(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	n := utils.Ptr(utils.Sepolia)
 	chain := blockchain.New(testDB, n)
+	defer chain.Close()
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
