@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+const MaxSnapshots = 128
+
 type snapshotRecord struct {
 	stateRoot     *felt.Felt
 	contractsRoot *felt.Felt
@@ -108,7 +110,7 @@ func (b *Blockchain) seedSnapshot() error {
 		return err
 	}
 
-	defer srCloser()
+	defer func() { _ = srCloser() }()
 
 	state := stateR.(*core.State)
 	contractsRoot, classRoot, err := state.StateAndClassRoot()
@@ -139,7 +141,7 @@ func (b *Blockchain) seedSnapshot() error {
 
 	// TODO: Reorgs
 	b.snapshots = append(b.snapshots, &dbsnap)
-	if len(b.snapshots) > 128 {
+	if len(b.snapshots) > MaxSnapshots {
 		toremove := b.snapshots[0]
 		err = toremove.closer()
 		if err != nil {
@@ -156,6 +158,7 @@ func (b *Blockchain) seedSnapshot() error {
 
 func (b *Blockchain) Close() {
 	for _, snapshot := range b.snapshots {
-		snapshot.closer()
+		// ignore the errors here as it's most likely called on shutdown
+		_ = snapshot.closer()
 	}
 }

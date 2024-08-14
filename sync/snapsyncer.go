@@ -26,6 +26,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const JOB_DURATION = time.Second * 10
+
 type Blockchain interface {
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
 	PutClasses(blockNumber uint64, v1CompiledHashes map[felt.Felt]*felt.Felt, newClasses map[felt.Felt]core.Class) error
@@ -71,36 +73,23 @@ func NewSnapSyncer(
 	baseSyncher service.Service,
 	consensus starknetdata.StarknetData,
 	server SnapServer,
-	blockchain *blockchain.Blockchain,
+	bc *blockchain.Blockchain,
 	log utils.Logger,
 ) *SnapSyncher {
 	return &SnapSyncher{
 		baseSync:     baseSyncher,
 		starknetData: consensus,
 		snapServer:   server,
-		blockchain:   blockchain,
+		blockchain:   bc,
 		log:          log,
 	}
 }
 
 var (
-	addressDurations = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "juno_address_durations",
-		Help:    "Time in address get",
-		Buckets: prometheus.ExponentialBuckets(1.0, 1.7, 30),
-	}, []string{"phase"})
-	storageDurations = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "juno_storage_durations",
-		Help: "Time in address get",
-	}, []string{"phase"})
-	storageStoreSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "juno_storage_store_size",
-		Help: "Time in address get",
-	})
-	storageStoreSizeTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "juno_storage_store_size_total",
-		Help: "Time in address get",
-	})
+	// magic values linter does not like
+	start  = float64(1.0)
+	factor = float64(1.5)
+	count  = 30
 
 	rangeProgress = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "juno_range_progress",
@@ -112,25 +101,10 @@ var (
 		Help: "Time in address get",
 	})
 
-	updateContractTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "juno_updated_contract_totals",
-		Help: "Time in address get",
-	}, []string{"location"})
-
-	storageLeafSize = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "juno_storage_leaf_size",
-		Help:    "Time in address get",
-		Buckets: prometheus.ExponentialBuckets(1.0, 1.5, 30),
-	})
 	storageAddressCount = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "juno_storage_address_count",
 		Help:    "Time in address get",
-		Buckets: prometheus.ExponentialBuckets(1.0, 1.5, 30),
-	})
-	storageLargeLeafSize = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "juno_storage_large_leaf_size",
-		Help:    "Time in address get",
-		Buckets: prometheus.ExponentialBuckets(1.0, 1.5, 30),
+		Buckets: prometheus.ExponentialBuckets(start, factor, count),
 	})
 )
 
@@ -172,27 +146,17 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 		return err
 	}
 
-	/*
-		for i := s.startingBlock.Number; i <= s.lastBlock.Number; i++ {
-			s.log.Infow("applying block", "blockNumber", i, "lastBlock", s.lastBlock.Number)
-
-			err = s.ApplyStateUpdate(uint64(i))
-			if err != nil {
-				return errors.Join(err, errors.New("error applying state update"))
-			}
-		}
-
-			err = s.verifyTrie(ctx)
-			if err != nil {
-				return err
-			}
-	*/
-
 	s.log.Infow("delegating to standard synchronizer")
 	return s.baseSync.Run(ctx)
 }
 
-func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []trie.ProofNode, height uint8, hash func(*felt.Felt, *felt.Felt) *felt.Felt) (bool, error) {
+func VerifyTrie(
+	expectedRoot *felt.Felt,
+	paths, hashes []*felt.Felt,
+	proofs []trie.ProofNode,
+	height uint8,
+	hash func(*felt.Felt, *felt.Felt) *felt.Felt,
+) (bool, error) {
 	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash, height)
 	if err != nil {
 		return false, err
@@ -204,12 +168,13 @@ func VerifyTrie(expectedRoot *felt.Felt, paths, hashes []*felt.Felt, proofs []tr
 	return hasMore, nil
 }
 
+// nolint
 func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 	starttime := time.Now()
 
 	err := s.initState(ctx)
 	if err != nil {
-		return errors.Join(err, errors.New("error initializing snap syncer state"))
+		return errors.Join(err, errors.New("error initialising snap syncer state"))
 	}
 
 	eg, ectx := errgroup.WithContext(ctx)
@@ -218,7 +183,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		defer func() {
 			s.log.Infow("pool latest block done")
 			if err := recover(); err != nil {
-				s.log.Errorw("latest block pool paniced", "err", err)
+				s.log.Errorw("latest block pool panicked", "err", err)
 			}
 		}()
 
@@ -228,7 +193,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 	eg.Go(func() error {
 		defer func() {
 			if err := recover(); err != nil {
-				s.log.Errorw("class range paniced", "err", err)
+				s.log.Errorw("class range panicked", "err", err)
 			}
 		}()
 
@@ -322,7 +287,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 		return err
 	}
 
-	s.log.Infow("first phase completed", "duration", time.Now().Sub(starttime).String())
+	s.log.Infow("first phase completed", "duration", time.Since(starttime))
 
 	return nil
 }
@@ -377,16 +342,18 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 }
 
 func calculatePercentage(f *felt.Felt) uint64 {
+	const MAX_PERCENT = 100
 	maxint := big.NewInt(1)
-	maxint.Lsh(maxint, 251)
+	maxint.Lsh(maxint, core.GlobalTrieHeight)
 
-	theint := f.BigInt(big.NewInt(0))
-	theint.Mul(theint, big.NewInt(100))
-	theint.Div(theint, maxint)
+	percent := f.BigInt(big.NewInt(0))
+	percent.Mul(percent, big.NewInt(MAX_PERCENT))
+	percent.Div(percent, maxint)
 
-	return theint.Uint64()
+	return percent.Uint64()
 }
 
+// nolint
 func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 	totaladded := 0
 	completed := false
@@ -417,7 +384,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			}
 			s.log.Infow("got", "res", len(response.Range.Classes), "err", reqErr, "startAdr", startAddr)
 
-			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
+			err = VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
 			if err != nil {
 				s.log.Infow("global state root verification failure")
 				// Root verification failed
@@ -532,7 +499,7 @@ func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []trie.ProofNode {
 
 var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 
-func VerifyGlobalStateRoot(globalStateRoot *felt.Felt, classRoot *felt.Felt, storageRoot *felt.Felt) error {
+func VerifyGlobalStateRoot(globalStateRoot, classRoot, storageRoot *felt.Felt) error {
 	if classRoot.IsZero() {
 		if globalStateRoot.Equal(storageRoot) {
 			return nil
@@ -556,6 +523,7 @@ func CalculateClassHash(cls core.Class) *felt.Felt {
 	return hash
 }
 
+// nolint
 func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 	startAddr := &felt.Zero
 	completed := false
@@ -570,7 +538,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			Start:          core2p2p.AdaptAddress(startAddr),
 			End:            nil, // No need for now.
 			ChunksPerProof: uint32(contractRangeChunkPerProof),
-		})(func(response *ContractRangeStreamingResult, err error) bool {
+		})(func(response *ContractRangeStreamingResult, _err error) bool {
 			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr), "addr", startAddr)
 			rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
@@ -595,10 +563,9 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			hasNext, ierr := VerifyTrie(response.ContractsRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
-			if ierr != nil {
-				err = ierr
-				// The peer should get penalized in this case
+			hasNext, err := VerifyTrie(response.ContractsRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
+			if err != nil {
+				// The peer should get penalised in this case
 				return false
 			}
 
@@ -673,17 +640,6 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }
 
-/**
-type StateDiff struct {
-	StorageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
-	Nonces            map[felt.Felt]*felt.Felt               // addr -> nonce
-	DeployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
-	DeclaredV0Classes []*felt.Felt                           // class hashes
-	DeclaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
-	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
-}
-*/
-
 func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
 	queued := false
 	for !queued {
@@ -699,7 +655,7 @@ func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) e
 	return nil
 }
 
-func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path *felt.Felt, storageRoot *felt.Felt, classHash *felt.Felt, nonce uint64) error {
+func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path, storageRoot, classHash *felt.Felt, nonce uint64) error {
 	return s.queueStorageRangeJobJob(ctx, &storageRangeJob{
 		path:         path,
 		storageRoot:  storageRoot,
@@ -718,7 +674,7 @@ func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageR
 			atomic.AddInt32(&s.storageRangeJobCount, 1)
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Second * 10):
+		case <-time.After(JOB_DURATION):
 			s.log.Infow("queue storage range stall")
 		}
 	}
@@ -741,6 +697,7 @@ func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRa
 	return nil
 }
 
+// nolint
 func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) error {
 	nextjobs := make([]*storageRangeJob, 0)
 	for {
@@ -758,7 +715,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				jobs = append(jobs, job)
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(time.Second * 10):
+			case <-time.After(JOB_DURATION):
 				if len(jobs) > 0 {
 					break requestloop
 				}
@@ -797,10 +754,11 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			StateRoot:     stateRoot,
 			ChunkPerProof: uint64(storageRangeChunkPerProof),
 			Queries:       requests,
-		})(func(response *StorageRangeStreamingResult, err error) bool {
+		})(func(response *StorageRangeStreamingResult, _err error) bool {
 			job := jobs[processedJobs]
 			if !job.path.Equal(response.StorageAddr) {
-				s.log.Errorw(fmt.Sprintf("storage addr differ %s %s %d\n", job.path, response.StorageAddr, workerIdx))
+				s.log.Errorw(fmt.Sprintf(
+					"storage addr differ %s %s %d\n", job.path, response.StorageAddr, workerIdx))
 				return false
 			}
 
@@ -890,7 +848,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			return err
 		}
 
-		// TODO: Just slice?
+		// TODO: assign to nil to clear memory
 		nextjobs = make([]*storageRangeJob, 0)
 		for i := processedJobs; i < len(jobs); i++ {
 			unprocessedRequest := jobs[i]
@@ -904,7 +862,7 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.After(time.Second * 10):
+		case <-time.After(JOB_DURATION):
 			break
 		case <-s.storageRangeDone:
 			return nil
@@ -917,7 +875,8 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 
 		// TODO: Race issue
 		if newTarget.Number-s.lastBlock.Number < uint64(maxPivotDistance) {
-			s.log.Infow("Not updating pivot yet", "lastblock", s.lastBlock.Number, "newTarget", newTarget.Number, "diff", newTarget.Number-s.lastBlock.Number)
+			s.log.Infow("Not updating pivot yet", "lastblock", s.lastBlock.Number,
+				"newTarget", newTarget.Number, "diff", newTarget.Number-s.lastBlock.Number)
 			continue
 		}
 
@@ -944,7 +903,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case <-time.After(time.Second * 10):
+			case <-time.After(JOB_DURATION):
 				// Just request whatever we have
 				if len(keyBatches) > 0 {
 					break requestloop
@@ -1003,7 +962,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 
 			if !h.Equal(keyBatches[i]) {
 				s.log.Warnw("invalid classhash", "got", h, "expected", keyBatches[i])
-				// return errors.New("invalid class hash")
+				return errors.New("invalid class hash")
 			}
 
 			if coreClass.Version() == 1 {
@@ -1021,7 +980,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			}
 		} else {
 			s.log.Errorw("Unable to fetch any class from peer")
-			// TODO: Penalize peer?
+			// TODO: Penalise peer?
 		}
 
 		newBatch := make([]*felt.Felt, 0)
@@ -1053,7 +1012,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
-				case <-time.After(time.Second * 10):
+				case <-time.After(JOB_DURATION):
 					s.log.Infow("waiting for more refresh job", "count", s.storageRangeJobCount)
 				case <-contractDoneChecker:
 					// Its done...
@@ -1066,8 +1025,8 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 
 		bigIntAdd := job.startAddress.BigInt(&big.Int{})
 		bigIntAdd = (&big.Int{}).Add(bigIntAdd, big.NewInt(1))
-		fp := fp.NewElement(0)
-		limitAddr := felt.NewFelt((&fp).SetBigInt(bigIntAdd))
+		elem := fp.NewElement(0)
+		limitAddr := felt.NewFelt((&elem).SetBigInt(bigIntAdd))
 		var err error
 
 		stateRoot := s.currentGlobalStateRoot
@@ -1077,7 +1036,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			Start:          core2p2p.AdaptAddress(job.startAddress),
 			End:            core2p2p.AdaptAddress(limitAddr),
 			ChunksPerProof: 10000,
-		})(func(response *ContractRangeStreamingResult, err error) bool {
+		})(func(response *ContractRangeStreamingResult, _err error) bool {
 			if response.Range == nil && response.RangeProof == nil {
 				// State root missing.
 				return false
@@ -1106,7 +1065,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			proofs := P2pProofToTrieProofs(response.RangeProof)
 			_, err = VerifyTrie(response.ContractsRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
 			if err != nil {
-				// The peer should get penalized in this case
+				// The peer should get penalised in this case
 				return false
 			}
 

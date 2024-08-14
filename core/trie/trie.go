@@ -21,11 +21,6 @@ type IterableStorage interface {
 	IterateLeaf(startKey *Key, consumer func(key, value *felt.Felt) (bool, error)) (bool, error)
 }
 
-var usingIterableStorage = promauto.NewCounterVec(prometheus.CounterOpts{
-	Name: "juno_trie_iterable_storage",
-	Help: "Time in address get",
-}, []string{"iterable"})
-
 type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).

@@ -24,8 +24,6 @@ func TestClassRange(t *testing.T) {
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
-	_, err := utils.NewZapLogger(utils.DEBUG, false)
-	assert.NoError(t, err)
 
 	b, err := bc.Head()
 	assert.NoError(t, err)
@@ -72,9 +70,6 @@ func TestContractRange(t *testing.T) {
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
-
-	_, err := utils.NewZapLogger(utils.DEBUG, false)
-	assert.NoError(t, err)
 
 	b, err := bc.Head()
 	assert.NoError(t, err)
@@ -149,9 +144,6 @@ func TestContractStorageRange(t *testing.T) {
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
-
-	_, err := utils.NewZapLogger(utils.DEBUG, false)
-	assert.NoError(t, err)
 
 	b, err := bc.Head()
 	assert.NoError(t, err)

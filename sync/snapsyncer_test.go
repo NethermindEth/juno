@@ -229,6 +229,7 @@ func TestSnapOfflineCopy(t *testing.T) {
 			bc2 := blockchain.New(d2, &utils.Sepolia)
 
 			logger, err := utils.NewZapLogger(utils.DEBUG, false)
+			assert.NoError(t, err)
 
 			syncer := NewSnapSyncer(
 				&NoopService{
@@ -279,7 +280,7 @@ func TestSnapCopyTrie(t *testing.T) {
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		http.ListenAndServe(":9201", nil)
+		_ = http.ListenAndServe(":9201", nil)
 	}()
 
 	var d2 db.DB

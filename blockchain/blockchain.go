@@ -829,13 +829,6 @@ func (b *Blockchain) HeadStateFreakingState() (*core.State, StateCloser, error) 
 		return nil, nil, err
 	}
 
-	/*
-		_, err = chainHeight(txn)
-		if err != nil {
-			return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-		}
-	*/
-
 	return core.NewState(txn), txn.Discard, nil
 }
 

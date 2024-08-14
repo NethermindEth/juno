@@ -61,10 +61,14 @@ type snapServer struct {
 
 var _ SnapServerBlockchain = &blockchain.Blockchain{}
 
-const maxNodePerRequest = 1024 * 1024 // I just want it to process faster
+const (
+	_1024             = 1024
+	maxNodePerRequest = _1024 * _1024 // I just want it to process faster
+)
+
 func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
 	if specifiedMaxNodes == 0 {
-		return 1024 * 16
+		return _1024 * 16
 	}
 
 	if specifiedMaxNodes < maxNodePerRequest {
@@ -94,7 +98,7 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			yield(nil, err)
 			return
 		}
-		defer classCloser()
+		defer func() { _ = classCloser() }()
 
 		startAddr := p2p2core.AdaptHash(request.Start)
 		limitAddr := p2p2core.AdaptHash(request.End)
@@ -108,10 +112,11 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			}
 
 			classkeys := []*felt.Felt{}
-			proofs, finished, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
-				classkeys = append(classkeys, key)
-				return nil
-			})
+			proofs, finished, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)),
+				func(key, value *felt.Felt) error {
+					classkeys = append(classkeys, key)
+					return nil
+				})
 
 			coreclasses, err := b.blockchain.GetClasses(classkeys)
 			if err != nil {
@@ -145,7 +150,7 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 			startAddr = classkeys[len(classkeys)-1]
 		}
 
-		// will this send a `Fin` as in https://github.com/starknet-io/starknet-p2p-specs/blob/e335372d39b728372c0ff393bef78763deeb3fcb/p2p/proto/snapshot.proto#L77
+		// TODO: not needed? - just stop the loop
 		yield(nil, nil)
 	}
 }
@@ -171,43 +176,44 @@ func (b *snapServer) GetContractRange(ctx context.Context, request *spec.Contrac
 			yield(nil, err)
 			return
 		}
-		defer scloser()
+		defer func() { _ = scloser() }()
 
 		startAddr := p2p2core.AdaptAddress(request.Start)
 		limitAddr := p2p2core.AdaptAddress(request.End)
 		states := []*spec.ContractState{}
 
 		for {
-			proofs, finished, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)), func(key, value *felt.Felt) error {
-				classHash, err := s.ContractClassHash(key)
-				if err != nil {
-					return err
-				}
+			proofs, finished, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(uint64(request.ChunksPerProof)),
+				func(key, value *felt.Felt) error {
+					classHash, err := s.ContractClassHash(key)
+					if err != nil {
+						return err
+					}
 
-				nonce, err := s.ContractNonce(key)
-				if err != nil {
-					return err
-				}
+					nonce, err := s.ContractNonce(key)
+					if err != nil {
+						return err
+					}
 
-				ctr, err := s.StorageTrieForAddr(key)
-				if err != nil {
-					return err
-				}
+					ctr, err := s.StorageTrieForAddr(key)
+					if err != nil {
+						return err
+					}
 
-				croot, err := ctr.Root()
-				if err != nil {
-					return err
-				}
+					croot, err := ctr.Root()
+					if err != nil {
+						return err
+					}
 
-				startAddr = key
-				states = append(states, &spec.ContractState{
-					Address: core2p2p.AdaptAddress(key),
-					Class:   core2p2p.AdaptHash(classHash),
-					Storage: core2p2p.AdaptHash(croot),
-					Nonce:   nonce.Uint64(),
+					startAddr = key
+					states = append(states, &spec.ContractState{
+						Address: core2p2p.AdaptAddress(key),
+						Class:   core2p2p.AdaptHash(classHash),
+						Storage: core2p2p.AdaptHash(croot),
+						Nonce:   nonce.Uint64(),
+					})
+					return nil
 				})
-				return nil
-			})
 			if err != nil {
 				yield(nil, err)
 				return
@@ -260,15 +266,16 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 				return
 			}
 
-			handled, err := b.handleStorageRangeRequest(ctx, strie, query, request.ChunkPerProof, contractLimit, func(values []*spec.ContractStoredValue, proofs []trie.ProofNode) {
-				yield(&StorageRangeStreamingResult{
-					ContractsRoot: contractRoot,
-					ClassesRoot:   classRoot,
-					StorageAddr:   p2p2core.AdaptAddress(query.Address),
-					Range:         values,
-					RangeProof:    Core2P2pProof(proofs),
-				}, nil)
-			})
+			handled, err := b.handleStorageRangeRequest(ctx, strie, query, request.ChunkPerProof, contractLimit,
+				func(values []*spec.ContractStoredValue, proofs []trie.ProofNode) {
+					yield(&StorageRangeStreamingResult{
+						ContractsRoot: contractRoot,
+						ClassesRoot:   classRoot,
+						StorageAddr:   p2p2core.AdaptAddress(query.Address),
+						Range:         values,
+						RangeProof:    Core2P2pProof(proofs),
+					}, nil)
+				})
 			if err != nil {
 				yield(nil, err)
 				return
@@ -299,7 +306,7 @@ func (b *snapServer) GetClasses(ctx context.Context, felts []*felt.Felt) ([]*spe
 
 func (b *snapServer) handleStorageRangeRequest(
 	ctx context.Context,
-	trie *trie.Trie,
+	stTrie *trie.Trie,
 	request *spec.StorageRangeQuery,
 	maxChunkPerProof uint64,
 	nodeLimit uint64,
@@ -325,7 +332,7 @@ func (b *snapServer) handleStorageRangeRequest(
 			limit = nodeLimit
 		}
 
-		proofs, finish, err := iterateWithLimit(trie, startAddr, endAddr, limit, func(key, value *felt.Felt) error {
+		proofs, finish, err := iterateWithLimit(stTrie, startAddr, endAddr, limit, func(key, value *felt.Felt) error {
 			response = append(response, &spec.ContractStoredValue{
 				Key:   core2p2p.AdaptFelt(key),
 				Value: core2p2p.AdaptFelt(value),
@@ -345,11 +352,8 @@ func (b *snapServer) handleStorageRangeRequest(
 		}
 
 		yield(response, proofs)
-		if finished {
-			return totalSent, nil
-		}
 
-		totalSent += totalSent
+		totalSent += int64(len(response))
 		nodeLimit -= limit
 
 		asBint := startAddr.BigInt(big.NewInt(0))
