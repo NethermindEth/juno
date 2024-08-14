@@ -1,9 +1,10 @@
 package core2p2p
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestReceiptCommon(t *testing.T) {

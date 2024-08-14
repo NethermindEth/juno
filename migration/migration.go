@@ -78,7 +78,7 @@ func calculateP2PHash(txn db.Transaction, _ *utils.Network) error {
 		blockNumber uint64
 		p2pHash     *felt.Felt
 	}
-	results := make(chan result, 1000)
+	results := make(chan result, 1000) //nolint:mnd
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -133,7 +133,6 @@ func calculateP2PHash(txn db.Transaction, _ *utils.Network) error {
 				case <-ctx.Done():
 					return nil
 				}
-
 			}
 		})
 	}
