@@ -1,8 +1,9 @@
 package core
 
 import (
-	"github.com/Masterminds/semver/v3"
 	"strings"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 var Ver0_13_2 = semver.MustParse("0.13.2")
