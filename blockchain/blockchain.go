@@ -397,6 +397,10 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		}
 
 		if blockVer.LessThan(core.Ver0_13_2) {
+			// temporary hack
+			if block.SequencerAddress == nil {
+				block.SequencerAddress = &felt.Zero
+			}
 			if err := ComputeAndStoreP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
 				return err
 			}
