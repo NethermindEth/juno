@@ -214,7 +214,7 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
-    cairo_vm_execute(
+    let res = cairo_vm_execute(
         txns_and_query_bits,
         classes,
         paid_fees_on_l1,
@@ -224,7 +224,17 @@ pub extern "C" fn cairoVMExecute(
         charge_fee,
         validate,
         err_on_revert,
-    )
+    );
+
+    if let Err(ReportError { txn_index, error }) = res {
+        report_error(reader_handle, error.as_str(), txn_index as i64);
+    }
+}
+
+#[derive(Debug)]
+struct ReportError {
+    txn_index: usize,
+    error: String,
 }
 
 fn cairo_vm_execute(
@@ -237,7 +247,7 @@ fn cairo_vm_execute(
     charge_fee: bool,
     validate: bool,
     err_on_revert: c_uchar,
-) {
+) -> Result<(), ReportError> {
     // These two can be extracted out
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let mut state = CachedState::new(reader);
@@ -256,8 +266,10 @@ fn cairo_vm_execute(
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(declare_transaction) => {
                 if classes.is_empty() {
-                    report_error(reader_handle, "missing declared class", txn_index as i64);
-                    return;
+                    Err(ReportError {
+                        txn_index,
+                        error: "missing declared class".to_string(),
+                    })?
                 }
                 let class_json_str = classes.remove(0);
 
@@ -266,9 +278,12 @@ fn cairo_vm_execute(
                     declare_transaction.class_hash(),
                 );
 
+                // todo(xrvdg) should be able to clean this up now
                 if let Err(e) = &maybe_cc {
-                    report_error(reader_handle, e.as_str(), txn_index as i64);
-                    return;
+                    Err(ReportError {
+                        txn_index,
+                        error: e.to_owned(),
+                    })?
                 }
                 Some(maybe_cc.unwrap())
             }
@@ -278,9 +293,12 @@ fn cairo_vm_execute(
         let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {
-                    report_error(reader_handle, "missing fee paid on l1b", txn_index as i64);
-                    return;
+                    Err(ReportError {
+                        txn_index,
+                        error: "missing fee paid on l1b".to_string(),
+                    })?
                 }
+
                 Some(*paid_fees_on_l1.remove(0))
             }
             _ => None,
@@ -292,16 +310,16 @@ fn cairo_vm_execute(
             class_info,
             paid_fee_on_l1,
             txn_and_query_bit.query_bit,
-        );
-        if let Err(e) = txn {
-            report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
-            return;
-        }
+        )
+        .map_err(|err| ReportError {
+            txn_index,
+            error: err,
+        })?;
 
         let mut txn_state = CachedState::create_transactional(&mut state);
         let fee_type;
         let minimal_l1_gas_amount_vector: Option<GasVector>;
-        let res = match txn.unwrap() {
+        let res = match txn {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
                 minimal_l1_gas_amount_vector =
@@ -324,25 +342,21 @@ fn cairo_vm_execute(
                     }
                     other => other.to_string(),
                 };
-                report_error(
-                    reader_handle,
-                    format!(
+                Err(ReportError {
+                    txn_index,
+                    error: format!(
                         "failed txn {} reason: {}",
                         txn_and_query_bit.txn_hash, err_string,
-                    )
-                    .as_str(),
-                    txn_index as i64,
-                );
-                return;
+                    ),
+                })?
             }
             Ok(mut t) => {
-                if t.is_reverted() && err_on_revert != 0 {
-                    report_error(
-                        reader_handle,
-                        format!("reverted: {}", t.revert_error.unwrap()).as_str(),
-                        txn_index as i64,
-                    );
-                    return;
+                match &t.revert_error {
+                    Some(err) if err_on_revert != 0 => Err(ReportError {
+                        txn_index,
+                        error: format!("reverted: {}", err),
+                    })?,
+                    _ => (),
                 }
 
                 // we are estimating fee, override actual fee calculation
@@ -374,19 +388,11 @@ fn cairo_vm_execute(
                 let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
 
                 let trace =
-                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
-                if trace.is_err() {
-                    report_error(
-                        reader_handle,
-                        format!(
-                            "failed building txn state diff reason: {:?}",
-                            trace.err().unwrap()
-                        )
-                        .as_str(),
-                        txn_index as i64,
-                    );
-                    return;
-                }
+                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state)
+                        .map_err(|err| ReportError {
+                            txn_index,
+                            error: format!("failed building txn state diff reason: {:?}", err),
+                        })?;
 
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
@@ -395,11 +401,13 @@ fn cairo_vm_execute(
                         felt_to_byte_array(&data_gas_consumed).as_ptr(),
                     );
                 }
-                append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
+                append_trace(reader_handle, &trace, &mut trace_buffer);
             }
         }
         txn_state.commit();
     }
+
+    Ok(())
 }
 
 fn felt_to_u128(felt: Felt) -> u128 {
