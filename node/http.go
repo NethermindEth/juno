@@ -82,9 +82,7 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 	mux := http.NewServeMux()
 	for path, server := range servers {
 		httpHandler := jsonrpc.NewHTTP(server, log)
-		if listener != nil {
-			httpHandler = httpHandler.WithListener(listener)
-		}
+		httpHandler.WithListener(listener)
 		mux.Handle(path, exactPathServer(path, httpHandler))
 	}
 
