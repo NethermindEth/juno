@@ -188,6 +188,7 @@ pub extern "C" fn cairoVMExecute(
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
     let mut classes: Result<Vec<Box<serde_json::value::RawValue>>, serde_json::Error> = Ok(vec![]);
+
     if !classes_json.is_null() {
         let classes_json_str = unsafe { CStr::from_ptr(classes_json) }.to_str().unwrap();
         classes = serde_json::from_str(classes_json_str);
@@ -214,7 +215,12 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
+    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+
+    let err_on_revert = err_on_revert != 0;
+
     let res = cairo_vm_execute(
+        reader,
         txns_and_query_bits,
         classes,
         paid_fees_on_l1,
@@ -238,6 +244,8 @@ struct ReportError {
 }
 
 fn cairo_vm_execute(
+    // Todo make this impl StateReader
+    reader: JunoStateReader,
     txns_and_query_bits: Vec<TxnAndQueryBit>,
     mut classes: Vec<Box<serde_json::value::RawValue>>,
     mut paid_fees_on_l1: Vec<Box<Fee>>,
@@ -246,10 +254,8 @@ fn cairo_vm_execute(
     chain_id: &str,
     charge_fee: bool,
     validate: bool,
-    err_on_revert: c_uchar,
+    err_on_revert: bool,
 ) -> Result<(), ReportError> {
-    // These two can be extracted out
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let mut state = CachedState::new(reader);
 
     let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id, None);
@@ -352,7 +358,7 @@ fn cairo_vm_execute(
             }
             Ok(mut t) => {
                 match &t.revert_error {
-                    Some(err) if err_on_revert != 0 => Err(ReportError {
+                    Some(err) if err_on_revert => Err(ReportError {
                         txn_index,
                         error: format!("reverted: {}", err),
                     })?,
@@ -394,6 +400,9 @@ fn cairo_vm_execute(
                             error: format!("failed building txn state diff reason: {:?}", err),
                         })?;
 
+                // With maybe an iterator that performance an action before going to the next.
+                // What I'm looking for sounds like a generator.
+                // Important is that you don't yet have the outcomes
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
                     JunoAppendDataGasConsumed(
