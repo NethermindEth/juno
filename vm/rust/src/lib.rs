@@ -208,7 +208,7 @@ pub extern "C" fn cairoVMExecute(
         .to_str()
         .unwrap();
 
-    let paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
+    let paid_fees_on_l1: Vec<Fee> = match serde_json::from_str(paid_fees_on_l1_json_str) {
         Ok(f) => f,
         Err(e) => {
             report_error(reader_handle, e.to_string().as_str(), -1);
@@ -245,11 +245,10 @@ struct ReportError {
 }
 
 fn cairo_vm_execute(
-    // Todo make this impl StateReader
     reader: JunoStateReader,
     txns_and_query_bits: Vec<TxnAndQueryBit>,
     mut classes: Vec<Box<serde_json::value::RawValue>>,
-    mut paid_fees_on_l1: Vec<Box<Fee>>,
+    mut paid_fees_on_l1: Vec<Fee>,
     block_info: BlockInfo,
     reader_handle: usize,
     chain_id: &str,
@@ -267,9 +266,14 @@ fn cairo_vm_execute(
         let mut txn_state: TransactionalState<CachedState<JunoStateReader>> =
             CachedState::create_transactional(&mut state);
 
-        let transaction_execution_info = execute_transaction(
+        println!(
+            "\n\nJuno: `cairoVMExecute`: executing transaction ({}/{}) {}",
             txn_index,
-            &txns_and_query_bits,
+            txns_and_query_bits.len(),
+            txn_and_query_bit.txn_hash
+        );
+
+        let transaction_execution_info = execute_transaction(
             txn_and_query_bit,
             &mut txn_state,
             &mut classes,
@@ -278,7 +282,11 @@ fn cairo_vm_execute(
             charge_fee,
             validate,
             err_on_revert,
-        )?;
+        )
+        .map_err(|err| ReportError {
+            txn_index,
+            error: err,
+        })?;
 
         let actual_fee = transaction_execution_info.transaction_receipt.fee.0.into();
         let data_gas_consumed = transaction_execution_info
@@ -315,30 +323,19 @@ fn cairo_vm_execute(
 }
 
 fn execute_transaction(
-    txn_index: usize,
-    txns_and_query_bits: &Vec<TxnAndQueryBit>,
     txn_and_query_bit: &TxnAndQueryBit,
     txn_state: &mut TransactionalState<CachedState<JunoStateReader>>,
     classes: &mut Vec<Box<serde_json::value::RawValue>>,
-    paid_fees_on_l1: &mut Vec<Box<Fee>>,
+    paid_fees_on_l1: &mut Vec<Fee>,
     block_context: &BlockContext,
     charge_fee: bool,
     validate: bool,
     err_on_revert: bool,
-) -> Result<TransactionExecutionInfo, ReportError> {
-    println!(
-        "\n\nJuno: `cairoVMExecute`: executing transaction ({}/{}) {}",
-        txn_index,
-        txns_and_query_bits.len(),
-        txn_and_query_bit.txn_hash
-    );
+) -> Result<TransactionExecutionInfo, String> {
     let class_info = match txn_and_query_bit.txn.clone() {
         StarknetApiTransaction::Declare(declare_transaction) => {
             if classes.is_empty() {
-                Err(ReportError {
-                    txn_index,
-                    error: "missing declared class".to_string(),
-                })?
+                Err("missing declared class".to_string())?
             }
             let class_json_str = classes.remove(0);
 
@@ -347,25 +344,19 @@ fn execute_transaction(
 
             // todo(xrvdg) should be able to clean this up now
             if let Err(e) = &maybe_cc {
-                Err(ReportError {
-                    txn_index,
-                    error: e.to_owned(),
-                })?
+                Err(e.to_owned())?
             }
             Some(maybe_cc.unwrap())
         }
         _ => None,
     };
-    let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
+    let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn {
         StarknetApiTransaction::L1Handler(_) => {
             if paid_fees_on_l1.is_empty() {
-                Err(ReportError {
-                    txn_index,
-                    error: "missing fee paid on l1b".to_string(),
-                })?
+                Err("missing fee paid on l1b".to_string())?
             }
 
-            Some(*paid_fees_on_l1.remove(0))
+            Some(paid_fees_on_l1.remove(0))
         }
         _ => None,
     };
@@ -375,11 +366,7 @@ fn execute_transaction(
         class_info,
         paid_fee_on_l1,
         txn_and_query_bit.query_bit,
-    )
-    .map_err(|err| ReportError {
-        txn_index,
-        error: err,
-    })?;
+    )?;
 
     let fee_type;
     let minimal_l1_gas_amount_vector: Option<GasVector>;
@@ -406,21 +393,15 @@ fn execute_transaction(
                 }
                 other => other.to_string(),
             };
-            Err(ReportError {
-                txn_index,
-                error: format!(
-                    "failed txn {} reason: {}",
-                    txn_and_query_bit.txn_hash, err_string,
-                ),
-            })
+            Err(format!(
+                "failed txn {} reason: {}",
+                txn_and_query_bit.txn_hash, err_string,
+            ))
         }
 
         Ok(mut t) => {
             match &t.revert_error {
-                Some(err) if err_on_revert => Err(ReportError {
-                    txn_index,
-                    error: format!("reverted: {}", err),
-                })?,
+                Some(err) if err_on_revert => Err(format!("reverted: {}", err))?,
                 _ => (),
             }
 
