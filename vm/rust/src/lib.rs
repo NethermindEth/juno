@@ -7,10 +7,11 @@ extern crate lazy_static;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::state::cached_state::TransactionalState;
 use blockifier::transaction::errors::TransactionExecutionError::{
     ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
 };
-use blockifier::transaction::objects::GasVector;
+use blockifier::transaction::objects::{GasVector, TransactionExecutionInfo};
 use blockifier::{
     blockifier::block::{
         pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
@@ -263,160 +264,193 @@ fn cairo_vm_execute(
     let mut trace_buffer = Vec::with_capacity(10_000);
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
-        println!(
-            "\n\nJuno: `cairoVMExecute`: executing transaction ({}/{}) {}",
+        let mut txn_state: TransactionalState<CachedState<JunoStateReader>> =
+            CachedState::create_transactional(&mut state);
+
+        let transaction_execution_info = execute_transaction(
             txn_index,
-            txns_and_query_bits.len(),
-            txn_and_query_bit.txn_hash
-        );
-        let class_info = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::Declare(declare_transaction) => {
-                if classes.is_empty() {
-                    Err(ReportError {
-                        txn_index,
-                        error: "missing declared class".to_string(),
-                    })?
-                }
-                let class_json_str = classes.remove(0);
+            &txns_and_query_bits,
+            txn_and_query_bit,
+            &mut txn_state,
+            &mut classes,
+            &mut paid_fees_on_l1,
+            &block_context,
+            charge_fee,
+            validate,
+            err_on_revert,
+        )?;
 
-                let maybe_cc = class_info_from_json_str(
-                    class_json_str.get(),
-                    declare_transaction.class_hash(),
-                );
+        let actual_fee = transaction_execution_info.transaction_receipt.fee.0.into();
+        let data_gas_consumed = transaction_execution_info
+            .transaction_receipt
+            .da_gas
+            .l1_data_gas
+            .into();
 
-                // todo(xrvdg) should be able to clean this up now
-                if let Err(e) = &maybe_cc {
-                    Err(ReportError {
-                        txn_index,
-                        error: e.to_owned(),
-                    })?
-                }
-                Some(maybe_cc.unwrap())
-            }
-            _ => None,
-        };
-
-        let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::L1Handler(_) => {
-                if paid_fees_on_l1.is_empty() {
-                    Err(ReportError {
-                        txn_index,
-                        error: "missing fee paid on l1b".to_string(),
-                    })?
-                }
-
-                Some(*paid_fees_on_l1.remove(0))
-            }
-            _ => None,
-        };
-
-        let txn = transaction_from_api(
-            txn_and_query_bit.txn.clone(),
-            txn_and_query_bit.txn_hash,
-            class_info,
-            paid_fee_on_l1,
-            txn_and_query_bit.query_bit,
+        let trace = jsonrpc::new_transaction_trace(
+            &txn_and_query_bit.txn,
+            transaction_execution_info,
+            &mut txn_state,
         )
         .map_err(|err| ReportError {
             txn_index,
-            error: err,
+            error: format!("failed building txn state diff reason: {:?}", err),
         })?;
 
-        let mut txn_state = CachedState::create_transactional(&mut state);
-        let fee_type;
-        let minimal_l1_gas_amount_vector: Option<GasVector>;
-        let res = match txn {
-            Transaction::AccountTransaction(t) => {
-                fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector =
-                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
-            }
-            Transaction::L1HandlerTransaction(t) => {
-                fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector = None;
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
-            }
-        };
-
-        match res {
-            Err(error) => {
-                let err_string = match &error {
-                    ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
-                    ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
-                        format!("{error} {e}")
-                    }
-                    other => other.to_string(),
-                };
-                Err(ReportError {
-                    txn_index,
-                    error: format!(
-                        "failed txn {} reason: {}",
-                        txn_and_query_bit.txn_hash, err_string,
-                    ),
-                })?
-            }
-            Ok(mut t) => {
-                match &t.revert_error {
-                    Some(err) if err_on_revert => Err(ReportError {
-                        txn_index,
-                        error: format!("reverted: {}", err),
-                    })?,
-                    _ => (),
-                }
-
-                // we are estimating fee, override actual fee calculation
-                if t.transaction_receipt.fee.0 == 0 {
-                    let minimal_l1_gas_amount_vector =
-                        minimal_l1_gas_amount_vector.unwrap_or_default();
-                    let gas_consumed = t
-                        .transaction_receipt
-                        .gas
-                        .l1_gas
-                        .max(minimal_l1_gas_amount_vector.l1_gas);
-                    let data_gas_consumed = t
-                        .transaction_receipt
-                        .gas
-                        .l1_data_gas
-                        .max(minimal_l1_gas_amount_vector.l1_data_gas);
-
-                    t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
-                        block_context.block_info(),
-                        GasVector {
-                            l1_data_gas: data_gas_consumed,
-                            l1_gas: gas_consumed,
-                        },
-                        &fee_type,
-                    )
-                }
-
-                let actual_fee = t.transaction_receipt.fee.0.into();
-                let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
-
-                let trace =
-                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state)
-                        .map_err(|err| ReportError {
-                            txn_index,
-                            error: format!("failed building txn state diff reason: {:?}", err),
-                        })?;
-
-                // With maybe an iterator that performance an action before going to the next.
-                // What I'm looking for sounds like a generator.
-                // Important is that you don't yet have the outcomes
-                unsafe {
-                    JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-                    JunoAppendDataGasConsumed(
-                        reader_handle,
-                        felt_to_byte_array(&data_gas_consumed).as_ptr(),
-                    );
-                }
-                append_trace(reader_handle, &trace, &mut trace_buffer);
-            }
+        // With maybe an iterator that performance an action before going to the next.
+        // What I'm looking for sounds like a generator.
+        // Important is that you don't yet have the outcomes
+        unsafe {
+            JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
+            JunoAppendDataGasConsumed(
+                reader_handle,
+                felt_to_byte_array(&data_gas_consumed).as_ptr(),
+            );
         }
+        append_trace(reader_handle, &trace, &mut trace_buffer);
         txn_state.commit();
     }
 
     Ok(())
+}
+
+fn execute_transaction(
+    txn_index: usize,
+    txns_and_query_bits: &Vec<TxnAndQueryBit>,
+    txn_and_query_bit: &TxnAndQueryBit,
+    txn_state: &mut TransactionalState<CachedState<JunoStateReader>>,
+    classes: &mut Vec<Box<serde_json::value::RawValue>>,
+    paid_fees_on_l1: &mut Vec<Box<Fee>>,
+    block_context: &BlockContext,
+    charge_fee: bool,
+    validate: bool,
+    err_on_revert: bool,
+) -> Result<TransactionExecutionInfo, ReportError> {
+    println!(
+        "\n\nJuno: `cairoVMExecute`: executing transaction ({}/{}) {}",
+        txn_index,
+        txns_and_query_bits.len(),
+        txn_and_query_bit.txn_hash
+    );
+    let class_info = match txn_and_query_bit.txn.clone() {
+        StarknetApiTransaction::Declare(declare_transaction) => {
+            if classes.is_empty() {
+                Err(ReportError {
+                    txn_index,
+                    error: "missing declared class".to_string(),
+                })?
+            }
+            let class_json_str = classes.remove(0);
+
+            let maybe_cc =
+                class_info_from_json_str(class_json_str.get(), declare_transaction.class_hash());
+
+            // todo(xrvdg) should be able to clean this up now
+            if let Err(e) = &maybe_cc {
+                Err(ReportError {
+                    txn_index,
+                    error: e.to_owned(),
+                })?
+            }
+            Some(maybe_cc.unwrap())
+        }
+        _ => None,
+    };
+    let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
+        StarknetApiTransaction::L1Handler(_) => {
+            if paid_fees_on_l1.is_empty() {
+                Err(ReportError {
+                    txn_index,
+                    error: "missing fee paid on l1b".to_string(),
+                })?
+            }
+
+            Some(*paid_fees_on_l1.remove(0))
+        }
+        _ => None,
+    };
+    let txn = transaction_from_api(
+        txn_and_query_bit.txn.clone(),
+        txn_and_query_bit.txn_hash,
+        class_info,
+        paid_fee_on_l1,
+        txn_and_query_bit.query_bit,
+    )
+    .map_err(|err| ReportError {
+        txn_index,
+        error: err,
+    })?;
+
+    let fee_type;
+    let minimal_l1_gas_amount_vector: Option<GasVector>;
+    let res = match txn {
+        Transaction::AccountTransaction(t) => {
+            fee_type = t.fee_type();
+            minimal_l1_gas_amount_vector =
+                Some(gas_usage::estimate_minimal_gas_vector(block_context, &t).unwrap());
+            t.execute(txn_state, block_context, charge_fee, validate)
+        }
+        Transaction::L1HandlerTransaction(t) => {
+            fee_type = t.fee_type();
+            minimal_l1_gas_amount_vector = None;
+            t.execute(txn_state, block_context, charge_fee, validate)
+        }
+    };
+
+    match res {
+        Err(error) => {
+            let err_string = match &error {
+                ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
+                ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
+                    format!("{error} {e}")
+                }
+                other => other.to_string(),
+            };
+            Err(ReportError {
+                txn_index,
+                error: format!(
+                    "failed txn {} reason: {}",
+                    txn_and_query_bit.txn_hash, err_string,
+                ),
+            })
+        }
+
+        Ok(mut t) => {
+            match &t.revert_error {
+                Some(err) if err_on_revert => Err(ReportError {
+                    txn_index,
+                    error: format!("reverted: {}", err),
+                })?,
+                _ => (),
+            }
+
+            // we are estimating fee, override actual fee calculation
+            if t.transaction_receipt.fee.0 == 0 {
+                let minimal_l1_gas_amount_vector = minimal_l1_gas_amount_vector.unwrap_or_default();
+                let gas_consumed = t
+                    .transaction_receipt
+                    .gas
+                    .l1_gas
+                    .max(minimal_l1_gas_amount_vector.l1_gas);
+                let data_gas_consumed = t
+                    .transaction_receipt
+                    .gas
+                    .l1_data_gas
+                    .max(minimal_l1_gas_amount_vector.l1_data_gas);
+
+                t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                    block_context.block_info(),
+                    GasVector {
+                        l1_data_gas: data_gas_consumed,
+                        l1_gas: gas_consumed,
+                    },
+                    &fee_type,
+                )
+            }
+
+            Ok(t)
+        }
+    }
 }
 
 fn felt_to_u128(felt: Felt) -> u128 {
