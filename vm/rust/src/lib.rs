@@ -81,7 +81,7 @@ pub struct CBlockInfo {
 }
 
 #[no_mangle]
-pub extern "C" fn cairoVMCall(
+pub unsafe extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const CBlockInfo,
     reader_handle: usize,
@@ -512,8 +512,8 @@ impl From<CBlockInfo> for BlockInfo {
         let version_str = unsafe { CStr::from_ptr(block_info.version) }
             .to_str()
             .unwrap();
-        let version = StarknetVersion::from_str(&version_str)
-            .unwrap_or(StarknetVersion::from_str(&"0.0.0").unwrap());
+        let version = StarknetVersion::from_str(version_str)
+            .unwrap_or(StarknetVersion::from_str("0.0.0").unwrap());
 
         Self {
             block_number: block_info.block_number,
@@ -521,7 +521,7 @@ impl From<CBlockInfo> for BlockInfo {
             sequencer_address: Felt::from_bytes_be(&block_info.sequencer_address),
             gas_price_wei: Felt::from_bytes_be(&block_info.gas_price_wei),
             gas_price_fri: Felt::from_bytes_be(&block_info.gas_price_fri),
-            version: version,
+            version,
             block_hash_to_be_revealed: Felt::from_bytes_be(&block_info.block_hash_to_be_revealed),
             data_gas_price_wei: Felt::from_bytes_be(&block_info.data_gas_price_wei),
             data_gas_price_fri: Felt::from_bytes_be(&block_info.data_gas_price_fri),
@@ -615,11 +615,11 @@ lazy_static! {
 }
 
 fn get_versioned_constants(version: &StarknetVersion) -> VersionedConstants {
-    if *version < StarknetVersion::from_str(&"0.13.0").unwrap() {
+    if *version < StarknetVersion::from_str("0.13.0").unwrap() {
         CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
-    } else if *version < StarknetVersion::from_str(&"0.13.1").unwrap() {
+    } else if *version < StarknetVersion::from_str("0.13.1").unwrap() {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
-    } else if *version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
+    } else if *version < StarknetVersion::from_str("0.13.1.1").unwrap() {
         CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
