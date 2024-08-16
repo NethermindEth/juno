@@ -38,6 +38,7 @@ use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector
 use starknet_api::transaction::Transaction as StarknetApiTransaction;
 use starknet_api::transaction::{Calldata, Fee, TransactionHash};
 use starknet_types_core::felt::Felt;
+use std::fs::{self, File};
 use std::str::FromStr;
 use std::{
     collections::HashMap,
@@ -158,7 +159,7 @@ pub unsafe extern "C" fn cairoVMCall(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TxnAndQueryBit {
     pub txn: StarknetApiTransaction,
     pub txn_hash: TransactionHash,
@@ -247,6 +248,18 @@ struct ReportError {
     error: String,
 }
 
+#[derive(Serialize, Deserialize)]
+struct VMArgs {
+    txns_and_query_bits: Vec<TxnAndQueryBit>,
+    classes: Vec<Box<serde_json::value::RawValue>>,
+    paid_fees_on_l1: Vec<Fee>,
+    block_info: BlockInfo,
+    chain_id: String,
+    charge_fee: bool,
+    validate: bool,
+    err_on_revert: bool,
+}
+
 fn cairo_vm_execute(
     mut state: CachedState<JunoStateReader>,
     txns_and_query_bits: Vec<TxnAndQueryBit>,
@@ -259,6 +272,24 @@ fn cairo_vm_execute(
     validate: bool,
     err_on_revert: bool,
 ) -> Result<(), ReportError> {
+    let args = VMArgs {
+        txns_and_query_bits: txns_and_query_bits.clone(),
+        classes: classes.clone(),
+        paid_fees_on_l1: paid_fees_on_l1.clone(),
+        block_info: block_info.clone(),
+        chain_id: chain_id.to_string(),
+        charge_fee,
+        validate,
+        err_on_revert,
+    };
+
+    fs::create_dir_all("./record").unwrap();
+
+    let file_args =
+        std::fs::File::create(format!("./record/{}.args.cbor", block_info.block_number)).unwrap();
+
+    let _ = ciborium::into_writer(&args, file_args).unwrap();
+
     // Modifies the state, but also provides the block_context
     let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id, None);
 
@@ -319,6 +350,10 @@ fn cairo_vm_execute(
         append_trace(reader_handle, &trace, &mut trace_buffer);
         txn_state.commit();
     }
+
+    let state_file =
+        File::create(format!("./record/{}.state.cbor", block_info.block_number)).unwrap();
+    let _ = ciborium::into_writer(&state.state.ser, state_file).unwrap();
 
     Ok(())
 }
@@ -493,7 +528,7 @@ fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
     };
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BlockInfo {
     pub block_number: u64,
     pub block_timestamp: u64,
@@ -626,7 +661,7 @@ fn get_versioned_constants(version: &StarknetVersion) -> VersionedConstants {
     }
 }
 
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
 pub struct StarknetVersion(u8, u8, u8, u8);
 
 impl StarknetVersion {

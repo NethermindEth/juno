@@ -4,6 +4,8 @@ version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# [profile.release]
+# debug = 2
 
 [dependencies]
 serde = "1.0.171"
@@ -28,6 +30,8 @@ lazy_static = "1.4.0"
 semver = "1.0.22"
 anyhow = "1.0.81"
 libloading = "0.8.5"
+thiserror = "1.0.63"
+ciborium = "0.2.2"
 
 [lib]
 crate-type = ["staticlib"]

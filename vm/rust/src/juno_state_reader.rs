@@ -1,4 +1,5 @@
 use blockifier::execution::contract_class::{ContractClass, NativeContractClassV1};
+use blockifier::state::cached_state::StorageEntry;
 use blockifier::state::errors::StateError;
 use blockifier::{
     execution::contract_class::{
@@ -14,10 +15,12 @@ use cairo_native::{
 };
 use libloading::Library;
 use once_cell::sync::Lazy;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
     fs,
@@ -54,18 +57,77 @@ struct CachedContractClass {
 static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
     Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
 
+#[derive(Default, Serialize, Deserialize)]
+pub struct SerState {
+    // Could have been wrapped around with felt
+    storage: HashMap<StorageEntry, [u8; 32]>,
+    nonce: HashMap<ContractAddress, Nonce>,
+    class_hash: HashMap<ContractAddress, ClassHash>,
+    contract_class: HashMap<ClassHash, String>,
+}
+
+impl StateReader for SerState {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<Felt> {
+        // might have to deal with
+        let bytes = self
+            .storage
+            .get(&(contract_address, key))
+            .expect("no storage");
+        Ok(Felt::from_bytes_be(bytes))
+    }
+
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        Ok(*self
+            .nonce
+            .get(&contract_address)
+            .expect("no nonce for this"))
+    }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        Ok(*self
+            .class_hash
+            .get(&contract_address)
+            .expect("no nonce for this"))
+    }
+
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        // Passing along version information could make this a V1 and V1Native test
+        let json_str = self
+            .contract_class
+            .get(&class_hash)
+            .expect("request non existed class");
+        Ok(class_info_from_json_str(json_str, class_hash)
+            .expect("decoding class went wrong")
+            .contract_class())
+    }
+
+    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        unimplemented!()
+    }
+}
+
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
     pub height: u64,
+    pub ser: RefCell<SerState>,
 }
 
 impl JunoStateReader {
     pub fn new(handle: usize, height: u64) -> Self {
-        Self { handle, height }
+        Self {
+            handle,
+            height,
+            ser: Default::default(),
+        }
     }
 }
 
 impl StateReader for JunoStateReader {
+    // input serializable output isn't
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -82,13 +144,30 @@ impl StateReader for JunoStateReader {
                 contract_address.0.key()
             )))
         } else {
-            let felt_val = ptr_to_felt(ptr);
+            let felt_val = {
+                let slice = unsafe { slice::from_raw_parts(ptr, 32) };
+
+                let bytes = slice.try_into().expect("Juno felt not [u8; 32]");
+                // Insert into serialization map
+                // must return none
+                assert_eq!(
+                    self.ser
+                        .borrow_mut()
+                        .storage
+                        .insert((contract_address, key), bytes),
+                    None,
+                    "Overwritten storage"
+                );
+
+                Felt::from_bytes_be(&bytes)
+            };
             unsafe { JunoFree(ptr as *const c_void) };
 
             Ok(felt_val)
         }
     }
 
+    // input and output are serializable
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
@@ -102,10 +181,20 @@ impl StateReader for JunoStateReader {
         } else {
             let felt_val = ptr_to_felt(ptr);
             unsafe { JunoFree(ptr as *const c_void) };
-            Ok(Nonce(felt_val))
+
+            let nonce = Nonce(felt_val);
+
+            assert_eq!(
+                self.ser.borrow_mut().nonce.insert(contract_address, nonce),
+                None,
+                "Overwriting nonce"
+            );
+
+            Ok(nonce)
         }
     }
 
+    // input and output are serializable
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
@@ -128,10 +217,21 @@ impl StateReader for JunoStateReader {
                 "Juno State Reader(Rust): returning `get_class_hash_at` {0} ",
                 contract_address
             );
-            Ok(ClassHash(felt_val))
+
+            let class_hash = ClassHash(felt_val);
+            assert_eq!(
+                self.ser
+                    .borrow_mut()
+                    .class_hash
+                    .insert(contract_address, class_hash),
+                None,
+                "Overwritten class_hash"
+            );
+            Ok(class_hash)
         }
     }
 
+    // input is serializable but output isn't
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         println!("Juno State Reader(Rust): calling `get_compiled_contract_class` with class hash: {class_hash}");
@@ -162,6 +262,16 @@ impl StateReader for JunoStateReader {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
+
+            assert_eq!(
+                self.ser
+                    .borrow_mut()
+                    .contract_class
+                    .insert(class_hash, json_str.to_string()),
+                None,
+                "Overwritten compiled contract_class"
+            );
+
             let class_info_res = class_info_from_json_str(json_str, class_hash);
             if let Ok(class_info) = &class_info_res {
                 CLASS_CACHE.lock().unwrap().cache_set(
@@ -194,8 +304,9 @@ impl StateReader for JunoStateReader {
     }
 }
 
+// todo(xrvdg) Unnecessary
 pub fn felt_to_byte_array(felt: &Felt) -> [u8; 32] {
-    felt.to_bytes_be().try_into().expect("Felt not [u8; 32]")
+    felt.to_bytes_be()
 }
 
 pub fn ptr_to_felt(bytes: *const c_uchar) -> Felt {
@@ -235,12 +346,12 @@ pub fn class_info_from_json_str(
             return Err("not a valid contract class".to_string());
         };
 
-    return BlockifierClassInfo::new(
+    BlockifierClassInfo::new(
         &class,
         class_info.sierra_program_length,
         class_info.abi_length,
     )
-    .map_err(|err| err.to_string());
+    .map_err(|err| err.to_string())
 }
 
 /// Compiled Native contracts

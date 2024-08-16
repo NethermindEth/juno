@@ -1,3 +1,4 @@
+*.cbor
 .DS_Store
 .idea/
 .vscode/
