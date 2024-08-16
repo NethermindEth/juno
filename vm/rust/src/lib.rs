@@ -1,5 +1,6 @@
 pub mod jsonrpc;
 mod juno_state_reader;
+pub mod serstate;
 
 #[macro_use]
 extern crate lazy_static;
