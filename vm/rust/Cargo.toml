@@ -33,8 +33,10 @@ libloading = "0.8.5"
 thiserror = "1.0.63"
 ciborium = "0.2.2"
 
-[lib]
-crate-type = ["staticlib"]
+# Can't build it without, but can rely on an older build.
+# Probably needs to restructure the set
+# [lib]
+# crate-type = ["staticlib"]
 
 [build-dependencies]
 toml = "0.8.19"
@@ -46,3 +48,10 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 [[bench]]
 name = "blockifier-perf"
 harness = false
+
+[patch.crates-io]
+starknet-types-core = { path = "/Users/xander/Nethermind/00 - Inbox/starknet-types-rs/crates/starknet-types-core", features = [
+    "hash",
+    "prime-bigint",
+    "serde",
+] }

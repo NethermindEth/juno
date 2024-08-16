@@ -250,7 +250,7 @@ struct ReportError {
 }
 
 #[derive(Serialize, Deserialize)]
-struct VMArgs {
+pub struct VMArgs {
     txns_and_query_bits: Vec<TxnAndQueryBit>,
     classes: Vec<Box<serde_json::value::RawValue>>,
     paid_fees_on_l1: Vec<Fee>,
@@ -359,7 +359,7 @@ fn cairo_vm_execute(
     Ok(())
 }
 
-fn execute_transaction<S: StateReader>(
+pub fn execute_transaction<S: StateReader>(
     txn_and_query_bit: &TxnAndQueryBit,
     // CachedState is enough for UpdatableState
     txn_state: &mut CachedState<S>,
