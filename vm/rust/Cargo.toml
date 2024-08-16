@@ -39,3 +39,10 @@ crate-type = ["staticlib"]
 [build-dependencies]
 toml = "0.8.19"
 url = "2.5.2"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
+[[bench]]
+name = "blockifier-perf"
+harness = false
