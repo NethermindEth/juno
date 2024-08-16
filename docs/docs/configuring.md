@@ -100,3 +100,25 @@ import ConfigOptions from "./_config-options.md";
 
 <ConfigOptions />
 ```
+
+## Subcommands
+
+Juno provides several subcommands to perform specific tasks or operations. Here are the available ones:
+
+- `genp2pkeypair`: Generate a private key pair for p2p.
+- `db`: Perform database-related operations
+  - `db info`: Retrieve information about the database.
+  - `db size`: Calculate database size information for each data type.
+
+To use a subcommand, append it when running Juno:
+
+```bash
+# Running a subcommand
+./build/juno <subcommand>
+
+# Running the genp2pkeypair subcommand
+./build/juno genp2pkeypair
+
+# Running the db info subcommand
+./build/juno db info
+```

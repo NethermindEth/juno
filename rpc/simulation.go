@@ -59,7 +59,8 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true, true)
+	// todo double check errOnRevert = false
+	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
 }
 
 //nolint:funlen,gocyclo

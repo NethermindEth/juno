@@ -90,6 +90,7 @@ pub struct BlockInfo {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const BlockInfo,
@@ -127,7 +128,7 @@ pub extern "C" fn cairoVMCall(
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
         call_type: CallType::Call,
-        class_hash: class_hash,
+        class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
         initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
@@ -173,6 +174,7 @@ pub struct TxnAndQueryBit {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
     classes_json: *const c_char,
@@ -530,17 +532,22 @@ lazy_static! {
 
 #[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    let version_str = unsafe { CStr::from_ptr(version) }.to_str().unwrap();
-    let version = StarknetVersion::from_str(&version_str)
-        .unwrap_or(StarknetVersion::from_str(&"0.0.0").unwrap());
+    let version_str = unsafe { CStr::from_ptr(version) }
+        .to_str()
+        .unwrap_or("0.0.0");
+
+    let version = match StarknetVersion::from_str(version_str) {
+        Ok(v) => v,
+        Err(_) => StarknetVersion::from_str("0.0.0").unwrap(),
+    };
 
     if let Some(constants) = unsafe { &CUSTOM_VERSIONED_CONSTANTS } {
         constants.clone()
-    } else if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
+    } else if version < StarknetVersion::from_str("0.13.1").unwrap() {
         CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
+    } else if version < StarknetVersion::from_str("0.13.1.1").unwrap() {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str(&"0.13.2").unwrap() {
+    } else if version < StarknetVersion::from_str("0.13.2").unwrap() {
         CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
@@ -583,6 +590,7 @@ impl FromStr for StarknetVersion {
 static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_char {
     let json_str = unsafe {
         match CStr::from_ptr(json_bytes).to_str() {
@@ -605,6 +613,7 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn freeString(s: *mut c_char) {
     if !s.is_null() {
         unsafe {

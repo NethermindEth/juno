@@ -18,7 +18,8 @@ You can download a snapshot of the Juno database to reduce the network syncing t
 | ------- | ------------- |
 | **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
 
-### Getting the size for each snapshot
+## Getting snapshot sizes
+
 ```console
 $date
 Thu  1 Aug 2024 09:49:30 BST

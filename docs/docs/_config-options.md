@@ -31,10 +31,11 @@
 | `metrics-port` | `9090` | The port on which the Prometheus endpoint will listen for requests |
 | `network` | `mainnet` | Options: mainnet, sepolia, sepolia-integration |
 | `p2p` | `false` | EXPERIMENTAL: Enables p2p server |
-| `p2p-addr` |  | EXPERIMENTAL: Specify p2p source address as multiaddr |
+| `p2p-addr` |  | EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777 |
 | `p2p-feeder-node` | `false` | EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new blocks to the network |
 | `p2p-peers` |  | EXPERIMENTAL: Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes |
 | `p2p-private-key` |  | EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve |
+| `p2p-public-addr` |  | EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777 |
 | `pending-poll-interval` | `5` | Sets how frequently pending block will be updated (0s will disable fetching of pending block) |
 | `pprof` | `false` | Enables the pprof endpoint on the default port |
 | `pprof-host` | `localhost` | The interface on which the pprof HTTP server will listen for requests |
@@ -43,6 +44,7 @@
 | `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests. The upper limit is 4 million steps, and any higher value will still be capped at 4 million |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
+| `versioned-constants-file` |  | Use custom versioned constants from provided file |
 | `ws` | `false` | Enables the WebSocket RPC server on the default port |
 | `ws-host` | `localhost` | The interface on which the WebSocket RPC server will listen for requests |
 | `ws-port` | `6061` | The port on which the WebSocket server will listen for requests |
