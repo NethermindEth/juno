@@ -159,14 +159,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
-	if cfg.PluginPath != "" {
-		plugin, err := junoplugin.Load(cfg.PluginPath)
-		if err != nil {
-			return nil, err
-		}
-		synchronizer.WithPlugin(plugin)
-	}
-
 	var p2pService *p2p.Service
 	if cfg.P2P {
 		if cfg.Network != utils.Sepolia {
@@ -200,6 +192,19 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
+
+	if cfg.PluginPath != "" {
+		plugin, err := junoplugin.Load(cfg.PluginPath)
+		if err != nil {
+			return nil, err
+		}
+		err = plugin.Init(rpcHandler)
+		if err != nil {
+			return nil, err
+		}
+		synchronizer.WithPlugin(plugin)
+	}
+
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())

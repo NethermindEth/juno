@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
-	junoplugin "github.com/NethermindEth/juno/plugin"
+	junoplugin "github.com/NethermindEth/juno/plugin/sync"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
