@@ -21,6 +21,10 @@ use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
 use blockifier::transaction::objects::GasVector;
 use blockifier::{
+    blockifier::{
+        config::{ConcurrencyConfig, TransactionExecutorConfig},
+        transaction_executor::{TransactionExecutor, TransactionExecutorError},
+    },
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
     execution::{
         contract_class::ClassInfo,
@@ -33,7 +37,6 @@ use blockifier::{
         },
         objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo},
         transaction_execution::Transaction,
-        transactions::ExecutableTransaction,
     },
     versioned_constants::VersionedConstants,
 };
@@ -230,11 +233,25 @@ pub extern "C" fn cairoVMExecute(
         None,
         concurrency_mode,
     );
-    let charge_fee = skip_charge_fee == 0;
-    let validate = skip_validate == 0;
+    let _charge_fee = skip_charge_fee == 0;
+    let _validate = skip_validate == 0;
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
+    // Initialize the TransactionExecutor
+    let config = TransactionExecutorConfig {
+        concurrency_config: ConcurrencyConfig {
+            enabled: concurrency_mode,
+            chunk_size: 10, // adjust chunk size as needed
+            n_workers: 4,   // adjust number of workers as needed
+        },
+    };
+
+    let mut executor = TransactionExecutor::new(state, block_context.clone(), config);
+
+    let mut transactions: Vec<Transaction> = Vec::new();
+
+    // Prepare transactions
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
@@ -277,37 +294,43 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
-        let mut txn_state = CachedState::create_transactional(&mut state);
-        let fee_type;
-        let minimal_l1_gas_amount_vector: Option<GasVector>;
-        let res = match txn.unwrap() {
-            Transaction::AccountTransaction(t) => {
-                fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector =
-                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+        match txn {
+            Ok(txn) => transactions.push(txn),
+            Err(_) => {
+                report_error(
+                    reader_handle,
+                    "failed to create transaction",
+                    txn_index as i64,
+                );
+                return;
             }
-            Transaction::L1HandlerTransaction(t) => {
-                fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector = None;
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
-            }
-        };
+        }
+    }
 
+    // Execute transactions
+    let results = executor.execute_txs(&transactions);
+    let mut block_state = executor.block_state.take().unwrap();
+
+    // Process results
+    for (txn_index, res) in results.into_iter().enumerate() {
         match res {
             Err(error) => {
                 let err_string = match &error {
-                    ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
-                    ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
-                        format!("{error} {e}")
-                    }
+                    TransactionExecutorError::TransactionExecutionError(err) => match err {
+                        ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
+                        ExecutionError { error: e, .. }
+                        | ValidateTransactionError { error: e, .. } => {
+                            format!("{error} {e}")
+                        }
+                        other => other.to_string(),
+                    },
                     other => other.to_string(),
                 };
                 report_error(
                     reader_handle,
                     format!(
                         "failed txn {} reason: {}",
-                        txn_and_query_bit.txn_hash, err_string,
+                        txns_and_query_bits[txn_index].txn_hash, err_string,
                     )
                     .as_str(),
                     txn_index as i64,
@@ -326,6 +349,20 @@ pub extern "C" fn cairoVMExecute(
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
+                    let minimal_l1_gas_amount_vector: Option<GasVector>;
+                    let fee_type;
+                    match &transactions[txn_index] {
+                        Transaction::AccountTransaction(at) => {
+                            fee_type = at.fee_type();
+                            minimal_l1_gas_amount_vector = Some(
+                                gas_usage::estimate_minimal_gas_vector(&block_context, at).unwrap(),
+                            );
+                        }
+                        Transaction::L1HandlerTransaction(ht) => {
+                            fee_type = ht.fee_type();
+                            minimal_l1_gas_amount_vector = None;
+                        }
+                    }
                     let minimal_l1_gas_amount_vector =
                         minimal_l1_gas_amount_vector.unwrap_or_default();
                     let gas_consumed = t
@@ -359,8 +396,13 @@ pub extern "C" fn cairoVMExecute(
                     .try_into()
                     .unwrap_or(u64::MAX);
 
-                let trace =
-                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
+                let mut txn_state = CachedState::create_transactional(&mut block_state);
+
+                let trace = jsonrpc::new_transaction_trace(
+                    &txns_and_query_bits[txn_index].txn,
+                    t,
+                    &mut txn_state,
+                );
                 if let Err(e) = trace {
                     report_error(
                         reader_handle,
@@ -381,7 +423,6 @@ pub extern "C" fn cairoVMExecute(
                 append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
             }
         }
-        txn_state.commit();
     }
 }
 
