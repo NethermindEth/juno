@@ -238,12 +238,13 @@ pub extern "C" fn cairoVMExecute(
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
+    let n_workers = num_cpus::get() / 2;
     // Initialize the TransactionExecutor
     let config = TransactionExecutorConfig {
         concurrency_config: ConcurrencyConfig {
             enabled: concurrency_mode,
-            chunk_size: 10, // adjust chunk size as needed
-            n_workers: 4,   // adjust number of workers as needed
+            chunk_size: n_workers * 3,
+            n_workers,
         },
     };
 
