@@ -213,7 +213,7 @@ type connection struct {
 	w         io.Writer
 	activated <-chan struct{}
 
-	//todo: guard for this in the code! don't depend on devs finding out about this!
+	// todo: guard for this in the code! don't depend on devs finding out about this!
 	// initialErr is not thread-safe. It must be set to its final value before the connection is activated.
 	initialErr error
 }

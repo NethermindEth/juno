@@ -140,7 +140,8 @@ func (h *Handler) TraceTransactionV0_6(ctx context.Context, hash felt.Felt) (*vm
 }
 
 func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace,
-	http.Header, *jsonrpc.Error) {
+	http.Header, *jsonrpc.Error,
+) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")

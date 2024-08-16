@@ -351,7 +351,13 @@ pub extern "C" fn cairoVMExecute(
 
                 let actual_fee = t.transaction_receipt.fee.0.into();
                 let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
-                let execution_steps = t.transaction_receipt.resources.vm_resources.n_steps.try_into().unwrap_or(u64::MAX);
+                let execution_steps = t
+                    .transaction_receipt
+                    .resources
+                    .vm_resources
+                    .n_steps
+                    .try_into()
+                    .unwrap_or(u64::MAX);
 
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
