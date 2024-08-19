@@ -145,7 +145,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 	})
 
 	// if some error other than "not found"
-	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil, err
 	}
 

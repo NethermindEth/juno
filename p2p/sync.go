@@ -64,7 +64,7 @@ func (s *syncService) start(ctx context.Context) {
 		var nextHeight int
 		if curHeight, err := s.blockchain.Height(); err == nil {
 			nextHeight = int(curHeight) + 1
-		} else if !errors.Is(db.ErrKeyNotFound, err) {
+		} else if !errors.Is(err, db.ErrKeyNotFound) {
 			s.log.Errorw("Failed to get current height", "err", err)
 		}
 
