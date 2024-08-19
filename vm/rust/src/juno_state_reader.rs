@@ -299,8 +299,6 @@ fn state_read_err(err_ptr: *const c_char) -> StateResult<()> {
 
 pub fn felt_to_byte_array(felt: &StarkFelt) -> [u8; 32] {
     felt.to_bytes_be()
-        .try_into()
-        .expect("StarkFelt not [u8; 32]")
 }
 
 pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
@@ -328,10 +326,10 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         } else {
             return Err("not a valid contract class".to_string());
         };
-    return Ok(BlockifierClassInfo::new(
-        &class.into(),
+    Ok(BlockifierClassInfo::new(
+        &class,
         class_info.sierra_program_length,
         class_info.abi_length,
     )
-    .unwrap());
+    .unwrap())
 }

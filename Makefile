@@ -12,13 +12,24 @@ endif
 
 ifeq ($(shell uname -s),Darwin)
 	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration
+
+	# Set macOS deployment target in order to avoid linker warnings linke
+	# "ld: warning: object file XX was built for newer macOS version (14.4) than being linked (14.0)"
+	export MACOSX_DEPLOYMENT_TARGET=$(shell sw_vers --productVersion)
+
 	# for test-race we need to pass -ldflags to fix linker warnings on macOS
 	# see https://github.com/golang/go/issues/61229#issuecomment-1988965927
 	TEST_RACE_LDFLAGS=-ldflags=-extldflags=-Wl,-ld_classic
+
+	# Number of processes
+	NPROCS = $(shell sysctl hw.ncpu  | grep -o '[0-9]\+')
 else
 	export CGO_LDFLAGS=-ldl -lm
 	TEST_RACE_LDFLAGS=
+	NPROCS = $(shell grep -c 'processor' /proc/cpuinfo)
 endif
+
+MAKEFLAGS += -j$(NPROCS)
 
 rustdeps: vm core-rust compiler
 
@@ -72,10 +83,9 @@ install-mockgen:
 	go install go.uber.org/mock/mockgen@latest
 
 install-golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1
+	@which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1
 
-lint:
-	@which golangci-lint || make install-golangci-lint
+lint: install-golangci-lint
 	golangci-lint run
 
 tidy: ## add missing and remove unused modules

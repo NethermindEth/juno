@@ -2,26 +2,52 @@ use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use std::ffi::{c_char, CStr, CString};
 
 #[no_mangle]
-pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char) -> *mut c_char {
-    let sierra_json_str = unsafe { CStr::from_ptr(sierra_json) }.to_str().unwrap();
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char, result: *mut *mut c_char) -> u8 {
+    let sierra_json_str = match unsafe { CStr::from_ptr(sierra_json) }.to_str() {
+        Ok(value) => value,
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
+    };
 
-    let sierra_class = serde_json::from_str(sierra_json_str).map_err(|err| err.to_string());
-    if let Err(e) = sierra_class {
-        return raw_cstr(e);
-    }
+    let sierra_class = match serde_json::from_str(sierra_json_str) {
+        Ok(value) => value,
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
+    };
 
-    let casm_class =
-        CasmContractClass::from_contract_class(sierra_class.unwrap(), true, usize::MAX)
-            .map_err(|err| err.to_string());
-    if let Err(e) = casm_class {
-        return raw_cstr(e);
-    }
+    let casm_class = match CasmContractClass::from_contract_class(sierra_class, true, usize::MAX) {
+        Ok(value) => value,
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
+    };
 
-    let casm_json = serde_json::to_string(&casm_class.unwrap());
-    if let Err(e) = casm_json {
-        return raw_cstr(e.to_string());
+    let casm_json = match serde_json::to_string(&casm_class) {
+        Ok(value) => value,
+        Err(e) => {
+            unsafe {
+                *result = raw_cstr(e.to_string());
+            }
+            return 0;
+        }
+    };
+
+    unsafe {
+        *result = raw_cstr(casm_json);
     }
-    return raw_cstr(casm_json.unwrap());
+    1
 }
 
 fn raw_cstr(str: String) -> *mut c_char {
@@ -29,6 +55,7 @@ fn raw_cstr(str: String) -> *mut c_char {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn freeCstr(ptr: *mut c_char) {
     unsafe {
         if ptr.is_null() {
