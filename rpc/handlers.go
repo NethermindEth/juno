@@ -91,6 +91,8 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
+
+	ready bool
 }
 
 type subscription struct {
@@ -119,6 +121,8 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
+
+		ready: false,
 	}
 }
 
@@ -169,6 +173,10 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 
 func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
+}
+
+func (h *Handler) SetReady() {
+	h.ready = true
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen

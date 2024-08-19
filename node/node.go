@@ -209,10 +209,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable, rpcHandler))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable, rpcHandler))
 	}
 	var metricsService service.Service
 	if cfg.Metrics {
@@ -270,6 +270,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	} else {
 		log.Warnw("Failed to parse Juno version, will not warn about new releases", "version", version)
 	}
+
+	rpcHandler.SetReady()
 
 	return n, nil
 }

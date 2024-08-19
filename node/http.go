@@ -15,6 +15,7 @@ import (
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -72,7 +73,7 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 }
 
 func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
+	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool, rpchandler *rpc.Handler,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -86,6 +87,11 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 			httpHandler = httpHandler.WithListener(listener)
 		}
 		mux.Handle(path, exactPathServer(path, httpHandler))
+
+		prefixedPath := strings.TrimSuffix(path, "/")
+
+		mux.HandleFunc(prefixedPath+"/ready", rpchandler.HandleReadyRequest)
+		mux.HandleFunc(prefixedPath+"/ready/sync", rpchandler.HandleReadySyncRequest)
 	}
 
 	var handler http.Handler = mux
@@ -96,7 +102,7 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 }
 
 func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
+	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool, rpchandler *rpc.Handler,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -110,8 +116,15 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 			wsHandler = wsHandler.WithListener(listener)
 		}
 		mux.Handle(path, exactPathServer(path, wsHandler))
+		prefixedPath := strings.TrimSuffix(path, "/")
 		wsPrefixedPath := strings.TrimSuffix("/ws"+path, "/")
 		mux.Handle(wsPrefixedPath, exactPathServer(wsPrefixedPath, wsHandler))
+
+		mux.HandleFunc(prefixedPath+"/ready", rpchandler.HandleReadyRequest)
+		mux.HandleFunc(prefixedPath+"/ready/sync", rpchandler.HandleReadySyncRequest)
+
+		mux.HandleFunc(wsPrefixedPath+"/ready", rpchandler.HandleReadyRequest)
+		mux.HandleFunc(wsPrefixedPath+"/ready/sync", rpchandler.HandleReadySyncRequest)
 	}
 
 	var handler http.Handler = mux
