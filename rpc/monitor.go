@@ -4,6 +4,10 @@ import (
 	"net/http"
 )
 
+const (
+	BlockRange = 6
+)
+
 func (h *Handler) HandleReadyRequest(w http.ResponseWriter, r *http.Request) {
 	if h.ready {
 		w.WriteHeader(http.StatusOK)
@@ -28,7 +32,7 @@ func (h *Handler) HandleReadySyncRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if head.Number+6 >= highestBlockHeader.Number {
+	if head.Number+BlockRange >= highestBlockHeader.Number {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
