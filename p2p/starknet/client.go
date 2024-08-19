@@ -1,5 +1,7 @@
 package starknet
 
+// TODO: remove this nolint when the issue is fixed https://github.com/daixiang0/gci/issues/209
+//nolint:gci
 import (
 	"context"
 	"errors"
