@@ -13,7 +13,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ["1.23.0"]
         os: [ubuntu-latest, macos-latest, ubuntu-arm64-2-core]
     runs-on: ${{ matrix.os }}
     env:
