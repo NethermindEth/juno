@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"iter"
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -14,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/utils/iter"
 	"github.com/libp2p/go-libp2p/core/network"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"

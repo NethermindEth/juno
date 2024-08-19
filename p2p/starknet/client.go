@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"io"
+	"iter"
 	"time"
 
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/utils/iter"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/protobuf/encoding/protodelim"
