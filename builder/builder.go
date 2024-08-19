@@ -1,9 +1,12 @@
 package builder
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	stdsync "sync"
 	"time"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/sync"
@@ -48,6 +52,8 @@ type Builder struct {
 	shadowMode          bool
 	shadowStateUpdate   *core.StateUpdate
 	starknetData        starknetdata.StarknetData
+	junoEndpoint        string
+	blockTraces         []rpc.TracedBlockTransaction
 	chanNumTxnsToShadow chan int
 	chanFinaliseShadow  chan struct{}
 
@@ -100,6 +106,11 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 
 func (b *Builder) WithEventListener(l EventListener) *Builder {
 	b.listener = l
+	return b
+}
+
+func (b *Builder) WithJunoEndpoit(endpoint string) *Builder {
+	b.junoEndpoint = endpoint
 	return b
 }
 
@@ -462,6 +473,27 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
+	found := false
+	b.log.Debugw("Looking for transaction in block traces")
+	for _, blockTrace := range b.blockTraces {
+		b.log.Debugw("%s, %s", txn.Transaction.Hash().String(), blockTrace.TransactionHash.String())
+		if !blockTrace.TransactionHash.Equal(txn.Transaction.Hash()) {
+			continue
+		}
+		b.log.Infof("Found transaction in block traces %s", txn.Transaction.Hash().String())
+
+		// Todo: more debug friendly validation
+		equal := vm.PrintDifference(*blockTrace.TraceRoot.StateDiff, *trace[0].StateDiff)
+		if !equal {
+			b.log.Fatalf("State diffs are different")
+		}
+		found = true
+		break
+	}
+	if !found {
+		b.log.Fatalf("Failed to find transaction in block traces %s", txn.Transaction.Hash().String())
+	}
+
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 
@@ -537,6 +569,11 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			blockTraces, err := b.JunoGetBlockTrace(int(block.Number))
+			if err != nil {
+				return err
+			}
+			b.blockTraces = blockTraces
 			b.shadowStateUpdate = su
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
@@ -614,4 +651,59 @@ func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdat
 		}
 	}
 	return block, su, classes, nil
+}
+
+func (b *Builder) JunoGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, error) {
+	type RequestPayload struct {
+		JSONRPC string                 `json:"jsonrpc"`
+		Method  string                 `json:"method"`
+		Params  map[string]interface{} `json:"params"`
+		ID      int                    `json:"id"`
+	}
+	type ResponsePayload struct {
+		JSONRPC string      `json:"jsonrpc"`
+		Result  interface{} `json:"result"`
+		Error   interface{} `json:"error"`
+		ID      int         `json:"id"`
+	}
+	payload := RequestPayload{
+		JSONRPC: "2.0",
+		Method:  "starknet_traceBlockTransactions",
+		Params: map[string]interface{}{
+			"block_id": map[string]int{"block_number": blockNum},
+		},
+		ID: 1,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", b.junoEndpoint, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to perform HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var responsePayload ResponsePayload
+	if err := json.NewDecoder(resp.Body).Decode(&responsePayload); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON response: %w", err)
+	}
+	var tracedTransactions []rpc.TracedBlockTransaction
+	resultBytes, err := json.Marshal(responsePayload.Result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal result: %w", err)
+	}
+	if err := json.Unmarshal(resultBytes, &tracedTransactions); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal result into []TracedBlockTransaction: %w", err)
+	}
+	return tracedTransactions, nil
 }

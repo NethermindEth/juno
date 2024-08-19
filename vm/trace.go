@@ -3,6 +3,8 @@ package vm
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -17,6 +19,23 @@ type StateDiff struct {
 	DeprecatedDeclaredClasses []*felt.Felt       `json:"deprecated_declared_classes"`
 	DeclaredClasses           []DeclaredClass    `json:"declared_classes"`
 	ReplacedClasses           []ReplacedClass    `json:"replaced_classes"`
+}
+
+func PrintDifference(sd1, sd2 StateDiff) bool {
+	if !reflect.DeepEqual(sd1, sd2) {
+		sd1Json, _ := json.MarshalIndent(sd1, "", "  ")
+		sd2Json, _ := json.MarshalIndent(sd2, "", "  ")
+
+		fmt.Println("StateDiffs differ:")
+		fmt.Println("First StateDiff:")
+		fmt.Println(string(sd1Json))
+		fmt.Println("Second StateDiff:")
+		fmt.Println(string(sd2Json))
+	} else {
+		fmt.Println("StateDiffs are equal")
+		return true
+	}
+	return false
 }
 
 type Nonce struct {
@@ -48,6 +67,7 @@ type DeclaredClass struct {
 	ClassHash         felt.Felt `json:"class_hash"`
 	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
 }
+
 type TransactionType uint8
 
 const (

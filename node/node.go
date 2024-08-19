@@ -180,7 +180,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		if cfg.SeqShadowMode {
 			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
 				log, starknetData)
+			sequencer.WithJunoEndpoit("https://free-rpc.nethermind.io/sepolia-juno")
 		}
+
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {
