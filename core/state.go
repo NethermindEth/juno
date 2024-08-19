@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"runtime"
 	"slices"
 	"sort"
@@ -397,11 +398,8 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
-	keys := make([]felt.Felt, 0, len(diffs))
-	for key := range diffs {
-		keys = append(keys, key)
-	}
-	slices.SortStableFunc(keys, func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
+	mapKeys := maps.Keys(diffs)
+	keys := slices.SortedStableFunc(mapKeys, func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
