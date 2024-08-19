@@ -940,7 +940,11 @@ func (b *Blockchain) CleanPendingState() error {
 	if err != nil {
 		return err
 	}
-	return b.storeEmptyPending(txn, header)
+	err = b.storeEmptyPending(txn, header)
+	if err != nil {
+		return err
+	}
+	return txn.Commit()
 }
 
 func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
