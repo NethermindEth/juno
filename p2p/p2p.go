@@ -52,6 +52,8 @@ type Service struct {
 
 	feederNode bool
 	database   db.DB
+
+	downloadClasses bool
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network, downloadClasses bool,
@@ -112,10 +114,10 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, downloadClasses, log, database)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network, downloadClasses bool,
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	var (
@@ -150,15 +152,16 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
 	s := &Service{
-		synchroniser: synchroniser,
-		log:          log,
-		host:         p2phost,
-		network:      snNetwork,
-		dht:          p2pdht,
-		feederNode:   feederNode,
-		topics:       make(map[string]*pubsub.Topic),
-		handler:      starknet.NewHandler(bc, log),
-		database:     database,
+		synchroniser:    synchroniser,
+		log:             log,
+		host:            p2phost,
+		network:         snNetwork,
+		dht:             p2pdht,
+		feederNode:      feederNode,
+		topics:          make(map[string]*pubsub.Topic),
+		handler:         starknet.NewHandler(bc, log),
+		database:        database,
+		downloadClasses: downloadClasses,
 	}
 	return s, nil
 }
