@@ -6,7 +6,7 @@ use std::{
 use blockifier::state::cached_state::CachedState;
 use criterion::{criterion_group, criterion_main, Criterion};
 use juno_starknet_rs::{
-    serstate::{self, CompiledNativeState, CompiledVMState, NativeState, SerState, VMState},
+    serstate::{self, CompiledNativeState, NativeState, SerState},
     VMArgs,
 };
 
@@ -16,7 +16,6 @@ fn criterion_benchmark_precompiled_native(c: &mut Criterion) {
         "/Users/xander/Nethermind/juno-native/record/{block_number}.args.cbor"
     ))
     .unwrap();
-    // Can also do just a pattern match
     let mut vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
 
     let serstate_file = File::open(format!(
@@ -31,13 +30,9 @@ fn criterion_benchmark_precompiled_native(c: &mut Criterion) {
         "setting up native state finished: {}",
         start.elapsed().as_millis()
     );
-    // let mut vm_state = CachedState::new(VMState(serstate));
-
-    // load up native cache
-    // serstate::run(&mut vm_args, &mut native_state);
 
     let mut group = c.benchmark_group("sample_size");
-    // group.warm_up_time(Duration::from_secs(15));
+
     group.sample_size(10);
 
     group.bench_function("native", |b| {
@@ -100,34 +95,6 @@ fn criterion_benchmark_cached_native_in(c: &mut Criterion) {
             .unwrap();
             let serstate: SerState = ciborium::from_reader(serstate_file).unwrap();
             let mut native_state = CachedState::new(NativeState(serstate.clone()));
-
-            serstate::run(&mut vm_args, &mut native_state)
-        })
-    });
-    group.finish();
-}
-
-// Not working
-fn criterion_benchmark______(c: &mut Criterion) {
-    let mut group = c.benchmark_group("sample_size");
-    group.sample_size(10);
-
-    group.bench_function("fresh", move |b| {
-        b.iter(|| {
-            let block_number = 633333;
-            let args_file = File::open(format!(
-                "/Users/xander/Nethermind/juno-native/record/{block_number}.args.cbor"
-            ))
-            .unwrap();
-            // Can also do just a pattern match
-            let mut vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
-
-            let serstate_file = File::open(format!(
-                "/Users/xander/Nethermind/juno-native/record/{block_number}.state.cbor"
-            ))
-            .unwrap();
-            let serstate: SerState = ciborium::from_reader(serstate_file).unwrap();
-            let mut native_state = CachedState::new(VMState(serstate.clone()));
 
             serstate::run(&mut vm_args, &mut native_state)
         })

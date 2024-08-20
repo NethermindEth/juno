@@ -18,30 +18,19 @@ use crate::juno_state_reader::class_info_from_json_str;
 use crate::{build_block_context, execute_transaction, VMArgs};
 
 #[derive(Default, Serialize, Deserialize, Clone)]
-pub struct SerState {
-    // Could have been wrapped around with felt
+pub struct SerState<Class> {
+    // Todo(xrvdg) make this felt
     pub storage: HashMap<StorageEntry, [u8; 32]>,
     pub nonce: HashMap<ContractAddress, Nonce>,
     pub class_hash: HashMap<ContractAddress, ClassHash>,
-    pub contract_class: HashMap<ClassHash, String>,
+    pub contract_class: HashMap<ClassHash, Class>,
 }
 
 #[derive(Clone)]
-pub struct NativeState(pub SerState);
-#[derive(Clone)]
-pub struct VMState(pub SerState);
+pub struct NativeState(pub SerState<String>);
 
 #[derive(Clone)]
-pub struct CompiledNativeState {
-    state: NativeState,
-    compiled_contract_class: HashMap<ClassHash, ContractClass>,
-}
-
-#[derive(Clone)]
-pub struct CompiledVMState {
-    state: VMState,
-    compiled_contract_class: HashMap<ClassHash, ContractClass>,
-}
+pub struct CompiledNativeState(SerState<ContractClass>);
 
 impl CompiledNativeState {
     pub fn new(state: NativeState) -> Self {
@@ -52,60 +41,16 @@ impl CompiledNativeState {
             compiled_contract_class.insert(*class_hash, contract_class);
         }
 
-        Self {
-            state,
-            compiled_contract_class,
-        }
+        Self(SerState {
+            storage: state.0.storage,
+            nonce: state.0.nonce,
+            class_hash: state.0.class_hash,
+            contract_class: compiled_contract_class,
+        })
     }
 }
 
 impl StateReader for CompiledNativeState {
-    fn get_storage_at(
-        &self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> StateResult<Felt> {
-        self.state.get_storage_at(contract_address, key)
-    }
-
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        self.state.get_nonce_at(contract_address)
-    }
-
-    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        self.state.get_class_hash_at(contract_address)
-    }
-
-    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        Ok(self
-            .compiled_contract_class
-            .get(&class_hash)
-            .expect("there should be a compiled contract")
-            .clone())
-    }
-
-    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        unimplemented!()
-    }
-}
-
-impl CompiledVMState {
-    pub fn new(state: VMState) -> Self {
-        let mut compiled_contract_class: HashMap<ClassHash, ContractClass> = Default::default();
-
-        for class_hash in state.0.contract_class.keys() {
-            let contract_class = state.get_compiled_contract_class(*class_hash).unwrap();
-            compiled_contract_class.insert(*class_hash, contract_class);
-        }
-
-        Self {
-            state,
-            compiled_contract_class,
-        }
-    }
-}
-
-impl StateReader for CompiledVMState {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -199,52 +144,6 @@ impl StateReader for NativeState {
         Ok(class_info_from_json_str(json_str, class_hash)
             .expect("decoding class went wrong")
             .contract_class())
-    }
-
-    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        self.0.get_compiled_class_hash(class_hash)
-    }
-}
-
-impl StateReader for VMState {
-    fn get_storage_at(
-        &self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-    ) -> StateResult<Felt> {
-        self.0.get_storage_at(contract_address, key)
-    }
-
-    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        self.0.get_nonce_at(contract_address)
-    }
-
-    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        self.0.get_class_hash_at(contract_address)
-    }
-
-    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        // Passing along version information could make this a V1 and V1Native test
-        let json_str = self
-            .0
-            .contract_class
-            .get(&class_hash)
-            .expect("request non existed class");
-        let class_info = class_info_from_json_str(json_str, class_hash)
-            .expect("decoding class went wrong")
-            .contract_class();
-
-        match class_info {
-            ContractClass::V1Native(contract_class) => {
-                let contract_class_v1: ContractClassV1 = contract_class
-                    .to_casm_contract_class()
-                    .unwrap()
-                    .try_into()
-                    .unwrap();
-                Ok(ContractClass::V1(contract_class_v1))
-            }
-            contract_class => Ok(contract_class),
-        }
     }
 
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
