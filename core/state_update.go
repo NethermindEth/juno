@@ -5,6 +5,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -58,66 +59,104 @@ func (sd *StateDiff) Print() {
 	fmt.Println("}")
 }
 
-func (sd *StateDiff) Diff(other *StateDiff) {
-	fmt.Println("Differences between StateDiffs:")
+func (sd *StateDiff) Diff(other *StateDiff) (string, bool) {
+	var sb strings.Builder
+	differencesFound := false
 
-	fmt.Println("  StorageDiffs:")
-	compareMapsOfMaps(sd.StorageDiffs, other.StorageDiffs)
+	checkDiff := func(label string, diffFunc func() (string, bool)) {
+		sb.WriteString(fmt.Sprintf("  %s:\n", label))
+		diffStr, found := diffFunc()
+		if found {
+			differencesFound = true
+			sb.WriteString(diffStr)
+		}
+	}
 
-	fmt.Println("  Nonces:")
-	compareMaps(sd.Nonces, other.Nonces)
+	checkDiff("StorageDiffs", func() (string, bool) {
+		return compareMapsOfMaps(sd.StorageDiffs, other.StorageDiffs)
+	})
 
-	fmt.Println("  DeployedContracts:")
-	compareMaps(sd.DeployedContracts, other.DeployedContracts)
+	checkDiff("Nonces", func() (string, bool) {
+		return compareMaps(sd.Nonces, other.Nonces)
+	})
 
-	fmt.Println("  DeclaredV0Classes:")
-	compareSlices(sd.DeclaredV0Classes, other.DeclaredV0Classes)
+	checkDiff("DeployedContracts", func() (string, bool) {
+		return compareMaps(sd.DeployedContracts, other.DeployedContracts)
+	})
 
-	fmt.Println("  DeclaredV1Classes:")
-	compareMaps(sd.DeclaredV1Classes, other.DeclaredV1Classes)
+	checkDiff("DeclaredV0Classes", func() (string, bool) {
+		return compareSlices(sd.DeclaredV0Classes, other.DeclaredV0Classes)
+	})
 
-	fmt.Println("  ReplacedClasses:")
-	compareMaps(sd.ReplacedClasses, other.ReplacedClasses)
+	checkDiff("DeclaredV1Classes", func() (string, bool) {
+		return compareMaps(sd.DeclaredV1Classes, other.DeclaredV1Classes)
+	})
+
+	checkDiff("ReplacedClasses", func() (string, bool) {
+		return compareMaps(sd.ReplacedClasses, other.ReplacedClasses)
+	})
+
+	return sb.String(), differencesFound
 }
 
-func compareMapsOfMaps(m1, m2 map[felt.Felt]map[felt.Felt]*felt.Felt) {
+func compareMapsOfMaps(m1, m2 map[felt.Felt]map[felt.Felt]*felt.Felt) (string, bool) {
+	var sb strings.Builder
+	differencesFound := false
+
 	for k1, v1 := range m1 {
 		if v2, exists := m2[k1]; exists {
 			for k2, v := range v1 {
 				if v2Val, exists := v2[k2]; !exists || !reflect.DeepEqual(v, v2Val) {
-					fmt.Printf("    %s: %s -> %s (changed or missing in second map)\n", k1.String(), k2.String(), v.String())
+					sb.WriteString(fmt.Sprintf("    %s: %s -> %s (changed or missing in second map)\n", k1.String(), k2.String(), v.String()))
+					differencesFound = true
 				}
 			}
 			for k2 := range v2 {
 				if _, exists := v1[k2]; !exists {
-					fmt.Printf("    %s: %s -> %s (missing in first map)\n", k1.String(), k2.String(), v2[k2].String())
+					sb.WriteString(fmt.Sprintf("    %s: %s -> %s (missing in first map)\n", k1.String(), k2.String(), v2[k2].String()))
+					differencesFound = true
 				}
 			}
 		} else {
-			fmt.Printf("    %s: %v (missing in second map)\n", k1.String(), v1)
+			sb.WriteString(fmt.Sprintf("    %s: %v (missing in second map)\n", k1.String(), v1))
+			differencesFound = true
 		}
 	}
+
 	for k1 := range m2 {
 		if _, exists := m1[k1]; !exists {
-			fmt.Printf("    %s: %v (missing in first map)\n", k1.String(), m2[k1])
+			sb.WriteString(fmt.Sprintf("    %s: %v (missing in first map)\n", k1.String(), m2[k1]))
+			differencesFound = true
 		}
 	}
+
+	return sb.String(), differencesFound
 }
 
-func compareMaps(m1, m2 map[felt.Felt]*felt.Felt) {
+func compareMaps(m1, m2 map[felt.Felt]*felt.Felt) (string, bool) {
+	var sb strings.Builder
+	differencesFound := false
+
 	for k, v := range m1 {
 		if v2, exists := m2[k]; !exists || !reflect.DeepEqual(v, v2) {
-			fmt.Printf("    %s: %s -> %s (changed or missing in second map)\n", k.String(), v.String(), v2.String())
+			sb.WriteString(fmt.Sprintf("    %s: %s -> %s (changed or missing in second map)\n", k.String(), v.String(), v2.String()))
+			differencesFound = true
 		}
 	}
 	for k, v := range m2 {
 		if _, exists := m1[k]; !exists {
-			fmt.Printf("    %s: %s (missing in first map)\n", k.String(), v.String())
+			sb.WriteString(fmt.Sprintf("    %s: %s (missing in first map)\n", k.String(), v.String()))
+			differencesFound = true
 		}
 	}
+
+	return sb.String(), differencesFound
 }
 
-func compareSlices(s1, s2 []*felt.Felt) {
+func compareSlices(s1, s2 []*felt.Felt) (string, bool) {
+	var sb strings.Builder
+	differencesFound := false
+
 	len1 := len(s1)
 	len2 := len(s2)
 	maxLen := len1
@@ -128,14 +167,19 @@ func compareSlices(s1, s2 []*felt.Felt) {
 	for i := 0; i < maxLen; i++ {
 		if i < len1 && i < len2 {
 			if !reflect.DeepEqual(s1[i], s2[i]) {
-				fmt.Printf("    %s -> %s (changed)\n", s1[i].String(), s2[i].String())
+				sb.WriteString(fmt.Sprintf("    %s -> %s (changed)\n", s1[i].String(), s2[i].String()))
+				differencesFound = true
 			}
 		} else if i < len1 {
-			fmt.Printf("    %s (missing in second slice)\n", s1[i].String())
+			sb.WriteString(fmt.Sprintf("    %s (missing in second slice)\n", s1[i].String()))
+			differencesFound = true
 		} else {
-			fmt.Printf("    %s (missing in first slice)\n", s2[i].String())
+			sb.WriteString(fmt.Sprintf("    %s (missing in first slice)\n", s2[i].String()))
+			differencesFound = true
 		}
 	}
+
+	return sb.String(), differencesFound
 }
 
 func EmptyStateDiff() *StateDiff {

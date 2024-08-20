@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,4 +73,36 @@ func adaptDA(da *vm.DataAvailability) *core.DataAvailability {
 		L1Gas:     da.L1Gas,
 		L1DataGas: da.L1DataGas,
 	}
+}
+
+func AdaptStateDiff(sd *vm.StateDiff) *core.StateDiff {
+	result := core.StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+		Nonces:            make(map[felt.Felt]*felt.Felt),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt),
+		DeclaredV0Classes: []*felt.Felt{},
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+	}
+	for _, entries := range sd.StorageDiffs {
+		KeyVals := map[felt.Felt]*felt.Felt{}
+		for _, entry := range entries.StorageEntries {
+			KeyVals[entry.Key] = &entry.Value
+		}
+		result.StorageDiffs[entries.Address] = KeyVals
+	}
+	for _, addrNonce := range sd.Nonces {
+		result.Nonces[addrNonce.ContractAddress] = &addrNonce.Nonce
+	}
+	for _, addrClassHash := range sd.DeployedContracts {
+		result.Nonces[addrClassHash.Address] = &addrClassHash.ClassHash
+	}
+	for _, hashes := range sd.DeclaredClasses {
+		result.DeclaredV1Classes[hashes.ClassHash] = &hashes.CompiledClassHash
+	}
+	for _, addrClassHash := range sd.ReplacedClasses {
+		result.ReplacedClasses[addrClassHash.ClassHash] = &addrClassHash.ClassHash
+	}
+	result.DeclaredV0Classes = append(result.DeclaredV0Classes, sd.DeprecatedDeclaredClasses...)
+	return &result
 }

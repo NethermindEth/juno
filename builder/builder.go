@@ -481,13 +481,14 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			continue
 		}
 		b.log.Infof("Found transaction in block traces %s", txn.Transaction.Hash().String())
-
-		// Todo: more debug friendly validation
-		equal := vm.PrintDifference(*blockTrace.TraceRoot.StateDiff, *trace[0].StateDiff)
-		if !equal {
-			b.log.Fatalf("State diffs are different")
-		}
 		found = true
+
+		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
+		refTrace := vm2core.AdaptStateDiff(blockTrace.TraceRoot.StateDiff)
+		diffString, diffsNotEqual := seqTrace.Diff(refTrace)
+		if diffsNotEqual {
+			b.log.Fatalf("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
+		}
 		break
 	}
 	if !found {
