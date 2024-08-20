@@ -20,7 +20,7 @@ use crate::{build_block_context, execute_transaction, VMArgs};
 #[derive(Default, Serialize, Deserialize, Clone)]
 pub struct SerState<Class> {
     // Todo(xrvdg) make this felt
-    pub storage: HashMap<StorageEntry, [u8; 32]>,
+    pub storage: HashMap<StorageEntry, Felt>,
     pub nonce: HashMap<ContractAddress, Nonce>,
     pub class_hash: HashMap<ContractAddress, ClassHash>,
     pub contract_class: HashMap<ClassHash, Class>,
@@ -71,12 +71,10 @@ impl<C: ContractClassTrait> StateReader for SerState<C> {
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<Felt> {
-        // might have to deal with
-        let bytes = self
+        Ok(*self
             .storage
             .get(&(contract_address, key))
-            .expect("no storage");
-        Ok(Felt::from_bytes_be(bytes))
+            .expect("no storage"))
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {

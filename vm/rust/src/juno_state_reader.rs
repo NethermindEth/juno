@@ -89,24 +89,17 @@ impl StateReader for JunoStateReader {
                 contract_address.0.key()
             )))
         } else {
-            let felt_val = {
-                let slice = unsafe { slice::from_raw_parts(ptr, 32) };
-
-                let bytes = slice.try_into().expect("Juno felt not [u8; 32]");
-                // Insert into serialization map
-                // must return none
-                assert_eq!(
-                    self.ser
-                        .borrow_mut()
-                        .storage
-                        .insert((contract_address, key), bytes),
-                    None,
-                    "Overwritten storage"
-                );
-
-                Felt::from_bytes_be(&bytes)
-            };
+            let felt_val = ptr_to_felt(ptr);
             unsafe { JunoFree(ptr as *const c_void) };
+
+            assert_eq!(
+                self.ser
+                    .borrow_mut()
+                    .storage
+                    .insert((contract_address, key), felt_val),
+                None,
+                "Overwritten storage"
+            );
 
             Ok(felt_val)
         }

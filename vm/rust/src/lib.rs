@@ -82,7 +82,7 @@ pub struct BlockInfoF<Felt, StarknetVersion> {
     pub use_blob_data: c_uchar,
 }
 
-// CBlockInfo is not serializable for that we construct BlockInfo
+// CBlockInfo is not de/serializable for that we use BlockInfo
 type CBlockInfo = BlockInfoF<[c_uchar; 32], *const c_char>;
 type BlockInfo = BlockInfoF<Felt, StarknetVersion>;
 
