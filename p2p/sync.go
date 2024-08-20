@@ -528,7 +528,6 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 		defer close(stateDiffsCh)
 
 		var contractDiffs []*spec.ContractDiff
-		var declaredClasses []*spec.DeclaredClass
 
 	loop:
 		for res := range stateDiffsIt {
@@ -536,7 +535,7 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 			case *spec.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
 			case *spec.StateDiffsResponse_DeclaredClass:
-				declaredClasses = append(declaredClasses, v.DeclaredClass)
+				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
 			case *spec.StateDiffsResponse_Fin:
 				break loop
 			default:
