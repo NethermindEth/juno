@@ -311,6 +311,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+	t.Parallel()
 	log := utils.NewNopZapLogger()
 	n := utils.Ptr(utils.Mainnet)
 	feederClient := feeder.NewTestClient(t, n)
@@ -348,9 +349,9 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	}))
 	ws := jsonrpc.NewWebsocket(server, log)
 	httpSrv := httptest.NewServer(ws)
-	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose // websocket package closes resp.Body for us.
+	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
-	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose // websocket package closes resp.Body for us.
+	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
 
 	subscribeMsg := []byte(`{"jsonrpc":"2.0","id":1,"method":"juno_subscribeNewHeads"}`)
