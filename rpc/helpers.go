@@ -91,10 +91,7 @@ func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bo
 	if resources == nil {
 		if !v0_6Response {
 			return &ExecutionResources{
-				DataAvailability: &DataAvailability{
-					L1Gas:     uint64(0),
-					L1DataGas: uint64(0),
-				},
+				DataAvailability: &DataAvailability{},
 			}
 		} else {
 			return &ExecutionResources{}
@@ -117,10 +114,7 @@ func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bo
 	}
 	if !v0_6Response {
 		if resources.DataAvailability == nil {
-			res.DataAvailability = &DataAvailability{
-				L1Gas:     uint64(0),
-				L1DataGas: uint64(0),
-			}
+			res.DataAvailability = &DataAvailability{}
 		} else {
 			res.DataAvailability = &DataAvailability{
 				L1Gas:     resources.DataAvailability.L1Gas,
