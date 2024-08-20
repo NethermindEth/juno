@@ -56,8 +56,14 @@ type Service struct {
 	downloadClasses bool
 }
 
-func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network, downloadClasses bool,
-	log utils.SimpleLogger, database db.DB,
+func New(
+	addr, publicAddr, version, peers, privKeyStr string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	downloadClasses bool,
+	log utils.SimpleLogger,
+	database db.DB,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -117,8 +123,15 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, downloadClasses, log, database)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network, downloadClasses bool,
-	log utils.SimpleLogger, database db.DB,
+func NewWithHost(
+	p2phost host.Host,
+	peers string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	downloadClasses bool,
+	log utils.SimpleLogger,
+	database db.DB,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
