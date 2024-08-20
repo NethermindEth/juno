@@ -276,7 +276,7 @@ func (s *syncService) adaptAndSanityCheckBlock(
 	ctx context.Context,
 	header *spec.SignedBlockHeader,
 	contractDiffs []*spec.ContractDiff,
-	classes []*spec.Class,
+	classes []core.Class,
 	txs []*spec.Transaction,
 	receipts []*spec.Receipt,
 	events []*spec.Event,
@@ -350,11 +350,6 @@ func (s *syncService) adaptAndSanityCheckBlock(
 			}
 			coreBlock.Hash = h
 
-			newClasses := make(map[felt.Felt]core.Class, len(classes))
-			for _, cls := range classes {
-				newClasses[*p2p2core.AdaptHash(cls.ClassHash)] = p2p2core.AdaptClass(cls)
-			}
-
 			// Build State update
 			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
 			// Update but there is no such message in P2P.
@@ -381,6 +376,16 @@ func (s *syncService) adaptAndSanityCheckBlock(
 				StateDiff: p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes),
 			}
 
+			newClasses := make(map[felt.Felt]core.Class, len(classes))
+			for _, class := range classes {
+				hash, err := class.Hash()
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("failed to calculate class hash: %v", err)}
+					return
+				}
+				newClasses[*hash] = class
+			}
+
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
@@ -389,7 +394,12 @@ func (s *syncService) adaptAndSanityCheckBlock(
 
 			select {
 			case <-ctx.Done():
-			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
+			case bodyCh <- blockBody{
+				block:       coreBlock,
+				stateUpdate: stateUpdate,
+				newClasses:  newClasses,
+				commitments: commitments,
+			}:
 			}
 		}
 	}()
@@ -446,7 +456,7 @@ func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64)
 
 type specClasses struct {
 	number  uint64
-	classes []*spec.Class
+	classes []core.Class
 }
 
 func (s specClasses) blockNumber() uint64 {
@@ -464,12 +474,13 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 	go func() {
 		defer close(classesCh)
 
-		var classes []*spec.Class
+		var classes []core.Class
 	loop:
 		for res := range classesIt {
 			switch v := res.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
-				hash, err := p2p2core.AdaptClass(v.Class).Hash()
+				adoptedClass := p2p2core.AdaptClass(v.Class)
+				hash, err := adoptedClass.Hash()
 				if err != nil {
 					s.log.Warnw("Failed to calculate class hash", "err", err)
 					break loop
@@ -478,7 +489,7 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 					s.log.Warnw("Class hash mismatch", "receivedHash", adaptedHash, "calculatedHash", hash)
 					break loop
 				}
-				classes = append(classes, v.Class)
+				classes = append(classes, adoptedClass)
 			case *spec.ClassesResponse_Fin:
 				break loop
 			default:
@@ -520,7 +531,7 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 		defer close(stateDiffsCh)
 
 		var contractDiffs []*spec.ContractDiff
-		// var declaredClasses []*spec.DeclaredClass
+		var declaredClasses []*spec.DeclaredClass
 
 	loop:
 		for res := range stateDiffsIt {
@@ -528,7 +539,7 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 			case *spec.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
 			case *spec.StateDiffsResponse_DeclaredClass:
-				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
+				declaredClasses = append(declaredClasses, v.DeclaredClass)
 			case *spec.StateDiffsResponse_Fin:
 				break loop
 			default:

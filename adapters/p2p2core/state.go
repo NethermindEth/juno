@@ -11,13 +11,13 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(reader core.StateReader, contractDiffs []*spec.ContractDiff, classes []*spec.Class) *core.StateDiff {
+func AdaptStateDiff(reader core.StateReader, contractDiffs []*spec.ContractDiff, classes []core.Class) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
 	)
 
-	for _, class := range utils.Map(classes, AdaptClass) {
+	for _, class := range classes {
 		h, err := class.Hash()
 		if err != nil {
 			panic(fmt.Errorf("unexpected error: %v when calculating class hash", err))

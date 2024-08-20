@@ -206,3 +206,21 @@ func VerifyClassHashes(classes map[felt.Felt]Class) error {
 
 	return nil
 }
+
+func VerifyClassHash(hash felt.Felt, class Class) error {
+	if _, ok := class.(*Cairo0Class); ok {
+		// skip validation of cairo0 class hash
+		return nil
+	}
+
+	cHash, err := class.Hash()
+	if err != nil {
+		return err
+	}
+
+	if !cHash.Equal(&hash) {
+		return fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cHash.String(), hash.String())
+	}
+
+	return nil
+}
