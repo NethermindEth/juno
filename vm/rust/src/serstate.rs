@@ -1,5 +1,5 @@
 use blockifier::context::BlockContext;
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::{ContractClass, ContractClassV1};
 
 use blockifier::state::cached_state::CachedState;
 use blockifier::state::{
@@ -13,18 +13,126 @@ use starknet_api::{
 };
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
-use std::fs::File;
 
 use crate::juno_state_reader::class_info_from_json_str;
 use crate::{build_block_context, execute_transaction, VMArgs};
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct SerState {
     // Could have been wrapped around with felt
     pub storage: HashMap<StorageEntry, [u8; 32]>,
     pub nonce: HashMap<ContractAddress, Nonce>,
     pub class_hash: HashMap<ContractAddress, ClassHash>,
     pub contract_class: HashMap<ClassHash, String>,
+}
+
+#[derive(Clone)]
+pub struct NativeState(pub SerState);
+#[derive(Clone)]
+pub struct VMState(pub SerState);
+
+#[derive(Clone)]
+pub struct CompiledNativeState {
+    state: NativeState,
+    compiled_contract_class: HashMap<ClassHash, ContractClass>,
+}
+
+#[derive(Clone)]
+pub struct CompiledVMState {
+    state: VMState,
+    compiled_contract_class: HashMap<ClassHash, ContractClass>,
+}
+
+impl CompiledNativeState {
+    pub fn new(state: NativeState) -> Self {
+        let mut compiled_contract_class: HashMap<ClassHash, ContractClass> = Default::default();
+
+        for class_hash in state.0.contract_class.keys() {
+            let contract_class = state.get_compiled_contract_class(*class_hash).unwrap();
+            compiled_contract_class.insert(*class_hash, contract_class);
+        }
+
+        Self {
+            state,
+            compiled_contract_class,
+        }
+    }
+}
+
+impl StateReader for CompiledNativeState {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<Felt> {
+        self.state.get_storage_at(contract_address, key)
+    }
+
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        self.state.get_nonce_at(contract_address)
+    }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        self.state.get_class_hash_at(contract_address)
+    }
+
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        Ok(self
+            .compiled_contract_class
+            .get(&class_hash)
+            .expect("there should be a compiled contract")
+            .clone())
+    }
+
+    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        unimplemented!()
+    }
+}
+
+impl CompiledVMState {
+    pub fn new(state: VMState) -> Self {
+        let mut compiled_contract_class: HashMap<ClassHash, ContractClass> = Default::default();
+
+        for class_hash in state.0.contract_class.keys() {
+            let contract_class = state.get_compiled_contract_class(*class_hash).unwrap();
+            compiled_contract_class.insert(*class_hash, contract_class);
+        }
+
+        Self {
+            state,
+            compiled_contract_class,
+        }
+    }
+}
+
+impl StateReader for CompiledVMState {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<Felt> {
+        self.state.get_storage_at(contract_address, key)
+    }
+
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        self.state.get_nonce_at(contract_address)
+    }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        self.state.get_class_hash_at(contract_address)
+    }
+
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        Ok(self
+            .compiled_contract_class
+            .get(&class_hash)
+            .expect("there should be a compiled contract")
+            .clone())
+    }
+
+    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        unimplemented!()
+    }
 }
 
 impl StateReader for SerState {
@@ -55,9 +163,36 @@ impl StateReader for SerState {
             .expect("no class_hash for this"))
     }
 
+    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        unimplemented!()
+    }
+
+    fn get_compiled_contract_class(&self, _class_hash: ClassHash) -> StateResult<ContractClass> {
+        unimplemented!()
+    }
+}
+
+impl StateReader for NativeState {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<Felt> {
+        self.0.get_storage_at(contract_address, key)
+    }
+
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        self.0.get_nonce_at(contract_address)
+    }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        self.0.get_class_hash_at(contract_address)
+    }
+
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         // Passing along version information could make this a V1 and V1Native test
         let json_str = self
+            .0
             .contract_class
             .get(&class_hash)
             .expect("request non existed class");
@@ -66,41 +201,74 @@ impl StateReader for SerState {
             .contract_class())
     }
 
-    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        unimplemented!()
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        self.0.get_compiled_class_hash(class_hash)
     }
 }
 
-pub fn run(block_number: u64) {
+impl StateReader for VMState {
+    fn get_storage_at(
+        &self,
+        contract_address: ContractAddress,
+        key: StorageKey,
+    ) -> StateResult<Felt> {
+        self.0.get_storage_at(contract_address, key)
+    }
+
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
+        self.0.get_nonce_at(contract_address)
+    }
+
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+        self.0.get_class_hash_at(contract_address)
+    }
+
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        // Passing along version information could make this a V1 and V1Native test
+        let json_str = self
+            .0
+            .contract_class
+            .get(&class_hash)
+            .expect("request non existed class");
+        let class_info = class_info_from_json_str(json_str, class_hash)
+            .expect("decoding class went wrong")
+            .contract_class();
+
+        match class_info {
+            ContractClass::V1Native(contract_class) => {
+                let contract_class_v1: ContractClassV1 = contract_class
+                    .to_casm_contract_class()
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+                Ok(ContractClass::V1(contract_class_v1))
+            }
+            contract_class => Ok(contract_class),
+        }
+    }
+
+    fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        self.0.get_compiled_class_hash(class_hash)
+    }
+}
+
+pub fn run(vm_args: &mut VMArgs, state: &mut CachedState<impl StateReader>) {
     // Replace by git root path
 
-    let args_file = File::open(format!(
-        "/Users/xander/Nethermind/juno-native/record/{block_number}.args.cbor"
-    ))
-    .unwrap();
-    // Can also do just a pattern match
-    let mut vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
-
-    let serstate_file = File::open(format!(
-        "/Users/xander/Nethermind/juno-native/record/{block_number}.state.cbor"
-    ))
-    .unwrap();
-    let serstate: SerState = ciborium::from_reader(serstate_file).unwrap();
-    let mut state = CachedState::new(serstate);
-
     let block_context: BlockContext =
-        build_block_context(&mut state, &vm_args.block_info, &vm_args.chain_id, None);
+        build_block_context(state, &vm_args.block_info, &vm_args.chain_id, None);
 
     for (_txn_index, txn_and_query_bit) in vm_args.txns_and_query_bits.iter().enumerate() {
-        let _ = execute_transaction(
+        execute_transaction(
             txn_and_query_bit,
-            &mut state,
+            state,
             &mut vm_args.classes,
             &mut vm_args.paid_fees_on_l1,
             &block_context,
             vm_args.charge_fee,
             vm_args.validate,
             vm_args.err_on_revert,
-        );
+        )
+        .unwrap();
     }
 }
