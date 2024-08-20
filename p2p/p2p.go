@@ -54,7 +54,7 @@ type Service struct {
 	database   db.DB
 }
 
-func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network, downloadClasses bool,
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	if addr == "" {
