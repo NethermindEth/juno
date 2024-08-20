@@ -68,18 +68,45 @@ pub struct CallInfo {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
-pub struct CBlockInfo {
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub struct BlockInfoF<Felt, StarknetVersion> {
     pub block_number: c_ulonglong,
     pub block_timestamp: c_ulonglong,
-    pub sequencer_address: [c_uchar; 32],
-    pub gas_price_wei: [c_uchar; 32],
-    pub gas_price_fri: [c_uchar; 32],
-    pub version: *const c_char,
-    pub block_hash_to_be_revealed: [c_uchar; 32],
-    pub data_gas_price_wei: [c_uchar; 32],
-    pub data_gas_price_fri: [c_uchar; 32],
+    pub sequencer_address: Felt,
+    pub gas_price_wei: Felt,
+    pub gas_price_fri: Felt,
+    pub version: StarknetVersion,
+    pub block_hash_to_be_revealed: Felt,
+    pub data_gas_price_wei: Felt,
+    pub data_gas_price_fri: Felt,
     pub use_blob_data: c_uchar,
+}
+
+// CBlockInfo is not serializable for that we construct BlockInfo
+type CBlockInfo = BlockInfoF<[c_uchar; 32], *const c_char>;
+type BlockInfo = BlockInfoF<Felt, StarknetVersion>;
+
+impl From<CBlockInfo> for BlockInfo {
+    fn from(block_info: CBlockInfo) -> Self {
+        let version_str = unsafe { CStr::from_ptr(block_info.version) }
+            .to_str()
+            .unwrap();
+        let version = StarknetVersion::from_str(version_str)
+            .unwrap_or(StarknetVersion::from_str("0.0.0").unwrap());
+
+        Self {
+            block_number: block_info.block_number,
+            block_timestamp: block_info.block_timestamp,
+            sequencer_address: Felt::from_bytes_be(&block_info.sequencer_address),
+            gas_price_wei: Felt::from_bytes_be(&block_info.gas_price_wei),
+            gas_price_fri: Felt::from_bytes_be(&block_info.gas_price_fri),
+            version,
+            block_hash_to_be_revealed: Felt::from_bytes_be(&block_info.block_hash_to_be_revealed),
+            data_gas_price_wei: Felt::from_bytes_be(&block_info.data_gas_price_wei),
+            data_gas_price_fri: Felt::from_bytes_be(&block_info.data_gas_price_fri),
+            use_blob_data: block_info.use_blob_data,
+        }
+    }
 }
 
 #[no_mangle]
@@ -528,45 +555,6 @@ fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
     unsafe {
         JunoReportError(reader_handle, txn_index, err_msg.as_ptr());
     };
-}
-
-// TODO(xrvdg) can we make this a single block
-#[derive(Clone, Serialize, Deserialize)]
-pub struct BlockInfo {
-    pub block_number: u64,
-    pub block_timestamp: u64,
-    pub sequencer_address: Felt,
-    pub gas_price_wei: Felt,
-    pub gas_price_fri: Felt,
-    pub version: StarknetVersion,
-    pub block_hash_to_be_revealed: Felt,
-    pub data_gas_price_wei: Felt,
-    pub data_gas_price_fri: Felt,
-    pub use_blob_data: c_uchar,
-}
-
-// TODO(xrvdg) should this be a try from?
-impl From<CBlockInfo> for BlockInfo {
-    fn from(block_info: CBlockInfo) -> Self {
-        let version_str = unsafe { CStr::from_ptr(block_info.version) }
-            .to_str()
-            .unwrap();
-        let version = StarknetVersion::from_str(version_str)
-            .unwrap_or(StarknetVersion::from_str("0.0.0").unwrap());
-
-        Self {
-            block_number: block_info.block_number,
-            block_timestamp: block_info.block_timestamp,
-            sequencer_address: Felt::from_bytes_be(&block_info.sequencer_address),
-            gas_price_wei: Felt::from_bytes_be(&block_info.gas_price_wei),
-            gas_price_fri: Felt::from_bytes_be(&block_info.gas_price_fri),
-            version,
-            block_hash_to_be_revealed: Felt::from_bytes_be(&block_info.block_hash_to_be_revealed),
-            data_gas_price_wei: Felt::from_bytes_be(&block_info.data_gas_price_wei),
-            data_gas_price_fri: Felt::from_bytes_be(&block_info.data_gas_price_fri),
-            use_blob_data: block_info.use_blob_data,
-        }
-    }
 }
 
 fn build_block_context(
