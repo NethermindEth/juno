@@ -469,11 +469,11 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 				hash, err := p2p2core.AdaptClass(v.Class).Hash()
 				if err != nil {
 					s.log.Warnw("Failed to calculate class hash", "err", err)
-					return false
+					break loop
 				}
 				if adaptedHash := p2p2core.AdaptHash(v.Class.ClassHash); !adaptedHash.Equal(hash) {
 					s.log.Warnw("Class hash mismatch", "receivedHash", adaptedHash, "calculatedHash", hash)
-					return false
+					break loop
 				}
 				classes = append(classes, v.Class)
 			case *spec.ClassesResponse_Fin:
@@ -517,7 +517,7 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 		defer close(stateDiffsCh)
 
 		var contractDiffs []*spec.ContractDiff
-		var declaredClasses []*spec.DeclaredClass
+		// var declaredClasses []*spec.DeclaredClass
 
 	loop:
 		for res := range stateDiffsIt {
@@ -526,7 +526,6 @@ func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-
 				contractDiffs = append(contractDiffs, v.ContractDiff)
 			case *spec.StateDiffsResponse_DeclaredClass:
 				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
-				return true
 			case *spec.StateDiffsResponse_Fin:
 				break loop
 			default:
