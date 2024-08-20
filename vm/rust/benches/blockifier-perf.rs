@@ -1,12 +1,9 @@
-use std::{
-    fs::File,
-    time::{Duration, Instant},
-};
+use std::{fs::File, time::Instant};
 
 use blockifier::state::cached_state::CachedState;
 use criterion::{criterion_group, criterion_main, Criterion};
 use juno_starknet_rs::{
-    serstate::{self, CompiledNativeState, NativeState, SerState},
+    serstate::{self, CompiledNativeState, NativeState},
     VMArgs,
 };
 
@@ -22,10 +19,11 @@ fn criterion_benchmark_precompiled_native(c: &mut Criterion) {
         "/Users/xander/Nethermind/juno-native/record/{block_number}.state.cbor"
     ))
     .unwrap();
-    let serstate: SerState = ciborium::from_reader(serstate_file).unwrap();
+    let native_state: NativeState = ciborium::from_reader(serstate_file).unwrap();
     println!("setting up native state");
     let start = Instant::now();
-    let native_state = CompiledNativeState::new(NativeState(serstate.clone()));
+
+    let compiled_native_state = CompiledNativeState::new(native_state);
     println!(
         "setting up native state finished: {}",
         start.elapsed().as_millis()
@@ -37,10 +35,8 @@ fn criterion_benchmark_precompiled_native(c: &mut Criterion) {
 
     group.bench_function("native", |b| {
         b.iter(|| {
-            // clone takes around 3ms
-            let cloned_native_state = native_state.clone();
-            let mut cached_native_state = CachedState::new(cloned_native_state);
-            serstate::run(&mut vm_args, &mut cached_native_state);
+            let mut cached_compiled_native_state = CachedState::new(compiled_native_state.clone());
+            serstate::run(&mut vm_args, &mut cached_compiled_native_state);
         })
     });
 
@@ -65,11 +61,12 @@ fn criterion_benchmark_compile_every_loop(c: &mut Criterion) {
                 "/Users/xander/Nethermind/juno-native/record/{block_number}.state.cbor"
             ))
             .unwrap();
-            let serstate: SerState = ciborium::from_reader(serstate_file).unwrap();
-            let mut native_state =
-                CachedState::new(CompiledNativeState::new(NativeState(serstate.clone())));
+            let native_state: NativeState = ciborium::from_reader(serstate_file).unwrap();
+            // check this clone
+            let mut cached_compiled_native_state =
+                CachedState::new(CompiledNativeState::new(native_state));
 
-            serstate::run(&mut vm_args, &mut native_state)
+            serstate::run(&mut vm_args, &mut cached_compiled_native_state)
         })
     });
     group.finish();
@@ -93,10 +90,11 @@ fn criterion_benchmark_cached_native_in(c: &mut Criterion) {
                 "/Users/xander/Nethermind/juno-native/record/{block_number}.state.cbor"
             ))
             .unwrap();
-            let serstate: SerState = ciborium::from_reader(serstate_file).unwrap();
-            let mut native_state = CachedState::new(NativeState(serstate.clone()));
+            let native_state: NativeState = ciborium::from_reader(serstate_file).unwrap();
+            // check this clone
+            let mut cached_native_state = CachedState::new(native_state);
 
-            serstate::run(&mut vm_args, &mut native_state)
+            serstate::run(&mut vm_args, &mut cached_native_state)
         })
     });
     group.finish();

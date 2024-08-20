@@ -13,8 +13,6 @@ use starknet_api::{
 };
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
-use std::ops::Deref;
-use std::str::FromStr;
 
 use crate::juno_state_reader::class_info_from_json_str;
 use crate::{build_block_context, execute_transaction, VMArgs};
@@ -30,7 +28,7 @@ pub struct SerState<Class> {
 
 pub type NativeState = SerState<String>;
 
-type CompiledNativeState = SerState<ContractClass>;
+pub type CompiledNativeState = SerState<ContractClass>;
 
 impl CompiledNativeState {
     pub fn new(state: NativeState) -> Self {
