@@ -59,7 +59,6 @@ func New(
 	feederNode bool,
 	bc *blockchain.Blockchain,
 	snNetwork *utils.Network,
-	downloadClasses bool,
 	log utils.SimpleLogger,
 	database db.DB,
 ) (*Service, error) {
@@ -118,7 +117,7 @@ func New(
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, downloadClasses, log, database)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
 }
 
 func NewWithHost(
@@ -127,7 +126,6 @@ func NewWithHost(
 	feederNode bool,
 	bc *blockchain.Blockchain,
 	snNetwork *utils.Network,
-	downloadClasses bool,
 	log utils.SimpleLogger,
 	database db.DB,
 ) (*Service, error) {
@@ -161,7 +159,7 @@ func NewWithHost(
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	synchroniser := newSyncService(bc, p2phost, snNetwork, log, downloadClasses)
+	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
 	s := &Service{
 		synchroniser: synchroniser,
 		log:          log,

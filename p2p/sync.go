@@ -34,18 +34,15 @@ type syncService struct {
 	blockchain *blockchain.Blockchain
 	listener   junoSync.EventListener
 	log        utils.SimpleLogger
-
-	downloadClasses bool
 }
 
-func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger, dc bool) *syncService {
+func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *syncService {
 	return &syncService{
-		host:            h,
-		network:         n,
-		blockchain:      bc,
-		log:             log,
-		listener:        &junoSync.SelectiveListener{},
-		downloadClasses: dc,
+		host:       h,
+		network:    n,
+		blockchain: bc,
+		log:        log,
+		listener:   &junoSync.SelectiveListener{},
 	}
 }
 
