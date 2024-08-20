@@ -60,7 +60,7 @@ static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
     pub height: u64,
-    pub ser: RefCell<SerState>,
+    pub ser: RefCell<crate::serstate::NativeState>,
 }
 
 impl JunoStateReader {
@@ -268,8 +268,8 @@ pub struct ClassInfo {
     abi_length: usize,
 }
 
-// todo(xrvdg) This should be private to juno state manager that way
-// caching can also be used for declare_transactions
+// This can maybe be made into a state error?
+// Can we recover from a anyhow or StateResult
 pub fn class_info_from_json_str(
     raw_json: &str,
     class_hash: ClassHash,
