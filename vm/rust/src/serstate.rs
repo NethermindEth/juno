@@ -27,7 +27,6 @@ pub struct SerState<Class> {
 }
 
 pub type NativeState = SerState<String>;
-
 pub type CompiledNativeState = SerState<ContractClass>;
 
 impl CompiledNativeState {
@@ -48,11 +47,11 @@ impl CompiledNativeState {
     }
 }
 
-trait CompiledContractClass {
+trait ContractClassTrait {
     fn compile(&self, class_hash: ClassHash) -> StateResult<ContractClass>;
 }
 
-impl CompiledContractClass for String {
+impl ContractClassTrait for String {
     fn compile(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         Ok(class_info_from_json_str(self, class_hash)
             .expect("decoding class went wrong")
@@ -60,13 +59,13 @@ impl CompiledContractClass for String {
     }
 }
 
-impl CompiledContractClass for ContractClass {
+impl ContractClassTrait for ContractClass {
     fn compile(&self, _class_hash: ClassHash) -> StateResult<ContractClass> {
         Ok(self.clone())
     }
 }
 
-impl<C: CompiledContractClass> StateReader for SerState<C> {
+impl<C: ContractClassTrait> StateReader for SerState<C> {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -113,7 +112,7 @@ pub fn run(vm_args: &mut VMArgs, state: &mut CachedState<impl StateReader>) {
     let block_context: BlockContext =
         build_block_context(state, &vm_args.block_info, &vm_args.chain_id, None);
 
-    for (_txn_index, txn_and_query_bit) in vm_args.txns_and_query_bits.iter().enumerate() {
+    for txn_and_query_bit in vm_args.txns_and_query_bits.iter() {
         execute_transaction(
             txn_and_query_bit,
             state,

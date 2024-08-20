@@ -83,7 +83,7 @@ pub struct CBlockInfo {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn cairoVMCall(
+pub extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const CBlockInfo,
     reader_handle: usize,
@@ -291,7 +291,6 @@ fn cairo_vm_execute(
 
     let _ = ciborium::into_writer(&args, file_args).unwrap();
 
-    // Modifies the state, but also provides the block_context
     let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id, None);
 
     let mut trace_buffer = Vec::with_capacity(10_000);
@@ -531,6 +530,7 @@ fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
     };
 }
 
+// TODO(xrvdg) can we make this a single block
 #[derive(Clone, Serialize, Deserialize)]
 pub struct BlockInfo {
     pub block_number: u64,
@@ -545,6 +545,7 @@ pub struct BlockInfo {
     pub use_blob_data: c_uchar,
 }
 
+// TODO(xrvdg) should this be a try from?
 impl From<CBlockInfo> for BlockInfo {
     fn from(block_info: CBlockInfo) -> Self {
         let version_str = unsafe { CStr::from_ptr(block_info.version) }

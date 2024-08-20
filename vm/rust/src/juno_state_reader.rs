@@ -27,8 +27,6 @@ use std::{
     sync::Mutex,
 };
 
-use crate::serstate::SerState;
-
 extern "C" {
     fn JunoFree(ptr: *const c_void);
 
