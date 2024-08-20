@@ -1355,6 +1355,7 @@ func TestTransactionStatus(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	log := utils.NewNopZapLogger()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -1395,7 +1396,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, "", nil)
+					handler := rpc.New(mockReader, nil, nil, "", log)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1425,7 +1426,7 @@ func TestTransactionStatus(t *testing.T) {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						handler := rpc.New(mockReader, nil, nil, "", nil)
+						handler := rpc.New(mockReader, nil, nil, "", log)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpc.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1442,7 +1443,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, nil, nil, "", nil).WithFeeder(client)
+				handler := rpc.New(mockReader, nil, nil, "", log).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
