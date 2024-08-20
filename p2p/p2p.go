@@ -52,8 +52,6 @@ type Service struct {
 
 	feederNode bool
 	database   db.DB
-
-	downloadClasses bool
 }
 
 func New(
@@ -163,18 +161,17 @@ func NewWithHost(
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
+	synchroniser := newSyncService(bc, p2phost, snNetwork, log, downloadClasses)
 	s := &Service{
-		synchroniser:    synchroniser,
-		log:             log,
-		host:            p2phost,
-		network:         snNetwork,
-		dht:             p2pdht,
-		feederNode:      feederNode,
-		topics:          make(map[string]*pubsub.Topic),
-		handler:         starknet.NewHandler(bc, log),
-		database:        database,
-		downloadClasses: downloadClasses,
+		synchroniser: synchroniser,
+		log:          log,
+		host:         p2phost,
+		network:      snNetwork,
+		dht:          p2pdht,
+		feederNode:   feederNode,
+		topics:       make(map[string]*pubsub.Topic),
+		handler:      starknet.NewHandler(bc, log),
+		database:     database,
 	}
 	return s, nil
 }
