@@ -4,8 +4,6 @@ version = "0.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-# [profile.release]
-# debug = 2
 
 [dependencies]
 serde = "1.0.171"
@@ -50,7 +48,7 @@ name = "blockifier-perf"
 harness = false
 
 [patch.crates-io]
-starknet-types-core = { path = "/Users/xander/Nethermind/00 - Inbox/starknet-types-rs/crates/starknet-types-core", features = [
+starknet-types-core = { git = "https://github.com/xrvdg/types-rs", features = [
     "hash",
     "prime-bigint",
     "serde",
