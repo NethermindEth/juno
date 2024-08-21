@@ -32,7 +32,7 @@ func TestGenesisStateDiff(t *testing.T) {
 	}
 	require.NoError(t, chain.StorePending(&pendingGenesis))
 
-	t.Run("empty genesis config", func(t *testing.T) {
+	t.Run("empty genesis configg", func(t *testing.T) {
 		genesisConfig := genesis.GenesisConfig{}
 		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(log), network)
 		require.NoError(t, err)
