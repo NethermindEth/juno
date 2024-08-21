@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-blockifier = "=0.8.0-rc.1"
+blockifier = "=0.8.0-rc.2"
 starknet_api = "=0.13.0-rc.0"
 cairo-vm = "=1.0.0-rc5"
 starknet-types-core = { version = "0.1.5", features = ["hash", "prime-bigint"] }
