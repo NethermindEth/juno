@@ -1035,6 +1035,61 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		checkTxReceipt(t, txnHash, expected)
 	})
+
+	t.Run("v0.7 blocks >= 0.13.2", func(t *testing.T) {
+		t.Skip()
+		expected := `{
+			"type": "DEPLOY",
+			"transaction_hash": "0x7b6dc0e1157c2eb6e3e5126b99f51939283d03302bf5bdb4207e571bbf4120e",
+			"actual_fee": {
+				"amount": "0x0",
+				"unit": "WEI"
+			},
+			"execution_status": "SUCCEEDED",
+			"finality_status": "ACCEPTED_ON_L1",
+			"block_hash": "0x63ef7dc50c7575d3eeb3732e6deb0c98de078b0b222109a597ef996249c36b3",
+			"block_number": 5001,
+			"messages_sent": [],
+			"events": [
+				{
+					"from_address": "0xccec275c57df25ff315756c80e321c57fab4c4abeb3c0a9daf3606700bb255",
+					"keys": [
+						"0x10c19bef19acd19b2c9f4caa40fd47c9fbe1d9f91324d44dcd36be2dae96784"
+					],
+					"data": [
+						"0xccec275c57df25ff315756c80e321c57fab4c4abeb3c0a9daf3606700bb255",
+						"0x78467d2b7018392510e2816a13ac9a7a49a3a39f5b631dcd2f210ac0c40f6e1",
+						"0x0"
+					]
+				}
+			],
+			"contract_address": "0xccec275c57df25ff315756c80e321c57fab4c4abeb3c0a9daf3606700bb255",
+			"execution_resources": {
+				"steps": 978,
+				"range_check_builtin_applications": 18
+			}
+		}`
+
+		netClient := feeder.NewTestClient(t, utils.Ptr(utils.Mainnet))
+		netGW := adaptfeeder.New(netClient)
+
+		block, err := netGW.BlockByNumber(context.Background(), 5_001)
+		require.NoError(t, err)
+
+		index := 0
+		txnHash := block.Transactions[index].Hash()
+		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
+		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
+			block.Hash, block.Number, nil)
+		// mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+			BlockNumber: block.Number,
+			BlockHash:   block.Hash,
+			StateRoot:   block.GlobalStateRoot,
+		}, nil)
+
+		checkTxReceipt(t, txnHash, expected)
+	})
 }
 
 func TestAddTransactionUnmarshal(t *testing.T) {
