@@ -89,12 +89,13 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 
 func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bool) *ExecutionResources {
 	if resources == nil {
+		var dataAvailability *DataAvailability
 		if !v0_6Response {
-			return &ExecutionResources{
-				DataAvailability: &DataAvailability{},
-			}
-		} else {
-			return &ExecutionResources{}
+			dataAvailability = &DataAvailability{}
+		}
+
+		return &ExecutionResources{
+			DataAvailability: dataAvailability,
 		}
 	}
 

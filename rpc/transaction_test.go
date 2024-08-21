@@ -1036,44 +1036,50 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		checkTxReceipt(t, txnHash, expected)
 	})
 
-	t.Run("v0.7 blocks >= 0.13.2", func(t *testing.T) {
-		t.Skip()
+	t.Run("tx with non empty data_availability", func(t *testing.T) {
 		expected := `{
-			"type": "DEPLOY",
-			"transaction_hash": "0x7b6dc0e1157c2eb6e3e5126b99f51939283d03302bf5bdb4207e571bbf4120e",
+			"type": "DECLARE",
+			"transaction_hash": "0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747",
 			"actual_fee": {
-				"amount": "0x0",
+				"amount": "0xd07af45c84550",
 				"unit": "WEI"
 			},
 			"execution_status": "SUCCEEDED",
-			"finality_status": "ACCEPTED_ON_L1",
-			"block_hash": "0x63ef7dc50c7575d3eeb3732e6deb0c98de078b0b222109a597ef996249c36b3",
-			"block_number": 5001,
+			"finality_status": "ACCEPTED_ON_L2",
+			"block_hash": "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869",
+			"block_number": 35748,
 			"messages_sent": [],
 			"events": [
 				{
-					"from_address": "0xccec275c57df25ff315756c80e321c57fab4c4abeb3c0a9daf3606700bb255",
+					"from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 					"keys": [
-						"0x10c19bef19acd19b2c9f4caa40fd47c9fbe1d9f91324d44dcd36be2dae96784"
+						"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
 					],
 					"data": [
-						"0xccec275c57df25ff315756c80e321c57fab4c4abeb3c0a9daf3606700bb255",
-						"0x78467d2b7018392510e2816a13ac9a7a49a3a39f5b631dcd2f210ac0c40f6e1",
+						"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						"0xd07af45c84550",
 						"0x0"
 					]
 				}
 			],
-			"contract_address": "0xccec275c57df25ff315756c80e321c57fab4c4abeb3c0a9daf3606700bb255",
 			"execution_resources": {
-				"steps": 978,
-				"range_check_builtin_applications": 18
+				"steps": 3950,
+				"ecdsa_builtin_applications": 1,
+				"pedersen_builtin_applications": 16,
+				"poseidon_builtin_applications": 4,
+				"range_check_builtin_applications": 157,
+				"data_availability": {
+					"l1_gas": 0,
+					"l1_data_gas": 192
+				}
 			}
 		}`
 
-		netClient := feeder.NewTestClient(t, utils.Ptr(utils.Mainnet))
+		netClient := feeder.NewTestClient(t, utils.Ptr(utils.SepoliaIntegration))
 		netGW := adaptfeeder.New(netClient)
 
-		block, err := netGW.BlockByNumber(context.Background(), 5_001)
+		block, err := netGW.BlockByNumber(context.Background(), 35748)
 		require.NoError(t, err)
 
 		index := 0
@@ -1081,12 +1087,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
 		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
 			block.Hash, block.Number, nil)
-		// mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
-			BlockNumber: block.Number,
-			BlockHash:   block.Hash,
-			StateRoot:   block.GlobalStateRoot,
-		}, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, txnHash, expected)
 	})
