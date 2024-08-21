@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = "1.0.171"
+serde = "1.0.208"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
 blockifier = "0.8.0-rc.2"
 starknet_api = "0.13.0-rc.1"
