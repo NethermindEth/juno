@@ -398,8 +398,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
-	mapKeys := maps.Keys(diffs)
-	keys := slices.SortedStableFunc(mapKeys, func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
+	keys := slices.SortedStableFunc(maps.Keys(diffs), func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
