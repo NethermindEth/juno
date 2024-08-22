@@ -163,15 +163,16 @@ func TestTraceTransaction(t *testing.T) {
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
 		consumedGas := []*felt.Felt{new(felt.Felt).SetUint64(1)}
 		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
-		numSteps := uint64(123)
+		stepsUsed := uint64(123)
+		stepsUsedStr := "123"
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
-			false, true).Return(overallFee, consumedGas, []vm.TransactionTrace{*vmTrace}, numSteps, nil)
+			false, true).Return(overallFee, consumedGas, []vm.TransactionTrace{*vmTrace}, stepsUsed, nil)
 
 		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			ComputationResources: vm.ComputationResources{
@@ -254,14 +255,16 @@ func TestTraceTransaction(t *testing.T) {
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
 		consumedGas := []*felt.Felt{new(felt.Felt).SetUint64(1)}
 		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		stepsUsed := uint64(123)
+		stepsUsedStr := "123"
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, true).
-			Return(overallFee, consumedGas, []vm.TransactionTrace{*vmTrace}, uint64(123), nil)
+			Return(overallFee, consumedGas, []vm.TransactionTrace{*vmTrace}, stepsUsed, nil)
 
 		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			// other of fields are zero
@@ -337,15 +340,17 @@ func TestTraceTransactionV0_6(t *testing.T) {
 		}
 	}`)
 		vmTrace := new(vm.TransactionTrace)
+		stepsUsed := uint64(123)
+		stepsUsedStr := "123"
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false).
-			Return(nil, nil, []vm.TransactionTrace{*vmTrace}, uint64(123), nil)
+			Return(nil, nil, []vm.TransactionTrace{*vmTrace}, stepsUsed, nil)
 
 		trace, httpHeader, err := handler.TraceTransactionV0_6(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, vmTrace, trace)
 	})
 	t.Run("pending block", func(t *testing.T) {
@@ -395,15 +400,17 @@ func TestTraceTransactionV0_6(t *testing.T) {
 		}
 	}`)
 		vmTrace := new(vm.TransactionTrace)
+		stepsUsed := uint64(123)
+		stepsUsedStr := "123"
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false).
-			Return(nil, nil, []vm.TransactionTrace{*vmTrace}, uint64(123), nil)
+			Return(nil, nil, []vm.TransactionTrace{*vmTrace}, stepsUsed, nil)
 
 		trace, httpHeader, err := handler.TraceTransactionV0_6(context.Background(), *hash)
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, vmTrace, trace)
 	})
 }
@@ -491,15 +498,17 @@ func TestTraceBlockTransactions(t *testing.T) {
 			}
 		}`)
 		vmTrace := vm.TransactionTrace{}
+		stepsUsed := uint64(123)
+		stepsUsedStr := "123"
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
 			gomock.Any(), n, false, false, false, false).
-			Return(nil, []vm.TransactionTrace{vmTrace, vmTrace}, uint64(123), nil)
+			Return(nil, []vm.TransactionTrace{vmTrace, vmTrace}, stepsUsed, nil)
 
 		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, &vm.TransactionTrace{
 			ValidateInvocation:    &vm.FunctionInvocation{},
 			ExecuteInvocation:     &vm.ExecuteInvocation{},
@@ -560,10 +569,12 @@ func TestTraceBlockTransactions(t *testing.T) {
 			}
 		}`)
 		vmTrace := vm.TransactionTrace{}
+		stepsUsed := uint64(123)
+		stepsUsedStr := "123"
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
 			gomock.Any(), n, false, false, false, false).
-			Return(nil, []vm.TransactionTrace{vmTrace}, uint64(123), nil)
+			Return(nil, []vm.TransactionTrace{vmTrace}, stepsUsed, nil)
 
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
@@ -574,7 +585,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result)
 	})
 }
