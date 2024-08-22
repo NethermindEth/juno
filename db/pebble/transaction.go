@@ -94,6 +94,7 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 		return ErrDiscardedTransaction
 	}
 
+	// We need it evaluated immediately so the duration doesn't include the runtime of the user callback that we call below.
 	defer t.listener.OnIO(false, time.Since(start)) //nolint:govet
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
