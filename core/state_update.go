@@ -59,7 +59,7 @@ func (sd *StateDiff) Print() {
 	fmt.Println("}")
 }
 
-func (sd *StateDiff) Diff(other *StateDiff) (string, bool) {
+func (sd *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
 
@@ -73,7 +73,7 @@ func (sd *StateDiff) Diff(other *StateDiff) (string, bool) {
 	}
 
 	checkDiff("StorageDiffs", func() (string, bool) {
-		return compareMapsOfMaps(sd.StorageDiffs, other.StorageDiffs)
+		return compareMapsOfMaps(sd.StorageDiffs, other.StorageDiffs, map1Tag, map2Tag)
 	})
 
 	checkDiff("Nonces", func() (string, bool) {
@@ -98,34 +98,36 @@ func (sd *StateDiff) Diff(other *StateDiff) (string, bool) {
 
 	return sb.String(), differencesFound
 }
-
-func compareMapsOfMaps(m1, m2 map[felt.Felt]map[felt.Felt]*felt.Felt) (string, bool) {
+func compareMapsOfMaps(m1, m2 map[felt.Felt]map[felt.Felt]*felt.Felt, map1Tag, map2Tag string) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
 
 	for k1, v1 := range m1 {
 		if v2, exists := m2[k1]; exists {
 			for k2, v := range v1 {
-				if v2Val, exists := v2[k2]; !exists || !reflect.DeepEqual(v, v2Val) {
-					sb.WriteString(fmt.Sprintf("    %s: %s -> %s (changed or missing in second map)\n", k1.String(), k2.String(), v.String()))
+				if v2Val, exists := v2[k2]; !exists {
+					sb.WriteString(fmt.Sprintf("Addr '%s': \n\tKey '%s' is in %s, but missing in %s.\n", k1.String(), k2.String(), map1Tag, map2Tag))
+					differencesFound = true
+				} else if !reflect.DeepEqual(v, v2Val) {
+					sb.WriteString(fmt.Sprintf("Addr '%s': \n\tKey '%s' has different values:\n\t%s = '%s', %s = '%s'.\n", k1.String(), k2.String(), map1Tag, v.String(), map2Tag, v2Val.String()))
 					differencesFound = true
 				}
 			}
 			for k2 := range v2 {
 				if _, exists := v1[k2]; !exists {
-					sb.WriteString(fmt.Sprintf("    %s: %s -> %s (missing in first map)\n", k1.String(), k2.String(), v2[k2].String()))
+					sb.WriteString(fmt.Sprintf("Addr '%s': \n\tKey '%s' is in %s, but missing in %s.\n", k1.String(), k2.String(), map2Tag, map1Tag))
 					differencesFound = true
 				}
 			}
 		} else {
-			sb.WriteString(fmt.Sprintf("    %s: %v (missing in second map)\n", k1.String(), v1))
+			sb.WriteString(fmt.Sprintf("Addr '%s' is missing in %s.\n", k1.String(), map2Tag))
 			differencesFound = true
 		}
 	}
 
 	for k1 := range m2 {
 		if _, exists := m1[k1]; !exists {
-			sb.WriteString(fmt.Sprintf("    %s: %v (missing in first map)\n", k1.String(), m2[k1]))
+			sb.WriteString(fmt.Sprintf("Addr '%s' is missing in %s.\n", k1.String(), map1Tag))
 			differencesFound = true
 		}
 	}

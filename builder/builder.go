@@ -485,7 +485,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
 		refTrace := vm2core.AdaptStateDiff(blockTrace.TraceRoot.StateDiff)
-		diffString, diffsNotEqual := seqTrace.Diff(refTrace)
+		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
 		if diffsNotEqual {
 			b.log.Fatalf("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
 		}

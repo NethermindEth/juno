@@ -1140,7 +1140,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		if shadowStateUpdate != nil && !shadowStateUpdate.NewRoot.Equal(pending.Block.GlobalStateRoot) {
 			pending.StateUpdate.StateDiff.Print()
 			shadowStateUpdate.StateDiff.Print()
-			pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff)
+			pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
 			if err := txn.Discard(); err != nil {
 				return err
 			}
