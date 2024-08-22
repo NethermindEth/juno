@@ -1,17 +1,19 @@
 pub mod jsonrpc;
 mod juno_state_reader;
+pub mod recorded_state;
 
 #[macro_use]
 extern crate lazy_static;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
-use std::{
-    collections::HashMap,
-    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
-    num::NonZeroU128,
-    slice,
-    sync::Arc,
+use blockifier::bouncer::BouncerConfig;
+use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::state::cached_state::TransactionalState;
+use blockifier::state::state_api::StateReader;
+use blockifier::transaction::errors::TransactionExecutionError::{
+    ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
 };
+use blockifier::transaction::objects::{GasVector, TransactionExecutionInfo};
 use blockifier::{
     blockifier::block::{
         pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
@@ -30,20 +32,23 @@ use blockifier::{
     versioned_constants::VersionedConstants,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
-use serde::Deserialize;
-use starknet_api::{
-    transaction::{Transaction as StarknetApiTransaction},
-};
-use std::str::FromStr;
-use blockifier::bouncer::BouncerConfig;
-use blockifier::fee::{fee_utils, gas_usage};
-use blockifier::transaction::errors::TransactionExecutionError::{ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError};
-use blockifier::transaction::objects::GasVector;
+use juno_state_reader::class_info_from_json_str;
+use serde::{Deserialize, Serialize};
 use starknet_api::block::BlockHash;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
+use starknet_api::transaction::Transaction as StarknetApiTransaction;
 use starknet_api::transaction::{Calldata, Fee, TransactionHash};
 use starknet_types_core::felt::Felt;
+use std::fs::{self, File};
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::{
+    collections::HashMap,
+    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    num::NonZeroU128,
+    slice,
+    sync::Arc,
+};
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -64,29 +69,57 @@ pub struct CallInfo {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
-pub struct BlockInfo {
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub struct BlockInfoF<Felt, StarknetVersion> {
     pub block_number: c_ulonglong,
     pub block_timestamp: c_ulonglong,
-    pub sequencer_address: [c_uchar; 32],
-    pub gas_price_wei: [c_uchar; 32],
-    pub gas_price_fri: [c_uchar; 32],
-    pub version: *const c_char,
-    pub block_hash_to_be_revealed: [c_uchar; 32],
-    pub data_gas_price_wei: [c_uchar; 32],
-    pub data_gas_price_fri: [c_uchar; 32],
+    pub sequencer_address: Felt,
+    pub gas_price_wei: Felt,
+    pub gas_price_fri: Felt,
+    pub version: StarknetVersion,
+    pub block_hash_to_be_revealed: Felt,
+    pub data_gas_price_wei: Felt,
+    pub data_gas_price_fri: Felt,
     pub use_blob_data: c_uchar,
+}
+
+// CBlockInfo is not de/serializable for that we use BlockInfo
+type CBlockInfo = BlockInfoF<[c_uchar; 32], *const c_char>;
+type BlockInfo = BlockInfoF<Felt, StarknetVersion>;
+
+impl From<CBlockInfo> for BlockInfo {
+    fn from(block_info: CBlockInfo) -> Self {
+        let version_str = unsafe { CStr::from_ptr(block_info.version) }
+            .to_str()
+            .unwrap();
+        let version = StarknetVersion::from_str(version_str)
+            .unwrap_or(StarknetVersion::from_str("0.0.0").unwrap());
+
+        Self {
+            block_number: block_info.block_number,
+            block_timestamp: block_info.block_timestamp,
+            sequencer_address: Felt::from_bytes_be(&block_info.sequencer_address),
+            gas_price_wei: Felt::from_bytes_be(&block_info.gas_price_wei),
+            gas_price_fri: Felt::from_bytes_be(&block_info.gas_price_fri),
+            version,
+            block_hash_to_be_revealed: Felt::from_bytes_be(&block_info.block_hash_to_be_revealed),
+            data_gas_price_wei: Felt::from_bytes_be(&block_info.data_gas_price_wei),
+            data_gas_price_fri: Felt::from_bytes_be(&block_info.data_gas_price_fri),
+            use_blob_data: block_info.use_blob_data,
+        }
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
-    block_info_ptr: *const BlockInfo,
+    block_info_ptr: *const CBlockInfo,
     reader_handle: usize,
     chain_id: *const c_char,
     max_steps: c_ulonglong,
 ) {
     let block_info = unsafe { *block_info_ptr };
+    let block_info: BlockInfo = block_info.into();
     let call_info = unsafe { *call_info_ptr };
 
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
@@ -118,7 +151,7 @@ pub extern "C" fn cairoVMCall(
         class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: get_versioned_constants(block_info.version)
+        initial_gas: get_versioned_constants(&block_info.version)
             .os_constants
             .gas_costs
             .initial_gas_cost,
@@ -148,14 +181,14 @@ pub extern "C" fn cairoVMCall(
         Ok(t) => {
             for data in t.execution.retdata.0 {
                 unsafe {
-                    JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
+                    JunoAppendResponse(reader_handle, data.to_bytes_be().as_ptr());
                 };
             }
         }
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct TxnAndQueryBit {
     pub txn: StarknetApiTransaction,
     pub txn_hash: TransactionHash,
@@ -167,16 +200,13 @@ pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
     classes_json: *const c_char,
     paid_fees_on_l1_json: *const c_char,
-    block_info_ptr: *const BlockInfo,
+    block_info_ptr: *const CBlockInfo,
     reader_handle: usize,
     chain_id: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
     err_on_revert: c_uchar,
 ) {
-    let block_info = unsafe { *block_info_ptr };
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
-    let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
@@ -184,8 +214,14 @@ pub extern "C" fn cairoVMExecute(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
+    let txns_and_query_bits = txns_and_query_bits.unwrap();
+
+    let block_info = unsafe { *block_info_ptr };
+
+    let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
     let mut classes: Result<Vec<Box<serde_json::value::RawValue>>, serde_json::Error> = Ok(vec![]);
+
     if !classes_json.is_null() {
         let classes_json_str = unsafe { CStr::from_ptr(classes_json) }.to_str().unwrap();
         classes = serde_json::from_str(classes_json_str);
@@ -195,10 +231,16 @@ pub extern "C" fn cairoVMExecute(
         return;
     }
 
+    let classes = classes.unwrap();
+
+    let charge_fee = skip_charge_fee == 0;
+    let validate = skip_validate == 0;
+
     let paid_fees_on_l1_json_str = unsafe { CStr::from_ptr(paid_fees_on_l1_json) }
         .to_str()
         .unwrap();
-    let mut paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
+
+    let paid_fees_on_l1: Vec<Fee> = match serde_json::from_str(paid_fees_on_l1_json_str) {
         Ok(f) => f,
         Err(e) => {
             report_error(reader_handle, e.to_string().as_str(), -1);
@@ -206,169 +248,263 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
-    let mut state = CachedState::new(reader);
-    let txns_and_query_bits = txns_and_query_bits.unwrap();
-    let mut classes = classes.unwrap();
-    let block_context: BlockContext =
-        build_block_context(&mut state, &block_info, chain_id_str, None);
-    let charge_fee = skip_charge_fee == 0;
-    let validate = skip_validate == 0;
+    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let state = CachedState::new(reader);
+
+    let err_on_revert = err_on_revert != 0;
+
+    let res = cairo_vm_execute(
+        state,
+        txns_and_query_bits,
+        classes,
+        paid_fees_on_l1,
+        block_info.into(),
+        reader_handle,
+        chain_id_str,
+        charge_fee,
+        validate,
+        err_on_revert,
+    );
+
+    if let Err(ReportError { txn_index, error }) = res {
+        report_error(reader_handle, error.as_str(), txn_index as i64);
+    }
+}
+
+#[derive(Debug)]
+struct ReportError {
+    txn_index: usize,
+    error: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct VMArgs {
+    txns_and_query_bits: Vec<TxnAndQueryBit>,
+    classes: Vec<Box<serde_json::value::RawValue>>,
+    paid_fees_on_l1: Vec<Fee>,
+    block_info: BlockInfo,
+    chain_id: String,
+    charge_fee: bool,
+    validate: bool,
+    err_on_revert: bool,
+}
+
+lazy_static! {
+    // Only record if the directory is set
+    static ref JUNO_RECORD_DIR: Option<String> = std::env::var("JUNO_RECORD_DIR").ok();
+}
+
+fn cairo_vm_execute(
+    mut state: CachedState<JunoStateReader>,
+    txns_and_query_bits: Vec<TxnAndQueryBit>,
+    mut classes: Vec<Box<serde_json::value::RawValue>>,
+    mut paid_fees_on_l1: Vec<Fee>,
+    block_info: BlockInfo,
+    reader_handle: usize,
+    chain_id: &str,
+    charge_fee: bool,
+    validate: bool,
+    err_on_revert: bool,
+) -> Result<(), ReportError> {
+    let args = VMArgs {
+        txns_and_query_bits: txns_and_query_bits.clone(),
+        classes: classes.clone(),
+        paid_fees_on_l1: paid_fees_on_l1.clone(),
+        block_info: block_info.clone(),
+        chain_id: chain_id.to_string(),
+        charge_fee,
+        validate,
+        err_on_revert,
+    };
+
+    if let Some(path) = JUNO_RECORD_DIR.clone() {
+        fs::create_dir_all(&path).unwrap();
+
+        let mut args_path: PathBuf = path.into();
+        args_path.push(format!("{}.args.cbor", block_info.block_number));
+
+        let file_args = std::fs::File::create(args_path).unwrap();
+
+        ciborium::into_writer(&args, file_args).unwrap();
+    };
+
+    let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id, None);
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
+        let mut txn_state: TransactionalState<_> = CachedState::create_transactional(&mut state);
+
         println!(
             "\n\nJuno: `cairoVMExecute`: executing transaction ({}/{}) {}",
             txn_index,
             txns_and_query_bits.len(),
             txn_and_query_bit.txn_hash
         );
-        let class_info = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::Declare(declare_transaction) => {
-                if classes.is_empty() {
-                    report_error(reader_handle, "missing declared class", txn_index as i64);
-                    return;
-                }
-                let class_json_str = classes.remove(0);
 
-                let maybe_cc = class_info_from_json_str(
-                    class_json_str.get(),
-                    declare_transaction.class_hash(),
-                );
+        let transaction_execution_info = execute_transaction(
+            txn_and_query_bit,
+            &mut txn_state,
+            &mut classes,
+            &mut paid_fees_on_l1,
+            &block_context,
+            charge_fee,
+            validate,
+            err_on_revert,
+        )
+        .map_err(|err| ReportError {
+            txn_index,
+            error: err,
+        })?;
 
-                if let Err(e) = &maybe_cc {
-                    report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
-                    return;
-                }
-                Some(maybe_cc.unwrap())
-            }
-            _ => None,
-        };
+        let actual_fee: Felt = transaction_execution_info.transaction_receipt.fee.0.into();
+        let data_gas_consumed: Felt = transaction_execution_info
+            .transaction_receipt
+            .da_gas
+            .l1_data_gas
+            .into();
 
-        let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
-            StarknetApiTransaction::L1Handler(_) => {
-                if paid_fees_on_l1.is_empty() {
-                    report_error(reader_handle, "missing fee paid on l1b", txn_index as i64);
-                    return;
-                }
-                Some(*paid_fees_on_l1.remove(0))
-            }
-            _ => None,
-        };
+        let trace = jsonrpc::new_transaction_trace(
+            &txn_and_query_bit.txn,
+            transaction_execution_info,
+            &mut txn_state,
+        )
+        .map_err(|err| ReportError {
+            txn_index,
+            error: format!("failed building txn state diff reason: {:?}", err),
+        })?;
 
-        let txn = transaction_from_api(
-            txn_and_query_bit.txn.clone(),
-            txn_and_query_bit.txn_hash,
-            class_info,
-            paid_fee_on_l1,
-            txn_and_query_bit.query_bit,
-        );
-        if let Err(e) = txn {
-            report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
-            return;
+        // With maybe an iterator that performance an action before going to the next.
+        // What I'm looking for sounds like a generator.
+        // Important is that you don't yet have the outcomes
+        unsafe {
+            JunoAppendActualFee(reader_handle, actual_fee.to_bytes_be().as_ptr());
+            JunoAppendDataGasConsumed(reader_handle, data_gas_consumed.to_bytes_be().as_ptr());
         }
-
-        let mut txn_state = CachedState::create_transactional(&mut state);
-        let fee_type;
-        let minimal_l1_gas_amount_vector: Option<GasVector>;
-        let res = match txn.unwrap() {
-            Transaction::AccountTransaction(t) => {
-                fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector =
-                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
-            }
-            Transaction::L1HandlerTransaction(t) => {
-                fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector = None;
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
-            }
-        };
-
-        match res {
-            Err(error) => {
-                let err_string = match &error {
-                    ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
-                    ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
-                        format!("{error} {e}")
-                    }
-                    other => other.to_string(),
-                };
-                report_error(
-                    reader_handle,
-                    format!(
-                        "failed txn {} reason: {}",
-                        txn_and_query_bit.txn_hash, err_string,
-                    )
-                        .as_str(),
-                    txn_index as i64,
-                );
-                return;
-            }
-            Ok(mut t) => {
-                if t.is_reverted() && err_on_revert != 0 {
-                    report_error(
-                        reader_handle,
-                        format!("reverted: {}", t.revert_error.unwrap()).as_str(),
-                        txn_index as i64,
-                    );
-                    return;
-                }
-
-                // we are estimating fee, override actual fee calculation
-                if t.transaction_receipt.fee.0 == 0 {
-                    let minimal_l1_gas_amount_vector =
-                        minimal_l1_gas_amount_vector.unwrap_or_default();
-                    let gas_consumed = t
-                        .transaction_receipt
-                        .gas
-                        .l1_gas
-                        .max(minimal_l1_gas_amount_vector.l1_gas);
-                    let data_gas_consumed = t
-                        .transaction_receipt
-                        .gas
-                        .l1_data_gas
-                        .max(minimal_l1_gas_amount_vector.l1_data_gas);
-
-                    t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
-                        block_context.block_info(),
-                        GasVector {
-                            l1_data_gas: data_gas_consumed,
-                            l1_gas: gas_consumed,
-                        },
-                        &fee_type,
-                    )
-                }
-
-                let actual_fee = t.transaction_receipt.fee.0.into();
-                let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
-
-                let trace =
-                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
-                if trace.is_err() {
-                    report_error(
-                        reader_handle,
-                        format!(
-                            "failed building txn state diff reason: {:?}",
-                            trace.err().unwrap()
-                        )
-                            .as_str(),
-                        txn_index as i64,
-                    );
-                    return;
-                }
-
-                unsafe {
-                    JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-                    JunoAppendDataGasConsumed(
-                        reader_handle,
-                        felt_to_byte_array(&data_gas_consumed).as_ptr(),
-                    );
-                }
-                append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
-            }
-        }
+        append_trace(reader_handle, &trace, &mut trace_buffer);
         txn_state.commit();
+    }
+
+    if let Some(path) = JUNO_RECORD_DIR.clone() {
+        let mut state_path: PathBuf = path.into();
+        state_path.push(format!("{}.state.cbor", block_info.block_number));
+
+        let state_file = File::create(state_path).unwrap();
+
+        ciborium::into_writer(&state.state.serdes, state_file).unwrap();
+    }
+
+    Ok(())
+}
+
+pub fn execute_transaction<S: StateReader>(
+    txn_and_query_bit: &TxnAndQueryBit,
+    // CachedState is enough for UpdatableState
+    txn_state: &mut CachedState<S>,
+    classes: &mut Vec<Box<serde_json::value::RawValue>>,
+    paid_fees_on_l1: &mut Vec<Fee>,
+    block_context: &BlockContext,
+    charge_fee: bool,
+    validate: bool,
+    err_on_revert: bool,
+) -> Result<TransactionExecutionInfo, String> {
+    let class_info = match txn_and_query_bit.txn.clone() {
+        StarknetApiTransaction::Declare(declare_transaction) => {
+            if classes.is_empty() {
+                Err("missing declared class".to_string())?
+            }
+            let class_json_str = classes.remove(0);
+
+            let maybe_cc =
+                class_info_from_json_str(class_json_str.get(), declare_transaction.class_hash())?;
+
+            Some(maybe_cc)
+        }
+        _ => None,
+    };
+
+    let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn {
+        StarknetApiTransaction::L1Handler(_) => {
+            if paid_fees_on_l1.is_empty() {
+                Err("missing fee paid on l1b".to_string())?
+            }
+
+            Some(paid_fees_on_l1.remove(0))
+        }
+        _ => None,
+    };
+
+    let txn = transaction_from_api(
+        txn_and_query_bit.txn.clone(),
+        txn_and_query_bit.txn_hash,
+        class_info,
+        paid_fee_on_l1,
+        txn_and_query_bit.query_bit,
+    )?;
+
+    let fee_type;
+    let minimal_l1_gas_amount_vector: Option<GasVector>;
+    let res = match txn {
+        Transaction::AccountTransaction(t) => {
+            fee_type = t.fee_type();
+            minimal_l1_gas_amount_vector =
+                Some(gas_usage::estimate_minimal_gas_vector(block_context, &t).unwrap());
+            t.execute(txn_state, block_context, charge_fee, validate)
+        }
+        Transaction::L1HandlerTransaction(t) => {
+            fee_type = t.fee_type();
+            minimal_l1_gas_amount_vector = None;
+            t.execute(txn_state, block_context, charge_fee, validate)
+        }
+    };
+
+    match res {
+        Err(error) => {
+            let err_string = match &error {
+                ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
+                ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
+                    format!("{error} {e}")
+                }
+                other => other.to_string(),
+            };
+            Err(format!(
+                "failed txn {} reason: {}",
+                txn_and_query_bit.txn_hash, err_string,
+            ))
+        }
+
+        Ok(mut t) => {
+            match &t.revert_error {
+                Some(err) if err_on_revert => Err(format!("reverted: {}", err))?,
+                _ => (),
+            }
+
+            // we are estimating fee, override actual fee calculation
+            if t.transaction_receipt.fee.0 == 0 {
+                let minimal_l1_gas_amount_vector = minimal_l1_gas_amount_vector.unwrap_or_default();
+                let gas_consumed = t
+                    .transaction_receipt
+                    .gas
+                    .l1_gas
+                    .max(minimal_l1_gas_amount_vector.l1_gas);
+                let data_gas_consumed = t
+                    .transaction_receipt
+                    .gas
+                    .l1_data_gas
+                    .max(minimal_l1_gas_amount_vector.l1_data_gas);
+
+                t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                    block_context.block_info(),
+                    GasVector {
+                        l1_data_gas: data_gas_consumed,
+                        l1_gas: gas_consumed,
+                    },
+                    &fee_type,
+                )
+            }
+
+            Ok(t)
+        }
     }
 }
 
@@ -437,21 +573,16 @@ fn build_block_context(
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
 ) -> BlockContext {
-    let sequencer_addr = Felt::from_bytes_be(&block_info.sequencer_address);
-    let gas_price_wei_felt = Felt::from_bytes_be(&block_info.gas_price_wei);
-    let gas_price_fri_felt = Felt::from_bytes_be(&block_info.gas_price_fri);
-    let data_gas_price_wei_felt = Felt::from_bytes_be(&block_info.data_gas_price_wei);
-    let data_gas_price_fri_felt = Felt::from_bytes_be(&block_info.data_gas_price_fri);
     let default_gas_price = NonZeroU128::new(1).unwrap();
 
     let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
     if block_info.block_number >= 10 {
         old_block_number_and_hash = Some(BlockNumberHashPair {
             number: starknet_api::block::BlockNumber(block_info.block_number - 10),
-            hash: BlockHash(Felt::from_bytes_be(&block_info.block_hash_to_be_revealed)),
+            hash: BlockHash(block_info.block_hash_to_be_revealed),
         })
     }
-    let mut constants = get_versioned_constants(block_info.version);
+    let mut constants = get_versioned_constants(&block_info.version);
     if let Some(max_steps) = max_steps {
         constants.invoke_tx_max_n_steps = max_steps as u32;
     }
@@ -459,15 +590,17 @@ fn build_block_context(
     let block_info = BlockifierBlockInfo {
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
-        sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_addr).unwrap()),
+        sequencer_address: ContractAddress(
+            PatriciaKey::try_from(block_info.sequencer_address).unwrap(),
+        ),
         gas_prices: GasPrices {
-            eth_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_wei_felt))
+            eth_l1_gas_price: NonZeroU128::new(felt_to_u128(block_info.gas_price_wei))
                 .unwrap_or(default_gas_price),
-            strk_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_fri_felt))
+            strk_l1_gas_price: NonZeroU128::new(felt_to_u128(block_info.gas_price_fri))
                 .unwrap_or(default_gas_price),
-            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_wei_felt))
+            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(block_info.data_gas_price_wei))
                 .unwrap_or(default_gas_price),
-            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_fri_felt))
+            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(block_info.data_gas_price_fri))
                 .unwrap_or(default_gas_price),
         },
         use_kzg_da: block_info.use_blob_data == 1,
@@ -481,25 +614,20 @@ fn build_block_context(
                 Felt::from_hex(
                     "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
                 )
-                    .unwrap(),
-            )
                 .unwrap(),
+            )
+            .unwrap(),
             strk_fee_token_address: ContractAddress::try_from(
                 Felt::from_hex(
                     "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
                 )
-                    .unwrap(),
-            )
                 .unwrap(),
+            )
+            .unwrap(),
         },
     };
 
-    pre_process_block(
-        state,
-        old_block_number_and_hash,
-        block_info.block_number,
-    )
-    .unwrap();
+    pre_process_block(state, old_block_number_and_hash, block_info.block_number).unwrap();
 
     BlockContext::new(block_info, chain_info, constants, BouncerConfig::max())
 }
@@ -523,23 +651,19 @@ lazy_static! {
     };
 }
 
-fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    let version_str = unsafe { CStr::from_ptr(version) }.to_str().unwrap();
-    let version = StarknetVersion::from_str(&version_str)
-        .unwrap_or(StarknetVersion::from_str(&"0.0.0").unwrap());
-
-    if version < StarknetVersion::from_str(&"0.13.0").unwrap() {
+fn get_versioned_constants(version: &StarknetVersion) -> VersionedConstants {
+    if *version < StarknetVersion::from_str("0.13.0").unwrap() {
         CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
+    } else if *version < StarknetVersion::from_str("0.13.1").unwrap() {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
+    } else if *version < StarknetVersion::from_str("0.13.1.1").unwrap() {
         CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
     }
 }
 
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
 pub struct StarknetVersion(u8, u8, u8, u8);
 
 impl StarknetVersion {

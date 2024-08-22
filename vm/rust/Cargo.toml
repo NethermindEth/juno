@@ -28,10 +28,34 @@ lazy_static = "1.4.0"
 semver = "1.0.22"
 anyhow = "1.0.81"
 libloading = "0.8.5"
+thiserror = "1.0.63"
+ciborium = "0.2.2"
+
+# Trace block dependencies  
+starknet-core = "0.11.1"
+starknet-providers = "0.11.0"
+tokio = { version = "1.38.1", features = ["rt", "macros"] }
+clap = { version = "4.5.16", features = ["derive"] }
 
 [lib]
-crate-type = ["staticlib"]
+# staticlib: build library for juno
+# rlib: build library for benchmark
+crate-type = ["staticlib", "rlib"]
 
 [build-dependencies]
 toml = "0.8.19"
 url = "2.5.2"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+
+[[bench]]
+name = "blockifier-perf"
+harness = false
+
+[patch.crates-io]
+starknet-types-core = { git = "https://github.com/xrvdg/types-rs" }
+
+[[bin]]
+name = "traceblock"
+path = "src/bin/trace_block.rs"

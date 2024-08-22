@@ -18,6 +18,7 @@ use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
+use std::cell::RefCell;
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
     fs,
@@ -25,6 +26,8 @@ use std::{
     slice,
     sync::Mutex,
 };
+
+use crate::recorded_state;
 
 extern "C" {
     fn JunoFree(ptr: *const c_void);
@@ -57,13 +60,25 @@ static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
     pub height: u64,
+    pub serdes: RefCell<recorded_state::NativeState>,
 }
 
 impl JunoStateReader {
     pub fn new(handle: usize, height: u64) -> Self {
-        Self { handle, height }
+        Self {
+            handle,
+            height,
+            serdes: Default::default(),
+        }
     }
 }
+
+// Note [Replay Invariant]
+//
+// The CachedReader does the heavy lifting when replaying Juno calls and when executing blocks it memoizes calls to Juno.
+// The recording relies on this memoization and the assertion is there to verifies this.
+// However this assertion will panic if JunoStateReader is run without being wrapped in a CachedReader.
+// For now this is fine, but if this changes in the future, rethink how to record to calls to Juno  .
 
 impl StateReader for JunoStateReader {
     fn get_storage_at(
@@ -71,8 +86,8 @@ impl StateReader for JunoStateReader {
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<Felt> {
-        let addr = felt_to_byte_array(contract_address.0.key());
-        let storage_key = felt_to_byte_array(key.0.key());
+        let addr = contract_address.0.key().to_bytes_be();
+        let storage_key = key.0.key().to_bytes_be();
         let ptr =
             unsafe { JunoStateGetStorageAt(self.handle, addr.as_ptr(), storage_key.as_ptr()) };
         if ptr.is_null() {
@@ -85,6 +100,16 @@ impl StateReader for JunoStateReader {
             let felt_val = ptr_to_felt(ptr);
             unsafe { JunoFree(ptr as *const c_void) };
 
+            // Note [Replay Invariant]
+            assert_eq!(
+                self.serdes
+                    .borrow_mut()
+                    .storage
+                    .insert((contract_address, key), felt_val),
+                None,
+                "Overwritten storage"
+            );
+
             Ok(felt_val)
         }
     }
@@ -92,7 +117,7 @@ impl StateReader for JunoStateReader {
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let addr = felt_to_byte_array(contract_address.0.key());
+        let addr = contract_address.0.key().to_bytes_be();
         let ptr = unsafe { JunoStateGetNonceAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::StateReadError(format!(
@@ -102,7 +127,20 @@ impl StateReader for JunoStateReader {
         } else {
             let felt_val = ptr_to_felt(ptr);
             unsafe { JunoFree(ptr as *const c_void) };
-            Ok(Nonce(felt_val))
+
+            let nonce = Nonce(felt_val);
+
+            // Note [Replay Invariant]
+            assert_eq!(
+                self.serdes
+                    .borrow_mut()
+                    .nonce
+                    .insert(contract_address, nonce),
+                None,
+                "Overwriting nonce"
+            );
+
+            Ok(nonce)
         }
     }
 
@@ -113,7 +151,7 @@ impl StateReader for JunoStateReader {
             "Juno State Reader(Rust): calling `get_class_hash_at` {0}",
             contract_address
         );
-        let addr = felt_to_byte_array(contract_address.0.key());
+        let addr = contract_address.0.key().to_bytes_be();
         let ptr = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::StateReadError(format!(
@@ -128,7 +166,19 @@ impl StateReader for JunoStateReader {
                 "Juno State Reader(Rust): returning `get_class_hash_at` {0} ",
                 contract_address
             );
-            Ok(ClassHash(felt_val))
+
+            let class_hash = ClassHash(felt_val);
+
+            // Note [Replay Invariant]
+            assert_eq!(
+                self.serdes
+                    .borrow_mut()
+                    .class_hash
+                    .insert(contract_address, class_hash),
+                None,
+                "Overwritten class_hash"
+            );
+            Ok(class_hash)
         }
     }
 
@@ -156,12 +206,23 @@ impl StateReader for JunoStateReader {
             }
         }
 
-        let class_hash_bytes = felt_to_byte_array(&class_hash.0);
+        let class_hash_bytes = class_hash.0.to_bytes_be();
         let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::UndeclaredClassHash(class_hash))
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
+
+            // Note [Replay Invariant]
+            assert_eq!(
+                self.serdes
+                    .borrow_mut()
+                    .contract_class
+                    .insert(class_hash, json_str.to_string()), // Can't serialize the Contract Class due to AotNativeExecutor therefore we store the string
+                None,
+                "Overwritten compiled contract_class"
+            );
+
             let class_info_res = class_info_from_json_str(json_str, class_hash);
             if let Ok(class_info) = &class_info_res {
                 CLASS_CACHE.lock().unwrap().cache_set(
@@ -194,10 +255,6 @@ impl StateReader for JunoStateReader {
     }
 }
 
-pub fn felt_to_byte_array(felt: &Felt) -> [u8; 32] {
-    felt.to_bytes_be().try_into().expect("Felt not [u8; 32]")
-}
-
 pub fn ptr_to_felt(bytes: *const c_uchar) -> Felt {
     let slice = unsafe { slice::from_raw_parts(bytes, 32) };
     Felt::from_bytes_be(slice.try_into().expect("Juno felt not [u8; 32]"))
@@ -210,8 +267,6 @@ pub struct ClassInfo {
     abi_length: usize,
 }
 
-// todo(xrvdg) This should be private to juno state manager that way
-// caching can also be used for declare_transactions
 pub fn class_info_from_json_str(
     raw_json: &str,
     class_hash: ClassHash,
@@ -235,12 +290,12 @@ pub fn class_info_from_json_str(
             return Err("not a valid contract class".to_string());
         };
 
-    return BlockifierClassInfo::new(
+    BlockifierClassInfo::new(
         &class,
         class_info.sierra_program_length,
         class_info.abi_length,
     )
-    .map_err(|err| err.to_string());
+    .map_err(|err| err.to_string())
 }
 
 /// Compiled Native contracts
