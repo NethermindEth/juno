@@ -6,7 +6,6 @@ To record all Juno calls for a block:
     - `cargo r --bin traceblock -- BLOCK_NUMBER` 
 
 To replay a recorded transaction in a benchmark:
-- Comment out the `[lib]` section in `Cargo.toml`. The benchmark can only run with `rlib` libraries and does not support `staticlib`. 
 - `JUNO_RECORD_DIR=./record_mainnet cargo bench`
 
 To profile a benchmark:
@@ -15,7 +14,7 @@ To profile a benchmark:
 - Use `--profile-time` to skip analysis and storing, and run the benchmark for a set amount of time expressed in seconds. The benchmark will repeat until the timer has been reached.  
 - `JUNO_RECORD_DIR=./record_mainnet samply record cargo bench -- preload --profile-time 120`
 
-Even when filtering the setup of every benchmark will still be executed. For example only running the bench for `loading` will still execute the setup of `preload`.
+Even when filtering the setup of every benchmark will still be executed. For example only running the bench for `loading` will still execute the setup of `preload`. 
 
 
 

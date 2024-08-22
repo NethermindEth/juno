@@ -1,16 +1,24 @@
 use std::time::{Duration, Instant};
 
+use clap::Parser;
 use starknet_core::types::BlockId;
 use starknet_providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, Url};
 use tokio;
 
+#[derive(Parser, Debug)]
+struct Args {
+    block: u64,
+    #[arg(short, long, default_value_t = str::to_string("http://localhost:6060/"))]
+    url: String,
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let client = JsonRpcClient::new(HttpTransport::new(
-        Url::parse("http://localhost:6060/").unwrap(),
-    ));
+    let args = Args::parse();
 
-    let block_id = BlockId::Number(633_333);
+    let client = JsonRpcClient::new(HttpTransport::new(Url::parse(&args.url).unwrap()));
+
+    let block_id = BlockId::Number(args.block);
 
     loop {
         let start = Instant::now();
