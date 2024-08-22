@@ -415,9 +415,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 	})
 }
 
-func TestTraceBlockTransactions(t *testing.T) {
-	t.Skip() // todo: fix calls later
-
+func TestTraceBlockTransactionsV_06(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
 		"pending": {Pending: true},
@@ -503,9 +501,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
 			gomock.Any(), n, false, false, false, false).
-			Return(nil, []vm.TransactionTrace{vmTrace, vmTrace}, stepsUsed, nil)
+			Return(nil, nil, []vm.TransactionTrace{vmTrace, vmTrace}, stepsUsed, nil)
 
-		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
+		result, httpHeader, err := handler.TraceBlockTransactionsV0_6(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
 		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -574,7 +572,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
 			gomock.Any(), n, false, false, false, false).
-			Return(nil, []vm.TransactionTrace{vmTrace}, stepsUsed, nil)
+			Return(nil, nil, []vm.TransactionTrace{vmTrace}, stepsUsed, nil)
 
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
@@ -582,7 +580,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				TraceRoot:       &vmTrace,
 			},
 		}
-		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
+		result, httpHeader, err := handler.TraceBlockTransactionsV0_6(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		require.NotNil(t, httpHeader)
 		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
