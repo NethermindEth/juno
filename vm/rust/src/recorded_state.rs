@@ -2,6 +2,7 @@ use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ContractClass;
 
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::errors::StateError;
 use blockifier::state::{
     cached_state::StorageEntry,
     state_api::{StateReader, StateResult},
@@ -52,9 +53,14 @@ trait ContractClassTrait {
 
 impl ContractClassTrait for String {
     fn compile(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
-        Ok(class_info_from_json_str(self, class_hash)
-            .expect("decoding class went wrong")
-            .contract_class())
+        class_info_from_json_str(self, class_hash)
+            .map(|class_info| class_info.contract_class())
+            .map_err(|err| {
+                StateError::StateReadError(format!(
+                    "parsing JSON string for class hash {}: {}",
+                    class_hash.0, err
+                ))
+            })
     }
 }
 
