@@ -7,7 +7,7 @@ use juno_starknet_rs::{
     VMArgs,
 };
 
-fn load_recording() -> (VMArgs, NativeState) {
+fn load_recording() -> (u64, VMArgs, NativeState) {
     // This is a workaround of not being able to supply arguments over the command line.
     let block_number: u64 = env::var("BENCH_BLOCK")
         .expect(
@@ -29,18 +29,18 @@ fn load_recording() -> (VMArgs, NativeState) {
 
     let native_state: NativeState = ciborium::from_reader(state_file).unwrap();
 
-    (vm_args, native_state)
+    (block_number, vm_args, native_state)
 }
 
 /// This benchmark preloads the compiled contracts and then starts the benchmark.
 fn preload(c: &mut Criterion) {
-    let mut group = c.benchmark_group("preload");
+    let (block_number, mut vm_args, native_state) = load_recording();
+
+    let mut group = c.benchmark_group(format!("preload/{block_number}"));
     group.sample_size(10);
 
-    // TODO(xrvdg) move this into a loading function otherwise it's always executed
-    // even when filtered
-    let (mut vm_args, native_state) = load_recording();
-
+    // todo(xrvdg) how to ensure this isn't run when this benchmark is filtered out?
+    // note: this is the recommended way of setting up data before a benchmark according to criterion's documentation.
     println!("Setup: loading contracts into memory");
     let start = Instant::now();
     // Either loads from disk or compiles
@@ -69,10 +69,10 @@ fn preload(c: &mut Criterion) {
 /// This should be the same as the other two benchmarks combined and is left here to be able to verify that quickly.
 #[allow(dead_code)]
 fn cold(c: &mut Criterion) {
-    let mut group = c.benchmark_group("cold");
-    group.sample_size(10);
+    let (block_number, mut vm_args, native_state) = load_recording();
 
-    let (mut vm_args, native_state) = load_recording();
+    let mut group = c.benchmark_group(format!("cold/{block_number}"));
+    group.sample_size(10);
 
     group.bench_function("native", move |b| {
         b.iter(|| {
@@ -87,11 +87,11 @@ fn cold(c: &mut Criterion) {
 }
 
 /// Benchmark to track how fast it is to load contracts into memory
-fn load_only(c: &mut Criterion) {
-    let mut group = c.benchmark_group("loading");
-    group.sample_size(10);
+fn loading(c: &mut Criterion) {
+    let (block_number, _, native_state) = load_recording();
 
-    let (_, native_state) = load_recording();
+    let mut group = c.benchmark_group(format!("loading/{block_number}"));
+    group.sample_size(10);
 
     group.bench_function("native", move |b| {
         b.iter(|| {
@@ -102,5 +102,5 @@ fn load_only(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, preload, load_only);
+criterion_group!(benches, preload, loading);
 criterion_main!(benches);
