@@ -27,6 +27,8 @@ use std::{
     sync::Mutex,
 };
 
+use crate::recorded_state;
+
 extern "C" {
     fn JunoFree(ptr: *const c_void);
 
@@ -58,7 +60,7 @@ static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
     pub height: u64,
-    pub serdes: RefCell<crate::serstate::NativeState>,
+    pub serdes: RefCell<recorded_state::NativeState>,
 }
 
 impl JunoStateReader {

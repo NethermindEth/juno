@@ -3,7 +3,7 @@ use std::{env, fs::File, time::Instant};
 use blockifier::state::cached_state::CachedState;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use juno_starknet_rs::{
-    serstate::{self, CompiledNativeState, NativeState},
+    recorded_state::{self, CompiledNativeState, NativeState},
     VMArgs,
 };
 
@@ -52,7 +52,7 @@ fn preload(c: &mut Criterion) {
         b.iter(|| {
             // The clone is negligible compared to the run
             let mut cached_compiled_native_state = CachedState::new(compiled_native_state.clone());
-            serstate::run(
+            recorded_state::run(
                 black_box(&mut vm_args),
                 black_box(&mut cached_compiled_native_state),
             );
@@ -77,7 +77,7 @@ fn cold(c: &mut Criterion) {
             // The clone is negligible compared to the run
             let mut cached_native_state = CachedState::new(native_state.clone());
 
-            serstate::run(black_box(&mut vm_args), black_box(&mut cached_native_state))
+            recorded_state::run(black_box(&mut vm_args), black_box(&mut cached_native_state))
         })
     });
 

@@ -1,6 +1,6 @@
 pub mod jsonrpc;
 mod juno_state_reader;
-pub mod serstate;
+pub mod recorded_state;
 
 #[macro_use]
 extern crate lazy_static;
@@ -40,6 +40,7 @@ use starknet_api::transaction::Transaction as StarknetApiTransaction;
 use starknet_api::transaction::{Calldata, Fee, TransactionHash};
 use starknet_types_core::felt::Felt;
 use std::fs::{self, File};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::{
     collections::HashMap,
@@ -288,6 +289,11 @@ pub struct VMArgs {
     err_on_revert: bool,
 }
 
+lazy_static! {
+    // Only record if the directory is set
+    static ref JUNO_RECORD_DIR: Option<String> = std::env::var("JUNO_RECORD_DIR").ok();
+}
+
 fn cairo_vm_execute(
     mut state: CachedState<JunoStateReader>,
     txns_and_query_bits: Vec<TxnAndQueryBit>,
@@ -311,12 +317,16 @@ fn cairo_vm_execute(
         err_on_revert,
     };
 
-    fs::create_dir_all("./record").unwrap();
+    if let Some(path) = JUNO_RECORD_DIR.clone() {
+        fs::create_dir_all(&path).unwrap();
 
-    let file_args =
-        std::fs::File::create(format!("./record/{}.args.cbor", block_info.block_number)).unwrap();
+        let mut args_path: PathBuf = path.into();
+        args_path.push(format!("{}.args.cbor", block_info.block_number));
 
-    let _ = ciborium::into_writer(&args, file_args).unwrap();
+        let file_args = std::fs::File::create(args_path).unwrap();
+
+        ciborium::into_writer(&args, file_args).unwrap();
+    };
 
     let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id, None);
 
@@ -380,9 +390,14 @@ fn cairo_vm_execute(
         txn_state.commit();
     }
 
-    let state_file =
-        File::create(format!("./record/{}.state.cbor", block_info.block_number)).unwrap();
-    let _ = ciborium::into_writer(&state.state.ser, state_file).unwrap();
+    if let Some(path) = JUNO_RECORD_DIR.clone() {
+        let mut state_path: PathBuf = path.into();
+        state_path.push(format!("{}.state.cbor", block_info.block_number));
+
+        let state_file = File::create(state_path).unwrap();
+
+        ciborium::into_writer(&state.state.serdes, state_file).unwrap();
+    }
 
     Ok(())
 }

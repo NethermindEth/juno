@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use juno_starknet_rs::{serstate::SerState, VMArgs};
+use juno_starknet_rs::{recorded_state::NativeState, VMArgs};
 
 #[test]
 fn load_vmargs() {
@@ -21,5 +21,5 @@ fn load_state() {
     ))
     .unwrap();
     // Can also do just a pattern match
-    let _state: SerState = ciborium::from_reader(state_file).unwrap();
+    let _state: NativeState = ciborium::from_reader(state_file).unwrap();
 }

@@ -18,16 +18,15 @@ use crate::juno_state_reader::class_info_from_json_str;
 use crate::{build_block_context, execute_transaction, VMArgs};
 
 #[derive(Default, Serialize, Deserialize, Clone)]
-pub struct SerState<Class> {
-    // Todo(xrvdg) make this felt
+pub struct RecordedState<Class> {
     pub storage: HashMap<StorageEntry, Felt>,
     pub nonce: HashMap<ContractAddress, Nonce>,
     pub class_hash: HashMap<ContractAddress, ClassHash>,
     pub contract_class: HashMap<ClassHash, Class>,
 }
 
-pub type NativeState = SerState<String>;
-pub type CompiledNativeState = SerState<ContractClass>;
+pub type NativeState = RecordedState<String>;
+pub type CompiledNativeState = RecordedState<ContractClass>;
 
 impl CompiledNativeState {
     pub fn new(state: NativeState) -> Self {
@@ -38,7 +37,7 @@ impl CompiledNativeState {
             compiled_contract_class.insert(*class_hash, contract_class);
         }
 
-        SerState {
+        RecordedState {
             storage: state.storage,
             nonce: state.nonce,
             class_hash: state.class_hash,
@@ -65,7 +64,7 @@ impl ContractClassTrait for ContractClass {
     }
 }
 
-impl<C: ContractClassTrait> StateReader for SerState<C> {
+impl<C: ContractClassTrait> StateReader for RecordedState<C> {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
