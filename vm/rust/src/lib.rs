@@ -342,8 +342,6 @@ fn cairo_vm_execute(
             txn_and_query_bit.txn_hash
         );
 
-        // Does this happen with running regularly?
-        // And when running v1?
         let transaction_execution_info = execute_transaction(
             txn_and_query_bit,
             &mut txn_state,
