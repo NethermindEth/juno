@@ -31,10 +31,15 @@ libloading = "0.8.5"
 thiserror = "1.0.63"
 ciborium = "0.2.2"
 
-# Can't build it without, but can rely on an older build.
-# Probably needs to restructure the set
-# [lib]
-# crate-type = ["staticlib"]
+# Trace block dependencies  
+starknet-core = "0.11.1"
+starknet-providers = "0.11.0"
+tokio = { version = "1.38.1", features = ["rt", "macros"] }
+
+[lib]
+# staticlib: build library for juno
+# rlib: build library for benchmark
+crate-type = ["staticlib", "rlib"]
 
 [build-dependencies]
 toml = "0.8.19"
@@ -53,3 +58,7 @@ starknet-types-core = { git = "https://github.com/xrvdg/types-rs", features = [
     "prime-bigint",
     "serde",
 ] }
+
+[[bin]]
+name = "traceblock"
+path = "src/bin/trace_block.rs"

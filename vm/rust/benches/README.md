@@ -3,9 +3,10 @@ To record all Juno calls for a block:
     - `JUNO_RECORD_DIR=./record_mainnet ./build/juno OPTIONS`  
     - If the directory doesn't exist it will be created. 
 - Use the traceblock ulility to trace a block
-    - `cargo r traceblock -- BLOCK_NUMBER` 
+    - `cargo r --bin traceblock -- BLOCK_NUMBER` 
 
 To replay a recorded transaction in a benchmark:
+- Comment out the `[lib]` section in `Cargo.toml`. The benchmark can only run with `rlib` libraries and does not support `staticlib`. 
 - `JUNO_RECORD_DIR=./record_mainnet cargo bench`
 
 To profile a benchmark:
