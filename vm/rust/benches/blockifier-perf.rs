@@ -30,19 +30,21 @@ fn load_record() -> (VMArgs, NativeState) {
     (vm_args, native_state)
 }
 
-// This benchmark preloads the compiled contracts and then starts the benchmark.
+/// This benchmark preloads the compiled contracts and then starts the benchmark.
 fn preload(c: &mut Criterion) {
     let mut group = c.benchmark_group("preload");
     group.sample_size(10);
 
+    // TODO(xrvdg) move this into a loading function otherwise it's always executed
+    // even when filtered
     let (mut vm_args, native_state) = load_record();
 
-    println!("Setup: loading in contracts");
+    println!("Setup: loading contracts into memory");
     let start = Instant::now();
     // Either loads from disk or compiles
     let compiled_native_state = CompiledNativeState::new(native_state);
     println!(
-        "Setup: finished loading contracts in {} ms",
+        "Setup: finished loading contracts ({} ms)",
         start.elapsed().as_millis()
     );
 
@@ -60,7 +62,10 @@ fn preload(c: &mut Criterion) {
     group.finish();
 }
 
-// This benchmark simulates a cold boot of the blockifier with none of the contracts loaded in.
+/// This benchmark simulates a cold boot of the blockifier with none of the contracts loaded in.
+///
+/// This should be the same as the other two benchmarks combined and is left here to be able to verify that quickly.
+#[allow(dead_code)]
 fn cold(c: &mut Criterion) {
     let mut group = c.benchmark_group("cold");
     group.sample_size(10);
@@ -79,5 +84,21 @@ fn cold(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, preload, cold,);
+/// Benchmark to track how fast it is to load contracts into memory
+fn load_only(c: &mut Criterion) {
+    let mut group = c.benchmark_group("loading");
+    group.sample_size(10);
+
+    let (_, native_state) = load_record();
+
+    group.bench_function("native", move |b| {
+        b.iter(|| {
+            let _ = CompiledNativeState::new(native_state.clone());
+        })
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, preload, load_only);
 criterion_main!(benches);
