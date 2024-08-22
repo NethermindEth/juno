@@ -104,8 +104,6 @@ impl<C: ContractClassTrait> StateReader for RecordedState<C> {
 }
 
 pub fn run(vm_args: &mut VMArgs, state: &mut CachedState<impl StateReader>) {
-    // Replace by git root path
-
     let block_context: BlockContext =
         build_block_context(state, &vm_args.block_info, &vm_args.chain_id, None);
 

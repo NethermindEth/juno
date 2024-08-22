@@ -1,4 +1,4 @@
-use std::{env, fs::File, time::Instant};
+use std::{env, fs::File, path::PathBuf, time::Instant};
 
 use blockifier::state::cached_state::CachedState;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -7,7 +7,7 @@ use juno_starknet_rs::{
     VMArgs,
 };
 
-fn load_record() -> (VMArgs, NativeState) {
+fn load_recording() -> (VMArgs, NativeState) {
     // This is a workaround of not being able to supply arguments over the command line.
     let block_number: u64 = env::var("BENCH_BLOCK")
         .expect(
@@ -18,14 +18,16 @@ fn load_record() -> (VMArgs, NativeState) {
 
     let record_directory = env::var("JUNO_RECORD_DIR").expect("JUNO_RECORD_DIR has not been set");
 
-    // TODO(xrvdg) built proper file path
-    let args_file = File::open(format!("{record_directory}/{block_number}.args.cbor")).unwrap();
+    let mut args_path: PathBuf = record_directory.clone().into();
+    args_path.push(format!("{}.args.cbor", block_number));
+    let args_file = File::open(args_path).unwrap();
     let vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
 
-    let serstate_file =
-        File::open(format!("{record_directory}/{block_number}.state.cbor")).unwrap();
+    let mut state_path: PathBuf = record_directory.into();
+    state_path.push(format!("{}.state.cbor", block_number));
+    let state_file = File::open(state_path).unwrap();
 
-    let native_state: NativeState = ciborium::from_reader(serstate_file).unwrap();
+    let native_state: NativeState = ciborium::from_reader(state_file).unwrap();
 
     (vm_args, native_state)
 }
@@ -37,7 +39,7 @@ fn preload(c: &mut Criterion) {
 
     // TODO(xrvdg) move this into a loading function otherwise it's always executed
     // even when filtered
-    let (mut vm_args, native_state) = load_record();
+    let (mut vm_args, native_state) = load_recording();
 
     println!("Setup: loading contracts into memory");
     let start = Instant::now();
@@ -70,7 +72,7 @@ fn cold(c: &mut Criterion) {
     let mut group = c.benchmark_group("cold");
     group.sample_size(10);
 
-    let (mut vm_args, native_state) = load_record();
+    let (mut vm_args, native_state) = load_recording();
 
     group.bench_function("native", move |b| {
         b.iter(|| {
@@ -89,7 +91,7 @@ fn load_only(c: &mut Criterion) {
     let mut group = c.benchmark_group("loading");
     group.sample_size(10);
 
-    let (_, native_state) = load_record();
+    let (_, native_state) = load_recording();
 
     group.bench_function("native", move |b| {
         b.iter(|| {

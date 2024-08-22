@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-# blockifier = { git = "https://github.com/NethermindEth/blockifier", branch = "native2.7.x" }
-blockifier = { path = "../../../blockifier-neth/crates/blockifier/" }
+blockifier = { git = "https://github.com/NethermindEth/blockifier", branch = "native2.7.x" }
+# blockifier = { path = "../../../blockifier-neth/crates/blockifier/" }
 cairo-lang-sierra = "2.7.0"
 cairo-lang-starknet = "2.7.0"
 cairo-lang-starknet-classes = "2.7.0"
