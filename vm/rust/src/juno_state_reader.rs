@@ -86,8 +86,8 @@ impl StateReader for JunoStateReader {
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<Felt> {
-        let addr = felt_to_byte_array(contract_address.0.key());
-        let storage_key = felt_to_byte_array(key.0.key());
+        let addr = contract_address.0.key().to_bytes_be();
+        let storage_key = key.0.key().to_bytes_be();
         let ptr =
             unsafe { JunoStateGetStorageAt(self.handle, addr.as_ptr(), storage_key.as_ptr()) };
         if ptr.is_null() {
@@ -117,7 +117,7 @@ impl StateReader for JunoStateReader {
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let addr = felt_to_byte_array(contract_address.0.key());
+        let addr = contract_address.0.key().to_bytes_be();
         let ptr = unsafe { JunoStateGetNonceAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::StateReadError(format!(
@@ -151,7 +151,7 @@ impl StateReader for JunoStateReader {
             "Juno State Reader(Rust): calling `get_class_hash_at` {0}",
             contract_address
         );
-        let addr = felt_to_byte_array(contract_address.0.key());
+        let addr = contract_address.0.key().to_bytes_be();
         let ptr = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::StateReadError(format!(
@@ -206,7 +206,7 @@ impl StateReader for JunoStateReader {
             }
         }
 
-        let class_hash_bytes = felt_to_byte_array(&class_hash.0);
+        let class_hash_bytes = class_hash.0.to_bytes_be();
         let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
             Err(StateError::UndeclaredClassHash(class_hash))
@@ -253,11 +253,6 @@ impl StateReader for JunoStateReader {
     fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         unimplemented!()
     }
-}
-
-// todo(xrvdg) Unnecessary
-pub fn felt_to_byte_array(felt: &Felt) -> [u8; 32] {
-    felt.to_bytes_be()
 }
 
 pub fn ptr_to_felt(bytes: *const c_uchar) -> Felt {

@@ -32,7 +32,7 @@ use blockifier::{
     versioned_constants::VersionedConstants,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
+use juno_state_reader::class_info_from_json_str;
 use serde::{Deserialize, Serialize};
 use starknet_api::block::BlockHash;
 use starknet_api::core::{ChainId, ClassHash, ContractAddress, EntryPointSelector, PatriciaKey};
@@ -181,7 +181,7 @@ pub extern "C" fn cairoVMCall(
         Ok(t) => {
             for data in t.execution.retdata.0 {
                 unsafe {
-                    JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
+                    JunoAppendResponse(reader_handle, data.to_bytes_be().as_ptr());
                 };
             }
         }
@@ -359,8 +359,8 @@ fn cairo_vm_execute(
             error: err,
         })?;
 
-        let actual_fee = transaction_execution_info.transaction_receipt.fee.0.into();
-        let data_gas_consumed = transaction_execution_info
+        let actual_fee: Felt = transaction_execution_info.transaction_receipt.fee.0.into();
+        let data_gas_consumed: Felt = transaction_execution_info
             .transaction_receipt
             .da_gas
             .l1_data_gas
@@ -380,11 +380,8 @@ fn cairo_vm_execute(
         // What I'm looking for sounds like a generator.
         // Important is that you don't yet have the outcomes
         unsafe {
-            JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-            JunoAppendDataGasConsumed(
-                reader_handle,
-                felt_to_byte_array(&data_gas_consumed).as_ptr(),
-            );
+            JunoAppendActualFee(reader_handle, actual_fee.to_bytes_be().as_ptr());
+            JunoAppendDataGasConsumed(reader_handle, data_gas_consumed.to_bytes_be().as_ptr());
         }
         append_trace(reader_handle, &trace, &mut trace_buffer);
         txn_state.commit();
