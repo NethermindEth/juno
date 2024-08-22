@@ -54,11 +54,7 @@ name = "blockifier-perf"
 harness = false
 
 [patch.crates-io]
-starknet-types-core = { git = "https://github.com/xrvdg/types-rs", features = [
-    "hash",
-    "prime-bigint",
-    "serde",
-] }
+starknet-types-core = { git = "https://github.com/xrvdg/types-rs" }
 
 [[bin]]
 name = "traceblock"
