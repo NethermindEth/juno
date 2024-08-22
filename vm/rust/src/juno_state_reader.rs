@@ -58,7 +58,7 @@ static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
     pub height: u64,
-    pub ser: RefCell<crate::serstate::NativeState>,
+    pub serdes: RefCell<crate::serstate::NativeState>,
 }
 
 impl JunoStateReader {
@@ -66,13 +66,19 @@ impl JunoStateReader {
         Self {
             handle,
             height,
-            ser: Default::default(),
+            serdes: Default::default(),
         }
     }
 }
 
+// Note [Replay Invariant]
+//
+// The CachedReader does the heavy lifting when replaying Juno calls and when executing blocks it memoizes calls to Juno.
+// The recording relies on this memoization and the assertion is there to verifies this.
+// However this assertion will panic if JunoStateReader is run without being wrapped in a CachedReader.
+// For now this is fine, but if this changes in the future, rethink how to record to calls to Juno  .
+
 impl StateReader for JunoStateReader {
-    // input serializable output isn't
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
@@ -92,8 +98,9 @@ impl StateReader for JunoStateReader {
             let felt_val = ptr_to_felt(ptr);
             unsafe { JunoFree(ptr as *const c_void) };
 
+            // Note [Replay Invariant]
             assert_eq!(
-                self.ser
+                self.serdes
                     .borrow_mut()
                     .storage
                     .insert((contract_address, key), felt_val),
@@ -105,7 +112,6 @@ impl StateReader for JunoStateReader {
         }
     }
 
-    // input and output are serializable
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
@@ -122,8 +128,12 @@ impl StateReader for JunoStateReader {
 
             let nonce = Nonce(felt_val);
 
+            // Note [Replay Invariant]
             assert_eq!(
-                self.ser.borrow_mut().nonce.insert(contract_address, nonce),
+                self.serdes
+                    .borrow_mut()
+                    .nonce
+                    .insert(contract_address, nonce),
                 None,
                 "Overwriting nonce"
             );
@@ -132,7 +142,6 @@ impl StateReader for JunoStateReader {
         }
     }
 
-    // input and output are serializable
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
@@ -157,8 +166,10 @@ impl StateReader for JunoStateReader {
             );
 
             let class_hash = ClassHash(felt_val);
+
+            // Note [Replay Invariant]
             assert_eq!(
-                self.ser
+                self.serdes
                     .borrow_mut()
                     .class_hash
                     .insert(contract_address, class_hash),
@@ -169,7 +180,6 @@ impl StateReader for JunoStateReader {
         }
     }
 
-    // input is serializable but output isn't
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         println!("Juno State Reader(Rust): calling `get_compiled_contract_class` with class hash: {class_hash}");
@@ -201,11 +211,12 @@ impl StateReader for JunoStateReader {
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
 
+            // Note [Replay Invariant]
             assert_eq!(
-                self.ser
+                self.serdes
                     .borrow_mut()
                     .contract_class
-                    .insert(class_hash, json_str.to_string()),
+                    .insert(class_hash, json_str.to_string()), // Can't serialize the Contract Class due to AotNativeExecutor therefore we store the string
                 None,
                 "Overwritten compiled contract_class"
             );
@@ -259,8 +270,6 @@ pub struct ClassInfo {
     abi_length: usize,
 }
 
-// This can maybe be made into a state error?
-// Can we recover from a anyhow or StateResult
 pub fn class_info_from_json_str(
     raw_json: &str,
     class_hash: ClassHash,
