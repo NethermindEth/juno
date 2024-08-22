@@ -454,18 +454,20 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
 	}
-
 	feesPaidOnL1, err := getPaidOnL1Fees(txn)
 	if err != nil {
 		return err
 	}
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
-			Number:           b.pendingBlock.Block.Number,
-			Timestamp:        b.shadowBlock.Timestamp,
-			SequencerAddress: b.pendingBlock.Block.SequencerAddress,
-			GasPrice:         b.pendingBlock.Block.GasPrice,
-			GasPriceSTRK:     b.pendingBlock.Block.GasPriceSTRK,
+			Number:           b.shadowBlock.Number,           // Cairo contracts can access the block number
+			SequencerAddress: b.shadowBlock.SequencerAddress, // Cairo contracts can access the sequencer address
+			Timestamp:        b.shadowBlock.Timestamp,        // Cairo contracts can access the timestamp
+			ProtocolVersion:  b.shadowBlock.ProtocolVersion,  // Cairo contracts can access the protocol version
+			GasPrice:         b.shadowBlock.GasPrice,         // Cairo contracts can access the gas price
+			GasPriceSTRK:     b.shadowBlock.GasPriceSTRK,     // Don't seem to need to set this
+			L1DAMode:         b.shadowBlock.L1DAMode,         // Don't seem to need to set this
+			L1DataGasPrice:   b.shadowBlock.L1DataGasPrice,   // Don't seem to need to set this
 		},
 	}
 
