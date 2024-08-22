@@ -1129,6 +1129,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 			pending.Block.Number = h + 1
 		}
 
+		// Todo: Do we update here, but potentially fail later?
 		if err = state.Update(pending.Block.Number, pending.StateUpdate.StateDiff, pending.NewClasses); err != nil {
 			return err
 		}
@@ -1138,15 +1139,26 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 			return err
 		}
 		if shadowStateUpdate != nil && !shadowStateUpdate.NewRoot.Equal(pending.Block.GlobalStateRoot) {
-			pending.StateUpdate.StateDiff.Print()
-			shadowStateUpdate.StateDiff.Print()
-			pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
-			if err := txn.Discard(); err != nil {
-				return err
+			diffString, diffFound := pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
+			err := state.Revert(pending.Block.Number, pending.StateUpdate.StateDiff)
+			if err != nil {
+				return fmt.Errorf("failed to revert state: %w", err)
 			}
-			return fmt.Errorf("sequencers state root %s != shadow block state root %s",
-				pending.Block.GlobalStateRoot.String(), shadowStateUpdate.NewRoot.String())
+			txnErr := txn.Discard()
+			if txnErr != nil {
+				return fmt.Errorf("failed to discard transaction: %w", txnErr)
+			}
+			return fmt.Errorf(
+				"sequencers state root %s != shadow block state root %s\n"+
+					"Sequencers final State Diff does not match Sepolias, diffFound: %v\n"+
+					"Details:\n%s",
+				pending.Block.GlobalStateRoot.String(),
+				shadowStateUpdate.NewRoot.String(),
+				diffFound,
+				diffString,
+			)
 		}
+
 		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
 
 		var commitments *core.BlockCommitments
@@ -1165,7 +1177,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		if sig != nil {
 			pending.Block.Signatures = append(pending.Block.Signatures, sig)
 		}
-
+		fmt.Println("pending.Block.L1DataGasPrice", pending.Block.L1DataGasPrice)
 		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {
 			return err
 		}

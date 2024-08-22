@@ -471,33 +471,22 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		},
 	}
 
+	sd, _ := state.StateDiffAndClasses()
+	for k, v := range sd.StorageDiffs[*new(felt.Felt).SetUint64(1)] {
+		b.log.Infof(k.String(), v.String())
+	}
+
 	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
 		b.bc.Network(), false, false, true, false)
 	if err != nil {
 		return err
 	}
-	found := false
-	b.log.Debugw("Looking for transaction in block traces")
-	for _, blockTrace := range b.blockTraces {
-		b.log.Debugw("%s, %s", txn.Transaction.Hash().String(), blockTrace.TransactionHash.String())
-		if !blockTrace.TransactionHash.Equal(txn.Transaction.Hash()) {
-			continue
-		}
-		b.log.Infof("Found transaction in block traces %s", txn.Transaction.Hash().String())
-		found = true
-
-		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
-		refTrace := vm2core.AdaptStateDiff(blockTrace.TraceRoot.StateDiff)
-		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
-		if diffsNotEqual {
-			b.log.Fatalf("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
-		}
-		break
+	seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
+	refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
+	diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
+	if diffsNotEqual {
+		b.log.Fatalf("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
 	}
-	if !found {
-		b.log.Fatalf("Failed to find transaction in block traces %s", txn.Transaction.Hash().String())
-	}
-
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 
@@ -580,6 +569,13 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.blockTraces = blockTraces
 			b.shadowStateUpdate = su
 			b.shadowBlock = block
+
+			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion
+			b.pendingBlock.Block.Header.GasPrice = block.GasPrice
+			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK
+			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode
+			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice
+
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
 				var declaredClass core.Class
