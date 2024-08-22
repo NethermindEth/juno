@@ -51,6 +51,7 @@ type Builder struct {
 
 	shadowMode          bool
 	shadowStateUpdate   *core.StateUpdate
+	shadowBlock         *core.Block
 	starknetData        starknetdata.StarknetData
 	junoEndpoint        string
 	blockTraces         []rpc.TracedBlockTransaction
@@ -461,7 +462,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
 			Number:           b.pendingBlock.Block.Number,
-			Timestamp:        b.pendingBlock.Block.Timestamp,
+			Timestamp:        b.shadowBlock.Timestamp,
 			SequencerAddress: b.pendingBlock.Block.SequencerAddress,
 			GasPrice:         b.pendingBlock.Block.GasPrice,
 			GasPriceSTRK:     b.pendingBlock.Block.GasPriceSTRK,
@@ -576,6 +577,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			}
 			b.blockTraces = blockTraces
 			b.shadowStateUpdate = su
+			b.shadowBlock = block
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
 				var declaredClass core.Class
