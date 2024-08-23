@@ -329,8 +329,8 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 
 func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, http.Header, error) {
 	var (
-		responses []json.RawMessage
 		mutex     sync.Mutex
+		responses []json.RawMessage
 		headers   []http.Header
 	)
 

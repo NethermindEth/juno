@@ -62,7 +62,6 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 		_, httpHeader, rpcErr := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
-		require.NotNil(t, httpHeader)
 		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 
@@ -99,7 +98,6 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
-		require.NotNil(t, httpHeader)
-		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
+		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 }

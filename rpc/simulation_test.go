@@ -2,6 +2,7 @@ package rpc_test
 
 import (
 	"errors"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -42,8 +43,7 @@ func TestSimulateTransactionsV0_6(t *testing.T) {
 
 		_, httpHeader, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		require.Nil(t, err)
-		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
@@ -55,8 +55,7 @@ func TestSimulateTransactionsV0_6(t *testing.T) {
 
 		_, httpHeader, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Nil(t, err)
-		require.NotNil(t, httpHeader)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
@@ -74,7 +73,6 @@ func TestSimulateTransactionsV0_6(t *testing.T) {
 				TransactionIndex: 44,
 				ExecutionError:   "oops",
 			}), err)
-			require.NotNil(t, httpHeader)
 			require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 		})
 		t.Run("v0_7", func(t *testing.T) { //nolint:dupl
@@ -91,7 +89,6 @@ func TestSimulateTransactionsV0_6(t *testing.T) {
 				TransactionIndex: 44,
 				ExecutionError:   "oops",
 			}), err)
-			require.NotNil(t, httpHeader)
 			require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 		})
 	})

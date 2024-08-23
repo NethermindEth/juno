@@ -19,8 +19,9 @@ type SimulationFlag int
 const (
 	SkipValidateFlag SimulationFlag = iota + 1
 	SkipFeeChargeFlag
-	ExecutionStepsHeader string = "X-Cairo-Steps"
 )
+
+const ExecutionStepsHeader string = "X-Cairo-Steps"
 
 func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 	switch flag := string(bytes); flag {

@@ -40,7 +40,6 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 		_, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpc.ErrBlockNotFound, err)
-		require.NotNil(t, httpHeader)
 		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 
@@ -80,7 +79,7 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 			}}, uint64(123), nil
 		},
 	)
-	//
+
 	estimateFee, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 	require.Nil(t, err)
 	expectedJSON := fmt.Sprintf(
@@ -95,7 +94,6 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 	estimateFeeJSON, jsonErr := json.Marshal(estimateFee)
 	require.NoError(t, jsonErr)
 	require.Equal(t, expectedJSON, string(estimateFeeJSON))
-	require.NotNil(t, httpHeader)
 	require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 }
 
@@ -121,7 +119,6 @@ func TestEstimateFee(t *testing.T) {
 			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
-		require.NotNil(t, httpHeader)
 		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 		require.Nil(t, err)
 	})
@@ -132,7 +129,6 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
-		require.NotNil(t, httpHeader)
 		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
@@ -148,7 +144,6 @@ func TestEstimateFee(t *testing.T) {
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)
-		require.NotNil(t, httpHeader)
 		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 	})
 }

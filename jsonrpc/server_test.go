@@ -484,7 +484,7 @@ func TestHandle(t *testing.T) {
 
 			res, httpHeader, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
 			require.NoError(t, err)
-			require.NotNil(t, httpHeader)
+			assert.NotNil(t, httpHeader)
 
 			if test.isBatch {
 				assertBatchResponse(t, test.res, string(res))
