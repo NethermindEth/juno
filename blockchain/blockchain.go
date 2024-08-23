@@ -1167,7 +1167,6 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		if err != nil {
 			return err
 		}
-		fmt.Println("commitments ev, rec, tx", commitments.EventCommitment.String(), commitments.ReceiptCommitment.String(), commitments.TransactionCommitment.String())
 		pending.StateUpdate.BlockHash = pending.Block.Hash
 		if !pending.Block.Hash.Equal(shadowStateUpdate.BlockHash) {
 			txn.Discard()

@@ -492,8 +492,6 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if diffsNotEqual {
 		b.log.Fatalf("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
 	}
-	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
-	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 
 	feeUnit := core.WEI
 	if txn.Transaction.TxVersion().Is(3) {
@@ -514,8 +512,15 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		}
 	}
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0])
-	// receipt.Print()
+	// foundDiff, diffStr := receipt.Diff(b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount], "sequencer", "sepolia")
+	// if foundDiff {
+	// 	b.log.Fatalf("Generated receipt trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffStr)
+	// }
+	receipt = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount] // Todo: remove, test to see if this is the only issue
+
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
+	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
+	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
 	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
 	return nil
@@ -580,12 +585,14 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			// b.pendingBlock.Block.GlobalStateRoot = nil
 			// b.pendingBlock.Block.Receipts = nil
 			// b.pendingBlock.Block.TransactionCount = 0
+			b.pendingBlock.Block.SequencerAddress = block.SequencerAddress // block hash
+			b.pendingBlock.Block.Timestamp = block.Timestamp               // block hash
 			b.pendingBlock.Block.Transactions = nil
-			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion
-			b.pendingBlock.Block.Header.GasPrice = block.GasPrice
-			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK
-			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode
-			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice
+			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion // block hash
+			b.pendingBlock.Block.Header.GasPrice = block.GasPrice               // block hash
+			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // block hash
+			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // block hash
+			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // block hash
 			// b.pendingBlock.Block.Header.Signatures = block.Signatures // Can't use our signature
 
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
