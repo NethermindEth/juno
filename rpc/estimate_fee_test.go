@@ -38,8 +38,9 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 
 	t.Run("block not found", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-		_, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpc.ErrBlockNotFound, err)
+		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
 
 	latestHeader := &core.Header{
@@ -58,7 +59,7 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
 			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-		) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, error) {
+		) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, uint64, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
 
@@ -75,11 +76,11 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 					DeclaredClasses:           []vm.DeclaredClass{},
 					ReplacedClasses:           []vm.ReplacedClass{},
 				},
-			}}, nil
+			}}, uint64(123), nil
 		},
 	)
 
-	estimateFee, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
+	estimateFee, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
 	require.Nil(t, err)
 	expectedJSON := fmt.Sprintf(
 		`{"gas_consumed":%q,"gas_price":%q,"overall_fee":%q,"unit":"WEI"}`,
@@ -93,6 +94,7 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 	estimateFeeJSON, jsonErr := json.Marshal(estimateFee)
 	require.NoError(t, jsonErr)
 	require.Equal(t, expectedJSON, string(estimateFeeJSON))
+	require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 }
 
 func TestEstimateFee(t *testing.T) {
@@ -114,32 +116,35 @@ func TestEstimateFee(t *testing.T) {
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, true).
-			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, nil)
+			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, uint64(123), nil)
 
-		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, true).
-			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, nil)
+			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, uint64(123), nil)
 
-		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, true).
-			Return(nil, nil, nil, vm.TransactionExecutionError{
+			Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
 			})
 
-		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)
+		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 	})
 }
 

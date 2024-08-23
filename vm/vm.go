@@ -65,7 +65,7 @@ type VM interface {
 		maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error)
+	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error)
 }
 
 type vm struct {
@@ -95,6 +95,7 @@ type callContext struct {
 	actualFees      []*felt.Felt
 	traces          []json.RawMessage
 	dataGasConsumed []*felt.Felt
+	executionSteps  uint64
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -136,6 +137,12 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
 	context.dataGasConsumed = append(context.dataGasConsumed, makeFeltFromPtr(ptr))
+}
+
+//export JunoAddExecutionSteps
+func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.ulonglong) {
+	context := unwrapContext(readerHandle)
+	context.executionSteps += uint64(execSteps)
 }
 
 func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
@@ -260,7 +267,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, error) {
+) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
@@ -270,12 +277,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 
 	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
@@ -324,22 +331,22 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	if context.err != "" {
 		if context.errTxnIndex >= 0 {
-			return nil, nil, nil, TransactionExecutionError{
+			return nil, nil, nil, 0, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),
 				Cause: errors.New(context.err),
 			}
 		}
-		return nil, nil, nil, errors.New(context.err)
+		return nil, nil, nil, 0, errors.New(context.err)
 	}
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return nil, nil, nil, fmt.Errorf("unmarshal trace: %v", err)
+			return nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
 
-	return context.actualFees, context.dataGasConsumed, traces, nil
+	return context.actualFees, context.dataGasConsumed, traces, context.executionSteps, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll
