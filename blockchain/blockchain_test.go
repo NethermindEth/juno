@@ -1002,7 +1002,7 @@ func TestStoreGenesis(t *testing.T) {
 						return nil
 					}))
 					var wantCommitments *core.BlockCommitments
-					wantBlock.Hash, wantCommitments, err = core.BlockHash(wantBlock)
+					wantBlock.Hash, wantCommitments, err = core.BlockHash(wantBlock, test.diff, &network, &felt.Zero)
 					require.NoError(t, err)
 					require.Equal(t, wantBlock, block)
 

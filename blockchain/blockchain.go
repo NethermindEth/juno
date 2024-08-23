@@ -1162,20 +1162,23 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
 
 		var commitments *core.BlockCommitments
-		pending.Block.Hash, commitments, err = core.BlockHash(pending.Block)
+		pending.Block.Hash, commitments, err = core.BlockHash(pending.Block, pending.StateUpdate.StateDiff, b.network, pending.Block.SequencerAddress)
 		if err != nil {
 			return err
 		}
+		fmt.Println("commitments", commitments.EventCommitment.String(), commitments.ReceiptCommitment.String(), commitments.TransactionCommitment.String())
 		pending.StateUpdate.BlockHash = pending.Block.Hash
 
-		pending.Block.Signatures = [][]*felt.Felt{}
-		var sig []*felt.Felt
-		sig, err = sign(pending.Block.Hash, pending.StateUpdate.StateDiff.Commitment())
-		if err != nil {
-			return err
-		}
-		if sig != nil {
-			pending.Block.Signatures = append(pending.Block.Signatures, sig)
+		if sign != nil {
+			pending.Block.Signatures = [][]*felt.Felt{}
+			var sig []*felt.Felt
+			sig, err = sign(pending.Block.Hash, pending.StateUpdate.StateDiff.Commitment())
+			if err != nil {
+				return err
+			}
+			if sig != nil {
+				pending.Block.Signatures = append(pending.Block.Signatures, sig)
+			}
 		}
 		fmt.Println("pending.Block.L1DataGasPrice", pending.Block.L1DataGasPrice)
 		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {

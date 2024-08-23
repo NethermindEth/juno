@@ -109,7 +109,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 			overrideSeq = fallbackSeq
 		}
 
-		hash, commitments, err := blockHash(b, stateDiff, network, overrideSeq)
+		hash, commitments, err := BlockHash(b, stateDiff, network, overrideSeq)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +130,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 // and by then issues with unverifiable block hash were resolved.
 // In future, this may no longer be required.
 // Todo: Pass stateDiff so that p2p layer can calculate post 0.13.2 Block Hash
-func BlockHash(b *Block) (*felt.Felt, *BlockCommitments, error) {
+func BlockHashP2P(b *Block) (*felt.Felt, *BlockCommitments, error) {
 	if b.SequencerAddress == nil {
 		return nil, nil, errors.New("block.SequencerAddress is nil")
 	}
@@ -138,7 +138,7 @@ func BlockHash(b *Block) (*felt.Felt, *BlockCommitments, error) {
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
+func BlockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
 	*BlockCommitments, error,
 ) {
 	metaInfo := network.BlockHashMetaInfo

@@ -326,7 +326,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				return
 			}
 
-			h, _, err := core.BlockHash(coreBlock)
+			h, _, err := core.BlockHashP2P(coreBlock)
 			if err != nil {
 				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
 				return

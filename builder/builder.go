@@ -116,7 +116,9 @@ func (b *Builder) WithJunoEndpoit(endpoint string) *Builder {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
+	signFunc := b.Sign
 	if b.shadowMode {
+		signFunc = nil
 		syncToBlockNum := uint64(5)
 		block, err := b.bc.Head()
 		if err != nil {
@@ -186,7 +188,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			return nil
 		case <-b.chanFinalise:
 			b.log.Debugw("Finalising new block")
-			if err := b.Finalise(); err != nil {
+			if err := b.Finalise(signFunc); err != nil {
 				return err
 			}
 			<-b.chanFinalised
@@ -227,11 +229,11 @@ func (b *Builder) ClearPending() error {
 }
 
 // Finalise the pending block and initialise the next one
-func (b *Builder) Finalise() error {
+func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
 
-	if err := b.bc.Finalise(&b.pendingBlock, b.Sign, b.shadowStateUpdate); err != nil {
+	if err := b.bc.Finalise(&b.pendingBlock, signFunc, b.shadowStateUpdate); err != nil {
 		return err
 	}
 	b.log.Infow("Finalised block", "number", b.pendingBlock.Block.Number, "hash",
@@ -570,11 +572,16 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.shadowStateUpdate = su
 			b.shadowBlock = block
 
-			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion
-			b.pendingBlock.Block.Header.GasPrice = block.GasPrice
-			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK
-			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode
-			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice
+			b.pendingBlock.Block.Header = block.Header
+			b.pendingBlock.Block.GlobalStateRoot = nil
+			// b.pendingBlock.Block.Receipts = nil
+			b.pendingBlock.Block.TransactionCount = 0
+			// b.pendingBlock.Block.Transactions = nil
+			// b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion
+			// b.pendingBlock.Block.Header.GasPrice = block.GasPrice
+			// b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK
+			// b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode
+			// b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice
 
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
