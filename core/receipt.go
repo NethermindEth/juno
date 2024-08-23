@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -23,6 +25,39 @@ type TransactionReceipt struct {
 	RevertReason       string
 }
 
+func (tr *TransactionReceipt) Print() {
+	fmt.Println("Transaction Receipt:")
+	fmt.Println("  Fee:", tr.Fee.String())
+	fmt.Println("  Fee Unit:", tr.FeeUnit)
+	fmt.Println("  Transaction Hash:", tr.TransactionHash.String())
+	fmt.Println("  Reverted:", tr.Reverted)
+	if tr.Reverted {
+		fmt.Println("  Revert Reason:", tr.RevertReason)
+	}
+
+	fmt.Println("  Events:")
+	for i, event := range tr.Events {
+		fmt.Printf("    Event %d:\n", i+1)
+		fmt.Println("      From:", event.From.String())
+		fmt.Println("      Data:")
+		for j, data := range event.Data {
+			fmt.Printf("        Data %d: %s\n", j+1, data.String())
+		}
+		fmt.Println("      Keys:")
+		for j, key := range event.Keys {
+			fmt.Printf("        Key %d: %s\n", j+1, key.String())
+		}
+	}
+
+	if tr.ExecutionResources != nil {
+		fmt.Println("  Execution Resources:")
+		tr.ExecutionResources.Print()
+	}
+
+	fmt.Println("  L1 To L2 Message: TODO")
+
+	fmt.Println("  L2 To L1 Messages: TODO")
+}
 func (r *TransactionReceipt) hash() *felt.Felt {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {

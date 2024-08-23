@@ -1096,6 +1096,7 @@ func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff,
 	stateDiff.StorageDiffs[*blockHashStorageContract] = map[felt.Felt]*felt.Felt{
 		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
+	fmt.Printf("\nSET  blockNumber %d %s %s\n", blockNumber, blockHashStorageContract.String(), header.Hash)
 	return stateDiff, nil
 }
 
@@ -1168,7 +1169,10 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		}
 		fmt.Println("commitments ev, rec, tx", commitments.EventCommitment.String(), commitments.ReceiptCommitment.String(), commitments.TransactionCommitment.String())
 		pending.StateUpdate.BlockHash = pending.Block.Hash
-
+		if !pending.Block.Hash.Equal(shadowStateUpdate.BlockHash) {
+			txn.Discard()
+			return fmt.Errorf("sequencer block hash %s doesn't equal sepolias block hash %s", pending.Block.Hash.String(), shadowStateUpdate.BlockHash.String())
+		}
 		if sign != nil {
 			pending.Block.Signatures = [][]*felt.Felt{}
 			var sig []*felt.Felt

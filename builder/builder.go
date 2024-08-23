@@ -187,6 +187,9 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-b.chanFinalise:
+			qwe := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
+			ind := new(felt.Felt).SetUint64(b.pendingBlock.Block.Number - 10)
+			b.log.Infow("FINALISE 0x1 %s %s", ind.String(), qwe[*ind].String())
 			b.log.Debugw("Finalising new block")
 			if err := b.Finalise(signFunc); err != nil {
 				return err
@@ -473,10 +476,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		},
 	}
 
-	sd, _ := state.StateDiffAndClasses()
-	for k, v := range sd.StorageDiffs[*new(felt.Felt).SetUint64(1)] {
-		b.log.Infof(k.String(), v.String())
-	}
+	// sd, _ := state.StateDiffAndClasses()
+	// for k, v := range sd.StorageDiffs[*new(felt.Felt).SetUint64(1)] {
+	// 	fmt.Println(k.String(), v.String())
+	// }
 
 	fee, _, trace, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
 		b.bc.Network(), false, false, true, false)
@@ -511,6 +514,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		}
 	}
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0])
+	// receipt.Print()
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
 	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
@@ -582,6 +586,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK
 			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode
 			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice
+			// b.pendingBlock.Block.Header.Signatures = block.Signatures // Can't use our signature
 
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
