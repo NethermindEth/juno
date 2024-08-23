@@ -197,9 +197,7 @@ func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]Tra
 func (h *Handler) TraceBlockTransactionsV0_6(ctx context.Context, id BlockID) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
-		httpHeader := http.Header{}
-		httpHeader.Set(ExecutionStepsHeader, "0")
-		return nil, httpHeader, rpcErr
+		return nil, nil, rpcErr
 	}
 
 	return h.traceBlockTransactions(ctx, block, true)

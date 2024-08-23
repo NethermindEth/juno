@@ -2,7 +2,6 @@ package rpc_test
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -11,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )

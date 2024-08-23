@@ -119,8 +119,8 @@ func TestEstimateFee(t *testing.T) {
 			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 		require.Nil(t, err)
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestEstimateFee(t *testing.T) {
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
