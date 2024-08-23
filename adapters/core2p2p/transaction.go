@@ -146,6 +146,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 		specTx.Txn = adaptL1HandlerTransaction(tx)
 	}
 
+	specTx.TransactionHash = AdaptHash(transaction.Hash())
+
 	return &specTx
 }
 

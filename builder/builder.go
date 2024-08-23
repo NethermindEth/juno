@@ -277,7 +277,7 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 			GasPriceSTRK:     pendingBlock.Block.GasPriceSTRK,
 		},
 	}
-	_, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, []*felt.Felt{}, blockInfo, state, //nolint:dogsled
+	_, _, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, []*felt.Felt{}, blockInfo, state, //nolint:dogsled
 		b.bc.Network(), false, false, false, false)
 	return err
 }
@@ -476,7 +476,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		b.log.Infof(k.String(), v.String())
 	}
 
-	fee, _, trace, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
+	fee, _, trace, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
 		b.bc.Network(), false, false, true, false)
 	if err != nil {
 		return err

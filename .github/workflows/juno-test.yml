@@ -7,14 +7,17 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run Tests
     strategy:
       fail-fast: false
       matrix:
-        go: [ '1.22.2' ]
-        os: [ ubuntu-latest, macos-latest, ubuntu-arm64-2-core]
+        os: [ubuntu-latest, macos-latest, ubuntu-arm64-2-core]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
@@ -31,7 +34,7 @@ jobs:
             vm/rust
             core/rust
             starknet/rust
-            
+
       - name: Install deps
         run: make install-deps
 
@@ -51,13 +54,10 @@ jobs:
         if: matrix.os != 'ubuntu-latest'
         run: make test
 
-#    Tests with race condition detector are flaky; we're disabling them for now
-#      - name: Tests (Race Detection)
-#        if: matrix.os == 'ubuntu-latest'
-#        run: make test-race
-
-      - name: Benchmark
-        run: make benchmarks
+      #    Tests with race condition detector are flaky; we're disabling them for now
+      #      - name: Tests (Race Detection)
+      #        if: matrix.os == 'ubuntu-latest'
+      #        run: make test-race
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'

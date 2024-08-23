@@ -648,28 +648,13 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
-		var status TransactionStatus
-		switch txStatus.FinalityStatus {
-		case starknet.AcceptedOnL1:
-			status.Finality = TxnStatusAcceptedOnL1
-		case starknet.AcceptedOnL2:
-			status.Finality = TxnStatusAcceptedOnL2
-		case starknet.Received:
-			status.Finality = TxnStatusReceived
-		default:
+		status, err := adaptTransactionStatus(txStatus)
+		if err != nil {
+			h.log.Errorw("Failed to adapt transaction status", "err", err)
 			return nil, ErrTxnHashNotFound
 		}
 
-		switch txStatus.ExecutionStatus {
-		case starknet.Succeeded:
-			status.Execution = TxnSuccess
-		case starknet.Reverted:
-			status.Execution = TxnFailure
-		case starknet.Rejected:
-			status.Finality = TxnStatusRejected
-		default: // Omit the field on error. It's optional in the spec.
-		}
-		return &status, nil
+		return status, nil
 	}
 	return nil, txErr
 }
@@ -820,6 +805,33 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources, v0_6Response),
 		MessageHash:        messageHash,
 	}
+}
+
+func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionStatus, error) {
+	var status TransactionStatus
+
+	switch finalityStatus := txStatus.FinalityStatus; finalityStatus {
+	case starknet.AcceptedOnL1:
+		status.Finality = TxnStatusAcceptedOnL1
+	case starknet.AcceptedOnL2:
+		status.Finality = TxnStatusAcceptedOnL2
+	case starknet.Received:
+		status.Finality = TxnStatusReceived
+	default:
+		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
+	}
+
+	switch txStatus.ExecutionStatus {
+	case starknet.Succeeded:
+		status.Execution = TxnSuccess
+	case starknet.Reverted:
+		status.Execution = TxnFailure
+	case starknet.Rejected:
+		status.Finality = TxnStatusRejected
+	default: // Omit the field on error. It's optional in the spec.
+	}
+
+	return &status, nil
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605

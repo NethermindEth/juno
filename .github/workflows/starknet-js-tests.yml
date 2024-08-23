@@ -9,7 +9,7 @@ on:
         required: false
       TEST_ACCOUNT_PRIVATE_KEY:
           required: false
-          
+
 jobs:
   test:
     runs-on: ubuntu-latest

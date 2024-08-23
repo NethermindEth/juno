@@ -1,14 +1,16 @@
 package starknet
 
+// TODO: remove this nolint when the issue is fixed https://github.com/daixiang0/gci/issues/209
+//nolint:gci
 import (
 	"context"
 	"errors"
 	"io"
+	"iter"
 	"time"
 
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/juno/utils/iter"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/protobuf/encoding/protodelim"
