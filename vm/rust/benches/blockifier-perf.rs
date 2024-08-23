@@ -7,7 +7,12 @@ use juno_starknet_rs::{
     VMArgs,
 };
 
-fn load_recording() -> (u64, VMArgs, NativeState) {
+enum Executor {
+    Native,
+    VM,
+}
+
+fn load_recording(exe: Executor) -> (u64, VMArgs, NativeState) {
     // This is a workaround of not being able to supply arguments over the command line.
     let block_number: u64 = env::var("BENCH_BLOCK")
         .expect(
@@ -18,12 +23,21 @@ fn load_recording() -> (u64, VMArgs, NativeState) {
 
     let record_directory = env::var("JUNO_RECORD_DIR").expect("JUNO_RECORD_DIR has not been set");
 
-    let mut args_path: PathBuf = record_directory.clone().into();
+    let exe_dir = match exe {
+        Executor::Native => "native",
+        Executor::VM => "vm",
+    };
+
+    // TODO(xrvdg) Create directory paths without mutability
+    let mut record_directory: PathBuf = record_directory.into();
+    record_directory.push(exe_dir);
+
+    let mut args_path: PathBuf = record_directory.clone();
     args_path.push(format!("{}.args.cbor", block_number));
     let args_file = File::open(args_path).unwrap();
     let vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
 
-    let mut state_path: PathBuf = record_directory.into();
+    let mut state_path: PathBuf = record_directory.clone();
     state_path.push(format!("{}.state.cbor", block_number));
     let state_file = File::open(state_path).unwrap();
 
@@ -34,7 +48,8 @@ fn load_recording() -> (u64, VMArgs, NativeState) {
 
 /// This benchmark preloads the compiled contracts and then starts the benchmark.
 fn preload(c: &mut Criterion) {
-    let (block_number, mut vm_args, native_state) = load_recording();
+    let (block_number, native_vm_args, native_state) = load_recording(Executor::Native);
+    let (_block_number, vm_vm_args, vm_state) = load_recording(Executor::VM);
 
     let mut group = c.benchmark_group(format!("preload/{block_number}"));
     group.sample_size(10);
@@ -50,13 +65,28 @@ fn preload(c: &mut Criterion) {
         start.elapsed().as_millis()
     );
 
+    let compiled_vm_state = CompiledNativeState::new(vm_state);
+
     group.bench_function("native", |b| {
         b.iter(|| {
             // The clone is negligible compared to the run
             let mut cached_compiled_native_state = CachedState::new(compiled_native_state.clone());
+            let mut vm_args = native_vm_args.clone();
             recorded_state::run(
                 black_box(&mut vm_args),
                 black_box(&mut cached_compiled_native_state),
+            );
+        })
+    });
+
+    group.bench_function("vm", |b| {
+        b.iter(|| {
+            // The clone is negligible compared to the run
+            let mut cached_compiled_vm_state = CachedState::new(compiled_vm_state.clone());
+            let mut vm_args = vm_vm_args.clone();
+            recorded_state::run(
+                black_box(&mut vm_args),
+                black_box(&mut cached_compiled_vm_state),
             );
         })
     });
@@ -67,40 +97,40 @@ fn preload(c: &mut Criterion) {
 /// This benchmark simulates a cold boot of the blockifier with none of the contracts loaded in.
 ///
 /// This should be the same as the other two benchmarks combined and is left here to be able to verify that quickly.
-#[allow(dead_code)]
-fn cold(c: &mut Criterion) {
-    let (block_number, mut vm_args, native_state) = load_recording();
+// #[allow(dead_code)]
+// fn cold(c: &mut Criterion) {
+//     let (block_number, mut vm_args, native_state) = load_recording();
 
-    let mut group = c.benchmark_group(format!("cold/{block_number}"));
-    group.sample_size(10);
+//     let mut group = c.benchmark_group(format!("cold/{block_number}"));
+//     group.sample_size(10);
 
-    group.bench_function("native", move |b| {
-        b.iter(|| {
-            // The clone is negligible compared to the run
-            let mut cached_native_state = CachedState::new(native_state.clone());
+//     group.bench_function("native", move |b| {
+//         b.iter(|| {
+//             // The clone is negligible compared to the run
+//             let mut cached_native_state = CachedState::new(native_state.clone());
 
-            recorded_state::run(black_box(&mut vm_args), black_box(&mut cached_native_state))
-        })
-    });
+//             recorded_state::run(black_box(&mut vm_args), black_box(&mut cached_native_state))
+//         })
+//     });
 
-    group.finish();
-}
+//     group.finish();
+// }
 
 /// Benchmark to track how fast it is to load contracts into memory
-fn loading(c: &mut Criterion) {
-    let (block_number, _, native_state) = load_recording();
+// fn loading(c: &mut Criterion) {
+//     let (block_number, _, native_state) = load_recording();
 
-    let mut group = c.benchmark_group(format!("loading/{block_number}"));
-    group.sample_size(10);
+//     let mut group = c.benchmark_group(format!("loading/{block_number}"));
+//     group.sample_size(10);
 
-    group.bench_function("native", move |b| {
-        b.iter(|| {
-            let _ = CompiledNativeState::new(native_state.clone());
-        })
-    });
+//     group.bench_function("native", move |b| {
+//         b.iter(|| {
+//             let _ = CompiledNativeState::new(native_state.clone());
+//         })
+//     });
 
-    group.finish();
-}
+//     group.finish();
+// }
 
-criterion_group!(benches, preload, loading);
+criterion_group!(benches, preload);
 criterion_main!(benches);
