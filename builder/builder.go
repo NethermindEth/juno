@@ -572,16 +572,16 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.shadowStateUpdate = su
 			b.shadowBlock = block
 
-			b.pendingBlock.Block.Header = block.Header
-			b.pendingBlock.Block.GlobalStateRoot = nil
+			// b.pendingBlock.Block.Header = block.Header
+			// b.pendingBlock.Block.GlobalStateRoot = nil
 			// b.pendingBlock.Block.Receipts = nil
-			b.pendingBlock.Block.TransactionCount = 0
-			// b.pendingBlock.Block.Transactions = nil
-			// b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion
-			// b.pendingBlock.Block.Header.GasPrice = block.GasPrice
-			// b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK
-			// b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode
-			// b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice
+			// b.pendingBlock.Block.TransactionCount = 0
+			b.pendingBlock.Block.Transactions = nil
+			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion
+			b.pendingBlock.Block.Header.GasPrice = block.GasPrice
+			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK
+			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode
+			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice
 
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {

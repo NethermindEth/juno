@@ -1133,7 +1133,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		if err = state.Update(pending.Block.Number, pending.StateUpdate.StateDiff, pending.NewClasses); err != nil {
 			return err
 		}
-
+		fmt.Println("pending.Block.ParentHash", pending.Block.ParentHash)
 		pending.Block.GlobalStateRoot, err = state.Root()
 		if err != nil {
 			return err
@@ -1166,7 +1166,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		if err != nil {
 			return err
 		}
-		fmt.Println("commitments", commitments.EventCommitment.String(), commitments.ReceiptCommitment.String(), commitments.TransactionCommitment.String())
+		fmt.Println("commitments ev, rec, tx", commitments.EventCommitment.String(), commitments.ReceiptCommitment.String(), commitments.TransactionCommitment.String())
 		pending.StateUpdate.BlockHash = pending.Block.Hash
 
 		if sign != nil {
