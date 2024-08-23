@@ -280,8 +280,10 @@ pub fn class_info_from_json_str(
         if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
             class.into()
         } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
+            println!("v1 contract");
             class.into()
         } else if let Ok(class) = {
+            println!("native contract");
             let library_output_path = generate_library_path(class_hash);
             native_try_from_json_string(class_def.as_str(), &library_output_path)
         } {
@@ -314,7 +316,8 @@ fn native_try_from_json_string(
         library_output_path: &PathBuf,
     ) -> Result<AotNativeExecutor, Box<dyn std::error::Error>> {
         let native_context = NativeContext::new();
-        let native_module = native_context.compile(&sierra_program, None)?;
+        let native_module = native_context.compile(&sierra_program)?;
+
         persist_from_native_module(native_module, &sierra_program, library_output_path)
     }
 
