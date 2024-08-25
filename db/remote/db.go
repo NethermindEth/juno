@@ -2,7 +2,6 @@ package remote
 
 import (
 	"context"
-	"math"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -13,15 +12,15 @@ import (
 var _ db.DB = (*DB)(nil)
 
 type DB struct {
-	ctx context.Context
-
+	ctx        context.Context
 	grpcClient *grpc.ClientConn
 	kvClient   gen.KVClient
 	log        utils.SimpleLogger
+	listener   db.EventListener
 }
 
 func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
-	grpcClient, err := grpc.NewClient(rawURL, opts...)
+	grpcClient, err := grpc.Dial(rawURL, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -35,29 +34,44 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 }
 
 func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txClient, err := d.kvClient.Tx(d.ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if d.listener != nil {
+		d.listener.OnNewTransaction(write)
 	}
 
 	return &transaction{client: txClient, log: d.log}, nil
 }
 
 func (d *DB) View(fn func(txn db.Transaction) error) error {
+	if d.listener != nil {
+		d.listener.OnView()
+	}
+
 	return db.View(d, fn)
 }
 
 func (d *DB) Update(fn func(txn db.Transaction) error) error {
+	if d.listener != nil {
+		d.listener.OnUpdate()
+	}
+
 	return db.Update(d, fn)
 }
 
-
 func (d *DB) WithListener(listener db.EventListener) db.DB {
-	d.eventListener = listener
+	d.listener = listener
 	return d
 }
 
 func (d *DB) Close() error {
+	if d.listener != nil {
+		d.listener.OnClose()
+	}
+
 	return d.grpcClient.Close()
 }
 
