@@ -51,7 +51,9 @@ func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	return db.Update(d, fn)
 }
 
+
 func (d *DB) WithListener(listener db.EventListener) db.DB {
+	d.eventListener = listener
 	return d
 }
 
