@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -22,7 +23,10 @@ func TestHandleReadyRequest(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	rpchandler := rpc.New(mockReader, synchronizer, nil, "", nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	cancel()
+
+	syncer := sync.New(nil, nil, nil, 0, false)
+	sub := syncer.SubscribeNewHeads()
 
 	t.Run("not ready", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/ready", http.NoBody)
@@ -36,11 +40,12 @@ func TestHandleReadyRequest(t *testing.T) {
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 	})
 
+	synchronizer.EXPECT().SubscribeNewHeads().Return(sub)
+	assert.Nil(t, rpchandler.Run(ctx))
+
 	t.Run("ready", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/ready", http.NoBody)
 		assert.Nil(t, err)
-
-		rpchandler.SetReady()
 
 		rr := httptest.NewRecorder()
 
@@ -59,7 +64,10 @@ func TestHandleReadySyncRequest(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	rpchandler := rpc.New(mockReader, synchronizer, nil, "", nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	cancel()
+
+	syncer := sync.New(nil, nil, nil, 0, false)
+	sub := syncer.SubscribeNewHeads()
 
 	t.Run("not ready", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/ready/sync", http.NoBody)
@@ -73,7 +81,8 @@ func TestHandleReadySyncRequest(t *testing.T) {
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 	})
 
-	rpchandler.SetReady()
+	synchronizer.EXPECT().SubscribeNewHeads().Return(sub)
+	assert.Nil(t, rpchandler.Run(ctx))
 
 	t.Run("ready and blockNumber outside blockRange to highestBlock", func(t *testing.T) {
 		blockNum := uint64(2)

@@ -272,8 +272,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		log.Warnw("Failed to parse Juno version, will not warn about new releases", "version", version)
 	}
 
-	rpcHandler.SetReady()
-
 	return n, nil
 }
 

@@ -153,6 +153,7 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
+	h.setReady()
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
@@ -175,7 +176,7 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
 }
 
-func (h *Handler) SetReady() {
+func (h *Handler) setReady() {
 	h.ready = true
 }
 
