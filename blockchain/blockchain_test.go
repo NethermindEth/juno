@@ -914,7 +914,7 @@ func TestFinalize(t *testing.T) {
 		return sigs[0], nil
 	}
 
-	require.NoError(t, chain.Finalise(pendingGenesis, sign, nil))
+	require.NoError(t, chain.Finalise(pendingGenesis, sign, nil, nil))
 	require.Equal(t, pendingGenesis.Block.Signatures, sigs)
 	h, err := chain.Head()
 	require.NoError(t, err)
@@ -922,7 +922,7 @@ func TestFinalize(t *testing.T) {
 
 	pending, err := chain.Pending()
 	require.NoError(t, err)
-	require.NoError(t, chain.Finalise(&pending, sign, nil))
+	require.NoError(t, chain.Finalise(&pending, sign, nil, nil))
 	require.Equal(t, pendingGenesis.Block.Signatures, sigs)
 	h, err = chain.Head()
 	require.NoError(t, err)

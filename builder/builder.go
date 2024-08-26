@@ -236,7 +236,7 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
 
-	if err := b.bc.Finalise(&b.pendingBlock, signFunc, b.shadowStateUpdate); err != nil {
+	if err := b.bc.Finalise(&b.pendingBlock, signFunc, b.shadowStateUpdate, b.shadowBlock); err != nil {
 		return err
 	}
 	b.log.Infow("Finalised block", "number", b.pendingBlock.Block.Number, "hash",

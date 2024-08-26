@@ -1116,10 +1116,9 @@ type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt
 
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the
 // blockchain
-func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateUpdate *core.StateUpdate) error {
+func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateUpdate *core.StateUpdate, shadowBlock *core.Block) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		var err error
-
 		state := core.NewState(txn)
 		pending.StateUpdate.OldRoot, err = state.Root()
 		if err != nil {
@@ -1130,36 +1129,13 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 			pending.Block.Number = h + 1
 		}
 
-		// Todo: Do we update here, but potentially fail later?
 		if err = state.Update(pending.Block.Number, pending.StateUpdate.StateDiff, pending.NewClasses); err != nil {
 			return err
 		}
-		fmt.Println("pending.Block.ParentHash", pending.Block.ParentHash)
 		pending.Block.GlobalStateRoot, err = state.Root()
 		if err != nil {
 			return err
 		}
-		if shadowStateUpdate != nil && !shadowStateUpdate.NewRoot.Equal(pending.Block.GlobalStateRoot) {
-			diffString, diffFound := pending.StateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
-			err := state.Revert(pending.Block.Number, pending.StateUpdate.StateDiff)
-			if err != nil {
-				return fmt.Errorf("failed to revert state: %w", err)
-			}
-			txnErr := txn.Discard()
-			if txnErr != nil {
-				return fmt.Errorf("failed to discard transaction: %w", txnErr)
-			}
-			return fmt.Errorf(
-				"sequencers state root %s != shadow block state root %s\n"+
-					"Sequencers final State Diff does not match Sepolias, diffFound: %v\n"+
-					"Details:\n%s",
-				pending.Block.GlobalStateRoot.String(),
-				shadowStateUpdate.NewRoot.String(),
-				diffFound,
-				diffString,
-			)
-		}
-
 		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
 
 		var commitments *core.BlockCommitments
@@ -1168,10 +1144,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 			return err
 		}
 		pending.StateUpdate.BlockHash = pending.Block.Hash
-		if !pending.Block.Hash.Equal(shadowStateUpdate.BlockHash) {
-			txn.Discard()
-			return fmt.Errorf("sequencer block hash %s doesn't equal sepolias block hash %s", pending.Block.Hash.String(), shadowStateUpdate.BlockHash.String())
-		}
+
 		if sign != nil {
 			pending.Block.Signatures = [][]*felt.Felt{}
 			var sig []*felt.Felt
@@ -1183,13 +1156,117 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 				pending.Block.Signatures = append(pending.Block.Signatures, sig)
 			}
 		}
-		fmt.Println("pending.Block.L1DataGasPrice", pending.Block.L1DataGasPrice)
+
+		if shadowStateUpdate != nil {
+			if err := b.validateStateDiff(shadowStateUpdate, pending.StateUpdate); err != nil {
+				return err
+			}
+			if err := b.validateCommitments(shadowBlock, shadowStateUpdate, commitments); err != nil {
+				return err
+			}
+			if err := b.validateHeader(shadowBlock.Header, pending.Block.Header); err != nil {
+				return err
+			}
+		}
+
 		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {
 			return err
 		}
 
 		return storeStateUpdate(txn, pending.Block.Number, pending.StateUpdate)
 	})
+}
+
+func (b *Blockchain) validateStateDiff(shadowStateUpdate, pendingStateUpdate *core.StateUpdate) error {
+	diffString, diffFound := pendingStateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
+	if diffFound {
+		fmt.Println(diffString)
+		return fmt.Errorf("state diff validation failed")
+	}
+	return nil
+}
+
+func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpdate *core.StateUpdate, sequenceCommitments *core.BlockCommitments) error {
+
+	_, shadowCommitments, err := core.Post0132Hash(shadowBlock, shadowStateUpdate.StateDiff)
+	if err != nil {
+		return fmt.Errorf("failed to compute the shadow commitments %s", err)
+	}
+
+	if !shadowCommitments.TransactionCommitment.Equal(sequenceCommitments.TransactionCommitment) {
+		return fmt.Errorf("transaction commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.TransactionCommitment, sequenceCommitments.TransactionCommitment)
+	}
+
+	if !shadowCommitments.EventCommitment.Equal(sequenceCommitments.EventCommitment) {
+		return fmt.Errorf("event commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.EventCommitment, sequenceCommitments.EventCommitment)
+	}
+
+	if !shadowCommitments.ReceiptCommitment.Equal(sequenceCommitments.ReceiptCommitment) {
+		return fmt.Errorf("receipt commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.ReceiptCommitment, sequenceCommitments.ReceiptCommitment)
+	}
+
+	if !shadowCommitments.StateDiffCommitment.Equal(sequenceCommitments.StateDiffCommitment) {
+		return fmt.Errorf("state diff commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.StateDiffCommitment, sequenceCommitments.StateDiffCommitment)
+	}
+
+	return nil
+}
+
+func (b *Blockchain) validateHeader(shadowHeader *core.Header, sequenceHeader *core.Header) error {
+	if !shadowHeader.ParentHash.Equal(sequenceHeader.ParentHash) {
+		return fmt.Errorf("parent hash mismatch: shadowHeader parent hash %v, sequenceHeader parent hash %v", shadowHeader.ParentHash, sequenceHeader.ParentHash)
+	}
+
+	if shadowHeader.Number != sequenceHeader.Number {
+		return fmt.Errorf("block number mismatch: shadowHeader number %v, sequenceHeader number %v", shadowHeader.Number, sequenceHeader.Number)
+	}
+	if !shadowHeader.SequencerAddress.Equal(sequenceHeader.SequencerAddress) {
+		return fmt.Errorf("sequencer address mismatch: shadowHeader sequencer address %v, sequenceHeader sequencer address %v", shadowHeader.SequencerAddress, sequenceHeader.SequencerAddress)
+	}
+	if shadowHeader.TransactionCount != sequenceHeader.TransactionCount {
+		return fmt.Errorf("transaction count mismatch: shadowHeader transaction count %v, sequenceHeader transaction count %v", shadowHeader.TransactionCount, sequenceHeader.TransactionCount)
+	}
+	if shadowHeader.EventCount != sequenceHeader.EventCount {
+		return fmt.Errorf("event count mismatch: shadowHeader event count %v, sequenceHeader event count %v", shadowHeader.EventCount, sequenceHeader.EventCount)
+	}
+	if shadowHeader.Timestamp != sequenceHeader.Timestamp {
+		return fmt.Errorf("timestamp mismatch: shadowHeader timestamp %v, sequenceHeader timestamp %v", shadowHeader.Timestamp, sequenceHeader.Timestamp)
+	}
+	if shadowHeader.ProtocolVersion != sequenceHeader.ProtocolVersion {
+		return fmt.Errorf("protocol version mismatch: shadowHeader protocol version %v, sequenceHeader protocol version %v", shadowHeader.ProtocolVersion, sequenceHeader.ProtocolVersion)
+	}
+	// Todo: remove, doesn't affect blockhash.
+	// if !shadowHeader.EventsBloom.Equal(sequenceHeader.EventsBloom) {
+	// 	shadowBloom := shadowHeader.EventsBloom
+	// 	shadowBitSetString := fmt.Errorf("m %d, k %d, bitset %s", shadowBloom.Cap(), shadowBloom.K(), shadowBloom.BitSet().String())
+	// 	seqBloom := sequenceHeader.EventsBloom
+	// 	seqBitSetString := fmt.Errorf("m %d, k %d, bitset %s", seqBloom.Cap(), seqBloom.K(), seqBloom.BitSet().String())
+	// 	return fmt.Errorf("events bloom filter mismatch: shadowHeader events bloom %v, sequenceHeader events bloom %v", shadowBitSetString, seqBitSetString)
+	// }
+	if !shadowHeader.GasPrice.Equal(sequenceHeader.GasPrice) {
+		return fmt.Errorf("gas price mismatch: shadowHeader gas price %v, sequenceHeader gas price %v", shadowHeader.GasPrice, sequenceHeader.GasPrice)
+	}
+	if !shadowHeader.GasPriceSTRK.Equal(sequenceHeader.GasPriceSTRK) {
+		return fmt.Errorf("gas price STRK mismatch: shadowHeader gas price STRK %v, sequenceHeader gas price STRK %v", shadowHeader.GasPriceSTRK, sequenceHeader.GasPriceSTRK)
+	}
+	if shadowHeader.L1DAMode != sequenceHeader.L1DAMode {
+		return fmt.Errorf("L1 data availability mode mismatch: shadowHeader L1DAMode %v, sequenceHeader L1DAMode %v", shadowHeader.L1DAMode, sequenceHeader.L1DAMode)
+	}
+	if !shadowHeader.L1DataGasPrice.PriceInFri.Equal(sequenceHeader.L1DataGasPrice.PriceInFri) {
+		return fmt.Errorf("L1 data gas PriceInFri mismatch: shadowHeader L1DataGasPrice %v, sequenceHeader L1DataGasPrice %v", shadowHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
+	}
+	if !shadowHeader.L1DataGasPrice.PriceInWei.Equal(sequenceHeader.L1DataGasPrice.PriceInWei) {
+		return fmt.Errorf("L1 data gas PriceInFri mismatch: shadowHeader L1DataGasPrice %v, sequenceHeader L1DataGasPrice %v", shadowHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
+	}
+
+	if !shadowHeader.GlobalStateRoot.Equal(sequenceHeader.GlobalStateRoot) {
+		return fmt.Errorf("global state root mismatch: shadowHeader global state root %v, sequenceHeader global state root %v", shadowHeader.GlobalStateRoot, sequenceHeader.GlobalStateRoot)
+	}
+
+	if !shadowHeader.Hash.Equal(sequenceHeader.Hash) {
+		return fmt.Errorf("hash mismatch: shadowHeader hash %v, sequenceHeader hash %v", shadowHeader.Hash, sequenceHeader.Hash)
+	}
+	return nil
 }
 
 func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
@@ -1215,5 +1292,5 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 	}
 	return b.Finalise(&pendingGenesis, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
 		return nil, nil
-	}, nil)
+	}, nil, nil)
 }
