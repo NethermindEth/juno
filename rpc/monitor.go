@@ -11,9 +11,9 @@ const (
 func (h *Handler) HandleReadyRequest(w http.ResponseWriter, r *http.Request) {
 	if h.ready {
 		w.WriteHeader(http.StatusOK)
-	} else {
-		w.WriteHeader(http.StatusServiceUnavailable)
+		return
 	}
+	w.WriteHeader(http.StatusServiceUnavailable)
 }
 
 func (h *Handler) HandleReadySyncRequest(w http.ResponseWriter, r *http.Request) {
