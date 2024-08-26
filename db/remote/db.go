@@ -22,7 +22,7 @@ type DB struct {
 }
 
 func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
-	grpcClient, err := grpc.Dial(rawURL, opts...)
+	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {
 		return nil, err
 	}
