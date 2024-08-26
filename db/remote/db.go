@@ -2,6 +2,8 @@ package remote
 
 import (
 	"context"
+	"math"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -34,32 +36,34 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 }
 
 func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
-	txClient, err := d.kvClient.Tx(d.ctx)
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
 	if err != nil {
 		return nil, err
 	}
 
 	if d.listener != nil {
-		d.listener.OnNewTransaction(write)
+		d.listener.OnIO(write, time.Since(start))
 	}
 
 	return &transaction{client: txClient, log: d.log}, nil
 }
 
 func (d *DB) View(fn func(txn db.Transaction) error) error {
-	if d.listener != nil {
-		d.listener.OnView()
-	}
-
 	return db.View(d, fn)
 }
 
 func (d *DB) Update(fn func(txn db.Transaction) error) error {
+	start := time.Now()
+
+	err := db.Update(d, fn)
+
 	if d.listener != nil {
-		d.listener.OnUpdate()
+		d.listener.OnCommit(time.Since(start))
 	}
 
-	return db.Update(d, fn)
+	return err
 }
 
 func (d *DB) WithListener(listener db.EventListener) db.DB {
@@ -68,10 +72,6 @@ func (d *DB) WithListener(listener db.EventListener) db.DB {
 }
 
 func (d *DB) Close() error {
-	if d.listener != nil {
-		d.listener.OnClose()
-	}
-
 	return d.grpcClient.Close()
 }
 
