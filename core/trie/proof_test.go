@@ -924,7 +924,7 @@ func TestMergeProofPaths(t *testing.T) {
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
 		require.NoError(t, err)
 
-		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		mergedProofs, _, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
 		containsLeft := containsAll(mergedProofs, proofs[0])
@@ -949,7 +949,7 @@ func TestMergeProofPaths(t *testing.T) {
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
 		require.NoError(t, err)
 
-		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		mergedProofs, _, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
 		containsLeft := containsAll(mergedProofs, proofs[0])
@@ -973,7 +973,7 @@ func TestMergeProofPaths(t *testing.T) {
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
 		require.NoError(t, err)
 
-		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		mergedProofs, _, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
 		containsLeft := containsAll(mergedProofs, proofs[0])
@@ -998,10 +998,10 @@ func TestSplitProofPaths(t *testing.T) {
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
 		require.NoError(t, err)
 
-		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		mergedProofs, rootHash, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
-		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, crypto.Pedersen)
+		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
 
 		leftIsSame := isSameProofPath(leftSplit, proofs[0])
@@ -1024,10 +1024,10 @@ func TestSplitProofPaths(t *testing.T) {
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
 		require.NoError(t, err)
 
-		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		mergedProofs, rootHash, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
-		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, crypto.Pedersen)
+		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
 
 		leftIsSame := isSameProofPath(leftSplit, proofs[0])
@@ -1048,10 +1048,10 @@ func TestSplitProofPaths(t *testing.T) {
 		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
 		require.NoError(t, err)
 
-		mergedProofs, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		mergedProofs, rootHash, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
-		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, crypto.Pedersen)
+		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
 
 		leftIsSame := isSameProofPath(leftSplit, proofs[0])

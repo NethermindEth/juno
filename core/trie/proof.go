@@ -133,36 +133,55 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
-// Checks if the checkNodeHash is a child of the currNode
-func isChild(currNode ProofNode, checkNodeHash *felt.Felt) bool {
-	if currNode.Binary != nil {
-		if checkNodeHash.Equal(currNode.Binary.LeftHash) || checkNodeHash.Equal(currNode.Binary.RightHash) {
-			return true
-		}
-	} else if currNode.Edge != nil {
-		if checkNodeHash.Equal(currNode.Edge.Child) {
-			return true
+func traverseNodesAndAppendToPath(path *[]ProofNode, currNode *ProofNode, nodeHashes map[string]ProofNode) error {
+	whileLoop := true
+	for whileLoop {
+		switch {
+		case currNode.Binary != nil:
+			expectedLeftHash := currNode.Binary.LeftHash.String()
+			expectedRightHash := currNode.Binary.RightHash.String()
+
+			nodeLeft, leftExist := nodeHashes[expectedLeftHash]
+			nodeRight, rightExist := nodeHashes[expectedRightHash]
+			if leftExist && rightExist {
+				return errors.New("unexpected error")
+			} else if leftExist {
+				currNode = &nodeLeft
+				*path = append(*path, *currNode)
+			} else if rightExist {
+				currNode = &nodeRight
+				*path = append(*path, *currNode)
+			} else {
+				whileLoop = false
+			}
+		case currNode.Edge != nil:
+			righNode, exists := nodeHashes[currNode.Edge.Child.String()]
+			if exists {
+				currNode = &righNode
+				*path = append(*path, *currNode)
+			} else {
+				whileLoop = false
+			}
 		}
 	}
 
-	return false
-}
-
-// Hash function does not work for edges this also returns hash for edges
-func getProofNodeHash(node ProofNode, hash hashFunc) *felt.Felt {
-	nodeHash := node.Hash(hash)
-
-	if node.Edge != nil {
-		nodeHash = node.Edge.Child
-	}
-
-	return nodeHash
+	return nil
 }
 
 // Remove duplicates and merges proof paths into a single path
-func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, error) {
+func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, *felt.Felt, error) {
 	merged := []ProofNode{}
 	minLen := min(len(leftPath), len(rightPath))
+
+	if len(leftPath) == 0 || len(rightPath) == 0 {
+		return merged, nil, errors.New("empty proof paths")
+	}
+
+	if !leftPath[0].Hash(hash).Equal(rightPath[0].Hash(hash)) {
+		return merged, nil, errors.New("roots of the proof paths are different")
+	}
+
+	rootHash := leftPath[0].Hash(hash)
 
 	// Get duplicates and insert by one
 	i := 0
@@ -190,10 +209,10 @@ func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNod
 		merged = append(merged, rightPath[i:]...)
 	}
 
-	return merged, nil
+	return merged, rootHash, nil
 }
 
-func SplitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []ProofNode, error) {
+func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) ([]ProofNode, []ProofNode, error) {
 	leftPath := []ProofNode{}
 	rightPath := []ProofNode{}
 
@@ -201,63 +220,71 @@ func SplitProofPath(mergedPath []ProofNode, hash hashFunc) ([]ProofNode, []Proof
 		return leftPath, rightPath, nil
 	}
 
-	currNode := mergedPath[0]
+	nodeHashes := make(map[string]ProofNode)
+
+	for _, node := range mergedPath {
+		nodeHash := node.Hash(hash)
+		nodeHashes[nodeHash.String()] = node
+	}
+
+	currNode, rootExists := nodeHashes[rootHash.String()]
+	if !rootExists {
+		return leftPath, rightPath, errors.New("root hash not found in the merged path")
+	}
+
 	leftPath = append(leftPath, currNode)
 	rightPath = append(rightPath, currNode)
 
-	// Loop through the merged path find the first node which has both left and right hashes in the merged path
-	breakLoop := false
-	i := 1
-	for ; i < len(mergedPath)-1; i++ {
-		if breakLoop {
-			break
-		}
+	whileLoop := true
+	for whileLoop {
 		switch {
 		case currNode.Binary != nil:
-			expectedHashLeft := currNode.Binary.LeftHash
-			expectedHashRight := currNode.Binary.RightHash
+			expectedLeftHash := currNode.Binary.LeftHash
+			expectedRightHash := currNode.Binary.RightHash
 
-			if mergedPath[i].Hash(hash).Equal(expectedHashLeft) {
-				leftPath = append(leftPath, mergedPath[i])
-				if mergedPath[i+1].Hash(hash).Equal(expectedHashRight) {
-					// Here we found the node which has both left and right hashes in the merged path
-					rightPath = append(rightPath, mergedPath[i+1])
-					breakLoop = true
-					i++
-				} else {
-					rightPath = append(rightPath, mergedPath[i])
-				}
-			} else if mergedPath[i].Hash(hash).Equal(expectedHashRight) {
-				// Since left and right path inserted into merged path in order, we can assume that
-				// if the next hash is equal to the right hash, then there is no left hash in the merged path
-				leftPath = append(leftPath, mergedPath[i])
-				rightPath = append(rightPath, mergedPath[i])
+			nodeLeft, leftExist := nodeHashes[expectedLeftHash.String()]
+			nodeRight, rightExist := nodeHashes[expectedRightHash.String()]
+			if leftExist && rightExist {
+				// split happens
+				leftPath = append(leftPath, nodeLeft)
+				rightPath = append(rightPath, nodeRight)
+				whileLoop = false
+			} else if leftExist {
+				// only left exist continue to the loop
+				currNode = nodeLeft
+				leftPath = append(leftPath, currNode)
+				rightPath = append(rightPath, currNode)
+			} else if rightExist {
+				// only right exist continue to the loop
+				currNode = nodeRight
+				leftPath = append(leftPath, currNode)
+				rightPath = append(rightPath, currNode)
+			} else {
+				// none of the left and right exist, break the loop
+				whileLoop = false
 			}
-			currNode = mergedPath[i]
 		case currNode.Edge != nil:
-			leftPath = append(leftPath, mergedPath[i])
-			rightPath = append(rightPath, mergedPath[i])
-			currNode = mergedPath[i]
+			edgeNode, exist := nodeHashes[currNode.Edge.Child.String()]
+			if exist {
+				currNode = edgeNode
+				leftPath = append(leftPath, currNode)
+				rightPath = append(rightPath, currNode)
+			} else {
+				whileLoop = false
+			}
 		}
 	}
 
 	leftCurr := leftPath[len(leftPath)-1]
 	rightCurr := rightPath[len(rightPath)-1]
 
-	// Append to left path if it is a child of the left path
-	// Append to right path if it is a child of the right path
-	for ; i < len(mergedPath); i++ {
-		mergedNodeHash := getProofNodeHash(mergedPath[i], hash)
-
-		if isChild(leftCurr, mergedNodeHash) {
-			leftPath = append(leftPath, mergedPath[i])
-			leftCurr = mergedPath[i]
-		}
-
-		if isChild(rightCurr, mergedNodeHash) {
-			rightPath = append(rightPath, mergedPath[i])
-			rightCurr = mergedPath[i]
-		}
+	err := traverseNodesAndAppendToPath(&leftPath, &leftCurr, nodeHashes)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = traverseNodesAndAppendToPath(&rightPath, &rightCurr, nodeHashes)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return leftPath, rightPath, nil
