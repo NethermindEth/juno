@@ -1,4 +1,4 @@
-package rpc_test
+package node_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/assert"
@@ -34,7 +35,7 @@ func TestHandleReadyRequest(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		handler := http.HandlerFunc(rpchandler.HandleReadyRequest)
+		handler := node.GenerateReadyHandler(rpchandler)
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
@@ -49,7 +50,7 @@ func TestHandleReadyRequest(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		handler := http.HandlerFunc(rpchandler.HandleReadyRequest)
+		handler := node.GenerateReadyHandler(rpchandler)
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -75,7 +76,7 @@ func TestHandleReadySyncRequest(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		handler := http.HandlerFunc(rpchandler.HandleReadySyncRequest)
+		handler := node.GenerateReadySyncHandler(rpchandler)
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
@@ -86,7 +87,7 @@ func TestHandleReadySyncRequest(t *testing.T) {
 
 	t.Run("ready and blockNumber outside blockRange to highestBlock", func(t *testing.T) {
 		blockNum := uint64(2)
-		highestBlock := blockNum + rpc.BlockRange + 1
+		highestBlock := blockNum + rpc.SyncBlockRange + 1
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
 
@@ -95,7 +96,7 @@ func TestHandleReadySyncRequest(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		handler := http.HandlerFunc(rpchandler.HandleReadySyncRequest)
+		handler := node.GenerateReadySyncHandler(rpchandler)
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
@@ -113,7 +114,7 @@ func TestHandleReadySyncRequest(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		handler := http.HandlerFunc(rpchandler.HandleReadySyncRequest)
+		handler := node.GenerateReadySyncHandler(rpchandler)
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
@@ -121,7 +122,7 @@ func TestHandleReadySyncRequest(t *testing.T) {
 
 	t.Run("ready & blockNumber is in blockRange of highestBlock", func(t *testing.T) {
 		blockNum := uint64(3)
-		highestBlock := blockNum + rpc.BlockRange
+		highestBlock := blockNum + rpc.SyncBlockRange
 
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
@@ -131,7 +132,7 @@ func TestHandleReadySyncRequest(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		handler := http.HandlerFunc(rpchandler.HandleReadySyncRequest)
+		handler := node.GenerateReadySyncHandler(rpchandler)
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)

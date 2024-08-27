@@ -67,6 +67,8 @@ const (
 	throttledVMErr     = "VM throughput limit reached"
 )
 
+const SyncBlockRange = 6
+
 type traceCacheKey struct {
 	blockHash    felt.Felt
 	v0_6Response bool
@@ -178,6 +180,31 @@ func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 
 func (h *Handler) setReady() {
 	h.ready = true
+}
+
+func (h *Handler) IsReady() bool {
+	return h.ready
+}
+
+func (h *Handler) IsSynced() bool {
+	head, err := h.bcReader.HeadsHeader()
+	if err != nil {
+		return false
+	}
+	highestBlockHeader := h.syncReader.HighestBlockHeader()
+	if highestBlockHeader == nil {
+		return false
+	}
+
+	if head.Number > highestBlockHeader.Number {
+		return false
+	}
+
+	if head.Number+SyncBlockRange >= highestBlockHeader.Number {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen

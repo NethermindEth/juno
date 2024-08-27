@@ -72,6 +72,32 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 	}
 }
 
+func GenerateReadyHandler(rpchandler *rpc.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if rpchandler.IsReady() {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+}
+
+func GenerateReadySyncHandler(rpchandler *rpc.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !rpchandler.IsReady() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		if !rpchandler.IsSynced() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
 	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool, rpchandler *rpc.Handler,
 ) *httpService {
@@ -89,8 +115,8 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 		mux.Handle(path, exactPathServer(path, httpHandler))
 	}
 
-	mux.HandleFunc("/ready", rpchandler.HandleReadyRequest)
-	mux.HandleFunc("/ready/sync", rpchandler.HandleReadySyncRequest)
+	mux.HandleFunc("/ready", GenerateReadyHandler(rpchandler))
+	mux.HandleFunc("/ready/sync", GenerateReadySyncHandler(rpchandler))
 
 	var handler http.Handler = mux
 	if corsEnabled {
