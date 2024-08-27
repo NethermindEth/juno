@@ -515,6 +515,8 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
 		b.log.Fatalf(diffStr)
 	}
+	// receipt.Events=b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].Events // Todo: Events are the last thing in block hash error
+
 	// receipt = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount] // Todo: remove, test to see if this is the only issue
 
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)

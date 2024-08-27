@@ -86,7 +86,41 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 		foundDiff = true
 		result.WriteString(fmt.Sprintf("L1DataGas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n", r1Gas.L1DataGas, r2Gas.L1DataGas))
 	}
+	if len(r1.Events) != len(r2.Events) {
+		foundDiff = true
+		result.WriteString(fmt.Sprintf("Events have DIFFERENT length \n\t- g1: %d\n\t- g2: %d\n", len(r1.Events), len(r1.Events)))
+	} else {
+		for ind, event := range r1.Events {
+			if !event.From.Equal(r2.Events[ind].From) {
+				foundDiff = true
+				result.WriteString(fmt.Sprintf("Events have DIFFERENT From value at index %d \n\t- g1: %d\n\t- g2: %d\n", ind, event.From, r2.Events[ind].From))
+				break
+			}
+			if !equalSlices(r1.Events[ind].Keys, r2.Events[ind].Keys) {
+				foundDiff = true
+				result.WriteString(fmt.Sprintf("Events have DIFFERENT Keys \n\t- g1: %v\n\t- g2: %v\n", event.Keys, r2.Events[ind].Keys))
+				break
+			}
+			if !equalSlices(r1.Events[ind].Data, r2.Events[ind].Data) {
+				foundDiff = true
+				result.WriteString(fmt.Sprintf("Events have DIFFERENT Data \n\t- g1: %v\n\t- g2: %v\n", event.Keys, r2.Events[ind].Keys))
+				break
+			}
+		}
+	}
 	return foundDiff, result.String()
+}
+
+func equalSlices(a, b []*felt.Felt) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !a[i].Equal(b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // func (tr *TransactionReceipt) Diff(other *TransactionReceipt, left, right string) (bool, string) {
