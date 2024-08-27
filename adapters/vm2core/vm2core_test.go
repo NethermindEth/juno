@@ -82,8 +82,9 @@ func TestAdaptExecutionResources(t *testing.T) {
 			Poseidon:     7,
 			SegmentArena: 8,
 		},
-		MemoryHoles: 9,
-		Steps:       10,
+		MemoryHoles:      9,
+		Steps:            10,
+		TotalGasConsumed: &core.GasConsumed{L1Gas: 1, L1DataGas: 2},
 	}, vm2core.AdaptExecutionResources(&vm.ExecutionResources{
 		ComputationResources: vm.ComputationResources{
 			Steps:        10,
@@ -97,5 +98,5 @@ func TestAdaptExecutionResources(t *testing.T) {
 			Poseidon:     7,
 			SegmentArena: 8,
 		},
-	}))
+	}, &vm.GasConsumed{L1Gas: 1, L1DataGas: 2}))
 }
