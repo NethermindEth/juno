@@ -983,6 +983,25 @@ func TestMergeProofPaths(t *testing.T) {
 		checkDuplicates := noDuplicates(mergedProofs)
 		require.True(t, checkDuplicates)
 	})
+
+	t.Run("Empty proof path", func(t *testing.T) {
+		tri := build4KeyTrie(t)
+		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+
+		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		emptyPath := []trie.ProofNode{}
+
+		_, _, err = trie.MergeProofPaths(proofs[0], emptyPath, crypto.Pedersen)
+		require.Error(t, err)
+	})
 }
 
 func TestSplitProofPaths(t *testing.T) {
@@ -1058,5 +1077,26 @@ func TestSplitProofPaths(t *testing.T) {
 		require.True(t, leftIsSame)
 		rightIsSame := isSameProofPath(rightSplit, proofs[1])
 		require.True(t, rightIsSame)
+	})
+
+	t.Run("Roothash does not exist", func(t *testing.T) {
+		tri := build4KeyTrie(t)
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
+		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
+
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, _, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		rootHashFalse := new(felt.Felt).SetUint64(0)
+
+		_, _, err = trie.SplitProofPath(mergedProofs, rootHashFalse, crypto.Pedersen)
+		require.Error(t, err)
 	})
 }
