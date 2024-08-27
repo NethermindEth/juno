@@ -1161,7 +1161,7 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 			if err := b.validateStateDiff(shadowStateUpdate, pending.StateUpdate); err != nil {
 				return err
 			}
-			if err := b.validateCommitments(shadowBlock, shadowStateUpdate, commitments); err != nil {
+			if err := b.validateCommitments(shadowBlock, shadowStateUpdate, pending.Block, commitments); err != nil {
 				return err
 			}
 			if err := b.validateHeader(shadowBlock.Header, pending.Block.Header); err != nil {
@@ -1186,7 +1186,7 @@ func (b *Blockchain) validateStateDiff(shadowStateUpdate, pendingStateUpdate *co
 	return nil
 }
 
-func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpdate *core.StateUpdate, sequenceCommitments *core.BlockCommitments) error {
+func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpdate *core.StateUpdate, sequenceBlock *core.Block, sequenceCommitments *core.BlockCommitments) error {
 	_, shadowCommitments, err := core.Post0132Hash(shadowBlock, shadowStateUpdate.StateDiff)
 	if err != nil {
 		return fmt.Errorf("failed to compute the shadow commitments %s", err)
@@ -1197,6 +1197,16 @@ func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpd
 	}
 
 	if !shadowCommitments.EventCommitment.Equal(sequenceCommitments.EventCommitment) {
+		for _, rec := range shadowBlock.Receipts {
+			for _, event := range rec.Events {
+				fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
+			}
+		}
+		for _, rec := range sequenceBlock.Receipts {
+			for _, event := range rec.Events {
+				fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
+			}
+		}
 		return fmt.Errorf("event commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.EventCommitment, sequenceCommitments.EventCommitment)
 	}
 

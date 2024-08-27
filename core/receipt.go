@@ -94,16 +94,19 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 			if !event.From.Equal(r2.Events[ind].From) {
 				foundDiff = true
 				result.WriteString(fmt.Sprintf("Events have DIFFERENT From value at index %d \n\t- g1: %d\n\t- g2: %d\n", ind, event.From, r2.Events[ind].From))
+				printEvents(r1.Events, r2.Events)
 				break
 			}
 			if !equalSlices(r1.Events[ind].Keys, r2.Events[ind].Keys) {
 				foundDiff = true
 				result.WriteString(fmt.Sprintf("Events have DIFFERENT Keys \n\t- g1: %v\n\t- g2: %v\n", event.Keys, r2.Events[ind].Keys))
+				printEvents(r1.Events, r2.Events)
 				break
 			}
 			if !equalSlices(r1.Events[ind].Data, r2.Events[ind].Data) {
 				foundDiff = true
 				result.WriteString(fmt.Sprintf("Events have DIFFERENT Data \n\t- g1: %v\n\t- g2: %v\n", event.Keys, r2.Events[ind].Keys))
+				printEvents(r1.Events, r2.Events)
 				break
 			}
 		}
@@ -111,6 +114,18 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 	return foundDiff, result.String()
 }
 
+func printEvents(events1, events2 []*Event) {
+	fmt.Println("EVENTS 1 - SEQUENER")
+	for _, event := range events1 {
+		fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
+
+	}
+	fmt.Println("EVENTS 1 - SEPOLIA")
+	for _, event := range events2 {
+		fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
+	}
+
+}
 func equalSlices(a, b []*felt.Felt) bool {
 	if len(a) != len(b) {
 		return false
