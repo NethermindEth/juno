@@ -1,6 +1,6 @@
 pub mod jsonrpc;
 mod juno_state_reader;
-
+use std::io::{self, Write};
 #[macro_use]
 extern crate lazy_static;
 
@@ -33,6 +33,7 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
+use std::borrow::Borrow;
 use std::{
     collections::HashMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
@@ -208,6 +209,8 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
 ) {
+    print!("############# blockifier");
+    io::stdout().flush().unwrap();
     let block_info: BlockInfo = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
@@ -314,7 +317,8 @@ pub extern "C" fn cairoVMExecute(
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
-
+        print!("############# blockifier");
+        io::stdout().flush().unwrap();
         match res {
             Err(error) => {
                 let err_string = match &error {
@@ -344,7 +348,20 @@ pub extern "C" fn cairoVMExecute(
                     );
                     return;
                 }
-
+                print!("############# blockifier");
+                io::stdout().flush().unwrap();
+                if let Some(validate_info) = &t.validate_call_info {
+                    print_event_orders(&validate_info);
+                }
+                
+                if let Some(execute_info) = &t.execute_call_info {
+                    print_event_orders(&execute_info);
+                }
+                
+                if let Some(fee_transfer_info) = &t.fee_transfer_call_info {
+                    print_event_orders(&fee_transfer_info);
+                }
+                
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
                     let minimal_l1_gas_amount_vector =
@@ -410,6 +427,16 @@ pub extern "C" fn cairoVMExecute(
             }
         }
         txn_state.commit();
+    }
+}
+fn print_event_orders(call_info: &blockifier::execution::call_info::CallInfo) {
+    for event in &call_info.execution.events {
+        println!("Event order: {}", event.order);
+        io::stdout().flush().unwrap();
+    }
+
+    for inner_call in &call_info.inner_calls {
+        print_event_orders(inner_call);
     }
 }
 

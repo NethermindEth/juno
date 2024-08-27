@@ -3,6 +3,7 @@ package vm
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -197,6 +198,7 @@ func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
 	}
 	return append(events, utils.Map(invocation.Events, func(e OrderedEvent) OrderedEvent {
 		e.From = &invocation.ContractAddress
+		fmt.Println("order -- ", e.Order)
 		return e
 	})...)
 }
