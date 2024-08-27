@@ -275,7 +275,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+	overallFees, dataGasConsumed, traces, _, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
 		&blockInfo, state, network, false, false, false, useBlobData)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))

@@ -58,6 +58,7 @@ type StarkFelt = Felt;
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
+    fn JunoAppendReceipt(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendDataGasConsumed(reader_handle: usize, ptr: *const c_uchar);
@@ -359,6 +360,13 @@ pub extern "C" fn cairoVMExecute(
                     .try_into()
                     .unwrap_or(u64::MAX);
 
+                let transaction_receipt = jsonrpc::TransactionReceipt {
+                    gas: t.transaction_receipt.gas,
+                    da_gas: t.transaction_receipt.da_gas,
+                    fee: t.transaction_receipt.fee,
+                };
+                append_receipt(reader_handle, &transaction_receipt, &mut trace_buffer);
+
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
                 if let Err(e) = trace {
@@ -435,6 +443,21 @@ fn append_trace(
 
     unsafe {
         JunoAppendTrace(reader_handle, ptr as *const c_void, len);
+    };
+}
+fn append_receipt(
+    reader_handle: usize,
+    trace: &jsonrpc::TransactionReceipt,
+    trace_buffer: &mut Vec<u8>,
+) {
+    trace_buffer.clear();
+    serde_json::to_writer(&mut *trace_buffer, trace).unwrap();
+
+    let ptr = trace_buffer.as_ptr();
+    let len = trace_buffer.len();
+
+    unsafe {
+        JunoAppendReceipt(reader_handle, ptr as *const c_void, len);
     };
 }
 

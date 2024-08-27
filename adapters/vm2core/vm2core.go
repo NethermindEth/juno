@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionResources {
+func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasConsumed) *core.ExecutionResources {
 	return &core.ExecutionResources{
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
 			Pedersen:     resources.Pedersen,
@@ -29,7 +29,7 @@ func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionRe
 		MemoryHoles:      resources.MemoryHoles,
 		Steps:            resources.Steps,
 		DataAvailability: adaptDA(resources.DataAvailability),
-		TotalGasConsumed: nil, // todo: fill after 0.13.2
+		TotalGasConsumed: &core.GasConsumed{L1Gas: totalGas.L1Gas, L1DataGas: totalGas.L1DataGas},
 	}
 }
 
