@@ -98,6 +98,7 @@ func (sd *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bo
 
 	return sb.String(), differencesFound
 }
+
 func compareMapsOfMaps(map1, map2 map[felt.Felt]map[felt.Felt]*felt.Felt, map1Tag, map2Tag string) (string, bool) {
 	var result strings.Builder
 	differencesFound := false

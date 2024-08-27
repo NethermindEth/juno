@@ -1187,7 +1187,6 @@ func (b *Blockchain) validateStateDiff(shadowStateUpdate, pendingStateUpdate *co
 }
 
 func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpdate *core.StateUpdate, sequenceCommitments *core.BlockCommitments) error {
-
 	_, shadowCommitments, err := core.Post0132Hash(shadowBlock, shadowStateUpdate.StateDiff)
 	if err != nil {
 		return fmt.Errorf("failed to compute the shadow commitments %s", err)

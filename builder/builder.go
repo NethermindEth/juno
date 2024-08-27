@@ -282,7 +282,7 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 			GasPriceSTRK:     pendingBlock.Block.GasPriceSTRK,
 		},
 	}
-	_, _, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, []*felt.Felt{}, blockInfo, state, //nolint:dogsled
+	_, _, _, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, []*felt.Felt{}, blockInfo, state, //nolint:dogsled
 		b.bc.Network(), false, false, false, false)
 	return err
 }
@@ -320,12 +320,12 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 	return sig, nil
 }
 
-func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.TransactionTrace) *core.TransactionReceipt {
+func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt) *core.TransactionReceipt {
 	return &core.TransactionReceipt{
 		Fee:                fee,
 		FeeUnit:            feeUnit,
 		Events:             vm2core.AdaptOrderedEvents(trace.AllEvents()),
-		ExecutionResources: vm2core.AdaptExecutionResources(trace.TotalExecutionResources()),
+		ExecutionResources: vm2core.AdaptExecutionResources(trace.TotalExecutionResources(), &txnReceipt.Gas),
 		L2ToL1Message:      vm2core.AdaptOrderedMessagesToL1(trace.AllMessages()),
 		TransactionHash:    txHash,
 		Reverted:           trace.IsReverted(),
@@ -481,7 +481,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	// 	fmt.Println(k.String(), v.String())
 	// }
 
-	fee, _, trace, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
+	fee, _, trace, txnReceipts, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
 		b.bc.Network(), false, false, true, false)
 	if err != nil {
 		return err
@@ -511,12 +511,11 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			}
 		}
 	}
-	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0])
-	// foundDiff, diffStr := receipt.Diff(b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount], "sequencer", "sepolia")
-	// if foundDiff {
-	// 	b.log.Fatalf("Generated receipt trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffStr)
-	// }
-	receipt = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount] // Todo: remove, test to see if this is the only issue
+	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
+	if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
+		b.log.Fatalf(diffStr)
+	}
+	// receipt = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount] // Todo: remove, test to see if this is the only issue
 
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)

@@ -244,6 +244,7 @@ func TestReceipt(t *testing.T) {
 			},
 		},
 	}
+	txnReceipt := vm.TransactionReceipt{Gas: vm.GasConsumed{L1Gas: 1, L1DataGas: 2}}
 	want := &core.TransactionReceipt{
 		Fee:     utils.HexToFelt(t, "0xDEADBEEF1"),
 		FeeUnit: core.STRK,
@@ -266,8 +267,9 @@ func TestReceipt(t *testing.T) {
 				Poseidon:     2,
 				SegmentArena: 1,
 			},
-			MemoryHoles: 17,
-			Steps:       700,
+			MemoryHoles:      17,
+			Steps:            700,
+			TotalGasConsumed: &core.GasConsumed{L1Gas: 1, L1DataGas: 2},
 		},
 		L1ToL2Message: nil,
 		L2ToL1Message: []*core.L2ToL1Message{
@@ -291,7 +293,7 @@ func TestReceipt(t *testing.T) {
 		Reverted:        true,
 		RevertReason:    "oops",
 	}
-	got := builder.Receipt(want.Fee, want.FeeUnit, want.TransactionHash, trace)
+	got := builder.Receipt(want.Fee, want.FeeUnit, want.TransactionHash, trace, &txnReceipt)
 	require.Equal(t, want, got)
 }
 
