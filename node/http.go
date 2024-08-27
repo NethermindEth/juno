@@ -87,12 +87,10 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 			httpHandler = httpHandler.WithListener(listener)
 		}
 		mux.Handle(path, exactPathServer(path, httpHandler))
-
-		prefixedPath := strings.TrimSuffix(path, "/")
-
-		mux.HandleFunc(prefixedPath+"/ready", rpchandler.HandleReadyRequest)
-		mux.HandleFunc(prefixedPath+"/ready/sync", rpchandler.HandleReadySyncRequest)
 	}
+
+	mux.HandleFunc("/ready", rpchandler.HandleReadyRequest)
+	mux.HandleFunc("/ready/sync", rpchandler.HandleReadySyncRequest)
 
 	var handler http.Handler = mux
 	if corsEnabled {
@@ -102,7 +100,7 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 }
 
 func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool, rpchandler *rpc.Handler,
+	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -116,15 +114,9 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 			wsHandler = wsHandler.WithListener(listener)
 		}
 		mux.Handle(path, exactPathServer(path, wsHandler))
-		prefixedPath := strings.TrimSuffix(path, "/")
+
 		wsPrefixedPath := strings.TrimSuffix("/ws"+path, "/")
 		mux.Handle(wsPrefixedPath, exactPathServer(wsPrefixedPath, wsHandler))
-
-		mux.HandleFunc(prefixedPath+"/ready", rpchandler.HandleReadyRequest)
-		mux.HandleFunc(prefixedPath+"/ready/sync", rpchandler.HandleReadySyncRequest)
-
-		mux.HandleFunc(wsPrefixedPath+"/ready", rpchandler.HandleReadyRequest)
-		mux.HandleFunc(wsPrefixedPath+"/ready/sync", rpchandler.HandleReadySyncRequest)
 	}
 
 	var handler http.Handler = mux
