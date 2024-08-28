@@ -2,10 +2,14 @@ package p2p
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
+	"os"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -266,6 +270,33 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
+	file, err := os.Open("sepolia_testnet_0.13.2_block_hashes_for_pre-0.13.2_blocks.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	hashes := make(map[uint64]*felt.Felt, 86311) //nolint:mnd
+
+	reader := csv.NewReader(file)
+	for record, err := reader.Read(); err != io.EOF; record, err = reader.Read() {
+		if err != nil {
+			panic(err)
+		}
+		idx, err := strconv.ParseUint(record[0], 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		hash, err := new(felt.Felt).SetString(record[1])
+		if err != nil {
+			panic(err)
+		}
+
+		hashes[idx] = hash
+	}
+
+	s.log.Debugw("reading hashes", "len", len(hashes))
+
 	go func() {
 		defer close(bodyCh)
 		select {
@@ -368,6 +399,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
 					return
+				}
+
+				if hash, ok := hashes[coreBlock.Number]; ok && !expectedHash.Equal(hash) {
+					s.log.Errorw("received p2p hash doesn't match csv hash", "expected", expectedHash, "csv", hash)
 				}
 
 				if !coreBlock.Hash.Equal(expectedHash) {
