@@ -2,7 +2,6 @@ package vm2core
 
 import (
 	"cmp"
-	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -60,7 +59,6 @@ func AdaptOrderedMessagesToL1(messages []vm.OrderedL2toL1Message) []*core.L2ToL1
 
 func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 	slices.SortFunc(events, func(a, b vm.OrderedEvent) int {
-		fmt.Println("order ", a.Order, b.Order)
 		return cmp.Compare(a.Order, b.Order)
 	})
 	return utils.Map(events, AdaptOrderedEvent)

@@ -3,7 +3,6 @@ package vm
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -162,9 +161,26 @@ func (t *TransactionTrace) RevertReason() string {
 
 func (t *TransactionTrace) AllEvents() []OrderedEvent {
 	events := make([]OrderedEvent, 0)
-	for _, invocation := range t.allInvocations() {
-		events = append(events, invocation.allEvents()...)
+	globalOrder := 0
+
+	addEvents := func(invocation *FunctionInvocation) {
+		if invocation != nil {
+			allEvents := invocation.allEvents()
+			for _, event := range allEvents {
+				event.Order += uint64(globalOrder)
+				events = append(events, event)
+			}
+			globalOrder += len(allEvents)
+		}
 	}
+
+	addEvents(t.ValidateInvocation)
+	addEvents(t.ExecuteInvocation.FunctionInvocation)
+	addEvents(t.FeeTransferInvocation)
+	// Todo: are these in the right order?
+	addEvents(t.ConstructorInvocation)
+	addEvents(t.FunctionInvocation)
+
 	return events
 }
 
@@ -198,7 +214,6 @@ func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
 	}
 	return append(events, utils.Map(invocation.Events, func(e OrderedEvent) OrderedEvent {
 		e.From = &invocation.ContractAddress
-		fmt.Println("order -- ", e.Order)
 		return e
 	})...)
 }

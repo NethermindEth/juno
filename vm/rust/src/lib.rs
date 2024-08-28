@@ -351,15 +351,18 @@ pub extern "C" fn cairoVMExecute(
                 print!("############# blockifier");
                 io::stdout().flush().unwrap();
                 if let Some(validate_info) = &t.validate_call_info {
-                    print_event_orders(&validate_info);
+                    let qwe = "valudate";
+                    print_event_orders(&validate_info,qwe.to_string());
                 }
                 
                 if let Some(execute_info) = &t.execute_call_info {
-                    print_event_orders(&execute_info);
+                    let qwe = "exec";
+                    print_event_orders(&execute_info,qwe.to_string());
                 }
                 
                 if let Some(fee_transfer_info) = &t.fee_transfer_call_info {
-                    print_event_orders(&fee_transfer_info);
+                    let qwe = "fee ter";
+                    print_event_orders(&fee_transfer_info,qwe.to_string());
                 }
                 
                 // we are estimating fee, override actual fee calculation
@@ -429,14 +432,18 @@ pub extern "C" fn cairoVMExecute(
         txn_state.commit();
     }
 }
-fn print_event_orders(call_info: &blockifier::execution::call_info::CallInfo) {
+fn print_event_orders(call_info: &blockifier::execution::call_info::CallInfo, typee:String) {
+    println!("\n typee: {}", typee);
+    io::stdout().flush().unwrap();
     for event in &call_info.execution.events {
-        println!("Event order: {}", event.order);
+        println!("\nEvent order: {}", event.order);
         io::stdout().flush().unwrap();
     }
 
     for inner_call in &call_info.inner_calls {
-        print_event_orders(inner_call);
+        println!("\n : {:?}", call_info.inner_calls.len());
+        io::stdout().flush().unwrap();
+        print_event_orders(inner_call,typee.clone());
     }
 }
 
