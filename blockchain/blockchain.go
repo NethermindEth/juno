@@ -412,14 +412,14 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	})
 }
 
-var hashes = make(map[uint64]*felt.Felt, 86311) //nolint:mnd
-
-func init() {
+var hashes = func() map[uint64]*felt.Felt {
 	file, err := os.Open("sepolia_testnet_0.13.2_block_hashes_for_pre-0.13.2_blocks.csv")
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
+
+	hashes := make(map[uint64]*felt.Felt, 86311) //nolint:mnd
 
 	reader := csv.NewReader(file)
 	for record, err := reader.Read(); err != io.EOF; record, err = reader.Read() {
@@ -437,7 +437,8 @@ func init() {
 
 		hashes[idx] = hash
 	}
-}
+	return hashes
+}()
 
 func ComputeAndStoreP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
 	hash, _, err := core.Post0132Hash(block, stateDiff)
