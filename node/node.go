@@ -210,9 +210,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		readinessHandlers := jsonrpc.NewReadinessHandlers(chain, synchronizer)
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
 		httpHandlers := map[string]http.HandlerFunc{
-			"/ready":      readinessHandlers.HandleReady,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))

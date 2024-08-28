@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -182,4 +184,44 @@ func makePPROF(host string, port uint16) *httpService {
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	return makeHTTPService(host, port, mux)
+}
+
+const SyncBlockRange = 6
+
+type readinessHandlers struct {
+	bcReader   blockchain.Reader
+	syncReader sync.Reader
+}
+
+func NewReadinessHandlers(bcReader blockchain.Reader, syncReader sync.Reader) *readinessHandlers {
+	return &readinessHandlers{
+		bcReader:   bcReader,
+		syncReader: syncReader,
+	}
+}
+
+func (h *readinessHandlers) HandleReadySync(w http.ResponseWriter, r *http.Request) {
+	if !h.isSynced() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *readinessHandlers) isSynced() bool {
+	head, err := h.bcReader.HeadsHeader()
+	if err != nil {
+		return false
+	}
+	highestBlockHeader := h.syncReader.HighestBlockHeader()
+	if highestBlockHeader == nil {
+		return false
+	}
+
+	if head.Number > highestBlockHeader.Number {
+		return false
+	}
+
+	return head.Number+SyncBlockRange >= highestBlockHeader.Number
 }
