@@ -3,8 +3,12 @@ package blockchain
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -408,10 +412,41 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	})
 }
 
+var hashes = make(map[uint64]*felt.Felt, 86311) //nolint:mnd
+
+func init() {
+	file, err := os.Open("sepolia_testnet_0.13.2_block_hashes_for_pre-0.13.2_blocks.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	for record, err := reader.Read(); err != io.EOF; record, err = reader.Read() {
+		if err != nil {
+			panic(err)
+		}
+		idx, err := strconv.ParseUint(record[0], 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		hash, err := new(felt.Felt).SetString(record[1])
+		if err != nil {
+			panic(err)
+		}
+
+		hashes[idx] = hash
+	}
+}
+
 func ComputeAndStoreP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
 	hash, _, err := core.Post0132Hash(block, stateDiff)
 	if err != nil {
 		return err
+	}
+
+	if expectedHash, ok := hashes[block.Number]; ok && !expectedHash.Equal(hash) {
+		fmt.Printf("P2P hash mismatch: expected %v got %v\n", expectedHash, hash)
 	}
 
 	return StoreP2PHash(txn, block.Number, hash)
