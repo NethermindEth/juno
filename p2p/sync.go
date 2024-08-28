@@ -407,8 +407,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 					if !expectedHash.Equal(hash) {
 						s.log.Errorw("received p2p hash doesn't match csv hash", "expected", expectedHash, "csv", hash)
 					} else {
-						s.log.Debugw("received p2p hash matches csv hash", "expected", expectedHash, "csv", hash)
+						s.log.Infow("received p2p hash matches csv hash", "expected", expectedHash, "csv", hash)
 					}
+				} else {
+					s.log.Infow("no csv hash for block", "blockNumber", coreBlock.Number)
 				}
 
 				if !coreBlock.Hash.Equal(expectedHash) {

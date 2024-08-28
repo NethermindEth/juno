@@ -446,8 +446,14 @@ func ComputeAndStoreP2PHash(txn db.Transaction, block *core.Block, stateDiff *co
 		return err
 	}
 
-	if expectedHash, ok := hashes[block.Number]; ok && !expectedHash.Equal(hash) {
-		fmt.Printf("P2P hash mismatch: expected %v got %v\n", expectedHash, hash)
+	if expectedHash, ok := hashes[block.Number]; ok {
+		if expectedHash.Equal(hash) {
+			fmt.Printf("P2P hash match: %v\n", hash)
+		} else {
+			fmt.Printf("P2P hash mismatch: expected %v got %v\n", expectedHash, hash)
+		}
+	} else {
+		fmt.Printf("P2P hash not found for block %d\n", block.Number)
 	}
 
 	return StoreP2PHash(txn, block.Number, hash)
