@@ -2,13 +2,13 @@ package jsonrpc_test
 
 import (
 	"context"
-	"github.com/NethermindEth/juno/jsonrpc"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"

@@ -1,9 +1,10 @@
 package jsonrpc
 
 import (
+	"net/http"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/sync"
-	"net/http"
 )
 
 const SyncBlockRange = 6
