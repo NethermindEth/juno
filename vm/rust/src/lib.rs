@@ -209,8 +209,6 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
 ) {
-    print!("############# blockifier");
-    io::stdout().flush().unwrap();
     let block_info: BlockInfo = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
@@ -317,8 +315,7 @@ pub extern "C" fn cairoVMExecute(
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
-        print!("############# blockifier");
-        io::stdout().flush().unwrap();
+
         match res {
             Err(error) => {
                 let err_string = match &error {
@@ -348,23 +345,23 @@ pub extern "C" fn cairoVMExecute(
                     );
                     return;
                 }
-                print!("############# blockifier");
-                io::stdout().flush().unwrap();
-                if let Some(validate_info) = &t.validate_call_info {
-                    let qwe = "valudate";
-                    print_event_orders(&validate_info,qwe.to_string());
-                }
-                
-                if let Some(execute_info) = &t.execute_call_info {
-                    let qwe = "exec";
-                    print_event_orders(&execute_info,qwe.to_string());
-                }
-                
-                if let Some(fee_transfer_info) = &t.fee_transfer_call_info {
-                    let qwe = "fee ter";
-                    print_event_orders(&fee_transfer_info,qwe.to_string());
-                }
-                
+                // print!("############# blockifier");
+                // io::stdout().flush().unwrap();
+                // if let Some(validate_info) = &t.validate_call_info {
+                //     let qwe = "valudate";
+                //     print_event_orders(&validate_info,qwe.to_string());
+                // }
+
+                // if let Some(execute_info) = &t.execute_call_info {
+                //     let qwe = "exec";
+                //     print_event_orders(&execute_info,qwe.to_string());
+                // }
+
+                // if let Some(fee_transfer_info) = &t.fee_transfer_call_info {
+                //     let qwe = "fee ter";
+                //     print_event_orders(&fee_transfer_info,qwe.to_string());
+                // }
+
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 {
                     let minimal_l1_gas_amount_vector =
@@ -432,20 +429,20 @@ pub extern "C" fn cairoVMExecute(
         txn_state.commit();
     }
 }
-fn print_event_orders(call_info: &blockifier::execution::call_info::CallInfo, typee:String) {
-    println!("\n typee: {}", typee);
-    io::stdout().flush().unwrap();
-    for event in &call_info.execution.events {
-        println!("\nEvent order: {}", event.order);
-        io::stdout().flush().unwrap();
-    }
+// fn print_event_orders(call_info: &blockifier::execution::call_info::CallInfo, typee:String) {
+//     println!("\n typee: {}", typee);
+//     io::stdout().flush().unwrap();
+//     for event in &call_info.execution.events {
+//         println!("\nEvent order: {}", event.order);
+//         io::stdout().flush().unwrap();
+//     }
 
-    for inner_call in &call_info.inner_calls {
-        println!("\n : {:?}", call_info.inner_calls.len());
-        io::stdout().flush().unwrap();
-        print_event_orders(inner_call,typee.clone());
-    }
-}
+//     for inner_call in &call_info.inner_calls {
+//         println!("\n : {:?}", call_info.inner_calls.len());
+//         io::stdout().flush().unwrap();
+//         print_event_orders(inner_call,typee.clone());
+//     }
+// }
 
 fn felt_to_u128(felt: StarkFelt) -> u128 {
     // todo find Into<u128> trait or similar

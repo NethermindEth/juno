@@ -118,14 +118,13 @@ func printEvents(events1, events2 []*Event) {
 	fmt.Println("EVENTS 1 - SEQUENER")
 	for _, event := range events1 {
 		fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
-
 	}
 	fmt.Println("EVENTS 1 - SEPOLIA")
 	for _, event := range events2 {
 		fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
 	}
-
 }
+
 func equalSlices(a, b []*felt.Felt) bool {
 	if len(a) != len(b) {
 		return false
