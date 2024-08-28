@@ -265,11 +265,7 @@ func (s *syncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-//nolint:gocyclo,funlen
-func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
-	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
-) <-chan blockBody {
-	bodyCh := make(chan blockBody)
+var hashes = func() map[uint64]*felt.Felt {
 	file, err := os.Open("sepolia_testnet_0.13.2_block_hashes_for_pre-0.13.2_blocks.csv")
 	if err != nil {
 		panic(err)
@@ -294,8 +290,14 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 
 		hashes[idx] = hash
 	}
+	return hashes
+}()
 
-	s.log.Debugw("reading hashes", "len", len(hashes))
+//nolint:gocyclo,funlen
+func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
+	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
+) <-chan blockBody {
+	bodyCh := make(chan blockBody)
 
 	go func() {
 		defer close(bodyCh)
@@ -401,8 +403,12 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 					return
 				}
 
-				if hash, ok := hashes[coreBlock.Number]; ok && !expectedHash.Equal(hash) {
-					s.log.Errorw("received p2p hash doesn't match csv hash", "expected", expectedHash, "csv", hash)
+				if hash, ok := hashes[coreBlock.Number]; ok {
+					if !expectedHash.Equal(hash) {
+						s.log.Errorw("received p2p hash doesn't match csv hash", "expected", expectedHash, "csv", hash)
+					} else {
+						s.log.Debugw("received p2p hash matches csv hash", "expected", expectedHash, "csv", hash)
+					}
 				}
 
 				if !coreBlock.Hash.Equal(expectedHash) {
