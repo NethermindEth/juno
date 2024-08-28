@@ -67,8 +67,6 @@ const (
 	throttledVMErr     = "VM throughput limit reached"
 )
 
-const SyncBlockRange = 6
-
 type traceCacheKey struct {
 	blockHash    felt.Felt
 	v0_6Response bool
@@ -93,8 +91,6 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
-
-	ready bool
 }
 
 type subscription struct {
@@ -123,8 +119,6 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
-
-		ready: false,
 	}
 }
 
@@ -155,7 +149,6 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	h.setReady()
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
@@ -176,35 +169,6 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 
 func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
-}
-
-func (h *Handler) setReady() {
-	h.ready = true
-}
-
-func (h *Handler) IsReady() bool {
-	return h.ready
-}
-
-func (h *Handler) IsSynced() bool {
-	head, err := h.bcReader.HeadsHeader()
-	if err != nil {
-		return false
-	}
-	highestBlockHeader := h.syncReader.HighestBlockHeader()
-	if highestBlockHeader == nil {
-		return false
-	}
-
-	if head.Number > highestBlockHeader.Number {
-		return false
-	}
-
-	if head.Number+SyncBlockRange >= highestBlockHeader.Number {
-		return true
-	} else {
-		return false
-	}
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen

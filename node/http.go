@@ -15,7 +15,6 @@ import (
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/prometheus/client_golang/prometheus"
@@ -72,34 +71,8 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 	}
 }
 
-func GenerateReadyHandler(rpchandler *rpc.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if rpchandler.IsReady() {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}
-}
-
-func GenerateReadySyncHandler(rpchandler *rpc.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !rpchandler.IsReady() {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-
-		if !rpchandler.IsSynced() {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-	}
-}
-
 func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
-	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool, rpchandler *rpc.Handler,
+	httpHandlers map[string]http.HandlerFunc, log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -114,9 +87,9 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 		}
 		mux.Handle(path, exactPathServer(path, httpHandler))
 	}
-
-	mux.HandleFunc("/ready", GenerateReadyHandler(rpchandler))
-	mux.HandleFunc("/ready/sync", GenerateReadySyncHandler(rpchandler))
+	for path, handler := range httpHandlers {
+		mux.HandleFunc(path, handler)
+	}
 
 	var handler http.Handler = mux
 	if corsEnabled {
