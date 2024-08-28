@@ -27,11 +27,17 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 		return nil, err
 	}
 
+	listener := &db.SelectiveListener{
+		OnIOCb:     func(write bool, duration time.Duration) {}, 
+		OnCommitCb: func(duration time.Duration) {},
+	}
+
 	return &DB{
 		ctx:        ctx,
 		grpcClient: grpcClient,
 		kvClient:   gen.NewKVClient(grpcClient),
 		log:        log,
+		listener:   listener,
 	}, nil
 }
 
@@ -42,10 +48,8 @@ func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if d.listener != nil {
-		d.listener.OnIO(write, time.Since(start))
-	}
+	
+	d.listener.OnIO(write, time.Since(start))
 
 	return &transaction{client: txClient, log: d.log}, nil
 }
@@ -57,13 +61,11 @@ func (d *DB) View(fn func(txn db.Transaction) error) error {
 func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	start := time.Now()
 
-	err := db.Update(d, fn)
-
-	if d.listener != nil {
+	defer func() {
 		d.listener.OnCommit(time.Since(start))
-	}
+	}()
 
-	return err
+	return db.Update(d, fn)
 }
 
 func (d *DB) WithListener(listener db.EventListener) db.DB {
