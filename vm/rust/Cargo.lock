@@ -449,7 +449,7 @@ dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
- "cairo-native 0.2.0 (git+https://github.com/NethermindEth/cairo_native?branch=remove-unused-deps)",
+ "cairo-native",
  "cairo-vm",
  "derive_more",
  "indexmap 2.4.0",
@@ -1119,56 +1119,6 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?branch=cairo-lang2.7.0-rc.3#a54c3f14f4b3b0c524f24a09914d7fd1883b314c"
-dependencies = [
- "anyhow",
- "bumpalo",
- "cairo-lang-compiler",
- "cairo-lang-defs",
- "cairo-lang-diagnostics",
- "cairo-lang-filesystem",
- "cairo-lang-lowering",
- "cairo-lang-runner",
- "cairo-lang-semantic",
- "cairo-lang-sierra",
- "cairo-lang-sierra-ap-change",
- "cairo-lang-sierra-gas",
- "cairo-lang-sierra-generator",
- "cairo-lang-starknet",
- "cairo-lang-starknet-classes",
- "cairo-lang-test-plugin",
- "cairo-lang-utils",
- "cairo-native-runtime 0.2.0 (git+https://github.com/lambdaclass/cairo_native?branch=cairo-lang2.7.0-rc.3)",
- "cc",
- "clap",
- "colored",
- "educe",
- "id-arena",
- "itertools 0.13.0",
- "k256",
- "keccak",
- "lazy_static",
- "libc",
- "libloading",
- "llvm-sys",
- "melior",
- "mlir-sys",
- "num-bigint",
- "num-traits 0.2.19",
- "p256",
- "sec1",
- "sha2",
- "starknet-types-core",
- "stats_alloc",
- "tempfile",
- "thiserror",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "cairo-native"
-version = "0.2.0"
 source = "git+https://github.com/NethermindEth/cairo_native?branch=remove-unused-deps#5f8646e249d710dddcbecd80108008d500662475"
 dependencies = [
  "anyhow",
@@ -1186,7 +1136,7 @@ dependencies = [
  "cairo-lang-starknet-classes",
  "cairo-lang-test-plugin",
  "cairo-lang-utils",
- "cairo-native-runtime 0.2.0 (git+https://github.com/NethermindEth/cairo_native?branch=remove-unused-deps)",
+ "cairo-native-runtime",
  "cc",
  "clap",
  "colored",
@@ -1211,19 +1161,6 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "cairo-native-runtime"
-version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?branch=cairo-lang2.7.0-rc.3#a54c3f14f4b3b0c524f24a09914d7fd1883b314c"
-dependencies = [
- "cairo-lang-sierra-gas",
- "lazy_static",
- "libc",
- "starknet-crypto 0.6.2",
- "starknet-curve 0.4.2",
- "starknet-types-core",
 ]
 
 [[package]]
@@ -2647,7 +2584,7 @@ dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-starknet",
  "cairo-lang-starknet-classes",
- "cairo-native 0.2.0 (git+https://github.com/lambdaclass/cairo_native?branch=cairo-lang2.7.0-rc.3)",
+ "cairo-native",
  "cairo-vm",
  "ciborium",
  "clap",

@@ -11,6 +11,24 @@ import (
 	"github.com/NethermindEth/juno/core"
 )
 
+type JunoExecutor uint
+
+const (
+	NativeExecutor JunoExecutor = iota
+	VMExecutor
+)
+
+var JUNO_EXECUTOR JunoExecutor
+
+func init() {
+	envVar := os.Getenv("JUNO_EXECUTOR")
+	if strings.ToLower(envVar) == "vm" {
+		JUNO_EXECUTOR = VMExecutor
+	} else {
+		JUNO_EXECUTOR = NativeExecutor
+	}
+}
+
 func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 	var classInfo struct {
 		Class        any    `json:"contract_class"`
@@ -41,14 +59,11 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 			return nil, errors.New("sierra class doesnt have a compiled class associated with it")
 		}
 
-		// TODO(xrvdg) can we get this environment variable out
-		// Move out as global variable? const maybe
-		// How to do simple enum parsing in rust
-		envVar := os.Getenv("JUNO_EXECUTOR")
-		if strings.ToLower(envVar) == "vm" {
+		if JUNO_EXECUTOR == VMExecutor {
 			// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
 			classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
 		} else {
+			// native
 			classInfo.Class = core2sn.AdaptSierraClass(c)
 		}
 		classInfo.AbiLength = uint32(len(c.Abi))
