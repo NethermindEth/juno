@@ -14,6 +14,8 @@ use starknet_api::{
 };
 use starknet_types_core::felt::Felt;
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::str::FromStr;
 
 use crate::juno_state_reader::class_info_from_json_str;
 use crate::{build_block_context, execute_transaction, VMArgs};
@@ -125,5 +127,32 @@ pub fn run(vm_args: &mut VMArgs, state: &mut CachedState<impl StateReader>) {
             vm_args.err_on_revert,
         )
         .unwrap();
+    }
+}
+
+pub enum Executor {
+    Native,
+    VM,
+}
+
+impl Display for Executor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = match self {
+            Executor::Native => "Native",
+            Executor::VM => "VM",
+        };
+        f.write_str(msg)
+    }
+}
+
+impl FromStr for Executor {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "native" => Ok(Self::Native),
+            "vm" => Ok(Self::VM),
+            s => Err(format!("unsupported option: {s}")),
+        }
     }
 }

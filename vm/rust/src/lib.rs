@@ -299,13 +299,13 @@ fn setup_recording_directory() -> Option<PathBuf> {
         Ok(path) => {
             let mut path: PathBuf = path.into();
 
-            // To prevent any problems this should actually do proper parsing
+            // If no executor is set we default to Native
             let executor = match std::env::var("JUNO_EXECUTOR") {
-                Ok(exe) => exe,
-                Err(_) => "native".to_string(),
+                Ok(exe) => exe.parse::<recorded_state::Executor>().unwrap(),
+                Err(_) => recorded_state::Executor::Native,
             };
 
-            path.push(executor);
+            path.push(executor.to_string());
 
             fs::create_dir_all(&path).unwrap();
 

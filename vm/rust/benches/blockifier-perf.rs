@@ -3,15 +3,10 @@ use std::{env, fs::File, path::PathBuf, time::Instant};
 use blockifier::state::cached_state::CachedState;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use juno_starknet_rs::{
-    recorded_state::{self, CompiledNativeState, NativeState},
+    recorded_state::{self, CompiledNativeState, Executor, NativeState},
     VMArgs,
 };
 use pprof::criterion::{Output, PProfProfiler};
-
-enum Executor {
-    Native,
-    VM,
-}
 
 fn load_recording(exe: Executor) -> (u64, VMArgs, NativeState) {
     // This is a workaround of not being able to supply arguments over the command line.
@@ -24,21 +19,18 @@ fn load_recording(exe: Executor) -> (u64, VMArgs, NativeState) {
 
     let record_directory = env::var("JUNO_RECORD_DIR").expect("JUNO_RECORD_DIR has not been set");
 
-    let exe_dir = match exe {
-        Executor::Native => "native",
-        Executor::VM => "vm",
-    };
-
     let mut path: PathBuf = record_directory.into();
-    path.push(exe_dir);
+    path.push(exe.to_string());
     path.push(block_number.to_string());
 
-    path.set_extension("args.cbor");
-    let args_file = File::open(path.clone()).unwrap();
+    let mut args_path = path.clone();
+    args_path.set_extension("args.cbor");
+    let args_file = File::open(args_path).unwrap();
     let vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
 
-    path.set_extension("state.cbor");
-    let state_file = File::open(path).unwrap();
+    let mut state_path = path.clone();
+    state_path.set_extension("state.cbor");
+    let state_file = File::open(state_path).unwrap();
     let native_state: NativeState = ciborium::from_reader(state_file).unwrap();
 
     (block_number, vm_args, native_state)
