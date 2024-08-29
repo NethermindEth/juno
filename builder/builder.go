@@ -519,7 +519,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	// }
 
 	fee, _, trace, txnReceipts, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
-		b.bc.Network(), false, false, true, false)
+		b.bc.Network(), false, false, false, false)
 	if err != nil {
 		return err
 	}
