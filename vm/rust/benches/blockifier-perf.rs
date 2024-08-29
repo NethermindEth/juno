@@ -6,6 +6,7 @@ use juno_starknet_rs::{
     recorded_state::{self, CompiledNativeState, NativeState},
     VMArgs,
 };
+use pprof::criterion::{Output, PProfProfiler};
 
 enum Executor {
     Native,
@@ -51,7 +52,7 @@ fn preload(c: &mut Criterion) {
     let (block_number, native_vm_args, native_state) = load_recording(Executor::Native);
     let (_block_number, vm_vm_args, vm_state) = load_recording(Executor::VM);
 
-    let mut group = c.benchmark_group(format!("preload/{block_number}"));
+    let mut group = c.benchmark_group(format!("{block_number}/preload"));
     group.sample_size(10);
 
     // todo(xrvdg) how to ensure this isn't run when this benchmark is filtered out?
@@ -97,40 +98,45 @@ fn preload(c: &mut Criterion) {
 /// This benchmark simulates a cold boot of the blockifier with none of the contracts loaded in.
 ///
 /// This should be the same as the other two benchmarks combined and is left here to be able to verify that quickly.
-// #[allow(dead_code)]
-// fn cold(c: &mut Criterion) {
-//     let (block_number, mut vm_args, native_state) = load_recording();
+#[allow(dead_code)]
+fn cold(c: &mut Criterion) {
+    let (block_number, mut vm_args, native_state) = load_recording(Executor::Native);
 
-//     let mut group = c.benchmark_group(format!("cold/{block_number}"));
-//     group.sample_size(10);
+    let mut group = c.benchmark_group(format!("{block_number}/cold"));
+    group.sample_size(10);
 
-//     group.bench_function("native", move |b| {
-//         b.iter(|| {
-//             // The clone is negligible compared to the run
-//             let mut cached_native_state = CachedState::new(native_state.clone());
+    group.bench_function("native", move |b| {
+        b.iter(|| {
+            // The clone is negligible compared to the run
+            let mut cached_native_state = CachedState::new(native_state.clone());
 
-//             recorded_state::run(black_box(&mut vm_args), black_box(&mut cached_native_state))
-//         })
-//     });
+            recorded_state::run(black_box(&mut vm_args), black_box(&mut cached_native_state))
+        })
+    });
 
-//     group.finish();
-// }
+    group.finish();
+}
 
 /// Benchmark to track how fast it is to load contracts into memory
-// fn loading(c: &mut Criterion) {
-//     let (block_number, _, native_state) = load_recording();
+#[allow(dead_code)]
+fn loading(c: &mut Criterion) {
+    let (block_number, _, native_state) = load_recording(Executor::Native);
 
-//     let mut group = c.benchmark_group(format!("loading/{block_number}"));
-//     group.sample_size(10);
+    let mut group = c.benchmark_group(format!("{block_number}/loading"));
+    group.sample_size(10);
 
-//     group.bench_function("native", move |b| {
-//         b.iter(|| {
-//             let _ = CompiledNativeState::new(native_state.clone());
-//         })
-//     });
+    group.bench_function("native", move |b| {
+        b.iter(|| {
+            let _ = CompiledNativeState::new(native_state.clone());
+        })
+    });
 
-//     group.finish();
-// }
+    group.finish();
+}
 
-criterion_group!(benches, preload);
+criterion_group! {
+name = benches;
+config = Criterion::default().with_profiler(PProfProfiler::new(10, Output::Protobuf));
+targets = preload}
+
 criterion_main!(benches);
