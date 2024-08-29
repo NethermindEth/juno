@@ -12,6 +12,10 @@ To record all Juno calls for a block:
 To replay both the VM and Native recorded transaction in a benchmark:
 - `JUNO_RECORD_DIR=./record_mainnet BENCH_BLOCK=BLOCK_NUMBER cargo bench`
 
+To to profile with [pprof](https://github.com/google/pprof)
+- Use `--profile-time` to skip analysis and storing, and run the benchmark for a set amount of time expressed in seconds. The benchmark will repeat until the timer has been reached.  
+- `JUNO_RECORD_DIR=./record_mainnet BENCH_BLOCK=BLOCK_NUMBER cargo bench --profile-time 120`
+
  To profile a benchmark with samply:
 - Get [samply](https://github.com/mstange/samply) for profiling
 - Filter the benchmark to the one you want to run. See `blockifier-perf` for the possible benchmarks and the filter remark below.
