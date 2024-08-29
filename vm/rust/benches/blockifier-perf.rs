@@ -29,19 +29,16 @@ fn load_recording(exe: Executor) -> (u64, VMArgs, NativeState) {
         Executor::VM => "vm",
     };
 
-    // TODO(xrvdg) Create directory paths without mutability
-    let mut record_directory: PathBuf = record_directory.into();
-    record_directory.push(exe_dir);
+    let mut path: PathBuf = record_directory.into();
+    path.push(exe_dir);
+    path.push(block_number.to_string());
 
-    let mut args_path: PathBuf = record_directory.clone();
-    args_path.push(format!("{}.args.cbor", block_number));
-    let args_file = File::open(args_path).unwrap();
+    path.set_extension("args.cbor");
+    let args_file = File::open(path.clone()).unwrap();
     let vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
 
-    let mut state_path: PathBuf = record_directory.clone();
-    state_path.push(format!("{}.state.cbor", block_number));
-    let state_file = File::open(state_path).unwrap();
-
+    path.set_extension("state.cbor");
+    let state_file = File::open(path).unwrap();
     let native_state: NativeState = ciborium::from_reader(state_file).unwrap();
 
     (block_number, vm_args, native_state)
