@@ -524,13 +524,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
-	seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
-	refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
-	diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
-	if diffsNotEqual {
-		// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
-		b.log.Debugw("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
-	}
+
 	// fmt.Println("========\n\n")
 	// seqTrace.Print()
 	// refTrace.Print()
@@ -554,6 +548,21 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		}
 	}
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
+
+	if b.junoEndpoint != "" {
+		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
+		refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
+		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
+		if diffsNotEqual {
+			// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
+			b.log.Debugw("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
+		}
+
+		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
+			b.log.Fatalf(diffStr)
+		}
+	}
+
 	// for ii, qwe := range trace[0].AllEvents() {
 	// 	fmt.Printf("\nallEvents %d - %d %s %v\n", ii, qwe.Order, qwe.From.String(), qwe.Keys)
 	// }
@@ -561,9 +570,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	// 	b.log.Debugw("OVERRIDE for debug")
 	// 	receipt.Events = b.shadowBlock.Receipts[0].Events
 	// }
-	if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
-		b.log.Fatalf(diffStr)
-	}
+
 	// receipt.Events=b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].Events // Todo: Events are the last thing in block hash error
 	// receipt = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount] // Todo: remove, test to see if this is the only issue
 
@@ -626,11 +633,16 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			blockTraces, err := b.JunoGetBlockTrace(int(block.Number))
-			if err != nil {
-				return err
+			// Used to help debug
+			if b.junoEndpoint != "" {
+				blockTraces, err := b.JunoGetBlockTrace(int(block.Number))
+				if err != nil {
+					return err
+				}
+				fmt.Println("len blockTraces", len(blockTraces), block.TransactionCount)
+				b.blockTraces = blockTraces
 			}
-			b.blockTraces = blockTraces
+
 			b.shadowStateUpdate = su
 			b.shadowBlock = block
 
