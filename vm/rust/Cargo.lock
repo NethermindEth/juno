@@ -436,7 +436,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.8.0-rc.1"
-source = "git+https://github.com/NethermindEth/blockifier?rev=f1736a73bb729c4e2710016dcd52244e2114d85d#f1736a73bb729c4e2710016dcd52244e2114d85d"
+source = "git+https://github.com/NethermindEth/blockifier?branch=native2.7.x#2a6ecb57b02c8e6c5f138797ca65f3ee91cb6460"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -1119,15 +1119,13 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?branch=cairo-lang2.7.0-rc.3#a54c3f14f4b3b0c524f24a09914d7fd1883b314c"
+source = "git+https://github.com/NethermindEth/cairo_native?branch=remove-unused-deps#5f8646e249d710dddcbecd80108008d500662475"
 dependencies = [
  "anyhow",
  "bumpalo",
  "cairo-lang-compiler",
  "cairo-lang-defs",
- "cairo-lang-diagnostics",
  "cairo-lang-filesystem",
- "cairo-lang-lowering",
  "cairo-lang-runner",
  "cairo-lang-semantic",
  "cairo-lang-sierra",
@@ -1143,7 +1141,6 @@ dependencies = [
  "clap",
  "colored",
  "educe",
- "id-arena",
  "itertools 0.13.0",
  "k256",
  "keccak",
@@ -1169,13 +1166,14 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?branch=cairo-lang2.7.0-rc.3#a54c3f14f4b3b0c524f24a09914d7fd1883b314c"
+source = "git+https://github.com/NethermindEth/cairo_native?branch=remove-unused-deps#5f8646e249d710dddcbecd80108008d500662475"
 dependencies = [
  "cairo-lang-sierra-gas",
  "lazy_static",
  "libc",
- "starknet-crypto 0.6.2",
- "starknet-curve 0.4.2",
+ "rand",
+ "starknet-crypto 0.7.1",
+ "starknet-curve 0.5.0",
  "starknet-types-core",
 ]
 
