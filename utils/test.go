@@ -8,6 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type BenchmarkTesting interface {
+	Errorf(format string, args ...interface{})
+	FailNow()
+	Logf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
+	Cleanup(func())
+}
+
 func HexToFelt(t testing.TB, hex string) *felt.Felt {
 	t.Helper()
 	f, err := new(felt.Felt).SetString(hex)

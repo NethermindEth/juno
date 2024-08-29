@@ -17,13 +17,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClassV0Hash(t *testing.T) {
+func TestClassV0HashSepolia(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 
 	gw := adaptfeeder.New(client)
 	tests := []struct {
 		classHash string
 	}{
+		{
+			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x54328a1075b8820eb43caf0caa233923148c983742402dcfc38541dd843d01a
+			classHash: "0x54328a1075b8820eb43caf0caa233923148c983742402dcfc38541dd843d01a",
+		},
+		{
+			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x36c7e49a16f8fc760a6fbdf71dde543d98be1fee2eda5daff59a0eeae066ed9
+			classHash: "0x36c7e49a16f8fc760a6fbdf71dde543d98be1fee2eda5daff59a0eeae066ed9",
+		},
 		{
 			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909
 			classHash: "0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
@@ -36,6 +44,22 @@ func TestClassV0Hash(t *testing.T) {
 			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43
 			classHash: "0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
 		},
+		{
+			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x4367b26fbb92235e8d1137d19c080e6e650a6889ded726d00658411cc1046f5
+			classHash: "0x4367b26fbb92235e8d1137d19c080e6e650a6889ded726d00658411cc1046f5",
+		},
+		{
+			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x35c753cbb572d7d0cbd6f725e4bc5f631d82003f3ac743160705b9ecd1befa7
+			classHash: "0x35c753cbb572d7d0cbd6f725e4bc5f631d82003f3ac743160705b9ecd1befa7",
+		},
+		{
+			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x4fda56652f3dfe9c59904dd0fdc0fa5965b1e560e1641a06e132fdf90a96424
+			classHash: "0x4fda56652f3dfe9c59904dd0fdc0fa5965b1e560e1641a06e132fdf90a96424",
+		},
+		{
+			// https://alpha-sepolia.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x56fcc016a8ef4bd6310fa95de87c479a086fa1bf1934148c2bdf3b4cdbe4ac5
+			classHash: "0x56fcc016a8ef4bd6310fa95de87c479a086fa1bf1934148c2bdf3b4cdbe4ac5",
+		},
 	}
 
 	for _, tt := range tests {
@@ -47,6 +71,45 @@ func TestClassV0Hash(t *testing.T) {
 			got, err := class.Hash()
 			require.NoError(t, err)
 			assert.Equal(t, hash, got)
+		})
+	}
+}
+
+func TestClassV0HashMainnet(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+
+	gw := adaptfeeder.New(client)
+	tests := []struct {
+		classHash string
+	}{
+		{
+			// https://alpha-mainnet.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x1efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f
+			classHash: "0x1efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f",
+		},
+		{
+			// https://alpha-mainnet.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
+			classHash: "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e",
+		},
+		{
+			// https://alpha-mainnet.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8
+			classHash: "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+		},
+		{
+			// https://alpha-mainnet.starknet.io/feeder_gateway/get_class_by_hash?classHash=0x25df075876a4c6da2d0b76bd1adc5cc371329b33d25f284698dfc902a95c964
+			classHash: "0x25df075876a4c6da2d0b76bd1adc5cc371329b33d25f284698dfc902a95c964",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("ClassHash", func(t *testing.T) {
+			hash := utils.HexToFelt(t, tt.classHash)
+			class, err := gw.Class(context.Background(), hash)
+			require.NoError(t, err)
+
+			got, err := class.(*core.Cairo0Class).NoFFIHash()
+			require.NoError(t, err)
+			assert.Equal(t, hash, got)
+			assert.Equal(t, hash.String(), got.String())
 		})
 	}
 }
@@ -264,4 +327,62 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 				},
 			},
 		}).String())
+}
+
+func BenchmarkClassV0Hash(b *testing.B) {
+	client := feeder.NewTestClient(b, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+	tests := []struct {
+		classHash string
+	}{
+		{
+			classHash: "0x54328a1075b8820eb43caf0caa233923148c983742402dcfc38541dd843d01a",
+		},
+		{
+			classHash: "0x36c7e49a16f8fc760a6fbdf71dde543d98be1fee2eda5daff59a0eeae066ed9",
+		},
+		{
+			classHash: "0x07db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+		},
+		{
+			classHash: "0x0772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+		},
+		{
+			classHash: "0x028d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
+		},
+		{
+			classHash: "0x4367b26fbb92235e8d1137d19c080e6e650a6889ded726d00658411cc1046f5",
+		},
+		{
+			classHash: "0x35c753cbb572d7d0cbd6f725e4bc5f631d82003f3ac743160705b9ecd1befa7",
+		},
+		{
+			classHash: "0x4fda56652f3dfe9c59904dd0fdc0fa5965b1e560e1641a06e132fdf90a96424",
+		},
+		{
+			classHash: "0x56fcc016a8ef4bd6310fa95de87c479a086fa1bf1934148c2bdf3b4cdbe4ac5",
+		},
+	}
+
+	// Fetch all class data upfront
+	classes := make(map[string]core.Class)
+	for _, tt := range tests {
+		hash := utils.HexToFelt(b, tt.classHash)
+		class, err := gw.Class(context.Background(), hash)
+		require.NoError(b, err)
+		classes[tt.classHash] = class
+	}
+
+	for _, tt := range tests {
+		b.Run(tt.classHash, func(b *testing.B) {
+			class := classes[tt.classHash]
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				_, err := class.(*core.Cairo0Class).NoFFIHash()
+				require.NoError(b, err)
+			}
+		})
+	}
 }

@@ -47,7 +47,15 @@ func (c *Cairo0Class) Version() uint64 {
 }
 
 func (c *Cairo0Class) Hash() (*felt.Felt, error) {
+	return cairo0ClassHashNoFFI(c)
+}
+
+func (c *Cairo0Class) FFIHash() (*felt.Felt, error) {
 	return cairo0ClassHash(c)
+}
+
+func (c *Cairo0Class) NoFFIHash() (*felt.Felt, error) {
+	return cairo0ClassHashNoFFI(c)
 }
 
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
