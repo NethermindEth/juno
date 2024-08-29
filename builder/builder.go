@@ -187,10 +187,6 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-b.chanFinalise:
-			// qwe := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
-			// ind := new(felt.Felt).SetUint64(b.pendingBlock.Block.Number - 10)
-			// // b.log.Infow("FINALISE 0x1 %s %s", ind.String(), qwe[*ind].String())
-			// // b.log.Debugw("Finalising new block")
 			err := b.cleanStorageDiff(b.pendingBlock.StateUpdate.StateDiff)
 			if err != nil {
 				return err
@@ -206,7 +202,7 @@ func (b *Builder) Run(ctx context.Context) error {
 }
 
 func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
-	b.log.Infof("removing unneeded values in the storage diffs")
+	b.log.Infof("Removing values in the storage diff that don't affect state")
 	state, closer, err := b.bc.HeadState()
 	if err != nil {
 		return err
@@ -464,6 +460,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 }
 
+// todo(rian) : does blockifier need the correct value, or can we pass in any non-zero value?
 func getPaidOnL1Fees(txn *mempool.BroadcastedTransaction) ([]*felt.Felt, error) {
 	if tx, ok := (txn.Transaction).(*core.L1HandlerTransaction); ok {
 		handleDepositEPS, err := new(felt.Felt).SetString("0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5")
@@ -496,38 +493,24 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
-	// if b.pendingBlock.Block.TransactionCount == 0 {
-	// 	sd, _ := state.StateDiffAndClasses()
-	// 	sd.Print()
-	// }
 
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
-			Number:           b.shadowBlock.Number,           // Cairo contracts can access the block number
-			SequencerAddress: b.shadowBlock.SequencerAddress, // Cairo contracts can access the sequencer address
-			Timestamp:        b.shadowBlock.Timestamp,        // Cairo contracts can access the timestamp
-			ProtocolVersion:  b.shadowBlock.ProtocolVersion,  // Cairo contracts can access the protocol version
-			GasPrice:         b.shadowBlock.GasPrice,         // Cairo contracts can access the gas price
-			GasPriceSTRK:     b.shadowBlock.GasPriceSTRK,     // Don't seem to need to set this
-			L1DAMode:         b.shadowBlock.L1DAMode,         // Don't seem to need to set this
-			L1DataGasPrice:   b.shadowBlock.L1DataGasPrice,   // Don't seem to need to set this
+			Number:           b.shadowBlock.Number,           // Affects post 0.13.2 block hash
+			SequencerAddress: b.shadowBlock.SequencerAddress, // Affects post 0.13.2 block hash
+			Timestamp:        b.shadowBlock.Timestamp,        // Affects post 0.13.2 block hash
+			ProtocolVersion:  b.shadowBlock.ProtocolVersion,  // Affects post 0.13.2 block hash
+			GasPrice:         b.shadowBlock.GasPrice,         // Affects post 0.13.2 block hash
+			GasPriceSTRK:     b.shadowBlock.GasPriceSTRK,     // Affects post 0.13.2 block hash
+			L1DataGasPrice:   b.shadowBlock.L1DataGasPrice,   // Affects post 0.13.2 block hash
 		},
 	}
-
-	// sd, _ := state.StateDiffAndClasses()
-	// for k, v := range sd.StorageDiffs[*new(felt.Felt).SetUint64(1)] {
-	// 	fmt.Println(k.String(), v.String())
-	// }
 
 	fee, _, trace, txnReceipts, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
 		b.bc.Network(), false, false, false, false)
 	if err != nil {
 		return err
 	}
-
-	// fmt.Println("========\n\n")
-	// seqTrace.Print()
-	// refTrace.Print()
 
 	feeUnit := core.WEI
 	if txn.Transaction.TxVersion().Is(3) {
@@ -562,27 +545,11 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			b.log.Fatalf(diffStr)
 		}
 	}
-
-	// for ii, qwe := range trace[0].AllEvents() {
-	// 	fmt.Printf("\nallEvents %d - %d %s %v\n", ii, qwe.Order, qwe.From.String(), qwe.Keys)
-	// }
-	// if b.pendingBlock.Block.TransactionCount == 0 { // todo: remove
-	// 	b.log.Debugw("OVERRIDE for debug")
-	// 	receipt.Events = b.shadowBlock.Receipts[0].Events
-	// }
-
-	// receipt.Events=b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].Events // Todo: Events are the last thing in block hash error
-	// receipt = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount] // Todo: remove, test to see if this is the only issue
-
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
 	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
-	// fmt.Println("---------\n")
-	// b.pendingBlock.StateUpdate.StateDiff.Print()
-	// b.shadowStateUpdate.StateDiff.Print()
-	// fmt.Println("========\n\n")
 	return nil
 }
 
@@ -633,7 +600,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			// Used to help debug
+			// todo: make this debud logic cleaner
 			if b.junoEndpoint != "" {
 				blockTraces, err := b.JunoGetBlockTrace(int(block.Number))
 				if err != nil {
@@ -645,20 +612,13 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 
 			b.shadowStateUpdate = su
 			b.shadowBlock = block
-
-			// b.pendingBlock.Block.Header = block.Header
-			// b.pendingBlock.Block.GlobalStateRoot = nil
-			// b.pendingBlock.Block.Receipts = nil
-			// b.pendingBlock.Block.TransactionCount = 0
-			b.pendingBlock.Block.SequencerAddress = block.SequencerAddress // block hash
-			b.pendingBlock.Block.Timestamp = block.Timestamp               // block hash
 			b.pendingBlock.Block.Transactions = nil
-			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion // block hash
-			b.pendingBlock.Block.Header.GasPrice = block.GasPrice               // block hash
-			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // block hash
-			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // block hash
-			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // block hash
-			// b.pendingBlock.Block.Header.Signatures = block.Signatures // Can't use our signature
+			b.pendingBlock.Block.SequencerAddress = block.SequencerAddress      // Affects post 0.13.2 block hash
+			b.pendingBlock.Block.Timestamp = block.Timestamp                    // Affects post 0.13.2 block hash
+			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion // Affects post 0.13.2 block hash
+			b.pendingBlock.Block.Header.GasPrice = block.GasPrice               // Affects post 0.13.2 block hash
+			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // Affects post 0.13.2 block hash
+			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
 
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {

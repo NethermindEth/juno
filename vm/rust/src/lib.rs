@@ -300,7 +300,7 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
-        let mut is_l1_handler_txn=false;
+        let mut is_l1_handler_txn = false;
         let mut txn_state = CachedState::create_transactional(&mut state);
         let fee_type;
         let minimal_l1_gas_amount_vector: Option<GasVector>;
@@ -312,7 +312,7 @@ pub extern "C" fn cairoVMExecute(
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
-                is_l1_handler_txn=true;
+                is_l1_handler_txn = true;
                 fee_type = t.fee_type();
                 minimal_l1_gas_amount_vector = None;
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
@@ -348,25 +348,6 @@ pub extern "C" fn cairoVMExecute(
                     );
                     return;
                 }
-                // print!("############# blockifier");
-                // io::stdout().flush().unwrap();
-                // if let Some(validate_info) = &t.validate_call_info {
-                //     let qwe = "valudate";
-                //     print_event_orders(&validate_info,qwe.to_string());
-                // }
-
-                // if let Some(execute_info) = &t.execute_call_info {
-                //     let qwe = "exec";
-                //     print_event_orders(&execute_info,qwe.to_string());
-                // }
-
-                // if let Some(fee_transfer_info) = &t.fee_transfer_call_info {
-                //     let qwe = "fee ter";
-                //     print_event_orders(&fee_transfer_info,qwe.to_string());
-                // }
-
-
-                
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 && !is_l1_handler_txn {
@@ -392,7 +373,6 @@ pub extern "C" fn cairoVMExecute(
                         &fee_type,
                     )
                 }
-                
 
                 let actual_fee = t.transaction_receipt.fee.0.into();
                 let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
@@ -436,20 +416,6 @@ pub extern "C" fn cairoVMExecute(
         txn_state.commit();
     }
 }
-// fn print_event_orders(call_info: &blockifier::execution::call_info::CallInfo, typee:String) {
-//     println!("\n typee: {}", typee);
-//     io::stdout().flush().unwrap();
-//     for event in &call_info.execution.events {
-//         println!("\nEvent order: {}", event.order);
-//         io::stdout().flush().unwrap();
-//     }
-
-//     for inner_call in &call_info.inner_calls {
-//         println!("\n : {:?}", call_info.inner_calls.len());
-//         io::stdout().flush().unwrap();
-//         print_event_orders(inner_call,typee.clone());
-//     }
-// }
 
 fn felt_to_u128(felt: StarkFelt) -> u128 {
     // todo find Into<u128> trait or similar
