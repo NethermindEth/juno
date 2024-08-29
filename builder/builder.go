@@ -500,6 +500,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	// 	sd, _ := state.StateDiffAndClasses()
 	// 	sd.Print()
 	// }
+
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
 			Number:           b.shadowBlock.Number,           // Cairo contracts can access the block number

@@ -1,5 +1,6 @@
 pub mod jsonrpc;
 mod juno_state_reader;
+use std::any::Any;
 use std::io::{self, Write};
 #[macro_use]
 extern crate lazy_static;
@@ -299,6 +300,7 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
+        let mut is_l1_handler_txn=false;
         let mut txn_state = CachedState::create_transactional(&mut state);
         let fee_type;
         let minimal_l1_gas_amount_vector: Option<GasVector>;
@@ -310,6 +312,7 @@ pub extern "C" fn cairoVMExecute(
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
+                is_l1_handler_txn=true;
                 fee_type = t.fee_type();
                 minimal_l1_gas_amount_vector = None;
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
@@ -362,8 +365,11 @@ pub extern "C" fn cairoVMExecute(
                 //     print_event_orders(&fee_transfer_info,qwe.to_string());
                 // }
 
+
+                
+
                 // we are estimating fee, override actual fee calculation
-                if t.transaction_receipt.fee.0 == 0 {
+                if t.transaction_receipt.fee.0 == 0 && !is_l1_handler_txn {
                     let minimal_l1_gas_amount_vector =
                         minimal_l1_gas_amount_vector.unwrap_or_default();
                     let gas_consumed = t
@@ -386,6 +392,7 @@ pub extern "C" fn cairoVMExecute(
                         &fee_type,
                     )
                 }
+                
 
                 let actual_fee = t.transaction_receipt.fee.0.into();
                 let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
