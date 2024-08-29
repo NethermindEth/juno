@@ -214,9 +214,9 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	if rErr != nil {
 		return nil, nil, rErr
 	}
-	for _, rec := range b.Receipts {
-		fmt.Println("rec", rec.TransactionHash)
-	}
+	// for _, rec := range b.Receipts {
+	// 	fmt.Println("rec", rec.TransactionHash)
+	// }
 
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 

@@ -93,7 +93,7 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 		for ind, event := range r1.Events {
 			if !event.From.Equal(r2.Events[ind].From) {
 				foundDiff = true
-				result.WriteString(fmt.Sprintf("Events have DIFFERENT From value at index %d \n\t- g1: %d\n\t- g2: %d\n", ind, event.From, r2.Events[ind].From))
+				result.WriteString(fmt.Sprintf("Events have DIFFERENT From value at index %d \n\t- g1: %v\n\t- g2: %v\n", ind, event.From, r2.Events[ind].From))
 				printEvents(r1.Events, r2.Events)
 				break
 			}

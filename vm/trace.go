@@ -174,13 +174,21 @@ func (t *TransactionTrace) AllEvents() []OrderedEvent {
 		}
 	}
 
-	addEvents(t.ValidateInvocation)
-	addEvents(t.ExecuteInvocation.FunctionInvocation)
+	if t.Type == TxnDeployAccount {
+		if t.ExecuteInvocation != nil {
+			addEvents(t.ExecuteInvocation.FunctionInvocation)
+		}
+		addEvents(t.ConstructorInvocation)
+		addEvents(t.ValidateInvocation)
+	} else {
+		addEvents(t.ValidateInvocation)
+		if t.ExecuteInvocation != nil {
+			addEvents(t.ExecuteInvocation.FunctionInvocation)
+		}
+		addEvents(t.ConstructorInvocation)
+	}
 	addEvents(t.FeeTransferInvocation)
-	// Todo: are these in the right order?
-	addEvents(t.ConstructorInvocation)
-	addEvents(t.FunctionInvocation)
-
+	addEvents(t.FunctionInvocation) // Todo: Is this is in the right place?
 	return events
 }
 

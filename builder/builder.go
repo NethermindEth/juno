@@ -217,7 +217,7 @@ func (b *Builder) compressStateDiff(sd *core.StateDiff) error {
 				return err
 			}
 			if previousValue.Equal(v) {
-				b.log.Infof("the key %v at the storage of address %v is being deleted", k, sd.StorageDiffs[addr])
+				b.log.Infof("the key %v at the storage of address %v is being deleted", k.String(), addr.String())
 				delete(sd.StorageDiffs[addr], k)
 			}
 		}
@@ -489,10 +489,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
-	if b.pendingBlock.Block.TransactionCount == 0 {
-		sd, _ := state.StateDiffAndClasses()
-		sd.Print()
-	}
+	// if b.pendingBlock.Block.TransactionCount == 0 {
+	// 	sd, _ := state.StateDiffAndClasses()
+	// 	sd.Print()
+	// }
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
 			Number:           b.shadowBlock.Number,           // Cairo contracts can access the block number
