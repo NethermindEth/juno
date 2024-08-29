@@ -218,35 +218,25 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		fmt.Println("rec", rec.TransactionHash)
 	}
 
-	if eCommitment != nil {
-		fmt.Println("Event Com", eCommitment.String())
-	} else {
-		fmt.Println("No Event Com", eCommitment)
-	}
-	if rCommitment != nil {
-		fmt.Println("Rec Com", rCommitment.String())
-	} else {
-		fmt.Println("No Rec Com", rCommitment)
-	}
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
-	fmt.Println("STARKNET_BLOCK_HASH0:", new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")).String())
-	fmt.Println("Block Number:", new(felt.Felt).SetUint64(b.Number).String())
-	fmt.Println("Global State Root:", b.GlobalStateRoot.String())
-	fmt.Println("Sequencer Address:", b.SequencerAddress.String())
-	fmt.Println("Block Timestamp:", new(felt.Felt).SetUint64(b.Timestamp).String())
-	fmt.Println("Concat Counts:", concatCounts.String())
-	fmt.Println("State Diff Commitment:", sdCommitment.String())
-	fmt.Println("Transaction Commitment:", txCommitment.String())
-	fmt.Println("Event Commitment:", eCommitment.String())
-	fmt.Println("Receipt Commitment:", rCommitment.String())
-	fmt.Println("Gas Price in Wei:", b.GasPrice.String())
-	fmt.Println("Gas Price in Fri:", b.GasPriceSTRK.String())
-	fmt.Println("L1 Data Gas Price in Wei:", b.L1DataGasPrice.PriceInWei.String())
-	fmt.Println("L1 Data Gas Price in Fri:", b.L1DataGasPrice.PriceInFri.String())
-	fmt.Println("Protocol Version:", new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)).String())
-	fmt.Println("Reserved (Extra Data):", felt.Zero.String())
-	fmt.Println("Parent Block Hash:", b.ParentHash.String())
+	// fmt.Println("STARKNET_BLOCK_HASH0:", new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")).String())
+	// fmt.Println("Block Number:", new(felt.Felt).SetUint64(b.Number).String())
+	// fmt.Println("Global State Root:", b.GlobalStateRoot.String())
+	// fmt.Println("Sequencer Address:", b.SequencerAddress.String())
+	// fmt.Println("Block Timestamp:", new(felt.Felt).SetUint64(b.Timestamp).String())
+	// fmt.Println("Concat Counts:", concatCounts.String())
+	// fmt.Println("State Diff Commitment:", sdCommitment.String())
+	// fmt.Println("Transaction Commitment:", txCommitment.String())
+	// fmt.Println("Event Commitment:", eCommitment.String())
+	// fmt.Println("Receipt Commitment:", rCommitment.String())
+	// fmt.Println("Gas Price in Wei:", b.GasPrice.String())
+	// fmt.Println("Gas Price in Fri:", b.GasPriceSTRK.String())
+	// fmt.Println("L1 Data Gas Price in Wei:", b.L1DataGasPrice.PriceInWei.String())
+	// fmt.Println("L1 Data Gas Price in Fri:", b.L1DataGasPrice.PriceInFri.String())
+	// fmt.Println("Protocol Version:", new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)).String())
+	// fmt.Println("Reserved (Extra Data):", felt.Zero.String())
+	// fmt.Println("Parent Block Hash:", b.ParentHash.String())
 
 	return crypto.PoseidonArray(
 			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),

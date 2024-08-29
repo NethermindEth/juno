@@ -187,16 +187,42 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-b.chanFinalise:
-			qwe := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
-			ind := new(felt.Felt).SetUint64(b.pendingBlock.Block.Number - 10)
-			b.log.Infow("FINALISE 0x1 %s %s", ind.String(), qwe[*ind].String())
-			b.log.Debugw("Finalising new block")
-			if err := b.Finalise(signFunc); err != nil {
+			// qwe := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
+			// ind := new(felt.Felt).SetUint64(b.pendingBlock.Block.Number - 10)
+			// // b.log.Infow("FINALISE 0x1 %s %s", ind.String(), qwe[*ind].String())
+			// // b.log.Debugw("Finalising new block")
+			err := b.compressStateDiff(b.pendingBlock.StateUpdate.StateDiff)
+			if err != nil {
+				return err
+			}
+			err = b.Finalise(signFunc)
+			if err != nil {
 				return err
 			}
 			<-b.chanFinalised
 		}
 	}
+}
+
+func (b *Builder) compressStateDiff(sd *core.StateDiff) error {
+	state, closer, err := b.bc.HeadState()
+	if err != nil {
+		return err
+	}
+	defer closer()
+	for addr, storage := range sd.StorageDiffs {
+		for k, v := range storage {
+			previousValue, err := state.ContractStorage(&addr, &k)
+			if err != nil {
+				return err
+			}
+			if previousValue.Equal(v) {
+				b.log.Infof("the key %v at the storage of address %v is being deleted", k, sd.StorageDiffs[addr])
+				delete(sd.StorageDiffs[addr], k)
+			}
+		}
+	}
+	return nil
 }
 
 func (b *Builder) InitPendingBlock() error {
@@ -463,6 +489,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
+	if b.pendingBlock.Block.TransactionCount == 0 {
+		sd, _ := state.StateDiffAndClasses()
+		sd.Print()
+	}
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
 			Number:           b.shadowBlock.Number,           // Cairo contracts can access the block number
@@ -492,6 +522,9 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if diffsNotEqual {
 		b.log.Fatalf("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
 	}
+	// fmt.Println("========\n\n")
+	// seqTrace.Print()
+	// refTrace.Print()
 
 	feeUnit := core.WEI
 	if txn.Transaction.TxVersion().Is(3) {
@@ -530,6 +563,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
 	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
+	// fmt.Println("---------\n")
+	// b.pendingBlock.StateUpdate.StateDiff.Print()
+	// b.shadowStateUpdate.StateDiff.Print()
+	// fmt.Println("========\n\n")
 	return nil
 }
 
