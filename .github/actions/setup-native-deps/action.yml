@@ -1,0 +1,43 @@
+name: "Setup Cairo Native Dependencies"
+description: "Sets up LLVM and GMP libraries"
+
+outputs:
+  cairo-native-runtime-library:
+    description: "The path to the cairo native runtime library"
+    value: ${{ steps.set-env-vars.outputs.cairo-native-runtime-library }}
+runs:
+  using: "composite"
+  steps:
+    - name: Add llvm deb repository
+      uses: myci-actions/add-deb-repo@11
+      with:
+        repo: deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main
+        repo-name: llvm-repo
+        keys-asc: https://apt.llvm.org/llvm-snapshot.gpg.key
+    - name: Install LLVM and gmplib
+      shell: bash
+      run: |
+        sudo apt-get update && sudo apt-get upgrade -y
+        sudo apt-get install -y zstd
+        sudo apt-get install llvm-18 llvm-18-dev llvm-18-runtime clang-18 clang-tools-18 lld-18 libpolly-18-dev libmlir-18-dev mlir-18-tools
+        sudo apt-get install -y libgmp3-dev
+
+    - name: Fetch Cairo Native Repository
+      uses: actions/checkout@v3
+      with:
+        repository: "lambdaclass/cairo_native"
+        ref: "main"
+        path: "cairo_native"
+    - name: Install Cairo Native Runtime Dependencies
+      id: set-env-vars
+      shell: bash
+      run: |
+        cd ./cairo_native &&
+        echo "cairo-native-runtime-library=$(pwd)/target/release/libcairo_native_runtime.a" >> $GITHUB_OUTPUT &&
+        echo "CAIRO_NATIVE_RUNTIME_LIBRARY=$(pwd)/target/release/libcairo_native_runtime.a" >> $GITHUB_ENV &&
+        echo "MLIR_SYS_180_PREFIX=/usr/lib/llvm-18/" >> $GITHUB_ENV &&
+        echo "LLVM_SYS_181_PREFIX=/usr/lib/llvm-18/" >> $GITHUB_ENV &&
+        echo "LLVM_SYS_180_PREFIX=/usr/lib/llvm-18/" >> $GITHUB_ENV &&
+        echo "TABLEGEN_180_PREFIX=/usr/lib/llvm-18/" >> $GITHUB_ENV &&
+        cd ./runtime &&
+        cargo build --release

@@ -34,6 +34,9 @@ jobs:
             starknet/rust
       - name: Install deps
         run: make install-deps
+      - name: Set up Native Dependencies
+        uses: ./.github/actions/setup-native-deps
+        id: native-deps
       - name: Install Jemalloc (Ubuntu or self-hosted)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 -y
@@ -42,8 +45,22 @@ jobs:
         run: brew install jemalloc
       - name: Tests
         run: make test-cover
+        env:
+          LLVM_INCLUDE: /usr/lib/llvm-18/
+          LLVM_180_INCLUDE: /usr/lib/llvm-18/
+          PATH: /usr/lib/llvm-18/bin:$PATH
+          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
+          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
       - name: Benchmark
         run: make benchmarks
+        env:
+          LLVM_INCLUDE: /usr/lib/llvm-18/
+          LLVM_180_INCLUDE: /usr/lib/llvm-18/
+          PATH: /usr/lib/llvm-18/bin:$PATH
+          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
+          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         if: matrix.os == 'ubuntu-latest'
