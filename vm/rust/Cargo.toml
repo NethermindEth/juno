@@ -47,6 +47,17 @@ toml = "0.8.19"
 url = "2.5.2"
 
 [dev-dependencies]
+pprof = { version = "0.13.0", features = [
+    "criterion",
+    # Needs to output protobuf to analyse the traces with the google's pprof
+    "_protobuf",
+    "protobuf",
+    "protobuf-codec",
+    # It is easier to depend on the frame pointer than to use libunwind for stack tracing.
+    # Downside of this approach is that it requires to recompile of the std library if you want to trace through std
+    # but so far we haven't needed that. 
+    "frame-pointer",
+] }
 criterion = { version = "0.5.1", features = ["html_reports"] }
 
 [[bench]]
