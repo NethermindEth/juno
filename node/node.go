@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
@@ -165,6 +166,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	starknetData := adaptfeeder.New(client)
 	var rpcHandler *rpc.Handler
+	var synchronizer *sync.Synchronizer
 	if cfg.Sequencer {
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader)
 		if kErr != nil {
@@ -177,7 +179,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {
-		synchronizer := sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
+		synchronizer = sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
 		gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		var p2pService *p2p.Service
@@ -243,10 +245,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
+		httpHandlers := map[string]http.HandlerFunc{
+			"/ready/sync": readinessHandlers.HandleReadySync,
+		}
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(services,
+			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	var metricsService service.Service
 	if cfg.Metrics {

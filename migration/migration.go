@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"runtime"
 	"sync"
 
@@ -598,9 +599,7 @@ func changeStateDiffStruct(txn db.Transaction, key, value []byte, _ *utils.Netwo
 	}
 
 	nonces := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.Nonces))
-	for addr, nonce := range old.StateDiff.Nonces {
-		nonces[addr] = nonce
-	}
+	maps.Copy(nonces, old.StateDiff.Nonces)
 
 	deployedContracts := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.DeployedContracts))
 	for _, deployedContract := range old.StateDiff.DeployedContracts {

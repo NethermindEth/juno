@@ -803,7 +803,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"messages_sent": [],
 					"events": [],
 					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-					"execution_resources":{"steps":29}
+					"execution_resources": {
+						"data_availability": {
+							"l1_data_gas": 0,
+							"l1_gas": 0
+						},
+						"steps": 29
+					}
 				}`,
 		},
 		"without contract addr": {
@@ -827,7 +833,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"steps":31}
+					"execution_resources": {
+						"data_availability": {
+							"l1_data_gas": 0,
+							"l1_gas": 0
+						},
+						"steps": 31
+					}
 				}`,
 		},
 	}
@@ -861,7 +873,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"steps":31}
+					"execution_resources": {
+						"data_availability": {
+							"l1_data_gas": 0,
+							"l1_gas": 0
+						},
+						"steps": 31
+					}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -892,7 +910,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"steps":31}
+					"execution_resources": {
+						"data_availability": {
+							"l1_data_gas": 0,
+							"l1_gas": 0
+						},
+						"steps": 31
+					}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -918,7 +942,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"messages_sent": [],
 			"events": [],
 			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
-			"execution_resources":{"steps":0}
+			"execution_resources": {
+				"data_availability": {
+					"l1_data_gas": 0,
+					"l1_gas": 0
+				},
+				"steps": 0
+			}
 		}`
 
 		integClient := feeder.NewTestClient(t, &utils.Integration)
@@ -976,7 +1006,11 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"execution_resources": {
 				"steps": 615,
 				"range_check_builtin_applications": 19,
-				"memory_holes": 4
+				"memory_holes": 4,
+				"data_availability": {
+					"l1_data_gas": 0,
+					"l1_gas": 0
+				}
 			},
 			"actual_fee": {
 				"amount": "0x16d8b4ad4000",
@@ -994,6 +1028,62 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		index := 0
 		txnHash := block.Transactions[index].Hash()
 
+		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
+		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
+			block.Hash, block.Number, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		checkTxReceipt(t, txnHash, expected)
+	})
+
+	t.Run("tx with non empty data_availability", func(t *testing.T) {
+		expected := `{
+			"type": "DECLARE",
+			"transaction_hash": "0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747",
+			"actual_fee": {
+				"amount": "0xd07af45c84550",
+				"unit": "WEI"
+			},
+			"execution_status": "SUCCEEDED",
+			"finality_status": "ACCEPTED_ON_L2",
+			"block_hash": "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869",
+			"block_number": 35748,
+			"messages_sent": [],
+			"events": [
+				{
+					"from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+					"keys": [
+						"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+					],
+					"data": [
+						"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						"0xd07af45c84550",
+						"0x0"
+					]
+				}
+			],
+			"execution_resources": {
+				"steps": 3950,
+				"ecdsa_builtin_applications": 1,
+				"pedersen_builtin_applications": 16,
+				"poseidon_builtin_applications": 4,
+				"range_check_builtin_applications": 157,
+				"data_availability": {
+					"l1_gas": 0,
+					"l1_data_gas": 192
+				}
+			}
+		}`
+
+		netClient := feeder.NewTestClient(t, utils.Ptr(utils.SepoliaIntegration))
+		netGW := adaptfeeder.New(netClient)
+
+		block, err := netGW.BlockByNumber(context.Background(), 35748)
+		require.NoError(t, err)
+
+		index := 0
+		txnHash := block.Transactions[index].Hash()
 		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
 		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
 			block.Hash, block.Number, nil)
@@ -1355,6 +1445,7 @@ func TestTransactionStatus(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	log := utils.NewNopZapLogger()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -1395,7 +1486,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, "", nil)
+					handler := rpc.New(mockReader, nil, nil, "", log)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1425,7 +1516,7 @@ func TestTransactionStatus(t *testing.T) {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						handler := rpc.New(mockReader, nil, nil, "", nil)
+						handler := rpc.New(mockReader, nil, nil, "", log)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpc.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1442,7 +1533,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, nil, nil, "", nil).WithFeeder(client)
+				handler := rpc.New(mockReader, nil, nil, "", log).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)

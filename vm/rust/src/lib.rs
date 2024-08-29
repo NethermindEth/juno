@@ -65,6 +65,7 @@ extern "C" {
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendDataGasConsumed(reader_handle: usize, ptr: *const c_uchar);
+    fn JunoAddExecutionSteps(reader_handle: usize, execSteps: c_ulonglong);
 }
 
 #[repr(C)]
@@ -370,6 +371,13 @@ pub extern "C" fn cairoVMExecute(
 
                 let actual_fee = t.transaction_receipt.fee.0.into();
                 let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
+                let execution_steps = t
+                    .transaction_receipt
+                    .resources
+                    .vm_resources
+                    .n_steps
+                    .try_into()
+                    .unwrap_or(u64::MAX);
 
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
@@ -388,6 +396,7 @@ pub extern "C" fn cairoVMExecute(
                         reader_handle,
                         felt_to_byte_array(&data_gas_consumed).as_ptr(),
                     );
+                    JunoAddExecutionSteps(reader_handle, execution_steps)
                 }
                 append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
             }
