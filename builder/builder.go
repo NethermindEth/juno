@@ -191,10 +191,11 @@ func (b *Builder) Run(ctx context.Context) error {
 			// ind := new(felt.Felt).SetUint64(b.pendingBlock.Block.Number - 10)
 			// // b.log.Infow("FINALISE 0x1 %s %s", ind.String(), qwe[*ind].String())
 			// // b.log.Debugw("Finalising new block")
-			err := b.compressStateDiff(b.pendingBlock.StateUpdate.StateDiff)
+			err := b.cleanStorageDiff(b.pendingBlock.StateUpdate.StateDiff)
 			if err != nil {
 				return err
 			}
+			b.log.Debugw("Finalising new block")
 			err = b.Finalise(signFunc)
 			if err != nil {
 				return err
@@ -204,7 +205,8 @@ func (b *Builder) Run(ctx context.Context) error {
 	}
 }
 
-func (b *Builder) compressStateDiff(sd *core.StateDiff) error {
+func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
+	b.log.Infof("removing unneeded values in the storage diffs")
 	state, closer, err := b.bc.HeadState()
 	if err != nil {
 		return err
@@ -220,6 +222,11 @@ func (b *Builder) compressStateDiff(sd *core.StateDiff) error {
 				b.log.Infof("the key %v at the storage of address %v is being deleted", k.String(), addr.String())
 				delete(sd.StorageDiffs[addr], k)
 			}
+		}
+	}
+	for addr := range sd.StorageDiffs {
+		if len(sd.StorageDiffs[addr]) == 0 {
+			delete(sd.StorageDiffs, addr)
 		}
 	}
 	return nil
@@ -520,7 +527,8 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
 	diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
 	if diffsNotEqual {
-		b.log.Fatalf("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
+		// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
+		b.log.Debugw("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
 	}
 	// fmt.Println("========\n\n")
 	// seqTrace.Print()

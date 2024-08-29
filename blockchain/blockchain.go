@@ -1096,7 +1096,6 @@ func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff,
 	stateDiff.StorageDiffs[*blockHashStorageContract] = map[felt.Felt]*felt.Felt{
 		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
-	fmt.Printf("\nSET  blockNumber %d %s %s\n", blockNumber, blockHashStorageContract.String(), header.Hash)
 	return stateDiff, nil
 }
 
