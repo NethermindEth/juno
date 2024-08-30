@@ -35,6 +35,8 @@ type Blockchain interface {
 	PutStorage(storage map[felt.Felt]map[felt.Felt]*felt.Felt) error
 }
 
+var _ Blockchain = (*blockchain.Blockchain)(nil)
+
 type SnapSyncher struct {
 	baseSync     service.Service
 	starknetData starknetdata.StarknetData
