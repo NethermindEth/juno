@@ -123,3 +123,15 @@ func (c *Client) RequestTransactions(ctx context.Context, req *spec.Transactions
 	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](
 		ctx, c.newStream, TransactionsPID(), req, c.log)
 }
+
+func (c *Client) GetClassRange(ctx context.Context, req *spec.ClassRangeRequest) (iter.Seq[*spec.ClassRangeResponse], error) {
+	return requestAndReceiveStream[*spec.ClassRangeRequest, *spec.ClassRangeResponse](ctx, c.newStream, SnapshotClassRangePID(), req, c.log)
+}
+
+func (c *Client) GetContractRange(ctx context.Context, req *spec.ContractRangeRequest) (iter.Seq[*spec.ContractRangeResponse], error) {
+	return requestAndReceiveStream[*spec.ContractRangeRequest, *spec.ContractRangeResponse](ctx, c.newStream, SnapshotContractRangePID(), req, c.log)
+}
+
+func (c *Client) GetStorageRange(ctx context.Context, req *spec.ContractStorageRequest) (iter.Seq[*spec.ContractStorageResponse], error) {
+	return requestAndReceiveStream[*spec.ContractStorageRequest, *spec.ContractStorageResponse](ctx, c.newStream, SnapshotContractStorageRangePID(), req, c.log)
+}

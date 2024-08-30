@@ -55,11 +55,11 @@ type SnapServerBlockchain interface {
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
 }
 
+var _ SnapServerBlockchain = (*blockchain.Blockchain)(nil)
+
 type snapServer struct {
 	blockchain SnapServerBlockchain
 }
-
-var _ SnapServerBlockchain = &blockchain.Blockchain{}
 
 func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
 	const (
@@ -296,6 +296,16 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 			}
 		}
 	}
+}
+
+// GetStorageRangeStd TODO: move/change 👆 - just to check it can work on spec structs
+func (b *snapServer) GetStorageRangeStd(ctx context.Context, request *spec.ContractStorageRequest) iter.Seq2[*StorageRangeStreamingResult, error] {
+	req := &StorageRangeRequest{
+		StateRoot:     p2p2core.AdaptHash(request.StateRoot),
+		Queries:       request.Query,
+		ChunkPerProof: uint64(request.ChunksPerProof),
+	}
+	return b.GetStorageRange(ctx, req)
 }
 
 func (b *snapServer) GetClasses(ctx context.Context, felts []*felt.Felt) ([]*spec.Class, error) {

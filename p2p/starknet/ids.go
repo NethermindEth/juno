@@ -29,3 +29,13 @@ func ClassesPID() protocol.ID {
 func StateDiffPID() protocol.ID {
 	return Prefix + "/state_diffs/0.1.0-rc.0"
 }
+
+func SnapshotClassRangePID() protocol.ID {
+	return Prefix + "/snapshots/class_range/0.1.0-rc.0"
+}
+func SnapshotContractRangePID() protocol.ID {
+	return Prefix + "/snapshots/contract_range/0.1.0-rc.0"
+}
+func SnapshotContractStorageRangePID() protocol.ID {
+	return Prefix + "/snapshots/storage_range/0.1.0-rc.0"
+}
