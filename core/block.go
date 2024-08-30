@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -88,6 +89,13 @@ func VerifyBlockHash(b *Block, network *utils.Network) (*BlockCommitments, error
 	unverifiableRange := metaInfo.UnverifiableRange
 
 	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
+
+	// This version of Juno native is too old to verify the latest blocks on Sepolia, but it is recent enough
+	// to trace the fully Cairo 1 block 99957. This environment flag allows you to skip verification, use at your own risk.
+	skipVerificationEnv := os.Getenv("SKIP_VERIFICATION")
+	if skipVerificationEnv == "1" {
+		skipVerification = true
+	}
 
 	if !skipVerification {
 		if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {

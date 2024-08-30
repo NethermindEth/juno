@@ -277,7 +277,7 @@ struct ReportError {
     error: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct VMArgs {
     txns_and_query_bits: Vec<TxnAndQueryBit>,
     classes: Vec<Box<serde_json::value::RawValue>>,
@@ -291,7 +291,28 @@ pub struct VMArgs {
 
 lazy_static! {
     // Only record if the directory is set
-    static ref JUNO_RECORD_DIR: Option<String> = std::env::var("JUNO_RECORD_DIR").ok();
+    static ref JUNO_RECORD_DIR: Option<PathBuf> = setup_recording_directory();
+}
+
+fn setup_recording_directory() -> Option<PathBuf> {
+    match std::env::var("JUNO_RECORD_DIR") {
+        Ok(path) => {
+            let mut path: PathBuf = path.into();
+
+            // If no executor is set we default to Native
+            let executor = match std::env::var("JUNO_EXECUTOR") {
+                Ok(exe) => exe.parse::<recorded_state::Executor>().unwrap(),
+                Err(_) => recorded_state::Executor::Native,
+            };
+
+            path.push(executor.to_string());
+
+            fs::create_dir_all(&path).unwrap();
+
+            Some(path)
+        }
+        Err(_) => None,
+    }
 }
 
 fn cairo_vm_execute(
@@ -318,8 +339,6 @@ fn cairo_vm_execute(
     };
 
     if let Some(path) = JUNO_RECORD_DIR.clone() {
-        fs::create_dir_all(&path).unwrap();
-
         let mut args_path: PathBuf = path.into();
         args_path.push(format!("{}.args.cbor", block_info.block_number));
 

@@ -3,11 +3,12 @@ use std::{env, fs::File, path::PathBuf, time::Instant};
 use blockifier::state::cached_state::CachedState;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use juno_starknet_rs::{
-    recorded_state::{self, CompiledNativeState, NativeState},
+    recorded_state::{self, CompiledNativeState, Executor, NativeState},
     VMArgs,
 };
+use pprof::criterion::{Output, PProfProfiler};
 
-fn load_recording() -> (u64, VMArgs, NativeState) {
+fn load_recording(exe: Executor) -> (u64, VMArgs, NativeState) {
     // This is a workaround of not being able to supply arguments over the command line.
     let block_number: u64 = env::var("BENCH_BLOCK")
         .expect(
@@ -18,15 +19,18 @@ fn load_recording() -> (u64, VMArgs, NativeState) {
 
     let record_directory = env::var("JUNO_RECORD_DIR").expect("JUNO_RECORD_DIR has not been set");
 
-    let mut args_path: PathBuf = record_directory.clone().into();
-    args_path.push(format!("{}.args.cbor", block_number));
+    let mut path: PathBuf = record_directory.into();
+    path.push(exe.to_string());
+    path.push(block_number.to_string());
+
+    let mut args_path = path.clone();
+    args_path.set_extension("args.cbor");
     let args_file = File::open(args_path).unwrap();
     let vm_args: VMArgs = ciborium::from_reader(args_file).unwrap();
 
-    let mut state_path: PathBuf = record_directory.into();
-    state_path.push(format!("{}.state.cbor", block_number));
+    let mut state_path = path.clone();
+    state_path.set_extension("state.cbor");
     let state_file = File::open(state_path).unwrap();
-
     let native_state: NativeState = ciborium::from_reader(state_file).unwrap();
 
     (block_number, vm_args, native_state)
@@ -34,9 +38,10 @@ fn load_recording() -> (u64, VMArgs, NativeState) {
 
 /// This benchmark preloads the compiled contracts and then starts the benchmark.
 fn preload(c: &mut Criterion) {
-    let (block_number, mut vm_args, native_state) = load_recording();
+    let (block_number, native_vm_args, native_state) = load_recording(Executor::Native);
+    let (_block_number, vm_vm_args, vm_state) = load_recording(Executor::VM);
 
-    let mut group = c.benchmark_group(format!("preload/{block_number}"));
+    let mut group = c.benchmark_group(format!("{block_number}/preload"));
     group.sample_size(10);
 
     // todo(xrvdg) how to ensure this isn't run when this benchmark is filtered out?
@@ -50,13 +55,28 @@ fn preload(c: &mut Criterion) {
         start.elapsed().as_millis()
     );
 
+    let compiled_vm_state = CompiledNativeState::new(vm_state);
+
     group.bench_function("native", |b| {
         b.iter(|| {
             // The clone is negligible compared to the run
             let mut cached_compiled_native_state = CachedState::new(compiled_native_state.clone());
+            let mut vm_args = native_vm_args.clone();
             recorded_state::run(
                 black_box(&mut vm_args),
                 black_box(&mut cached_compiled_native_state),
+            );
+        })
+    });
+
+    group.bench_function("vm", |b| {
+        b.iter(|| {
+            // The clone is negligible compared to the run
+            let mut cached_compiled_vm_state = CachedState::new(compiled_vm_state.clone());
+            let mut vm_args = vm_vm_args.clone();
+            recorded_state::run(
+                black_box(&mut vm_args),
+                black_box(&mut cached_compiled_vm_state),
             );
         })
     });
@@ -69,9 +89,9 @@ fn preload(c: &mut Criterion) {
 /// This should be the same as the other two benchmarks combined and is left here to be able to verify that quickly.
 #[allow(dead_code)]
 fn cold(c: &mut Criterion) {
-    let (block_number, mut vm_args, native_state) = load_recording();
+    let (block_number, mut vm_args, native_state) = load_recording(Executor::Native);
 
-    let mut group = c.benchmark_group(format!("cold/{block_number}"));
+    let mut group = c.benchmark_group(format!("{block_number}/cold"));
     group.sample_size(10);
 
     group.bench_function("native", move |b| {
@@ -87,10 +107,11 @@ fn cold(c: &mut Criterion) {
 }
 
 /// Benchmark to track how fast it is to load contracts into memory
+#[allow(dead_code)]
 fn loading(c: &mut Criterion) {
-    let (block_number, _, native_state) = load_recording();
+    let (block_number, _, native_state) = load_recording(Executor::Native);
 
-    let mut group = c.benchmark_group(format!("loading/{block_number}"));
+    let mut group = c.benchmark_group(format!("{block_number}/loading"));
     group.sample_size(10);
 
     group.bench_function("native", move |b| {
@@ -102,5 +123,9 @@ fn loading(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, preload, loading);
+criterion_group! {
+name = benches;
+config = Criterion::default().with_profiler(PProfProfiler::new(10, Output::Protobuf));
+targets = preload}
+
 criterion_main!(benches);
