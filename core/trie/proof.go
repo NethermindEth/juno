@@ -133,39 +133,34 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
-func traverseNodesAndAppendToPath(path *[]ProofNode, currNode *ProofNode, nodeHashes map[string]ProofNode) error {
-	whileLoop := true
-	for whileLoop {
-		switch {
-		case currNode.Binary != nil:
-			expectedLeftHash := currNode.Binary.LeftHash.String()
-			expectedRightHash := currNode.Binary.RightHash.String()
+// Begins from the root node and traverses the merged proof path
+// Until it finds a split node, adds nodes to commonPath
+// Then continues with traversing left and right paths separetaly
+// Assumes there is no circular paths and the split happens at most once
+func traverseNodes(currNode *ProofNode, path, leftPath, rightPath *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
+	*path = append(*path, *currNode)
 
-			nodeLeft, leftExist := nodeHashes[expectedLeftHash]
-			nodeRight, rightExist := nodeHashes[expectedRightHash]
-			if leftExist && rightExist {
-				return errors.New("unexpected error")
-			} else if leftExist {
-				currNode = &nodeLeft
-				*path = append(*path, *currNode)
-			} else if rightExist {
-				currNode = &nodeRight
-				*path = append(*path, *currNode)
-			} else {
-				whileLoop = false
-			}
-		case currNode.Edge != nil:
-			righNode, exists := nodeHashes[currNode.Edge.Child.String()]
-			if exists {
-				currNode = &righNode
-				*path = append(*path, *currNode)
-			} else {
-				whileLoop = false
-			}
+	if currNode.Binary != nil {
+		expectedLeftHash := currNode.Binary.LeftHash
+		expectedRightHash := currNode.Binary.RightHash
+
+		nodeLeft, leftExist := nodeHashes[*expectedLeftHash]
+		nodeRight, rightExist := nodeHashes[*expectedRightHash]
+		if leftExist && rightExist {
+			traverseNodes(&nodeLeft, leftPath, nil, nil, nodeHashes)
+			traverseNodes(&nodeRight, rightPath, nil, nil, nodeHashes)
+		} else if leftExist {
+			traverseNodes(&nodeLeft, path, leftPath, rightPath, nodeHashes)
+		} else if rightExist {
+			traverseNodes(&nodeRight, path, leftPath, rightPath, nodeHashes)
 		}
+	} else if currNode.Edge != nil {
+		edgeNode, exist := nodeHashes[*currNode.Edge.Child]
+		if !exist {
+			return
+		}
+		traverseNodes(&edgeNode, path, leftPath, rightPath, nodeHashes)
 	}
-
-	return nil
 }
 
 // Remove duplicates and merges proof paths into a single path
@@ -212,7 +207,11 @@ func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNod
 	return merged, rootHash, nil
 }
 
+// Splits the merged proof path into two paths
+// First validates that the merged path is not circular and the split happens at most once
+// Then calls traverseNodes to split the path
 func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) ([]ProofNode, []ProofNode, error) {
+	commonPath := []ProofNode{}
 	leftPath := []ProofNode{}
 	rightPath := []ProofNode{}
 
@@ -220,74 +219,59 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 		return leftPath, rightPath, nil
 	}
 
-	nodeHashes := make(map[string]ProofNode)
+	nodeHashes := make(map[felt.Felt]ProofNode)
 
+	// validates the merged path is not circular
 	for _, node := range mergedPath {
 		nodeHash := node.Hash(hash)
-		nodeHashes[nodeHash.String()] = node
+		_, nodeExists := nodeHashes[*nodeHash]
+
+		if nodeExists {
+			return leftPath, rightPath, errors.New("duplicate node in the merged path")
+		}
+
+		nodeHashes[*nodeHash] = node
 	}
 
-	currNode, rootExists := nodeHashes[rootHash.String()]
+	// validates that the split happens at most once
+	splitHappened := false
+	for _, node := range mergedPath {
+		if node.Edge != nil {
+			continue
+		}
+
+		leftHash := node.Binary.LeftHash
+		rightHash := node.Binary.RightHash
+
+		_, leftExists := nodeHashes[*leftHash]
+		_, rightExists := nodeHashes[*rightHash]
+
+		if leftExists && rightExists {
+			if splitHappened {
+				return leftPath, rightPath, errors.New("split happened more than once")
+			}
+
+			splitHappened = true
+		}
+	}
+
+	// checks if the root hash exists in the merged path
+	currNode, rootExists := nodeHashes[*rootHash]
 	if !rootExists {
 		return leftPath, rightPath, errors.New("root hash not found in the merged path")
 	}
 
-	leftPath = append(leftPath, currNode)
-	rightPath = append(rightPath, currNode)
+	traverseNodes(&currNode, &commonPath, &leftPath, &rightPath, nodeHashes)
 
-	whileLoop := true
-	for whileLoop {
-		switch {
-		case currNode.Binary != nil:
-			expectedLeftHash := currNode.Binary.LeftHash
-			expectedRightHash := currNode.Binary.RightHash
+	leftResult := make([]ProofNode, len(commonPath)+len(leftPath))
+	copy(leftResult, commonPath)
+	copy(leftResult[len(commonPath):], leftPath)
 
-			nodeLeft, leftExist := nodeHashes[expectedLeftHash.String()]
-			nodeRight, rightExist := nodeHashes[expectedRightHash.String()]
-			if leftExist && rightExist {
-				// split happens
-				leftPath = append(leftPath, nodeLeft)
-				rightPath = append(rightPath, nodeRight)
-				whileLoop = false
-			} else if leftExist {
-				// only left exist continue to the loop
-				currNode = nodeLeft
-				leftPath = append(leftPath, currNode)
-				rightPath = append(rightPath, currNode)
-			} else if rightExist {
-				// only right exist continue to the loop
-				currNode = nodeRight
-				leftPath = append(leftPath, currNode)
-				rightPath = append(rightPath, currNode)
-			} else {
-				// none of the left and right exist, break the loop
-				whileLoop = false
-			}
-		case currNode.Edge != nil:
-			edgeNode, exist := nodeHashes[currNode.Edge.Child.String()]
-			if exist {
-				currNode = edgeNode
-				leftPath = append(leftPath, currNode)
-				rightPath = append(rightPath, currNode)
-			} else {
-				whileLoop = false
-			}
-		}
-	}
+	rightResult := make([]ProofNode, len(commonPath)+len(rightPath))
+	copy(rightResult, commonPath)
+	copy(rightResult[len(commonPath):], rightPath)
 
-	leftCurr := leftPath[len(leftPath)-1]
-	rightCurr := rightPath[len(rightPath)-1]
-
-	err := traverseNodesAndAppendToPath(&leftPath, &leftCurr, nodeHashes)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = traverseNodesAndAppendToPath(&rightPath, &rightCurr, nodeHashes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return leftPath, rightPath, nil
+	return leftResult, rightResult, nil
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514

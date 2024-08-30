@@ -284,7 +284,7 @@ func isSameProofPath(proofNodes, expectedProofNodes []trie.ProofNode) bool {
 		return false
 	}
 	for i := range proofNodes {
-		if proofNodes[i].Hash(crypto.Pedersen).String() != expectedProofNodes[i].Hash(crypto.Pedersen).String() {
+		if !proofNodes[i].Hash(crypto.Pedersen).Equal(expectedProofNodes[i].Hash(crypto.Pedersen)) {
 			return false
 		}
 	}
@@ -1069,6 +1069,35 @@ func TestSplitProofPaths(t *testing.T) {
 
 		mergedProofs, rootHash, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
+
+		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
+		require.NoError(t, err)
+
+		leftIsSame := isSameProofPath(leftSplit, proofs[0])
+		require.True(t, leftIsSame)
+		rightIsSame := isSameProofPath(rightSplit, proofs[1])
+		require.True(t, rightIsSame)
+	})
+
+	t.Run("4Key Trie reversed merge path", func(t *testing.T) {
+		tri := build4KeyTrie(t)
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
+		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
+
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		mergedProofs, rootHash, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
+		require.NoError(t, err)
+
+		for i := 0; i < len(mergedProofs)/2; i++ {
+			j := len(mergedProofs) - 1 - i
+			mergedProofs[i], mergedProofs[j] = mergedProofs[j], mergedProofs[i]
+		}
 
 		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
