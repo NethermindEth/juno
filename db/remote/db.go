@@ -28,7 +28,7 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 	}
 
 	listener := &db.SelectiveListener{
-		OnIOCb:     func(write bool, duration time.Duration) {}, 
+		OnIOCb:     func(write bool, duration time.Duration) {},
 		OnCommitCb: func(duration time.Duration) {},
 	}
 
@@ -48,7 +48,7 @@ func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	d.listener.OnIO(write, time.Since(start))
 
 	return &transaction{client: txClient, log: d.log}, nil
