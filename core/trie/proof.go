@@ -133,11 +133,62 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
+// Checks if there happens at most one split in the merged path
+func splitCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]ProofNode) error {
+	splitHappened := false
+	for _, node := range mergedPath {
+		if node.Edge != nil {
+			continue
+		}
+
+		leftHash := node.Binary.LeftHash
+		rightHash := node.Binary.RightHash
+
+		_, leftExists := nodeHashes[*leftHash]
+		_, rightExists := nodeHashes[*rightHash]
+
+		if leftExists && rightExists {
+			if splitHappened {
+				return errors.New("split happened more than once")
+			}
+
+			splitHappened = true
+		}
+	}
+	return nil
+}
+
+func noCycleCheck(mergedPath []ProofNode, hash hashFunc) (map[felt.Felt]ProofNode, error) {
+	nodeHashes := make(map[felt.Felt]ProofNode)
+
+	for _, node := range mergedPath {
+		nodeHash := node.Hash(hash)
+		_, nodeExists := nodeHashes[*nodeHash]
+
+		if nodeExists {
+			return nodeHashes, errors.New("there is a cycle in the merged path")
+		}
+
+		nodeHashes[*nodeHash] = node
+	}
+
+	return nodeHashes, nil
+}
+
+func rootExists(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode) (ProofNode, error) {
+	currNode, rootExists := nodeHashes[*rootHash]
+	if !rootExists {
+		return currNode, errors.New("root hash not found in the merged path")
+	}
+
+	return currNode, nil
+}
+
 // Begins from the root node and traverses the merged proof path
 // Until it finds a split node, adds nodes to commonPath
 // Then continues with traversing left and right paths separetaly
 // Assumes there is no circular paths and the split happens at most once
-func traverseNodes(currNode *ProofNode, path, leftPath, rightPath *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
+func traverseNodes(currNode *ProofNode, path *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
 	*path = append(*path, *currNode)
 
 	if currNode.Binary != nil {
@@ -147,19 +198,18 @@ func traverseNodes(currNode *ProofNode, path, leftPath, rightPath *[]ProofNode, 
 		nodeLeft, leftExist := nodeHashes[*expectedLeftHash]
 		nodeRight, rightExist := nodeHashes[*expectedRightHash]
 		if leftExist && rightExist {
-			traverseNodes(&nodeLeft, leftPath, nil, nil, nodeHashes)
-			traverseNodes(&nodeRight, rightPath, nil, nil, nodeHashes)
+			return
 		} else if leftExist {
-			traverseNodes(&nodeLeft, path, leftPath, rightPath, nodeHashes)
+			traverseNodes(&nodeLeft, path, nodeHashes)
 		} else if rightExist {
-			traverseNodes(&nodeRight, path, leftPath, rightPath, nodeHashes)
+			traverseNodes(&nodeRight, path, nodeHashes)
 		}
 	} else if currNode.Edge != nil {
 		edgeNode, exist := nodeHashes[*currNode.Edge.Child]
 		if !exist {
 			return
 		}
-		traverseNodes(&edgeNode, path, leftPath, rightPath, nodeHashes)
+		traverseNodes(&edgeNode, path, nodeHashes)
 	}
 }
 
@@ -219,59 +269,34 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 		return leftPath, rightPath, nil
 	}
 
-	nodeHashes := make(map[felt.Felt]ProofNode)
-
-	// validates the merged path is not circular
-	for _, node := range mergedPath {
-		nodeHash := node.Hash(hash)
-		_, nodeExists := nodeHashes[*nodeHash]
-
-		if nodeExists {
-			return leftPath, rightPath, errors.New("duplicate node in the merged path")
-		}
-
-		nodeHashes[*nodeHash] = node
+	nodeHashes, err := noCycleCheck(mergedPath, hash)
+	if err != nil {
+		return leftPath, rightPath, err
 	}
 
-	// validates that the split happens at most once
-	splitHappened := false
-	for _, node := range mergedPath {
-		if node.Edge != nil {
-			continue
-		}
-
-		leftHash := node.Binary.LeftHash
-		rightHash := node.Binary.RightHash
-
-		_, leftExists := nodeHashes[*leftHash]
-		_, rightExists := nodeHashes[*rightHash]
-
-		if leftExists && rightExists {
-			if splitHappened {
-				return leftPath, rightPath, errors.New("split happened more than once")
-			}
-
-			splitHappened = true
-		}
+	currNode, err := rootExists(rootHash, nodeHashes)
+	if err != nil {
+		return leftPath, rightPath, err
 	}
 
-	// checks if the root hash exists in the merged path
-	currNode, rootExists := nodeHashes[*rootHash]
-	if !rootExists {
-		return leftPath, rightPath, errors.New("root hash not found in the merged path")
+	if err := splitCheck(mergedPath, nodeHashes); err != nil {
+		return leftPath, rightPath, err
 	}
 
-	traverseNodes(&currNode, &commonPath, &leftPath, &rightPath, nodeHashes)
+	traverseNodes(&currNode, &commonPath, nodeHashes)
 
-	leftResult := make([]ProofNode, len(commonPath)+len(leftPath))
-	copy(leftResult, commonPath)
-	copy(leftResult[len(commonPath):], leftPath)
+	leftPath = append(leftPath, commonPath...)
+	rightPath = append(rightPath, commonPath...)
 
-	rightResult := make([]ProofNode, len(commonPath)+len(rightPath))
-	copy(rightResult, commonPath)
-	copy(rightResult[len(commonPath):], rightPath)
+	currNode = commonPath[len(commonPath)-1]
 
-	return leftResult, rightResult, nil
+	leftNode := nodeHashes[*currNode.Binary.LeftHash]
+	rightNode := nodeHashes[*currNode.Binary.RightHash]
+
+	traverseNodes(&leftNode, &leftPath, nodeHashes)
+	traverseNodes(&rightNode, &rightPath, nodeHashes)
+
+	return leftPath, rightPath, nil
 }
 
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
