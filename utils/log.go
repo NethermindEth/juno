@@ -163,15 +163,17 @@ func (l *ZapLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args)
 }
 
-// color type with methods were extracted from go.uber.org/zap/internal/color
+// colour (originally color) type with methods were extracted from go.uber.org/zap/internal/color
 // because it's internal it's not possible to import it directly
-const cyan color = 36
+//
+//nolint:misspell
+const cyan colour = 36
 
-// Color represents a text color.
-type color uint8
+// colour represents a text colour.
+type colour uint8
 
-// Add adds the coloring to the given string.
-func (c color) Add(s string) string {
+// Add adds the colouring to the given string.
+func (c colour) Add(s string) string {
 	return fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(c), s)
 }
 
