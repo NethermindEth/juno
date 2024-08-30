@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -102,9 +103,7 @@ type ZapLogger struct {
 	*zap.SugaredLogger
 }
 
-const (
-	traceLevel = zapcore.Level(-2)
-)
+const traceLevel = zapcore.Level(-2)
 
 func (l *ZapLogger) IsTraceEnabled() bool {
 	return l.Desugar().Core().Enabled(traceLevel)
@@ -112,7 +111,13 @@ func (l *ZapLogger) IsTraceEnabled() bool {
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
 	if l.IsTraceEnabled() {
-		l.Debugw("[TRACE] "+msg, keysAndValues...) // Hack: we use Debug for traces
+		// l.WithOptions() clones logger every time there is a Tracew() call
+		// which may be inefficient, one possible improvement is to create
+		// special logger just for traces in ZapLogger with AddCallerSkip(1)
+		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
+
+		// AddCallerSkip(1) is necessary to skip the caller of this function
+		l.WithOptions(zap.AddCallerSkip(1)).Logw(traceLevel, msg, keysAndValues...)
 	}
 }
 
@@ -126,9 +131,9 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Sampling = nil
 	config.Encoding = "console"
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	config.EncoderConfig.EncodeLevel = capitalColorLevelEncoder
 	if !colour {
-		config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+		config.EncoderConfig.EncodeLevel = capitalLevelEncoder
 	}
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
@@ -156,4 +161,36 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 
 func (l *ZapLogger) Warningf(msg string, args ...any) {
 	l.Warnf(msg, args)
+}
+
+// color type with methods were extracted from go.uber.org/zap/internal/color
+// because it's internal it's not possible to import it directly
+const cyan color = 36
+
+// Color represents a text color.
+type color uint8
+
+// Add adds the coloring to the given string.
+func (c color) Add(s string) string {
+	return fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(c), s)
+}
+
+// capitalColorLevelEncoder adds support for TRACE log level to the default CapitalColorLevelEncoder
+func capitalColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	if l == traceLevel {
+		tracePrefix := strings.ToUpper(TRACE.String())
+		enc.AppendString(cyan.Add(tracePrefix))
+	} else {
+		zapcore.CapitalColorLevelEncoder(l, enc)
+	}
+}
+
+// capitalLevelEncoder adds support for TRACE log level to the default CapitalLevelEncoder
+func capitalLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	if l == traceLevel {
+		tracePrefix := strings.ToUpper(TRACE.String())
+		enc.AppendString(tracePrefix)
+	} else {
+		zapcore.CapitalLevelEncoder(l, enc)
+	}
 }
