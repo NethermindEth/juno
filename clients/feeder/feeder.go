@@ -256,9 +256,17 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				if res.StatusCode == http.StatusOK {
 					return res.Body, nil
 				} else {
-					err = errors.New(res.Status)
+					var errorResponse struct {
+						Code    string `json:"code"`
+						Message string `json:"message"`
+					}
+					err = json.NewDecoder(res.Body).Decode(&errorResponse)
+					if err == nil {
+						err = errors.New(errorResponse.Message)
+					} else {
+						err = errors.New(res.Status)
+					}
 				}
-
 				res.Body.Close()
 			}
 
