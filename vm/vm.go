@@ -45,6 +45,7 @@ extern void freeString(char* str);
 import "C"
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -61,9 +62,9 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+	Call(ctx context.Context, callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 		maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
-	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
+	Execute(ctx context.Context, txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
 	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error)
 }
@@ -99,6 +100,7 @@ type callContext struct {
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
+	//nolint:gocritic
 	context, ok := cgo.Handle(readerHandle).Value().(*callContext)
 	if !ok {
 		panic("cannot cast reader")
@@ -109,6 +111,7 @@ func unwrapContext(readerHandle C.uintptr_t) *callContext {
 
 //export JunoReportError
 func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char) {
+	//nolint:gocritic
 	context := unwrapContext(readerHandle)
 	context.errTxnIndex = int64(txnIndex)
 	context.err = C.GoString(str)
@@ -116,6 +119,7 @@ func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char) {
 
 //export JunoAppendTrace
 func JunoAppendTrace(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	//nolint:gocritic
 	context := unwrapContext(readerHandle)
 	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
 	context.traces = append(context.traces, json.RawMessage(byteSlice))
@@ -123,24 +127,28 @@ func JunoAppendTrace(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.siz
 
 //export JunoAppendResponse
 func JunoAppendResponse(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+	//nolint:gocritic
 	context := unwrapContext(readerHandle)
 	context.response = append(context.response, makeFeltFromPtr(ptr))
 }
 
 //export JunoAppendActualFee
 func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+	//nolint:gocritic
 	context := unwrapContext(readerHandle)
 	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
 }
 
 //export JunoAppendDataGasConsumed
 func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+	//nolint:gocritic
 	context := unwrapContext(readerHandle)
 	context.dataGasConsumed = append(context.dataGasConsumed, makeFeltFromPtr(ptr))
 }
 
 //export JunoAddExecutionSteps
 func JunoAddExecutionSteps(readerHandle C.uintptr_t, execSteps C.ulonglong) {
+	//nolint:gocritic
 	context := unwrapContext(readerHandle)
 	context.executionSteps += uint64(execSteps)
 }
@@ -225,9 +233,14 @@ func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
 	return cBlockInfo
 }
 
-func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
+func (v *vm) Call(ctx context.Context, callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
 	network *utils.Network, maxSteps uint64, useBlobData bool,
 ) ([]*felt.Felt, error) {
+	if err := ctx.Err(); err != nil { //nolint:gocritic
+		return nil, err
+	}
+
+	//nolint:gocritic
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
@@ -264,10 +277,15 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
+func (v *vm) Execute(ctx context.Context, txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
 ) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error) {
+	if err := ctx.Err(); err != nil { //nolint:gocritic
+		return nil, nil, nil, 0, err
+	}
+
+	//nolint:gocritic
 	context := &callContext{
 		state: state,
 		log:   v.log,

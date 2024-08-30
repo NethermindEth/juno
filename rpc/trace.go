@@ -275,7 +275,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(ctx, block.Transactions, classes, paidFeesOnL1,
 		&blockInfo, state, network, false, false, false, useBlobData)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
@@ -362,15 +362,18 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
-	return h.call(funcCall, id, true)
+func (h *Handler) Call(ctx context.Context, funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	return h.call(ctx, funcCall, id, true)
 }
 
-func (h *Handler) CallV0_6(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
-	return h.call(call, id, false)
+func (h *Handler) CallV0_6(ctx context.Context, call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	return h.call(ctx, call, id, false)
 }
 
-func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+//nolint:gocritic
+func (h *Handler) call(ctx context.Context, funcCall FunctionCall, id BlockID, useBlobData bool) ([]*felt.Felt,
+	*jsonrpc.Error,
+) {
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -392,7 +395,7 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*
 		return nil, ErrInternal.CloneWithData(err)
 	}
 
-	res, err := h.vm.Call(&vm.CallInfo{
+	res, err := h.vm.Call(ctx, &vm.CallInfo{
 		ContractAddress: &funcCall.ContractAddress,
 		Selector:        &funcCall.EntryPointSelector,
 		Calldata:        funcCall.Calldata,

@@ -48,19 +48,21 @@ func TestThrottledVMError(t *testing.T) {
 	handler := rpc.New(mockReader, nil, throttledVM, "", nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
+	ctx := context.Background()
+
 	throttledErr := "VM throughput limit reached"
 	t.Run("call", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		_, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		_, rpcErr := handler.Call(ctx, rpc.FunctionCall{}, rpc.BlockID{Latest: true})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 
 	t.Run("simulate", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, httpHeader, rpcErr := handler.SimulateTransactions(ctx, rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
