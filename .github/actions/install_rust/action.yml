@@ -1,0 +1,25 @@
+# Installs rust toolchain with the version defined in .github/actions/install_rust/rust_version.txt.
+inputs:
+  components:
+    description: "An optional parameter that will be sent to dtolnay/rust-toolchain."
+    required: false
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Define toolchain
+      run: echo "DEFAULT_TOOLCHAIN=$(cat .github/actions/install_rust/rust_version.txt)" >> $GITHUB_ENV
+      shell: bash
+    - name: install rust toolchain with given components
+      if: "${{ inputs.components != '' }}"
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ env.DEFAULT_TOOLCHAIN }}
+        components: ${{ inputs.components }}
+
+    - name: install rust toolchain without given components
+      if: "${{ inputs.components == '' }}"
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ env.DEFAULT_TOOLCHAIN }}
