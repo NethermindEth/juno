@@ -43,6 +43,18 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install jemalloc
+      - name: Print PATH
+        run: |
+          echo $PATH
+      - name: testing wip
+        run: which make
+        env:
+          LLVM_INCLUDE: /usr/lib/llvm-18/
+          LLVM_180_INCLUDE: /usr/lib/llvm-18/
+          PATH: /usr/lib/llvm-18/bin:$PATH
+          MLIR_SYS_180_PREFIX: /usr/lib/llvm-18/
+          LLVM_SYS_180_PREFIX: /usr/lib/llvm-18/
+          TABLEGEN_180_PREFIX: /usr/lib/llvm-18/
       - name: Tests
         run: make test-cover
         env:
