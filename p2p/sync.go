@@ -107,18 +107,13 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
-		blocksCh := pipeline.Bridge(
-			iterCtx,
-			s.processSpecBlockParts(iterCtx, uint64(nextHeight),
-				pipeline.FanIn(iterCtx,
-					pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
-					pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
-					pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
-					pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
-					pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
-				),
-			),
-		)
+		blocksCh := pipeline.Bridge(iterCtx, s.processSpecBlockParts(iterCtx, uint64(nextHeight), pipeline.FanIn(iterCtx,
+			pipeline.Stage(iterCtx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+			pipeline.Stage(iterCtx, classesCh, specBlockPartsFunc[specClasses]),
+			pipeline.Stage(iterCtx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
+			pipeline.Stage(iterCtx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
+			pipeline.Stage(iterCtx, eventsCh, specBlockPartsFunc[specEvents]),
+		)))
 
 		for b := range blocksCh {
 			if b.err != nil {
@@ -249,10 +244,8 @@ func (s *syncService) processSpecBlockParts(
 							}
 						}
 
-						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(
-							ctx, headerAndSig.header, diffs.contractDiffs,
-							cls.classes, txs.txs, txs.receipts, es.events, prevBlockRoot,
-						)
+						orderedBlockBodiesCh <- s.adaptAndSanityCheckBlock(ctx, headerAndSig.header, diffs.contractDiffs,
+							cls.classes, txs.txs, txs.receipts, es.events, prevBlockRoot)
 					}
 
 					if curBlockNum > 0 {
@@ -269,15 +262,8 @@ func (s *syncService) processSpecBlockParts(
 }
 
 //nolint:gocyclo,funlen
-func (s *syncService) adaptAndSanityCheckBlock(
-	ctx context.Context,
-	header *spec.SignedBlockHeader,
-	contractDiffs []*spec.ContractDiff,
-	classes []core.Class,
-	txs []*spec.Transaction,
-	receipts []*spec.Receipt,
-	events []*spec.Event,
-	prevBlockRoot *felt.Felt,
+func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
+	classes []core.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
@@ -391,12 +377,7 @@ func (s *syncService) adaptAndSanityCheckBlock(
 
 			select {
 			case <-ctx.Done():
-			case bodyCh <- blockBody{
-				block:       coreBlock,
-				stateUpdate: stateUpdate,
-				newClasses:  newClasses,
-				commitments: commitments,
-			}:
+			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
 			}
 		}
 	}()

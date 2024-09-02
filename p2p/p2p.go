@@ -120,14 +120,8 @@ func New(
 	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
 }
 
-func NewWithHost(
-	p2phost host.Host,
-	peers string,
-	feederNode bool,
-	bc *blockchain.Blockchain,
-	snNetwork *utils.Network,
-	log utils.SimpleLogger,
-	database db.DB,
+func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
