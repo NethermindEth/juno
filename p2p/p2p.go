@@ -165,7 +165,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(starknet.KadPrefix()),
+		dht.ProtocolPrefix(starknet.Prefix),
 		dht.BootstrapPeers(addrInfos...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
