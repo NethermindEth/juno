@@ -187,9 +187,6 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	networks := []*utils.Network{
 		&utils.Mainnet,
 		&utils.Sepolia,
-		&utils.Goerli,
-		&utils.Goerli2,
-		&utils.Integration,
 		&utils.SepoliaIntegration,
 	}
 

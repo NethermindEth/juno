@@ -221,17 +221,15 @@ func TestVerifyTransactionHash(t *testing.T) {
 }
 
 func TestTransactionV3Hash(t *testing.T) {
-	network := utils.Integration
+	network := utils.Sepolia
 	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
 	ctx := context.Background()
 
-	// Test data was obtained by playing with Papyrus's implementation before v0.13 was released on integration.
 	tests := map[string]struct {
 		tx   func(hash *felt.Felt) core.Transaction
 		want *felt.Felt
 	}{
 		"invoke": {
-			// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd
 			tx: func(hash *felt.Felt) core.Transaction {
 				tx, err := gw.Transaction(ctx, hash)
 				require.NoError(t, err)
@@ -240,9 +238,8 @@ func TestTransactionV3Hash(t *testing.T) {
 				invoke.TransactionHash = nil
 				return invoke
 			},
-			want: utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+			want: utils.HexToFelt(t, "0x6e7ae47173b6935899320dd41d540a27f8d5712febbaf13fe8d8aeaf4ac9164"),
 		},
-		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3
 		"declare": {
 			tx: func(hash *felt.Felt) core.Transaction {
 				tx, err := gw.Transaction(ctx, hash)
@@ -252,9 +249,8 @@ func TestTransactionV3Hash(t *testing.T) {
 				declare.TransactionHash = nil
 				return declare
 			},
-			want: utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
+			want: utils.HexToFelt(t, "0x1dde7d379485cceb9ec0a5aacc5217954985792f12b9181cf938ec341046491"),
 		},
-		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0
 		"deployAccount": {
 			tx: func(hash *felt.Felt) core.Transaction {
 				tx, err := gw.Transaction(ctx, hash)
@@ -264,7 +260,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				deployAccount.TransactionHash = nil
 				return deployAccount
 			},
-			want: utils.HexToFelt(t, "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+			want: utils.HexToFelt(t, "0x138c9f01c27c56ceff5c9adb05f2a025ae4ebeb35ba4ac88572abd23c5623f"),
 		},
 	}
 
@@ -332,14 +328,14 @@ func TestMessageHash(t *testing.T) {
 }
 
 func TestDeclareV0TransactionHash(t *testing.T) {
-	network := utils.Goerli
+	network := utils.Sepolia
 	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
 	ctx := context.Background()
 
-	b, err := gw.BlockByNumber(ctx, 231579)
+	b, err := gw.BlockByNumber(ctx, 0)
 	require.NoError(t, err)
 
-	decTx, ok := b.Transactions[30].(*core.DeclareTransaction)
+	decTx, ok := b.Transactions[1].(*core.DeclareTransaction)
 	require.True(t, ok)
 
 	expectedHash := decTx.Hash()

@@ -140,13 +140,12 @@ func TestReorg(t *testing.T) {
 	mainClient := feeder.NewTestClient(t, &utils.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
 
-	integClient := feeder.NewTestClient(t, &utils.Integration)
+	integClient := feeder.NewTestClient(t, &utils.Sepolia)
 	integGw := adaptfeeder.New(integClient)
 
 	testDB := pebble.NewMemTest(t)
 
-	// sync to integration for 2 blocks
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, &utils.Sepolia)
 	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -159,7 +158,7 @@ func TestReorg(t *testing.T) {
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
+		require.Equal(t, utils.HexToFelt(t, "0x78b67b11f8c23850041e11fb0f3b39db0bcb2c99d756d5a81321d1b483d79f6"), head.Hash)
 
 		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false)
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
@@ -169,6 +168,7 @@ func TestReorg(t *testing.T) {
 		// After syncing (and reorging) the current head should be at mainnet
 		head, err = bc.HeadsHeader()
 		require.NoError(t, err)
+		require.NotEqual(t, utils.HexToFelt(t, "0x78b67b11f8c23850041e11fb0f3b39db0bcb2c99d756d5a81321d1b483d79f6"), head.Hash)
 		require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
 	})
 }
@@ -199,9 +199,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
 	testDB := pebble.NewMemTest(t)
 	log := utils.NewNopZapLogger()
-	integration := utils.Integration
-	chain := blockchain.New(testDB, &integration)
-	integrationClient := feeder.NewTestClient(t, &integration)
+	network := utils.Mainnet
+	chain := blockchain.New(testDB, &network)
+	integrationClient := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(integrationClient)
 	syncer := sync.New(chain, gw, log, 0, false)
 
