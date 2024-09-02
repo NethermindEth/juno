@@ -4,7 +4,7 @@ module github.com/NethermindEth/juno
 go 1.23.0
 
 require (
-	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/bits-and-blooms/bitset v1.14.2
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/cockroachdb/pebble v1.1.2
