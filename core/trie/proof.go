@@ -134,7 +134,7 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 }
 
 // Checks if there happens at most one split in the merged path
-func splitCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]ProofNode) error {
+func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]ProofNode) error {
 	splitHappened := false
 	for _, node := range mergedPath {
 		if node.Edge != nil {
@@ -198,7 +198,7 @@ func noCycleCheck(node ProofNode, nodeHashes map[felt.Felt]ProofNode, visitedHas
 	return nil
 }
 
-func rootExists(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode) (ProofNode, error) {
+func rootNodeExistsCheck(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode) (ProofNode, error) {
 	currNode, rootExists := nodeHashes[*rootHash]
 	if !rootExists {
 		return currNode, errors.New("root hash not found in the merged path")
@@ -303,7 +303,7 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 		return leftPath, rightPath, nil
 	}
 
-	currNode, err := rootExists(rootHash, nodeHashes)
+	currNode, err := rootNodeExistsCheck(rootHash, nodeHashes)
 	if err != nil {
 		return leftPath, rightPath, err
 	}
@@ -313,7 +313,7 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 		return leftPath, rightPath, err
 	}
 
-	if err := splitCheck(mergedPath, nodeHashes); err != nil {
+	if err := pathSplitOccurredCheck(mergedPath, nodeHashes); err != nil {
 		return leftPath, rightPath, err
 	}
 
