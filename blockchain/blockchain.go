@@ -626,6 +626,10 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 ) (*core.BlockCommitments, error) {
+	if err := b.VerifyBlock(block); err != nil {
+		return nil, fmt.Errorf("verify head block: %w", err)
+	}
+
 	if !block.Hash.Equal(stateUpdate.BlockHash) {
 		return nil, errors.New("block hashes do not match")
 	}

@@ -133,6 +133,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("get head block from database: %v", err)
 	}
 	if head != nil {
+		if err := chain.VerifyBlock(head); err != nil {
+			return nil, fmt.Errorf("verify head block: %w", err)
+		}
+
 		stateUpdate, err := chain.StateUpdateByNumber(head.Number)
 		if err != nil {
 			return nil, err
