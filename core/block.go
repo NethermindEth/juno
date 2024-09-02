@@ -215,30 +215,55 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
-	return crypto.PoseidonArray(
-			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
-			new(felt.Felt).SetUint64(b.Number),    // block number
-			b.GlobalStateRoot,                     // global state root
-			b.SequencerAddress,                    // sequencer address
-			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-			concatCounts,
-			sdCommitment,
-			txCommitment,   // transaction commitment
-			eCommitment,    // event commitment
-			rCommitment,    // receipt commitment
-			b.GasPrice,     // gas price in wei
-			b.GasPriceSTRK, // gas price in fri
-			b.L1DataGasPrice.PriceInWei,
-			b.L1DataGasPrice.PriceInFri,
-			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
-			&felt.Zero,   // reserved: extra data
-			b.ParentHash, // parent block hash
-		), &BlockCommitments{
-			TransactionCommitment: txCommitment,
-			EventCommitment:       eCommitment,
-			ReceiptCommitment:     rCommitment,
-			StateDiffCommitment:   sdCommitment,
-		}, nil
+	if b.Number <= 5 {
+		fmt.Println("====================================")
+		fmt.Printf("STARKNET_BLOCK_HASH0: %v\n", new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")))
+		fmt.Printf("block number: %v\n", b.Number)                // block number
+		fmt.Printf("global state root: %v\n", b.GlobalStateRoot)  // global state root
+		fmt.Printf("sequencer address: %v\n", b.SequencerAddress) // sequencer address
+		fmt.Printf("block timestamp: %v\n", b.Timestamp)          // block timestamp
+		fmt.Printf("concatCounts: %v\n", concatCounts)
+		fmt.Printf("state diff commitment: %v\n", sdCommitment)
+		fmt.Printf("transaction commitment: %v\n", txCommitment)      // transaction commitment
+		fmt.Printf("event commitment: %v\n", eCommitment)             // event commitment
+		fmt.Printf("receipt commitment: %v\n", rCommitment)           // receipt commitment
+		fmt.Printf("gas price in wei: %v\n", b.GasPrice.Uint64())     // gas price in wei
+		fmt.Printf("gas price in fri: %v\n", b.GasPriceSTRK.Uint64()) // gas price in fri
+		fmt.Printf("L1 data gas price in wei: %v\n", b.L1DataGasPrice.PriceInWei.Uint64())
+		fmt.Printf("L1 data gas price in fri: %v\n", b.L1DataGasPrice.PriceInFri.Uint64())
+		fmt.Printf("protocol version: %v\n", new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)))
+		fmt.Printf("extra data: %v\n", &felt.Zero)          // reserved: extra data
+		fmt.Printf("parent block hash: %v\n", b.ParentHash) // parent block hash
+		fmt.Println("====================================")
+	}
+
+	hash := crypto.PoseidonArray(
+		new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
+		new(felt.Felt).SetUint64(b.Number),    // block number
+		b.GlobalStateRoot,                     // global state root
+		b.SequencerAddress,                    // sequencer address
+		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		concatCounts,
+		sdCommitment,
+		txCommitment,   // transaction commitment
+		eCommitment,    // event commitment
+		rCommitment,    // receipt commitment
+		b.GasPrice,     // gas price in wei
+		b.GasPriceSTRK, // gas price in fri
+		b.L1DataGasPrice.PriceInWei,
+		b.L1DataGasPrice.PriceInFri,
+		new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+		&felt.Zero,   // reserved: extra data
+		b.ParentHash, // parent block hash
+	)
+	// fmt.Printf("Block number: %v, block hash: %v\n", b.Number, hash.String())
+
+	return hash, &BlockCommitments{
+		TransactionCommitment: txCommitment,
+		EventCommitment:       eCommitment,
+		ReceiptCommitment:     rCommitment,
+		StateDiffCommitment:   sdCommitment,
+	}, nil
 }
 
 // post07Hash computes the block hash for blocks generated after Cairo 0.7.0
