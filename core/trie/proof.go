@@ -158,21 +158,44 @@ func splitCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]ProofNode) erro
 	return nil
 }
 
-func noCycleCheck(mergedPath []ProofNode, hash hashFunc) (map[felt.Felt]ProofNode, error) {
-	nodeHashes := make(map[felt.Felt]ProofNode)
+func noCycleCheck(node ProofNode, nodeHashes map[felt.Felt]ProofNode, visitedHashes map[felt.Felt]bool, hash hashFunc) error {
+	nodeHash := node.Hash(hash)
+	_, visited := visitedHashes[*nodeHash]
 
-	for _, node := range mergedPath {
-		nodeHash := node.Hash(hash)
-		_, nodeExists := nodeHashes[*nodeHash]
-
-		if nodeExists {
-			return nodeHashes, errors.New("there is a cycle in the merged path")
-		}
-
-		nodeHashes[*nodeHash] = node
+	if visited {
+		return errors.New("circular path in the merged proof")
 	}
 
-	return nodeHashes, nil
+	visitedHashes[*nodeHash] = true
+
+	if node.Binary != nil {
+		leftHash := node.Binary.LeftHash
+		rightHash := node.Binary.RightHash
+
+		leftNode, leftExist := nodeHashes[*leftHash]
+		rightNode, rightExist := nodeHashes[*rightHash]
+
+		if leftExist {
+			if err := noCycleCheck(leftNode, nodeHashes, visitedHashes, hash); err != nil {
+				return err
+			}
+		}
+
+		if rightExist {
+			if err := noCycleCheck(rightNode, nodeHashes, visitedHashes, hash); err != nil {
+				return err
+			}
+		}
+	} else if node.Edge != nil {
+		edgeNode, exist := nodeHashes[*node.Edge.Child]
+		if exist {
+			if err := noCycleCheck(edgeNode, nodeHashes, visitedHashes, hash); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func rootExists(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode) (ProofNode, error) {
@@ -188,8 +211,8 @@ func rootExists(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode) (ProofN
 // Until it finds a split node, adds nodes to commonPath
 // Then continues with traversing left and right paths separetaly
 // Assumes there is no circular paths and the split happens at most once
-func traverseNodes(currNode *ProofNode, path *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
-	*path = append(*path, *currNode)
+func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
+	*path = append(*path, currNode)
 
 	if currNode.Binary != nil {
 		expectedLeftHash := currNode.Binary.LeftHash
@@ -200,16 +223,16 @@ func traverseNodes(currNode *ProofNode, path *[]ProofNode, nodeHashes map[felt.F
 		if leftExist && rightExist {
 			return
 		} else if leftExist {
-			traverseNodes(&nodeLeft, path, nodeHashes)
+			traverseNodes(nodeLeft, path, nodeHashes)
 		} else if rightExist {
-			traverseNodes(&nodeRight, path, nodeHashes)
+			traverseNodes(nodeRight, path, nodeHashes)
 		}
 	} else if currNode.Edge != nil {
 		edgeNode, exist := nodeHashes[*currNode.Edge.Child]
 		if !exist {
 			return
 		}
-		traverseNodes(&edgeNode, path, nodeHashes)
+		traverseNodes(edgeNode, path, nodeHashes)
 	}
 }
 
@@ -264,14 +287,20 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 	commonPath := []ProofNode{}
 	leftPath := []ProofNode{}
 	rightPath := []ProofNode{}
+	nodeHashes := make(map[felt.Felt]ProofNode)
+
+	for _, node := range mergedPath {
+		nodeHash := node.Hash(hash)
+		_, nodeExists := nodeHashes[*nodeHash]
+
+		if nodeExists {
+			return leftPath, rightPath, errors.New("duplicate node in the merged path")
+		}
+		nodeHashes[*nodeHash] = node
+	}
 
 	if len(mergedPath) == 0 {
 		return leftPath, rightPath, nil
-	}
-
-	nodeHashes, err := noCycleCheck(mergedPath, hash)
-	if err != nil {
-		return leftPath, rightPath, err
 	}
 
 	currNode, err := rootExists(rootHash, nodeHashes)
@@ -279,11 +308,16 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 		return leftPath, rightPath, err
 	}
 
+	visitedHashes := make(map[felt.Felt]bool)
+	if err := noCycleCheck(currNode, nodeHashes, visitedHashes, hash); err != nil {
+		return leftPath, rightPath, err
+	}
+
 	if err := splitCheck(mergedPath, nodeHashes); err != nil {
 		return leftPath, rightPath, err
 	}
 
-	traverseNodes(&currNode, &commonPath, nodeHashes)
+	traverseNodes(currNode, &commonPath, nodeHashes)
 
 	leftPath = append(leftPath, commonPath...)
 	rightPath = append(rightPath, commonPath...)
@@ -293,8 +327,8 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 	leftNode := nodeHashes[*currNode.Binary.LeftHash]
 	rightNode := nodeHashes[*currNode.Binary.RightHash]
 
-	traverseNodes(&leftNode, &leftPath, nodeHashes)
-	traverseNodes(&rightNode, &rightPath, nodeHashes)
+	traverseNodes(leftNode, &leftPath, nodeHashes)
+	traverseNodes(rightNode, &rightPath, nodeHashes)
 
 	return leftPath, rightPath, nil
 }
