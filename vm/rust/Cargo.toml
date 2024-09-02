@@ -46,18 +46,29 @@ crate-type = ["staticlib", "rlib"]
 toml = "0.8.19"
 url = "2.5.2"
 
-[dev-dependencies]
+
+# pprof with libunwind doesn't work on macOS therefore we use frame-pointer
+[target.'cfg(target_os = "macos")'.dev-dependencies]
 pprof = { version = "0.13.0", features = [
     "criterion",
     # Needs to output protobuf to analyse the traces with the google's pprof
     "_protobuf",
     "protobuf",
     "protobuf-codec",
-    # It is easier to depend on the frame pointer than to use libunwind for stack tracing.
-    # Downside of this approach is that it requires to recompile the std library if you want to trace through std
-    # but so far we haven't needed that. 
     "frame-pointer",
 ] }
+
+# On Linux (x86-64) we use libunwind as frame-pointer doesn't provide enough information.
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+pprof = { version = "0.13.0", features = [
+    "criterion",
+    # Needs to output protobuf to analyse the traces with the google's pprof
+    "_protobuf",
+    "protobuf",
+    "protobuf-codec",
+] }
+
+[dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
 
 [[bench]]
