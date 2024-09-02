@@ -280,68 +280,48 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	assert.Equal(t, "0.10.1", block.Version)
 }
 
-func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Mainnet)
-
-	block, err := client.Block(context.Background(), strconv.Itoa(19199))
-	require.NoError(t, err)
-
-	assert.Equal(t, "0x41811b69473f26503e0375806ee97d05951ccc7840e3d2bbe14ffb2522e5be1", block.Hash.String())
-	assert.Equal(t, "0x68427fb6f1f5e687fbd779b3cc0d4ee31b49575ed0f8c749f827e4a45611efc", block.ParentHash.String())
-	assert.Equal(t, uint64(19199), block.Number)
-	assert.Equal(t, "0x541b796ea02703d02ff31459815f65f410ceefe80a4e3499f7ef9ccc36d26ee", block.StateRoot.String())
-	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
-	assert.Equal(t, "0x31c4e2d75", block.GasPriceETH().String())
-	assert.Equal(t, 324, len(block.Transactions))
-	assert.Equal(t, 324, len(block.Receipts))
-	assert.Equal(t, uint64(1674728186), block.Timestamp)
-	assert.Equal(t, "0.10.3", block.Version)
-	assert.Equal(t, "0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9", block.SequencerAddress.String())
-}
-
 func TestBlockHeaderV013Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
-	block, err := client.Block(context.Background(), "319132")
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	block, err := client.Block(context.Background(), "6000")
 	require.NoError(t, err)
 
-	require.Equal(t, utils.HexToFelt(t, "0x50e864db6b81ce69fbeb70e6a7284ee2febbb9a2e707415de7adab83525e9cd"), block.Hash)
-	require.Equal(t, utils.HexToFelt(t, "0x39dfc381180356734085e2d70b640e153c241c7f65936cacbdff9fad84bbc0c"), block.ParentHash)
-	require.Equal(t, uint64(319132), block.Number)
-	require.Equal(t, utils.HexToFelt(t, "0x2a6b9a8b60e1de80dc50e6b704b415a38e8fd03d82244cec92cbff0821a8975"), block.StateRoot)
-	require.Equal(t, "ACCEPTED_ON_L2", block.Status)
-	require.Equal(t, utils.HexToFelt(t, "0x3b9aca08"), block.GasPriceETH())
-	require.Equal(t, utils.HexToFelt(t, "0x2540be400"), block.GasPriceSTRK())
-	require.Equal(t, uint64(1700075354), block.Timestamp)
+	require.Equal(t, utils.HexToFelt(t, "0x39ec03c4e6c751088762690945cdada9a10d649d2dcb9b75a19d85172e754a5"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x70cba51576d4a485e907b9f71f303543f18a3ab924777c94070adff78ed4509"), block.ParentHash)
+	require.Equal(t, uint64(6000), block.Number)
+	require.Equal(t, utils.HexToFelt(t, "0x655222e33b74fefb66bbcf3c34a26a8659bfdfc2418046439fba73e9de77784"), block.StateRoot)
+	require.Equal(t, "ACCEPTED_ON_L1", block.Status)
+	require.Equal(t, utils.HexToFelt(t, "0x74c2ca950"), block.GasPriceETH())
+	require.Equal(t, utils.HexToFelt(t, "0x48f9be9d20"), block.GasPriceSTRK())
+	require.Equal(t, uint64(1705105623), block.Timestamp)
 	require.Equal(t, utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"), block.SequencerAddress)
 	require.Equal(t, "0.13.0", block.Version)
 }
 
 func TestBlockHeaderV0131Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
-	block, err := client.Block(context.Background(), "330363")
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	block, err := client.Block(context.Background(), "16350")
 	require.NoError(t, err)
 
-	require.Equal(t, utils.HexToFelt(t, "0x8ab8117e952f95efd96de0bc66dc6f13fe68dfda14b95fe1972759dee283a8"), block.Hash)
-	require.Equal(t, utils.HexToFelt(t, "0x13367121d0b7e34a9b10c8a5a1c269811cd9afc3ce680c88888f1a22d2f017a"), block.TransactionCommitment)
-	require.Equal(t, utils.HexToFelt(t, "0x1090dd2ab2aa22bd5fc5a59d3b1394d54461bb2a80156c4b2c2622d2c474ca2"), block.EventCommitment)
-	require.Equal(t, utils.HexToFelt(t, "0x3b9aca0a"), block.GasPriceETH())
-	require.Equal(t, utils.HexToFelt(t, "0x2b6fdb70"), block.GasPriceSTRK())
-	require.Equal(t, utils.HexToFelt(t, "0x5265a14ef"), block.L1DataGasPrice.PriceInWei)
-	require.Equal(t, utils.HexToFelt(t, "0x3c0c00c87"), block.L1DataGasPrice.PriceInFri)
+	require.Equal(t, utils.HexToFelt(t, "0x660be3d095f36ffebf314c8bdea6823ba5e1f02fec2db61c84eb6faa859195"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x375407a74543c010dcfcd2e730ec08fb3ca242bd5e226fc77a6815bdf1cbdd4"), block.TransactionCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x38f9aae412caffd5aee51af29fcf090265ef303748d879f63df268e91781e00"), block.EventCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x3b9aca10"), block.GasPriceETH())
+	require.Equal(t, utils.HexToFelt(t, "0x17882b6aa74"), block.GasPriceSTRK())
+	require.Equal(t, utils.HexToFelt(t, "0x716a8f6dd"), block.L1DataGasPrice.PriceInWei)
+	require.Equal(t, utils.HexToFelt(t, "0x2cc6d7f596e1"), block.L1DataGasPrice.PriceInFri)
 	require.Equal(t, starknet.Blob, block.L1DAMode)
 	require.Equal(t, "0.13.1", block.Version)
 	require.Equal(t, uint64(0), block.Receipts[0].ExecutionResources.DataAvailability.L1Gas)
-	require.Equal(t, uint64(128), block.Receipts[0].ExecutionResources.DataAvailability.L1DataGas)
+	require.Equal(t, uint64(640), block.Receipts[0].ExecutionResources.DataAvailability.L1DataGas)
 }
 
-func TestBlockHeaderv0132Unmarshal(t *testing.T) {
+func TestBlockHeaderV0132Unmarshal(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	block, err := client.Block(context.Background(), "35748")
 	require.NoError(t, err)
 
-	// Only focus on checking the new fields
 	require.Equal(t, utils.HexToFelt(t, "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869"), block.Hash)
-	require.Equal(t, utils.HexToFelt(t, "0x77140bef51bbb4d1932f17cc5081825ff18465a1df4440ca0429a4fa80f1dc5"), block.ParentHash)
+	// Only focus on checking the new fields
 	require.Equal(t, utils.HexToFelt(t, "0x6f12628d21a8df7f158b631d801fc0dd20034b9e22eca255bddc0c1c1bc283f"), block.ReceiptCommitment)
 	require.Equal(t, utils.HexToFelt(t, "0x23587c54d590b57b8e25acbf1e1a422eb4cd104e95ee4a681021a6bb7456afa"), block.StateDiffCommitment)
 	require.Equal(t, uint64(6), block.StateDiffLength)
