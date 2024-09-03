@@ -10,7 +10,7 @@ struct Args {
     blocks: Vec<u64>,
     #[arg(short, long, default_value_t = str::to_string("http://localhost:6060/"))]
     url: String,
-    #[arg(default_value_t = 2)]
+    #[arg(short, long, default_value_t = 2)]
     max_concurrent: usize,
 }
 
