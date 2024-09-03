@@ -376,9 +376,9 @@ fn cairo_vm_execute(
             error: err,
         })?;
 
-        let actual_fee: Felt = transaction_execution_info.transaction_receipt.fee.0.into();
+        let actual_fee: Felt = transaction_execution_info.receipt.fee.0.into();
         let data_gas_consumed: Felt = transaction_execution_info
-            .transaction_receipt
+            .receipt
             .da_gas
             .l1_data_gas
             .into();
@@ -499,24 +499,26 @@ pub fn execute_transaction<S: StateReader>(
             }
 
             // we are estimating fee, override actual fee calculation
-            if t.transaction_receipt.fee.0 == 0 {
+            if t.receipt.fee.0 == 0 {
                 let minimal_l1_gas_amount_vector = minimal_l1_gas_amount_vector.unwrap_or_default();
                 let gas_consumed = t
-                    .transaction_receipt
+                    .receipt
                     .gas
                     .l1_gas
                     .max(minimal_l1_gas_amount_vector.l1_gas);
                 let data_gas_consumed = t
-                    .transaction_receipt
+                    .receipt
                     .gas
                     .l1_data_gas
                     .max(minimal_l1_gas_amount_vector.l1_data_gas);
 
-                t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                t.receipt.fee = fee_utils::get_fee_by_gas_vector(
                     block_context.block_info(),
                     GasVector {
                         l1_data_gas: data_gas_consumed,
                         l1_gas: gas_consumed,
+                        // TODO(Juno issue: #1949): See `gas_prices: GasPrices` below.
+                        l2_gas: u128::MIN,
                     },
                     &fee_type,
                 )
@@ -621,6 +623,9 @@ fn build_block_context(
                 .unwrap_or(default_gas_price),
             strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(block_info.data_gas_price_fri))
                 .unwrap_or(default_gas_price),
+            // TODO(Juno issue: #1949): See corresponding code in sequencer `crates/papyrus_execution/src/lib.rs`: fix to come from pending_data/block_header.
+            eth_l2_gas_price: NonZeroU128::MIN,
+            strk_l2_gas_price: NonZeroU128::MIN,
         },
         use_kzg_da: block_info.use_blob_data == 1,
     };
