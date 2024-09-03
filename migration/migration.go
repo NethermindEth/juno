@@ -10,6 +10,7 @@ import (
 	"maps"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -66,6 +67,97 @@ var defaultMigrations = []Migration{
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
+	MigrationFunc(calculateP2PHash),
+}
+
+func calculateP2PHash(txn db.Transaction, _ *utils.Network) error {
+	blockchain.RegisterCoreTypesToEncoder()
+
+	type result struct {
+		blockNumber uint64
+		p2pHash     *felt.Felt
+	}
+	results := make(chan result, 1000) //nolint:mnd
+
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	p := pool.New().WithErrors()
+
+	var number uint64
+	for range runtime.GOMAXPROCS(0) {
+		wg.Add(1)
+		p.Go(func() error {
+			defer wg.Done()
+
+			for {
+				// because atomic first increments and only then return result value
+				// we need to subtract 1 from result in order to get 0 (first block) in the very beginning
+				blockNumber := atomic.AddUint64(&number, 1) - 1
+				block, err := blockchain.BlockByNumber(txn, blockNumber)
+				if err != nil {
+					if errors.Is(err, db.ErrKeyNotFound) {
+						// no more blocks to migrate
+						return nil
+					}
+
+					return err
+				}
+
+				blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+				if err != nil {
+					return err
+				}
+
+				// for blocks >= 0.13.2 don't do anything
+				if !blockVer.LessThan(core.Ver0_13_2) {
+					return nil
+				}
+
+				stateUpdate, err := blockchain.StateUpdateByNumber(txn, block.Number)
+				if err != nil {
+					return err
+				}
+
+				hash, _, err := core.Post0132Hash(block, stateUpdate.StateDiff)
+				if err != nil {
+					return err
+				}
+
+				newResult := result{
+					blockNumber: block.Number,
+					p2pHash:     hash,
+				}
+				select {
+				case results <- newResult:
+				case <-ctx.Done():
+					return nil
+				}
+			}
+		})
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// goroutine for storing data
+	p.Go(func() error {
+		// in case of storage failure we will need to cancel
+		// goroutine pool that generates hashes
+		defer cancel()
+
+		for r := range results {
+			err := blockchain.StoreP2PHash(txn, r.blockNumber, r.p2pHash)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return p.Wait()
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")

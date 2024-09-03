@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -92,7 +91,6 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 	unverifiableRange := metaInfo.UnverifiableRange
 
 	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
-	// todo should we still keep it after p2p ?
 	if !skipVerification {
 		if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
 			return nil, err
@@ -150,9 +148,8 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	if err != nil {
 		return nil, nil, err
 	}
-	v0_13_2 := semver.MustParse("0.13.2")
 
-	if blockVer.LessThan(v0_13_2) {
+	if blockVer.LessThan(Ver0_13_2) {
 		if b.Number < metaInfo.First07Block {
 			return pre07Hash(b, network.L2ChainIDFelt())
 		}
@@ -186,11 +183,11 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 }
 
 func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
+	wg := conc.NewWaitGroup()
 	wg.Go(func() {
 		txCommitment, tErr = transactionCommitmentPoseidon(b.Transactions)
 	})
@@ -200,12 +197,10 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	wg.Go(func() {
 		rCommitment, rErr = receiptCommitment(b.Receipts)
 	})
-
 	wg.Go(func() {
 		sdLength = stateDiff.Length()
 		sdCommitment = stateDiff.Hash()
 	})
-
 	wg.Wait()
 
 	if tErr != nil {

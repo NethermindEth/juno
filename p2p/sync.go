@@ -278,7 +278,6 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			for _, tx := range txs {
 				coreTxs = append(coreTxs, p2p2core.AdaptTransaction(tx, s.network))
 			}
-
 			coreBlock.Transactions = coreTxs
 
 			txHashEventsM := make(map[felt.Felt][]*core.Event)
@@ -294,12 +293,12 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 					spew.Dump(coreTxs[i])
 					panic(fmt.Errorf("TX hash %d is nil", i))
 				}
-				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, txHash))
+
+				coreReceipt := p2p2core.AdaptReceipt(r, txHash)
+				coreReceipt.Events = txHashEventsM[*coreReceipt.TransactionHash]
+
+				coreReceipts = append(coreReceipts, coreReceipt)
 			}
-			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
-				r.Events = txHashEventsM[*r.TransactionHash]
-				return r
-			})
 			coreBlock.Receipts = coreReceipts
 
 			eventsBloom := core.EventsBloom(coreBlock.Receipts)
@@ -326,17 +325,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				return
 			}
 
-			h, err := core.BlockHash(coreBlock)
-			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
-				return
-			}
-			coreBlock.Hash = h
-
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, cls := range classes {
 				coreC := p2p2core.AdaptClass(cls)
-				h, err = coreC.Hash()
+				h, err := coreC.Hash()
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
 					return
@@ -363,11 +355,41 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				}
 			}()
 
+			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+
+			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
+			if err != nil {
+				bodyCh <- blockBody{err: fmt.Errorf("failed to parse block version: %w", err)}
+				return
+			}
+
+			if blockVer.LessThan(core.Ver0_13_2) {
+				expectedHash, _, err := core.Post0132Hash(coreBlock, stateDiff)
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
+					return
+				}
+
+				if !coreBlock.Hash.Equal(expectedHash) {
+					err = fmt.Errorf("received p2p hash %v doesn't match expected %v", coreBlock.Hash, expectedHash)
+					bodyCh <- blockBody{err: err}
+					return
+				}
+
+				// once we verified p2p hash with received one above
+				// we need to overwrite it with old scheme hash
+				coreBlock.Hash, err = core.BlockHash(coreBlock)
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("failed to generate block hash: %w", err)}
+					return
+				}
+			}
+
 			stateUpdate := &core.StateUpdate{
 				BlockHash: coreBlock.Hash,
 				NewRoot:   coreBlock.GlobalStateRoot,
 				OldRoot:   prevBlockRoot,
-				StateDiff: p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes),
+				StateDiff: stateDiff,
 			}
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
