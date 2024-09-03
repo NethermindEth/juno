@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -29,6 +30,9 @@ type Block struct {
 }
 
 func (b *Block) GasPriceETH() *felt.Felt {
+	if b.L1GasPrice == nil {
+		fmt.Println("Block is ", b.Number)
+	}
 	return b.L1GasPrice.PriceInWei
 }
 

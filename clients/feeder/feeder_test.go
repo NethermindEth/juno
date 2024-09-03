@@ -272,7 +272,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 	assert.Equal(t, "0x3873ccb937f14429b169c654dda28886d2cc2d6ea17b3cff9748fe5cfdb67e0", block.ParentHash.String())
 	assert.Equal(t, uint64(11817), block.Number)
 	assert.Equal(t, "0x3df24be7b5fed6b41de08d38686b6142944119ca2a345c38793590d6804bba4", block.StateRoot.String())
-	assert.Equal(t, "ACCEPTED_ON_L2", block.Status)
+	assert.Equal(t, "ACCEPTED_ON_L1", block.Status)
 	assert.Equal(t, "0x27ad16775", block.GasPriceETH().String())
 	assert.Equal(t, 52, len(block.Transactions))
 	assert.Equal(t, 52, len(block.Receipts))
@@ -590,7 +590,7 @@ func TestSignature(t *testing.T) {
 		assert.Equal(t, "0x5decb56a6651b829e01d8700235e7d99880bac258fd97fac4e30a3e5f1993f0", actualSignature.SignatureInput.BlockHash.String())
 		assert.Equal(t, "0x4253056094397f30399b01aa6a9eb44e59f8298545c26f5f746d86940b6cab8", actualSignature.SignatureInput.StateDiffCommitment.String())
 	})
-	t.Run("Test on unexisting block", func(t *testing.T) {
+	t.Run("Test on non-existent block", func(t *testing.T) {
 		actualSignature, err := client.Signature(context.Background(), strconv.Itoa(10000000000))
 		assert.Error(t, err)
 		assert.Nil(t, actualSignature)
@@ -617,7 +617,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.Nonces)
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.DeclaredClasses)
 	})
-	t.Run("Test on unexisting block", func(t *testing.T) {
+	t.Run("Test on non-existent block", func(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), strconv.Itoa(10000000000))
 		assert.Error(t, err)
 		assert.Nil(t, actualStateUpdate)
