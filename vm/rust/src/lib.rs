@@ -4,21 +4,18 @@ mod juno_state_reader;
 #[macro_use]
 extern crate lazy_static;
 
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
-use std::{
-    collections::HashMap,
-    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
-    num::NonZeroU128,
-    slice,
-    sync::Arc,
+use crate::juno_state_reader::{
+    class_info_from_json_str, felt_to_byte_array, ptr_to_felt, JunoStateReader,
 };
-
-use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
+use blockifier::abi::abi_utils::selector_from_name;
+use blockifier::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, STORED_BLOCK_HASH_BUFFER};
 use blockifier::blockifier::block::{
     pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::State;
 use blockifier::transaction::objects::GasVector;
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
@@ -26,7 +23,6 @@ use blockifier::{
         contract_class::ClassInfo,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     },
-    state::{cached_state::CachedState, state_api::State},
     transaction::{
         errors::TransactionExecutionError::{
             ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
@@ -37,8 +33,16 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
+use std::{
+    collections::HashMap,
+    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    num::NonZeroU128,
+    slice,
+    sync::Arc,
+};
+
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
+
 use serde::Deserialize;
 use starknet_api::{
     block::BlockHash,
@@ -98,11 +102,11 @@ pub extern "C" fn cairoVMCall(
     chain_id: *const c_char,
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
+    is_mutable: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -122,8 +126,15 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
+    let caller_entry_point_type =
+        if entry_point_selector_felt == selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME).0 {
+            EntryPointType::Constructor
+        } else {
+            EntryPointType::External
+        };
+
     let entry_point = CallEntryPoint {
-        entry_point_type: EntryPointType::External,
+        entry_point_type: caller_entry_point_type,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
@@ -134,13 +145,21 @@ pub extern "C" fn cairoVMCall(
         initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
     };
 
+    let mut state: Box<dyn State>;
+
+    let juno_reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    if is_mutable == 1 {
+        state = Box::new(JunoStateReader::new(reader_handle, block_info.block_number));
+    } else {
+        state = Box::new(CachedState::new(juno_reader));
+    }
+
     let concurrency_mode = concurrency_mode == 1;
-    let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
             block_context: build_block_context(
-                &mut state,
+                &mut *state,
                 &block_info,
                 chain_id_str,
                 Some(max_steps),
@@ -154,7 +173,8 @@ pub extern "C" fn cairoVMCall(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
+
+    match entry_point.execute(&mut *state, &mut resources, &mut context.unwrap()) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -163,7 +183,7 @@ pub extern "C" fn cairoVMCall(
                 };
             }
         }
-    }
+    };
 }
 
 #[derive(Deserialize)]
@@ -187,7 +207,7 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
 ) {
-    let block_info = unsafe { *block_info_ptr };
+    let block_info: BlockInfo = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();

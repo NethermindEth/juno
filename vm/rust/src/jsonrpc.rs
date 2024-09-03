@@ -1,3 +1,4 @@
+use crate::juno_state_reader::JunoStateReader;
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
@@ -14,8 +15,6 @@ use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTr
 use starknet_types_core::felt::Felt;
 
 type StarkFelt = Felt;
-
-use crate::juno_state_reader::JunoStateReader;
 
 #[derive(Serialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
