@@ -133,7 +133,9 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
-// Checks if there happens at most one split in the merged path
+// pathSplitOccurredCheck checks if there happens at most one split in the merged path
+// loops through the merged paths if left and right hashes of a node exist in the nodeHashes
+// then a split happened in case of multiple splits it returns an error
 func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]ProofNode) error {
 	splitHappened := false
 	for _, node := range mergedPath {
@@ -158,6 +160,9 @@ func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]Pro
 	return nil
 }
 
+// noCycleCheck checks if there is a circular path in the merged proof
+// it starts with the root node and traverses existent child nodes in the merged path
+// if a node is visited more than once it returns an error
 func noCycleCheck(node ProofNode, nodeHashes map[felt.Felt]ProofNode, visitedHashes map[felt.Felt]bool, hash hashFunc) error {
 	nodeHash := node.Hash(hash)
 	_, visited := visitedHashes[*nodeHash]
@@ -207,10 +212,10 @@ func rootNodeExistsCheck(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode
 	return currNode, nil
 }
 
-// Begins from the root node and traverses the merged proof path
-// Until it finds a split node, adds nodes to commonPath
-// Then continues with traversing left and right paths separetaly
-// Assumes there is no circular paths and the split happens at most once
+// traverseNodes traverses the merged proof path starting at `currNode`
+// and adds nodes to `path` slice. It stops when the split node is added
+// or the path is exhausted, and `currNode` children are not included
+// in the path (nodeHashes)
 func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
 	*path = append(*path, currNode)
 
@@ -229,14 +234,16 @@ func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Fe
 		}
 	} else if currNode.Edge != nil {
 		edgeNode, exist := nodeHashes[*currNode.Edge.Child]
-		if !exist {
-			return
+		if exist {
+			traverseNodes(edgeNode, path, nodeHashes)
 		}
-		traverseNodes(edgeNode, path, nodeHashes)
 	}
 }
 
-// Remove duplicates and merges proof paths into a single path
+// MergeProofPaths removes duplicates and merges proof paths into a single path
+// merges the paths in the specified order [commonNodes..., leftNode, rightNode, leftNode...]
+// ordering of the merged path is not important
+// since splitProofPath can discover the left and right paths using the merged path and the rootHash
 func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, *felt.Felt, error) {
 	merged := []ProofNode{}
 	minLen := min(len(leftPath), len(rightPath))
@@ -280,9 +287,9 @@ func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNod
 	return merged, rootHash, nil
 }
 
-// Splits the merged proof path into two paths
-// First validates that the merged path is not circular and the split happens at most once
-// Then calls traverseNodes to split the path
+// SplitProofPath splits the merged proof path into two paths (left and right), which were merged before
+// it first validates that the merged path is not circular, the split happens at most once and rootHash exists
+// then calls traverseNodes to split the path to left and right paths
 func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) ([]ProofNode, []ProofNode, error) {
 	commonPath := []ProofNode{}
 	leftPath := []ProofNode{}

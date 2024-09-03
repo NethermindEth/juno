@@ -291,6 +291,16 @@ func isSameProofPath(proofNodes, expectedProofNodes []trie.ProofNode) bool {
 	return true
 }
 
+func newBinaryProofNode() trie.ProofNode {
+	return trie.ProofNode{
+		Edge: nil,
+		Binary: &trie.Binary{
+			LeftHash:  new(felt.Felt).SetUint64(1),
+			RightHash: new(felt.Felt).SetUint64(2),
+		},
+	}
+}
+
 func TestGetProof(t *testing.T) {
 	t.Run("GP Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
@@ -1126,6 +1136,26 @@ func TestSplitProofPaths(t *testing.T) {
 		rootHashFalse := new(felt.Felt).SetUint64(0)
 
 		_, _, err = trie.SplitProofPath(mergedProofs, rootHashFalse, crypto.Pedersen)
+		require.Error(t, err)
+	})
+
+	t.Run("Two splits in the merged path", func(t *testing.T) {
+		p1 := newBinaryProofNode()
+		p2 := newBinaryProofNode()
+		p3 := newBinaryProofNode()
+		p4 := newBinaryProofNode()
+		p5 := newBinaryProofNode()
+
+		p3.Binary.RightHash = p5.Hash(crypto.Pedersen)
+		p3.Binary.LeftHash = p4.Hash(crypto.Pedersen)
+		p1.Binary.RightHash = p3.Hash(crypto.Pedersen)
+		p1.Binary.LeftHash = p2.Hash(crypto.Pedersen)
+
+		mergedProofs := []trie.ProofNode{p1, p2, p3, p4, p5}
+		rootHash := p1.Hash(crypto.Pedersen)
+
+		_, _, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
+
 		require.Error(t, err)
 	})
 }
