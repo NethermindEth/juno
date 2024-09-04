@@ -28,7 +28,7 @@ async fn trace_block(url: Url, block_id: BlockId) {
                 break;
             }
             Err(_) => {
-                println!("Trying to connect");
+                println!("Trying to connect {block_id:?}");
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 continue;
             }
