@@ -450,7 +450,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=update-native#672b8f02ff5dc5f5635a20634e38a53c91f60f0a"
+source = "git+https://github.com/NethermindEth/sequencer?branch=native2.7.x#dbaf1c99e3c54b6db090f5ae3a82ab51ded0d0f2"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -3138,7 +3138,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=update-native#672b8f02ff5dc5f5635a20634e38a53c91f60f0a"
+source = "git+https://github.com/NethermindEth/sequencer?branch=native2.7.x#dbaf1c99e3c54b6db090f5ae3a82ab51ded0d0f2"
 dependencies = [
  "clap",
  "itertools 0.10.5",
@@ -4397,7 +4397,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=update-native#672b8f02ff5dc5f5635a20634e38a53c91f60f0a"
+source = "git+https://github.com/NethermindEth/sequencer?branch=native2.7.x#dbaf1c99e3c54b6db090f5ae3a82ab51ded0d0f2"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",

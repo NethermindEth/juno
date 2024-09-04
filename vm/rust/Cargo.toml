@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-blockifier = { git = "https://github.com/NethermindEth/sequencer", branch = "update-native" }
-starknet_api = { git = "https://github.com/NethermindEth/sequencer", branch = "update-native" }
+blockifier = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.7.x" }
+starknet_api = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.7.x" }
 cairo-lang-sierra = "2.7.0"
 cairo-lang-starknet = "2.7.0"
 cairo-lang-starknet-classes = "2.7.0"
