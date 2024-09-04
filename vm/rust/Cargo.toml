@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-blockifier = { git = "https://github.com/NethermindEth/blockifier", branch = "native2.7.x" }
-# blockifier = { path = "../../../blockifier-neth/crates/blockifier/" }
+blockifier = { git = "https://github.com/NethermindEth/sequencer", branch = "update-native" }
+starknet_api = { git = "https://github.com/NethermindEth/sequencer", branch = "update-native" }
 cairo-lang-sierra = "2.7.0"
 cairo-lang-starknet = "2.7.0"
 cairo-lang-starknet-classes = "2.7.0"
@@ -18,8 +18,7 @@ starknet-types-core = { version = "0.1.5", features = [
     "prime-bigint",
     "serde",
 ] }
-cairo-native = { git = "https://github.com/NethermindEth/cairo_native", branch = "remove-unused-deps" }
-starknet_api = "=0.13.0-rc.0"
+cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "589c64eeeba62fc0051e307d2431f5da29f4a14c" }
 cairo-vm = "1.0.0"
 indexmap = "2.1.0"
 cached = "0.46.1"
