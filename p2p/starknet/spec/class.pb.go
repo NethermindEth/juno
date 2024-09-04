@@ -625,6 +625,53 @@ func (x *Classes) GetClasses() []*Class {
 	return nil
 }
 
+type ClassHashesRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ClassHashes []*Hash `protobuf:"bytes,1,rep,name=class_hashes,json=classHashes,proto3" json:"class_hashes,omitempty"`
+}
+
+func (x *ClassHashesRequest) Reset() {
+	*x = ClassHashesRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_p2p_proto_class_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClassHashesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClassHashesRequest) ProtoMessage() {}
+
+func (x *ClassHashesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_p2p_proto_class_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClassHashesRequest.ProtoReflect.Descriptor instead.
+func (*ClassHashesRequest) Descriptor() ([]byte, []int) {
+	return file_p2p_proto_class_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ClassHashesRequest) GetClassHashes() []*Hash {
+	if x != nil {
+		return x.ClassHashes
+	}
+	return nil
+}
+
 var File_p2p_proto_class_proto protoreflect.FileDescriptor
 
 var file_p2p_proto_class_proto_rawDesc = []byte{
@@ -699,7 +746,11 @@ var file_p2p_proto_class_proto_rawDesc = []byte{
 	0x64, 0x6f, 0x6d, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x06, 0x64, 0x6f,
 	0x6d, 0x61, 0x69, 0x6e, 0x12, 0x20, 0x0a, 0x07, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x18,
 	0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x43, 0x6c, 0x61, 0x73, 0x73, 0x52, 0x07, 0x63,
-	0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x42, 0x31, 0x5a, 0x2f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
+	0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x22, 0x3e, 0x0a, 0x12, 0x43, 0x6c, 0x61, 0x73, 0x73, 0x48,
+	0x61, 0x73, 0x68, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x28, 0x0a, 0x0c,
+	0x63, 0x6c, 0x61, 0x73, 0x73, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x0b, 0x32, 0x05, 0x2e, 0x48, 0x61, 0x73, 0x68, 0x52, 0x0b, 0x63, 0x6c, 0x61, 0x73, 0x73,
+	0x48, 0x61, 0x73, 0x68, 0x65, 0x73, 0x42, 0x31, 0x5a, 0x2f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62,
 	0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x4e, 0x65, 0x74, 0x68, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x64, 0x45,
 	0x74, 0x68, 0x2f, 0x6a, 0x75, 0x6e, 0x6f, 0x2f, 0x70, 0x32, 0x70, 0x2f, 0x73, 0x74, 0x61, 0x72,
 	0x6b, 0x6e, 0x65, 0x74, 0x2f, 0x73, 0x70, 0x65, 0x63, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
@@ -718,45 +769,47 @@ func file_p2p_proto_class_proto_rawDescGZIP() []byte {
 	return file_p2p_proto_class_proto_rawDescData
 }
 
-var file_p2p_proto_class_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_p2p_proto_class_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_p2p_proto_class_proto_goTypes = []any{
-	(*EntryPoint)(nil),        // 0: EntryPoint
-	(*Cairo0Class)(nil),       // 1: Cairo0Class
-	(*SierraEntryPoint)(nil),  // 2: SierraEntryPoint
-	(*Cairo1EntryPoints)(nil), // 3: Cairo1EntryPoints
-	(*Cairo1Class)(nil),       // 4: Cairo1Class
-	(*Class)(nil),             // 5: Class
-	(*ClassesRequest)(nil),    // 6: ClassesRequest
-	(*ClassesResponse)(nil),   // 7: ClassesResponse
-	(*Classes)(nil),           // 8: Classes
-	(*Felt252)(nil),           // 9: Felt252
-	(*Hash)(nil),              // 10: Hash
-	(*Iteration)(nil),         // 11: Iteration
-	(*Fin)(nil),               // 12: Fin
+	(*EntryPoint)(nil),         // 0: EntryPoint
+	(*Cairo0Class)(nil),        // 1: Cairo0Class
+	(*SierraEntryPoint)(nil),   // 2: SierraEntryPoint
+	(*Cairo1EntryPoints)(nil),  // 3: Cairo1EntryPoints
+	(*Cairo1Class)(nil),        // 4: Cairo1Class
+	(*Class)(nil),              // 5: Class
+	(*ClassesRequest)(nil),     // 6: ClassesRequest
+	(*ClassesResponse)(nil),    // 7: ClassesResponse
+	(*Classes)(nil),            // 8: Classes
+	(*ClassHashesRequest)(nil), // 9: ClassHashesRequest
+	(*Felt252)(nil),            // 10: Felt252
+	(*Hash)(nil),               // 11: Hash
+	(*Iteration)(nil),          // 12: Iteration
+	(*Fin)(nil),                // 13: Fin
 }
 var file_p2p_proto_class_proto_depIdxs = []int32{
-	9,  // 0: EntryPoint.selector:type_name -> Felt252
+	10, // 0: EntryPoint.selector:type_name -> Felt252
 	0,  // 1: Cairo0Class.externals:type_name -> EntryPoint
 	0,  // 2: Cairo0Class.l1_handlers:type_name -> EntryPoint
 	0,  // 3: Cairo0Class.constructors:type_name -> EntryPoint
-	9,  // 4: SierraEntryPoint.selector:type_name -> Felt252
+	10, // 4: SierraEntryPoint.selector:type_name -> Felt252
 	2,  // 5: Cairo1EntryPoints.externals:type_name -> SierraEntryPoint
 	2,  // 6: Cairo1EntryPoints.l1_handlers:type_name -> SierraEntryPoint
 	2,  // 7: Cairo1EntryPoints.constructors:type_name -> SierraEntryPoint
 	3,  // 8: Cairo1Class.entry_points:type_name -> Cairo1EntryPoints
-	9,  // 9: Cairo1Class.program:type_name -> Felt252
+	10, // 9: Cairo1Class.program:type_name -> Felt252
 	1,  // 10: Class.cairo0:type_name -> Cairo0Class
 	4,  // 11: Class.cairo1:type_name -> Cairo1Class
-	10, // 12: Class.class_hash:type_name -> Hash
-	11, // 13: ClassesRequest.iteration:type_name -> Iteration
+	11, // 12: Class.class_hash:type_name -> Hash
+	12, // 13: ClassesRequest.iteration:type_name -> Iteration
 	5,  // 14: ClassesResponse.class:type_name -> Class
-	12, // 15: ClassesResponse.fin:type_name -> Fin
+	13, // 15: ClassesResponse.fin:type_name -> Fin
 	5,  // 16: Classes.classes:type_name -> Class
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	11, // 17: ClassHashesRequest.class_hashes:type_name -> Hash
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_p2p_proto_class_proto_init() }
@@ -874,6 +927,18 @@ func file_p2p_proto_class_proto_init() {
 				return nil
 			}
 		}
+		file_p2p_proto_class_proto_msgTypes[9].Exporter = func(v any, i int) any {
+			switch v := v.(*ClassHashesRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_p2p_proto_class_proto_msgTypes[5].OneofWrappers = []any{
 		(*Class_Cairo0)(nil),
@@ -889,7 +954,7 @@ func file_p2p_proto_class_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_p2p_proto_class_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

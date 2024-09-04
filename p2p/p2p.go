@@ -92,9 +92,6 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		return addrs
 	}
 
-	// try to instanciate snap_server here
-	var snapServer junoSync.SnapServer = junoSync.New()
-
 	p2pHost, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),

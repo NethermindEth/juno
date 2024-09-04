@@ -1,9 +1,10 @@
-package sync
+package p2p
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/p2p/starknet"
 	big "math/big"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
+	junoSync "github.com/NethermindEth/juno/sync" //TODO: Remove this?
 	"github.com/NethermindEth/juno/utils"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/prometheus/client_golang/prometheus"
@@ -40,7 +42,8 @@ var _ Blockchain = (*blockchain.Blockchain)(nil)
 type SnapSyncher struct {
 	baseSync     service.Service
 	starknetData starknetdata.StarknetData
-	snapServer   SnapServer
+	client       starknet.Client
+	snapServer   junoSync.SnapServer // TODO: Remove this?
 	blockchain   Blockchain
 	log          utils.Logger
 
@@ -74,14 +77,14 @@ type storageRangeJob struct {
 func NewSnapSyncer(
 	baseSyncher service.Service,
 	consensus starknetdata.StarknetData,
-	server SnapServer,
+	client starknet.Client,
 	bc *blockchain.Blockchain,
 	log utils.Logger,
 ) *SnapSyncher {
 	return &SnapSyncher{
 		baseSync:     baseSyncher,
 		starknetData: consensus,
-		snapServer:   server,
+		client:       client,
 		blockchain:   bc,
 		log:          log,
 	}
@@ -127,7 +130,6 @@ var (
 
 	maxPivotDistance     = 32        // Set to 1 to test updated storage.
 	newPivotHeadDistance = uint64(0) // This should be the reorg depth
-
 )
 
 func (s *SnapSyncher) Run(ctx context.Context) error {
@@ -150,24 +152,6 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 
 	s.log.Infow("delegating to standard synchronizer")
 	return s.baseSync.Run(ctx)
-}
-
-func VerifyTrie(
-	expectedRoot *felt.Felt,
-	paths, hashes []*felt.Felt,
-	proofs []trie.ProofNode,
-	height uint8,
-	hash func(*felt.Felt, *felt.Felt) *felt.Felt,
-) (bool, error) {
-	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash, height)
-	if err != nil {
-		return false, err
-	}
-	if !valid {
-		return false, errors.New("invalid proof")
-	}
-
-	return hasMore, nil
 }
 
 //nolint:gocyclo,nolintlint
@@ -364,28 +348,39 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 
 		stateRoot := s.currentGlobalStateRoot
 
-		var err error
-
 		s.log.Infow("class range state root", "stateroot", stateRoot)
 
 		// TODO: Maybe timeout
-		s.snapServer.GetClassRange(ctx, &spec.ClassRangeRequest{
+		classIter, err := s.client.RequestClassRange(ctx, &spec.ClassRangeRequest{
 			Root:           core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptHash(startAddr),
 			ChunksPerProof: uint32(classRangeChunksPerProof),
-		})(func(response *ClassRangeStreamingResult, reqErr error) bool {
-			if reqErr != nil {
-				fmt.Printf("%s\n", errors.Join(reqErr, errors.New("error get address range")))
-				return false
-			}
+		})
+		if err != nil {
+			return err
+		}
 
-			if response == nil || (response.Range == nil && response.RangeProof == nil) {
+		classIter(func(response *spec.ClassRangeResponse) bool {
+			if response == nil {
 				// State root missing.
 				return false
 			}
-			s.log.Infow("got", "res", len(response.Range.Classes), "err", reqErr, "startAdr", startAddr)
+			classWrp := response.GetClasses()
+			if classWrp == nil || classWrp.Classes == nil {
+				// State root missing.
+				return false
+			}
+			classes := classWrp.Classes
+			if response.RangeProof == nil {
+				// Proofs missing.
+				return false
+			}
 
-			err = VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
+			s.log.Infow("got", "res", len(classes), "startAdr", startAddr)
+
+			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
+			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
+			err = VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
 			if err != nil {
 				s.log.Infow("global state root verification failure")
 				// Root verification failed
@@ -393,19 +388,19 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				return false
 			}
 
-			if response.ClassesRoot.Equal(&felt.Zero) {
+			if classRoot.Equal(&felt.Zero) {
 				// Special case, no V1 at all
 				completed = true
 				return false
 			}
 
-			paths := make([]*felt.Felt, len(response.Range.Classes))
-			values := make([]*felt.Felt, len(response.Range.Classes))
-			coreClasses := make([]core.Class, len(response.Range.Classes))
+			paths := make([]*felt.Felt, len(classes))
+			values := make([]*felt.Felt, len(classes))
+			coreClasses := make([]core.Class, len(classes))
 
 			egrp := errgroup.Group{}
 
-			for i, cls := range response.Range.Classes {
+			for i, cls := range classes {
 				coreClass := p2p2core.AdaptClass(cls)
 				i := i
 				egrp.Go(func() error {
@@ -425,7 +420,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			hasNext, err := VerifyTrie(response.ClassesRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Poseidon)
+			hasNext, err := VerifyTrie(classRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Poseidon)
 			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
@@ -465,63 +460,126 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 	return nil
 }
 
-func CalculateCompiledClassHash(cls core.Class) *felt.Felt {
-	return cls.(*core.Cairo1Class).Compiled.Hash()
-}
+//nolint:gocyclo
+func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
+	keyBatches := make([]*felt.Felt, 0)
+	for {
+	requestloop:
+		for len(keyBatches) < 100 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(JobDuration):
+				// Just request whatever we have
+				if len(keyBatches) > 0 {
+					break requestloop
+				}
+				s.log.Infow("waiting for more class job", "count", s.storageRangeJobCount)
+			case key := <-s.classesJob:
+				if key == nil {
+					// channel finished.
+					if len(keyBatches) > 0 {
+						break requestloop
+					} else {
+						// Worker finished
+						return nil
+					}
+				} else {
+					if key.Equal(&felt.Zero) {
+						continue
+					}
 
-func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []trie.ProofNode {
-	// TODO: Move to adapter
+					// TODO: Can be done in batches
+					cls, err := s.blockchain.GetClasses([]*felt.Felt{key})
+					if err != nil {
+						s.log.Errorw("error getting class", "err", err)
+						return err
+					}
 
-	proofs := make([]trie.ProofNode, len(proof.Nodes))
-	for i, node := range proof.Nodes {
-		if node.GetBinary() != nil {
-			binary := node.GetBinary()
-			proofs[i] = trie.ProofNode{
-				Binary: &trie.Binary{
-					LeftHash:  p2p2core.AdaptFelt(binary.Left),
-					RightHash: p2p2core.AdaptFelt(binary.Right),
-				},
-			}
-		} else {
-			edge := node.GetEdge()
-			// TODO. What if edge is nil too?
-			key := trie.NewKey(uint8(edge.Length), edge.Path.Elements)
-			proofs[i] = trie.ProofNode{
-				Edge: &trie.Edge{
-					Child: p2p2core.AdaptFelt(edge.Value),
-					Path:  &key,
-				},
+					if cls[0] == nil {
+						keyBatches = append(keyBatches, key)
+					}
+				}
 			}
 		}
-	}
 
-	return proofs
-}
-
-var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
-
-func VerifyGlobalStateRoot(globalStateRoot, classRoot, storageRoot *felt.Felt) error {
-	if classRoot.IsZero() {
-		if globalStateRoot.Equal(storageRoot) {
-			return nil
-		} else {
-			return errors.New("invalid global state root")
+		var hashes []*spec.Hash
+		for _, key := range keyBatches {
+			hashes = append(hashes, core2p2p.AdaptHash(key))
 		}
-	}
 
-	if !crypto.PoseidonArray(stateVersion, storageRoot, classRoot).Equal(globalStateRoot) {
-		return errors.New("invalid global state root")
-	}
-	return nil
-}
+		classIter, err := s.client.RequestClassesByKeys(ctx, &spec.ClassHashesRequest{
+			ClassHashes: hashes,
+		})
 
-func CalculateClassHash(cls core.Class) *felt.Felt {
-	hash, err := cls.Hash()
-	if err != nil {
-		panic(err)
-	}
+		if err != nil {
+			s.log.Errorw("error getting class from client", "err", err)
+			return err
+		}
 
-	return hash
+		classes := make([]*spec.Class, len(keyBatches))
+		classIter(func(response *spec.ClassesResponse) bool {
+			switch v := response.ClassMessage.(type) {
+			case *spec.ClassesResponse_Class:
+				classes = append(classes, v.Class)
+				return true
+			case *spec.ClassesResponse_Fin:
+				return false
+			default:
+				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
+				return false
+			}
+		})
+
+		processedClasses := map[felt.Felt]bool{}
+		newClasses := map[felt.Felt]core.Class{}
+		classHashes := map[felt.Felt]*felt.Felt{}
+		for i, class := range classes {
+			if class == nil {
+				s.log.Infow("class empty", "key", keyBatches[i])
+				continue
+			}
+
+			coreClass := p2p2core.AdaptClass(class)
+			newClasses[*keyBatches[i]] = coreClass
+			h, err := coreClass.Hash()
+			if err != nil {
+				s.log.Errorw("error hashing class", "err", err)
+				return err
+			}
+
+			if !h.Equal(keyBatches[i]) {
+				s.log.Warnw("invalid classhash", "got", h, "expected", keyBatches[i])
+				return errors.New("invalid class hash")
+			}
+
+			if coreClass.Version() == 1 {
+				classHashes[*keyBatches[i]] = coreClass.(*core.Cairo1Class).Compiled.Hash()
+			}
+
+			processedClasses[*keyBatches[i]] = true
+		}
+
+		if len(newClasses) != 0 {
+			err = s.blockchain.PutClasses(s.lastBlock.Number, classHashes, newClasses)
+			if err != nil {
+				s.log.Errorw("error storing class", "err", err)
+				return err
+			}
+		} else {
+			s.log.Errorw("Unable to fetch any class from peer")
+			// TODO: Penalise peer?
+		}
+
+		newBatch := make([]*felt.Felt, 0)
+		for _, classHash := range keyBatches {
+			if _, ok := processedClasses[*classHash]; !ok {
+				newBatch = append(newBatch, classHash)
+			}
+		}
+
+		keyBatches = newBatch
+	}
 }
 
 //nolint:gocyclo
@@ -533,22 +591,35 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 		var outherErr error
 
 		stateRoot := s.currentGlobalStateRoot
-		s.snapServer.GetContractRange(ctx, &spec.ContractRangeRequest{
+		iter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
 			Domain:         0, // What do this do?
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptAddress(startAddr),
 			End:            nil, // No need for now.
 			ChunksPerProof: uint32(contractRangeChunkPerProof),
-		})(func(response *ContractRangeStreamingResult, _err error) bool {
+		})
+		if err != nil {
+			return err
+		}
+
+		iter(func(response *spec.ContractRangeResponse) bool {
+			if response == nil {
+				return false
+			}
 			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr), "addr", startAddr)
 			rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
-			if response == nil || (response.Range == nil && response.RangeProof == nil) {
-				// State root missing.
+			crange := response.GetRange()
+			if crange == nil || crange.State == nil {
+				return false
+			}
+			if response.RangeProof == nil {
 				return false
 			}
 
-			err := VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
+			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
+			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
+			err := VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
 			outherErr = err
 			if err != nil {
 				// Root verification failed
@@ -556,16 +627,16 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				return false
 			}
 
-			paths := make([]*felt.Felt, len(response.Range))
-			values := make([]*felt.Felt, len(response.Range))
+			paths := make([]*felt.Felt, len(crange.State))
+			values := make([]*felt.Felt, len(crange.State))
 
-			for i, rangeValue := range response.Range {
+			for i, rangeValue := range crange.State {
 				paths[i] = p2p2core.AdaptAddress(rangeValue.Address)
 				values[i] = CalculateRangeValueHash(rangeValue)
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			hasNext, err := VerifyTrie(response.ContractsRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
+			hasNext, err := VerifyTrie(contractRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
 			outherErr = err
 			if err != nil {
 				// The peer should get penalised in this case
@@ -574,7 +645,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 
 			classes := []*felt.Felt{}
 			nonces := []*felt.Felt{}
-			for _, r := range response.Range {
+			for _, r := range crange.State {
 				classHash := p2p2core.AdaptHash(r.Class)
 				classes = append(classes, classHash)
 				nonces = append(nonces, (&felt.Felt{}).SetUint64(r.Nonce))
@@ -589,7 +660,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 
 			// We don't actually store it directly here... only put it as part of job.
 			// Can't remember why. Could be because it would be some wasted work.
-			for _, r := range response.Range {
+			for _, r := range crange.State {
 				path := p2p2core.AdaptAddress(r.Address)
 				storageRoot := p2p2core.AdaptHash(r.Storage)
 				classHash := p2p2core.AdaptHash(r.Class)
@@ -631,76 +702,6 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 		}
 	}
 
-	return nil
-}
-
-func CalculateRangeValueHash(value *spec.ContractState) *felt.Felt {
-	nonce := fp.NewElement(value.Nonce)
-	return calculateContractCommitment(
-		p2p2core.AdaptHash(value.Storage),
-		p2p2core.AdaptHash(value.Class),
-		felt.NewFelt(&nonce),
-	)
-}
-
-func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
-	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
-}
-
-func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
-	queued := false
-	for !queued {
-		select {
-		case s.classesJob <- classHash:
-			queued = true
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Second):
-			s.log.Infow("class queue stall on class")
-		}
-	}
-	return nil
-}
-
-func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path, storageRoot, classHash *felt.Felt, nonce uint64) error {
-	return s.queueStorageRangeJobJob(ctx, &storageRangeJob{
-		path:         path,
-		storageRoot:  storageRoot,
-		startAddress: &felt.Zero,
-		classHash:    classHash,
-		nonce:        nonce,
-	})
-}
-
-func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageRangeJob) error {
-	queued := false
-	for !queued {
-		select {
-		case s.storageRangeJobQueue <- job:
-			queued = true
-			atomic.AddInt32(&s.storageRangeJobCount, 1)
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(JobDuration):
-			s.log.Infow("queue storage range stall")
-		}
-	}
-	return nil
-}
-
-func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRangeJob) error {
-	queued := false
-	for !queued {
-		select {
-		case s.storageRefreshJob <- job:
-			queued = true
-			atomic.AddInt32(&s.storageRangeJobCount, 1)
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Second):
-			s.log.Infow("storage refresh queue stall")
-		}
-	}
 	return nil
 }
 
@@ -761,35 +762,41 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			"root", stateRoot.String(),
 			"requestcount", len(requests),
 		)
-		s.snapServer.GetStorageRange(ctx, &StorageRangeRequest{
-			StateRoot:     stateRoot,
-			ChunkPerProof: uint64(storageRangeChunkPerProof),
-			Queries:       requests,
-		})(func(response *StorageRangeStreamingResult, _err error) bool {
+		iter, err := s.client.RequestStorageRange(ctx, &spec.ContractStorageRequest{
+			StateRoot:      core2p2p.AdaptHash(stateRoot),
+			ChunksPerProof: uint32(storageRangeChunkPerProof),
+			Query:          requests,
+		})
+
+		iter(func(response *spec.ContractStorageResponse) bool {
+			if response == nil {
+				return false
+			}
+			response.GetResponses()
+			csto := response.GetStorage()
+			if csto == nil || csto.KeyValue == nil {
+				return false
+			}
+			storageRange := csto.KeyValue
+
+			if response.RangeProof == nil {
+				return false
+			}
+
 			job := jobs[processedJobs]
-			if !job.path.Equal(response.StorageAddr) {
+
+			storageAddr := p2p2core.AdaptFelt(response.ContractAddress)
+			if !job.path.Equal(storageAddr) {
 				s.log.Errorw(fmt.Sprintf(
-					"storage addr differ %s %s %d\n", job.path, response.StorageAddr, workerIdx))
-				return false
-			}
-
-			if response.Range == nil && response.RangeProof == nil {
-				// State root missing.
-				return false
-			}
-
-			// Wait.. why is this needed here?
-			err = VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
-			if err != nil {
-				// Root verification failed
+					"storage addr differ %s %s %d\n", job.path, storageAddr, workerIdx))
 				return false
 			}
 
 			// Validate response
-			paths := make([]*felt.Felt, len(response.Range))
-			values := make([]*felt.Felt, len(response.Range))
+			paths := make([]*felt.Felt, len(storageRange))
+			values := make([]*felt.Felt, len(storageRange))
 
-			for i, v := range response.Range {
+			for i, v := range storageRange {
 				paths[i] = p2p2core.AdaptFelt(v.Key)
 				values[i] = p2p2core.AdaptFelt(v.Value)
 			}
@@ -868,6 +875,175 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 	}
 }
 
+//nolint:gocyclo
+func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
+	// In ethereum, this is normally done with get tries, but since we don't have that here, we'll have to be
+	// creative. This does mean that this is impressively inefficient.
+	var job *storageRangeJob
+
+	for {
+		if job == nil {
+		requestloop:
+			for {
+				contractDoneChecker := s.contractRangeDone
+				if s.storageRangeJobCount > 0 {
+					contractDoneChecker = nil // So that it never complete as there are job to be done
+				}
+
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(JobDuration):
+					s.log.Infow("waiting for more refresh job", "count", s.storageRangeJobCount)
+				case <-contractDoneChecker:
+					// Its done...
+					return nil
+				case job = <-s.storageRefreshJob:
+					break requestloop
+				}
+			}
+		}
+
+		bigIntAdd := job.startAddress.BigInt(&big.Int{})
+		bigIntAdd = (&big.Int{}).Add(bigIntAdd, big.NewInt(1))
+		elem := fp.NewElement(0)
+		limitAddr := felt.NewFelt((&elem).SetBigInt(bigIntAdd))
+		var outherErr error
+
+		stateRoot := s.currentGlobalStateRoot
+		ctrIter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
+			Domain:         0, // What do this do?
+			StateRoot:      core2p2p.AdaptHash(stateRoot),
+			Start:          core2p2p.AdaptAddress(job.startAddress),
+			End:            core2p2p.AdaptAddress(limitAddr),
+			ChunksPerProof: 10000,
+		})
+		if err != nil {
+			return err
+		}
+
+		ctrIter(func(response *spec.ContractRangeResponse) bool {
+			if response == nil {
+				return false
+			}
+
+			crange := response.GetRange()
+			if crange == nil || crange.State == nil || len(crange.State) == 0 {
+				return false
+			}
+			if response.RangeProof == nil {
+				return false
+			}
+
+			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
+			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
+			outherErr = VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
+			if outherErr != nil {
+				// Root verification failed
+				// TODO: Ban peer
+				return false
+			}
+
+			paths := make([]*felt.Felt, len(crange.State))
+			values := make([]*felt.Felt, len(crange.State))
+
+			for i, rangeValue := range crange.State {
+				paths[i] = p2p2core.AdaptAddress(rangeValue.Address)
+				values[i] = CalculateRangeValueHash(rangeValue)
+			}
+
+			proofs := P2pProofToTrieProofs(response.RangeProof)
+			_, outherErr = VerifyTrie(contractRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
+			if outherErr != nil {
+				// The peer should get penalised in this case
+				return false
+			}
+
+			job.storageRoot = p2p2core.AdaptHash(crange.State[0].Storage)
+			newClass := p2p2core.AdaptHash(crange.State[0].Storage)
+			if newClass != job.classHash {
+				outherErr = s.queueClassJob(ctx, newClass)
+				if outherErr != nil {
+					return false
+				}
+			}
+
+			outherErr = s.queueStorageRangeJobJob(ctx, job)
+			if outherErr != nil {
+				return false
+			}
+
+			job = nil
+
+			return true
+		})
+
+		if outherErr != nil {
+			s.log.Errorw("Error with contract range", "err", outherErr)
+			// Well... need to figure out how to determine if its a temporary error or not.
+			// For sure, the state root can be outdated, so this need to restart
+			continue
+		}
+	}
+}
+
+func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
+	queued := false
+	for !queued {
+		select {
+		case s.classesJob <- classHash:
+			queued = true
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			s.log.Infow("class queue stall on class")
+		}
+	}
+	return nil
+}
+
+func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path, storageRoot, classHash *felt.Felt, nonce uint64) error {
+	return s.queueStorageRangeJobJob(ctx, &storageRangeJob{
+		path:         path,
+		storageRoot:  storageRoot,
+		startAddress: &felt.Zero,
+		classHash:    classHash,
+		nonce:        nonce,
+	})
+}
+
+func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageRangeJob) error {
+	queued := false
+	for !queued {
+		select {
+		case s.storageRangeJobQueue <- job:
+			queued = true
+			atomic.AddInt32(&s.storageRangeJobCount, 1)
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(JobDuration):
+			s.log.Infow("queue storage range stall")
+		}
+	}
+	return nil
+}
+
+func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRangeJob) error {
+	queued := false
+	for !queued {
+		select {
+		case s.storageRefreshJob <- job:
+			queued = true
+			atomic.AddInt32(&s.storageRangeJobCount, 1)
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			s.log.Infow("storage refresh queue stall")
+		}
+	}
+	return nil
+}
+
 func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 	for {
 		select {
@@ -905,205 +1081,92 @@ func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64) error {
 	return errors.New("unimplemented")
 }
 
-//nolint:gocyclo
-func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
-	keyBatches := make([]*felt.Felt, 0)
-	for {
-	requestloop:
-		for len(keyBatches) < 100 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(JobDuration):
-				// Just request whatever we have
-				if len(keyBatches) > 0 {
-					break requestloop
-				}
-				s.log.Infow("waiting for more class job", "count", s.storageRangeJobCount)
-			case key := <-s.classesJob:
-				if key == nil {
-					// channel finished.
-					if len(keyBatches) > 0 {
-						break requestloop
-					} else {
-						// Worker finished
-						return nil
-					}
-				} else {
-					if key.Equal(&felt.Zero) {
-						continue
-					}
+func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []trie.ProofNode {
+	// TODO: Move to adapter
 
-					// TODO: Can be done in batches
-					cls, err := s.blockchain.GetClasses([]*felt.Felt{key})
-					if err != nil {
-						s.log.Errorw("error getting class", "err", err)
-						return err
-					}
-
-					if cls[0] == nil {
-						keyBatches = append(keyBatches, key)
-					}
-				}
-			}
-		}
-
-		classes, err := s.snapServer.GetClasses(ctx, keyBatches)
-		if err != nil {
-			s.log.Errorw("error getting class from outside", "err", err)
-			return err
-		}
-
-		processedClasses := map[felt.Felt]bool{}
-		newClasses := map[felt.Felt]core.Class{}
-		classHashes := map[felt.Felt]*felt.Felt{}
-		for i, class := range classes {
-			if class == nil {
-				s.log.Infow("class empty", "key", keyBatches[i])
-				continue
-			}
-
-			coreClass := p2p2core.AdaptClass(class)
-			newClasses[*keyBatches[i]] = coreClass
-			h, err := coreClass.Hash()
-			if err != nil {
-				s.log.Errorw("error hashing class", "err", err)
-				return err
-			}
-
-			if !h.Equal(keyBatches[i]) {
-				s.log.Warnw("invalid classhash", "got", h, "expected", keyBatches[i])
-				return errors.New("invalid class hash")
-			}
-
-			if coreClass.Version() == 1 {
-				classHashes[*keyBatches[i]] = coreClass.(*core.Cairo1Class).Compiled.Hash()
-			}
-
-			processedClasses[*keyBatches[i]] = true
-		}
-
-		if len(newClasses) != 0 {
-			err = s.blockchain.PutClasses(s.lastBlock.Number, classHashes, newClasses)
-			if err != nil {
-				s.log.Errorw("error storing class", "err", err)
-				return err
+	proofs := make([]trie.ProofNode, len(proof.Nodes))
+	for i, node := range proof.Nodes {
+		if node.GetBinary() != nil {
+			binary := node.GetBinary()
+			proofs[i] = trie.ProofNode{
+				Binary: &trie.Binary{
+					LeftHash:  p2p2core.AdaptFelt(binary.Left),
+					RightHash: p2p2core.AdaptFelt(binary.Right),
+				},
 			}
 		} else {
-			s.log.Errorw("Unable to fetch any class from peer")
-			// TODO: Penalise peer?
-		}
-
-		newBatch := make([]*felt.Felt, 0)
-		for _, classHash := range keyBatches {
-			if _, ok := processedClasses[*classHash]; !ok {
-				newBatch = append(newBatch, classHash)
+			edge := node.GetEdge()
+			// TODO. What if edge is nil too?
+			key := trie.NewKey(uint8(edge.Length), edge.Path.Elements)
+			proofs[i] = trie.ProofNode{
+				Edge: &trie.Edge{
+					Child: p2p2core.AdaptFelt(edge.Value),
+					Path:  &key,
+				},
 			}
 		}
-
-		keyBatches = newBatch
 	}
+
+	return proofs
 }
 
-//nolint:gocyclo
-func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
-	// In ethereum, this is normally done with get tries, but since we don't have that here, we'll have to be
-	// creative. This does mean that this is impressively inefficient.
-	var job *storageRangeJob
+func VerifyGlobalStateRoot(globalStateRoot, classRoot, storageRoot *felt.Felt) error {
+	var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 
-	for {
-		if job == nil {
-		requestloop:
-			for {
-				contractDoneChecker := s.contractRangeDone
-				if s.storageRangeJobCount > 0 {
-					contractDoneChecker = nil // So that it never complete as there are job to be done
-				}
-
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(JobDuration):
-					s.log.Infow("waiting for more refresh job", "count", s.storageRangeJobCount)
-				case <-contractDoneChecker:
-					// Its done...
-					return nil
-				case job = <-s.storageRefreshJob:
-					break requestloop
-				}
-			}
-		}
-
-		bigIntAdd := job.startAddress.BigInt(&big.Int{})
-		bigIntAdd = (&big.Int{}).Add(bigIntAdd, big.NewInt(1))
-		elem := fp.NewElement(0)
-		limitAddr := felt.NewFelt((&elem).SetBigInt(bigIntAdd))
-		var err error
-
-		stateRoot := s.currentGlobalStateRoot
-		s.snapServer.GetContractRange(ctx, &spec.ContractRangeRequest{
-			Domain:         0, // What do this do?
-			StateRoot:      core2p2p.AdaptHash(stateRoot),
-			Start:          core2p2p.AdaptAddress(job.startAddress),
-			End:            core2p2p.AdaptAddress(limitAddr),
-			ChunksPerProof: 10000,
-		})(func(response *ContractRangeStreamingResult, _err error) bool {
-			if response.Range == nil && response.RangeProof == nil {
-				// State root missing.
-				return false
-			}
-
-			if len(response.Range) == 0 {
-				// Unexpected behaviour
-				return false
-			}
-
-			err = VerifyGlobalStateRoot(stateRoot, response.ClassesRoot, response.ContractsRoot)
-			if err != nil {
-				// Root verification failed
-				// TODO: Ban peer
-				return false
-			}
-
-			paths := make([]*felt.Felt, len(response.Range))
-			values := make([]*felt.Felt, len(response.Range))
-
-			for i, rangeValue := range response.Range {
-				paths[i] = p2p2core.AdaptAddress(rangeValue.Address)
-				values[i] = CalculateRangeValueHash(rangeValue)
-			}
-
-			proofs := P2pProofToTrieProofs(response.RangeProof)
-			_, err = VerifyTrie(response.ContractsRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
-			if err != nil {
-				// The peer should get penalised in this case
-				return false
-			}
-
-			job.storageRoot = p2p2core.AdaptHash(response.Range[0].Storage)
-			newClass := p2p2core.AdaptHash(response.Range[0].Storage)
-			if newClass != job.classHash {
-				err := s.queueClassJob(ctx, newClass)
-				if err != nil {
-					return false
-				}
-			}
-
-			err = s.queueStorageRangeJobJob(ctx, job)
-			if err != nil {
-				return false
-			}
-
-			job = nil
-
-			return true
-		})
-
-		if err != nil {
-			s.log.Errorw("Error with contract range", "err", err)
-			// Well... need to figure out how to determine if its a temporary error or not.
-			// For sure, the state root can be outdated, so this need to restart
-			continue
+	if classRoot.IsZero() {
+		if globalStateRoot.Equal(storageRoot) {
+			return nil
+		} else {
+			return errors.New("invalid global state root")
 		}
 	}
+
+	if !crypto.PoseidonArray(stateVersion, storageRoot, classRoot).Equal(globalStateRoot) {
+		return errors.New("invalid global state root")
+	}
+	return nil
+}
+
+func VerifyTrie(
+	expectedRoot *felt.Felt,
+	paths, hashes []*felt.Felt,
+	proofs []trie.ProofNode,
+	height uint8,
+	hash func(*felt.Felt, *felt.Felt) *felt.Felt,
+) (bool, error) {
+	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash, height)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, errors.New("invalid proof")
+	}
+
+	return hasMore, nil
+}
+
+func CalculateClassHash(cls core.Class) *felt.Felt {
+	hash, err := cls.Hash()
+	if err != nil {
+		panic(err)
+	}
+
+	return hash
+}
+
+func CalculateCompiledClassHash(cls core.Class) *felt.Felt {
+	return cls.(*core.Cairo1Class).Compiled.Hash()
+}
+
+func CalculateRangeValueHash(value *spec.ContractState) *felt.Felt {
+	nonce := fp.NewElement(value.Nonce)
+	return calculateContractCommitment(
+		p2p2core.AdaptHash(value.Storage),
+		p2p2core.AdaptHash(value.Class),
+		felt.NewFelt(&nonce),
+	)
+}
+
+func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
+	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"google.golang.org/protobuf/encoding/protodelim"
@@ -22,8 +23,9 @@ import (
 )
 
 type Handler struct {
-	bcReader blockchain.Reader
-	log      utils.SimpleLogger
+	bcReader     blockchain.Reader
+	snapProvider *SnapProvider
+	log          utils.SimpleLogger
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -39,6 +41,11 @@ func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
 		cancel:   cancel,
 		wg:       sync.WaitGroup{},
 	}
+}
+
+func (h *Handler) WithSnapsyncSupport(bc *blockchain.Blockchain) {
+	// TODO: should it be here?
+	h.snapProvider = &SnapProvider{SnapServer: junoSync.NewSnapServer(bc)}
 }
 
 // bufferPool caches unused buffer objects for later reuse.
@@ -122,6 +129,22 @@ func (h *Handler) ClassesHandler(stream network.Stream) {
 
 func (h *Handler) StateDiffHandler(stream network.Stream) {
 	streamHandler[*spec.StateDiffsRequest](h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
+}
+
+func (h *Handler) ClassRangeRequest(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialized")
+		return
+	}
+	streamHandler[*spec.ClassRangeRequest](h.ctx, &h.wg, stream, h.onClassRangeRequest, h.log)
+}
+
+func (h *Handler) ClassHashesRequest(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialized")
+		return
+	}
+	streamHandler[*spec.ClassHashesRequest](h.ctx, &h.wg, stream, h.onClassHashesRequest, h.log)
 }
 
 func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
