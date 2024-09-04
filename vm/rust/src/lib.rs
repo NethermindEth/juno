@@ -376,12 +376,8 @@ fn cairo_vm_execute(
             error: err,
         })?;
 
-        let actual_fee: Felt = transaction_execution_info.transaction_receipt.fee.0.into();
-        let data_gas_consumed: Felt = transaction_execution_info
-            .transaction_receipt
-            .da_gas
-            .l1_data_gas
-            .into();
+        let actual_fee: Felt = transaction_execution_info.receipt.fee.0.into();
+        let data_gas_consumed: Felt = transaction_execution_info.receipt.da_gas.l1_data_gas.into();
 
         let trace = jsonrpc::new_transaction_trace(
             &txn_and_query_bit.txn,
@@ -499,24 +495,27 @@ pub fn execute_transaction<S: StateReader>(
             }
 
             // we are estimating fee, override actual fee calculation
-            if t.transaction_receipt.fee.0 == 0 {
+            if t.receipt.fee.0 == 0 {
                 let minimal_l1_gas_amount_vector = minimal_l1_gas_amount_vector.unwrap_or_default();
                 let gas_consumed = t
-                    .transaction_receipt
+                    .receipt
                     .gas
                     .l1_gas
                     .max(minimal_l1_gas_amount_vector.l1_gas);
                 let data_gas_consumed = t
-                    .transaction_receipt
+                    .receipt
                     .gas
                     .l1_data_gas
                     .max(minimal_l1_gas_amount_vector.l1_data_gas);
 
-                t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                t.receipt.fee = fee_utils::get_fee_by_gas_vector(
                     block_context.block_info(),
                     GasVector {
                         l1_data_gas: data_gas_consumed,
                         l1_gas: gas_consumed,
+                        // Setting as 0 since this field is unused
+                        // in the following functions
+                        l2_gas: 0_u128,
                     },
                     &fee_type,
                 )
@@ -606,22 +605,28 @@ fn build_block_context(
         constants.invoke_tx_max_n_steps = max_steps as u32;
     }
 
+    let gas_to_nzu128 = |felt| NonZeroU128::new(felt_to_u128(felt)).unwrap_or(default_gas_price);
+
     let block_info = BlockifierBlockInfo {
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress(
             PatriciaKey::try_from(block_info.sequencer_address).unwrap(),
         ),
-        gas_prices: GasPrices {
-            eth_l1_gas_price: NonZeroU128::new(felt_to_u128(block_info.gas_price_wei))
-                .unwrap_or(default_gas_price),
-            strk_l1_gas_price: NonZeroU128::new(felt_to_u128(block_info.gas_price_fri))
-                .unwrap_or(default_gas_price),
-            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(block_info.data_gas_price_wei))
-                .unwrap_or(default_gas_price),
-            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(block_info.data_gas_price_fri))
-                .unwrap_or(default_gas_price),
-        },
+        gas_prices: GasPrices::new(
+            gas_to_nzu128(block_info.gas_price_wei),
+            gas_to_nzu128(block_info.gas_price_fri),
+            gas_to_nzu128(block_info.data_gas_price_wei),
+            gas_to_nzu128(block_info.data_gas_price_fri),
+            VersionedConstants::latest_constants()
+                .l1_to_l2_gas_price_conversion(felt_to_u128(block_info.gas_price_wei))
+                .try_into()
+                .expect("gas price wei is zero :O"),
+            VersionedConstants::latest_constants()
+                .l1_to_l2_gas_price_conversion(felt_to_u128(block_info.gas_price_fri))
+                .try_into()
+                .expect("gas price fri is zero :O"),
+        ),
         use_kzg_da: block_info.use_blob_data == 1,
     };
 
