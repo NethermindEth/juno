@@ -15,6 +15,7 @@ ifeq ($(shell uname -s),Darwin)
 
 	# Set macOS deployment target in order to avoid linker warnings linke
 	# "ld: warning: object file XX was built for newer macOS version (14.4) than being linked (14.0)"
+	export MACOSX_DEPLOYMENT_TARGET=$(shell sw_vers --productVersion)
 
 	# for test-race we need to pass -ldflags to fix linker warnings on macOS
 	# see https://github.com/golang/go/issues/61229#issuecomment-1988965927
