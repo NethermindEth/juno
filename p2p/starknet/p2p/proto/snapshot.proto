@@ -58,6 +58,7 @@ message ContractRangeResponse {
         ContractRange range = 4;
         Fin           fin   = 5;
     }
+    PatriciaRangeProof range_proof = 6;
 }
 
 // duplicate of GetContractRange. Can introduce a 'type' instead.
@@ -77,6 +78,7 @@ message ClassRangeResponse {
         Classes classes = 4;
         Fin     fin     = 5;
     }
+    PatriciaRangeProof range_proof = 6;
 }
 
 // A position in some contract's state tree is identified by the state tree's root and the key in it
@@ -105,8 +107,10 @@ message ContractStorage {
 
 message ContractStorageResponse {
     optional Hash     state_root = 1; // may not appear if Fin is sent to end the whole response
+    optional Address contract_address = 2;
     oneof responses {
-        ContractStorage storage = 2;
-        Fin             fin     = 3;
+        ContractStorage storage = 3;
+        Fin             fin     = 4;
     }
+    PatriciaRangeProof range_proof = 5;
 }

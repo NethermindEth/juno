@@ -61,3 +61,7 @@ message Classes {
     uint32   domain        = 1;
     repeated Class classes = 2;
 }
+
+message ClassHashesRequest {
+    repeated Hash class_hashes = 1;
+}
