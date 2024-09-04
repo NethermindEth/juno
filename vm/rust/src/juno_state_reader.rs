@@ -85,7 +85,7 @@ impl StateReader for JunoStateReader {
             )))
         } else {
             assert!(wrote == 32, "Juno didn't write 32 bytes");
-            Ok(StarkFelt::new(buffer).expect("cannot new Starkfelt from Juno bytes"))
+            Ok(StarkFelt::from_bytes_be(&buffer))
         }
     }
 
@@ -102,7 +102,7 @@ impl StateReader for JunoStateReader {
             )))
         } else {
             assert!(wrote == 32, "Juno didn't write 32 bytes");
-            Ok(Nonce(StarkFelt::new(buffer).expect("cannot new Starkfelt from Juno bytes")))
+            Ok(Nonce(StarkFelt::from_bytes_be(&buffer)))
         }
     }
 
@@ -119,7 +119,7 @@ impl StateReader for JunoStateReader {
             )))
         } else {
             assert!(wrote == 32, "Juno didn't write 32 bytes");
-            Ok(ClassHash(StarkFelt::new(buffer).expect("cannot new Starkfelt from Juno bytes")))
+            Ok(ClassHash(StarkFelt::from_bytes_be(&buffer)))
         }
     }
 
