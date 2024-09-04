@@ -163,10 +163,15 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.Goerli2,
 			name:   "Block 110238 with version 0.11.1",
 		},
+		// https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=330363
+		{
+			number: 330363,
+			chain:  utils.Integration,
+			name:   "Block 330363 with version 0.13.1",
+		},
 	}
 
-	for _, testcase := range tests {
-		tc := testcase
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			client := feeder.NewTestClient(t, &tc.chain)
@@ -175,7 +180,7 @@ func TestBlockHash(t *testing.T) {
 			block, err := gw.BlockByNumber(context.Background(), tc.number)
 			require.NoError(t, err)
 
-			commitments, err := core.VerifyBlockHash(block, &tc.chain)
+			commitments, err := core.VerifyBlockHash(block, &tc.chain, nil)
 			assert.NoError(t, err)
 			assert.NotNil(t, commitments)
 		})
@@ -193,7 +198,7 @@ func TestBlockHash(t *testing.T) {
 		mainnetBlock1.Hash = h1
 
 		expectedErr := "can not verify hash in block header"
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet, nil)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
@@ -204,7 +209,7 @@ func TestBlockHash(t *testing.T) {
 		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
 		require.NoError(t, err)
 
-		commitments, err := core.VerifyBlockHash(block119802, &utils.Goerli)
+		commitments, err := core.VerifyBlockHash(block119802, &utils.Goerli, nil)
 		assert.NoError(t, err)
 		assert.NotNil(t, commitments)
 	})
@@ -218,7 +223,7 @@ func TestBlockHash(t *testing.T) {
 		expectedErr := fmt.Sprintf("len of transactions: %v do not match len of receipts: %v",
 			len(mainnetBlock1.Transactions), len(mainnetBlock1.Receipts))
 
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet, nil)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
@@ -232,10 +237,35 @@ func TestBlockHash(t *testing.T) {
 			"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
 			mainnetBlock1.Transactions[1].Hash().String(), 1,
 			mainnetBlock1.Receipts[1].TransactionHash)
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet)
+		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet, nil)
 		assert.EqualError(t, err, expectedErr)
 		assert.Nil(t, commitments)
 	})
+}
+
+func Test0132BlockHash(t *testing.T) {
+	t.Parallel()
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	gw := adaptfeeder.New(client)
+
+	for _, test := range []struct {
+		blockNum uint64
+	}{
+		{blockNum: 35748}, {blockNum: 35749}, {blockNum: 37500}, {blockNum: 38748},
+	} {
+		t.Run(fmt.Sprintf("blockNum=%v", test.blockNum), func(t *testing.T) {
+			t.Parallel()
+			b, err := gw.BlockByNumber(context.Background(), test.blockNum)
+			require.NoError(t, err)
+
+			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			require.NoError(t, err)
+
+			c, err := core.VerifyBlockHash(b, &utils.SepoliaIntegration, su.StateDiff)
+			require.NoError(t, err)
+			assert.NotNil(t, c)
+		})
+	}
 }
 
 func TestBlockHashP2P(t *testing.T) {

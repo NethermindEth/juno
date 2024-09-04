@@ -1,12 +1,13 @@
 package jsonrpc
 
 import (
+	"maps"
 	"net/http"
 
 	"github.com/NethermindEth/juno/utils"
 )
 
-const MaxRequestBodySize = 10 * 1024 * 1024 // 10MB
+const MaxRequestBodySize = 10 * utils.Megabyte
 
 type HTTP struct {
 	rpc *Server
@@ -32,23 +33,27 @@ func (h *HTTP) WithListener(listener NewRequestListener) *HTTP {
 
 // ServeHTTP processes an incoming HTTP request
 func (h *HTTP) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
-	if req.Method == "GET" {
+	if req.Method == http.MethodGet {
 		status := http.StatusNotFound
 		if req.URL.Path == "/" {
 			status = http.StatusOK
 		}
 		writer.WriteHeader(status)
 		return
-	} else if req.Method != "POST" {
+	} else if req.Method != http.MethodPost {
 		writer.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
 	req.Body = http.MaxBytesReader(writer, req.Body, MaxRequestBodySize)
 	h.listener.OnNewRequest("any")
-	resp, err := h.rpc.HandleReader(req.Context(), req.Body)
+	resp, header, err := h.rpc.HandleReader(req.Context(), req.Body)
+
 	writer.Header().Set("Content-Type", "application/json")
+	maps.Copy(writer.Header(), header) // overwrites duplicate headers
+
 	if err != nil {
+		h.log.Errorw("Handler failure", "err", err)
 		writer.WriteHeader(http.StatusInternalServerError)
 	}
 	if resp != nil {

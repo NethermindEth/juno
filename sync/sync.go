@@ -200,7 +200,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 					// revert the head and restart the sync process, hoping that the reorg is not deep
@@ -299,11 +298,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 }
 
 func maxWorkers() int {
-	m, mProcs := 16, runtime.GOMAXPROCS(0)
-	if mProcs > m {
-		return m
-	}
-	return mProcs
+	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
 }
 
 func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {

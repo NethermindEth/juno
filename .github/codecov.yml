@@ -17,3 +17,4 @@ ignore:
   - adapters/core2p2p
   - adapters/p2p2core
   - docs
+  - "**/*_enumer.go"

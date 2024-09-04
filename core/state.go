@@ -5,7 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"runtime"
+	"slices"
 	"sort"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -133,7 +135,7 @@ func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 
 func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
 	dbPrefix := bucket.Key()
-	tTxn := trie.NewTransactionStorage(s.txn, dbPrefix)
+	tTxn := trie.NewStorage(s.txn, dbPrefix)
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
@@ -144,7 +146,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 	})
 
 	// if some error other than "not found"
-	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil, err
 	}
 
@@ -370,6 +372,11 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
 	blockNumber uint64, logChanges bool,
 ) error {
+	type bufferedTransactionWithAddress struct {
+		txn  *db.BufferedTransaction
+		addr *felt.Felt
+	}
+
 	// make sure all noClassContracts are deployed
 	for addr := range diffs {
 		if _, ok := noClassContracts[addr]; !ok {
@@ -391,21 +398,18 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
-	keys := make([]felt.Felt, 0, len(diffs))
-	for key := range diffs {
-		keys = append(keys, key)
-	}
-	sort.SliceStable(keys, func(i, j int) bool {
-		return len(diffs[keys[i]]) > len(diffs[keys[j]])
-	})
+	keys := slices.SortedStableFunc(maps.Keys(diffs), func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 
 	// update per-contract storage Tries concurrently
-	contractUpdaters := pool.NewWithResults[*db.BufferedTransaction]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
-		conractAddr := key
-		updateDiff := diffs[conractAddr]
-		contractUpdaters.Go(func() (*db.BufferedTransaction, error) {
-			return s.updateStorageBuffered(&conractAddr, updateDiff, blockNumber, logChanges)
+		contractAddr := key
+		contractUpdaters.Go(func() (*bufferedTransactionWithAddress, error) {
+			bufferedTxn, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
+			if err != nil {
+				return nil, err
+			}
+			return &bufferedTransactionWithAddress{txn: bufferedTxn, addr: &contractAddr}, nil
 		})
 	}
 
@@ -414,9 +418,14 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		return err
 	}
 
+	// we sort bufferedTxns in ascending contract address order to achieve an additional speedup
+	sort.Slice(bufferedTxns, func(i, j int) bool {
+		return bufferedTxns[i].addr.Cmp(bufferedTxns[j].addr) < 0
+	})
+
 	// flush buffered txns
-	for _, bufferedTxn := range bufferedTxns {
-		if err = bufferedTxn.Flush(); err != nil {
+	for _, txnWithAddress := range bufferedTxns {
+		if err := txnWithAddress.txn.Flush(); err != nil {
 			return err
 		}
 	}
@@ -497,7 +506,6 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 			continue
 		}
 
-		// https://docs.starknet.io/documentation/starknet_versions/upcoming_versions/#commitment
 		leafValue := crypto.Poseidon(leafVersion, compiledClassHash)
 		if _, err = classesTrie.Put(&classHash, leafValue); err != nil {
 			return err
@@ -589,7 +597,8 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 }
 
 func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt, v1Classes map[felt.Felt]*felt.Felt) error {
-	var classHashes []*felt.Felt
+	totalCapacity := len(v0Classes) + len(v1Classes)
+	classHashes := make([]*felt.Felt, 0, totalCapacity)
 	classHashes = append(classHashes, v0Classes...)
 	for classHash := range v1Classes {
 		classHashes = append(classHashes, classHash.Clone())

@@ -7,46 +7,62 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run Tests
     strategy:
       fail-fast: false
       matrix:
-        go: [ '1.21' ]
-        os: [ ubuntu-latest, macos-latest, self-hosted-linux-arm64]
+        os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up go
-        uses: actions/setup-go@v4.1.0
+        uses: actions/setup-go@v5.0.2
         with:
           go-version-file: go.mod
-          cache: true
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             vm/rust
             core/rust
+            starknet/rust
+
       - name: Install deps
         run: make install-deps
-      - name: Install Jemalloc (Ubuntu or self-hosted)
+
+      - name: Install Jemalloc (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 -y
+
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install jemalloc
-      - name: Tests
-        run: make test-cover
-      - name: Benchmark
-        run: make benchmarks
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+
+      - name: Tests (Coverage)
         if: matrix.os == 'ubuntu-latest'
+        run: make test-cover
+
+      - name: Tests (No Coverage)
+        if: matrix.os != 'ubuntu-latest'
+        run: make test
+
+      #    Tests with race condition detector are flaky; we're disabling them for now
+      #      - name: Tests (Race Detection)
+      #        if: matrix.os == 'ubuntu-latest'
+      #        run: make test-race
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
-          files: ./coverage/coverage.out
-          verbose: true
+          files: coverage.out

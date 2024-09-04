@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
@@ -44,27 +45,27 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel            utils.LogLevel `mapstructure:"log-level"`
-	HTTP                bool           `mapstructure:"http"`
-	HTTPHost            string         `mapstructure:"http-host"`
-	HTTPPort            uint16         `mapstructure:"http-port"`
-	RPCCorsEnable       bool           `mapstructure:"rpc-cors-enable"`
-	Websocket           bool           `mapstructure:"ws"`
-	WebsocketHost       string         `mapstructure:"ws-host"`
-	WebsocketPort       uint16         `mapstructure:"ws-port"`
-	GRPC                bool           `mapstructure:"grpc"`
-	GRPCHost            string         `mapstructure:"grpc-host"`
-	GRPCPort            uint16         `mapstructure:"grpc-port"`
-	DatabasePath        string         `mapstructure:"db-path"`
-	Network             utils.Network  `mapstructure:"network"`
-	CustomNetwork       string         `mapstructure:"custom-network"`
-	EthNode             string         `mapstructure:"eth-node"`
-	Pprof               bool           `mapstructure:"pprof"`
-	PprofHost           string         `mapstructure:"pprof-host"`
-	PprofPort           uint16         `mapstructure:"pprof-port"`
-	Colour              bool           `mapstructure:"colour"`
-	PendingPollInterval time.Duration  `mapstructure:"pending-poll-interval"`
-	RemoteDB            string         `mapstructure:"remote-db"`
+	LogLevel               utils.LogLevel `mapstructure:"log-level"`
+	HTTP                   bool           `mapstructure:"http"`
+	HTTPHost               string         `mapstructure:"http-host"`
+	HTTPPort               uint16         `mapstructure:"http-port"`
+	RPCCorsEnable          bool           `mapstructure:"rpc-cors-enable"`
+	Websocket              bool           `mapstructure:"ws"`
+	WebsocketHost          string         `mapstructure:"ws-host"`
+	WebsocketPort          uint16         `mapstructure:"ws-port"`
+	GRPC                   bool           `mapstructure:"grpc"`
+	GRPCHost               string         `mapstructure:"grpc-host"`
+	GRPCPort               uint16         `mapstructure:"grpc-port"`
+	DatabasePath           string         `mapstructure:"db-path"`
+	Network                utils.Network  `mapstructure:"network"`
+	EthNode                string         `mapstructure:"eth-node"`
+	Pprof                  bool           `mapstructure:"pprof"`
+	PprofHost              string         `mapstructure:"pprof-host"`
+	PprofPort              uint16         `mapstructure:"pprof-port"`
+	Colour                 bool           `mapstructure:"colour"`
+	PendingPollInterval    time.Duration  `mapstructure:"pending-poll-interval"`
+	RemoteDB               string         `mapstructure:"remote-db"`
+	VersionedConstantsFile string         `mapstructure:"versioned-constants-file"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -72,6 +73,7 @@ type Config struct {
 
 	P2P           bool   `mapstructure:"p2p"`
 	P2PAddr       string `mapstructure:"p2p-addr"`
+	P2PPublicAddr string `mapstructure:"p2p-public-addr"`
 	P2PPeers      string `mapstructure:"p2p-peers"`
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
@@ -108,18 +110,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR, cfg.Colour)
-	if err != nil {
-		return nil, fmt.Errorf("create DB logger: %w", err)
-	}
-
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.DB
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.New(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, dbLog)
+		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("open DB: %w", err)
 	}
@@ -135,9 +133,21 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, fmt.Errorf("get head block from database: %v", err)
 	}
 	if head != nil {
+		stateUpdate, err := chain.StateUpdateByNumber(head.Number)
+		if err != nil {
+			return nil, err
+		}
+
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
-		if _, err = core.VerifyBlockHash(head, &cfg.Network); err != nil {
+		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff); err != nil {
 			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+		}
+	}
+
+	if cfg.VersionedConstantsFile != "" {
+		err = vm.SetVersionedConstants(cfg.VersionedConstantsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set versioned constants: %w", err)
 		}
 	}
 
@@ -157,7 +167,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		p2pService, err = p2p.New(cfg.P2PAddr, "juno", cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode, chain, &cfg.Network, log)
+		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
+			chain, &cfg.Network, log, database)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
@@ -168,7 +179,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, synchronizer)
 	}
 
-	throttledVM := NewThrottledVM(vm.New(log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	throttledVM := NewThrottledVM(vm.New(false, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
 	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 	if synchronizer != nil {
@@ -186,7 +197,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	legacyMethods, legacyPath := rpcHandler.LegacyMethods()
+	legacyMethods, legacyPath := rpcHandler.MethodsV0_6()
 	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
 		return nil, err
 	}
@@ -199,10 +210,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
+		httpHandlers := map[string]http.HandlerFunc{
+			"/ready/sync": readinessHandlers.HandleReadySync,
+		}
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(services,
+			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	var metricsService service.Service
 	if cfg.Metrics {

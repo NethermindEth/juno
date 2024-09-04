@@ -6,15 +6,23 @@ use std::{
 
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
+use blockifier::state::state_api::UpdatableState;
 use blockifier::{
-    execution::contract_class::{ContractClassV0, ContractClassV1},
+    execution::contract_class::{
+        ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1,
+    },
+    state::cached_state::{ContractClassMapping, StateMaps},
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
 use once_cell::sync::Lazy;
+use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
+use std::collections::{HashMap, HashSet};
+
+type StarkFelt = Felt;
 
 extern "C" {
     fn JunoFree(ptr: *const c_void);
@@ -60,7 +68,7 @@ impl JunoStateReader {
 
 impl StateReader for JunoStateReader {
     fn get_storage_at(
-        &mut self,
+        &self,
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
@@ -83,7 +91,7 @@ impl StateReader for JunoStateReader {
 
     /// Returns the nonce of the given contract instance.
     /// Default: 0 for an uninitialized contract address.
-    fn get_nonce_at(&mut self, contract_address: ContractAddress) -> StateResult<Nonce> {
+    fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let mut buffer: [u8; 32] = [0; 32];
         let wrote = unsafe { JunoStateGetNonceAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
@@ -100,7 +108,7 @@ impl StateReader for JunoStateReader {
 
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
-    fn get_class_hash_at(&mut self, contract_address: ContractAddress) -> StateResult<ClassHash> {
+    fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let mut buffer: [u8; 32] = [0; 32];
         let wrote = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
@@ -116,11 +124,8 @@ impl StateReader for JunoStateReader {
     }
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(
-        &mut self,
-        class_hash: &ClassHash,
-    ) -> StateResult<ContractClass> {
-        if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(class_hash) {
+    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
             //
@@ -141,15 +146,15 @@ impl StateReader for JunoStateReader {
         let class_hash_bytes = felt_to_byte_array(&class_hash.0);
         let ptr = unsafe { JunoStateGetCompiledClass(self.handle, class_hash_bytes.as_ptr()) };
         if ptr.is_null() {
-            Err(StateError::UndeclaredClassHash(*class_hash))
+            Err(StateError::UndeclaredClassHash(class_hash))
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
-            let contract_class = contract_class_from_json_str(json_str);
-            if let Ok(class) = &contract_class {
+            let class_info_res = class_info_from_json_str(json_str);
+            if let Ok(class_info) = &class_info_res {
                 CLASS_CACHE.lock().unwrap().cache_set(
-                    *class_hash,
+                    class_hash,
                     CachedContractClass {
-                        definition: class.clone(),
+                        definition: class_info.contract_class(),
                         cached_on_height: self.height,
                     },
                 );
@@ -157,43 +162,65 @@ impl StateReader for JunoStateReader {
 
             unsafe { JunoFree(ptr as *const c_void) };
 
-            contract_class.map_err(|_| {
+            class_info_res.map(|ci| ci.contract_class()).map_err(|err| {
                 StateError::StateReadError(format!(
-                    "error parsing JSON string for class hash {}",
-                    class_hash.0
+                    "parsing JSON string for class hash {}: {}",
+                    class_hash.0, err
                 ))
             })
         }
     }
 
     /// Returns the compiled class hash of the given class hash.
-    fn get_compiled_class_hash(
+    fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
+        unimplemented!()
+    }
+}
+
+impl UpdatableState for JunoStateReader {
+    fn apply_writes(
         &mut self,
-        _class_hash: ClassHash,
-    ) -> StateResult<CompiledClassHash> {
+        _writes: &StateMaps,
+        _class_hash_to_class: &ContractClassMapping,
+        _visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
+    ) {
         unimplemented!()
     }
 }
 
 pub fn felt_to_byte_array(felt: &StarkFelt) -> [u8; 32] {
-    felt.bytes().try_into().expect("StarkFelt not [u8; 32]")
+    felt.to_bytes_be()
 }
 
 pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
     let slice = unsafe { slice::from_raw_parts(bytes, 32) };
-    StarkFelt::new(slice.try_into().expect("Juno felt not [u8; 32]"))
-        .expect("cannot new Starkfelt from Juno bytes")
+    StarkFelt::from_bytes_be_slice(slice)
 }
 
-pub fn contract_class_from_json_str(raw_json: &str) -> Result<ContractClass, String> {
-    let v0_class = ContractClassV0::try_from_json_string(raw_json);
-    if let Ok(class) = v0_class {
-        return Ok(class.into());
-    }
-    let v1_class = ContractClassV1::try_from_json_string(raw_json);
-    if let Ok(class) = v1_class {
-        Ok(class.into())
-    } else {
-        Err(format!("not a valid contract class: {}", v1_class.err().unwrap()))
-    }
+#[derive(Deserialize)]
+pub struct ClassInfo {
+    contract_class: Box<serde_json::value::RawValue>,
+    sierra_program_length: usize,
+    abi_length: usize,
+}
+
+pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
+    let class_info: ClassInfo = serde_json::from_str(raw_json)
+        .map_err(|err| format!("failed parsing class info: {:?}", err))?;
+    let class_def = class_info.contract_class.to_string();
+
+    let class: ContractClass =
+        if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
+            class.into()
+        } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
+            class.into()
+        } else {
+            return Err("not a valid contract class".to_string());
+        };
+    Ok(BlockifierClassInfo::new(
+        &class,
+        class_info.sierra_program_length,
+        class_info.abi_length,
+    )
+    .unwrap())
 }

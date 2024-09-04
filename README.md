@@ -45,10 +45,27 @@
 
 ### Prerequisites
 
-- Golang 1.20 or higher is required to build and run the project. You can find the installer on
+- Golang 1.23 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
 - [Rust](https://www.rust-lang.org/tools/install).
 - A C compiler: `gcc` or `clang`.
+- Install `jemalloc` and `pkg-config` on your system:
+  
+  - macOS
+
+    ```bash
+    brew install jemalloc
+    brew install pkg-config
+    ```
+
+  - Ubuntu
+
+    ```bash
+    sudo apt-get install -y libjemalloc-dev
+    sudo apt-get install -y pkg-config
+    ```
+
+- To ensure a successful build, you either need to synchronize the tags from the upstream repository or create a new tag.
 
 ### Build and Run
 
@@ -92,15 +109,36 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 #### Mainnet
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2**  | **156 GB** | **519634** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/files/mainnet/latest) |
 
-#### Goerli
+#### Sepolia
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2** | **48 GB** | **931113** | [**juno_goerli.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.9.2_931113.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
+
+## Sepolia-Integration
+
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest) |
+
+### Getting the size for each snapshot
+```console
+$date
+Thu  1 Aug 2024 09:49:30 BST
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+172.47 GB
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+5.67 GB
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+2.4 GB
+```
 
 ### Run Juno Using Snapshot
 
@@ -109,7 +147,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.9.3_519634.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/files/mainnet/latest
    ```
 
 2. **Prepare Directory**
@@ -149,13 +187,14 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.13.0](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
-- JSON-RPC [v0.6.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.6.0) (Available under `/v0_6` endpoint)
+- Starknet [v0.13.1](https://docs.starknet.io/starknet-versions/version-notes/) support.
+- JSON-RPC [v0.7.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.7.0-rc2) (Available under `/v0_7` and default`/` endpoints)
   - `starknet_chainId`
   - `starknet_blockNumber`
   - `starknet_blockHashAndNumber`
   - `starknet_getBlockWithTxHashes`
   - `starknet_getBlockWithTxs`
+  - `starknet_getBlockWithReceipts`
   - `starknet_getTransactionByHash`
   - `starknet_getTransactionReceipt`
   - `starknet_getBlockTransactionCount`
@@ -182,7 +221,7 @@ After following these steps, Juno should be up and running on your machine, util
   
 - Juno's JSON-RPC:
   - `juno_version`
-- JSON-RPC [v0.5.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.5.1) (Available under `/v0_5` endpoint)
+- JSON-RPC [v0.6.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.6.0) (Available under `/v0_6` endpoint)
 - Integration of CairoVM. 
 - Verification of State from L1.
 - Handle L1 and L2 Reorgs.

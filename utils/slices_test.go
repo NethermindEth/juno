@@ -7,13 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFlatten(t *testing.T) {
-	expected := []int{1, 2, 3, 4, 5, 6}
-	halfLen := len(expected) / 2
-	actual := Flatten(expected[:halfLen], expected[halfLen:])
-	assert.Equal(t, expected, actual)
-}
-
 func TestMap(t *testing.T) {
 	t.Run("nil slice", func(t *testing.T) {
 		var input []int
@@ -63,5 +56,20 @@ func TestAll(t *testing.T) {
 			return v%2 != 0
 		})
 		assert.True(t, allOdd)
+	})
+}
+
+func TestAnyOf(t *testing.T) {
+	t.Run("nil args", func(t *testing.T) {
+		var input []int
+		assert.False(t, AnyOf(0, input...))
+	})
+
+	t.Run("element is in args", func(t *testing.T) {
+		assert.True(t, AnyOf("2", "1", "2", "3", "4", "5", "6"))
+	})
+
+	t.Run("element is not in args", func(t *testing.T) {
+		assert.False(t, AnyOf("9", "1", "2", "3", "4", "5", "6"))
 	})
 }

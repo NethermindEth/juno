@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -17,6 +18,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestParseBlockVersion_version13_1_1(t *testing.T) {
+	ver, err := core.ParseBlockVersion("0.13.1.1")
+	require.NoError(t, err)
+
+	customSemverGreater := ver.GreaterThan(semver.MustParse("0.13.1"))
+	assert.False(t, customSemverGreater)
+}
 
 func TestTransactionEncoding(t *testing.T) {
 	tests := []struct {
@@ -268,7 +277,7 @@ func TestTransactionV3Hash(t *testing.T) {
 	}
 }
 
-func TestTransactionVersi(t *testing.T) {
+func TestTransactionVersion(t *testing.T) {
 	f := utils.HexToFelt(t, "0x100000000000000000000000000000002")
 	v := (*core.TransactionVersion)(f)
 

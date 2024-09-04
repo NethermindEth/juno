@@ -1,7 +1,6 @@
 package core2p2p
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
@@ -14,30 +13,31 @@ func AdaptClass(class core.Class) *spec.Class {
 		return nil
 	}
 
+	hash, err := class.Hash()
+	if err != nil {
+		panic(fmt.Errorf("failed to hash %t: %w", class, err))
+	}
+
 	switch v := class.(type) {
 	case *core.Cairo0Class:
 		return &spec.Class{
 			Class: &spec.Class_Cairo0{
 				Cairo0: &spec.Cairo0Class{
-					Abi:          v.Abi,
+					Abi:          string(v.Abi),
 					Externals:    utils.Map(v.Externals, adaptEntryPoint),
 					L1Handlers:   utils.Map(v.L1Handlers, adaptEntryPoint),
 					Constructors: utils.Map(v.Constructors, adaptEntryPoint),
-					Program:      []byte(v.Program),
+					Program:      v.Program,
 				},
 			},
+			Domain:    0, // todo(kirill) recheck
+			ClassHash: AdaptHash(hash),
 		}
 	case *core.Cairo1Class:
-		// Todo: Add compiled class struct to p2p spec. For now we will use json encoding
-		compiledBytes, err := json.Marshal(v.Compiled)
-		if err != nil {
-			panic(fmt.Errorf("unable to marshal compiled class hash to json: %v", err))
-		}
-
 		return &spec.Class{
 			Class: &spec.Class_Cairo1{
 				Cairo1: &spec.Cairo1Class{
-					Abi: []byte(v.Abi),
+					Abi: v.Abi,
 					EntryPoints: &spec.Cairo1EntryPoints{
 						Externals:    utils.Map(v.EntryPoints.External, adaptSierra),
 						L1Handlers:   utils.Map(v.EntryPoints.L1Handler, adaptSierra),
@@ -45,9 +45,10 @@ func AdaptClass(class core.Class) *spec.Class {
 					},
 					Program:              utils.Map(v.Program, AdaptFelt),
 					ContractClassVersion: v.SemanticVersion,
-					Compiled:             compiledBytes,
 				},
 			},
+			Domain:    0, // todo(kirill) recheck
+			ClassHash: AdaptHash(hash),
 		}
 	default:
 		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, class.Version()))
@@ -64,6 +65,6 @@ func adaptSierra(e core.SierraEntryPoint) *spec.SierraEntryPoint {
 func adaptEntryPoint(e core.EntryPoint) *spec.EntryPoint {
 	return &spec.EntryPoint{
 		Selector: AdaptFelt(e.Selector),
-		Offset:   AdaptFelt(e.Offset),
+		Offset:   e.Offset.Uint64(),
 	}
 }

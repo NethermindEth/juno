@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -16,7 +15,6 @@ import (
 
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -26,11 +24,11 @@ import (
 )
 
 const greeting = `
-       _                    
-      | |                   
-      | |_   _ _ __   ___   
-  _   | | | | | '_ \ / _ \  
- | |__| | |_| | | | | (_) |  
+       _
+      | |
+      | |_   _ _ __   ___
+  _   | | | | | '_ \ / _ \
+ | |__| | |_| | | | | (_) |
   \____/ \__,_|_| |_|\___/ %s
 
 Juno is a Go implementation of a Starknet full-node client created by Nethermind.
@@ -38,51 +36,52 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 `
 
 const (
-	configF                = "config"
-	logLevelF              = "log-level"
-	httpF                  = "http"
-	httpHostF              = "http-host"
-	httpPortF              = "http-port"
-	wsF                    = "ws"
-	wsHostF                = "ws-host"
-	wsPortF                = "ws-port"
-	dbPathF                = "db-path"
-	networkF               = "network"
-	customNetworkF         = "custom-network"
-	ethNodeF               = "eth-node"
-	pprofF                 = "pprof"
-	pprofHostF             = "pprof-host"
-	pprofPortF             = "pprof-port"
-	colourF                = "colour"
-	pendingPollIntervalF   = "pending-poll-interval"
-	p2pF                   = "p2p"
-	p2pAddrF               = "p2p-addr"
-	p2pPeersF              = "p2p-peers"
-	p2pFeederNodeF         = "p2p-feeder-node"
-	p2pPrivateKey          = "p2p-private-key"
-	metricsF               = "metrics"
-	metricsHostF           = "metrics-host"
-	metricsPortF           = "metrics-port"
-	grpcF                  = "grpc"
-	grpcHostF              = "grpc-host"
-	grpcPortF              = "grpc-port"
-	maxVMsF                = "max-vms"
-	maxVMQueueF            = "max-vm-queue"
-	remoteDBF              = "remote-db"
-	rpcMaxBlockScanF       = "rpc-max-block-scan"
-	dbCacheSizeF           = "db-cache-size"
-	dbMaxHandlesF          = "db-max-handles"
-	gwAPIKeyF              = "gw-api-key" //nolint: gosec
-	gwTimeoutF             = "gw-timeout" //nolint: gosec
-	cnNameF                = "cn-name"
-	cnFeederURLF           = "cn-feeder-url"
-	cnGatewayURLF          = "cn-gateway-url"
-	cnL1ChainIDF           = "cn-l1-chain-id"
-	cnL2ChainIDF           = "cn-l2-chain-id"
-	cnCoreContractAddressF = "cn-core-contract-address"
-	cnUnverifiableRangeF   = "cn-unverifiable-range"
-	callMaxStepsF          = "rpc-call-max-steps"
-	corsEnableF            = "rpc-cors-enable"
+	configF                 = "config"
+	logLevelF               = "log-level"
+	httpF                   = "http"
+	httpHostF               = "http-host"
+	httpPortF               = "http-port"
+	wsF                     = "ws"
+	wsHostF                 = "ws-host"
+	wsPortF                 = "ws-port"
+	dbPathF                 = "db-path"
+	networkF                = "network"
+	ethNodeF                = "eth-node"
+	pprofF                  = "pprof"
+	pprofHostF              = "pprof-host"
+	pprofPortF              = "pprof-port"
+	colourF                 = "colour"
+	pendingPollIntervalF    = "pending-poll-interval"
+	p2pF                    = "p2p"
+	p2pAddrF                = "p2p-addr"
+	p2pPublicAddrF          = "p2p-public-addr"
+	p2pPeersF               = "p2p-peers"
+	p2pFeederNodeF          = "p2p-feeder-node"
+	p2pPrivateKey           = "p2p-private-key"
+	metricsF                = "metrics"
+	metricsHostF            = "metrics-host"
+	metricsPortF            = "metrics-port"
+	grpcF                   = "grpc"
+	grpcHostF               = "grpc-host"
+	grpcPortF               = "grpc-port"
+	maxVMsF                 = "max-vms"
+	maxVMQueueF             = "max-vm-queue"
+	remoteDBF               = "remote-db"
+	rpcMaxBlockScanF        = "rpc-max-block-scan"
+	dbCacheSizeF            = "db-cache-size"
+	dbMaxHandlesF           = "db-max-handles"
+	gwAPIKeyF               = "gw-api-key" //nolint: gosec
+	gwTimeoutF              = "gw-timeout" //nolint: gosec
+	cnNameF                 = "cn-name"
+	cnFeederURLF            = "cn-feeder-url"
+	cnGatewayURLF           = "cn-gateway-url"
+	cnL1ChainIDF            = "cn-l1-chain-id"
+	cnL2ChainIDF            = "cn-l2-chain-id"
+	cnCoreContractAddressF  = "cn-core-contract-address"
+	cnUnverifiableRangeF    = "cn-unverifiable-range"
+	callMaxStepsF           = "rpc-call-max-steps"
+	corsEnableF             = "rpc-cors-enable"
+	versionedConstantsFileF = "versioned-constants-file"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -94,9 +93,10 @@ const (
 	defaultPprof                    = false
 	defaultPprofPort                = 6062
 	defaultColour                   = true
-	defaultPendingPollInterval      = time.Duration(0)
+	defaultPendingPollInterval      = 5 * time.Second
 	defaultP2p                      = false
 	defaultP2pAddr                  = ""
+	defaultP2pPublicAddr            = ""
 	defaultP2pPeers                 = ""
 	defaultP2pFeederNode            = false
 	defaultP2pPrivateKey            = ""
@@ -118,17 +118,18 @@ const (
 	defaultCallMaxSteps             = 4_000_000
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
+	defaultVersionedConstantsFile   = ""
 
-	configFlagUsage                       = "The yaml configuration file."
-	logLevelFlagUsage                     = "Options: debug, info, warn, error."
+	configFlagUsage                       = "The YAML configuration file."
+	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
 	httpUsage                             = "Enables the HTTP RPC server on the default port and interface."
 	httpHostUsage                         = "The interface on which the HTTP RPC server will listen for requests."
 	httpPortUsage                         = "The port on which the HTTP server will listen for requests."
-	wsUsage                               = "Enables the Websocket RPC server on the default port."
-	wsHostUsage                           = "The interface on which the Websocket RPC server will listen for requests."
-	wsPortUsage                           = "The port on which the websocket server will listen for requests."
+	wsUsage                               = "Enables the WebSocket RPC server on the default port."
+	wsHostUsage                           = "The interface on which the WebSocket RPC server will listen for requests."
+	wsPortUsage                           = "The port on which the WebSocket server will listen for requests."
 	dbPathUsage                           = "Location of the database files."
-	networkUsage                          = "Options: mainnet, goerli, goerli2, integration, sepolia, sepolia-integration."
+	networkUsage                          = "Options: mainnet, sepolia, sepolia-integration."
 	networkCustomName                     = "Custom network name."
 	networkCustomFeederUsage              = "Custom network feeder URL."
 	networkCustomGatewayUsage             = "Custom network gateway URL."
@@ -139,33 +140,36 @@ const (
 	pprofUsage                            = "Enables the pprof endpoint on the default port."
 	pprofHostUsage                        = "The interface on which the pprof HTTP server will listen for requests."
 	pprofPortUsage                        = "The port on which the pprof HTTP server will listen for requests."
-	colourUsage                           = "Uses --colour=false command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage                          = "Websocket endpoint of the Ethereum node. In order to verify the correctness of the L2 chain, " +
+	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
+	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (disabled by default)."
+	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
 	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
-	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p source address as multiaddr."
+	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
+	p2pPublicAddrUsage       = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
 	p2pPeersUsage            = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
 	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
-	metricsUsage         = "Enables the prometheus metrics endpoint on the default port."
-	metricsHostUsage     = "The interface on which the prometheus endpoint will listen for requests."
-	metricsPortUsage     = "The port on which the prometheus endpoint will listen for requests."
-	grpcUsage            = "Enable the HTTP GRPC server on the default port."
-	grpcHostUsage        = "The interface on which the GRPC server will listen for requests."
-	grpcPortUsage        = "The port on which the GRPC server will listen for requests."
+	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
+	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
+	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
+	grpcUsage            = "Enable the HTTP gRPC server on the default port."
+	grpcHostUsage        = "The interface on which the gRPC server will listen for requests."
+	grpcPortUsage        = "The port on which the gRPC server will listen for requests."
 	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requets"
+	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
 	remoteDBUsage        = "gRPC URL of a remote Juno node"
 	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
 	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests"
-	corsEnableUsage      = "Enable CORS on RPC endpoints"
+	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
+		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
+	corsEnableUsage             = "Enable CORS on RPC endpoints"
+	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 )
 
 var Version string
@@ -187,7 +191,10 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		fmt.Printf(greeting, Version)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), greeting, Version)
+		if err != nil {
+			return err
+		}
 
 		n, err := node.New(config, Version)
 		if err != nil {
@@ -214,7 +221,7 @@ func main() {
 //nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
-		Use:     "juno [flags]",
+		Use:     "juno",
 		Short:   "Starknet client implementation in Go.",
 		Version: Version,
 		RunE:    run,
@@ -245,7 +252,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		v.SetEnvPrefix("JUNO")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		if err := v.BindPFlags(cmd.Flags()); err != nil {
-			return nil
+			return nil //nolint:nilerr
 		}
 
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
@@ -324,6 +331,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
+	junoCmd.Flags().String(p2pPublicAddrF, defaultP2pPublicAddr, p2pPublicAddrUsage)
 	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
@@ -345,42 +353,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
+	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
-	junoCmd.AddCommand(GenP2PKeyPair())
+
+	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd
-}
-
-func GenP2PKeyPair() *cobra.Command {
-	return &cobra.Command{
-		Use:   "genp2pkeypair",
-		Short: "Generate private key pair for p2p.",
-		RunE: func(*cobra.Command, []string) error {
-			priv, pub, id, err := p2p.GenKeyPair()
-			if err != nil {
-				return err
-			}
-
-			rawPriv, err := priv.Raw()
-			if err != nil {
-				return err
-			}
-
-			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
-			hex.Encode(privHex, rawPriv)
-			fmt.Println("P2P Private Key:", string(privHex))
-
-			rawPub, err := pub.Raw()
-			if err != nil {
-				return err
-			}
-
-			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
-			hex.Encode(pubHex, rawPub)
-			fmt.Println("P2P Public Key:", string(pubHex))
-
-			fmt.Println("P2P PeerID:", id)
-			return nil
-		},
-	}
 }

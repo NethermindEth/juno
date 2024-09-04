@@ -94,7 +94,8 @@ func (t *Transaction) Get(key []byte, cb func([]byte) error) error {
 		return ErrDiscardedTransaction
 	}
 
-	defer t.listener.OnIO(false, time.Since(start))
+	// We need it evaluated immediately so the duration doesn't include the runtime of the user callback that we call below.
+	defer t.listener.OnIO(false, time.Since(start)) //nolint:govet
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
 			return db.ErrKeyNotFound
@@ -120,12 +121,17 @@ func (t *Transaction) Impl() any {
 // NewIterator : see db.Transaction.NewIterator
 func (t *Transaction) NewIterator() (db.Iterator, error) {
 	var iter *pebble.Iterator
+	var err error
 	if t.batch != nil {
-		iter = t.batch.NewIter(nil)
+		iter, err = t.batch.NewIter(nil)
 	} else if t.snapshot != nil {
-		iter = t.snapshot.NewIter(nil)
+		iter, err = t.snapshot.NewIter(nil)
 	} else {
 		return nil, ErrDiscardedTransaction
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &iterator{iter: iter}, nil

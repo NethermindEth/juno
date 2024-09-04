@@ -54,7 +54,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 	for i := 0; i < numberOfContracts; i++ {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 		// Use exampleBytes for the key suffix (the contract address) and the value.
-		err := txn.Set(db.Unused.Key(exampleBytes[:]), exampleBytes[:])
+		err := txn.Set(db.Peer.Key(exampleBytes[:]), exampleBytes[:])
 		require.NoError(t, err)
 	}
 
@@ -72,7 +72,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		}))
 
 		// Old entry does not exist.
-		oldKey := db.Unused.Key(exampleBytes[:])
+		oldKey := db.Peer.Key(exampleBytes[:])
 		err := txn.Get(oldKey, func(val []byte) error { return nil })
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 	}
@@ -123,7 +123,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		require.NoError(t, txn.Set(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}))
 
 		for _, bucket := range buckets {
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				n.Value = new(felt.Felt).SetUint64(uint64(i))
 
 				encodedNode, err := encoder.Marshal(n)
@@ -143,13 +143,13 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 	m := new(changeTrieNodeEncoding)
 	require.NoError(t, m.Before(nil))
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		_, err := m.Migrate(context.Background(), txn, &utils.Mainnet)
+		_, err := m.Migrate(context.Background(), txn, &utils.Mainnet, nil)
 		return err
 	}))
 
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		for _, bucket := range buckets {
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				var coreNode trie.Node
 				err := txn.Get(bucket.Key([]byte{byte(i)}), coreNode.UnmarshalBinary)
 				if err != nil {
@@ -427,7 +427,7 @@ type testMigration struct {
 	before func([]byte) error
 }
 
-func (f testMigration) Migrate(ctx context.Context, txn db.Transaction, network *utils.Network) ([]byte, error) {
+func (f testMigration) Migrate(ctx context.Context, txn db.Transaction, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	return f.exec(ctx, txn, network)
 }
 
@@ -507,7 +507,7 @@ func TestChangeStateDiffStructEmptyDB(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
 		require.NoError(t, migrator.Before(nil))
-		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet)
+		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 
@@ -584,7 +584,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
 		require.NoError(t, migrator.Before(nil))
-		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet)
+		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 		return nil

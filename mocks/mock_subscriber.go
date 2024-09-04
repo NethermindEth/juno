@@ -5,6 +5,7 @@
 //
 //	mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

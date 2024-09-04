@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -21,6 +22,26 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	}
 	copy(k.bitset[len(k.bitset)-len(keyBytes):], keyBytes)
 	return k
+}
+
+func (k *Key) SubKey(n uint8) (*Key, error) {
+	if n > k.len {
+		return nil, errors.New(fmt.Sprint("cannot subtract key of length %i from key of length %i", n, k.len))
+	}
+
+	newKey := &Key{len: n}
+	copy(newKey.bitset[:], k.bitset[len(k.bitset)-int((k.len+7)/8):]) //nolint:mnd
+
+	// Shift right by the number of bits that are not needed
+	shift := k.len - n
+	for i := len(newKey.bitset) - 1; i >= 0; i-- {
+		newKey.bitset[i] >>= shift
+		if i > 0 {
+			newKey.bitset[i] |= newKey.bitset[i-1] << (8 - shift)
+		}
+	}
+
+	return newKey, nil
 }
 
 func (k *Key) bytesNeeded() uint {
@@ -72,7 +93,7 @@ func (k *Key) Equal(other *Key) bool {
 	} else if k == nil || other == nil {
 		return false
 	}
-	return k.len == other.len && bytes.Equal(k.bitset[:], other.bitset[:])
+	return k.len == other.len && k.bitset == other.bitset
 }
 
 func (k *Key) Test(bit uint8) bool {
@@ -104,11 +125,26 @@ func (k *Key) DeleteLSB(n uint8) {
 func (k *Key) Truncate(length uint8) {
 	k.len = length
 
-	// clear unused bytes
 	unusedBytes := k.unusedBytes()
-	for idx := range unusedBytes {
-		unusedBytes[idx] = 0
+	clear(unusedBytes)
+
+	// clear upper bits on the last used byte
+	inUseBytes := k.inUseBytes()
+	unusedBitsCount := 8 - (k.len % 8)
+	if unusedBitsCount != 8 && len(inUseBytes) > 0 {
+		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
 	}
+}
+
+func (k *Key) RemoveLastBit() {
+	if k.len == 0 {
+		return
+	}
+
+	k.len--
+
+	unusedBytes := k.unusedBytes()
+	clear(unusedBytes)
 
 	// clear upper bits on the last used byte
 	inUseBytes := k.inUseBytes()

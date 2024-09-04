@@ -3,9 +3,9 @@ package vm
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"slices"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -75,8 +75,8 @@ func (t TransactionType) String() string {
 	}
 }
 
-func (t TransactionType) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", t.String())), nil
+func (t TransactionType) MarshalText() ([]byte, error) {
+	return []byte(t.String()), nil
 }
 
 func (t *TransactionType) UnmarshalJSON(data []byte) error {
@@ -105,6 +105,7 @@ type TransactionTrace struct {
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
 func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
@@ -220,7 +221,7 @@ type OrderedL2toL1Message struct {
 	Payload []*felt.Felt `json:"payload"`
 }
 
-type ExecutionResources struct {
+type ComputationResources struct {
 	Steps        uint64 `json:"steps"`
 	MemoryHoles  uint64 `json:"memory_holes,omitempty"`
 	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
@@ -231,4 +232,31 @@ type ExecutionResources struct {
 	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
 	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`
 	SegmentArena uint64 `json:"segment_arena_builtin,omitempty"`
+	AddMod       uint64 `json:"add_mod_builtin,omitempty"`
+	MulMod       uint64 `json:"mul_mod_builtin,omitempty"`
+	RangeCheck96 uint64 `json:"range_check_96_builtin,omitempty"`
+	Output       uint64 `json:"output_builtin,omitempty"`
+}
+
+type DataAvailability struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+}
+
+type ExecutionResources struct {
+	ComputationResources
+	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
+}
+
+func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DAMode) *DataAvailability {
+	da := &DataAvailability{}
+
+	switch mode {
+	case core.Calldata:
+		da.L1Gas = gasConsumed.Uint64()
+	case core.Blob:
+		da.L1DataGas = dataGasConsumed.Uint64()
+	}
+
+	return da
 }

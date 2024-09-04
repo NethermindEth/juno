@@ -128,10 +128,8 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
 		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
-		wd, err := os.Getwd()
 		require.NoError(t, err)
 
-		base := wd[:strings.LastIndex(wd, "juno")+4]
 		queryArg := ""
 		dir := ""
 		const blockNumberArg = "blockNumber"
@@ -173,7 +171,11 @@ func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 			return
 		}
 
-		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
+		dataPath, err := findTargetDirectory("clients/feeder/testdata")
+		if err != nil {
+			t.Fatalf("failed to find testdata directory: %v", err)
+		}
+		path := filepath.Join(dataPath, network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
 			handleNotFound(dir, queryArg, w)
@@ -236,7 +238,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			return nil, ctx.Err()
 		case <-time.After(wait):
 			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, "GET", queryURL, http.NoBody)
+			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
 			if err != nil {
 				return nil, err
 			}
@@ -383,13 +385,12 @@ func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	}
 	defer body.Close()
 
-	b, err := io.ReadAll(body)
-	if err != nil {
+	var publicKey string // public key hex string
+	if err = json.NewDecoder(body).Decode(&publicKey); err != nil {
 		return nil, err
 	}
-	publicKey := new(felt.Felt).SetBytes(b)
 
-	return publicKey, nil
+	return new(felt.Felt).SetString(publicKey)
 }
 
 func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
@@ -447,4 +448,24 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 		return nil, err
 	}
 	return traces, nil
+}
+
+func findTargetDirectory(targetRelPath string) (string, error) {
+	root, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		targetPath := filepath.Join(root, targetRelPath)
+		if _, err := os.Stat(targetPath); err == nil {
+			return targetPath, nil
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+		newRoot := filepath.Dir(root)
+		if newRoot == root {
+			return "", os.ErrNotExist
+		}
+		root = newRoot
+	}
 }
