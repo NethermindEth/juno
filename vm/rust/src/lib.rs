@@ -267,16 +267,18 @@ pub extern "C" fn cairoVMExecute(
                 }
                 let class_json_str = classes.remove(0);
 
+                
                 let maybe_cc = class_info_from_json_str(class_json_str.get());
                 if let Err(e) = maybe_cc {
                     report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
                     return;
                 }
+                println!("class_info abi len {} bytecode len{} code len {}",maybe_cc.clone().unwrap().abi_length(),maybe_cc.clone().unwrap().bytecode_length(),maybe_cc.clone().unwrap().code_size());
                 Some(maybe_cc.unwrap())
             }
             _ => None,
         };
-
+        
         let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {
@@ -307,6 +309,7 @@ pub extern "C" fn cairoVMExecute(
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
+                
                 minimal_l1_gas_amount_vector =
                     Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
@@ -318,7 +321,9 @@ pub extern "C" fn cairoVMExecute(
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
-
+        
+        // println!("block_context.block_info().gas_prices.get_data_gas_price_by_fee_type(&fee_type).get() {:?}",block_context.block_info().gas_prices.get_data_gas_price_by_fee_type(&fee_type).get());
+        // println!("block_context.block_info().gas_prices.get_gas_price_by_fee_type(&fee_type).get() {:?}",block_context.block_info().gas_prices.get_gas_price_by_fee_type(&fee_type).get());
         match res {
             Err(error) => {
                 let err_string = match &error {
@@ -348,7 +353,10 @@ pub extern "C" fn cairoVMExecute(
                     );
                     return;
                 }
-
+                // println!(" t.transaction_receipt.da_gas {:?}",t.transaction_receipt.da_gas);
+                // println!(" t.transaction_receipt.gas {:?}",t.transaction_receipt.gas);
+                // println!(" t.transaction_receipt.fee {:?}",t.transaction_receipt.fee);
+                
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 && !is_l1_handler_txn {
                     let minimal_l1_gas_amount_vector =
@@ -504,7 +512,7 @@ fn build_block_context(
     let gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.gas_price_fri);
     let data_gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_wei);
     let data_gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_fri);
-    let default_gas_price = NonZeroU128::new(1).unwrap();
+    let default_gas_price: std::num::NonZero<u128> = NonZeroU128::new(1).unwrap();
 
     let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
     // STORED_BLOCK_HASH_BUFFER const is 10 for now
@@ -519,6 +527,7 @@ fn build_block_context(
         })
     }
     let mut constants = get_versioned_constants(block_info.version);
+    println!("constants.l2_resource_gas_costs.gas_per_code_byte {:?} {:?}",constants.l2_resource_gas_costs.gas_per_code_byte.numer(),constants.l2_resource_gas_costs.gas_per_code_byte.denom());
     if let Some(max_steps) = max_steps {
         constants.invoke_tx_max_n_steps = max_steps as u32;
     }

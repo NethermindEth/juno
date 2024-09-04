@@ -318,18 +318,23 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
 
+    let mut sierra_len = class_info.sierra_program_length;
+    let mut abi_len = class_info.abi_length;
     let class: ContractClass =
         if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
+            sierra_len=0;
+            abi_len=0;
             class.into()
         } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
             class.into()
         } else {
             return Err("not a valid contract class".to_string());
         };
+    
     Ok(BlockifierClassInfo::new(
         &class,
-        class_info.sierra_program_length,
-        class_info.abi_length,
+        sierra_len,
+        abi_len,
     )
     .unwrap())
 }

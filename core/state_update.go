@@ -175,18 +175,28 @@ func compareSlices(s1, s2 []*felt.Felt) (string, bool) {
 	if len2 > len1 {
 		maxLen = len2
 	}
-
+	// Todo : dont do stupid stuff like this
+	s1Copy := make([]*felt.Felt, len(s1))
+	copy(s1Copy, s1)
+	s2Copy := make([]*felt.Felt, len(s2))
+	copy(s2Copy, s2)
+	slices.SortFunc(s1, func(a, b *felt.Felt) int {
+		return a.Cmp(b)
+	})
+	slices.SortFunc(s2, func(a, b *felt.Felt) int {
+		return a.Cmp(b)
+	})
 	for i := 0; i < maxLen; i++ {
 		if i < len1 && i < len2 {
-			if !reflect.DeepEqual(s1[i], s2[i]) {
-				sb.WriteString(fmt.Sprintf("    %s -> %s (changed)\n", s1[i].String(), s2[i].String()))
+			if !reflect.DeepEqual(s1Copy[i], s2Copy[i]) {
+				sb.WriteString(fmt.Sprintf("    %s -> %s (changed)\n", s1Copy[i].String(), s2Copy[i].String()))
 				differencesFound = true
 			}
 		} else if i < len1 {
-			sb.WriteString(fmt.Sprintf("    %s (missing in second slice)\n", s1[i].String()))
+			sb.WriteString(fmt.Sprintf("    %s (missing in second slice)\n", s1Copy[i].String()))
 			differencesFound = true
 		} else {
-			sb.WriteString(fmt.Sprintf("    %s (missing in first slice)\n", s2[i].String()))
+			sb.WriteString(fmt.Sprintf("    %s (missing in first slice)\n", s2Copy[i].String()))
 			differencesFound = true
 		}
 	}

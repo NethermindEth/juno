@@ -1157,9 +1157,13 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, shadowStateU
 		}
 
 		if shadowStateUpdate != nil {
+			// fmt.Println("}}}}}seq", pending.StateUpdate.StateDiff.DeclaredV0Classes)
+			// fmt.Println("}}}}}shadowStateUpdate", shadowStateUpdate.StateDiff.DeclaredV0Classes)
 			if err := b.validateStateDiff(shadowStateUpdate, pending.StateUpdate); err != nil {
 				return err
 			}
+			fmt.Println("pending.StateUpdate.StateDiff.Print()")
+			pending.StateUpdate.StateDiff.Print()
 			if err := b.validateCommitments(shadowBlock, shadowStateUpdate, pending.Block, commitments); err != nil {
 				return err
 			}

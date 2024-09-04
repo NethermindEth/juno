@@ -503,11 +503,11 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			GasPrice:         b.shadowBlock.GasPrice,         // Affects post 0.13.2 block hash
 			GasPriceSTRK:     b.shadowBlock.GasPriceSTRK,     // Affects post 0.13.2 block hash
 			L1DataGasPrice:   b.shadowBlock.L1DataGasPrice,   // Affects post 0.13.2 block hash
+			L1DAMode:         b.shadowBlock.L1DAMode,         // Affects data_availability
 		},
 	}
-
 	fee, _, trace, txnReceipts, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
-		b.bc.Network(), false, false, false, false)
+		b.bc.Network(), false, false, false, true)
 	if err != nil {
 		return err
 	}
@@ -516,23 +516,27 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if txn.Transaction.TxVersion().Is(3) {
 		feeUnit = core.STRK
 	}
-	if trace[0].StateDiff.DeclaredClasses != nil {
-		if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
-			err := state.SetContractClass(t.ClassHash, txn.DeclaredClass)
-			if err != nil {
-				b.log.Errorw("failed to set contract class : %s", err)
-			}
-			if t.CompiledClassHash != nil {
-				err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash)
-				if err != nil {
-					b.log.Errorw("failed to SetCompiledClassHash  : %s", err)
-				}
-			}
-		}
+	if trace[0].StateDiff.DeclaredClasses != nil || trace[0].StateDiff.DeprecatedDeclaredClasses != nil {
+		fmt.Println("============ DECLARE")
+		// 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
+		// 		fmt.Println("============ DECLARE DECLARE")
+		// 		err := state.SetContractClass(t.ClassHash, txn.DeclaredClass)
+		// 		if err != nil {
+		// 			b.log.Errorw("failed to set contract class : %s", err)
+		// 		}
+		// 		if t.CompiledClassHash != nil {
+		// 			err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash)
+		// 			if err != nil {
+		// 				b.log.Errorw("failed to SetCompiledClassHash  : %s", err)
+		// 			}
+		// 		}
+		// 	}
 	}
+	// fmt.Println(" b.pendingBlock.StateUpdate.StateDiff.DeclaredV0Classes ", b.pendingBlock.StateUpdate.StateDiff.DeclaredV0Classes)
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
 
 	if b.junoEndpoint != "" {
+		fmt.Println("comparing against sepolia data")
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
 		refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
 		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
@@ -619,6 +623,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.pendingBlock.Block.Header.GasPrice = block.GasPrice               // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
+			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // Affects data_availability
 
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {

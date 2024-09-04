@@ -331,7 +331,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	if err != nil {
 		return nil, nil, nil, nil, 0, err
 	}
-
+	qwe := len(classesJSON)
+	fmt.Println("size of class", qwe)
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
 		return nil, nil, nil, nil, 0, err
