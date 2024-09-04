@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"errors"
 	"math/big"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -13,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils/iter"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type ContractRangeStreamingResult struct {
@@ -44,9 +44,9 @@ type ClassRangeStreamingResult struct {
 }
 
 type SnapServer interface {
-	GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) iter.Seq2[*ContractRangeStreamingResult, error]
-	GetStorageRange(ctx context.Context, request *StorageRangeRequest) iter.Seq2[*StorageRangeStreamingResult, error]
-	GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) iter.Seq2[*ClassRangeStreamingResult, error]
+	GetContractRange(ctx context.Context, request *spec.ContractRangeRequest) (iter.Seq[*ContractRangeStreamingResult], error)
+	GetStorageRange(ctx context.Context, request *StorageRangeRequest) (iter.Seq[*StorageRangeStreamingResult], error)
+	GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) (iter.Seq[*ClassRangeStreamingResult], error)
 	GetClasses(ctx context.Context, classHashes []*felt.Felt) ([]*spec.Class, error)
 }
 
@@ -56,6 +56,12 @@ type SnapServerBlockchain interface {
 }
 
 var _ SnapServerBlockchain = (*blockchain.Blockchain)(nil)
+
+func NewSnapServer(blockchain SnapServerBlockchain) SnapServer {
+	return &snapServer{
+		blockchain: blockchain,
+	}
+}
 
 type snapServer struct {
 	blockchain SnapServerBlockchain
@@ -78,25 +84,25 @@ func determineMaxNodes(specifiedMaxNodes uint64) uint64 {
 	return maxNodePerRequest
 }
 
-func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) iter.Seq2[*ClassRangeStreamingResult, error] {
-	return func(yield func(*ClassRangeStreamingResult, error) bool) {
+func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRangeRequest) (iter.Seq[*ClassRangeStreamingResult], error) {
+	return func(yield func(*ClassRangeStreamingResult) bool) {
 		stateRoot := p2p2core.AdaptHash(request.Root)
 
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting state for state root", "err", err)
 			return
 		}
 
 		contractRoot, classRoot, err := s.StateAndClassRoot()
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting state and class root", "err", err)
 			return
 		}
 
 		ctrie, classCloser, err := s.ClassTrie()
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting class trie", "err", err)
 			return
 		}
 		defer func() { _ = classCloser() }()
@@ -119,27 +125,22 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 					return nil
 				})
 			if err != nil {
-				yield(nil, err)
+				log.Error("error iterating class trie", "err", err)
 				return
 			}
 
 			coreClasses, err := b.blockchain.GetClasses(classkeys)
 			if err != nil {
-				yield(nil, err)
+				log.Error("error getting classes", "err", err)
 				return
 			}
 
 			for _, coreclass := range coreClasses {
 				if coreclass == nil {
-					yield(nil, errors.New("class is nil"))
+					log.Error("nil class in the returned array of core classes")
 					return
 				}
 				response.Classes = append(response.Classes, core2p2p.AdaptClass(coreclass))
-			}
-
-			if err != nil {
-				yield(nil, err)
-				return
 			}
 
 			shouldContinue := yield(&ClassRangeStreamingResult{
@@ -147,41 +148,38 @@ func (b *snapServer) GetClassRange(ctx context.Context, request *spec.ClassRange
 				ClassesRoot:   classRoot,
 				Range:         response,
 				RangeProof:    Core2P2pProof(proofs),
-			}, err)
+			})
 
 			if finished || !shouldContinue {
 				break
 			}
 			startAddr = classkeys[len(classkeys)-1]
 		}
-
-		// TODO: not needed? - just stop the loop
-		yield(nil, nil)
-	}
+	}, nil
 }
 
 func (b *snapServer) GetContractRange(
 	ctx context.Context,
 	request *spec.ContractRangeRequest,
-) iter.Seq2[*ContractRangeStreamingResult, error] {
-	return func(yield func(*ContractRangeStreamingResult, error) bool) {
+) (iter.Seq[*ContractRangeStreamingResult], error) {
+	return func(yield func(*ContractRangeStreamingResult) bool) {
 		stateRoot := p2p2core.AdaptHash(request.StateRoot)
 
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting state for state root", "err", err)
 			return
 		}
 
 		contractRoot, classRoot, err := s.StateAndClassRoot()
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting state and class root", "err", err)
 			return
 		}
 
 		strie, scloser, err := s.StorageTrie()
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting storage trie", "err", err)
 			return
 		}
 		defer func() { _ = scloser() }()
@@ -223,7 +221,7 @@ func (b *snapServer) GetContractRange(
 					return nil
 				})
 			if err != nil {
-				yield(nil, err)
+				log.Error("error iterating storage trie", "err", err)
 				return
 			}
 
@@ -232,30 +230,28 @@ func (b *snapServer) GetContractRange(
 				ClassesRoot:   classRoot,
 				Range:         states,
 				RangeProof:    Core2P2pProof(proofs),
-			}, nil)
+			})
 
 			if finished || !shouldContinue {
 				break
 			}
 		}
-
-		yield(nil, nil)
-	}
+	}, nil
 }
 
-func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeRequest) iter.Seq2[*StorageRangeStreamingResult, error] {
-	return func(yield func(*StorageRangeStreamingResult, error) bool) {
+func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeRequest) (iter.Seq[*StorageRangeStreamingResult], error) {
+	return func(yield func(*StorageRangeStreamingResult) bool) {
 		stateRoot := request.StateRoot
 
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting state for state root", "err", err)
 			return
 		}
 
 		contractRoot, classRoot, err := s.StateAndClassRoot()
 		if err != nil {
-			yield(nil, err)
+			log.Error("error getting state and class root", "err", err)
 			return
 		}
 
@@ -270,7 +266,7 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 
 			strie, err := s.StorageTrieForAddr(p2p2core.AdaptAddress(query.Address))
 			if err != nil {
-				yield(nil, err)
+				log.Error("error getting storage trie for address", "addr", query.Address.String(), "err", err)
 				return
 			}
 
@@ -282,10 +278,10 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 						StorageAddr:   p2p2core.AdaptAddress(query.Address),
 						Range:         values,
 						RangeProof:    Core2P2pProof(proofs),
-					}, nil)
+					})
 				})
 			if err != nil {
-				yield(nil, err)
+				log.Error("error handling storage range request", "err", err)
 				return
 			}
 
@@ -295,11 +291,11 @@ func (b *snapServer) GetStorageRange(ctx context.Context, request *StorageRangeR
 				break
 			}
 		}
-	}
+	}, nil
 }
 
 // GetStorageRangeStd TODO: move/change 👆 - just to check it can work on spec structs
-func (b *snapServer) GetStorageRangeStd(ctx context.Context, request *spec.ContractStorageRequest) iter.Seq2[*StorageRangeStreamingResult, error] {
+func (b *snapServer) GetStorageRangeStd(ctx context.Context, request *spec.ContractStorageRequest) (iter.Seq[*StorageRangeStreamingResult], error) {
 	req := &StorageRangeRequest{
 		StateRoot:     p2p2core.AdaptHash(request.StateRoot),
 		Queries:       request.Query,

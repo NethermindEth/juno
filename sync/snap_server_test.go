@@ -2,7 +2,9 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/core/trie"
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -40,17 +42,17 @@ func TestClassRange(t *testing.T) {
 
 	chunksPerProof := 150
 	var classResult *ClassRangeStreamingResult
-	server.GetClassRange(context.Background(),
+	iter, err := server.GetClassRange(context.Background(),
 		&spec.ClassRangeRequest{
 			Root:           core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptHash(startRange),
 			ChunksPerProof: uint32(chunksPerProof),
-		})(func(result *ClassRangeStreamingResult, err error) bool {
-		if err != nil {
-			fmt.Printf("err %s\n", err)
-			t.Fatal(err)
-		}
-
+		})
+	if err != nil {
+		fmt.Printf("err %s\n", err)
+		t.Fatal(err)
+	}
+	iter(func(result *ClassRangeStreamingResult) bool {
 		if result != nil {
 			classResult = result
 		}
@@ -86,12 +88,15 @@ func TestContractRange(t *testing.T) {
 
 	chunksPerProof := 150
 	var contractResult *ContractRangeStreamingResult
-	server.GetContractRange(context.Background(),
+	ctrIter, err := server.GetContractRange(context.Background(),
 		&spec.ContractRangeRequest{
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptAddress(startRange),
 			ChunksPerProof: uint32(chunksPerProof),
-		})(func(result *ContractRangeStreamingResult, err error) bool {
+		})
+	assert.NoError(t, err)
+
+	ctrIter(func(result *ContractRangeStreamingResult) bool {
 		if err != nil {
 			fmt.Printf("err %s\n", err)
 			t.Fatal(err)
@@ -171,12 +176,10 @@ func TestContractStorageRange(t *testing.T) {
 
 			keys := make([]*felt.Felt, 0, test.expectedLeaves)
 			vals := make([]*felt.Felt, 0, test.expectedLeaves)
-			server.GetStorageRange(context.Background(), request)(func(result *StorageRangeStreamingResult, err error) bool {
-				if err != nil {
-					fmt.Printf("err %s\n", err)
-					t.Fatal(err)
-				}
+			stoIter, err := server.GetStorageRange(context.Background(), request)
+			assert.NoError(t, err)
 
+			stoIter(func(result *StorageRangeStreamingResult) bool {
 				if result != nil {
 					for _, r := range result.Range {
 						keys = append(keys, p2p2core.AdaptFelt(r.Key))
@@ -203,4 +206,40 @@ func feltFromString(str string) *felt.Felt {
 		panic(err)
 	}
 	return f
+}
+
+// TODO: Duplicated methods - maybe they belongs to `sync` or `p2p` - will see
+func VerifyGlobalStateRoot(globalStateRoot, classRoot, storageRoot *felt.Felt) error {
+	var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
+
+	if classRoot.IsZero() {
+		if globalStateRoot.Equal(storageRoot) {
+			return nil
+		} else {
+			return errors.New("invalid global state root")
+		}
+	}
+
+	if !crypto.PoseidonArray(stateVersion, storageRoot, classRoot).Equal(globalStateRoot) {
+		return errors.New("invalid global state root")
+	}
+	return nil
+}
+
+func VerifyTrie(
+	expectedRoot *felt.Felt,
+	paths, hashes []*felt.Felt,
+	proofs []trie.ProofNode,
+	height uint8,
+	hash func(*felt.Felt, *felt.Felt) *felt.Felt,
+) (bool, error) {
+	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash, height)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, errors.New("invalid proof")
+	}
+
+	return hasMore, nil
 }

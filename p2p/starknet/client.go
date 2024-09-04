@@ -124,14 +124,18 @@ func (c *Client) RequestTransactions(ctx context.Context, req *spec.Transactions
 		ctx, c.newStream, TransactionsPID(), req, c.log)
 }
 
-func (c *Client) GetClassRange(ctx context.Context, req *spec.ClassRangeRequest) (iter.Seq[*spec.ClassRangeResponse], error) {
+func (c *Client) RequestClassRange(ctx context.Context, req *spec.ClassRangeRequest) (iter.Seq[*spec.ClassRangeResponse], error) {
 	return requestAndReceiveStream[*spec.ClassRangeRequest, *spec.ClassRangeResponse](ctx, c.newStream, SnapshotClassRangePID(), req, c.log)
 }
 
-func (c *Client) GetContractRange(ctx context.Context, req *spec.ContractRangeRequest) (iter.Seq[*spec.ContractRangeResponse], error) {
+func (c *Client) RequestContractRange(ctx context.Context, req *spec.ContractRangeRequest) (iter.Seq[*spec.ContractRangeResponse], error) {
 	return requestAndReceiveStream[*spec.ContractRangeRequest, *spec.ContractRangeResponse](ctx, c.newStream, SnapshotContractRangePID(), req, c.log)
 }
 
-func (c *Client) GetStorageRange(ctx context.Context, req *spec.ContractStorageRequest) (iter.Seq[*spec.ContractStorageResponse], error) {
+func (c *Client) RequestStorageRange(ctx context.Context, req *spec.ContractStorageRequest) (iter.Seq[*spec.ContractStorageResponse], error) {
 	return requestAndReceiveStream[*spec.ContractStorageRequest, *spec.ContractStorageResponse](ctx, c.newStream, SnapshotContractStorageRangePID(), req, c.log)
+}
+
+func (c *Client) RequestClassesByKeys(ctx context.Context, req *spec.ClassHashesRequest) (iter.Seq[*spec.ClassesResponse], error) {
+	return requestAndReceiveStream[*spec.ClassHashesRequest, *spec.ClassesResponse](ctx, c.newStream, SnapshotClassesPID(), req, c.log)
 }
