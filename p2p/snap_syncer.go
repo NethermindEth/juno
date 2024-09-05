@@ -20,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
-	junoSync "github.com/NethermindEth/juno/sync" //TODO: Remove this?
 	"github.com/NethermindEth/juno/utils"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/prometheus/client_golang/prometheus"
@@ -43,7 +42,6 @@ type SnapSyncher struct {
 	baseSync     service.Service
 	starknetData starknetdata.StarknetData
 	client       starknet.Client
-	snapServer   junoSync.SnapServer // TODO: Remove this?
 	blockchain   Blockchain
 	log          utils.Logger
 
@@ -785,7 +783,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 
 			job := jobs[processedJobs]
 
-			storageAddr := p2p2core.AdaptFelt(response.ContractAddress)
+			storageAddr := p2p2core.AdaptAddress(response.ContractAddress)
 			if !job.path.Equal(storageAddr) {
 				s.log.Errorw(fmt.Sprintf(
 					"storage addr differ %s %s %d\n", job.path, storageAddr, workerIdx))

@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
-	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"google.golang.org/protobuf/encoding/protodelim"
@@ -24,7 +23,7 @@ import (
 
 type Handler struct {
 	bcReader     blockchain.Reader
-	snapProvider *SnapProvider
+	snapProvider SnapProvider
 	log          utils.SimpleLogger
 
 	ctx    context.Context
@@ -43,9 +42,9 @@ func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
 	}
 }
 
-func (h *Handler) WithSnapsyncSupport(bc *blockchain.Blockchain) {
+func (h *Handler) WithSnapsyncSupport(provider SnapProvider) {
 	// TODO: should it be here?
-	h.snapProvider = &SnapProvider{SnapServer: junoSync.NewSnapServer(bc)}
+	h.snapProvider = provider
 }
 
 // bufferPool caches unused buffer objects for later reuse.
@@ -136,7 +135,23 @@ func (h *Handler) ClassRangeRequest(stream network.Stream) {
 		h.log.Debugw("SnapProvider not initialized")
 		return
 	}
-	streamHandler[*spec.ClassRangeRequest](h.ctx, &h.wg, stream, h.onClassRangeRequest, h.log)
+	streamHandler[*spec.ClassRangeRequest](h.ctx, &h.wg, stream, h.snapProvider.GetClassRange, h.log)
+}
+
+func (h *Handler) ContractRangeRequest(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialized")
+		return
+	}
+	streamHandler[*spec.ContractRangeRequest](h.ctx, &h.wg, stream, h.snapProvider.GetContractRange, h.log)
+}
+
+func (h *Handler) ContractStorageRequest(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialized")
+		return
+	}
+	streamHandler[*spec.ContractStorageRequest](h.ctx, &h.wg, stream, h.snapProvider.GetStorageRange, h.log)
 }
 
 func (h *Handler) ClassHashesRequest(stream network.Stream) {
@@ -144,7 +159,7 @@ func (h *Handler) ClassHashesRequest(stream network.Stream) {
 		h.log.Debugw("SnapProvider not initialized")
 		return
 	}
-	streamHandler[*spec.ClassHashesRequest](h.ctx, &h.wg, stream, h.onClassHashesRequest, h.log)
+	streamHandler[*spec.ClassHashesRequest](h.ctx, &h.wg, stream, h.snapProvider.GetClasses, h.log)
 }
 
 func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
