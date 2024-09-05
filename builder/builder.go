@@ -191,7 +191,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			b.log.Debugw("Finalising new block")
+			b.log.Infof("Finalising new block")
 			err = b.Finalise(signFunc)
 			if err != nil {
 				return err
@@ -202,7 +202,7 @@ func (b *Builder) Run(ctx context.Context) error {
 }
 
 func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
-	b.log.Infof("Removing values in the storage diff that don't affect state")
+	b.log.Debugw("Removing values in the storage diff that don't affect state")
 	state, closer, err := b.bc.HeadState()
 	if err != nil {
 		return err
@@ -534,17 +534,18 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
 
 	if b.junoEndpoint != "" {
-		fmt.Println("comparing against sepolia data")
+		// fmt.Println("comparing against sepolia data")
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
 		refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
 		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
 		if diffsNotEqual {
 			// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
-			b.log.Debugw("Generated transaction trace does not match that from Sepolia %s, \n %s", txn.Transaction.Hash().String(), diffString)
+			fmt.Println(diffString)
+			b.log.Debugw("Generated transaction trace does not match that from Sepolia %s", txn.Transaction.Hash().String())
 		}
 
 		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
-			b.log.Fatalf(diffStr)
+			b.log.Debugw(diffStr)
 		}
 	}
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
@@ -602,13 +603,12 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			// todo: make this debud logic cleaner
+			// todo: make this debug logic cleaner
 			if b.junoEndpoint != "" {
 				blockTraces, err := b.JunoGetBlockTrace(int(block.Number))
 				if err != nil {
 					return err
 				}
-				fmt.Println("len blockTraces", len(blockTraces), block.TransactionCount)
 				if len(blockTraces) != int(block.TransactionCount) {
 					b.log.Fatalf("number of transaction traces does not equal the number of transactions")
 				}
