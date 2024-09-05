@@ -32,7 +32,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 		val = &felt.Zero
 	}
 
-	return C.int(fillBufferWithFelt(val, buffer))
+	return fillBufferWithFelt(val, buffer)
 }
 
 //export JunoStateGetNonceAt
@@ -49,7 +49,7 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 		val = &felt.Zero
 	}
 
-	return C.int(fillBufferWithFelt(val, buffer))
+	return fillBufferWithFelt(val, buffer)
 }
 
 //export JunoStateGetClassHashAt
@@ -66,7 +66,7 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 		val = &felt.Zero
 	}
 
-	return C.int(fillBufferWithFelt(val, buffer))
+	return fillBufferWithFelt(val, buffer)
 }
 
 //export JunoStateGetCompiledClass
@@ -91,7 +91,7 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 	return unsafe.Pointer(cstring(compiledClass))
 }
 
-func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) int {
+func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) C.int {
 	feltBytes := val.Bytes()
-	return copy(unsafe.Slice((*byte)(buffer), felt.Bytes), feltBytes[:])
+	return C.int(copy(unsafe.Slice((*byte)(buffer), felt.Bytes), feltBytes[:]))
 }
