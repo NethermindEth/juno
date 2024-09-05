@@ -73,7 +73,7 @@ type Synchronizer struct {
 
 	pendingPollInterval time.Duration
 	catchUpMode         bool
-	plugin              *junoplugin.JunoPlugin
+	plugin              junoplugin.JunoPlugin
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -93,7 +93,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 
 // WithPlugin registers an plugin
 func (s *Synchronizer) WithPlugin(plugin junoplugin.JunoPlugin) *Synchronizer {
-	s.plugin = &plugin
+	s.plugin = plugin
 	return s
 }
 
@@ -205,7 +205,7 @@ func (s *Synchronizer) handlePluginRevertBlock(block *core.Block, stateUpdate *c
 		return
 	}
 
-	err = (*s.plugin).RevertBlock(
+	err = (s.plugin).RevertBlock(
 		&junoplugin.BlockAndStateUpdate{Block: block, StateUpdate: stateUpdate},
 		&junoplugin.BlockAndStateUpdate{Block: toBlock, StateUpdate: toSU},
 		reverseStateDiff)
@@ -273,7 +273,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 			if s.plugin != nil {
-				err := (*s.plugin).NewBlock(block, stateUpdate, newClasses)
+				err := (s.plugin).NewBlock(block, stateUpdate, newClasses)
 				if err != nil {
 					s.log.Errorw("Plugin NewBlock failure:", err)
 				}
