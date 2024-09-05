@@ -67,7 +67,7 @@ extern "C" {
     fn JunoAppendReceipt(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
-    fn JunoAppendDataGasConsumed(reader_handle: usize, ptr: *const c_uchar);
+    fn JunoAppendDataGasConsumed(reader_handle: usize, ptr: *const c_uchar, ptr2: *const c_uchar);
     fn JunoAddExecutionSteps(reader_handle: usize, execSteps: c_ulonglong);
 }
 
@@ -382,8 +382,9 @@ pub extern "C" fn cairoVMExecute(
                     )
                 }
 
-                let actual_fee = t.transaction_receipt.fee.0.into();
-                let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
+                let actual_fee: Felt = t.transaction_receipt.fee.0.into();
+                let da_gas_l1_gas = t.transaction_receipt.da_gas.l1_gas.into();
+                let da_gas_l1_data_gas = t.transaction_receipt.da_gas.l1_data_gas.into();
                 let execution_steps = t
                     .transaction_receipt
                     .resources
@@ -414,7 +415,8 @@ pub extern "C" fn cairoVMExecute(
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
                     JunoAppendDataGasConsumed(
                         reader_handle,
-                        felt_to_byte_array(&data_gas_consumed).as_ptr(),
+                        felt_to_byte_array(&da_gas_l1_gas).as_ptr(),
+                        felt_to_byte_array(&da_gas_l1_data_gas).as_ptr(),
                     );
                     JunoAddExecutionSteps(reader_handle, execution_steps)
                 }

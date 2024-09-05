@@ -275,7 +275,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, _, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+	_, daGas, traces, _, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
 		&blockInfo, state, network, false, false, false, useBlobData)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
@@ -292,32 +292,11 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	result := make([]TracedBlockTransaction, 0, len(traces))
 	for index, trace := range traces {
 		if !v0_6Response {
-			feeUnit := feeUnit(block.Transactions[index])
-
-			gasPrice := header.GasPrice
-			if feeUnit == FRI {
-				if gasPrice = header.GasPriceSTRK; gasPrice == nil {
-					gasPrice = &felt.Zero
-				}
-			}
-
-			dataGasPrice := &felt.Zero
-			if header.L1DataGasPrice != nil {
-				switch feeUnit {
-				case FRI:
-					dataGasPrice = header.L1DataGasPrice.PriceInFri
-				case WEI:
-					dataGasPrice = header.L1DataGasPrice.PriceInWei
-				}
-			}
-
-			dataGasFee := new(felt.Felt).Mul(dataGasConsumed[index], dataGasPrice)
-			gasConsumed := new(felt.Felt).Sub(overallFees[index], dataGasFee)
-			gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
-
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, dataGasConsumed[index],
-				header.L1DAMode)
+			executionResources.DataAvailability = &vm.DataAvailability{
+				L1Gas:     daGas[index].L1Gas,
+				L1DataGas: daGas[index].L1DataGas,
+			}
 			traces[index].ExecutionResources = executionResources
 		}
 		result = append(result, TracedBlockTransaction{

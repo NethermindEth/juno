@@ -59,7 +59,7 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
 			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-		) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
+		) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
 
@@ -67,7 +67,8 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 			assert.Len(t, paidFeesOnL1, 1)
 
 			actualFee := new(felt.Felt).Mul(expectedGasConsumed, blockInfo.Header.GasPrice)
-			return []*felt.Felt{actualFee}, []*felt.Felt{&felt.Zero}, []vm.TransactionTrace{{
+			daGas := []core.GasConsumed{{L1Gas: 0, L1DataGas: 0}}
+			return []*felt.Felt{actualFee}, daGas, []vm.TransactionTrace{{
 				StateDiff: &vm.StateDiff{
 					StorageDiffs:              []vm.StorageDiff{},
 					Nonces:                    []vm.Nonce{},
@@ -116,7 +117,7 @@ func TestEstimateFee(t *testing.T) {
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, true).
-			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, []vm.TransactionReceipt{}, uint64(123), nil)
+			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, []vm.TransactionReceipt{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
@@ -125,7 +126,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, true).
-			Return([]*felt.Felt{}, []*felt.Felt{}, []vm.TransactionTrace{}, []vm.TransactionReceipt{}, uint64(123), nil)
+			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, []vm.TransactionReceipt{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
