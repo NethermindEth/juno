@@ -134,7 +134,7 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 }
 
 //export JunoAppendDataGasConsumed
-func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer, ptr2 unsafe.Pointer) {
+func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
 	context.daGas = append(context.daGas, core.GasConsumed{
 		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
