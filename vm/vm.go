@@ -149,12 +149,6 @@ func makeFeltFromPtr(ptr unsafe.Pointer) *felt.Felt {
 	return new(felt.Felt).SetBytes(C.GoBytes(ptr, felt.Bytes))
 }
 
-func makePtrFromFelt(val *felt.Felt) unsafe.Pointer {
-	feltBytes := val.Bytes()
-	//nolint:gocritic
-	return C.CBytes(feltBytes[:])
-}
-
 type CallInfo struct {
 	ContractAddress *felt.Felt
 	ClassHash       *felt.Felt
