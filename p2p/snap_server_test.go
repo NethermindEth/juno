@@ -1,10 +1,8 @@
-package sync
+package p2p
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/core/trie"
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -22,7 +20,7 @@ import (
 
 func TestClassRange(t *testing.T) {
 	var d db.DB
-	t.Skip("DB snapshot is needed for this test")
+	//t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -206,40 +204,4 @@ func feltFromString(str string) *felt.Felt {
 		panic(err)
 	}
 	return f
-}
-
-// TODO: Duplicated methods - maybe they belongs to `sync` or `p2p` - will see
-func VerifyGlobalStateRoot(globalStateRoot, classRoot, storageRoot *felt.Felt) error {
-	var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
-
-	if classRoot.IsZero() {
-		if globalStateRoot.Equal(storageRoot) {
-			return nil
-		} else {
-			return errors.New("invalid global state root")
-		}
-	}
-
-	if !crypto.PoseidonArray(stateVersion, storageRoot, classRoot).Equal(globalStateRoot) {
-		return errors.New("invalid global state root")
-	}
-	return nil
-}
-
-func VerifyTrie(
-	expectedRoot *felt.Felt,
-	paths, hashes []*felt.Felt,
-	proofs []trie.ProofNode,
-	height uint8,
-	hash func(*felt.Felt, *felt.Felt) *felt.Felt,
-) (bool, error) {
-	hasMore, valid, err := trie.VerifyRange(expectedRoot, nil, paths, hashes, proofs, hash, height)
-	if err != nil {
-		return false, err
-	}
-	if !valid {
-		return false, errors.New("invalid proof")
-	}
-
-	return hasMore, nil
 }
