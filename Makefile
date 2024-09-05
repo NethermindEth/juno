@@ -184,7 +184,7 @@ sequencer-shadow-sepolia:
     --http \
     --http-port=6060 \
     --http-host=0.0.0.0 \
-    --db-path=./seq-db \
+    --db-path=../seq-db-shadow2\
     --log-level=debug \
     --seq-enable \
 	--seq-shadow-mode \

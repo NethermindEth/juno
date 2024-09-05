@@ -124,7 +124,6 @@ func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.C
 
 	p.newClasses[*classHash] = class
 	if class.Version() == 0 {
-		fmt.Println(" ====== class.Version() == 0 ")
 		p.stateDiff.DeclaredV0Classes = append(p.stateDiff.DeclaredV0Classes, classHash.Clone())
 	} // assumption: SetCompiledClassHash will be called for Cairo1 contracts
 	return nil

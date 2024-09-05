@@ -517,22 +517,20 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		feeUnit = core.STRK
 	}
 	if trace[0].StateDiff.DeclaredClasses != nil || trace[0].StateDiff.DeprecatedDeclaredClasses != nil {
-		fmt.Println("============ DECLARE")
-		// 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
-		// 		fmt.Println("============ DECLARE DECLARE")
-		// 		err := state.SetContractClass(t.ClassHash, txn.DeclaredClass)
-		// 		if err != nil {
-		// 			b.log.Errorw("failed to set contract class : %s", err)
-		// 		}
-		// 		if t.CompiledClassHash != nil {
-		// 			err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash)
-		// 			if err != nil {
-		// 				b.log.Errorw("failed to SetCompiledClassHash  : %s", err)
-		// 			}
-		// 		}
-		// 	}
+		if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
+			err := state.SetContractClass(t.ClassHash, txn.DeclaredClass)
+			if err != nil {
+				b.log.Errorw("failed to set contract class : %s", err)
+			}
+			if t.CompiledClassHash != nil {
+				err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash)
+				if err != nil {
+					b.log.Errorw("failed to SetCompiledClassHash  : %s", err)
+				}
+			}
+		}
 	}
-	// fmt.Println(" b.pendingBlock.StateUpdate.StateDiff.DeclaredV0Classes ", b.pendingBlock.StateUpdate.StateDiff.DeclaredV0Classes)
+
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
 
 	if b.junoEndpoint != "" {
@@ -611,6 +609,9 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 					return err
 				}
 				fmt.Println("len blockTraces", len(blockTraces), block.TransactionCount)
+				if len(blockTraces) != int(block.TransactionCount) {
+					b.log.Fatalf("number of transaction traces does not equal the number of transactions")
+				}
 				b.blockTraces = blockTraces
 			}
 

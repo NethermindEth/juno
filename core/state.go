@@ -120,7 +120,7 @@ func (s *State) Root() (*felt.Felt, error) {
 	if classesRoot.IsZero() {
 		return storageRoot, nil
 	}
-
+	fmt.Println("stateVersion, storageRoot, classesRoot", stateVersion.String(), storageRoot.String(), classesRoot.String())
 	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
 }
 
