@@ -253,21 +253,22 @@ func build4KeyTrie(t *testing.T) *trie.Trie {
 }
 
 func noDuplicates(proofNodes []trie.ProofNode) bool {
-	seen := make(map[string]bool)
+	seen := make(map[felt.Felt]bool)
 	for _, pNode := range proofNodes {
-		if _, ok := seen[pNode.Hash(crypto.Pedersen).String()]; ok {
+		if _, ok := seen[*pNode.Hash(crypto.Pedersen)]; ok {
 			return false
 		}
-		seen[pNode.Hash(crypto.Pedersen).String()] = true
+		seen[*pNode.Hash(crypto.Pedersen)] = true
 	}
 	return true
 }
 
-func containsAll(proofNodes, expectedProofNodes []trie.ProofNode) bool {
-	for _, pNode := range expectedProofNodes {
+// containsAll checks that subsetProofNodes is a subset of proofNodes
+func containsAll(proofNodes, subsetProofNodes []trie.ProofNode) bool {
+	for _, pNode := range subsetProofNodes {
 		found := false
 		for _, p := range proofNodes {
-			if p.Hash(crypto.Pedersen).String() == pNode.Hash(crypto.Pedersen).String() {
+			if p.Hash(crypto.Pedersen).Equal(pNode.Hash(crypto.Pedersen)) {
 				found = true
 				break
 			}
@@ -937,12 +938,9 @@ func TestMergeProofPaths(t *testing.T) {
 		mergedProofs, _, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
-		containsLeft := containsAll(mergedProofs, proofs[0])
-		require.True(t, containsLeft)
-		containsRight := containsAll(mergedProofs, proofs[1])
-		require.True(t, containsRight)
-		checkDuplicates := noDuplicates(mergedProofs)
-		require.True(t, checkDuplicates)
+		require.True(t, containsAll(mergedProofs, proofs[0]))
+		require.True(t, containsAll(mergedProofs, proofs[1]))
+		require.True(t, noDuplicates(mergedProofs))
 	})
 
 	t.Run("4Key Trie two common ancestors", func(t *testing.T) {
@@ -962,12 +960,9 @@ func TestMergeProofPaths(t *testing.T) {
 		mergedProofs, _, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
-		containsLeft := containsAll(mergedProofs, proofs[0])
-		require.True(t, containsLeft)
-		containsRight := containsAll(mergedProofs, proofs[1])
-		require.True(t, containsRight)
-		checkDuplicates := noDuplicates(mergedProofs)
-		require.True(t, checkDuplicates)
+		require.True(t, containsAll(mergedProofs, proofs[0]))
+		require.True(t, containsAll(mergedProofs, proofs[1]))
+		require.True(t, noDuplicates(mergedProofs))
 	})
 
 	t.Run("Trie 4Key one ancestor", func(t *testing.T) {
@@ -986,12 +981,9 @@ func TestMergeProofPaths(t *testing.T) {
 		mergedProofs, _, err := trie.MergeProofPaths(proofs[0], proofs[1], crypto.Pedersen)
 		require.NoError(t, err)
 
-		containsLeft := containsAll(mergedProofs, proofs[0])
-		require.True(t, containsLeft)
-		containsRight := containsAll(mergedProofs, proofs[1])
-		require.True(t, containsRight)
-		checkDuplicates := noDuplicates(mergedProofs)
-		require.True(t, checkDuplicates)
+		require.True(t, containsAll(mergedProofs, proofs[0]))
+		require.True(t, containsAll(mergedProofs, proofs[1]))
+		require.True(t, noDuplicates(mergedProofs))
 	})
 
 	t.Run("Empty proof path", func(t *testing.T) {
@@ -1010,6 +1002,23 @@ func TestMergeProofPaths(t *testing.T) {
 		emptyPath := []trie.ProofNode{}
 
 		_, _, err = trie.MergeProofPaths(proofs[0], emptyPath, crypto.Pedersen)
+		require.Error(t, err)
+	})
+
+	t.Run("Root of the proof paths are different", func(t *testing.T) {
+		tri := build4KeyTrie(t)
+		fourFeltBytes := new(felt.Felt).SetUint64(4).Bytes()
+		zeroFeltBytes := new(felt.Felt).SetUint64(0).Bytes()
+
+		fourLeafkey := trie.NewKey(251, fourFeltBytes[:])
+		zeroLeafkey := trie.NewKey(251, zeroFeltBytes[:])
+
+		proofKeys := [2]*trie.Key{&zeroLeafkey, &fourLeafkey}
+
+		proofs, err := trie.GetBoundaryProofs(proofKeys[0], proofKeys[1], tri)
+		require.NoError(t, err)
+
+		_, _, err = trie.MergeProofPaths(proofs[0], proofs[1][1:], crypto.Pedersen)
 		require.Error(t, err)
 	})
 }
@@ -1033,10 +1042,8 @@ func TestSplitProofPaths(t *testing.T) {
 		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
 
-		leftIsSame := isSameProofPath(leftSplit, proofs[0])
-		require.True(t, leftIsSame)
-		rightIsSame := isSameProofPath(rightSplit, proofs[1])
-		require.True(t, rightIsSame)
+		require.True(t, isSameProofPath(leftSplit, proofs[0]))
+		require.True(t, isSameProofPath(rightSplit, proofs[1]))
 	})
 
 	t.Run("4Key Trie two common ancestors retrieved right and left proofs are same with the merged ones", func(t *testing.T) {
@@ -1059,10 +1066,8 @@ func TestSplitProofPaths(t *testing.T) {
 		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
 
-		leftIsSame := isSameProofPath(leftSplit, proofs[0])
-		require.True(t, leftIsSame)
-		rightIsSame := isSameProofPath(rightSplit, proofs[1])
-		require.True(t, rightIsSame)
+		require.True(t, isSameProofPath(leftSplit, proofs[0]))
+		require.True(t, isSameProofPath(rightSplit, proofs[1]))
 	})
 
 	t.Run("4Key Trie one common ancestor retrieved right and left proofs are same with the merged ones", func(t *testing.T) {
@@ -1083,10 +1088,8 @@ func TestSplitProofPaths(t *testing.T) {
 		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
 
-		leftIsSame := isSameProofPath(leftSplit, proofs[0])
-		require.True(t, leftIsSame)
-		rightIsSame := isSameProofPath(rightSplit, proofs[1])
-		require.True(t, rightIsSame)
+		require.True(t, isSameProofPath(leftSplit, proofs[0]))
+		require.True(t, isSameProofPath(rightSplit, proofs[1]))
 	})
 
 	t.Run("4Key Trie reversed merge path", func(t *testing.T) {
@@ -1112,10 +1115,8 @@ func TestSplitProofPaths(t *testing.T) {
 		leftSplit, rightSplit, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.NoError(t, err)
 
-		leftIsSame := isSameProofPath(leftSplit, proofs[0])
-		require.True(t, leftIsSame)
-		rightIsSame := isSameProofPath(rightSplit, proofs[1])
-		require.True(t, rightIsSame)
+		require.True(t, isSameProofPath(leftSplit, proofs[0]))
+		require.True(t, isSameProofPath(rightSplit, proofs[1]))
 	})
 
 	t.Run("Roothash does not exist", func(t *testing.T) {
@@ -1146,6 +1147,9 @@ func TestSplitProofPaths(t *testing.T) {
 		p4 := newBinaryProofNode()
 		p5 := newBinaryProofNode()
 
+		p4.Binary.LeftHash = new(felt.Felt).SetUint64(3)
+		p2.Binary.RightHash = new(felt.Felt).SetUint64(4)
+
 		p3.Binary.RightHash = p5.Hash(crypto.Pedersen)
 		p3.Binary.LeftHash = p4.Hash(crypto.Pedersen)
 		p1.Binary.RightHash = p3.Hash(crypto.Pedersen)
@@ -1155,7 +1159,25 @@ func TestSplitProofPaths(t *testing.T) {
 		rootHash := p1.Hash(crypto.Pedersen)
 
 		_, _, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
+		require.Error(t, err)
+	})
 
+	t.Run("Duplicate nodes in the merged path", func(t *testing.T) {
+		p1 := newBinaryProofNode()
+		p2 := newBinaryProofNode()
+		p3 := newBinaryProofNode()
+		p4 := newBinaryProofNode()
+		p5 := newBinaryProofNode()
+
+		p3.Binary.RightHash = p5.Hash(crypto.Pedersen)
+		p3.Binary.LeftHash = p4.Hash(crypto.Pedersen)
+		p1.Binary.RightHash = p3.Hash(crypto.Pedersen)
+		p1.Binary.LeftHash = p2.Hash(crypto.Pedersen)
+
+		mergedProofs := []trie.ProofNode{p1, p2, p3, p4, p5}
+		rootHash := p1.Hash(crypto.Pedersen)
+
+		_, _, err := trie.SplitProofPath(mergedProofs, rootHash, crypto.Pedersen)
 		require.Error(t, err)
 	})
 }

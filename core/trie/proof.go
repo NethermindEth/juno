@@ -143,11 +143,8 @@ func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]Pro
 			continue
 		}
 
-		leftHash := node.Binary.LeftHash
-		rightHash := node.Binary.RightHash
-
-		_, leftExists := nodeHashes[*leftHash]
-		_, rightExists := nodeHashes[*rightHash]
+		_, leftExists := nodeHashes[*node.Binary.LeftHash]
+		_, rightExists := nodeHashes[*node.Binary.RightHash]
 
 		if leftExists && rightExists {
 			if splitHappened {
@@ -157,49 +154,6 @@ func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]Pro
 			splitHappened = true
 		}
 	}
-	return nil
-}
-
-// noCycleCheck checks if there is a circular path in the merged proof
-// it starts with the root node and traverses existent child nodes in the merged path
-// if a node is visited more than once it returns an error
-func noCycleCheck(node ProofNode, nodeHashes map[felt.Felt]ProofNode, visitedHashes map[felt.Felt]bool, hash hashFunc) error {
-	nodeHash := node.Hash(hash)
-	_, visited := visitedHashes[*nodeHash]
-
-	if visited {
-		return errors.New("circular path in the merged proof")
-	}
-
-	visitedHashes[*nodeHash] = true
-
-	if node.Binary != nil {
-		leftHash := node.Binary.LeftHash
-		rightHash := node.Binary.RightHash
-
-		leftNode, leftExist := nodeHashes[*leftHash]
-		rightNode, rightExist := nodeHashes[*rightHash]
-
-		if leftExist {
-			if err := noCycleCheck(leftNode, nodeHashes, visitedHashes, hash); err != nil {
-				return err
-			}
-		}
-
-		if rightExist {
-			if err := noCycleCheck(rightNode, nodeHashes, visitedHashes, hash); err != nil {
-				return err
-			}
-		}
-	} else if node.Edge != nil {
-		edgeNode, exist := nodeHashes[*node.Edge.Child]
-		if exist {
-			if err := noCycleCheck(edgeNode, nodeHashes, visitedHashes, hash); err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -220,11 +174,9 @@ func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Fe
 	*path = append(*path, currNode)
 
 	if currNode.Binary != nil {
-		expectedLeftHash := currNode.Binary.LeftHash
-		expectedRightHash := currNode.Binary.RightHash
+		nodeLeft, leftExist := nodeHashes[*currNode.Binary.LeftHash]
+		nodeRight, rightExist := nodeHashes[*currNode.Binary.RightHash]
 
-		nodeLeft, leftExist := nodeHashes[*expectedLeftHash]
-		nodeRight, rightExist := nodeHashes[*expectedRightHash]
 		if leftExist && rightExist {
 			return
 		} else if leftExist {
@@ -241,9 +193,9 @@ func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Fe
 }
 
 // MergeProofPaths removes duplicates and merges proof paths into a single path
-// merges the paths in the specified order [commonNodes..., leftNode, rightNode, leftNode...]
+// merges paths in the specified order [commonNodes..., leftNodes..., rightNodes...]
 // ordering of the merged path is not important
-// since splitProofPath can discover the left and right paths using the merged path and the rootHash
+// since SplitProofPath can discover the left and right paths using the merged path and the rootHash
 func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, *felt.Felt, error) {
 	merged := []ProofNode{}
 	minLen := min(len(leftPath), len(rightPath))
@@ -271,18 +223,9 @@ func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNod
 		}
 	}
 
-	// Add rest of the nodes one from left and one from right
-	// until we reach the end of the shortest path
-	for ; i < minLen; i++ {
-		merged = append(merged, leftPath[i], rightPath[i])
-	}
-
-	// Add the rest of the nodes from the longest path
-	if len(leftPath) > minLen {
-		merged = append(merged, leftPath[i:]...)
-	} else if len(rightPath) > minLen {
-		merged = append(merged, rightPath[i:]...)
-	}
+	// Add rest of the nodes
+	merged = append(merged, leftPath[i:]...)
+	merged = append(merged, rightPath[i:]...)
 
 	return merged, rootHash, nil
 }
@@ -312,11 +255,6 @@ func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) 
 
 	currNode, err := rootNodeExistsCheck(rootHash, nodeHashes)
 	if err != nil {
-		return leftPath, rightPath, err
-	}
-
-	visitedHashes := make(map[felt.Felt]bool)
-	if err := noCycleCheck(currNode, nodeHashes, visitedHashes, hash); err != nil {
 		return leftPath, rightPath, err
 	}
 
