@@ -8,10 +8,10 @@ import (
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/coder/websocket"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"nhooyr.io/websocket"
 )
 
 // The caller is responsible for closing the connection.

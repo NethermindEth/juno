@@ -4,14 +4,9 @@
 .dist
 build/
 coverage/*
-courtney/
-__pycache__/
 config/
 .envrc
-
-# pyenv
-.python-version
-
 # Default path for Juno DB files.  It will get created if you follow the
 # README and/or run `./build/juno` command.
 juno/
+p2p-dbs

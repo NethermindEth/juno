@@ -1,6 +1,8 @@
 package pebble
 
 import (
+	"slices"
+
 	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble"
 )
@@ -23,8 +25,7 @@ func (i *iterator) Key() []byte {
 	if key == nil {
 		return nil
 	}
-	buf := make([]byte, len(key))
-	copy(buf, key)
+	buf := slices.Clone(key)
 	return buf
 }
 
@@ -34,8 +35,7 @@ func (i *iterator) Value() ([]byte, error) {
 	if err != nil || val == nil {
 		return nil, err
 	}
-	buf := make([]byte, len(val))
-	copy(buf, val)
+	buf := slices.Clone(val)
 	return buf, nil
 }
 

@@ -30,3 +30,12 @@ func Filter[T any](slice []T, f func(T) bool) []T {
 func All[T any](slice []T, f func(T) bool) bool {
 	return slices.IndexFunc(slice, func(e T) bool { return !f(e) }) == -1
 }
+
+func AnyOf[T comparable](e T, values ...T) bool {
+	for _, v := range values {
+		if e == v {
+			return true
+		}
+	}
+	return false
+}

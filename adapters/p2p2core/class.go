@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -17,44 +20,51 @@ func AdaptClass(class *spec.Class) core.Class {
 
 	switch cls := class.Class.(type) {
 	case *spec.Class_Cairo0:
+		adaptEP := func(points []*spec.EntryPoint) []core.EntryPoint {
+			// usage of NonNilSlice is essential because relevant core class fields are non nil
+			return utils.Map(utils.NonNilSlice(points), adaptEntryPoint)
+		}
+
 		cairo0 := cls.Cairo0
 		return &core.Cairo0Class{
-			Abi:          cairo0.Abi,
-			Externals:    utils.Map(cairo0.Externals, adaptEntryPoint),
-			L1Handlers:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
-			Constructors: utils.Map(cairo0.Constructors, adaptEntryPoint),
-			Program:      string(cairo0.Program),
+			Abi:          json.RawMessage(cairo0.Abi),
+			Externals:    adaptEP(cairo0.Externals),
+			L1Handlers:   adaptEP(cairo0.L1Handlers),
+			Constructors: adaptEP(cairo0.Constructors),
+			Program:      cairo0.Program,
 		}
 	case *spec.Class_Cairo1:
 		cairo1 := cls.Cairo1
-		abiHash, err := crypto.StarknetKeccak(cairo1.Abi)
+		abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
+
+		program := utils.Map(cairo1.Program, AdaptFelt)
+		compiled, err := createCompiledClass(cairo1)
 		if err != nil {
 			panic(err)
 		}
 
-		// Todo: remove once compiled class hash is added to p2p spec.
-		compiledC := new(core.CompiledClass)
-		if err := json.Unmarshal(cairo1.Compiled, compiledC); err != nil {
-			panic(fmt.Errorf("unable to unmarshal json compiled class: %v", err))
+		adaptEP := func(points []*spec.SierraEntryPoint) []core.SierraEntryPoint {
+			// usage of NonNilSlice is essential because relevant core class fields are non nil
+			return utils.Map(utils.NonNilSlice(points), adaptSierra)
 		}
 
-		program := utils.Map(cairo1.Program, AdaptFelt)
+		entryPoints := cairo1.EntryPoints
 		return &core.Cairo1Class{
-			Abi:     string(cairo1.Abi),
+			Abi:     cairo1.Abi,
 			AbiHash: abiHash,
 			EntryPoints: struct {
 				Constructor []core.SierraEntryPoint
 				External    []core.SierraEntryPoint
 				L1Handler   []core.SierraEntryPoint
 			}{
-				Constructor: utils.Map(cairo1.EntryPoints.Constructors, adaptSierra),
-				External:    utils.Map(cairo1.EntryPoints.Externals, adaptSierra),
-				L1Handler:   utils.Map(cairo1.EntryPoints.L1Handlers, adaptSierra),
+				Constructor: adaptEP(entryPoints.Constructors),
+				External:    adaptEP(entryPoints.Externals),
+				L1Handler:   adaptEP(entryPoints.L1Handlers),
 			},
 			Program:         program,
 			ProgramHash:     crypto.PoseidonArray(program...),
 			SemanticVersion: cairo1.ContractClassVersion,
-			Compiled:        compiledC,
+			Compiled:        compiled,
 		}
 	default:
 		panic(fmt.Errorf("unsupported class %T", cls))
@@ -71,6 +81,39 @@ func adaptSierra(e *spec.SierraEntryPoint) core.SierraEntryPoint {
 func adaptEntryPoint(e *spec.EntryPoint) core.EntryPoint {
 	return core.EntryPoint{
 		Selector: AdaptFelt(e.Selector),
-		Offset:   AdaptFelt(e.Offset),
+		Offset:   new(felt.Felt).SetUint64(e.Offset),
 	}
+}
+
+func createCompiledClass(cairo1 *spec.Cairo1Class) (*core.CompiledClass, error) {
+	if cairo1 == nil {
+		return nil, nil
+	}
+
+	adapt := func(ep *spec.SierraEntryPoint) starknet.SierraEntryPoint {
+		return starknet.SierraEntryPoint{
+			Index:    ep.Index,
+			Selector: AdaptFelt(ep.Selector),
+		}
+	}
+	ep := cairo1.EntryPoints
+	def := &starknet.SierraDefinition{
+		Abi: cairo1.Abi,
+		EntryPoints: starknet.SierraEntryPoints{
+			// WARNING: usage of utils.NonNilSlice is essential, otherwise compilation will finish with errors
+			// todo move NonNilSlice to Compile ?
+			Constructor: utils.Map(utils.NonNilSlice(ep.Constructors), adapt),
+			External:    utils.Map(utils.NonNilSlice(ep.Externals), adapt),
+			L1Handler:   utils.Map(utils.NonNilSlice(ep.L1Handlers), adapt),
+		},
+		Program: utils.Map(cairo1.Program, AdaptFelt),
+		Version: cairo1.ContractClassVersion,
+	}
+
+	compiledClass, err := starknet.Compile(def)
+	if err != nil {
+		return nil, err
+	}
+
+	return sn2core.AdaptCompiledClass(compiledClass)
 }

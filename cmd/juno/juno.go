@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
@@ -16,7 +15,6 @@ import (
 
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -56,6 +54,7 @@ const (
 	pendingPollIntervalF    = "pending-poll-interval"
 	p2pF                    = "p2p"
 	p2pAddrF                = "p2p-addr"
+	p2pPublicAddrF          = "p2p-public-addr"
 	p2pPeersF               = "p2p-peers"
 	p2pFeederNodeF          = "p2p-feeder-node"
 	p2pPrivateKey           = "p2p-private-key"
@@ -97,6 +96,7 @@ const (
 	defaultPendingPollInterval      = 5 * time.Second
 	defaultP2p                      = false
 	defaultP2pAddr                  = ""
+	defaultP2pPublicAddr            = ""
 	defaultP2pPeers                 = ""
 	defaultP2pFeederNode            = false
 	defaultP2pPrivateKey            = ""
@@ -145,7 +145,8 @@ const (
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
 	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
-	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p source address as multiaddr."
+	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
+	p2pPublicAddrUsage       = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
 	p2pPeersUsage            = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
@@ -190,7 +191,10 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		fmt.Printf(greeting, Version)
+		_, err := fmt.Fprintf(cmd.OutOrStdout(), greeting, Version)
+		if err != nil {
+			return err
+		}
 
 		n, err := node.New(config, Version)
 		if err != nil {
@@ -217,7 +221,7 @@ func main() {
 //nolint:funlen
 func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobra.Command {
 	junoCmd := &cobra.Command{
-		Use:     "juno [flags]",
+		Use:     "juno",
 		Short:   "Starknet client implementation in Go.",
 		Version: Version,
 		RunE:    run,
@@ -248,7 +252,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		v.SetEnvPrefix("JUNO")
 		v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		if err := v.BindPFlags(cmd.Flags()); err != nil {
-			return nil
+			return nil //nolint:nilerr
 		}
 
 		// TextUnmarshallerHookFunc allows us to unmarshal values that satisfy the
@@ -327,6 +331,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
+	junoCmd.Flags().String(p2pPublicAddrF, defaultP2pPublicAddr, p2pPublicAddrUsage)
 	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
@@ -350,41 +355,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
-	junoCmd.AddCommand(GenP2PKeyPair())
+
+	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd
-}
-
-func GenP2PKeyPair() *cobra.Command {
-	return &cobra.Command{
-		Use:   "genp2pkeypair",
-		Short: "Generate private key pair for p2p.",
-		RunE: func(*cobra.Command, []string) error {
-			priv, pub, id, err := p2p.GenKeyPair()
-			if err != nil {
-				return err
-			}
-
-			rawPriv, err := priv.Raw()
-			if err != nil {
-				return err
-			}
-
-			privHex := make([]byte, hex.EncodedLen(len(rawPriv)))
-			hex.Encode(privHex, rawPriv)
-			fmt.Println("P2P Private Key:", string(privHex))
-
-			rawPub, err := pub.Raw()
-			if err != nil {
-				return err
-			}
-
-			pubHex := make([]byte, hex.EncodedLen(len(rawPub)))
-			hex.Encode(pubHex, rawPub)
-			fmt.Println("P2P Public Key:", string(pubHex))
-
-			fmt.Println("P2P PeerID:", id)
-			return nil
-		},
-	}
 }

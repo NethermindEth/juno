@@ -31,7 +31,7 @@ type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 //   - key: represents the storage key for trie [Node]s. It is the full path to the node from the
 //     root.
 //
-// [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
+// [specification]: https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#merkle_patricia_trie
 type Trie struct {
 	height  uint8
 	rootKey *Key
@@ -76,9 +76,17 @@ func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
 	}, nil
 }
 
-// RunOnTempTrie creates an in-memory Trie of height `height` and runs `do` on that Trie
-func RunOnTempTrie(height uint8, do func(*Trie) error) error {
+// RunOnTempTriePedersen creates an in-memory Trie of height `height` and runs `do` on that Trie
+func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 	trie, err := NewTriePedersen(newMemStorage(), height)
+	if err != nil {
+		return err
+	}
+	return do(trie)
+}
+
+func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
+	trie, err := NewTriePoseidon(newMemStorage(), height)
 	if err != nil {
 		return err
 	}
@@ -117,8 +125,6 @@ func isSubset(longerKey, shorterKey *Key) bool {
 // path returns the path as mentioned in the [specification] for commitment calculations.
 // path is suffix of key that diverges from parentKey. For example,
 // for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
-//
-// [specification]: https://docs.starknet.io/documentation/develop/State/starknet-state/
 func path(key, parentKey *Key) Key {
 	path := *key
 	// drop parent key, and one more MSB since left/right relation already encodes that information
@@ -266,7 +272,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 	if siblingIsParentProof {
 		newParent, err = t.GetNodeFromKey(&commonKey)
 		if err != nil {
-			return nil
+			return err
 		}
 		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Right = nodeKey

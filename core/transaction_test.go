@@ -277,7 +277,7 @@ func TestTransactionV3Hash(t *testing.T) {
 	}
 }
 
-func TestTransactionVersi(t *testing.T) {
+func TestTransactionVersion(t *testing.T) {
 	f := utils.HexToFelt(t, "0x100000000000000000000000000000002")
 	v := (*core.TransactionVersion)(f)
 

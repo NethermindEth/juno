@@ -232,6 +232,10 @@ type ComputationResources struct {
 	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
 	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`
 	SegmentArena uint64 `json:"segment_arena_builtin,omitempty"`
+	AddMod       uint64 `json:"add_mod_builtin,omitempty"`
+	MulMod       uint64 `json:"mul_mod_builtin,omitempty"`
+	RangeCheck96 uint64 `json:"range_check_96_builtin,omitempty"`
+	Output       uint64 `json:"output_builtin,omitempty"`
 }
 
 type DataAvailability struct {

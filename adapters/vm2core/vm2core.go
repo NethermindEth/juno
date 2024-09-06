@@ -21,11 +21,15 @@ func AdaptExecutionResources(resources *vm.ExecutionResources) *core.ExecutionRe
 			Keccak:       resources.Keccak,
 			Poseidon:     resources.Poseidon,
 			SegmentArena: resources.SegmentArena,
-			Output:       0, // todo(kirill) recheck, add Output field to core?
+			Output:       resources.Output,
+			AddMod:       resources.AddMod,
+			MulMod:       resources.MulMod,
+			RangeCheck96: resources.RangeCheck96,
 		},
 		MemoryHoles:      resources.MemoryHoles,
 		Steps:            resources.Steps,
 		DataAvailability: adaptDA(resources.DataAvailability),
+		TotalGasConsumed: nil, // todo: fill after 0.13.2
 	}
 }
 

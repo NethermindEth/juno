@@ -79,6 +79,17 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 	}
 }
 
+func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
+	if response == nil {
+		return nil
+	}
+
+	return &core.GasConsumed{
+		L1Gas:     response.L1Gas,
+		L1DataGas: response.L1DataGas,
+	}
+}
+
 func AdaptEvent(response *starknet.Event) *core.Event {
 	if response == nil {
 		return nil
@@ -101,6 +112,7 @@ func AdaptExecutionResources(response *starknet.ExecutionResources) *core.Execut
 		MemoryHoles:            response.MemoryHoles,
 		Steps:                  response.Steps,
 		DataAvailability:       (*core.DataAvailability)(response.DataAvailability),
+		TotalGasConsumed:       adaptGasConsumed(response.TotalGasConsumed),
 	}
 }
 
@@ -256,15 +268,11 @@ func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starkn
 	class.ProgramHash = crypto.PoseidonArray(class.Program...)
 
 	class.Abi = response.Abi
-	class.AbiHash, err = crypto.StarknetKeccak([]byte(class.Abi))
-	if err != nil {
-		return nil, err
-	}
+	class.AbiHash = crypto.StarknetKeccak([]byte(class.Abi))
 
 	adapt := func(ep starknet.SierraEntryPoint) core.SierraEntryPoint {
 		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
 	}
-
 	class.EntryPoints.External = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
 	class.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
 	class.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)

@@ -45,7 +45,7 @@
 
 ### Prerequisites
 
-- Golang 1.22 or higher is required to build and run the project. You can find the installer on
+- Golang 1.23 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
 - [Rust](https://www.rust-lang.org/tools/install).
 - A C compiler: `gcc` or `clang`.
@@ -109,15 +109,36 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 #### Mainnet
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2**  | **182 GB** | **640855** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/files/mainnet/latest) |
 
 #### Sepolia
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.9.2** | **5 GB** | **66477** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.7_66477.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
+
+## Sepolia-Integration
+
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest) |
+
+### Getting the size for each snapshot
+```console
+$date
+Thu  1 Aug 2024 09:49:30 BST
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+172.47 GB
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+5.67 GB
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+2.4 GB
+```
 
 ### Run Juno Using Snapshot
 
@@ -126,7 +147,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
    Fetch the snapshot from the provided URL:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/files/mainnet/latest
    ```
 
 2. **Prepare Directory**
@@ -166,7 +187,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.13.1](https://docs.starknet.io/documentation/starknet_versions/version_notes/) support.
+- Starknet [v0.13.1](https://docs.starknet.io/starknet-versions/version-notes/) support.
 - JSON-RPC [v0.7.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.7.0-rc2) (Available under `/v0_7` and default`/` endpoints)
   - `starknet_chainId`
   - `starknet_blockNumber`

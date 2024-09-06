@@ -6,35 +6,54 @@ extern crate lazy_static;
 
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
-    collections::HashMap, ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString}, num::NonZeroU128, slice, sync::Arc
+    collections::HashMap,
+    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    num::NonZeroU128,
+    slice,
+    sync::Arc,
 };
 
+use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
+use blockifier::blockifier::block::{
+    pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
+};
+use blockifier::bouncer::BouncerConfig;
+use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::transaction::objects::GasVector;
 use blockifier::{
-    block::{pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices}, context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext}, execution::{
+    context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
+    execution::{
         contract_class::ClassInfo,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
-    }, fee::fee_utils::calculate_tx_fee, state::{cached_state::{CachedState, GlobalContractCache}, state_api::State}, transaction::{
+    },
+    state::{cached_state::CachedState, state_api::State},
+    transaction::{
         errors::TransactionExecutionError::{
-            ContractConstructorExecutionFailed,
-            ExecutionError,
-            ValidateTransactionError,
-        }, objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo}, transaction_execution::Transaction, transactions::ExecutableTransaction
-    }, versioned_constants::VersionedConstants
+            ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
+        },
+        objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo},
+        transaction_execution::Transaction,
+        transactions::ExecutableTransaction,
+    },
+    versioned_constants::VersionedConstants,
 };
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
-use starknet_api::{block::BlockHash, core::PatriciaKey, transaction::{Calldata, Transaction as StarknetApiTransaction, TransactionHash}};
 use starknet_api::{
+    block::BlockHash,
+    core::PatriciaKey,
     deprecated_contract_class::EntryPointType,
-    hash::StarkFelt,
-    transaction::Fee,
+    transaction::{Calldata, Fee, Transaction as StarknetApiTransaction, TransactionHash},
 };
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
     hash::StarkHash,
 };
+use starknet_types_core::felt::Felt;
 use std::str::FromStr;
+
+type StarkFelt = Felt;
 
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
@@ -42,6 +61,7 @@ extern "C" {
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendDataGasConsumed(reader_handle: usize, ptr: *const c_uchar);
+    fn JunoAddExecutionSteps(reader_handle: usize, execSteps: c_ulonglong);
 }
 
 #[repr(C)]
@@ -51,7 +71,7 @@ pub struct CallInfo {
     pub class_hash: [c_uchar; 32],
     pub entry_point_selector: [c_uchar; 32],
     pub calldata: *const *const c_uchar,
-    pub len_calldata: usize
+    pub len_calldata: usize,
 }
 
 #[repr(C)]
@@ -70,29 +90,32 @@ pub struct BlockInfo {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const BlockInfo,
     reader_handle: usize,
     chain_id: *const c_char,
     max_steps: c_ulonglong,
+    concurrency_mode: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
-    let contract_addr_felt = StarkFelt::new(call_info.contract_address).unwrap();
+    let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
     } else {
-        Some(ClassHash(StarkFelt::new(call_info.class_hash).unwrap()))
+        Some(ClassHash(StarkFelt::from_bytes_be(&call_info.class_hash)))
     };
-    let entry_point_selector_felt = StarkFelt::new(call_info.entry_point_selector).unwrap();
+    let entry_point_selector_felt = StarkFelt::from_bytes_be(&call_info.entry_point_selector);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
     let mut calldata_vec: Vec<StarkFelt> = Vec::with_capacity(call_info.len_calldata);
     if call_info.len_calldata > 0 {
-        let calldata_slice = unsafe { slice::from_raw_parts(call_info.calldata, call_info.len_calldata) };
+        let calldata_slice =
+            unsafe { slice::from_raw_parts(call_info.calldata, call_info.len_calldata) };
         for ptr in calldata_slice {
             let data = ptr_to_felt(ptr.cast());
             calldata_vec.push(data);
@@ -105,17 +128,24 @@ pub extern "C" fn cairoVMCall(
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
         call_type: CallType::Call,
-        class_hash: class_hash,
+        class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: get_versioned_constants(block_info.version).gas_cost("initial_gas_cost"),
+        initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
     };
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(1));
+    let concurrency_mode = concurrency_mode == 1;
+    let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
-            block_context: build_block_context(&mut state, &block_info, chain_id_str, Some(max_steps)),
+            block_context: build_block_context(
+                &mut state,
+                &block_info,
+                chain_id_str,
+                Some(max_steps),
+                concurrency_mode,
+            ),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
         false,
@@ -144,6 +174,7 @@ pub struct TxnAndQueryBit {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn cairoVMExecute(
     txns_json: *const c_char,
     classes_json: *const c_char,
@@ -153,7 +184,8 @@ pub extern "C" fn cairoVMExecute(
     chain_id: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
-    err_on_revert: c_uchar
+    err_on_revert: c_uchar,
+    concurrency_mode: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
@@ -187,10 +219,17 @@ pub extern "C" fn cairoVMExecute(
         }
     };
 
-    let mut state = CachedState::new(reader, GlobalContractCache::new(1));
+    let mut state = CachedState::new(reader);
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
-    let block_context: BlockContext = build_block_context(&mut state, &block_info, chain_id_str, None);
+    let concurrency_mode = concurrency_mode == 1;
+    let block_context: BlockContext = build_block_context(
+        &mut state,
+        &block_info,
+        chain_id_str,
+        None,
+        concurrency_mode,
+    );
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -240,13 +279,17 @@ pub extern "C" fn cairoVMExecute(
 
         let mut txn_state = CachedState::create_transactional(&mut state);
         let fee_type;
+        let minimal_l1_gas_amount_vector: Option<GasVector>;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
+                minimal_l1_gas_amount_vector =
+                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
                 fee_type = t.fee_type();
+                minimal_l1_gas_amount_vector = None;
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
@@ -254,20 +297,20 @@ pub extern "C" fn cairoVMExecute(
         match res {
             Err(error) => {
                 let err_string = match &error {
-                    ContractConstructorExecutionFailed(e)
-                        | ExecutionError(e)
-                        | ValidateTransactionError(e) => format!("{error} {e}"),
-                    other => other.to_string()
+                    ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
+                    ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
+                        format!("{error} {e}")
+                    }
+                    other => other.to_string(),
                 };
                 report_error(
                     reader_handle,
                     format!(
                         "failed txn {} reason: {}",
-                        txn_and_query_bit.txn_hash,
-                        err_string,
+                        txn_and_query_bit.txn_hash, err_string,
                     )
                     .as_str(),
-                    txn_index as i64
+                    txn_index as i64,
                 );
                 return;
             }
@@ -275,39 +318,65 @@ pub extern "C" fn cairoVMExecute(
                 if t.is_reverted() && err_on_revert != 0 {
                     report_error(
                         reader_handle,
-                        format!("reverted: {}", t.revert_error.unwrap())
-                        .as_str(),
-                        txn_index as i64
+                        format!("reverted: {}", t.revert_error.unwrap()).as_str(),
+                        txn_index as i64,
                     );
                     return;
                 }
 
                 // we are estimating fee, override actual fee calculation
-                if  t.actual_fee.0 == 0 {
-                    t.actual_fee = calculate_tx_fee(&t.actual_resources, &block_context, &fee_type).unwrap();
+                if t.transaction_receipt.fee.0 == 0 {
+                    let minimal_l1_gas_amount_vector =
+                        minimal_l1_gas_amount_vector.unwrap_or_default();
+                    let gas_consumed = t
+                        .transaction_receipt
+                        .gas
+                        .l1_gas
+                        .max(minimal_l1_gas_amount_vector.l1_gas);
+                    let data_gas_consumed = t
+                        .transaction_receipt
+                        .gas
+                        .l1_data_gas
+                        .max(minimal_l1_gas_amount_vector.l1_data_gas);
+
+                    t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                        block_context.block_info(),
+                        GasVector {
+                            l1_data_gas: data_gas_consumed,
+                            l1_gas: gas_consumed,
+                        },
+                        &fee_type,
+                    )
                 }
 
-                let actual_fee = t.actual_fee.0.into();
-                let data_gas_consumed = t.da_gas.l1_data_gas.into();
+                let actual_fee = t.transaction_receipt.fee.0.into();
+                let data_gas_consumed = t.transaction_receipt.da_gas.l1_data_gas.into();
+                let execution_steps = t
+                    .transaction_receipt
+                    .resources
+                    .vm_resources
+                    .n_steps
+                    .try_into()
+                    .unwrap_or(u64::MAX);
 
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
-                if trace.is_err() {
+                if let Err(e) = trace {
                     report_error(
                         reader_handle,
-                        format!(
-                            "failed building txn state diff reason: {:?}",
-                            trace.err().unwrap()
-                        )
-                        .as_str(),
-                        txn_index as i64
+                        format!("failed building txn state diff reason: {:?}", e).as_str(),
+                        txn_index as i64,
                     );
                     return;
                 }
 
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-                    JunoAppendDataGasConsumed(reader_handle, felt_to_byte_array(&data_gas_consumed).as_ptr());
+                    JunoAppendDataGasConsumed(
+                        reader_handle,
+                        felt_to_byte_array(&data_gas_consumed).as_ptr(),
+                    );
+                    JunoAddExecutionSteps(reader_handle, execution_steps)
                 }
                 append_trace(reader_handle, trace.as_ref().unwrap(), &mut trace_buffer);
             }
@@ -317,7 +386,8 @@ pub extern "C" fn cairoVMExecute(
 }
 
 fn felt_to_u128(felt: StarkFelt) -> u128 {
-    let bytes = felt.bytes();
+    // todo find Into<u128> trait or similar
+    let bytes = felt.to_bytes_be();
     let mut arr = [0u8; 16];
     arr.copy_from_slice(&bytes[16..32]);
 
@@ -380,19 +450,25 @@ fn build_block_context(
     block_info: &BlockInfo,
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
+    _concurrency_mode: bool,
 ) -> BlockContext {
-    let sequencer_addr =  StarkFelt::new(block_info.sequencer_address).unwrap();
-    let gas_price_wei_felt = StarkFelt::new(block_info.gas_price_wei).unwrap();
-    let gas_price_fri_felt = StarkFelt::new(block_info.gas_price_fri).unwrap();
-    let data_gas_price_wei_felt = StarkFelt::new(block_info.data_gas_price_wei).unwrap();
-    let data_gas_price_fri_felt = StarkFelt::new(block_info.data_gas_price_fri).unwrap();
+    let sequencer_addr = StarkFelt::from_bytes_be(&block_info.sequencer_address);
+    let gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.gas_price_wei);
+    let gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.gas_price_fri);
+    let data_gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_wei);
+    let data_gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_fri);
     let default_gas_price = NonZeroU128::new(1).unwrap();
 
     let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
-    if block_info.block_number >= 10 {
-        old_block_number_and_hash = Some(BlockNumberHashPair{
-            number: starknet_api::block::BlockNumber(block_info.block_number - 10),
-            hash: BlockHash(StarkFelt::new(block_info.block_hash_to_be_revealed).unwrap()),
+    // STORED_BLOCK_HASH_BUFFER const is 10 for now
+    if block_info.block_number >= STORED_BLOCK_HASH_BUFFER {
+        old_block_number_and_hash = Some(BlockNumberHashPair {
+            number: starknet_api::block::BlockNumber(
+                block_info.block_number - STORED_BLOCK_HASH_BUFFER,
+            ),
+            hash: BlockHash(StarkFelt::from_bytes_be(
+                &block_info.block_hash_to_be_revealed,
+            )),
         })
     }
     let mut constants = get_versioned_constants(block_info.version);
@@ -400,55 +476,95 @@ fn build_block_context(
         constants.invoke_tx_max_n_steps = max_steps as u32;
     }
 
-    pre_process_block(state, old_block_number_and_hash, BlockifierBlockInfo{
+    let block_info = BlockifierBlockInfo {
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_addr).unwrap()),
         gas_prices: GasPrices {
-            eth_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_wei_felt)).unwrap_or(default_gas_price),
-            strk_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_fri_felt)).unwrap_or(default_gas_price),
-            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_wei_felt)).unwrap_or(default_gas_price),
-            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_fri_felt)).unwrap_or(default_gas_price),
+            eth_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_wei_felt))
+                .unwrap_or(default_gas_price),
+            strk_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_fri_felt))
+                .unwrap_or(default_gas_price),
+            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_wei_felt))
+                .unwrap_or(default_gas_price),
+            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_fri_felt))
+                .unwrap_or(default_gas_price),
         },
         use_kzg_da: block_info.use_blob_data == 1,
-    }, ChainInfo{
-        chain_id: ChainId(chain_id_str.to_string()),
+    };
+    let chain_info = ChainInfo {
+        chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
             // both addresses are the same for all networks
-            eth_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7").unwrap()).unwrap(),
-            strk_fee_token_address: ContractAddress::try_from(StarkHash::try_from("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d").unwrap()).unwrap(),
+            eth_fee_token_address: ContractAddress::try_from(
+                StarkHash::from_hex(
+                    "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+            strk_fee_token_address: ContractAddress::try_from(
+                StarkHash::from_hex(
+                    "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+                )
+                .unwrap(),
+            )
+            .unwrap(),
         },
-    }, constants).unwrap()
+    };
+
+    pre_process_block(state, old_block_number_and_hash, block_info.block_number).unwrap();
+    BlockContext::new(block_info, chain_info, constants, BouncerConfig::max())
 }
-
-
-
 
 lazy_static! {
     static ref CONSTANTS: HashMap<String, VersionedConstants> = {
         let mut m = HashMap::new();
-        m.insert("0.13.0".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap());
-        m.insert("0.13.1".to_string(), serde_json::from_slice(include_bytes!("../versioned_constants_13_1.json")).unwrap());
+        m.insert(
+            "0.13.0".to_string(),
+            serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap(),
+        );
+        m.insert(
+            "0.13.1".to_string(),
+            serde_json::from_slice(include_bytes!("../versioned_constants_13_1.json")).unwrap(),
+        );
+        m.insert(
+            "0.13.1.1".to_string(),
+            serde_json::from_slice(include_bytes!("../versioned_constants_13_1_1.json")).unwrap(),
+        );
+        m.insert(
+            "0.13.2".to_string(),
+            serde_json::from_slice(include_bytes!("../versioned_constants_13_2.json")).unwrap(),
+        );
         m
     };
 }
 
 #[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    let version_str = unsafe { CStr::from_ptr(version) }.to_str().unwrap();
-    let version = StarknetVersion::from_str(&version_str).unwrap_or(StarknetVersion::from_str(&"0.0.0").unwrap());
+    let version_str = unsafe { CStr::from_ptr(version) }
+        .to_str()
+        .unwrap_or("0.0.0");
 
-    if let Some(constants) =  unsafe{ &CUSTOM_VERSIONED_CONSTANTS } {
+    let version = match StarknetVersion::from_str(version_str) {
+        Ok(v) => v,
+        Err(_) => StarknetVersion::from_str("0.0.0").unwrap(),
+    };
+
+    if let Some(constants) = unsafe { &CUSTOM_VERSIONED_CONSTANTS } {
         constants.clone()
-    } else if version < StarknetVersion::from_str(&"0.13.1").unwrap() {
+    } else if version < StarknetVersion::from_str("0.13.1").unwrap() {
         CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str(&"0.13.1.1").unwrap() {
+    } else if version < StarknetVersion::from_str("0.13.1.1").unwrap() {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str("0.13.2").unwrap() {
+        CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str("0.13.2.1").unwrap() {
+        CONSTANTS.get(&"0.13.2".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
     }
 }
-
 
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StarknetVersion(u8, u8, u8, u8);
@@ -486,24 +602,30 @@ impl FromStr for StarknetVersion {
 static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_char {
     let json_str = unsafe {
         match CStr::from_ptr(json_bytes).to_str() {
             Ok(s) => s,
-            Err(_) => return CString::new("Failed to convert JSON bytes to string").unwrap().into_raw(),
+            Err(_) => {
+                return CString::new("Failed to convert JSON bytes to string")
+                    .unwrap()
+                    .into_raw()
+            }
         }
     };
 
     match serde_json::from_str(json_str) {
         Ok(parsed) => unsafe {
             CUSTOM_VERSIONED_CONSTANTS = Some(parsed);
-            CString::new("").unwrap().into_raw()  // No error, return an empty string
+            CString::new("").unwrap().into_raw() // No error, return an empty string
         },
         Err(_) => CString::new("Failed to parse JSON").unwrap().into_raw(),
     }
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn freeString(s: *mut c_char) {
     if !s.is_null() {
         unsafe {
