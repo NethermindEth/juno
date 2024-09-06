@@ -151,6 +151,32 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 
+	var l1Client *l1.Client
+	var l1Reader l1.Reader
+	if cfg.EthNode == "" {
+		log.Warnw("Ethereum node address not found; will not verify against L1")
+		l1Reader = nil
+	} else {
+		var ethNodeURL *url.URL
+		ethNodeURL, err = url.Parse(cfg.EthNode)
+		if err != nil {
+			return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		}
+		if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
+			return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		}
+		l1Client, err = newL1Client(cfg, chain, log)
+		if err != nil {
+			return nil, fmt.Errorf("create L1 client: %w", err)
+		}
+		if cfg.Metrics {
+			l1Client.WithEventListener(makeL1Metrics())
+		}
+
+		services = append(services, l1Client)
+		l1Reader = l1Client
+	}
+
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
@@ -186,7 +212,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		syncReader = synchronizer
 	}
 
-	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
+	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log, l1Reader).WithGateway(gatewayClient).WithFeeder(client)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
@@ -257,17 +283,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		blockchain:     chain,
 		services:       services,
 		metricsService: metricsService,
-	}
-
-	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-	} else {
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg, n.blockchain, n.log)
-		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
-		}
-		n.services = append(n.services, l1Client)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {

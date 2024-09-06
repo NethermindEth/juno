@@ -956,8 +956,8 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 }
 
 // StorePending stores a pending block given that it is for the next height
-func (b *Blockchain) StorePending(pending *Pending) error {
-	return b.database.Update(func(txn db.Transaction) error {
+func (b *Blockchain) StorePending(pending *Pending) (bool, error) {
+	err := b.database.Update(func(txn db.Transaction) error {
 		expectedParentHash := new(felt.Felt)
 		h, err := headsHeader(txn)
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -978,9 +978,9 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 		} else if !errors.Is(err, db.ErrKeyNotFound) { // Allow StorePending before block zero.
 			return err
 		}
-
 		return b.storePending(txn, pending)
 	})
+	return err == nil, err
 }
 
 func (b *Blockchain) storePending(txn db.Transaction, pending *Pending) error {

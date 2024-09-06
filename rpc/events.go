@@ -3,9 +3,12 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 )
 
@@ -48,7 +51,29 @@ type EventsChunk struct {
 		Events Handlers
 *****************************************************/
 
-func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error) {
+type SubscriptionEvent byte
+
+const (
+	EventNewBlocks SubscriptionEvent = iota + 1
+	EventPendingBlocks
+	EventL1Blocks
+)
+
+func (s *SubscriptionEvent) UnmarshalJSON(data []byte) error {
+	switch string(data) {
+	case `"newBlocks"`:
+		*s = EventNewBlocks
+	case `"pendingBlocks"`:
+		*s = EventPendingBlocks
+	case `"l1Blocks"`:
+		*s = EventL1Blocks
+	default:
+		return fmt.Errorf("unknown subscription event type: %s", string(data))
+	}
+	return nil
+}
+
+func (h *Handler) Subscribe(ctx context.Context, event SubscriptionEvent, withTxs bool) (uint64, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -63,37 +88,105 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	h.mu.Lock()
 	h.subscriptions[id] = sub
 	h.mu.Unlock()
-	headerSub := h.newHeads.Subscribe()
-	sub.wg.Go(func() {
+
+	adaptBlock := func(block *core.Block, status BlockStatus) any {
+		return adaptBlockWithTxHashes(block, status)
+	}
+	if withTxs {
+		adaptBlock = func(block *core.Block, status BlockStatus) any {
+			return adaptBlockWithTxs(block, status)
+		}
+	}
+	switch event {
+	case EventNewBlocks:
+		subscribe[*core.Block](subscriptionCtx, h.newBlocks.Subscribe(), h, id, sub, func(b *core.Block) (any, error) {
+			return adaptBlock(b, BlockAcceptedL2), nil
+		})
+	case EventPendingBlocks:
+		subscribe[*core.Block](subscriptionCtx, h.pendingBlock.Subscribe(), h, id, sub, func(b *core.Block) (any, error) {
+			return adaptBlock(b, BlockPending), nil
+		})
+	case EventL1Blocks:
+		if h.l1Reader == nil {
+			h.Unsubscribe(ctx, id)
+			return 0, jsonrpc.Err(jsonrpc.InternalError, "subscription event not supported")
+		}
+		subscribe[*core.L1Head](subscriptionCtx, h.l1Heads.Subscribe(), h, id, sub, func(l1Head *core.L1Head) (any, error) {
+			block, err := h.bcReader.BlockByNumber(l1Head.BlockNumber)
+			if err != nil {
+				return nil, fmt.Errorf("get block %d: %v", l1Head.BlockNumber, err)
+			}
+			return adaptBlock(block, BlockAcceptedL1), nil
+		})
+	default:
+		return 0, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unknown event type: %d", event))
+	}
+	return id, nil
+}
+
+func adaptBlockWithTxs(block *core.Block, status BlockStatus) *BlockWithTxs {
+	txs := make([]*Transaction, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		txs[index] = AdaptTransaction(txn)
+	}
+
+	return &BlockWithTxs{
+		Status:       status,
+		BlockHeader:  adaptBlockHeader(block.Header),
+		Transactions: txs,
+	}
+}
+
+func adaptBlockWithTxHashes(block *core.Block, status BlockStatus) *BlockWithTxHashes {
+	txnHashes := make([]*felt.Felt, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		txnHashes[index] = txn.Hash()
+	}
+
+	return &BlockWithTxHashes{
+		Status:      status,
+		BlockHeader: adaptBlockHeader(block.Header),
+		TxnHashes:   txnHashes,
+	}
+}
+
+func subscribe[T any](ctx context.Context, sub *feed.Subscription[T], h *Handler,
+	id uint64, vsub *subscription, adapt func(T) (any, error),
+) {
+	vsub.wg.Go(func() {
 		defer func() {
-			headerSub.Unsubscribe()
-			h.unsubscribe(sub, id)
+			sub.Unsubscribe()
+			h.Unsubscribe(ctx, id)
 		}()
 		for {
 			select {
-			case <-subscriptionCtx.Done():
+			case <-ctx.Done():
 				return
-			case header := <-headerSub.Recv():
+			case v := <-sub.Recv():
+				result, err := adapt(v)
+				if err != nil {
+					h.log.Warnw("Failed to adapt subscription result, closing", "err", err)
+					return
+				}
 				resp, err := json.Marshal(jsonrpc.Request{
 					Version: "2.0",
-					Method:  "juno_subscribeNewHeads",
+					Method:  "juno_subscription",
 					Params: map[string]any{
-						"result":       adaptBlockHeader(header),
+						"result":       result,
 						"subscription": id,
 					},
 				})
 				if err != nil {
-					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					h.log.Warnw("Marshalling subscription reply failed, closing", "err", err)
 					return
 				}
-				if _, err = w.Write(resp); err != nil {
-					h.log.Warnw("Error writing a subscription reply", "err", err)
+				if _, err = vsub.conn.Write(resp); err != nil {
+					h.log.Warnw("Writing subscription reply failed, closing", "err", err)
 					return
 				}
 			}
 		}
 	})
-	return id, nil
 }
 
 func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {

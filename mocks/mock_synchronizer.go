@@ -69,16 +69,30 @@ func (mr *MockSyncReaderMockRecorder) StartingBlockNumber() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartingBlockNumber", reflect.TypeOf((*MockSyncReader)(nil).StartingBlockNumber))
 }
 
-// SubscribeNewHeads mocks base method.
-func (m *MockSyncReader) SubscribeNewHeads() sync.HeaderSubscription {
+// SubscribeNewBlocks mocks base method.
+func (m *MockSyncReader) SubscribeNewBlocks() sync.BlockSubscription {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribeNewHeads")
-	ret0, _ := ret[0].(sync.HeaderSubscription)
+	ret := m.ctrl.Call(m, "SubscribeNewBlocks")
+	ret0, _ := ret[0].(sync.BlockSubscription)
 	return ret0
 }
 
-// SubscribeNewHeads indicates an expected call of SubscribeNewHeads.
-func (mr *MockSyncReaderMockRecorder) SubscribeNewHeads() *gomock.Call {
+// SubscribeNewBlocks indicates an expected call of SubscribeNewBlocks.
+func (mr *MockSyncReaderMockRecorder) SubscribeNewBlocks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewHeads", reflect.TypeOf((*MockSyncReader)(nil).SubscribeNewHeads))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewBlocks", reflect.TypeOf((*MockSyncReader)(nil).SubscribeNewBlocks))
+}
+
+// SubscribePendingBlocks mocks base method.
+func (m *MockSyncReader) SubscribePendingBlocks() sync.BlockSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribePendingBlocks")
+	ret0, _ := ret[0].(sync.BlockSubscription)
+	return ret0
+}
+
+// SubscribePendingBlocks indicates an expected call of SubscribePendingBlocks.
+func (mr *MockSyncReaderMockRecorder) SubscribePendingBlocks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePendingBlocks", reflect.TypeOf((*MockSyncReader)(nil).SubscribePendingBlocks))
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -80,8 +81,11 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version  string
-	newHeads *feed.Feed[*core.Header]
+	version      string
+	l1Reader     l1.Reader
+	newBlocks    *feed.Feed[*core.Block]
+	pendingBlock *feed.Feed[*core.Block]
+	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -100,7 +104,7 @@ type subscription struct {
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
-	logger utils.Logger,
+	logger utils.Logger, l1Reader l1.Reader,
 ) *Handler {
 	return &Handler{
 		bcReader:   bcReader,
@@ -114,11 +118,14 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			return n
 		},
 		version:       version,
-		newHeads:      feed.New[*core.Header](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
+		l1Reader:        l1Reader,
+		newBlocks:       feed.New[*core.Block](),
+		pendingBlock:    feed.New[*core.Block](),
+		l1Heads:         feed.New[*core.L1Head](),
 	}
 }
 
@@ -149,9 +156,21 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
+	newHeadsSub := h.syncReader.SubscribeNewBlocks().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	feed.Tee[*core.Block](newHeadsSub, h.newBlocks)
+
+	pendingHeadsSub := h.syncReader.SubscribePendingBlocks().Subscription
+	defer pendingHeadsSub.Unsubscribe()
+	feed.Tee[*core.Block](pendingHeadsSub, h.pendingBlock)
+
+	// Providing an L1 node is optional.
+	if h.l1Reader != nil {
+		l1HeadsSub := h.l1Reader.SubscribeL1Heads().Subscription
+		defer l1HeadsSub.Unsubscribe()
+		feed.Tee[*core.L1Head](l1HeadsSub, h.l1Heads)
+	}
+
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -313,8 +332,9 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
-			Handler: h.SubscribeNewHeads,
+			Name:    "juno_subscribe",
+			Params:  []jsonrpc.Parameter{{Name: "event"}, {Name: "withTxs", Optional: true}},
+			Handler: h.Subscribe,
 		},
 		{
 			Name:    "juno_unsubscribe",
@@ -471,8 +491,9 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersionV0_6,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
-			Handler: h.SubscribeNewHeads,
+			Name:    "juno_subscribe",
+			Params:  []jsonrpc.Parameter{{Name: "event"}, {Name: "withTxs", Optional: true}},
+			Handler: h.Subscribe,
 		},
 		{
 			Name:    "juno_unsubscribe",
