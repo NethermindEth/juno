@@ -83,6 +83,7 @@ const (
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
 	seqEnF                  = "seq-enable"
+	seqRPCEndpointF         = "seq-rpc-endpoint"
 	seqBlockTimeF           = "seq-block-time"
 	seqGenesisFileF         = "seq-genesis-file"
 	seqShadowModeF          = "seq-shadow-mode"
@@ -124,6 +125,7 @@ const (
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultSeqEn                    = false
+	defaultSeqRPCEndpoint           = ""
 	defaultSeqBlockTime             = 60
 	defaultSeqGenesisFile           = ""
 	defaultSeqShadowMode            = false
@@ -179,6 +181,7 @@ const (
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	seqEnUsage                  = "Enables sequencer mode of operation"
+	seqRPCEndpointUsage         = "RPC Endpoint that the sequencer uses to retrieve traces for verification"
 	seqBlockTimeUsage           = "Time to build a block, in seconds"
 	seqGenesisFileUsage         = "Path to the genesis file"
 	seqShadowModeUsage          = "Launches the sequencer in shadow mode (note: network must be set to Sepolia)"
@@ -368,6 +371,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().String(seqRPCEndpointF, defaultSeqRPCEndpoint, seqRPCEndpointUsage)
 	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
 	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 	junoCmd.Flags().Bool(seqShadowModeF, defaultSeqShadowMode, seqShadowModeUsage)

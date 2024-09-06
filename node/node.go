@@ -94,6 +94,7 @@ type Config struct {
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 
 	Sequencer      bool   `mapstructure:"seq-enable"`
+	SeqRPCEndpoint string `mapstructure:"seq-rpc-endpoint"`
 	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
 	SeqGenesisFile string `mapstructure:"seq-genesis-file"`
 	SeqShadowMode  bool   `mapstructure:"seq-shadow-mode"`
@@ -180,8 +181,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			time.Second*time.Duration(cfg.SeqBlockTime), p, log)
 		if cfg.SeqShadowMode {
 			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
-				log, starknetData)
-			sequencer.WithJunoEndpoit("https://free-rpc.nethermind.io/sepolia-juno") // Todo: handle this nicer
+				log, starknetData).WithJunoEndpoint(cfg.SeqRPCEndpoint)
 		}
 
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))

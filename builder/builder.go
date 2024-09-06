@@ -110,7 +110,7 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 	return b
 }
 
-func (b *Builder) WithJunoEndpoit(endpoint string) *Builder {
+func (b *Builder) WithJunoEndpoint(endpoint string) *Builder {
 	b.junoEndpoint = endpoint
 	return b
 }
@@ -119,7 +119,7 @@ func (b *Builder) Run(ctx context.Context) error {
 	signFunc := b.Sign
 	if b.shadowMode {
 		signFunc = nil
-		syncToBlockNum := uint64(5)
+		syncToBlockNum := uint64(129755) // Todo: skipped problematic transaction in block 129751
 		block, err := b.bc.Head()
 		if err != nil {
 			return err
@@ -545,8 +545,11 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		}
 
 		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
+			b.log.Debugw("CompareReceipts")
 			b.log.Debugw(diffStr)
 		}
+		// b.pendingBlock.StateUpdate.StateDiff.Print()
+		// b.shadowStateUpdate.StateDiff.Print()
 	}
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
@@ -603,7 +606,6 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			// todo: make this debug logic cleaner
 			if b.junoEndpoint != "" {
 				blockTraces, err := b.JunoGetBlockTrace(int(block.Number))
 				if err != nil {
@@ -653,7 +655,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 
 func (b *Builder) syncStore(curBlockNum, toBlockNum uint64) error {
 	var i uint64
-	for i = curBlockNum; i < toBlockNum; i++ {
+	for i = curBlockNum + 1; i < toBlockNum; i++ {
 		b.log.Infow("Sequencer, syncing block", "blockNumber", i)
 		block, su, classes, err := b.getSyncData(i)
 		if err != nil {
