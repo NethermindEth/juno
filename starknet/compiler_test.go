@@ -2,6 +2,9 @@ package starknet_test
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -37,4 +40,32 @@ func TestCompile(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expectedCompiled.Hash(), gotCompiled.Hash())
 	})
+
+	t.Run("declare cairo2 class", func(t *testing.T) {
+		// tests https://github.com/NethermindEth/juno/issues/1748
+		definition := loadTestData[starknet.SierraDefinition](t, "declare_cairo2_definition.json")
+
+		_, err := starknet.Compile(&definition)
+		require.NoError(t, err)
+	})
+}
+
+// loadTestData loads json file located relative to a test package and unmarshal it to provided type
+func loadTestData[T any](t *testing.T, filename string) T {
+	t.Helper()
+
+	file := fmt.Sprintf("./testdata/%s", filename)
+	buff, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("Failed to read file %s: %v", file, err)
+	}
+
+	var v T
+	err = json.Unmarshal(buff, &v)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal json: %v", err)
+	}
+
+	// todo check for zero value
+	return v
 }

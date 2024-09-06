@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -15,9 +16,6 @@ import (
 
 var networkStrings = map[utils.Network]string{
 	utils.Mainnet:            "mainnet",
-	utils.Goerli:             "goerli",
-	utils.Goerli2:            "goerli2",
-	utils.Integration:        "integration",
 	utils.Sepolia:            "sepolia",
 	utils.SepoliaIntegration: "sepolia-integration",
 }
@@ -130,7 +128,7 @@ func TestNetworkUnmarshalText(t *testing.T) {
 func TestNetworkMarshalJSON(t *testing.T) {
 	for network, str := range networkStrings {
 		t.Run("network "+str, func(t *testing.T) {
-			nb, err := network.MarshalJSON()
+			nb, err := json.Marshal(&network)
 			require.NoError(t, err)
 
 			expectedStr := `"` + str + `"`

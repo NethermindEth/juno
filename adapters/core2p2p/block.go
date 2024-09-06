@@ -1,13 +1,12 @@
 package core2p2p
 
 import (
-	"time"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func AdaptBlockID(header *core.Header) *spec.BlockID {
@@ -28,38 +27,60 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 	}
 }
 
-func AdaptHeader(header *core.Header, commitments *core.BlockCommitments) *spec.BlockHeader {
-	return &spec.BlockHeader{
-		ParentHeader:     AdaptHash(header.ParentHash),
+func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
+	stateDiffCommitment *felt.Felt, stateDiffLength uint64,
+) *spec.SignedBlockHeader {
+	return &spec.SignedBlockHeader{
+		BlockHash:        AdaptHash(header.Hash),
+		ParentHash:       AdaptHash(header.ParentHash),
 		Number:           header.Number,
-		Time:             timestamppb.New(time.Unix(int64(header.Timestamp), 0)),
+		Time:             header.Timestamp,
 		SequencerAddress: AdaptAddress(header.SequencerAddress),
-		ProofFact:        nil, // not defined yet
-		Receipts:         nil, // not defined yet
-		StateDiffs:       nil, // not defined yet
-		State: &spec.Patricia{
-			Height: 251, // fixed
-			Root:   AdaptHash(header.GlobalStateRoot),
-		},
-		Transactions: &spec.Merkle{
-			NLeaves: uint32(header.TransactionCount),
+		StateRoot:        AdaptHash(header.GlobalStateRoot),
+		Transactions: &spec.Patricia{
+			NLeaves: header.TransactionCount,
 			Root:    AdaptHash(commitments.TransactionCommitment),
 		},
-		Events: &spec.Merkle{
-			NLeaves: uint32(header.EventCount),
+		Events: &spec.Patricia{
+			NLeaves: header.EventCount,
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
+		// todo fill receipts with receipt commitment
+		Receipts:        AdaptHash(&felt.Zero),
+		ProtocolVersion: header.ProtocolVersion,
+		GasPriceFri:     AdaptUint128(header.GasPrice),
+		Signatures:      utils.Map(header.Signatures, AdaptSignature),
+		StateDiffCommitment: &spec.StateDiffCommitment{
+			StateDiffLength: stateDiffLength,
+			Root:            AdaptHash(stateDiffCommitment),
+		},
+		GasPriceWei:            AdaptUint128(header.GasPriceSTRK),
+		DataGasPriceFri:        AdaptUint128(header.L1DataGasPrice.PriceInFri),
+		DataGasPriceWei:        AdaptUint128(header.L1DataGasPrice.PriceInWei),
+		L1DataAvailabilityMode: adaptL1DA(header.L1DAMode),
 	}
 }
 
-func AdaptEvent(e *core.Event) *spec.Event {
+func adaptL1DA(da core.L1DAMode) spec.L1DataAvailabilityMode {
+	switch da {
+	case core.Calldata:
+		return spec.L1DataAvailabilityMode_Calldata
+	case core.Blob:
+		return spec.L1DataAvailabilityMode_Blob
+	default:
+		panic(fmt.Errorf("unknown L1DAMode %v", da))
+	}
+}
+
+func AdaptEvent(e *core.Event, txH *felt.Felt) *spec.Event {
 	if e == nil {
 		return nil
 	}
 
 	return &spec.Event{
-		FromAddress: AdaptFelt(e.From),
-		Keys:        utils.Map(e.Keys, AdaptFelt),
-		Data:        utils.Map(e.Data, AdaptFelt),
+		TransactionHash: AdaptHash(txH),
+		FromAddress:     AdaptFelt(e.From),
+		Keys:            utils.Map(e.Keys, AdaptFelt),
+		Data:            utils.Map(e.Data, AdaptFelt),
 	}
 }

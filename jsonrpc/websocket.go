@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 const closeReasonMaxBytes = 125
@@ -101,7 +101,7 @@ type WebsocketConnParams struct {
 
 func DefaultWebsocketConnParams() *WebsocketConnParams {
 	return &WebsocketConnParams{
-		ReadLimit:     32 * 1024 * 1024,
+		ReadLimit:     32 * utils.Megabyte,
 		WriteDuration: 5 * time.Second,
 	}
 }
@@ -128,7 +128,7 @@ func (wsc *websocketConn) Read(p []byte) (int, error) {
 
 // Write returns the number of bytes of p sent, not including the header.
 func (wsc *websocketConn) Write(p []byte) (int, error) {
-	// TODO write responses concurrently. Unlike gorilla/websocket, nhooyr.io/websocket
+	// TODO write responses concurrently. Unlike gorilla/websocket, github.com/coder/websocket
 	// permits concurrent writes.
 
 	writeCtx, writeCancel := context.WithTimeout(wsc.ctx, wsc.params.WriteDuration)

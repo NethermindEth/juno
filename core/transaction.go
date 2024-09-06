@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 
@@ -63,11 +64,10 @@ type ResourceBounds struct {
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
-	const eight = 8
-	maxAmountBytes := make([]byte, eight)
+	maxAmountBytes := make([]byte, 8) //nolint:mnd
 	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
 	maxPriceBytes := rb.MaxPricePerUnit.Bytes()
-	return utils.Flatten(
+	return slices.Concat(
 		[]byte{0},
 		[]byte(resource.String()),
 		maxAmountBytes,
@@ -99,6 +99,13 @@ type ExecutionResources struct {
 	BuiltinInstanceCounter BuiltinInstanceCounter
 	MemoryHoles            uint64
 	Steps                  uint64
+	DataAvailability       *DataAvailability
+	TotalGasConsumed       *GasConsumed
+}
+
+type DataAvailability struct {
+	L1Gas     uint64
+	L1DataGas uint64
 }
 
 type BuiltinInstanceCounter struct {
@@ -111,18 +118,9 @@ type BuiltinInstanceCounter struct {
 	Keccak       uint64
 	Poseidon     uint64
 	SegmentArena uint64
-}
-
-type TransactionReceipt struct {
-	Fee                *felt.Felt
-	FeeUnit            FeeUnit
-	Events             []*Event
-	ExecutionResources *ExecutionResources
-	L1ToL2Message      *L1ToL2Message
-	L2ToL1Message      []*L2ToL1Message
-	TransactionHash    *felt.Felt
-	Reverted           bool
-	RevertReason       string
+	AddMod       uint64
+	MulMod       uint64
+	RangeCheck96 uint64
 }
 
 type Transaction interface {
@@ -257,6 +255,7 @@ type InvokeTransaction struct {
 	// Additional information given by the sender, used to validate the transaction.
 	TransactionSignature []*felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction
+	// Available in version 1 only
 	MaxFee *felt.Felt
 	// The address of the contract invoked by this transaction.
 	ContractAddress *felt.Felt
@@ -307,6 +306,7 @@ type DeclareTransaction struct {
 	// The address of the account initiating the transaction.
 	SenderAddress *felt.Felt
 	// The maximum fee that the sender is willing to pay for the transaction.
+	// Available in versions 1, 2
 	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	TransactionSignature []*felt.Felt
@@ -405,6 +405,8 @@ func TransactionHash(transaction Transaction, n *utils.Network) (*felt.Felt, err
 	case *InvokeTransaction:
 		return invokeTransactionHash(t, n)
 	case *DeployTransaction:
+		// it's not always correct assumption because p2p peers do not provide this field
+		// so essentially we might return nil field for non-sepolia network and p2p sync
 		// deploy transactions are deprecated after re-genesis therefore we don't verify
 		// transaction hash
 		return t.TransactionHash, nil
@@ -484,6 +486,23 @@ func declareTransactionHash(d *DeclareTransaction, n *utils.Network) (*felt.Felt
 	switch {
 	case d.Version.Is(0):
 		// Due to inconsistencies in version 0 hash calculation we don't verify the hash
+		if d.TransactionHash == nil {
+			// This is only going to happen when a transaction is received from p2p as no hash is passed along with a p2p transaction.
+			// Therefore, we have to calculate the transaction hash.
+			// This may become problematic if blockifier create a hash which is different from below.
+			h := crypto.PedersenArray(
+				declareFelt,
+				d.Version.AsFelt(),
+				d.SenderAddress,
+				new(felt.Felt),
+				crypto.PedersenArray(),
+				d.MaxFee,
+				n.L2ChainIDFelt(),
+				d.ClassHash,
+			)
+			return h, nil
+		}
+
 		return d.TransactionHash, nil
 	case d.Version.Is(1):
 		return crypto.PedersenArray(
@@ -551,8 +570,7 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n *utils.Network) (*felt.
 }
 
 func deployAccountTransactionHash(d *DeployAccountTransaction, n *utils.Network) (*felt.Felt, error) {
-	callData := []*felt.Felt{d.ClassHash, d.ContractAddressSalt}
-	callData = append(callData, d.ConstructorCallData...)
+	callData := append([]*felt.Felt{d.ClassHash, d.ContractAddressSalt}, d.ConstructorCallData...)
 	// There is no version 0 for deploy account
 	switch {
 	case d.Version.Is(1):
@@ -611,12 +629,12 @@ func VerifyTransactions(txs []Transaction, n *utils.Network, protocolVersion str
 
 const commitmentTrieHeight = 64
 
-// transactionCommitment is the root of a height 64 binary Merkle Patricia tree of the
+// transactionCommitmentPedersen is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitment(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
+func transactionCommitmentPedersen(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	v0_11_1 := semver.MustParse("0.11.1")
-	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
 		blockVersion, err := ParseBlockVersion(protocolVersion)
 		if err != nil {
 			return err
@@ -626,7 +644,7 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 			signatureHash := crypto.PedersenArray()
 
 			// blockVersion >= 0.11.1
-			if blockVersion.Compare(v0_11_1) != -1 {
+			if blockVersion.GreaterThanEqual(v0_11_1) {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			} else if _, ok := transaction.(*InvokeTransaction); ok {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
@@ -634,6 +652,32 @@ func transactionCommitment(transactions []Transaction, protocolVersion string) (
 
 			if _, err = trie.Put(new(felt.Felt).SetUint64(uint64(i)),
 				crypto.Pedersen(transaction.Hash(), signatureHash)); err != nil {
+				return err
+			}
+		}
+		root, err := trie.Root()
+		if err != nil {
+			return err
+		}
+		commitment = root
+		return nil
+	})
+}
+
+func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
+	var commitment *felt.Felt
+	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
+		for i, transaction := range transactions {
+			var digest crypto.PoseidonDigest
+			digest.Update(transaction.Hash())
+
+			if txSignature := transaction.Signature(); len(txSignature) > 0 {
+				digest.Update(txSignature...)
+			} else {
+				digest.Update(&felt.Zero)
+			}
+
+			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), digest.Finish()); err != nil {
 				return err
 			}
 		}
@@ -661,10 +705,72 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	return semver.NewVersion(strings.Join(digits[:3], sep))
 }
 
-// eventCommitment computes the event commitment for a block.
-func eventCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+// eventCommitmentPoseidon computes the event commitment for a block.
+func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
+		eventCount := uint64(0)
+		numWorkers := runtime.GOMAXPROCS(0)
+		receiptPerWorker := len(receipts) / numWorkers
+		if receiptPerWorker == 0 {
+			receiptPerWorker = 1
+		}
+		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
+		var trieMutex sync.Mutex
+
+		for receiptIdx := range receipts {
+			if receiptIdx%receiptPerWorker == 0 {
+				curReceiptIdx := receiptIdx
+				curEventIdx := eventCount
+
+				workerPool.Go(func() error {
+					maxIndex := curReceiptIdx + receiptPerWorker
+					if maxIndex > len(receipts) {
+						maxIndex = len(receipts)
+					}
+					receiptsSliced := receipts[curReceiptIdx:maxIndex]
+
+					for _, receipt := range receiptsSliced {
+						for _, event := range receipt.Events {
+							hashElems := []*felt.Felt{event.From, receipt.TransactionHash}
+							hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(len(event.Keys))))
+							hashElems = append(hashElems, event.Keys...)
+							hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(len(event.Data))))
+							hashElems = append(hashElems, event.Data...)
+
+							eventHash := crypto.PoseidonArray(hashElems...)
+
+							eventTrieKey := new(felt.Felt).SetUint64(curEventIdx)
+							trieMutex.Lock()
+							_, err := trie.Put(eventTrieKey, eventHash)
+							trieMutex.Unlock()
+							if err != nil {
+								return err
+							}
+							curEventIdx++
+						}
+					}
+					return nil
+				})
+			}
+			eventCount += uint64(len(receipts[receiptIdx].Events))
+		}
+		if err := workerPool.Wait(); err != nil {
+			return err
+		}
+		root, err := trie.Root()
+		if err != nil {
+			return err
+		}
+		commitment = root
+		return nil
+	})
+}
+
+// eventCommitmentPedersen computes the event commitment for a block.
+func eventCommitmentPedersen(receipts []*TransactionReceipt) (*felt.Felt, error) {
+	var commitment *felt.Felt
+	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
 		eventCount := uint64(0)
 		numWorkers := runtime.GOMAXPROCS(0)
 		receiptPerWorker := len(receipts) / numWorkers

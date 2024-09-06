@@ -79,12 +79,12 @@ const (
 	DAModeL2
 )
 
-func (m DataAvailabilityMode) MarshalJSON() ([]byte, error) {
+func (m DataAvailabilityMode) MarshalText() ([]byte, error) {
 	switch m {
 	case DAModeL1:
-		return []byte(`"L1"`), nil
+		return []byte("L1"), nil
 	case DAModeL2:
-		return []byte(`"L2"`), nil
+		return []byte("L2"), nil
 	default:
 		return nil, errors.New("unknown resource")
 	}
@@ -104,16 +104,8 @@ func (r Resource) MarshalText() ([]byte, error) {
 	case ResourceL2Gas:
 		return []byte("L2_GAS"), nil
 	default:
-		return nil, errors.New("unknown resource")
+		return nil, fmt.Errorf("unknown resource %v", r)
 	}
-}
-
-func (r Resource) MarshalJSON() ([]byte, error) {
-	result, err := r.MarshalText()
-	if err != nil {
-		return nil, err
-	}
-	return []byte(`"` + string(result) + `"`), nil
 }
 
 type ResourceBounds struct {

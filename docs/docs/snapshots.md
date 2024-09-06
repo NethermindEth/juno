@@ -1,68 +1,88 @@
 ---
-slug: /snapshots
-sidebar_position: 4
 title: Database Snapshots
 ---
 
-To decrease sync times, users may opt to download a Juno database snapshot.
-After downloading a snapshot and starting a Juno node, only recent blocks must be synced.
+# Database Snapshots :camera_flash:
+
+You can download a snapshot of the Juno database to reduce the network syncing time. Only the blocks created after the snapshot will be synced when you run the node.
 
 ## Mainnet
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **76 GB** | **247401** | [**juno_mainnet_247401.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/files/mainnet/latest) |
 
-## Goerli
+## Sepolia
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **36 GB** | **850192** | [**juno_goerli_850192.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.6.0_850192.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
 
-## Goerli2
+## Sepolia-Integration
 
-| Version | Size | Block | Download Link |
-| ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **4.6 GB** | **139043** | [**juno_goerli2_135973.tar**](https://juno-snapshots.nethermind.dev/goerli2/juno_goerli2_v0.6.0_139043.tar) |
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest) |
 
-## Run Juno Using Snapshot
+## Getting snapshot sizes
 
-1. **Download Snapshot**
+```console
+$date
+Thu  1 Aug 2024 09:49:30 BST
 
-   Fetch a snapshot from one of the provided URLs:
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+172.47 GB
 
-   ```bash
-   curl -o juno_mainnet_247401.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.6.3_247401.tar
-   ```
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+5.67 GB
 
-2. **Prepare Directory**
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+2.4 GB
+```
 
-   Ensure you have a directory where you will store the snapshots. We will use `$HOME/snapshots`.
+## Run Juno with a snapshot
 
-   ```bash
-   mkdir -p $HOME/snapshots
-   ```
+### 1. Download the snapshot
 
-3. **Extract Tarball**
+First, download a snapshot from one of the provided URLs:
 
-   Extract the contents of the `.tar` file:
+```bash
+wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/files/mainnet/latest
+```
 
-   ```bash
-   tar -xvf juno_mainnet_247401.tar -C $HOME/snapshots
-   ```
+### 2. Prepare a directory
 
-4. **Run Juno**
+Ensure you have a directory to store the snapshots. We will use the `$HOME/snapshots` directory:
 
-   Execute the Docker command to run Juno, ensuring that you're using the correct snapshot path `$HOME/snapshots/juno_mainnet`:
+```bash
+mkdir -p $HOME/snapshots
+```
 
-   ```bash
-   docker run -d \
-     --name juno \
-     -p 6060:6060 \
-     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
-     nethermind/juno \
-     --http \
-     --db-path /var/lib/juno
-   ```
+### 3. Extract the snapshot
 
-After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.
+Extract the contents of the downloaded `.tar` file into the directory:
+
+```bash
+tar -xvf juno_mainnet.tar -C $HOME/snapshots
+```
+
+### 4. Run Juno
+
+Run the Docker command to start Juno and provide the path to the snapshot using the `db-path` option:
+
+```bash
+docker run -d \
+  --name juno \
+  -p 6060:6060 \
+  -v $HOME/snapshots/juno_mainnet:/snapshots/juno_mainnet \
+  nethermind/juno \
+  --http \
+  --http-port 6060 \
+  --http-host 0.0.0.0 \
+  --db-path /snapshots/juno_mainnet
+  --eth-node <YOUR ETH NODE>
+```
+
+:::info
+Replace \<YOUR ETH NODE\> with the WebSocket endpoint of your Ethereum node. For Infura users, your address should be: `wss://mainnet.infura.io/ws/v3/your-infura-project-id`. Ensure you use the WebSocket URL (`ws`/`wss`) instead of the HTTP URL (`http`/`https`).
+:::

@@ -54,7 +54,7 @@ func TestHeight(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
-		chain := blockchain.New(pebble.NewMemTest(t), &utils.Goerli)
+		chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
@@ -77,7 +77,7 @@ func TestHeight(t *testing.T) {
 }
 
 func TestBlockByNumberAndHash(t *testing.T) {
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Goerli)
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Mainnet)
 		gw := adaptfeeder.New(client)
@@ -268,6 +268,31 @@ func TestStore(t *testing.T) {
 	})
 }
 
+func TestBlockCommitments(t *testing.T) {
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	b, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+
+	su, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	expectedCommitments := &core.BlockCommitments{
+		TransactionCommitment: new(felt.Felt).SetUint64(1),
+		EventCommitment:       new(felt.Felt).SetUint64(2),
+		ReceiptCommitment:     new(felt.Felt).SetUint64(3),
+		StateDiffCommitment:   new(felt.Felt).SetUint64(4),
+	}
+
+	require.NoError(t, chain.Store(b, expectedCommitments, su, nil))
+
+	commitments, err := chain.BlockCommitmentsByNumber(0)
+	require.NoError(t, err)
+	require.Equal(t, expectedCommitments, commitments)
+}
+
 func TestTransactionAndReceipt(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
 
@@ -425,7 +450,7 @@ func TestEvents(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Goerli2)
 	gw := adaptfeeder.New(client)
 
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		b, err := gw.BlockByNumber(context.Background(), uint64(i))
 		require.NoError(t, err)
 		s, err := gw.StateUpdate(context.Background(), uint64(i))

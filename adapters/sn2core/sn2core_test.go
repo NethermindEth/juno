@@ -23,6 +23,8 @@ func TestAdaptBlock(t *testing.T) {
 		sig             *starknet.Signature
 		gasPriceWEI     *felt.Felt
 		gasPriceSTRK    *felt.Felt
+		l1DAGasPriceWEI *felt.Felt
+		l1DAGasPriceFRI *felt.Felt
 	}{
 		{
 			number:      147,
@@ -57,6 +59,21 @@ func TestAdaptBlock(t *testing.T) {
 			gasPriceWEI:  utils.HexToFelt(t, "0x3b9aca08"),
 			gasPriceSTRK: utils.HexToFelt(t, "0x2540be400"),
 		},
+		{
+			number:          330363,
+			network:         utils.Integration,
+			protocolVersion: "0.13.1",
+			sig: &starknet.Signature{
+				Signature: []*felt.Felt{
+					utils.HexToFelt(t, "0x7685fbcd4bacae7554ad17c6962221143911d894d7b8794d29234623f392562"),
+					utils.HexToFelt(t, "0x343e605de3957e664746ba8ef82f2b0f9d53cda3d75dcb078290b8edd010165"),
+				},
+			},
+			gasPriceWEI:     utils.HexToFelt(t, "0x3b9aca0a"),
+			gasPriceSTRK:    utils.HexToFelt(t, "0x2b6fdb70"),
+			l1DAGasPriceWEI: utils.HexToFelt(t, "0x5265a14ef"),
+			l1DAGasPriceFRI: utils.HexToFelt(t, "0x3c0c00c87"),
+		},
 	}
 
 	ctx := context.Background()
@@ -87,6 +104,10 @@ func TestAdaptBlock(t *testing.T) {
 				for i, feederReceipt := range response.Receipts {
 					assert.Equal(t, feederReceipt.ExecutionStatus == starknet.Reverted, block.Receipts[i].Reverted)
 					assert.Equal(t, feederReceipt.RevertError, block.Receipts[i].RevertReason)
+					if feederReceipt.ExecutionResources != nil {
+						assert.Equal(t, (*core.DataAvailability)(feederReceipt.ExecutionResources.DataAvailability),
+							block.Receipts[i].ExecutionResources.DataAvailability)
+					}
 				}
 			}
 			assert.Equal(t, expectedEventCount, block.EventCount)
@@ -101,6 +122,12 @@ func TestAdaptBlock(t *testing.T) {
 
 			assert.Equal(t, test.gasPriceSTRK, block.GasPriceSTRK)
 			assert.Equal(t, test.gasPriceWEI, block.GasPrice)
+			if test.l1DAGasPriceFRI != nil {
+				assert.Equal(t, test.l1DAGasPriceFRI, block.L1DataGasPrice.PriceInFri)
+			}
+			if test.l1DAGasPriceFRI != nil {
+				assert.Equal(t, test.l1DAGasPriceWEI, block.L1DataGasPrice.PriceInWei)
+			}
 		})
 	}
 }
@@ -193,13 +220,13 @@ func TestStateUpdate(t *testing.T) {
 
 func TestClassV0(t *testing.T) {
 	classHashes := []string{
-		"0x79e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
-		"0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0",
-		"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
-		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
+		"0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+		"0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+		"0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
+		"0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
 	}
 
-	client := feeder.NewTestClient(t, &utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
 	ctx := context.Background()
 
 	for _, hashString := range classHashes {
@@ -509,4 +536,10 @@ func TestClassV1(t *testing.T) {
 		assert.Equal(t, v.Selector, v1Class.EntryPoints.L1Handler[i].Selector)
 		assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
 	}
+}
+
+func TestAdaptCompiledClass(t *testing.T) {
+	result, err := sn2core.AdaptCompiledClass(nil)
+	require.NoError(t, err)
+	assert.Nil(t, result)
 }

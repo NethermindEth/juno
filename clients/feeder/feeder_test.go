@@ -310,10 +310,44 @@ func TestBlockHeaderV013Unmarshal(t *testing.T) {
 	require.Equal(t, utils.HexToFelt(t, "0x2a6b9a8b60e1de80dc50e6b704b415a38e8fd03d82244cec92cbff0821a8975"), block.StateRoot)
 	require.Equal(t, "ACCEPTED_ON_L2", block.Status)
 	require.Equal(t, utils.HexToFelt(t, "0x3b9aca08"), block.GasPriceETH())
-	require.Equal(t, utils.HexToFelt(t, "0x2540be400"), block.GasPriceSTRK)
+	require.Equal(t, utils.HexToFelt(t, "0x2540be400"), block.GasPriceSTRK())
 	require.Equal(t, uint64(1700075354), block.Timestamp)
 	require.Equal(t, utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"), block.SequencerAddress)
 	require.Equal(t, "0.13.0", block.Version)
+}
+
+func TestBlockHeaderV0131Unmarshal(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Integration)
+	block, err := client.Block(context.Background(), "330363")
+	require.NoError(t, err)
+
+	require.Equal(t, utils.HexToFelt(t, "0x8ab8117e952f95efd96de0bc66dc6f13fe68dfda14b95fe1972759dee283a8"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x13367121d0b7e34a9b10c8a5a1c269811cd9afc3ce680c88888f1a22d2f017a"), block.TransactionCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x1090dd2ab2aa22bd5fc5a59d3b1394d54461bb2a80156c4b2c2622d2c474ca2"), block.EventCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x3b9aca0a"), block.GasPriceETH())
+	require.Equal(t, utils.HexToFelt(t, "0x2b6fdb70"), block.GasPriceSTRK())
+	require.Equal(t, utils.HexToFelt(t, "0x5265a14ef"), block.L1DataGasPrice.PriceInWei)
+	require.Equal(t, utils.HexToFelt(t, "0x3c0c00c87"), block.L1DataGasPrice.PriceInFri)
+	require.Equal(t, starknet.Blob, block.L1DAMode)
+	require.Equal(t, "0.13.1", block.Version)
+	require.Equal(t, uint64(0), block.Receipts[0].ExecutionResources.DataAvailability.L1Gas)
+	require.Equal(t, uint64(128), block.Receipts[0].ExecutionResources.DataAvailability.L1DataGas)
+}
+
+func TestBlockHeaderv0132Unmarshal(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	block, err := client.Block(context.Background(), "35748")
+	require.NoError(t, err)
+
+	// Only focus on checking the new fields
+	require.Equal(t, utils.HexToFelt(t, "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x77140bef51bbb4d1932f17cc5081825ff18465a1df4440ca0429a4fa80f1dc5"), block.ParentHash)
+	require.Equal(t, utils.HexToFelt(t, "0x6f12628d21a8df7f158b631d801fc0dd20034b9e22eca255bddc0c1c1bc283f"), block.ReceiptCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x23587c54d590b57b8e25acbf1e1a422eb4cd104e95ee4a681021a6bb7456afa"), block.StateDiffCommitment)
+	require.Equal(t, uint64(6), block.StateDiffLength)
+	require.Equal(t, "0.13.2", block.Version)
+	require.Equal(t, uint64(117620), block.Receipts[0].ExecutionResources.TotalGasConsumed.L1Gas)
+	require.Equal(t, uint64(192), block.Receipts[0].ExecutionResources.TotalGasConsumed.L1DataGas)
 }
 
 func TestClassV0Unmarshal(t *testing.T) {
@@ -561,7 +595,7 @@ func TestPublicKey(t *testing.T) {
 
 	actualPublicKey, err := client.PublicKey(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, "0x507b38d81561baa02f718dae46c371ba9f72fc5f0e9535ca94559dfb776115b", actualPublicKey.String())
+	assert.Equal(t, "0x52934be54ce926b1e715f15dc2542849a97ecfdf829cd0b7384c64eeeb2264e", actualPublicKey.String())
 }
 
 func TestSignature(t *testing.T) {

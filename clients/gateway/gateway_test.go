@@ -14,7 +14,7 @@ func TestAddInvokeTx(t *testing.T) {
 	client := gateway.NewTestClient(t)
 
 	t.Run("Correct request", func(t *testing.T) {
-		invokeTx := "{\"max_fee\":\"0x1\",\"version\":\"0x1\",\"signature\":[],\"nonce\":\"0x1\",\"type\":\"INVOKE\",\"sender_address\":\"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb\",\"calldata\":[]}"
+		invokeTx := `{"max_fee":"0x1","version":"0x1","signature":[],"nonce":"0x1","type":"INVOKE","sender_address":"0x326e3db4580b94948ca9d1d87fa359f2fa047a31a34757734a86aa4231fb9bb","calldata":[]}`
 
 		invokeTxByte, err := json.Marshal(invokeTx)
 		require.NoError(t, err)

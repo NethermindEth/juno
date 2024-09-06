@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,12 +24,11 @@ func TestConfigPrecedence(t *testing.T) {
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
 
-	// The purpose of these tests are to ensure the precedence of our config
+	// The purpose of these tests is to ensure the precedence of our config
 	// values is respected. Since viper offers this feature, it would be
 	// redundant to enumerate all combinations. Thus, only a select few are
 	// tested for sanity. These tests are not intended to perform semantics
-	// checks on the config, those will be checked by the StarknetNode
-	// implementation.
+	// checks on the config, those will be checked by the node implementation.
 	defaultHost := "localhost"
 	defaultLogLevel := utils.INFO
 	defaultHTTP := false
@@ -57,11 +57,13 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
-	defaultPendingPollInterval := time.Duration(0)
+	defaultPendingPollInterval := 5 * time.Second
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(8)
 	defaultMaxHandles := 1024
+	defaultCallMaxSteps := uint(4_000_000)
+	defaultGwTimeout := 5 * time.Second
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -106,6 +108,8 @@ func TestConfigPrecedence(t *testing.T) {
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"custom network config file": {
@@ -149,6 +153,8 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"default config with no flags": {
@@ -179,6 +185,8 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file path is empty string": {
@@ -209,6 +217,8 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file doesn't exist": {
@@ -244,6 +254,8 @@ cn-unverifiable-range: [0,10]
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -252,7 +264,7 @@ cn-unverifiable-range: [0,10]
 http-host: 0.0.0.0
 http-port: 4576
 db-path: /home/.juno
-network: goerli2
+network: sepolia
 pprof: true
 `,
 			expectedConfig: &node.Config{
@@ -270,7 +282,7 @@ pprof: true
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.Goerli2,
+				Network:             utils.Sepolia,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -281,6 +293,8 @@ pprof: true
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -315,44 +329,14 @@ http-port: 4576
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"all flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--network", "goerli", "--pprof", "--db-cache-size", "8",
-			},
-			expectedConfig: &node.Config{
-				LogLevel:        utils.DEBUG,
-				HTTP:            defaultHTTP,
-				HTTPHost:        "0.0.0.0",
-				HTTPPort:        4576,
-				Websocket:       defaultWS,
-				WebsocketHost:   defaultHost,
-				WebsocketPort:   defaultWSPort,
-				GRPC:            defaultGRPC,
-				GRPCHost:        defaultHost,
-				GRPCPort:        defaultGRPCPort,
-				Metrics:         defaultMetrics,
-				MetricsHost:     defaultHost,
-				MetricsPort:     defaultMetricsPort,
-				DatabasePath:    "/home/.juno",
-				Network:         utils.Goerli,
-				Pprof:           true,
-				PprofHost:       defaultHost,
-				PprofPort:       defaultPprofPort,
-				Colour:          defaultColour,
-				MaxVMs:          defaultMaxVMs,
-				MaxVMQueue:      2 * defaultMaxVMs,
-				RPCMaxBlockScan: defaultRPCMaxBlockScan,
-				DBCacheSize:     defaultMaxCacheSize,
-				DBMaxHandles:    defaultMaxHandles,
-			},
-		},
-		"some flags without config file": {
-			inputArgs: []string{
-				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0", "--db-path", "/home/.juno",
-				"--network", "integration",
+				"--db-path", "/home/.juno", "--network", "sepolia-integration", "--pprof", "--db-cache-size", "8",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
@@ -369,7 +353,42 @@ http-port: 4576
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/.juno",
-				Network:             utils.Integration,
+				Network:             utils.SepoliaIntegration,
+				Pprof:               true,
+				PprofHost:           defaultHost,
+				PprofPort:           defaultPprofPort,
+				Colour:              defaultColour,
+				MaxVMs:              defaultMaxVMs,
+				MaxVMQueue:          2 * defaultMaxVMs,
+				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
+				DBCacheSize:         defaultMaxCacheSize,
+				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
+				PendingPollInterval: defaultPendingPollInterval,
+			},
+		},
+		"some flags without config file": {
+			inputArgs: []string{
+				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0", "--db-path", "/home/.juno",
+				"--network", "sepolia",
+			},
+			expectedConfig: &node.Config{
+				LogLevel:            utils.DEBUG,
+				HTTP:                defaultHTTP,
+				HTTPHost:            "0.0.0.0",
+				HTTPPort:            4576,
+				Websocket:           defaultWS,
+				WebsocketHost:       defaultHost,
+				WebsocketPort:       defaultWSPort,
+				GRPC:                defaultGRPC,
+				GRPCHost:            defaultHost,
+				GRPCPort:            defaultGRPCPort,
+				Metrics:             defaultMetrics,
+				MetricsHost:         defaultHost,
+				MetricsPort:         defaultMetricsPort,
+				DatabasePath:        "/home/.juno",
+				Network:             utils.Sepolia,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -380,6 +399,8 @@ http-port: 4576
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -398,7 +419,7 @@ grpc: true
 grpc-host: 0.0.0.0
 grpc-port: 4576
 db-path: /home/config-file/.juno
-network: goerli
+network: sepolia
 pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
@@ -408,7 +429,7 @@ db-cache-size: 8
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
-				"--db-path", "/home/flag/.juno", "--network", "integration", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
+				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
 				"--db-cache-size", "9",
 			},
 			expectedConfig: &node.Config{
@@ -426,7 +447,7 @@ db-cache-size: 8
 				GRPCHost:            "127.0.0.1",
 				GRPCPort:            4577,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.Integration,
+				Network:             utils.Mainnet,
 				Pprof:               true,
 				PprofHost:           "0.0.0.0",
 				PprofPort:           6064,
@@ -437,6 +458,8 @@ db-cache-size: 8
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         9,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -444,7 +467,7 @@ db-cache-size: 8
 			cfgFileContents: `log-level: warn
 http-host: 0.0.0.0
 http-port: 4576
-network: goerli
+network: sepolia
 `,
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
@@ -462,7 +485,7 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.Goerli,
+				Network:             utils.Sepolia,
 				Pprof:               defaultPprof,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -473,11 +496,13 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in default, config file and flags": {
 			cfgFile:         true,
-			cfgFileContents: `network: goerli2`,
+			cfgFileContents: `network: sepolia-integration`,
 			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
@@ -494,7 +519,7 @@ network: goerli
 				MetricsHost:         defaultHost,
 				MetricsPort:         defaultMetricsPort,
 				DatabasePath:        "/home/flag/.juno",
-				Network:             utils.Goerli2,
+				Network:             utils.SepoliaIntegration,
 				Pprof:               true,
 				PprofHost:           defaultHost,
 				PprofPort:           defaultPprofPort,
@@ -505,6 +530,8 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"only set env variables": {
@@ -535,6 +562,8 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -566,6 +595,8 @@ network: goerli
 				RPCMaxBlockScan:     defaultRPCMaxBlockScan,
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -598,9 +629,13 @@ network: goerli
 				DBCacheSize:         defaultMaxCacheSize,
 				GatewayAPIKey:       "apikey",
 				DBMaxHandles:        defaultMaxHandles,
+				RPCCallMaxSteps:     defaultCallMaxSteps,
+				GatewayTimeout:      defaultGwTimeout,
 			},
 		},
 	}
+
+	junoEnv := unsetJunoPrefixedEnv(t)
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -613,7 +648,7 @@ network: goerli
 
 			if len(tc.env) > 0 {
 				for i := 0; i < len(tc.env)/2; i++ {
-					os.Setenv(tc.env[2*i], tc.env[2*i+1])
+					require.NoError(t, os.Setenv(tc.env[2*i], tc.env[2*i+1]))
 				}
 			}
 
@@ -631,11 +666,17 @@ network: goerli
 			assert.Equal(t, tc.expectedConfig, config)
 			if len(tc.env) > 0 {
 				for i := 0; i < len(tc.env)/2; i++ {
-					os.Unsetenv(tc.env[2*i])
+					require.NoError(t, os.Unsetenv(tc.env[2*i]))
 				}
 			}
 		})
 	}
+	setJunoPrefixedEnv(t, junoEnv)
+}
+
+func TestGenP2PKeyPair(t *testing.T) {
+	cmd := juno.GenP2PKeyPair()
+	require.NoError(t, cmd.Execute())
 }
 
 func tempCfgFile(t *testing.T, cfg string) string {
@@ -654,4 +695,30 @@ func tempCfgFile(t *testing.T, cfg string) string {
 	require.NoError(t, f.Sync())
 
 	return f.Name()
+}
+
+func unsetJunoPrefixedEnv(t *testing.T) map[string]string {
+	t.Helper()
+
+	const prefix = "JUNO_"
+	junoEnv := make(map[string]string)
+
+	for _, e := range os.Environ() {
+		pair := strings.Split(e, "=")
+		k, v := pair[0], pair[1]
+
+		if strings.HasPrefix(k, prefix) {
+			junoEnv[k] = v
+
+			require.NoError(t, os.Unsetenv(k))
+		}
+	}
+	return junoEnv
+}
+
+func setJunoPrefixedEnv(t *testing.T, env map[string]string) {
+	t.Helper()
+	for k, v := range env {
+		require.NoError(t, os.Setenv(k, v))
+	}
 }

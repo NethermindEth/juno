@@ -9,7 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-const contractStorageTrieHeight = 251
+// contract storage has fixed height at 251
+const ContractStorageTrieHeight = 251
 
 var (
 	ErrContractNotDeployed     = errors.New("contract not deployed")
@@ -68,7 +69,7 @@ func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallD
 	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
 	callDataHash := crypto.PedersenArray(constructorCallData...)
 
-	// https://docs.starknet.io/documentation/architecture_and_concepts/Contracts/contract-address
+	// https://docs.starknet.io/architecture-and-concepts/smart-contracts/contract-address/
 	return crypto.PedersenArray(
 		prefix,
 		callerAddress,
@@ -164,11 +165,7 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 		}
 	}
 
-	if err = cStorage.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return cStorage.Commit()
 }
 
 func ContractStorage(addr, key *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
@@ -207,6 +204,6 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 // storage of the contract.
 func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
-	trieTxn := trie.NewTransactionStorage(txn, db.ContractStorage.Key(addrBytes))
-	return trie.NewTriePedersen(trieTxn, contractStorageTrieHeight)
+	trieTxn := trie.NewStorage(txn, db.ContractStorage.Key(addrBytes))
+	return trie.NewTriePedersen(trieTxn, ContractStorageTrieHeight)
 }

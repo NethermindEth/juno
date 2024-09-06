@@ -2,19 +2,18 @@ package utils
 
 import (
 	"encoding"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/spf13/pflag"
 )
 
-var errUnknownNetwork = errors.New("unknown network (known: mainnet, goerli, goerli2, integration)")
+var errUnknownNetwork = fmt.Errorf("unknown network (known: %s)",
+	strings.Join(knownNetworkNames(), ", "),
+)
 
 type Network struct {
 	Name                string             `json:"name" validate:"required"`
@@ -42,7 +41,7 @@ var (
 	_ pflag.Value              = (*Network)(nil)
 	_ encoding.TextUnmarshaler = (*Network)(nil)
 
-	// The docs states the addresses for each network: https://docs.starknet.io/documentation/useful_info/
+	// The docs states the addresses for each network: https://docs.starknet.io/tools/important-addresses/
 	Mainnet = Network{
 		Name:                "mainnet",
 		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway/",
@@ -60,7 +59,7 @@ var (
 		FeederURL:  "https://alpha4.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha4.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xde29d060D45901Fb19ED6C6e959EB22d8626708e"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -74,7 +73,7 @@ var (
 		FeederURL:  "https://alpha4-2.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha4-2.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI2",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xa4eD3aD27c294565cB0DCc993BDdCC75432D498c"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -87,7 +86,7 @@ var (
 		FeederURL:  "https://external.integration.starknet.io/feeder_gateway/",
 		GatewayURL: "https://external.integration.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(5),
 		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -101,7 +100,7 @@ var (
 		FeederURL:  "https://alpha-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_SEPOLIA",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -114,7 +113,7 @@ var (
 		FeederURL:  "https://integration-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://integration-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_INTEGRATION_SEPOLIA",
-		//nolint:gomnd
+		//nolint:mnd
 		L1ChainID:           big.NewInt(11155111),
 		CoreContractAddress: common.HexToAddress("0x4737c0c1B4D5b1A687B42610DdabEE781152359c"),
 		BlockHashMetaInfo: &BlockHashMetaInfo{
@@ -132,16 +131,13 @@ func (n *Network) MarshalYAML() (any, error) {
 	return n.String(), nil
 }
 
-func (n *Network) MarshalJSON() ([]byte, error) {
-	return json.RawMessage(`"` + n.String() + `"`), nil
+func (n *Network) MarshalText() ([]byte, error) {
+	return []byte(n.String()), nil
 }
 
 func (n *Network) Set(s string) error {
 	predefinedNetworks := map[string]Network{
 		"mainnet":             Mainnet,
-		"goerli":              Goerli,
-		"goerli2":             Goerli2,
-		"integration":         Integration,
 		"sepolia":             Sepolia,
 		"sepolia-integration": SepoliaIntegration,
 	}
@@ -165,6 +161,10 @@ func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
 }
 
-func (n *Network) ProtocolID() protocol.ID {
-	return protocol.ID(fmt.Sprintf("/starknet/%s", n.String()))
+func knownNetworkNames() []string {
+	networks := []Network{Mainnet, Sepolia, SepoliaIntegration}
+
+	return Map(networks, func(n Network) string {
+		return n.String()
+	})
 }

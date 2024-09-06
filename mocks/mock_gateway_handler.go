@@ -5,6 +5,7 @@
 //
 //	mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 //
+
 // Package mocks is a generated GoMock package.
 package mocks
 

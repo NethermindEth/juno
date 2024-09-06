@@ -18,7 +18,7 @@ func JunoFree(ptr unsafe.Pointer) {
 }
 
 //export JunoStateGetStorageAt
-func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLocation unsafe.Pointer) unsafe.Pointer {
+func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLocation, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
 
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
@@ -27,16 +27,16 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Errorw("JunoStateGetStorageAt failed to read contract storage", "err", err)
-			return nil
+			return 0
 		}
 		val = &felt.Zero
 	}
 
-	return makePtrFromFelt(val)
+	return fillBufferWithFelt(val, buffer)
 }
 
 //export JunoStateGetNonceAt
-func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress unsafe.Pointer) unsafe.Pointer {
+func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
 
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
@@ -44,16 +44,16 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress unsafe.Pointe
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Errorw("JunoStateGetNonceAt failed to read contract nonce", "err", err)
-			return nil
+			return 0
 		}
 		val = &felt.Zero
 	}
 
-	return makePtrFromFelt(val)
+	return fillBufferWithFelt(val, buffer)
 }
 
 //export JunoStateGetClassHashAt
-func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress unsafe.Pointer) unsafe.Pointer {
+func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
 
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
@@ -61,12 +61,12 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress unsafe.Po
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			context.log.Errorw("JunoStateGetClassHashAt failed to read contract class", "err", err)
-			return nil
+			return 0
 		}
 		val = &felt.Zero
 	}
 
-	return makePtrFromFelt(val)
+	return fillBufferWithFelt(val, buffer)
 }
 
 //export JunoStateGetCompiledClass
@@ -82,11 +82,16 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		return nil
 	}
 
-	compiledClass, err := marshalCompiledClass(val.Class)
+	compiledClass, err := marshalClassInfo(val.Class)
 	if err != nil {
 		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class", "err", err)
 		return nil
 	}
 
 	return unsafe.Pointer(cstring(compiledClass))
+}
+
+func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) C.int {
+	feltBytes := val.Bytes()
+	return C.int(copy(unsafe.Slice((*byte)(buffer), felt.Bytes), feltBytes[:]))
 }

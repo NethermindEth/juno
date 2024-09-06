@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ var levelStrings = map[utils.LogLevel]string{
 	utils.INFO:  "info",
 	utils.WARN:  "warn",
 	utils.ERROR: "error",
+	utils.TRACE: "trace",
 }
 
 func TestLogLevelString(t *testing.T) {
@@ -75,7 +77,7 @@ func TestLogLevelUnmarshalText(t *testing.T) {
 func TestLogLevelMarshalJSON(t *testing.T) {
 	for level, str := range levelStrings {
 		t.Run("level "+str, func(t *testing.T) {
-			lb, err := level.MarshalJSON()
+			lb, err := json.Marshal(&level)
 			require.NoError(t, err)
 
 			expectedStr := `"` + str + `"`

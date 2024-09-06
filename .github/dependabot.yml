@@ -1,16 +1,26 @@
 version: 2
 updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    open-pull-requests-limit: 3
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/"
+    open-pull-requests-limit: 3
+    schedule:
+      interval: "weekly"
   - package-ecosystem: "gomod"
     directory: "/"
+    open-pull-requests-limit: 3
     schedule:
-      interval: "daily"
+      interval: "weekly"
   - package-ecosystem: "cargo"
     directory: "/vm/rust"
+    open-pull-requests-limit: 3
     schedule:
-      interval: "daily"
-  - package-ecosystem: "npm"
-    directory: "/docs"
-    schedule:
-      interval: "monthly"
+      interval: "weekly"
     ignore:
-      - dependency-name: "*"
+      - dependency-name: "cairo-vm"
+      - dependency-name: "starknet_api"
+      - dependency-name: "blockifier"

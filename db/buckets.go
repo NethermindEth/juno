@@ -1,7 +1,8 @@
 package db
 
-import "bytes"
+import "slices"
 
+//go:generate go run github.com/dmarkham/enumer -type=Bucket -output=buckets_enumer.go
 type Bucket byte
 
 // Pebble does not support buckets to differentiate between groups of
@@ -9,7 +10,7 @@ type Bucket byte
 // man's bucket alternative.
 const (
 	StateTrie         Bucket = iota // state metadata (e.g., the state root)
-	Unused                          // Previously held contract storage roots and is now unused. May be reused in the future.
+	Peer                            // maps peer ID to peer multiaddresses
 	ContractClassHash               // maps contract addresses and class hashes
 	ContractStorage                 // contract storages
 	Class                           // maps class hashes to classes
@@ -36,5 +37,5 @@ const (
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
 func (b Bucket) Key(key ...[]byte) []byte {
-	return append([]byte{byte(b)}, bytes.Join(key, []byte{})...)
+	return append([]byte{byte(b)}, slices.Concat(key...)...)
 }
