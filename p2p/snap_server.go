@@ -159,8 +159,11 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 				RangeProof: Core2P2pProof(proofs),
 			}
 
-			shouldContinue := yield(clsMsg)
-			if finished || !shouldContinue {
+			if !yield(clsMsg) {
+				// we should not send `FinMsg` when the client explicitly asks to stop
+				return
+			}
+			if finished {
 				break
 			}
 			startAddr = classkeys[len(classkeys)-1]
@@ -250,8 +253,11 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 				},
 			}
 
-			shouldContinue := yield(cntrMsg)
-			if finished || !shouldContinue {
+			if !yield(cntrMsg) {
+				// we should not send `FinMsg` when the client explicitly asks to stop
+				return
+			}
+			if finished {
 				break
 			}
 		}
@@ -276,6 +282,8 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 
 		var curNodeLimit uint32 = 1000000
 
+		// shouldContinue is a return value from the yield function which specify whether the iteration should continue
+		var shouldContinue bool = true
 		for _, query := range request.Query {
 			contractLimit := curNodeLimit
 
@@ -297,7 +305,7 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 							},
 						},
 					}
-					if !yield(stoMsg) {
+					if shouldContinue = yield(stoMsg); !shouldContinue {
 						return false
 					}
 					return true
@@ -314,8 +322,10 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 				break
 			}
 		}
-
-		yield(finMsg)
+		if shouldContinue {
+			// we should `Fin` only when client expects iteration to continue
+			yield(finMsg)
+		}
 	}, nil
 }
 
@@ -326,8 +336,8 @@ func (b *snapServer) GetClasses(request *spec.ClassHashesRequest) (iter.Seq[prot
 
 	return func(yield yieldFunc) {
 		felts := make([]*felt.Felt, len(request.ClassHashes))
-		for _, hash := range request.ClassHashes {
-			felts = append(felts, p2p2core.AdaptHash(hash))
+		for i, hash := range request.ClassHashes {
+			felts[i] = p2p2core.AdaptHash(hash)
 		}
 
 		coreClasses, err := b.blockchain.GetClasses(felts)
@@ -343,7 +353,8 @@ func (b *snapServer) GetClasses(request *spec.ClassHashesRequest) (iter.Seq[prot
 				},
 			}
 			if !yield(clsMsg) {
-				break
+				// we should not send `FinMsg` when the client explicitly asks to stop
+				return
 			}
 		}
 

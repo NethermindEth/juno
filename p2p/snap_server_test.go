@@ -1,15 +1,14 @@
 package p2p
 
 import (
-	"context"
 	"fmt"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -19,8 +18,10 @@ import (
 )
 
 func TestClassRange(t *testing.T) {
+	// Note: set to true to make test super long to complete
+	shouldFetchAllClasses := false
 	var d db.DB
-	//t.Skip("DB snapshot is needed for this test")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -37,31 +38,50 @@ func TestClassRange(t *testing.T) {
 	}
 
 	startRange := (&felt.Felt{}).SetUint64(0)
+	finMsgReceived := false
+	chunksReceived := 0
 
 	chunksPerProof := 150
-	var classResult *ClassRangeStreamingResult
-	iter, err := server.GetClassRange(context.Background(),
+	iter, err := server.GetClassRange(
 		&spec.ClassRangeRequest{
 			Root:           core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptHash(startRange),
 			ChunksPerProof: uint32(chunksPerProof),
 		})
-	if err != nil {
-		fmt.Printf("err %s\n", err)
-		t.Fatal(err)
-	}
-	iter(func(result *ClassRangeStreamingResult) bool {
-		if result != nil {
-			classResult = result
+	assert.NoError(t, err)
+
+	for res := range iter {
+		assert.NotNil(t, res)
+
+		resT, ok := res.(*spec.ClassRangeResponse)
+		assert.True(t, ok)
+		assert.NotNil(t, resT)
+
+		switch v := resT.GetResponses().(type) {
+		case *spec.ClassRangeResponse_Classes:
+			assert.True(t, chunksPerProof >= len(v.Classes.Classes))
+			classesRoot := p2p2core.AdaptHash(resT.ClassesRoot)
+			contractsRoot := p2p2core.AdaptHash(resT.ContractsRoot)
+			verifyErr := VerifyGlobalStateRoot(stateRoot, classesRoot, contractsRoot)
+			assert.NoError(t, verifyErr)
+			chunksReceived++
+		case *spec.ClassRangeResponse_Fin:
+			finMsgReceived = true
 		}
 
-		return false
-	})
+		if !shouldFetchAllClasses {
+			break
+		}
+	}
 
-	assert.NotNil(t, classResult)
-	assert.Equal(t, chunksPerProof, len(classResult.Range.Classes))
-	verifyErr := VerifyGlobalStateRoot(stateRoot, classResult.ClassesRoot, classResult.ContractsRoot)
-	assert.NoError(t, verifyErr)
+	if !shouldFetchAllClasses {
+		assert.Equal(t, 1, chunksReceived)
+		assert.False(t, finMsgReceived)
+	} else {
+		fmt.Printf("ClassesReceived: \t%d\n", chunksReceived)
+		assert.True(t, finMsgReceived)
+		assert.True(t, chunksReceived > 1)
+	}
 }
 
 func TestContractRange(t *testing.T) {
@@ -83,10 +103,10 @@ func TestContractRange(t *testing.T) {
 	}
 
 	startRange := (&felt.Felt{}).SetUint64(0)
+	chunksReceived := 0
 
 	chunksPerProof := 150
-	var contractResult *ContractRangeStreamingResult
-	ctrIter, err := server.GetContractRange(context.Background(),
+	ctrIter, err := server.GetContractRange(
 		&spec.ContractRangeRequest{
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			Start:          core2p2p.AdaptAddress(startRange),
@@ -94,23 +114,61 @@ func TestContractRange(t *testing.T) {
 		})
 	assert.NoError(t, err)
 
-	ctrIter(func(result *ContractRangeStreamingResult) bool {
-		if err != nil {
-			fmt.Printf("err %s\n", err)
-			t.Fatal(err)
+	for res := range ctrIter {
+		assert.NotNil(t, res)
+
+		resT, ok := res.(*spec.ContractRangeResponse)
+		assert.True(t, ok)
+		assert.NotNil(t, resT)
+
+		switch v := resT.GetResponses().(type) {
+		case *spec.ContractRangeResponse_Range:
+			assert.True(t, chunksPerProof == len(v.Range.State))
+			classesRoot := p2p2core.AdaptHash(resT.ClassesRoot)
+			contractsRoot := p2p2core.AdaptHash(resT.ContractsRoot)
+			verifyErr := VerifyGlobalStateRoot(stateRoot, classesRoot, contractsRoot)
+			assert.NoError(t, verifyErr)
+			chunksReceived++
+		default:
+			// we expect no any other message only just one range because we break the iteration
+			t.Fatal("received unexpected message", "type", v)
 		}
 
-		if result != nil {
-			contractResult = result
-		}
+		// we don't need to fetch all contracts
+		break
+	}
 
-		return false
-	})
+	assert.Equal(t, 1, chunksReceived)
+}
 
-	assert.NotNil(t, contractResult)
-	assert.Equal(t, chunksPerProof, len(contractResult.Range))
-	verifyErr := VerifyGlobalStateRoot(stateRoot, contractResult.ClassesRoot, contractResult.ContractsRoot)
-	assert.NoError(t, verifyErr)
+func TestContractRange_FinMsg_Received(t *testing.T) {
+	// TODO: Fix the test so it demonstrated FinMsg is returned at the iteration end
+	t.Skip("Fix me")
+	var d db.DB = pebble.NewMemTest(t)
+	bc := blockchain.New(d, &utils.Sepolia)
+	defer bc.Close()
+	server := &snapServer{blockchain: bc}
+
+	zero := new(felt.Felt).SetUint64(0)
+	iter, err := server.GetContractRange(
+		&spec.ContractRangeRequest{
+			StateRoot:      core2p2p.AdaptHash(zero),
+			Start:          core2p2p.AdaptAddress(zero),
+			ChunksPerProof: uint32(10),
+		})
+	assert.NoError(t, err)
+	fmt.Printf("All Good!\n")
+
+	finMsgReceived := false
+	for res := range iter {
+		assert.NotNil(t, res)
+		resT, ok := res.(*spec.ContractRangeResponse)
+		assert.True(t, ok)
+		assert.NotNil(t, resT)
+		assert.IsType(t, spec.ContractRangeResponse_Fin{}, resT)
+		finMsgReceived = true
+	}
+	assert.True(t, finMsgReceived)
 }
 
 func TestContractStorageRange(t *testing.T) {
@@ -157,10 +215,10 @@ func TestContractStorageRange(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%.7s...", test.address), func(t *testing.T) {
-			request := &StorageRangeRequest{
-				StateRoot:     stateRoot,
-				ChunkPerProof: 100,
-				Queries: []*spec.StorageRangeQuery{
+			request := &spec.ContractStorageRequest{
+				StateRoot:      core2p2p.AdaptHash(stateRoot),
+				ChunksPerProof: 100,
+				Query: []*spec.StorageRangeQuery{
 					{
 						Address: core2p2p.AdaptAddress(test.address),
 						Start: &spec.StorageLeafQuery{
@@ -174,19 +232,29 @@ func TestContractStorageRange(t *testing.T) {
 
 			keys := make([]*felt.Felt, 0, test.expectedLeaves)
 			vals := make([]*felt.Felt, 0, test.expectedLeaves)
-			stoIter, err := server.GetStorageRange(context.Background(), request)
+			stoIter, err := server.GetStorageRange(request)
 			assert.NoError(t, err)
 
-			stoIter(func(result *StorageRangeStreamingResult) bool {
-				if result != nil {
-					for _, r := range result.Range {
+			finMsgReceived := false
+			for res := range stoIter {
+				assert.NotNil(t, res)
+				resT, ok := res.(*spec.ContractStorageResponse)
+				assert.True(t, ok)
+				assert.NotNil(t, resT)
+
+				switch v := resT.GetResponses().(type) {
+				case *spec.ContractStorageResponse_Storage:
+					assert.False(t, finMsgReceived)
+					for _, r := range v.Storage.KeyValue {
 						keys = append(keys, p2p2core.AdaptFelt(r.Key))
 						vals = append(vals, p2p2core.AdaptFelt(r.Value))
 					}
+				case *spec.ContractStorageResponse_Fin:
+					// we expect just one fin message at the iteration end
+					finMsgReceived = true
 				}
-
-				return true
-			})
+			}
+			assert.True(t, finMsgReceived)
 
 			fmt.Println("Address:", test.address, "storage length:", len(keys))
 			assert.Equal(t, test.expectedLeaves, len(keys))
@@ -196,6 +264,62 @@ func TestContractStorageRange(t *testing.T) {
 			assert.False(t, hasMore)
 		})
 	}
+}
+
+func TestGetClassesByHash(t *testing.T) {
+	var d db.DB
+	t.Skip("DB snapshot is needed for this test")
+	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
+
+	b, err := bc.Head()
+	assert.NoError(t, err)
+
+	fmt.Printf("headblock %d\n", b.Number)
+
+	server := &snapServer{
+		blockchain: bc,
+	}
+
+	hashes := []*spec.Hash{
+		// Block <number>, type v0
+		core2p2p.AdaptHash(feltFromString("0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909")),
+		// Block <number>, type v0
+		core2p2p.AdaptHash(feltFromString("0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43")),
+		// Block <number>, type v0
+		core2p2p.AdaptHash(feltFromString("0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3")),
+		// Block <number>, type v0
+		core2p2p.AdaptHash(feltFromString("0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0")),
+	}
+
+	finMsgReceived := false
+	iter, err := server.GetClasses(
+		&spec.ClassHashesRequest{
+			ClassHashes: hashes,
+		})
+	assert.NoError(t, err)
+
+	i := 0
+	for res := range iter {
+		assert.NotNil(t, res)
+
+		resT, ok := res.(*spec.ClassesResponse)
+		assert.True(t, ok)
+		assert.NotNil(t, resT)
+
+		switch v := resT.GetClassMessage().(type) {
+		case *spec.ClassesResponse_Class:
+			assert.True(t, i < len(hashes))
+			assert.Equal(t, v.Class.GetClassHash(), hashes[i])
+		case *spec.ClassesResponse_Fin:
+			assert.Equal(t, len(hashes), i)
+			finMsgReceived = true
+		}
+
+		i++
+	}
+	assert.True(t, finMsgReceived)
 }
 
 func feltFromString(str string) *felt.Felt {
