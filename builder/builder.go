@@ -118,12 +118,14 @@ func (b *Builder) WithJunoEndpoint(endpoint string) *Builder {
 func (b *Builder) Run(ctx context.Context) error {
 	signFunc := b.Sign
 	if b.shadowMode {
+		b.log.Debugw("b.shadowMode")
 		signFunc = nil
-		syncToBlockNum := uint64(129755) // Todo: skipped problematic transaction in block 129751
+		syncToBlockNum := uint64(133373) // Todo: skipped problematic transaction in block 129751,133371
 		block, err := b.bc.Head()
 		if err != nil {
 			return err
 		}
+		b.log.Debugw("attempting to sycn-store from block %i to %i", block.Number, syncToBlockNum)
 		if block.Number < syncToBlockNum {
 			if err := b.syncStore(block.Number, syncToBlockNum); err != nil {
 				return err

@@ -1202,16 +1202,6 @@ func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpd
 	}
 
 	if !shadowCommitments.EventCommitment.Equal(sequenceCommitments.EventCommitment) {
-		// for _, rec := range shadowBlock.Receipts {
-		// for _, event := range rec.Events {
-		// 	fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
-		// }
-		// }
-		// for _, rec := range sequenceBlock.Receipts {
-		// 	for _, event := range rec.Events {
-		// 		fmt.Printf("\nevent, from %v, key %v, data %v\n", event.From.String(), event.Keys, event.Data)
-		// 	}
-		// }
 		return fmt.Errorf("event commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.EventCommitment, sequenceCommitments.EventCommitment)
 	}
 
