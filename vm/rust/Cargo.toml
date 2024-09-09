@@ -8,17 +8,17 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-blockifier = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.7.x" }
-starknet_api = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.7.x" }
-cairo-lang-sierra = "2.7.0"
-cairo-lang-starknet = "2.7.0"
-cairo-lang-starknet-classes = "2.7.0"
+blockifier = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.8.x" }
+starknet_api = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.8.x" }
+cairo-lang-sierra = "2.8.0"
+cairo-lang-starknet = "2.8.0"
+cairo-lang-starknet-classes = "2.8.0"
 starknet-types-core = { version = "0.1.5", features = [
-    "hash",
-    "prime-bigint",
-    "serde",
+  "hash",
+  "prime-bigint",
+  "serde",
 ] }
-cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "589c64eeeba62fc0051e307d2431f5da29f4a14c" }
+cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "4355357697e9ab57ab88ae3a4282aac61455619e" }
 cairo-vm = "1.0.0"
 indexmap = "2.1.0"
 cached = "0.46.1"
@@ -49,22 +49,22 @@ url = "2.5.2"
 # pprof with libunwind doesn't work on macOS therefore we use frame-pointer
 [target.'cfg(target_os = "macos")'.dev-dependencies]
 pprof = { version = "0.13.0", features = [
-    "criterion",
-    # Needs to output protobuf to analyse the traces with the google's pprof
-    "_protobuf",
-    "protobuf",
-    "protobuf-codec",
-    "frame-pointer",
+  "criterion",
+  # Needs to output protobuf to analyse the traces with the google's pprof
+  "_protobuf",
+  "protobuf",
+  "protobuf-codec",
+  "frame-pointer",
 ] }
 
 # On Linux (x86-64) we use libunwind as frame-pointer doesn't provide enough information.
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 pprof = { version = "0.13.0", features = [
-    "criterion",
-    # Needs to output protobuf to analyse the traces with the google's pprof
-    "_protobuf",
-    "protobuf",
-    "protobuf-codec",
+  "criterion",
+  # Needs to output protobuf to analyse the traces with the google's pprof
+  "_protobuf",
+  "protobuf",
+  "protobuf-codec",
 ] }
 
 [dev-dependencies]
