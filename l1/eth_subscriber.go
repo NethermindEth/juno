@@ -54,22 +54,23 @@ func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *co
 func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
 	reqTimer := time.Now()
 	chainID, err := s.ethClient.ChainID(ctx)
-	s.listener.OnL1Call("eth_chainId", time.Since(reqTimer))
 	if err != nil {
 		return nil, fmt.Errorf("get chain ID: %w", err)
 	}
+	s.listener.OnL1Call("eth_chainId", time.Since(reqTimer))
+
 	return chainID, nil
 }
 
 func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
-  const method = "eth_getBlockByNumber"
-  reqTimer := time.Now()
+	const method = "eth_getBlockByNumber"
+	reqTimer := time.Now()
 
 	var raw json.RawMessage
 	if err := s.client.CallContext(ctx, &raw, method, "finalized", false); err != nil { //nolint:misspell
 		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
 	}
-  s.listener.OnL1Call(method, time.Since(reqTimer))
+	s.listener.OnL1Call(method, time.Since(reqTimer))
 
 	var head *types.Header
 	if err := json.Unmarshal(raw, &head); err != nil {
