@@ -62,7 +62,6 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 		result.WriteString("RevertReason: EQUAL\n")
 	} else {
 		//todo: hack. the revert reason can have minor differences, override for now.
-		r1.RevertReason = r2.RevertReason
 		// compareStrings := func(r1, r2 string) {
 		// 	minLength := len(r1)
 		// 	if len(r2) < minLength {
@@ -85,29 +84,32 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 		// compareStrings(r1.RevertReason, r2.RevertReason)
 		// fmt.Println(len(r1.RevertReason), len(r2.RevertReason))
 		// foundDiff = true
+		// fmt.Println("r1.RevertReason", r1.RevertReason)
+		// fmt.Println("r2.RevertReason", r2.RevertReason)
+		r1.RevertReason = r2.RevertReason
 		result.WriteString(fmt.Sprintf("RevertReason: DIFFERENT\n\t- r1: %s\n\t- r2: %s\n", r1.RevertReason, r2.RevertReason))
 	}
 
 	r1Gas := r1.ExecutionResources.TotalGasConsumed
 	r2Gas := r2.ExecutionResources.TotalGasConsumed
 	if r1Gas == nil {
-		panic("r1Gas is inil")
+		panic("r1 TotalGasConsumed is inil")
 	}
 	if r2Gas == nil {
-		panic("r2Gas is inil")
+		panic("r2 TotalGasConsumed is inil")
 	}
 	if r1Gas.L1Gas == r2Gas.L1Gas {
-		result.WriteString("L1Gas: EQUAL\n")
+		result.WriteString("TotalGasConsumed.L1Gas: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("L1Gas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n", r1Gas.L1Gas, r2Gas.L1Gas))
+		result.WriteString(fmt.Sprintf("TotalGasConsumed.L1Gas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n", r1Gas.L1Gas, r2Gas.L1Gas))
 	}
 
 	if r1Gas.L1DataGas == r2Gas.L1DataGas {
-		result.WriteString("L1DataGas: EQUAL\n")
+		result.WriteString("TotalGasConsumed.L1DataGas: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("L1DataGas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n", r1Gas.L1DataGas, r2Gas.L1DataGas))
+		result.WriteString(fmt.Sprintf("TotalGasConsumed.L1DataGas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n", r1Gas.L1DataGas, r2Gas.L1DataGas))
 	}
 	if len(r1.Events) != len(r2.Events) {
 		foundDiff = true

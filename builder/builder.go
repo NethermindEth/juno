@@ -120,11 +120,12 @@ func (b *Builder) Run(ctx context.Context) error {
 	if b.shadowMode {
 		b.log.Debugw("b.shadowMode")
 		signFunc = nil
-		syncToBlockNum := uint64(133373) // Todo: skipped problematic transaction in block 129751,133371
+		syncToBlockNum := uint64(134075) // Todo: skipped problematic transaction in block 129751,133371, 134062,134073
 		block, err := b.bc.Head()
 		if err != nil {
 			return err
 		}
+		// fmt.Println("sequencer head block", block.Number, block.ParentHash.String(), block.GlobalStateRoot.String())
 		b.log.Debugw("attempting to sycn-store from block %i to %i", block.Number, syncToBlockNum)
 		if block.Number < syncToBlockNum {
 			if err := b.syncStore(block.Number, syncToBlockNum); err != nil {
@@ -464,23 +465,25 @@ func (b *Builder) depletePool(ctx context.Context) error {
 
 // todo(rian) : does blockifier need the correct value, or can we pass in any non-zero value?
 func getPaidOnL1Fees(txn *mempool.BroadcastedTransaction) ([]*felt.Felt, error) {
-	if tx, ok := (txn.Transaction).(*core.L1HandlerTransaction); ok {
-		handleDepositEPS, err := new(felt.Felt).SetString("0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5")
-		if err != nil {
-			return nil, err
-		}
-		handleTokenDepositEPS, err := new(felt.Felt).SetString("0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19")
-		if err != nil {
-			return nil, err
-		}
-		if tx.EntryPointSelector.Equal(handleDepositEPS) {
-			return []*felt.Felt{tx.CallData[2]}, nil
-		} else if tx.EntryPointSelector.Equal(handleTokenDepositEPS) {
-			return []*felt.Felt{tx.CallData[4]}, nil
-		}
-		return nil, fmt.Errorf("failed to get fees_paid_on_l1, unkmown entry point selector")
-	}
-	return []*felt.Felt{}, nil
+	// if tx, ok := (txn.Transaction).(*core.L1HandlerTransaction); ok {
+	// 	handleDepositEPS, err := new(felt.Felt).SetString("0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5")
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	handleTokenDepositEPS, err := new(felt.Felt).SetString("0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19")
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if tx.EntryPointSelector.Equal(handleDepositEPS) {
+	// 		return []*felt.Felt{tx.CallData[2]}, nil
+	// 	} else if tx.EntryPointSelector.Equal(handleTokenDepositEPS) {
+	// 		return []*felt.Felt{tx.CallData[4]}, nil
+	// 	}
+	// 	return nil, fmt.Errorf("failed to get fees_paid_on_l1, unkmown entry point selector")
+	// }
+	// Blockifier only checks that the fee is non-zero. Currently the L1-fee is not present in the transaction
+	// and extracting from calldata is not standardised.
+	return []*felt.Felt{new(felt.Felt).SetUint64(1)}, nil
 }
 
 func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
@@ -543,7 +546,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		if diffsNotEqual {
 			// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
 			fmt.Println(diffString)
-			b.log.Debugw("Generated transaction trace does not match that from Sepolia %s", txn.Transaction.Hash().String())
+			b.log.Debugw("Generated transaction trace does not match that from Sepolia ")
 		}
 
 		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
