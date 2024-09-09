@@ -1,8 +1,9 @@
 package l1
 
 import (
-	"github.com/NethermindEth/juno/core"
 	"time"
+
+	"github.com/NethermindEth/juno/core"
 )
 
 type EventListener interface {
