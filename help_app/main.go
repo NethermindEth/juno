@@ -31,12 +31,12 @@ func main() {
 	}
 
 	chain := blockchain.New(database, &utils.Sepolia)
-	for blockNumber := range uint64(86312) {
+	for blockNumber := range uint64(86312) { //nolint:mnd
 		block, err := chain.BlockByNumber(blockNumber)
 		if err != nil {
 			panic(err)
 		}
-		stateUpdate, err := chain.StateUpdateByNumber(0)
+		stateUpdate, err := chain.StateUpdateByNumber(blockNumber)
 		if err != nil {
 			panic(err)
 		}
