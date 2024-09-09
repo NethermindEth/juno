@@ -509,25 +509,23 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 		classIter, err := s.client.RequestClassesByKeys(ctx, &spec.ClassHashesRequest{
 			ClassHashes: hashes,
 		})
-
 		if err != nil {
 			s.log.Errorw("error getting class from client", "err", err)
-			return err
+			continue
 		}
 
 		classes := make([]*spec.Class, len(keyBatches))
-		classIter(func(response *spec.ClassesResponse) bool {
+		for response := range classIter {
 			switch v := response.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
 				classes = append(classes, v.Class)
-				return true
 			case *spec.ClassesResponse_Fin:
-				return false
+				s.log.Infow("class batch completed", "classes", len(classes))
+				break
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
-				return false
 			}
-		})
+		}
 
 		processedClasses := map[felt.Felt]bool{}
 		newClasses := map[felt.Felt]core.Class{}
@@ -586,8 +584,6 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 	completed := false
 
 	for !completed {
-		var outherErr error
-
 		stateRoot := s.currentGlobalStateRoot
 		iter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
 			Domain:         0, // What do this do?
@@ -597,32 +593,47 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			ChunksPerProof: uint32(contractRangeChunkPerProof),
 		})
 		if err != nil {
-			return err
+			s.log.Errorw("error getting contract range from client", "err", err)
+			continue
 		}
 
-		iter(func(response *spec.ContractRangeResponse) bool {
+		for response := range iter {
 			if response == nil {
-				return false
+				s.log.Errorw("contract range respond with nil response")
+				continue
 			}
+
 			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr), "addr", startAddr)
 			rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
-			crange := response.GetRange()
+			var crange *spec.ContractRange
+			switch v := response.GetResponses().(type) {
+			case *spec.ContractRangeResponse_Range:
+				crange = v.Range
+			case *spec.ContractRangeResponse_Fin:
+				s.log.Infow("[finMsg] contract range completed")
+				break
+			default:
+				s.log.Warnw("Unexpected contract range message", "GetResponses", v)
+				continue
+			}
+
 			if crange == nil || crange.State == nil {
-				return false
+				s.log.Errorw("contract range respond with nil state")
+				continue
 			}
 			if response.RangeProof == nil {
-				return false
+				s.log.Errorw("contract range respond with nil proof")
+				continue
 			}
 
 			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
 			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
 			err := VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
-			outherErr = err
 			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
-				return false
+				return err
 			}
 
 			paths := make([]*felt.Felt, len(crange.State))
@@ -635,10 +646,9 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
 			hasNext, err := VerifyTrie(contractRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
-			outherErr = err
 			if err != nil {
 				// The peer should get penalised in this case
-				return false
+				return err
 			}
 
 			classes := []*felt.Felt{}
@@ -650,9 +660,8 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			}
 
 			err = s.blockchain.PutContracts(paths, nonces, classes)
-			outherErr = err
 			if err != nil {
-				fmt.Printf("%s\n", err)
+				fmt.Printf("Unable to update the chain %s\n", err)
 				panic(err)
 			}
 
@@ -665,38 +674,29 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				nonce := r.Nonce
 
 				err = s.queueClassJob(ctx, classHash)
-				outherErr = err
 				if err != nil {
-					return false
+					s.log.Errorw("error queue class fetch job", "err", err)
+					return err
 				}
 
 				err = s.queueStorageRangeJob(ctx, path, storageRoot, classHash, nonce)
-				outherErr = err
 				if err != nil {
-					return false
+					s.log.Errorw("error queue storage refresh job", "err", err)
+					return err
 				}
 			}
 
 			if !hasNext {
-				s.log.Infow("address range completed")
+				s.log.Infow("[hasNext] contract range completed")
 				completed = true
-				return false
+				return nil
 			}
 
 			if len(paths) == 0 {
-				return false
+				return nil
 			}
 
 			startAddr = paths[len(paths)-1]
-			return true
-		})
-
-		if outherErr != nil {
-			s.log.Errorw("Error with contract range", "err", outherErr)
-			// TODO: address the error properly
-			// Well... need to figure out how to determine if its a temporary error or not.
-			// For sure, the state root can be outdated, so this need to restart
-			return outherErr
 		}
 	}
 
@@ -747,8 +747,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			})
 		}
 
-		var err error
-
 		stateRoot := s.currentGlobalStateRoot
 		processedJobs := 0
 		storage := map[felt.Felt]map[felt.Felt]*felt.Felt{}
@@ -765,20 +763,40 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			ChunksPerProof: uint32(storageRangeChunkPerProof),
 			Query:          requests,
 		})
+		if err != nil {
+			s.log.Errorw("Error with storage range request", "err", err)
+			// Well... need to figure out how to determine if its a temporary error or not.
+			// For sure, the state root can be outdated, so this need to restart
+			continue
+		}
 
-		iter(func(response *spec.ContractStorageResponse) bool {
+		for response := range iter {
 			if response == nil {
-				return false
+				s.log.Errorw("storage range respond with nil response")
+				continue
 			}
-			response.GetResponses()
-			csto := response.GetStorage()
+
+			var csto *spec.ContractStorage
+			switch v := response.GetResponses().(type) {
+			case *spec.ContractStorageResponse_Storage:
+				csto = v.Storage
+			case *spec.ContractStorageResponse_Fin:
+				s.log.Infow("storage range completed", "totalPath", totalPath)
+				break
+			default:
+				s.log.Warnw("Unexpected storage range message", "GetResponses", v)
+				continue
+			}
+
 			if csto == nil || csto.KeyValue == nil {
-				return false
+				s.log.Errorw("storage range respond with nil storage")
+				continue
 			}
 			storageRange := csto.KeyValue
 
 			if response.RangeProof == nil {
-				return false
+				s.log.Errorw("storage range respond with nil proof")
+				continue
 			}
 
 			job := jobs[processedJobs]
@@ -787,7 +805,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			if !job.path.Equal(storageAddr) {
 				s.log.Errorw(fmt.Sprintf(
 					"storage addr differ %s %s %d\n", job.path, storageAddr, workerIdx))
-				return false
+				continue
 			}
 
 			// Validate response
@@ -805,12 +823,13 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				// It is unclear how to distinguish if the peer is malicious/broken/non-bizantine or the contracts root is outdated.
 				err = s.queueStorageRefreshJob(ctx, job)
 				if err != nil {
-					return false
+					s.log.Errorw("error queue storage refresh job", "err", err)
+					return err
 				}
 
 				// Go to next contract
 				processedJobs++
-				return true
+				continue
 			}
 
 			if storage[*job.path] == nil {
@@ -832,7 +851,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				err = s.blockchain.PutStorage(storage)
 				if err != nil {
 					s.log.Errorw("error store", "err", err)
-					return false
+					return err
 				}
 
 				totalPath = 0
@@ -846,15 +865,6 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				processedJobs++
 				atomic.AddInt32(&s.storageRangeJobCount, -1) // its... done?
 			}
-
-			return true
-		})
-
-		if err != nil {
-			s.log.Errorw("Error with storage range", "err", err)
-			// Well... need to figure out how to determine if its a temporary error or not.
-			// For sure, the state root can be outdated, so this need to restart
-			continue
 		}
 
 		storageAddressCount.Observe(float64(len(storage)))
@@ -906,7 +916,6 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 		bigIntAdd = (&big.Int{}).Add(bigIntAdd, big.NewInt(1))
 		elem := fp.NewElement(0)
 		limitAddr := felt.NewFelt((&elem).SetBigInt(bigIntAdd))
-		var outherErr error
 
 		stateRoot := s.currentGlobalStateRoot
 		ctrIter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
@@ -917,29 +926,44 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			ChunksPerProof: 10000,
 		})
 		if err != nil {
-			return err
+			s.log.Errorw("Error with contract range request", "err", err)
+			continue
 		}
 
-		ctrIter(func(response *spec.ContractRangeResponse) bool {
+		for response := range ctrIter {
 			if response == nil {
-				return false
+				s.log.Errorw("contract range [storage refresh] respond with nil response")
+				continue
 			}
 
-			crange := response.GetRange()
-			if crange == nil || crange.State == nil || len(crange.State) == 0 {
-				return false
+			var crange *spec.ContractRange
+			switch v := response.GetResponses().(type) {
+			case *spec.ContractRangeResponse_Range:
+				crange = v.Range
+			case *spec.ContractRangeResponse_Fin:
+				s.log.Infow("[finMsg] contract range [storage refresh] completed")
+				break
+			default:
+				s.log.Warnw("Unexpected contract range message [storage refresh]", "GetResponses", v)
+				continue
+			}
+
+			if crange == nil || crange.State == nil {
+				s.log.Errorw("contract range [storage refresh] respond with nil state")
+				continue
 			}
 			if response.RangeProof == nil {
-				return false
+				s.log.Errorw("contract range [storage refresh] respond with nil proof")
+				continue
 			}
 
 			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
 			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
-			outherErr = VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
-			if outherErr != nil {
+			err := VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
+			if err != nil {
 				// Root verification failed
 				// TODO: Ban peer
-				return false
+				return err
 			}
 
 			paths := make([]*felt.Felt, len(crange.State))
@@ -951,36 +975,29 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
-			_, outherErr = VerifyTrie(contractRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
-			if outherErr != nil {
+			_, err = VerifyTrie(contractRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
+			if err != nil {
 				// The peer should get penalised in this case
-				return false
+				return err
 			}
 
 			job.storageRoot = p2p2core.AdaptHash(crange.State[0].Storage)
 			newClass := p2p2core.AdaptHash(crange.State[0].Storage)
 			if newClass != job.classHash {
-				outherErr = s.queueClassJob(ctx, newClass)
-				if outherErr != nil {
-					return false
+				err = s.queueClassJob(ctx, newClass)
+				if err != nil {
+					s.log.Errorw("error queue class fetch job", "err", err)
+					return err
 				}
 			}
 
-			outherErr = s.queueStorageRangeJobJob(ctx, job)
-			if outherErr != nil {
-				return false
+			err = s.queueStorageRangeJobJob(ctx, job)
+			if err != nil {
+				s.log.Errorw("error queue storage refresh job", "err", err)
+				return err
 			}
 
 			job = nil
-
-			return true
-		})
-
-		if outherErr != nil {
-			s.log.Errorw("Error with contract range", "err", outherErr)
-			// Well... need to figure out how to determine if its a temporary error or not.
-			// For sure, the state root can be outdated, so this need to restart
-			continue
 		}
 	}
 }
