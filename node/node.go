@@ -290,9 +290,6 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 	}
 
 	network := chain.Network()
-	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", network.String(), err)
-	}
 
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
@@ -300,10 +297,7 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
-	l1Client, err := l1.NewClient(ethSubscriber, chain, log), nil
-	if err != nil {
-		return nil, fmt.Errorf("set up l1 client: %w", err)
-	}
+	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
 	if cfg.Metrics {
 		l1Client.WithEventListener(makeL1Metrics())
