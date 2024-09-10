@@ -633,6 +633,10 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return nil, errors.New("block's GlobalStateRoot does not match state update's NewRoot")
 	}
 
+	if err := core.VerifyClassHashes(newClasses); err != nil {
+		return nil, err
+	}
+
 	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
 }
 
