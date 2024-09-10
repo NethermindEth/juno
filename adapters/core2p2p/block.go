@@ -51,7 +51,7 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 		Signatures:      utils.Map(header.Signatures, AdaptSignature),
 		StateDiffCommitment: &spec.StateDiffCommitment{
 			StateDiffLength: stateDiffLength,
-			Root:            AdaptHash(stateDiffCommitment), // todo commitments
+			Root:            AdaptHash(stateDiffCommitment),
 		},
 		GasPriceWei:            AdaptUint128(header.GasPrice),
 		DataGasPriceFri:        AdaptUint128(header.L1DataGasPrice.PriceInFri),

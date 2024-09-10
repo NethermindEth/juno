@@ -150,7 +150,7 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 
 		return &spec.BlockHeadersResponse{
 			HeaderMessage: &spec.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Commitment(),
+				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Hash(),
 					stateUpdate.StateDiff.Length()),
 			},
 		}, nil
