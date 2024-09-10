@@ -217,12 +217,17 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 		if c.userAgent != "" {
 			req.Header.Set("User-Agent", c.userAgent)
 		}
+		if c.apiKey != "" {
+			req.Header.Set("X-Throttling-Bypass", c.apiKey)
+		}
 
 		res, err = c.client.Do(req)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		reqTimer := time.Now()
 		if err == nil {
+			c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 			if res.StatusCode == http.StatusOK {
 				c.backoff.BackOff(ctx, err)
 				return res.Body, nil
