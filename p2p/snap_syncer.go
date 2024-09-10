@@ -39,11 +39,11 @@ type Blockchain interface {
 var _ Blockchain = (*blockchain.Blockchain)(nil)
 
 type SnapSyncher struct {
-	baseSync     service.Service
+	baseSync     *syncService
 	starknetData starknetdata.StarknetData
-	client       starknet.Client
+	client       *starknet.Client
 	blockchain   Blockchain
-	log          utils.Logger
+	log          utils.SimpleLogger
 
 	startingBlock          *core.Header
 	lastBlock              *core.Header
@@ -64,6 +64,8 @@ type SnapSyncher struct {
 	mtxL *sync.Mutex
 }
 
+var _ service.Service = (*SnapSyncher)(nil)
+
 type storageRangeJob struct {
 	path         *felt.Felt
 	storageRoot  *felt.Felt
@@ -73,18 +75,14 @@ type storageRangeJob struct {
 }
 
 func NewSnapSyncer(
-	baseSyncher service.Service,
-	consensus starknetdata.StarknetData,
-	client starknet.Client,
+	baseSyncher *syncService,
 	bc *blockchain.Blockchain,
-	log utils.Logger,
+	log utils.SimpleLogger,
 ) *SnapSyncher {
 	return &SnapSyncher{
-		baseSync:     baseSyncher,
-		starknetData: consensus,
-		client:       client,
-		blockchain:   bc,
-		log:          log,
+		baseSync:   baseSyncher,
+		blockchain: bc,
+		log:        log,
 	}
 }
 
@@ -143,13 +141,23 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 	// 6. Probably download old state updato/bodies too
 	// 7. Send back control to base sync.
 
+	// TODO: hacky client
+	if s.baseSync == nil {
+		panic("can't start snap syncer without base syncer")
+	}
+	s.client = s.baseSync.Client()
+	s.starknetData = &MockStarkData{}
+
 	err := s.runPhase1(ctx)
 	if err != nil {
 		return err
 	}
 
 	s.log.Infow("delegating to standard synchronizer")
-	return s.baseSync.Run(ctx)
+
+	return nil
+	// TODO: start p2p syncer
+	//s.baseSync.start(ctx)
 }
 
 //nolint:gocyclo,nolintlint
@@ -321,6 +329,7 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	s.mtxN = &sync.Mutex{}
 	s.mtxL = &sync.Mutex{}
 
+	s.log.Infow("init state completed", "startingBlock", s.startingBlock.Number)
 	return nil
 }
 
@@ -341,12 +350,10 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 	totaladded := 0
 	completed := false
 	startAddr := &felt.Zero
+
+	s.log.Infow("class range worker entering infinite loop")
 	for !completed {
-		s.log.Infow("class range progress", "progress", calculatePercentage(startAddr))
-
 		stateRoot := s.currentGlobalStateRoot
-
-		s.log.Infow("class range state root", "stateroot", stateRoot)
 
 		// TODO: Maybe timeout
 		classIter, err := s.client.RequestClassRange(ctx, &spec.ClassRangeRequest{
@@ -355,23 +362,38 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			ChunksPerProof: uint32(classRangeChunksPerProof),
 		})
 		if err != nil {
-			return err
+			s.log.Errorw("error getting classes from client", "err", err)
+			continue
 		}
 
-		classIter(func(response *spec.ClassRangeResponse) bool {
+		for response := range classIter {
 			if response == nil {
-				// State root missing.
-				return false
+				if response == nil {
+					s.log.Errorw("contract range respond with nil response")
+					continue
+				}
 			}
-			classWrp := response.GetClasses()
-			if classWrp == nil || classWrp.Classes == nil {
-				// State root missing.
-				return false
+
+			var classes []*spec.Class
+			switch v := response.GetResponses().(type) {
+			case *spec.ClassRangeResponse_Classes:
+				classes = v.Classes.Classes
+			case *spec.ClassRangeResponse_Fin:
+				s.log.Infow("[finMsg] class range completed")
+				break
+			default:
+				s.log.Warnw("Unexpected class range message", "GetResponses", v)
+				continue
 			}
-			classes := classWrp.Classes
+			s.log.Infow("class range worker received response", "classes", len(classes))
+
+			if classes == nil || len(classes) == 0 {
+				s.log.Errorw("class range respond with empty classes")
+				continue
+			}
 			if response.RangeProof == nil {
-				// Proofs missing.
-				return false
+				s.log.Errorw("class range respond with nil proof")
+				continue
 			}
 
 			s.log.Infow("got", "res", len(classes), "startAdr", startAddr)
@@ -380,16 +402,20 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
 			err = VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
 			if err != nil {
-				s.log.Infow("global state root verification failure")
 				// Root verification failed
 				// TODO: Ban peer
-				return false
+				s.log.Errorw("global state root verification failure", "err", err)
+				return err
 			}
+
+			s.log.Infow("class range progress", "progress", calculatePercentage(startAddr))
+			s.log.Infow("class range state root", "stateroot", stateRoot)
 
 			if classRoot.Equal(&felt.Zero) {
 				// Special case, no V1 at all
+				s.log.Infow("class range completed", "totalClass", totaladded)
 				completed = true
-				return false
+				return nil
 			}
 
 			paths := make([]*felt.Felt, len(classes))
@@ -414,15 +440,16 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 
 			err = egrp.Wait()
 			if err != nil {
-				return false
+				s.log.Infow("class range adaptation failure", "err", err)
+				return err
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
 			hasNext, err := VerifyTrie(classRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Poseidon)
 			if err != nil {
-				// Root verification failed
 				// TODO: Ban peer
-				return false
+				s.log.Infow("trie verification failed", "err", err)
+				return err
 			}
 
 			// Ingest
@@ -435,26 +462,22 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 
 			err = s.blockchain.PutClasses(s.lastBlock.Number, coreClassesHashMap, coreClassesMap)
 			if err != nil {
-				return false
+				fmt.Printf("Unable to update the chain %s\n", err)
+				panic(err)
 			}
 
 			if !hasNext {
 				s.log.Infow("class range completed", "totalClass", totaladded)
 				completed = true
-				return false
+				return nil
 			}
 
 			// Increment addr, start loop again
 			startAddr = paths[len(paths)-1]
-
-			return true
-		})
-
-		if err != nil {
-			return err
 		}
 	}
 
+	s.log.Infow("class range worker exits infinite loop")
 	return nil
 }
 
@@ -510,12 +533,17 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			ClassHashes: hashes,
 		})
 		if err != nil {
-			s.log.Errorw("error getting class from client", "err", err)
+			s.log.Errorw("error getting classes from client", "err", err)
 			continue
 		}
 
 		classes := make([]*spec.Class, len(keyBatches))
 		for response := range classIter {
+			if response == nil {
+				s.log.Errorw("class by keys respond with nil response")
+				continue
+			}
+
 			switch v := response.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
 				classes = append(classes, v.Class)
@@ -526,6 +554,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
 			}
 		}
+		s.log.Infow("class fetch job received response", "classes", len(classes))
 
 		processedClasses := map[felt.Felt]bool{}
 		newClasses := map[felt.Felt]core.Class{}
@@ -583,6 +612,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 	startAddr := &felt.Zero
 	completed := false
 
+	s.log.Infow("contract range worker entering infinite loop")
 	for !completed {
 		stateRoot := s.currentGlobalStateRoot
 		iter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
@@ -617,6 +647,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				s.log.Warnw("Unexpected contract range message", "GetResponses", v)
 				continue
 			}
+			s.log.Infow("contract range worker received response", "states", len(crange.State))
 
 			if crange == nil || crange.State == nil {
 				s.log.Errorw("contract range respond with nil state")
@@ -631,8 +662,8 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
 			err := VerifyGlobalStateRoot(stateRoot, classRoot, contractRoot)
 			if err != nil {
-				// Root verification failed
 				// TODO: Ban peer
+				s.log.Errorw("global state root verification failure", "err", err)
 				return err
 			}
 
@@ -648,6 +679,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			hasNext, err := VerifyTrie(contractRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
 			if err != nil {
 				// The peer should get penalised in this case
+				s.log.Infow("trie verification failed", "err", err)
 				return err
 			}
 
@@ -699,6 +731,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			startAddr = paths[len(paths)-1]
 		}
 	}
+	s.log.Infow("contract range worker exits infinite loop")
 
 	return nil
 }
@@ -889,6 +922,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 	// creative. This does mean that this is impressively inefficient.
 	var job *storageRangeJob
 
+	s.log.Infow("storage refresh worker entering infinite loop")
 	for {
 		if job == nil {
 		requestloop:
@@ -947,6 +981,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 				s.log.Warnw("Unexpected contract range message [storage refresh]", "GetResponses", v)
 				continue
 			}
+			s.log.Infow("storage refresh worker received response", "states", len(crange.State))
 
 			if crange == nil || crange.State == nil {
 				s.log.Errorw("contract range [storage refresh] respond with nil state")
@@ -1000,6 +1035,8 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 			job = nil
 		}
 	}
+	s.log.Infow("storage refresh worker exits infinite loop")
+	return nil
 }
 
 func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
