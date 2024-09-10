@@ -247,6 +247,17 @@ func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
 			b.log.Errorw("class is being replaced, but was not found in previous state")
 		}
 	}
+
+	// Todo: solve duplicate-problem at source
+	encountered := map[*felt.Felt]bool{}
+	result := []*felt.Felt{}
+	for _, class := range sd.DeclaredV0Classes {
+		if !encountered[class] {
+			result = append(result, class)
+			encountered[class] = true
+		}
+	}
+	sd.DeclaredV0Classes = result
 	return nil
 }
 

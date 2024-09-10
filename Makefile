@@ -182,9 +182,9 @@ sequencer-with-accounts:
 sequencer-shadow-sepolia:
 	./build/juno \
     --http \
-    --http-port=6061 \
+    --http-port=6063 \
     --http-host=0.0.0.0 \
-    --db-path=../seq-db-shadow2\
+    --db-path=../seq-db-clean\
     --log-level=info \
     --seq-enable \
 	--seq-shadow-mode \
