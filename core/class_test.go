@@ -106,7 +106,7 @@ func TestClassV0HashMainnet(t *testing.T) {
 			class, err := gw.Class(context.Background(), hash)
 			require.NoError(t, err)
 
-			got, err := class.(*core.Cairo0Class).NoFFIHash()
+			got, err := class.Hash()
 			require.NoError(t, err)
 			assert.Equal(t, hash, got)
 			assert.Equal(t, hash.String(), got.String())
@@ -380,7 +380,7 @@ func BenchmarkClassV0Hash(b *testing.B) {
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				_, err := class.(*core.Cairo0Class).NoFFIHash()
+				_, err := class.(*core.Cairo0Class).Hash()
 				require.NoError(b, err)
 			}
 		})

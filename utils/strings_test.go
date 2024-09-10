@@ -69,11 +69,6 @@ func TestFormatJSONString(t *testing.T) {
 			input:    `{"key":"value : value"}`,
 			expected: `{"key": "value : value"}`,
 		},
-		{
-			name:     "Inside cairo_type",
-			input:    `{"cairo_type":"(value: value)"}`,
-			expected: `{"cairo_type": "(value : value)"}`,
-		},
 	}
 
 	for _, tt := range tests {
