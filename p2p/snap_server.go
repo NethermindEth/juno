@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"github.com/NethermindEth/juno/utils"
 	"google.golang.org/protobuf/proto"
 	"math/big"
 
@@ -60,13 +61,15 @@ type yieldFunc = func(proto.Message) bool
 
 var _ SnapServerBlockchain = (*blockchain.Blockchain)(nil)
 
-func NewSnapServer(blockchain SnapServerBlockchain) SnapServer {
+func NewSnapServer(blockchain SnapServerBlockchain, log utils.SimpleLogger) SnapServer {
 	return &snapServer{
+		log:        log,
 		blockchain: blockchain,
 	}
 }
 
 type snapServer struct {
+	log        utils.SimpleLogger
 	blockchain SnapServerBlockchain
 }
 
@@ -92,9 +95,11 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 		Responses: &spec.ClassRangeResponse_Fin{},
 	}
 
-	return func(yield yieldFunc) {
-		stateRoot := p2p2core.AdaptHash(request.Root)
+	stateRoot := p2p2core.AdaptHash(request.Root)
+	startAddr := p2p2core.AdaptHash(request.Start)
+	b.log.Debugw("GetClassRange", "root", stateRoot.String(), "start", startAddr.String(), "chunks", request.ChunksPerProof)
 
+	return func(yield yieldFunc) {
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
 		if err != nil {
 			log.Error("error getting state for state root", "err", err)
@@ -159,6 +164,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 				RangeProof: Core2P2pProof(proofs),
 			}
 
+			b.log.Infow("sending class range response", "len(classes)", len(classkeys))
 			if !yield(clsMsg) {
 				// we should not send `FinMsg` when the client explicitly asks to stop
 				return
@@ -170,6 +176,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 		}
 
 		yield(finMsg)
+		b.log.Infow("class range iteration completed")
 	}, nil
 }
 
@@ -177,10 +184,11 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 	var finMsg proto.Message = &spec.ContractRangeResponse{
 		Responses: &spec.ContractRangeResponse_Fin{},
 	}
+	stateRoot := p2p2core.AdaptHash(request.StateRoot)
+	startAddr := p2p2core.AdaptAddress(request.Start)
+	b.log.Debugw("GetContractRange", "root", stateRoot.String(), "start", startAddr.String(), "chunks", request.ChunksPerProof)
 
 	return func(yield yieldFunc) {
-		stateRoot := p2p2core.AdaptHash(request.StateRoot)
-
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
 		if err != nil {
 			log.Error("error getting state for state root", "err", err)
@@ -253,6 +261,7 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 				},
 			}
 
+			b.log.Infow("sending contract range response", "len(states)", len(states))
 			if !yield(cntrMsg) {
 				// we should not send `FinMsg` when the client explicitly asks to stop
 				return
@@ -263,6 +272,7 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 		}
 
 		yield(finMsg)
+		b.log.Infow("contract range iteration completed")
 	}, nil
 }
 
@@ -270,6 +280,7 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 	var finMsg proto.Message = &spec.ContractStorageResponse{
 		Responses: &spec.ContractStorageResponse_Fin{},
 	}
+	b.log.Debugw("GetStorageRange", "root", request.StateRoot.String(), "start[0]", request.Query[0].Start.Key.String())
 
 	return func(yield yieldFunc) {
 		stateRoot := p2p2core.AdaptHash(request.StateRoot)
@@ -333,6 +344,7 @@ func (b *snapServer) GetClasses(request *spec.ClassHashesRequest) (iter.Seq[prot
 	var finMsg proto.Message = &spec.ClassesResponse{
 		ClassMessage: &spec.ClassesResponse_Fin{},
 	}
+	b.log.Debugw("GetClasses", "len(hashes)", len(request.ClassHashes))
 
 	return func(yield yieldFunc) {
 		felts := make([]*felt.Felt, len(request.ClassHashes))

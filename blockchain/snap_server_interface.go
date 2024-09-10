@@ -1,12 +1,14 @@
 package blockchain
 
 import (
+	"context"
 	"errors"
 	"fmt"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/utils"
 )
 
 const MaxSnapshots = 128
@@ -161,4 +163,24 @@ func (b *Blockchain) Close() {
 		// ignore the errors here as it's most likely called on shutdown
 		_ = snapshot.closer()
 	}
+}
+
+type Blockchain_Closer struct {
+	log utils.SimpleLogger
+	bc  *Blockchain
+}
+
+var _ service.Service = (*Blockchain_Closer)(nil)
+
+func NewBlockchainCloser(bc *Blockchain, log utils.SimpleLogger) *Blockchain_Closer {
+	return &Blockchain_Closer{log, bc}
+}
+
+func (b *Blockchain_Closer) Run(ctx context.Context) error {
+	b.log.Infow("Blockchain_Closer has started")
+
+	<-ctx.Done()
+	b.bc.Close()
+	b.log.Infow("Blockchain_Closer has stopped")
+	return nil
 }

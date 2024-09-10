@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/NethermindEth/juno/service"
 	"math/rand"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -49,6 +51,8 @@ type Service struct {
 	topicsLock sync.RWMutex
 
 	synchroniser *syncService
+	snapSyncher  service.Service
+	//snapServer   *snapServer
 
 	feederNode bool
 	database   db.DB
@@ -146,18 +150,21 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		return nil, err
 	}
 
-	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
+	// todo: reconsider initialising synchroniser here because if node is a feedernode we should not create an instance of it.
 
 	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
+	handler := starknet.NewHandler(bc, log)
+	handler.WithSnapsyncSupport(NewSnapServer(bc, log))
 	s := &Service{
 		synchroniser: synchroniser,
+		snapSyncher:  NewSnapSyncer(synchroniser, bc, log),
 		log:          log,
 		host:         p2phost,
 		network:      snNetwork,
 		dht:          p2pdht,
 		feederNode:   feederNode,
 		topics:       make(map[string]*pubsub.Topic),
-		handler:      starknet.NewHandler(bc, log),
+		handler:      handler,
 		database:     database,
 	}
 	return s, nil
@@ -258,7 +265,16 @@ func (s *Service) Run(ctx context.Context) error {
 	s.setProtocolHandlers()
 
 	if !s.feederNode {
-		s.synchroniser.start(ctx)
+		//s.synchroniser.start(ctx)
+		if os.Getenv("JUNO_P2P_NO_SYNC") == "" {
+			err := s.snapSyncher.Run(ctx)
+			if err != nil {
+				s.log.Errorw("Snapsyncer failed to start")
+				return err
+			}
+		} else {
+			s.log.Infow("Syncing is disabled")
+		}
 	}
 
 	<-ctx.Done()
@@ -277,6 +293,10 @@ func (s *Service) setProtocolHandlers() {
 	s.SetProtocolHandler(starknet.TransactionsPID(), s.handler.TransactionsHandler)
 	s.SetProtocolHandler(starknet.ClassesPID(), s.handler.ClassesHandler)
 	s.SetProtocolHandler(starknet.StateDiffPID(), s.handler.StateDiffHandler)
+	s.SetProtocolHandler(starknet.SnapshotClassRangePID(), s.handler.ClassRangeHandler)
+	s.SetProtocolHandler(starknet.SnapshotContractRangePID(), s.handler.ContractRangeHandler)
+	s.SetProtocolHandler(starknet.SnapshotContractStorageRangePID(), s.handler.ContractStorageHandler)
+	s.SetProtocolHandler(starknet.SnapshotClassesPID(), s.handler.ClassHashesHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {

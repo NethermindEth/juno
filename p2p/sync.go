@@ -46,6 +46,12 @@ func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, lo
 	}
 }
 
+// Client is a nasty hack to provide `CLient` to `SnapSyncher`
+// TODO: clean this
+func (s *syncService) Client() *starknet.Client {
+	return starknet.NewClient(s.randomPeerStream, s.network, s.log)
+}
+
 //nolint:funlen
 func (s *syncService) start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -641,8 +647,8 @@ func (s *syncService) randomPeer() peer.ID {
 
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
-	s.log.Debugw("Number of peers", "len", len(peers))
-	s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(p))
+	//s.log.Debugw("Number of peers", "len", len(peers))
+	//s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(p))
 
 	return p
 }

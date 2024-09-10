@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"reflect"
 	"runtime"
 	"time"
@@ -126,6 +127,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	chain := blockchain.New(database, &cfg.Network)
 
+	//TODO: close a blockchain? better way?
+	services = append(services, blockchain.NewBlockchainCloser(chain, log))
+
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -164,6 +168,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 		if !cfg.P2PFeederNode {
 			// Do not start the feeder synchronisation
+			synchronizer = nil
+		}
+		if os.Getenv("JUNO_P2P_NO_SYNC") != "" {
+			log.Warnw("Got 'JUNO_P2P_NO_SYNC' to not syncing from p2p network")
 			synchronizer = nil
 		}
 		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
@@ -364,6 +372,7 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
+	//TODO: chain.Close() - which service should do this?
 	n.log.Infow("Shutting down Juno...")
 }
 
