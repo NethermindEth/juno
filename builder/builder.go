@@ -52,6 +52,7 @@ type Builder struct {
 	shadowMode          bool
 	shadowStateUpdate   *core.StateUpdate
 	shadowBlock         *core.Block
+	shadowSyncToBlock   uint
 	starknetData        starknetdata.StarknetData
 	junoEndpoint        string
 	blockTraces         []rpc.TracedBlockTransaction
@@ -114,13 +115,17 @@ func (b *Builder) WithJunoEndpoint(endpoint string) *Builder {
 	b.junoEndpoint = endpoint
 	return b
 }
+func (b *Builder) WithSyncToBlock(syncTo uint) *Builder {
+	b.shadowSyncToBlock = syncTo
+	return b
+}
 
 func (b *Builder) Run(ctx context.Context) error {
 	signFunc := b.Sign
 	if b.shadowMode {
 		b.log.Debugw("b.shadowMode")
 		signFunc = nil
-		syncToBlockNum := uint64(134075) // Todo: skipped problematic transaction in block 129751,133371, 134062,134073
+		syncToBlockNum := uint64(b.shadowSyncToBlock) // Todo: skipped problematic transaction in block 129751,133371, 134062,134073
 		block, err := b.bc.Head()
 		if err != nil {
 			return err
