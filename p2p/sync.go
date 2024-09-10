@@ -457,8 +457,8 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 		for res := range classesIt {
 			switch v := res.ClassMessage.(type) {
 			case *spec.ClassesResponse_Class:
-				adoptedClass := p2p2core.AdaptClass(v.Class)
-				hash, err := adoptedClass.Hash()
+				coreClass := p2p2core.AdaptClass(v.Class)
+				hash, err := coreClass.Hash()
 				if err != nil {
 					s.log.Warnw("Failed to calculate class hash", "err", err)
 					break loop
@@ -467,7 +467,7 @@ func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-cha
 					s.log.Warnw("Class hash mismatch", "receivedHash", adaptedHash, "calculatedHash", hash)
 					break loop
 				}
-				classes = append(classes, adoptedClass)
+				classes = append(classes, coreClass)
 			case *spec.ClassesResponse_Fin:
 				break loop
 			default:
