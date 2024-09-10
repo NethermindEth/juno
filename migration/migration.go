@@ -4,17 +4,21 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"runtime"
 	"sync"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
 	"github.com/fxamacker/cbor/v2"
@@ -29,13 +33,13 @@ type schemaMetadata struct {
 type Migration interface {
 	Before(intermediateState []byte) error
 	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
-	Migrate(context.Context, db.Transaction, utils.Network) ([]byte, error)
+	Migrate(context.Context, db.Transaction, *utils.Network, utils.SimpleLogger) ([]byte, error)
 }
 
-type MigrationFunc func(db.Transaction, utils.Network) error
+type MigrationFunc func(db.Transaction, *utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(_ context.Context, txn db.Transaction, network utils.Network) ([]byte, error) {
+func (f MigrationFunc) Migrate(_ context.Context, txn db.Transaction, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	return nil, f(txn, network)
 }
 
@@ -60,15 +64,17 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
+	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
+	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
-func MigrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network, log utils.SimpleLogger) error {
+func MigrateIfNeeded(ctx context.Context, targetDB db.DB, network *utils.Network, log utils.SimpleLogger) error {
 	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
 }
 
-func migrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network, log utils.SimpleLogger, migrations []Migration) error {
+func migrateIfNeeded(ctx context.Context, targetDB db.DB, network *utils.Network, log utils.SimpleLogger, migrations []Migration) error {
 	/*
 		Schema metadata of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
@@ -90,33 +96,39 @@ func migrateIfNeeded(ctx context.Context, targetDB db.DB, network utils.Network,
 		return err
 	}
 
-	for i := metadata.Version; i < uint64(len(migrations)); i++ {
-		if err := ctx.Err(); err != nil {
+	currentVersion := uint64(len(migrations))
+	if metadata.Version > currentVersion {
+		return errors.New("db is from a newer, incompatible version of Juno; upgrade to use this database")
+	}
+
+	for i := metadata.Version; i < currentVersion; i++ {
+		if err = ctx.Err(); err != nil {
 			return err
 		}
 		log.Infow("Applying database migration", "stage", fmt.Sprintf("%d/%d", i+1, len(migrations)))
 		migration := migrations[i]
-		if err := migration.Before(metadata.IntermediateState); err != nil {
+		if err = migration.Before(metadata.IntermediateState); err != nil {
 			return err
 		}
 		for {
-			var migrationErr error
+			callWithNewTransaction := false
 			if dbErr := targetDB.Update(func(txn db.Transaction) error {
-				metadata.IntermediateState, migrationErr = migration.Migrate(ctx, txn, network)
+				metadata.IntermediateState, err = migration.Migrate(ctx, txn, network, log)
 				switch {
-				case migrationErr == nil || errors.Is(migrationErr, ctx.Err()):
+				case err == nil || errors.Is(err, ctx.Err()):
 					if metadata.IntermediateState == nil {
 						metadata.Version++
 					}
 					return updateSchemaMetadata(txn, metadata)
-				case errors.Is(migrationErr, ErrCallWithNewTransaction):
-					return nil // Run migration again with new transaction.
+				case errors.Is(err, ErrCallWithNewTransaction):
+					callWithNewTransaction = true
+					return nil
 				default:
-					return migrationErr
+					return err
 				}
 			}); dbErr != nil {
 				return dbErr
-			} else if migrationErr == nil {
+			} else if !callWithNewTransaction {
 				break
 			}
 		}
@@ -168,7 +180,7 @@ func updateSchemaMetadata(txn db.Transaction, schema schemaMetadata) error {
 }
 
 // migration0000 makes sure the targetDB is empty
-func migration0000(txn db.Transaction, _ utils.Network) error {
+func migration0000(txn db.Transaction, _ *utils.Network) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
@@ -187,7 +199,7 @@ func migration0000(txn db.Transaction, _ utils.Network) error {
 // After: the key to the root of the contract storage trie is stored at 3+<contractAddress>.
 //
 // This enables us to remove the db.ContractRootKey prefix.
-func relocateContractStorageRootKeys(txn db.Transaction, _ utils.Network) error {
+func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error {
 	it, err := txn.NewIterator()
 	if err != nil {
 		return err
@@ -199,7 +211,8 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ utils.Network) error 
 	// Iterate over all entries in the old bucket, copying each into memory.
 	// Even with millions of contracts, this shouldn't be too expensive.
 	oldEntries := make(map[string][]byte)
-	oldPrefix := db.Unused.Key()
+	// Previously ContractStorageRoot were stored in the Peer bucket.
+	oldPrefix := db.Peer.Key()
 	var value []byte
 	for it.Seek(oldPrefix); it.Valid(); it.Next() {
 		// Stop iterating once we're out of the old bucket.
@@ -240,7 +253,7 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ utils.Network) error 
 }
 
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
-func recalculateBloomFilters(txn db.Transaction, _ utils.Network) error {
+func recalculateBloomFilters(txn db.Transaction, _ *utils.Network) error {
 	blockchain.RegisterCoreTypesToEncoder()
 	for blockNumber := uint64(0); ; blockNumber++ {
 		block, err := blockchain.BlockByNumber(txn, blockNumber)
@@ -355,7 +368,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 	return err
 }
 
-func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, _ utils.Network) ([]byte, error) {
+func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, _ *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
 	// We instead define a cutom struct to force the encoder to use the default encoding.
 	var n node
@@ -424,7 +437,7 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, 
 }
 
 // calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
-func calculateBlockCommitments(txn db.Transaction, network utils.Network) error {
+func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error {
 	var txnLock sync.RWMutex
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 
@@ -438,7 +451,7 @@ func calculateBlockCommitments(txn db.Transaction, network utils.Network) error 
 		}
 
 		workerPool.Go(func() error {
-			commitments, err := core.VerifyBlockHash(block, network)
+			commitments, err := core.VerifyBlockHash(block, network, nil)
 			if err != nil {
 				return err
 			}
@@ -469,7 +482,7 @@ func bitset2Key(bs *bitset.BitSet) *trie.Key {
 	return &k
 }
 
-func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []byte, _ utils.Network) error {
+func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []byte, _ *utils.Network) error {
 	var bs bitset.BitSet
 	var tempBuf bytes.Buffer
 	if err := bs.UnmarshalBinary(value); err != nil {
@@ -503,7 +516,7 @@ func nodesFilter(target db.Bucket) BucketMigratorKeyFilter {
 }
 
 func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc {
-	return func(txn db.Transaction, key, value []byte, _ utils.Network) error {
+	return func(txn db.Transaction, key, value []byte, _ *utils.Network) error {
 		var n node
 		var tempBuf bytes.Buffer
 		if err := n._UnmarshalBinary(value); err != nil {
@@ -541,4 +554,163 @@ func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc 
 		orgKeyPrefix[0] = byte(db.Temporary) // move the node to temporary bucket
 		return txn.Set(append(orgKeyPrefix, keyBuffer.Bytes()...), tempBuf.Bytes())
 	}
+}
+
+type oldStorageDiff struct {
+	Key   *felt.Felt
+	Value *felt.Felt
+}
+type oldAddressClassHashPair struct {
+	Address   *felt.Felt
+	ClassHash *felt.Felt
+}
+type oldDeclaredV1Class struct {
+	ClassHash         *felt.Felt
+	CompiledClassHash *felt.Felt
+}
+type oldStateDiff struct {
+	StorageDiffs      map[felt.Felt][]oldStorageDiff
+	Nonces            map[felt.Felt]*felt.Felt
+	DeployedContracts []oldAddressClassHashPair
+	DeclaredV0Classes []*felt.Felt
+	DeclaredV1Classes []oldDeclaredV1Class
+	ReplacedClasses   []oldAddressClassHashPair
+}
+type oldStateUpdate struct {
+	BlockHash *felt.Felt
+	NewRoot   *felt.Felt
+	OldRoot   *felt.Felt
+	StateDiff *oldStateDiff
+}
+
+func changeStateDiffStruct(txn db.Transaction, key, value []byte, _ *utils.Network) error {
+	old := new(oldStateUpdate)
+	if err := encoder.Unmarshal(value, old); err != nil {
+		return fmt.Errorf("unmarshal: %v", err)
+	}
+
+	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(old.StateDiff.StorageDiffs))
+	for addr, diff := range old.StateDiff.StorageDiffs {
+		newStorageDiffs := make(map[felt.Felt]*felt.Felt, len(diff))
+		for _, kv := range diff {
+			newStorageDiffs[*kv.Key] = kv.Value
+		}
+		storageDiffs[addr] = newStorageDiffs
+	}
+
+	nonces := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.Nonces))
+	maps.Copy(nonces, old.StateDiff.Nonces)
+
+	deployedContracts := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.DeployedContracts))
+	for _, deployedContract := range old.StateDiff.DeployedContracts {
+		deployedContracts[*deployedContract.Address] = deployedContract.ClassHash
+	}
+
+	declaredV1Classes := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.DeclaredV1Classes))
+	for _, declaredV1Class := range old.StateDiff.DeclaredV1Classes {
+		declaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
+	}
+
+	replacedClasses := make(map[felt.Felt]*felt.Felt, len(old.StateDiff.ReplacedClasses))
+	for _, replacedClass := range old.StateDiff.ReplacedClasses {
+		replacedClasses[*replacedClass.Address] = replacedClass.ClassHash
+	}
+
+	newValue, err := encoder.Marshal(&core.StateUpdate{
+		BlockHash: old.BlockHash,
+		NewRoot:   old.NewRoot,
+		OldRoot:   old.OldRoot,
+		StateDiff: &core.StateDiff{
+			StorageDiffs:      storageDiffs,
+			Nonces:            nonces,
+			DeployedContracts: deployedContracts,
+			DeclaredV0Classes: old.StateDiff.DeclaredV0Classes,
+			DeclaredV1Classes: declaredV1Classes,
+			ReplacedClasses:   replacedClasses,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal state update: %v", err)
+	}
+
+	if err := txn.Set(key, newValue); err != nil {
+		return fmt.Errorf("set new state update for key: %v", key)
+	}
+
+	return nil
+}
+
+type declaredClass struct {
+	At    uint64
+	Class oldCairo1Class
+}
+
+type oldCairo1Class struct {
+	Abi         string
+	AbiHash     *felt.Felt
+	EntryPoints struct {
+		Constructor []core.SierraEntryPoint
+		External    []core.SierraEntryPoint
+		L1Handler   []core.SierraEntryPoint
+	}
+	Program         []*felt.Felt
+	ProgramHash     *felt.Felt
+	SemanticVersion string
+	Compiled        json.RawMessage
+}
+
+func (o *oldCairo1Class) Version() uint64 {
+	return 1
+}
+
+func (o *oldCairo1Class) Hash() (*felt.Felt, error) {
+	return nil, nil
+}
+
+func migrateCairo1CompiledClass(txn db.Transaction, key, value []byte, _ *utils.Network) error {
+	var class declaredClass
+	err := encoder.Unmarshal(value, &class)
+	if err != nil {
+		// assumption that only Cairo0 class causes this error
+		targetErr := new(cbor.UnmarshalTypeError)
+		if errors.As(err, &targetErr) {
+			return nil
+		}
+
+		return err
+	}
+
+	var coreCompiledClass *core.CompiledClass
+	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(class.Class.Compiled); !deprecated {
+		var starknetCompiledClass starknet.CompiledClass
+		err = json.Unmarshal(class.Class.Compiled, &starknetCompiledClass)
+		if err != nil {
+			return err
+		}
+
+		coreCompiledClass, err = sn2core.AdaptCompiledClass(&starknetCompiledClass)
+		if err != nil {
+			return err
+		}
+	}
+
+	declaredClass := core.DeclaredClass{
+		At: class.At,
+		Class: &core.Cairo1Class{
+			Abi:             class.Class.Abi,
+			AbiHash:         class.Class.AbiHash,
+			EntryPoints:     class.Class.EntryPoints,
+			Program:         class.Class.Program,
+			ProgramHash:     class.Class.ProgramHash,
+			SemanticVersion: class.Class.SemanticVersion,
+			Compiled:        coreCompiledClass,
+		},
+	}
+
+	value, err = encoder.Marshal(declaredClass)
+	if err != nil {
+		return err
+	}
+
+	return txn.Set(key, value)
 }

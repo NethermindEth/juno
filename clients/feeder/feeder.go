@@ -18,7 +18,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
 type Client struct {
 	url        string
@@ -27,6 +31,13 @@ type Client struct {
 	maxRetries int
 	log        utils.SimpleLogger
 	userAgent  string
+	apiKey     string
+	listener   EventListener
+}
+
+func (c *Client) WithListener(l EventListener) *Client {
+	c.listener = l
+	return c
 }
 
 func (c *Client) WithBackoff(b utils.Backoff) *Client {
@@ -54,13 +65,19 @@ func (c *Client) WithTimeout(t time.Duration) *Client {
 	return c
 }
 
+func (c *Client) WithAPIKey(key string) *Client {
+	c.apiKey = key
+	return c
+}
+
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t *testing.T, network utils.Network) *Client {
-	srv := newTestServer(network)
+func NewTestClient(t *testing.T, network *utils.Network) *Client {
+	srv := newTestServer(t, network)
 	t.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
+	apiKey := "API_KEY"
 
-	c := NewClient(srv.URL).WithMaxRetries(0).WithUserAgent(ua)
+	c := NewClient(srv.URL).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -79,7 +96,7 @@ func NewTestClient(t *testing.T, network utils.Network) *Client {
 	return c
 }
 
-func newTestServer(network utils.Network) *httptest.Server {
+func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -87,12 +104,11 @@ func newTestServer(network utils.Network) *httptest.Server {
 			return
 		}
 
-		wd, err := os.Getwd()
-		if err != nil {
-			panic(err)
-		}
+		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
+		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
 
-		base := wd[:strings.LastIndex(wd, "juno")+4]
+		require.NoError(t, err)
+
 		queryArg := ""
 		dir := ""
 		const blockNumberArg = "blockNumber"
@@ -134,7 +150,11 @@ func newTestServer(network utils.Network) *httptest.Server {
 			return
 		}
 
-		path := filepath.Join(base, "clients", "feeder", "testdata", network.String(), dir, fileName[0]+".json")
+		dataPath, err := findTargetDirectory("clients/feeder/testdata")
+		if err != nil {
+			t.Fatalf("failed to find testdata directory: %v", err)
+		}
+		path := filepath.Join(dataPath, network.String(), dir, fileName[0]+".json")
 		read, err := os.ReadFile(path)
 		if err != nil {
 			handleNotFound(dir, queryArg, w)
@@ -162,6 +182,7 @@ func NewClient(clientURL string) *Client {
 		backoff:    utils.NewNopBackoff(),
 		maxRetries: 20,
 		log:        utils.NewNopZapLogger(),
+		listener:   &SelectiveListener{},
 	}
 }
 
@@ -272,7 +293,8 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 
 func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
-		"classHash": classHash.String(),
+		"classHash":   classHash.String(),
+		"blockNumber": "pending",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -288,9 +310,10 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 	return class, nil
 }
 
-func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (json.RawMessage, error) {
+func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CompiledClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
-		"classHash": classHash.String(),
+		"classHash":   classHash.String(),
+		"blockNumber": "pending",
 	})
 
 	body, err := c.get(ctx, queryURL)
@@ -299,8 +322,17 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 	}
 	defer body.Close()
 
-	var class json.RawMessage
-	if err = json.NewDecoder(body).Decode(&class); err != nil {
+	definition, err := io.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+
+	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(definition); deprecated {
+		return nil, ErrDeprecatedCompiledClass
+	}
+
+	class := new(starknet.CompiledClass)
+	if err = json.Unmarshal(definition, class); err != nil {
 		return nil, err
 	}
 	return class, nil
@@ -315,13 +347,12 @@ func (c *Client) PublicKey(ctx context.Context) (*felt.Felt, error) {
 	}
 	defer body.Close()
 
-	b, err := io.ReadAll(body)
-	if err != nil {
+	var publicKey string // public key hex string
+	if err = json.NewDecoder(body).Decode(&publicKey); err != nil {
 		return nil, err
 	}
-	publicKey := new(felt.Felt).SetBytes(b)
 
-	return publicKey, nil
+	return new(felt.Felt).SetString(publicKey)
 }
 
 func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signature, error) {
@@ -379,4 +410,24 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 		return nil, err
 	}
 	return traces, nil
+}
+
+func findTargetDirectory(targetRelPath string) (string, error) {
+	root, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		targetPath := filepath.Join(root, targetRelPath)
+		if _, err := os.Stat(targetPath); err == nil {
+			return targetPath, nil
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+		newRoot := filepath.Dir(root)
+		if newRoot == root {
+			return "", os.ErrNotExist
+		}
+		root = newRoot
+	}
 }

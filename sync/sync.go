@@ -34,11 +34,28 @@ type HeaderSubscription struct {
 	*feed.Subscription[*core.Header]
 }
 
+// Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
+//
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
+}
+
+// This is temporary and will be removed once the p2p synchronizer implements this interface.
+type NoopSynchronizer struct{}
+
+func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
+	return 0, nil
+}
+
+func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
+	return nil
+}
+
+func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
+	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -144,8 +161,8 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 		return stateErr
 	}
 
-	for _, deployedContract := range stateUpdate.StateDiff.DeployedContracts {
-		if err = fetchIfNotFound(deployedContract.ClassHash); err != nil {
+	for _, classHash := range stateUpdate.StateDiff.DeployedContracts {
+		if err = fetchIfNotFound(classHash); err != nil {
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
@@ -154,8 +171,8 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
-	for _, declaredV1 := range stateUpdate.StateDiff.DeclaredV1Classes {
-		if err = fetchIfNotFound(declaredV1.ClassHash); err != nil {
+	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
+		if err = fetchIfNotFound(&classHash); err != nil {
 			return nil, utils.RunAndWrapOnError(closer, err)
 		}
 	}
@@ -183,7 +200,6 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
 					// revert the head and restart the sync process, hoping that the reorg is not deep
@@ -282,11 +298,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 }
 
 func maxWorkers() int {
-	m, mProcs := 16, runtime.GOMAXPROCS(0)
-	if mProcs > m {
-		return m
-	}
-	return mProcs
+	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
 }
 
 func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {

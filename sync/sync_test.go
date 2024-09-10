@@ -24,12 +24,10 @@ import (
 const timeout = time.Second
 
 func TestSyncBlocks(t *testing.T) {
-	t.Parallel()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	testBlockchain := func(t *testing.T, bc *blockchain.Blockchain) {
 		t.Helper()
@@ -56,9 +54,8 @@ func TestSyncBlocks(t *testing.T) {
 	}
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
-		t.Parallel()
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, utils.Mainnet, log)
+		bc := blockchain.New(testDB, &utils.Mainnet)
 		synchronizer := sync.New(bc, gw, log, time.Duration(0), false)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
@@ -69,9 +66,8 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
-		t.Parallel()
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, utils.Mainnet, log)
+		bc := blockchain.New(testDB, &utils.Mainnet)
 		b0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)
@@ -88,9 +84,8 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
-		t.Parallel()
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, utils.Mainnet, log)
+		bc := blockchain.New(testDB, &utils.Mainnet)
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
 
@@ -142,33 +137,31 @@ func TestSyncBlocks(t *testing.T) {
 }
 
 func TestReorg(t *testing.T) {
-	t.Parallel()
-	mainClient := feeder.NewTestClient(t, utils.Mainnet)
+	mainClient := feeder.NewTestClient(t, &utils.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
 
-	integClient := feeder.NewTestClient(t, utils.Integration)
+	integClient := feeder.NewTestClient(t, &utils.Integration)
 	integGw := adaptfeeder.New(integClient)
 
 	testDB := pebble.NewMemTest(t)
 
 	// sync to integration for 2 blocks
-	bc := blockchain.New(testDB, utils.Integration, utils.NewNopZapLogger())
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), time.Duration(0), false)
+	bc := blockchain.New(testDB, &utils.Integration)
+	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		t.Parallel()
-		bc = blockchain.New(testDB, utils.Mainnet, utils.NewNopZapLogger())
+		bc := blockchain.New(testDB, &utils.Mainnet)
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), time.Duration(0), false)
+		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false)
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
@@ -183,12 +176,12 @@ func TestReorg(t *testing.T) {
 func TestPending(t *testing.T) {
 	t.Parallel()
 
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	testDB := pebble.NewMemTest(t)
 	log := utils.NewNopZapLogger()
-	bc := blockchain.New(testDB, utils.Mainnet, log)
+	bc := blockchain.New(testDB, &utils.Mainnet)
 	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
@@ -207,8 +200,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	log := utils.NewNopZapLogger()
 	integration := utils.Integration
-	chain := blockchain.New(testDB, integration, log)
-	integrationClient := feeder.NewTestClient(t, integration)
+	chain := blockchain.New(testDB, &integration)
+	integrationClient := feeder.NewTestClient(t, &integration)
 	gw := adaptfeeder.New(integrationClient)
 	syncer := sync.New(chain, gw, log, 0, false)
 

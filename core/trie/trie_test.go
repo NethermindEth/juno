@@ -22,7 +22,7 @@ import (
 //   - [*] Add more complicated Put and Delete scenarios
 func TestTriePut(t *testing.T) {
 	t.Run("put zero to empty trie", func(t *testing.T) {
-		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+		require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 			key := new(felt.Felt).SetUint64(1)
 			zeroVal := new(felt.Felt).SetUint64(0)
 
@@ -36,7 +36,7 @@ func TestTriePut(t *testing.T) {
 	})
 
 	t.Run("put zero value", func(t *testing.T) {
-		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+		require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 			keyNum, err := strconv.ParseUint("1101", 2, 64)
 			require.NoError(t, err)
 
@@ -57,7 +57,7 @@ func TestTriePut(t *testing.T) {
 	})
 
 	t.Run("put to replace an existed value", func(t *testing.T) {
-		require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+		require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 			keyNum, err := strconv.ParseUint("1101", 2, 64)
 			require.NoError(t, err)
 
@@ -124,7 +124,7 @@ func TestTrieDeleteBasic(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+			require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 				// Build a basic trie
 				_, err := tempTrie.Put(leftKey, leftVal)
 				require.NoError(t, err)
@@ -157,14 +157,14 @@ func TestTrieDeleteBasic(t *testing.T) {
 }
 
 func TestPutZero(t *testing.T) {
-	require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 		emptyRoot, err := tempTrie.Root()
 		require.NoError(t, err)
 		var roots []*felt.Felt
 		var keys []*felt.Felt
 
 		// put random 64 keys and record roots
-		for i := 0; i < 64; i++ {
+		for range 64 {
 			key, value := new(felt.Felt), new(felt.Felt)
 
 			_, err = key.SetRandom()
@@ -202,7 +202,7 @@ func TestPutZero(t *testing.T) {
 		t.Run("remove keys one by one, check roots", func(t *testing.T) {
 			var gotRoot *felt.Felt
 			// put zero in reverse order and check roots still match
-			for i := 0; i < 64; i++ {
+			for i := range 64 {
 				root := roots[len(roots)-1-i]
 
 				gotRoot, err = tempTrie.Root()
@@ -227,7 +227,7 @@ func TestPutZero(t *testing.T) {
 }
 
 func TestOldData(t *testing.T) {
-	require.NoError(t, trie.RunOnTempTrie(251, func(tempTrie *trie.Trie) error {
+	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 		key := new(felt.Felt).SetUint64(12)
 		old := new(felt.Felt)
 
@@ -282,13 +282,13 @@ func TestOldData(t *testing.T) {
 
 func TestMaxTrieHeight(t *testing.T) {
 	t.Run("create trie with invalid height", func(t *testing.T) {
-		assert.Error(t, trie.RunOnTempTrie(felt.Bits+1, func(_ *trie.Trie) error {
+		assert.Error(t, trie.RunOnTempTriePedersen(felt.Bits+1, func(_ *trie.Trie) error {
 			return nil
 		}))
 	})
 
 	t.Run("insert invalid key", func(t *testing.T) {
-		require.NoError(t, trie.RunOnTempTrie(uint8(felt.Bits), func(tt *trie.Trie) error {
+		require.NoError(t, trie.RunOnTempTriePedersen(uint8(felt.Bits), func(tt *trie.Trie) error {
 			badKey := new(felt.Felt).Sub(&felt.Zero, new(felt.Felt).SetUint64(1))
 			_, err := tt.Put(badKey, new(felt.Felt))
 			assert.Error(t, err)
@@ -319,7 +319,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 
 	// The database transaction we will use to create both tries.
 	txn := db.NewMemTransaction()
-	tTxn := trie.NewTransactionStorage(txn, []byte{1, 2, 3})
+	tTxn := trie.NewStorage(txn, []byte{1, 2, 3})
 
 	// Step 1: Create first trie
 	tempTrie, err := trie.NewTriePedersen(tTxn, height)
@@ -346,7 +346,7 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	assert.Equal(t, want, got)
 
 	// Step 2: Different trie created with the same db transaction and calls [trie.Root].
-	tTxn = trie.NewTransactionStorage(txn, []byte{1, 2, 3})
+	tTxn = trie.NewStorage(txn, []byte{1, 2, 3})
 	secondTrie, err := trie.NewTriePedersen(tTxn, height)
 	require.NoError(t, err)
 	got, err = secondTrie.Root()
@@ -364,7 +364,7 @@ func BenchmarkTriePut(b *testing.B) {
 	}
 
 	one := new(felt.Felt).SetUint64(1)
-	require.NoError(b, trie.RunOnTempTrie(251, func(t *trie.Trie) error {
+	require.NoError(b, trie.RunOnTempTriePedersen(251, func(t *trie.Trie) error {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, err := t.Put(keys[i], one)

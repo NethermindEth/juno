@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -17,15 +18,16 @@ import (
 func TestBlockByNumber(t *testing.T) {
 	numbers := []uint64{147, 11817}
 
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
 	for _, number := range numbers {
-		t.Run("mainnet block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.Block(ctx, strconv.FormatUint(number, 10))
+		numberStr := strconv.FormatUint(number, 10)
+		t.Run("mainnet block number "+numberStr, func(t *testing.T) {
+			response, err := client.Block(ctx, numberStr)
 			require.NoError(t, err)
-			sig, err := client.Signature(ctx, strconv.FormatUint(number, 10))
+			sig, err := client.Signature(ctx, numberStr)
 			require.NoError(t, err)
 			block, err := adapter.BlockByNumber(ctx, number)
 			require.NoError(t, err)
@@ -37,7 +39,7 @@ func TestBlockByNumber(t *testing.T) {
 }
 
 func TestBlockLatest(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -55,13 +57,14 @@ func TestBlockLatest(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
 	for _, number := range numbers {
-		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.StateUpdate(ctx, strconv.FormatUint(number, 10))
+		numberStr := strconv.FormatUint(number, 10)
+		t.Run("number "+numberStr, func(t *testing.T) {
+			response, err := client.StateUpdate(ctx, numberStr)
 			require.NoError(t, err)
 			feederUpdate, err := adapter.StateUpdate(ctx, number)
 			require.NoError(t, err)
@@ -75,13 +78,13 @@ func TestStateUpdate(t *testing.T) {
 
 func TestClassV0(t *testing.T) {
 	classHashes := []string{
-		"0x79e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
-		"0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0",
-		"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
-		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
+		"0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+		"0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+		"0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
+		"0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
 	}
 
-	client := feeder.NewTestClient(t, utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
@@ -101,10 +104,10 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, utils.Goerli)
+	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
 	adapterGoerli := adaptfeeder.New(clientGoerli)
 
-	clientMainnet := feeder.NewTestClient(t, utils.Mainnet)
+	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
 	ctx := context.Background()
@@ -176,35 +179,61 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
 
-	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	class, err := adapter.Class(context.Background(), classHash)
-	require.NoError(t, err)
+	tests := []struct {
+		classHash        *felt.Felt
+		hasCompiledClass bool
+	}{
+		{
+			classHash:        utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5"),
+			hasCompiledClass: true,
+		},
+		{
+			classHash:        utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c"),
+			hasCompiledClass: false,
+		},
+	}
 
-	feederClass, err := client.ClassDefinition(context.Background(), classHash)
-	require.NoError(t, err)
-	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
-	require.NoError(t, err)
+	for _, test := range tests {
+		class, err := adapter.Class(context.Background(), test.classHash)
+		require.NoError(t, err)
 
-	adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
-	require.NoError(t, err)
-	assert.Equal(t, adaptedResponse, class)
+		feederClass, err := client.ClassDefinition(context.Background(), test.classHash)
+		require.NoError(t, err)
+		compiled, err := client.CompiledClassDefinition(context.Background(), test.classHash)
+		if test.hasCompiledClass {
+			require.NoError(t, err)
+		} else {
+			require.EqualError(t, err, "deprecated compiled class")
+		}
+
+		adaptedResponse, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+		require.NoError(t, err)
+		assert.Equal(t, adaptedResponse, class)
+
+		if test.hasCompiledClass {
+			assert.NotNil(t, adaptedResponse.Compiled)
+		} else {
+			assert.Nil(t, adaptedResponse.Compiled)
+		}
+	}
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
 	numbers := []uint64{0, 78541}
 
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 
 	for _, number := range numbers {
-		t.Run("integration block number "+strconv.FormatUint(number, 10), func(t *testing.T) {
-			response, err := client.StateUpdateWithBlock(ctx, strconv.FormatUint(number, 10))
+		numberStr := strconv.FormatUint(number, 10)
+		t.Run("integration block number "+numberStr, func(t *testing.T) {
+			response, err := client.StateUpdateWithBlock(ctx, numberStr)
 			require.NoError(t, err)
-			sig, err := client.Signature(ctx, strconv.FormatUint(number, 10))
+			sig, err := client.Signature(ctx, numberStr)
 			require.NoError(t, err)
 			stateUpdate, block, err := adapter.StateUpdateWithBlock(ctx, number)
 			require.NoError(t, err)
@@ -219,7 +248,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
 	ctx := context.Background()
 

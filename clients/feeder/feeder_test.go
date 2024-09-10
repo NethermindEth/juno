@@ -2,11 +2,11 @@ package feeder_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
@@ -22,7 +22,7 @@ const (
 
 func TestDeclareTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Mainnet)
+		client := feeder.NewTestClient(t, &utils.Mainnet)
 		txnHash := utils.HexToFelt(t, "0x93f542728e403f1edcea4a41f1509a39be35ebcad7d4b5aa77623e5e6480d")
 		status, err := client.Transaction(context.Background(), txnHash)
 		require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Integration)
+		client := feeder.NewTestClient(t, &utils.Integration)
 		txnHash := utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
 		status, err := client.Transaction(context.Background(), txnHash)
 		require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 
 func TestInvokeTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Mainnet)
+		client := feeder.NewTestClient(t, &utils.Mainnet)
 
 		txnHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
 		status, err := client.Transaction(context.Background(), txnHash)
@@ -99,7 +99,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Integration)
+		client := feeder.NewTestClient(t, &utils.Integration)
 		txnHash := utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd")
 		status, err := client.Transaction(context.Background(), txnHash)
 		require.NoError(t, err)
@@ -152,7 +152,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 
 //nolint:dupl
 func TestDeployTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	txnHash := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -174,7 +174,7 @@ func TestDeployTransactionUnmarshal(t *testing.T) {
 
 func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	t.Run("pre-v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Mainnet)
+		client := feeder.NewTestClient(t, &utils.Mainnet)
 
 		txnHash := utils.HexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
 		status, err := client.Transaction(context.Background(), txnHash)
@@ -202,7 +202,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 	})
 
 	t.Run("v0.3", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Integration)
+		client := feeder.NewTestClient(t, &utils.Integration)
 		txnHash := utils.HexToFelt(t, "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0")
 		status, err := client.Transaction(context.Background(), txnHash)
 		require.NoError(t, err)
@@ -242,7 +242,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 
 //nolint:dupl
 func TestL1HandlerTransactionUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	txnHash := utils.HexToFelt(t, "0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -263,7 +263,7 @@ func TestL1HandlerTransactionUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	block, err := client.Block(context.Background(), strconv.Itoa(11817))
 	require.NoError(t, err)
@@ -281,7 +281,7 @@ func TestBlockWithoutSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	block, err := client.Block(context.Background(), strconv.Itoa(19199))
 	require.NoError(t, err)
@@ -300,7 +300,7 @@ func TestBlockWithSequencerAddressUnmarshal(t *testing.T) {
 }
 
 func TestBlockHeaderV013Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	block, err := client.Block(context.Background(), "319132")
 	require.NoError(t, err)
 
@@ -310,14 +310,48 @@ func TestBlockHeaderV013Unmarshal(t *testing.T) {
 	require.Equal(t, utils.HexToFelt(t, "0x2a6b9a8b60e1de80dc50e6b704b415a38e8fd03d82244cec92cbff0821a8975"), block.StateRoot)
 	require.Equal(t, "ACCEPTED_ON_L2", block.Status)
 	require.Equal(t, utils.HexToFelt(t, "0x3b9aca08"), block.GasPriceETH())
-	require.Equal(t, utils.HexToFelt(t, "0x2540be400"), block.GasPriceSTRK)
+	require.Equal(t, utils.HexToFelt(t, "0x2540be400"), block.GasPriceSTRK())
 	require.Equal(t, uint64(1700075354), block.Timestamp)
 	require.Equal(t, utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"), block.SequencerAddress)
 	require.Equal(t, "0.13.0", block.Version)
 }
 
+func TestBlockHeaderV0131Unmarshal(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Integration)
+	block, err := client.Block(context.Background(), "330363")
+	require.NoError(t, err)
+
+	require.Equal(t, utils.HexToFelt(t, "0x8ab8117e952f95efd96de0bc66dc6f13fe68dfda14b95fe1972759dee283a8"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x13367121d0b7e34a9b10c8a5a1c269811cd9afc3ce680c88888f1a22d2f017a"), block.TransactionCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x1090dd2ab2aa22bd5fc5a59d3b1394d54461bb2a80156c4b2c2622d2c474ca2"), block.EventCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x3b9aca0a"), block.GasPriceETH())
+	require.Equal(t, utils.HexToFelt(t, "0x2b6fdb70"), block.GasPriceSTRK())
+	require.Equal(t, utils.HexToFelt(t, "0x5265a14ef"), block.L1DataGasPrice.PriceInWei)
+	require.Equal(t, utils.HexToFelt(t, "0x3c0c00c87"), block.L1DataGasPrice.PriceInFri)
+	require.Equal(t, starknet.Blob, block.L1DAMode)
+	require.Equal(t, "0.13.1", block.Version)
+	require.Equal(t, uint64(0), block.Receipts[0].ExecutionResources.DataAvailability.L1Gas)
+	require.Equal(t, uint64(128), block.Receipts[0].ExecutionResources.DataAvailability.L1DataGas)
+}
+
+func TestBlockHeaderv0132Unmarshal(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	block, err := client.Block(context.Background(), "35748")
+	require.NoError(t, err)
+
+	// Only focus on checking the new fields
+	require.Equal(t, utils.HexToFelt(t, "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869"), block.Hash)
+	require.Equal(t, utils.HexToFelt(t, "0x77140bef51bbb4d1932f17cc5081825ff18465a1df4440ca0429a4fa80f1dc5"), block.ParentHash)
+	require.Equal(t, utils.HexToFelt(t, "0x6f12628d21a8df7f158b631d801fc0dd20034b9e22eca255bddc0c1c1bc283f"), block.ReceiptCommitment)
+	require.Equal(t, utils.HexToFelt(t, "0x23587c54d590b57b8e25acbf1e1a422eb4cd104e95ee4a681021a6bb7456afa"), block.StateDiffCommitment)
+	require.Equal(t, uint64(6), block.StateDiffLength)
+	require.Equal(t, "0.13.2", block.Version)
+	require.Equal(t, uint64(117620), block.Receipts[0].ExecutionResources.TotalGasConsumed.L1Gas)
+	require.Equal(t, uint64(192), block.Receipts[0].ExecutionResources.TotalGasConsumed.L1DataGas)
+}
+
 func TestClassV0Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	hash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
 	class, err := client.ClassDefinition(context.Background(), hash)
@@ -335,7 +369,7 @@ func TestClassV0Unmarshal(t *testing.T) {
 }
 
 func TestClassV1Unmarshal(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	hash := utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c")
 	class, err := client.ClassDefinition(context.Background(), hash)
@@ -375,7 +409,7 @@ func TestBuildQueryString_WithErrorUrl(t *testing.T) {
 }
 
 func TestStateUpdate(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		stateUpdate, err := client.StateUpdate(context.Background(), "0")
@@ -404,7 +438,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		client := feeder.NewTestClient(t, utils.Integration)
+		client := feeder.NewTestClient(t, &utils.Integration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			update, err := client.StateUpdate(context.Background(), "283746")
@@ -427,7 +461,7 @@ func TestStateUpdate(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		transactionHash := utils.HexToFelt(t, "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df")
@@ -444,7 +478,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualBlock, err := client.Block(context.Background(), strconv.Itoa(11817))
@@ -464,7 +498,7 @@ func TestBlock(t *testing.T) {
 }
 
 func TestClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x01efa8f84fd4dff9e2902ec88717cf0dafc8c188f80c3450615944a469428f7f")
@@ -533,16 +567,22 @@ func TestBackoffFailure(t *testing.T) {
 }
 
 func TestCompiledClassDefinition(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	class, err := client.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
-	require.True(t, json.Valid(class))
+	assert.Equal(t, "1.0.0", class.CompilerVersion)
+	assert.Equal(t, "0x800000000000011000000000000000000000000000000000000000000000001", class.Prime)
+	assert.Equal(t, 3900, len(class.Bytecode))
+	assert.Equal(t, 10, len(class.EntryPoints.External))
+	assert.Equal(t, 1, len(class.EntryPoints.External[9].Builtins))
+	assert.Equal(t, "range_check", class.EntryPoints.External[9].Builtins[0])
+	assert.Equal(t, "0x3604cea1cdb094a73a31144f14a3e5861613c008e1e879939ebc4827d10cd50", class.EntryPoints.External[9].Selector.String())
 }
 
 func TestTransactionStatusRevertError(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	txnHash := utils.HexToFelt(t, "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998")
 	status, err := client.Transaction(context.Background(), txnHash)
@@ -551,15 +591,15 @@ func TestTransactionStatusRevertError(t *testing.T) {
 }
 
 func TestPublicKey(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	actualPublicKey, err := client.PublicKey(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, "0x507b38d81561baa02f718dae46c371ba9f72fc5f0e9535ca94559dfb776115b", actualPublicKey.String())
+	assert.Equal(t, "0x52934be54ce926b1e715f15dc2542849a97ecfdf829cd0b7384c64eeeb2264e", actualPublicKey.String())
 }
 
 func TestSignature(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualSignature, err := client.Signature(context.Background(), strconv.Itoa(214584))
@@ -583,7 +623,7 @@ func TestSignature(t *testing.T) {
 }
 
 func TestStateUpdateWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	t.Run("Test normal case", func(t *testing.T) {
 		actualStateUpdate, err := client.StateUpdateWithBlock(context.Background(), strconv.Itoa(0))
@@ -610,7 +650,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestBlockTrace(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	t.Run("old block", func(t *testing.T) {
 		trace, err := client.BlockTrace(context.Background(), "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279")
@@ -623,4 +663,18 @@ func TestBlockTrace(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, trace.Traces, 2)
 	})
+}
+
+func TestEventListener(t *testing.T) {
+	isCalled := false
+	client := feeder.NewTestClient(t, &utils.Integration).WithListener(&feeder.SelectiveListener{
+		OnResponseCb: func(urlPath string, status int, _ time.Duration) {
+			isCalled = true
+			require.Equal(t, 200, status)
+			require.Equal(t, "/get_block", urlPath)
+		},
+	})
+	_, err := client.Block(context.Background(), "0")
+	require.NoError(t, err)
+	require.True(t, isCalled)
 }

@@ -19,6 +19,7 @@ type upgradeLogger struct {
 	infoMsg  string
 	warnMsg  string
 	errorMsg string
+	traceMsg string
 }
 
 func (l *upgradeLogger) Debugw(msg string, keysAndValues ...any) {}
@@ -33,6 +34,10 @@ func (l *upgradeLogger) Warnw(msg string, keysAndValues ...any) {
 
 func (l *upgradeLogger) Errorw(msg string, keysAndValues ...any) {
 	l.errorMsg = msg
+}
+
+func (l *upgradeLogger) Tracew(msg string, keysAndValues ...any) {
+	l.traceMsg = msg
 }
 
 func newVersion(t *testing.T, v string) semver.Version {
@@ -97,7 +102,6 @@ func TestUpgrader(t *testing.T) {
 	}
 
 	for description, test := range tests {
-		test := test
 		t.Run(description, func(t *testing.T) {
 			t.Parallel()
 			srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {

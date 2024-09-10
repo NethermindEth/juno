@@ -330,14 +330,13 @@ func TestClient(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.description, func(t *testing.T) {
 			t.Parallel()
 
 			ctrl := gomock.NewController(t)
 			nopLog := utils.NewNopZapLogger()
 			network := utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
+			chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
@@ -364,7 +363,7 @@ func TestClient(t *testing.T) {
 				subscriber.
 					EXPECT().
 					ChainID(gomock.Any()).
-					Return(network.DefaultL1ChainID(), nil).
+					Return(network.L1ChainID, nil).
 					Times(1)
 
 				subscriber.EXPECT().Close().Times(1)
@@ -398,7 +397,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
-	chain := blockchain.New(pebble.NewMemTest(t), network, nopLog)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	err := errors.New("test err")
@@ -431,7 +430,7 @@ func TestUnreliableSubscription(t *testing.T) {
 		subscriber.
 			EXPECT().
 			ChainID(gomock.Any()).
-			Return(network.DefaultL1ChainID(), nil).
+			Return(network.L1ChainID, nil).
 			Times(1)
 
 		subscriber.

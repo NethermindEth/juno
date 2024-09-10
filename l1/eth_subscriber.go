@@ -2,15 +2,15 @@ package l1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -20,6 +20,7 @@ type EthSubscriber struct {
 	ethClient *ethclient.Client
 	client    *rpc.Client
 	filterer  *contract.StarknetFilterer
+	listener  EventListener
 }
 
 var _ Subscriber = (*EthSubscriber)(nil)
@@ -42,6 +43,7 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 		ethClient: ethClient,
 		client:    client,
 		filterer:  filterer,
+		listener:  SelectiveListener{},
 	}, nil
 }
 
@@ -50,32 +52,36 @@ func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *co
 }
 
 func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
-	return s.ethClient.ChainID(ctx)
+	reqTimer := time.Now()
+	chainID, err := s.ethClient.ChainID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get chain ID: %w", err)
+	}
+	s.listener.OnL1Call("eth_chainId", time.Since(reqTimer))
+
+	return chainID, nil
 }
 
 func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
-	finalisedBlock := make(map[string]any, 0)
-	if err := s.client.CallContext(ctx, &finalisedBlock, "eth_getBlockByNumber", "finalized", false); err != nil { //nolint:misspell
+	const method = "eth_getBlockByNumber"
+	reqTimer := time.Now()
+
+	var raw json.RawMessage
+	if err := s.client.CallContext(ctx, &raw, method, "finalized", false); err != nil { //nolint:misspell
 		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
 	}
+	s.listener.OnL1Call(method, time.Since(reqTimer))
 
-	number, ok := finalisedBlock["number"] //nolint:gosec
-	if !ok {
-		return 0, fmt.Errorf("number field not present in Ethereum block")
+	var head *types.Header
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return 0, err
 	}
 
-	numberString, ok := number.(string)
-	if !ok {
-		return 0, fmt.Errorf("block number is not a string: %v", number)
+	if head == nil {
+		return 0, fmt.Errorf("finalised block not found")
 	}
 
-	numberString = strings.TrimPrefix(numberString, "0x")
-	numberUint, err := strconv.ParseUint(numberString, 16, 64)
-	if err != nil {
-		return 0, fmt.Errorf("parse block number: %s", numberString)
-	}
-
-	return numberUint, nil
+	return head.Number.Uint64(), nil
 }
 
 func (s *EthSubscriber) Close() {

@@ -40,17 +40,27 @@ func TestServer_RegisterMethod(t *testing.T) {
 		"no return": {
 			handler:    func(param1, param2 int) {},
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "handler must return 2 values",
+			want:       "handler must return 2 or 3 values",
 		},
 		"int return": {
 			handler:    func(param1, param2 int) (int, int) { return 0, 0 },
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error",
+			want:       "second return value must be a *jsonrpc.Error for 2 tuple handler",
+		},
+		"no error return 3": {
+			handler:    func(param1, param2 int) (int, int, int) { return 0, 0, 0 },
+			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
+			want:       "third return value must be a *jsonrpc.Error for 3 tuple handler",
+		},
+		"no header return 3": {
+			handler:    func(param1, param2 int) (int, int, *jsonrpc.Error) { return 0, 0, &jsonrpc.Error{} },
+			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
+			want:       "second return value must be a http.Header for 3 tuple handler",
 		},
 		"no error return": {
 			handler:    func(param1, param2 int) (any, int) { return 0, 0 },
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error",
+			want:       "second return value must be a *jsonrpc.Error for 2 tuple handler",
 		},
 	}
 
@@ -156,6 +166,13 @@ func TestHandle(t *testing.T) {
 				return b - a, nil
 			},
 		},
+		{
+			Name:   "errorsInternally",
+			Params: []jsonrpc.Parameter{},
+			Handler: func() (int, *jsonrpc.Error) {
+				return 0, jsonrpc.Err(jsonrpc.InternalError, nil)
+			},
+		},
 	}
 
 	listener := CountingEventListener{}
@@ -198,9 +215,8 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"too many params": {
-			req:              `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
-			res:              `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
-			checkFailedEvent: true,
+			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"list params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message"] , "id" : 3}`,
@@ -352,9 +368,8 @@ func TestHandle(t *testing.T) {
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"unsupported RPC request version"},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		"invalid value in struct": {
-			req:              `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
-			res:              `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
-			checkFailedEvent: true,
+			req: `{"jsonrpc" : "2.0", "method" : "validation", "params" : [ {"A": 0} ], "id" : 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"Key: 'validationStruct.A' Error:Field validation for 'A' failed on the 'min' tag"},"id":1}`,
 		},
 		"valid value in struct": {
 			req:                  `{"jsonrpc" : "2.0", "method" : "validation", "params" : [{"A": 1}], "id" : 1}`,
@@ -454,6 +469,11 @@ func TestHandle(t *testing.T) {
 			req:     `[1,2,3]`,
 			res:     `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
+		"fails internally": {
+			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,
+			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":1}`,
+			checkFailedEvent: true,
+		},
 	}
 
 	for desc, test := range tests {
@@ -462,8 +482,9 @@ func TestHandle(t *testing.T) {
 			oldRequestFailedEventCount := len(listener.OnRequestFailedCalls)
 			oldRequestHandledCalls := len(listener.OnRequestHandledCalls)
 
-			res, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
+			res, httpHeader, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
 			require.NoError(t, err)
+			assert.NotNil(t, httpHeader)
 
 			if test.isBatch {
 				assertBatchResponse(t, test.res, string(res))
@@ -505,8 +526,9 @@ func BenchmarkHandle(b *testing.B) {
 
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
 	for i := 0; i < b.N; i++ {
-		_, err := server.HandleReader(context.Background(), strings.NewReader(request))
+		_, header, err := server.HandleReader(context.Background(), strings.NewReader(request))
 		require.NoError(b, err)
+		require.NotNil(b, header)
 	}
 }
 
@@ -521,9 +543,10 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 			return 0, nil
 		},
 	}))
-	res, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	res, header, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
+	require.NotNil(t, header)
 }
 
 type fakeConn struct{}
@@ -584,7 +607,7 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 			w, ok := jsonrpc.ConnFromContext(ctx)
 			require.True(t, ok)
 			wg.Go(func() {
-				for i := 0; i < 3; i++ {
+				for range 3 {
 					_, err := w.Write([]byte("test"))
 					require.ErrorIs(t, err, io.ErrClosedPipe)
 					require.ErrorContains(t, err, "there was an error while writing the initial response")

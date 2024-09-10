@@ -23,6 +23,8 @@ func TestAdaptBlock(t *testing.T) {
 		sig             *starknet.Signature
 		gasPriceWEI     *felt.Felt
 		gasPriceSTRK    *felt.Felt
+		l1DAGasPriceWEI *felt.Felt
+		l1DAGasPriceFRI *felt.Felt
 	}{
 		{
 			number:      147,
@@ -57,13 +59,28 @@ func TestAdaptBlock(t *testing.T) {
 			gasPriceWEI:  utils.HexToFelt(t, "0x3b9aca08"),
 			gasPriceSTRK: utils.HexToFelt(t, "0x2540be400"),
 		},
+		{
+			number:          330363,
+			network:         utils.Integration,
+			protocolVersion: "0.13.1",
+			sig: &starknet.Signature{
+				Signature: []*felt.Felt{
+					utils.HexToFelt(t, "0x7685fbcd4bacae7554ad17c6962221143911d894d7b8794d29234623f392562"),
+					utils.HexToFelt(t, "0x343e605de3957e664746ba8ef82f2b0f9d53cda3d75dcb078290b8edd010165"),
+				},
+			},
+			gasPriceWEI:     utils.HexToFelt(t, "0x3b9aca0a"),
+			gasPriceSTRK:    utils.HexToFelt(t, "0x2b6fdb70"),
+			l1DAGasPriceWEI: utils.HexToFelt(t, "0x5265a14ef"),
+			l1DAGasPriceFRI: utils.HexToFelt(t, "0x3c0c00c87"),
+		},
 	}
 
 	ctx := context.Background()
 
 	for _, test := range tests {
 		t.Run(test.network.String()+" block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
-			client := feeder.NewTestClient(t, test.network)
+			client := feeder.NewTestClient(t, &test.network)
 
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
 			require.NoError(t, err)
@@ -87,11 +104,14 @@ func TestAdaptBlock(t *testing.T) {
 				for i, feederReceipt := range response.Receipts {
 					assert.Equal(t, feederReceipt.ExecutionStatus == starknet.Reverted, block.Receipts[i].Reverted)
 					assert.Equal(t, feederReceipt.RevertError, block.Receipts[i].RevertReason)
+					if feederReceipt.ExecutionResources != nil {
+						assert.Equal(t, (*core.DataAvailability)(feederReceipt.ExecutionResources.DataAvailability),
+							block.Receipts[i].ExecutionResources.DataAvailability)
+					}
 				}
 			}
 			assert.Equal(t, expectedEventCount, block.EventCount)
 			assert.Equal(t, test.protocolVersion, block.ProtocolVersion)
-			assert.Nil(t, block.ExtraData)
 
 			if test.sig != nil {
 				require.Len(t, block.Signatures, 1)
@@ -102,6 +122,12 @@ func TestAdaptBlock(t *testing.T) {
 
 			assert.Equal(t, test.gasPriceSTRK, block.GasPriceSTRK)
 			assert.Equal(t, test.gasPriceWEI, block.GasPrice)
+			if test.l1DAGasPriceFRI != nil {
+				assert.Equal(t, test.l1DAGasPriceFRI, block.L1DataGasPrice.PriceInFri)
+			}
+			if test.l1DAGasPriceFRI != nil {
+				assert.Equal(t, test.l1DAGasPriceWEI, block.L1DataGasPrice.PriceInWei)
+			}
 		})
 	}
 }
@@ -109,7 +135,7 @@ func TestAdaptBlock(t *testing.T) {
 func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
-	client := feeder.NewTestClient(t, utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
 	ctx := context.Background()
 
 	for _, number := range numbers {
@@ -138,11 +164,10 @@ func TestStateUpdate(t *testing.T) {
 			}
 
 			assert.Equal(t, len(response.StateDiff.DeployedContracts), len(feederUpdate.StateDiff.DeployedContracts))
-			for idx := range response.StateDiff.DeployedContracts {
+			for idx, deployedContract := range response.StateDiff.DeployedContracts {
 				gw := response.StateDiff.DeployedContracts[idx]
-				coreDeployedContract := feederUpdate.StateDiff.DeployedContracts[idx]
-				assert.True(t, gw.ClassHash.Equal(coreDeployedContract.ClassHash))
-				assert.True(t, gw.Address.Equal(coreDeployedContract.Address))
+				coreDeployedContractClassHash := feederUpdate.StateDiff.DeployedContracts[*deployedContract.Address]
+				assert.True(t, gw.ClassHash.Equal(coreDeployedContractClassHash))
 			}
 
 			assert.Equal(t, len(response.StateDiff.StorageDiffs), len(feederUpdate.StateDiff.StorageDiffs))
@@ -151,16 +176,15 @@ func TestStateUpdate(t *testing.T) {
 				coreDiffs := feederUpdate.StateDiff.StorageDiffs[*key]
 				assert.Equal(t, true, len(diffs) > 0)
 				assert.Equal(t, len(diffs), len(coreDiffs))
-				for idx := range diffs {
-					assert.Equal(t, true, diffs[idx].Key.Equal(coreDiffs[idx].Key))
-					assert.Equal(t, true, diffs[idx].Value.Equal(coreDiffs[idx].Value))
+				for _, diff := range diffs {
+					assert.True(t, diff.Value.Equal(coreDiffs[*diff.Key]))
 				}
 			}
 		})
 	}
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		integClient := feeder.NewTestClient(t, utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.Integration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
@@ -196,13 +220,13 @@ func TestStateUpdate(t *testing.T) {
 
 func TestClassV0(t *testing.T) {
 	classHashes := []string{
-		"0x79e2d211e70594e687f9f788f71302e6eecb61d98efce48fbe8514948c8118",
-		"0x1924aa4b0bedfd884ea749c7231bafd91650725d44c91664467ffce9bf478d0",
-		"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
-		"0x56b96c1d1bbfa01af44b465763d1b71150fa00c6c9d54c3947f57e979ff68c3",
+		"0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909",
+		"0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3",
+		"0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0",
+		"0x28d1671fb74ecb54d848d463cefccffaef6df3ae40db52130e19fe8299a7b43",
 	}
 
-	client := feeder.NewTestClient(t, utils.Goerli)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
 	ctx := context.Background()
 
 	for _, hashString := range classHashes {
@@ -239,8 +263,8 @@ func TestClassV0(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-	clientGoerli := feeder.NewTestClient(t, utils.Goerli)
-	clientMainnet := feeder.NewTestClient(t, utils.Mainnet)
+	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
+	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	ctx := context.Background()
 
 	t.Run("invoke transaction", func(t *testing.T) {
@@ -351,7 +375,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionV3(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 	ctx := context.Background()
 
 	tests := map[string]core.Transaction{
@@ -472,7 +496,7 @@ func TestTransactionV3(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, utils.Integration)
+	client := feeder.NewTestClient(t, &utils.Integration)
 
 	classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 
@@ -481,16 +505,19 @@ func TestClassV1(t *testing.T) {
 	compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
 	require.NoError(t, err)
 
-	class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+	v1Class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
 	require.NoError(t, err)
-
-	v1Class, ok := class.(*core.Cairo1Class)
-	require.True(t, ok)
 
 	assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
 	assert.Equal(t, feederClass.V1.Program, v1Class.Program)
 	assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
-	assert.Equal(t, compiled, v1Class.Compiled)
+	assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
+	assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
+	assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
+	assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
+	assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
+	assert.Equal(t, len(compiled.EntryPoints.Constructor), len(v1Class.Compiled.Constructor))
+	assert.Equal(t, len(compiled.EntryPoints.L1Handler), len(v1Class.Compiled.L1Handler))
 
 	assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
 	for i, v := range feederClass.V1.EntryPoints.External {
@@ -509,4 +536,10 @@ func TestClassV1(t *testing.T) {
 		assert.Equal(t, v.Selector, v1Class.EntryPoints.L1Handler[i].Selector)
 		assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
 	}
+}
+
+func TestAdaptCompiledClass(t *testing.T) {
+	result, err := sn2core.AdaptCompiledClass(nil)
+	require.NoError(t, err)
+	assert.Nil(t, result)
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -44,11 +45,13 @@ type Reader interface {
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFilter, error)
 
 	Pending() (Pending, error)
+
+	Network() *utils.Network
 }
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	supportedStarknetVersion  = semver.MustParse("0.13.0")
+	supportedStarknetVersion  = semver.MustParse("0.13.2")
 )
 
 func checkBlockVersion(protocolVersion string) error {
@@ -68,21 +71,19 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network  utils.Network
+	network  *utils.Network
 	database db.DB
 
-	log      utils.SimpleLogger
 	listener EventListener
 
 	cachedPending atomic.Pointer[Pending]
 }
 
-func New(database db.DB, network utils.Network, log utils.SimpleLogger) *Blockchain {
+func New(database db.DB, network *utils.Network) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database: database,
 		network:  network,
-		log:      log,
 		listener: &SelectiveListener{},
 	}
 }
@@ -92,7 +93,7 @@ func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
 	return b
 }
 
-func (b *Blockchain) Network() utils.Network {
+func (b *Blockchain) Network() *utils.Network {
 	return b.network
 }
 
@@ -339,6 +340,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
+
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
@@ -460,11 +462,7 @@ func StoreBlockHeader(txn db.Transaction, header *core.Header) error {
 		return err
 	}
 
-	if err = txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes); err != nil {
-		return err
-	}
-
-	return nil
+	return txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes)
 }
 
 // blockHeaderByNumber retrieves a block header from database by its number
@@ -639,7 +637,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 		return nil, err
 	}
 
-	return core.VerifyBlockHash(block, b.network)
+	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
 }
 
 type txAndReceiptDBKey struct {
@@ -930,7 +928,8 @@ func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.He
 		Header: &core.Header{
 			ParentHash:       latestHeader.Hash,
 			SequencerAddress: latestHeader.SequencerAddress,
-			Timestamp:        latestHeader.Timestamp + 1,
+			Number:           latestHeader.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  latestHeader.ProtocolVersion,
 			EventsBloom:      core.EventsBloom(receipts),
 			GasPrice:         latestHeader.GasPrice,
@@ -971,9 +970,13 @@ func (b *Blockchain) StorePending(pending *Pending) error {
 			return ErrParentDoesNotMatchHead
 		}
 
-		existingPending, err := b.pendingBlock(txn)
-		if err == nil && existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
-			return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+		if existingPending, err := b.pendingBlock(txn); err == nil {
+			if existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
+				return nil // ignore the incoming pending if it has fewer transactions than the one we already have
+			}
+			pending.Block.Number = existingPending.Block.Number // Just in case the number is not set.
+		} else if !errors.Is(err, db.ErrKeyNotFound) { // Allow StorePending before block zero.
+			return err
 		}
 
 		return b.storePending(txn, pending)
@@ -1065,11 +1068,8 @@ func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff,
 	}
 
 	blockHashStorageContract := new(felt.Felt).SetUint64(1)
-	stateDiff.StorageDiffs[*blockHashStorageContract] = []core.StorageDiff{
-		{
-			Key:   new(felt.Felt).SetUint64(header.Number),
-			Value: header.Hash,
-		},
+	stateDiff.StorageDiffs[*blockHashStorageContract] = map[felt.Felt]*felt.Felt{
+		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
 	return stateDiff, nil
 }
