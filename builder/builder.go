@@ -228,6 +228,20 @@ func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
 			delete(sd.StorageDiffs, addr)
 		}
 	}
+
+	// If accounts and deployed, and upgraded in the same block, then move
+	// replaced_classes to deployed_contracts
+	for addr, classHash := range sd.ReplacedClasses {
+		_, err := state.ContractClassHash(&addr)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				b.log.Debugw("moving replaced class to deployed contracts")
+				sd.DeployedContracts[addr] = classHash
+				delete(sd.ReplacedClasses, addr)
+			}
+			b.log.Errorw("class is being replaced, but was not found in previous state")
+		}
+	}
 	return nil
 }
 
