@@ -210,7 +210,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	var err error
 	for i := 0; i <= c.maxRetries; i++ {
 		var req *http.Request
-		req, err = http.NewRequestWithContext(ctx, "GET", queryURL, http.NoBody)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
 		if err != nil {
 			return nil, err
 		}
@@ -221,11 +221,11 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			req.Header.Set("X-Throttling-Bypass", c.apiKey)
 		}
 
-		res, err = c.client.Do(req)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 		reqTimer := time.Now()
+		res, err = c.client.Do(req)
 		if err == nil {
 			c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 			if res.StatusCode == http.StatusOK {
