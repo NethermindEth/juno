@@ -1,5 +1,5 @@
 use std::{
-    ffi::{c_char, c_uchar, c_void, c_int, CStr},
+    ffi::{c_char, c_int, c_uchar, c_void, CStr},
     slice,
     sync::Mutex,
 };
@@ -75,8 +75,14 @@ impl StateReader for JunoStateReader {
         let addr = felt_to_byte_array(contract_address.0.key());
         let storage_key = felt_to_byte_array(key.0.key());
         let mut buffer: [u8; 32] = [0; 32];
-        let wrote =
-            unsafe { JunoStateGetStorageAt(self.handle, addr.as_ptr(), storage_key.as_ptr(), buffer.as_mut_ptr()) };
+        let wrote = unsafe {
+            JunoStateGetStorageAt(
+                self.handle,
+                addr.as_ptr(),
+                storage_key.as_ptr(),
+                buffer.as_mut_ptr(),
+            )
+        };
         if wrote == 0 {
             Err(StateError::StateReadError(format!(
                 "failed to read location {} at address {}",
@@ -111,7 +117,8 @@ impl StateReader for JunoStateReader {
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let mut buffer: [u8; 32] = [0; 32];
-        let wrote = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
+        let wrote =
+            unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
         if wrote == 0 {
             Err(StateError::StateReadError(format!(
                 "failed to read class hash of address {}",
