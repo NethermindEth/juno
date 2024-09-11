@@ -19,9 +19,9 @@ import (
 
 func TestClassRange(t *testing.T) {
 	// Note: set to true to make test super long to complete
-	shouldFetchAllClasses := false
+	shouldFetchAllClasses := true
 	var d db.DB
-	t.Skip("DB snapshot is needed for this test")
+	//t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -32,8 +32,9 @@ func TestClassRange(t *testing.T) {
 	fmt.Printf("headblock %d\n", b.Number)
 
 	stateRoot := b.GlobalStateRoot
-
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
 	server := &snapServer{
+		log:        logger,
 		blockchain: bc,
 	}
 
@@ -42,6 +43,10 @@ func TestClassRange(t *testing.T) {
 	chunksReceived := 0
 
 	chunksPerProof := 150
+	if shouldFetchAllClasses {
+		// decrease iteration count and hence speed up a bit
+		chunksPerProof *= 4
+	}
 	iter, err := server.GetClassRange(
 		&spec.ClassRangeRequest{
 			Root:           core2p2p.AdaptHash(stateRoot),
@@ -86,7 +91,7 @@ func TestClassRange(t *testing.T) {
 
 func TestContractRange(t *testing.T) {
 	var d db.DB
-	t.Skip("DB snapshot is needed for this test")
+	//t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -98,7 +103,9 @@ func TestContractRange(t *testing.T) {
 
 	stateRoot := b.GlobalStateRoot
 
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
 	server := &snapServer{
+		log:        logger,
 		blockchain: bc,
 	}
 
@@ -173,7 +180,7 @@ func TestContractRange_FinMsg_Received(t *testing.T) {
 
 func TestContractStorageRange(t *testing.T) {
 	var d db.DB
-	t.Skip("DB snapshot is needed for this test")
+	//t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -185,7 +192,9 @@ func TestContractStorageRange(t *testing.T) {
 
 	stateRoot := b.GlobalStateRoot
 
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
 	server := &snapServer{
+		log:        logger,
 		blockchain: bc,
 	}
 
@@ -268,7 +277,7 @@ func TestContractStorageRange(t *testing.T) {
 
 func TestGetClassesByHash(t *testing.T) {
 	var d db.DB
-	t.Skip("DB snapshot is needed for this test")
+	//t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -278,7 +287,9 @@ func TestGetClassesByHash(t *testing.T) {
 
 	fmt.Printf("headblock %d\n", b.Number)
 
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
 	server := &snapServer{
+		log:        logger,
 		blockchain: bc,
 	}
 

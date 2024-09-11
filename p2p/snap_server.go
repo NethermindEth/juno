@@ -97,7 +97,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 
 	stateRoot := p2p2core.AdaptHash(request.Root)
 	startAddr := p2p2core.AdaptHash(request.Start)
-	b.log.Debugw("GetClassRange", "root", stateRoot.String(), "start", startAddr.String(), "chunks", request.ChunksPerProof)
+	b.log.Debugw("GetClassRange", "root", stateRoot, "start", startAddr, "chunks", request.ChunksPerProof)
 
 	return func(yield yieldFunc) {
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
@@ -131,7 +131,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 			}
 
 			classkeys := []*felt.Felt{}
-			proofs, finished, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof),
+			proofs, finished, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof), b.log,
 				func(key, value *felt.Felt) error {
 					classkeys = append(classkeys, key)
 					return nil
@@ -186,7 +186,7 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 	}
 	stateRoot := p2p2core.AdaptHash(request.StateRoot)
 	startAddr := p2p2core.AdaptAddress(request.Start)
-	b.log.Debugw("GetContractRange", "root", stateRoot.String(), "start", startAddr.String(), "chunks", request.ChunksPerProof)
+	b.log.Debugw("GetContractRange", "root", stateRoot, "start", startAddr, "chunks", request.ChunksPerProof)
 
 	return func(yield yieldFunc) {
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
@@ -213,7 +213,7 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 		states := []*spec.ContractState{}
 
 		for {
-			proofs, finished, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof),
+			proofs, finished, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof), b.log,
 				func(key, value *felt.Felt) error {
 					classHash, err := s.ContractClassHash(key)
 					if err != nil {
@@ -280,7 +280,9 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 	var finMsg proto.Message = &spec.ContractStorageResponse{
 		Responses: &spec.ContractStorageResponse_Fin{},
 	}
-	b.log.Debugw("GetStorageRange", "root", request.StateRoot.String(), "start[0]", request.Query[0].Start.Key.String())
+	stateRoot := p2p2core.AdaptHash(request.StateRoot)
+	startKey := p2p2core.AdaptFelt(request.Query[0].Start.Key)
+	b.log.Debugw("GetStorageRange", "root", stateRoot, "start[0]", startKey)
 
 	return func(yield yieldFunc) {
 		stateRoot := p2p2core.AdaptHash(request.StateRoot)
@@ -304,7 +306,7 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 				return
 			}
 
-			handled, err := b.handleStorageRangeRequest(strie, query, request.ChunksPerProof, contractLimit,
+			handled, err := b.handleStorageRangeRequest(strie, query, request.ChunksPerProof, contractLimit, b.log,
 				func(values []*spec.ContractStoredValue, proofs []trie.ProofNode) bool {
 					stoMsg := &spec.ContractStorageResponse{
 						StateRoot:       request.StateRoot,
@@ -378,6 +380,7 @@ func (b *snapServer) handleStorageRangeRequest(
 	stTrie *trie.Trie,
 	request *spec.StorageRangeQuery,
 	maxChunkPerProof, nodeLimit uint32,
+	logger utils.SimpleLogger,
 	yield func([]*spec.ContractStoredValue, []trie.ProofNode) bool,
 ) (uint32, error) {
 	totalSent := 0
@@ -396,15 +399,16 @@ func (b *snapServer) handleStorageRangeRequest(
 			limit = nodeLimit
 		}
 
-		proofs, finish, err := iterateWithLimit(stTrie, startAddr, endAddr, limit, func(key, value *felt.Felt) error {
-			response = append(response, &spec.ContractStoredValue{
-				Key:   core2p2p.AdaptFelt(key),
-				Value: core2p2p.AdaptFelt(value),
-			})
+		proofs, finish, err := iterateWithLimit(stTrie, startAddr, endAddr, limit, logger,
+			func(key, value *felt.Felt) error {
+				response = append(response, &spec.ContractStoredValue{
+					Key:   core2p2p.AdaptFelt(key),
+					Value: core2p2p.AdaptFelt(value),
+				})
 
-			startAddr = key
-			return nil
-		})
+				startAddr = key
+				return nil
+			})
 		finished = finish
 
 		if err != nil {
@@ -435,12 +439,13 @@ func iterateWithLimit(
 	startAddr *felt.Felt,
 	limitAddr *felt.Felt,
 	maxNodes uint32,
+	logger utils.SimpleLogger,
 	consumer func(key, value *felt.Felt) error,
 ) ([]trie.ProofNode, bool, error) {
 	pathes := make([]*felt.Felt, 0)
 	hashes := make([]*felt.Felt, 0)
 
-	// TODO: Verify class trie
+	logger.Infow("entering IterateAndGenerateProof", "startAddr", startAddr, "endAddr", limitAddr, "maxNodes", maxNodes)
 	count := uint32(0)
 	proof, finished, err := srcTrie.IterateAndGenerateProof(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
 		// Need at least one.
@@ -453,19 +458,23 @@ func iterateWithLimit(
 
 		err := consumer(key, value)
 		if err != nil {
+			logger.Errorw("error from consumer function", "err", err)
 			return false, err
 		}
 
 		count++
 		if count >= maxNodes {
+			logger.Infow("Max nodes reached", "count", count)
 			return false, nil
 		}
 		return true, nil
 	})
 	if err != nil {
+		logger.Errorw("IterateAndGenerateProof", "err", err, "finished", finished)
 		return nil, finished, err
 	}
 
+	logger.Infow("exiting IterateAndGenerateProof", "len(proof)", len(proof), "finished", finished, "err", err)
 	return proof, finished, err
 }
 

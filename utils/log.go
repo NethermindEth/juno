@@ -122,6 +122,7 @@ func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
 }
 
 var _ Logger = (*ZapLogger)(nil)
+var _ SimpleLogger = (*ZapLogger)(nil)
 
 func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}

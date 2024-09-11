@@ -537,7 +537,7 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 			continue
 		}
 
-		classes := make([]*spec.Class, len(keyBatches))
+		classes := make([]*spec.Class, 0, len(keyBatches))
 		for response := range classIter {
 			if response == nil {
 				s.log.Errorw("class by keys respond with nil response")
@@ -554,14 +554,14 @@ func (s *SnapSyncher) runFetchClassJob(ctx context.Context) error {
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
 			}
 		}
-		s.log.Infow("class fetch job received response", "classes", len(classes))
+		s.log.Infow("class fetch job received response", "classes", len(classes), "asked keys", len(keyBatches))
 
 		processedClasses := map[felt.Felt]bool{}
 		newClasses := map[felt.Felt]core.Class{}
 		classHashes := map[felt.Felt]*felt.Felt{}
 		for i, class := range classes {
 			if class == nil {
-				s.log.Infow("class empty", "key", keyBatches[i])
+				s.log.Infow("class empty", "hash", keyBatches[i])
 				continue
 			}
 
