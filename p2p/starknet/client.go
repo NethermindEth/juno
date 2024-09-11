@@ -17,7 +17,8 @@ import (
 
 const (
 	unmarshalMaxSize = 15 * utils.Megabyte
-	readTimeout      = 5 * time.Second
+	// TODO: allow a looot and tweak it later if needed, was 5 seconds before
+	readTimeout = 60 * time.Second
 )
 
 type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Stream, error)
