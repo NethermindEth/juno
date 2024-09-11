@@ -115,6 +115,8 @@ type TxnFinalityStatus uint8
 const (
 	TxnAcceptedOnL1 TxnFinalityStatus = iota + 1
 	TxnAcceptedOnL2
+	TxnReceived
+	TxnRejected
 )
 
 func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
@@ -123,6 +125,10 @@ func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnReceived:
+		return []byte("RECEIVED"), nil
+	case TxnRejected:
+		return []byte("REJECTED"), nil
 	default:
 		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
