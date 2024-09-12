@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
@@ -254,10 +255,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
+		httpHandlers := map[string]http.HandlerFunc{
+			"/ready/sync": readinessHandlers.HandleReadySync,
+		}
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(services,
+			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	var metricsService service.Service
 	if cfg.Metrics {
@@ -320,9 +326,6 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 	}
 
 	network := chain.Network()
-	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", network.String(), err)
-	}
 
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
@@ -330,10 +333,7 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
-	l1Client, err := l1.NewClient(ethSubscriber, chain, log), nil
-	if err != nil {
-		return nil, fmt.Errorf("set up l1 client: %w", err)
-	}
+	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
 	if cfg.Metrics {
 		l1Client.WithEventListener(makeL1Metrics())

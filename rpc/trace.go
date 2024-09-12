@@ -212,7 +212,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, httpHeader, ErrUnexpectedError.CloneWithData(err.Error())
-		} else if blockVer.Compare(traceFallbackVersion) != 1 && block.ProtocolVersion != excludedVersion {
+		} else if blockVer.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion != excludedVersion {
 			// version <= 0.13.1 and not 0.13.1.1 fetch blocks from feeder gateway
 			result, err := h.fetchTraces(ctx, block.Hash)
 			return result, httpHeader, err

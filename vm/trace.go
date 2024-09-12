@@ -278,6 +278,7 @@ type ComputationResources struct {
 	AddMod       uint64 `json:"add_mod_builtin,omitempty"`
 	MulMod       uint64 `json:"mul_mod_builtin,omitempty"`
 	RangeCheck96 uint64 `json:"range_check_96_builtin,omitempty"`
+	Output       uint64 `json:"output_builtin,omitempty"`
 }
 
 type DataAvailability struct {

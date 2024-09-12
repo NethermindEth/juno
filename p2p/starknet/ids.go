@@ -6,10 +6,6 @@ import (
 
 const Prefix = "/starknet"
 
-func KadPrefix() protocol.ID {
-	return Prefix + "/kad"
-}
-
 func HeadersPID() protocol.ID {
 	return Prefix + "/headers/0.1.0-rc.0"
 }

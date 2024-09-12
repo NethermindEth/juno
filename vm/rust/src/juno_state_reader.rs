@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::{
-    ffi::{c_char, c_uchar, c_void, CStr},
+    ffi::{c_char, c_uchar, c_void, c_int, CStr},
     slice,
     sync::Mutex,
 };
@@ -32,15 +32,18 @@ extern "C" {
         reader_handle: usize,
         contract_address: *const c_uchar,
         storage_location: *const c_uchar,
-    ) -> *const c_uchar;
+        buffer: *mut c_uchar,
+    ) -> c_int;
     fn JunoStateGetNonceAt(
         reader_handle: usize,
         contract_address: *const c_uchar,
-    ) -> *const c_uchar;
+        buffer: *mut c_uchar,
+    ) -> c_int;
     fn JunoStateGetClassHashAt(
         reader_handle: usize,
         contract_address: *const c_uchar,
-    ) -> *const c_uchar;
+        buffer: *mut c_uchar,
+    ) -> c_int;
     fn JunoStateGetCompiledClass(reader_handle: usize, class_hash: *const c_uchar)
         -> *const c_char;
 
@@ -97,19 +100,18 @@ impl StateReader for JunoStateReader {
     ) -> StateResult<StarkFelt> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let storage_key = felt_to_byte_array(key.0.key());
-        let ptr =
-            unsafe { JunoStateGetStorageAt(self.handle, addr.as_ptr(), storage_key.as_ptr()) };
-        if ptr.is_null() {
+        let mut buffer: [u8; 32] = [0; 32];
+        let wrote =
+            unsafe { JunoStateGetStorageAt(self.handle, addr.as_ptr(), storage_key.as_ptr(), buffer.as_mut_ptr()) };
+        if wrote == 0 {
             Err(StateError::StateReadError(format!(
                 "failed to read location {} at address {}",
                 key.0.key(),
                 contract_address.0.key()
             )))
         } else {
-            let felt_val = ptr_to_felt(ptr);
-            unsafe { JunoFree(ptr as *const c_void) };
-
-            Ok(felt_val)
+            assert!(wrote == 32, "Juno didn't write 32 bytes");
+            Ok(StarkFelt::from_bytes_be(&buffer))
         }
     }
 
@@ -117,16 +119,16 @@ impl StateReader for JunoStateReader {
     /// Default: 0 for an uninitialized contract address.
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let addr = felt_to_byte_array(contract_address.0.key());
-        let ptr = unsafe { JunoStateGetNonceAt(self.handle, addr.as_ptr()) };
-        if ptr.is_null() {
+        let mut buffer: [u8; 32] = [0; 32];
+        let wrote = unsafe { JunoStateGetNonceAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
+        if wrote == 0 {
             Err(StateError::StateReadError(format!(
                 "failed to read nonce of address {}",
                 contract_address.0.key()
             )))
         } else {
-            let felt_val = ptr_to_felt(ptr);
-            unsafe { JunoFree(ptr as *const c_void) };
-            Ok(Nonce(felt_val))
+            assert!(wrote == 32, "Juno didn't write 32 bytes");
+            Ok(Nonce(StarkFelt::from_bytes_be(&buffer)))
         }
     }
 
@@ -134,17 +136,16 @@ impl StateReader for JunoStateReader {
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let addr = felt_to_byte_array(contract_address.0.key());
-        let ptr = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr()) };
-        if ptr.is_null() {
+        let mut buffer: [u8; 32] = [0; 32];
+        let wrote = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
+        if wrote == 0 {
             Err(StateError::StateReadError(format!(
                 "failed to read class hash of address {}",
                 contract_address.0.key()
             )))
         } else {
-            let felt_val = ptr_to_felt(ptr);
-            unsafe { JunoFree(ptr as *const c_void) };
-
-            Ok(ClassHash(felt_val))
+            assert!(wrote == 32, "Juno didn't write 32 bytes");
+            Ok(ClassHash(StarkFelt::from_bytes_be(&buffer)))
         }
     }
 

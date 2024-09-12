@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, ubuntu-arm64-2-core]
+        os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
     runs-on: ${{ matrix.os }}
     env:
       VM_DEBUG: true
