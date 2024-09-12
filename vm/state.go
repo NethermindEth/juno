@@ -153,6 +153,7 @@ func JunoStateSetCompiledClassHash(readerHandle C.uintptr_t, classHash, compiled
 		return unsafe.Pointer(C.CString(err.Error()))
 	}
 	return nil
+}
 func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) C.int {
 	feltBytes := val.Bytes()
 	return C.int(copy(unsafe.Slice((*byte)(buffer), felt.Bytes), feltBytes[:]))

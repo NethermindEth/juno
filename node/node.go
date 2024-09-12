@@ -169,6 +169,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	starknetData := adaptfeeder.New(client)
 	var rpcHandler *rpc.Handler
+	var synchronizer *sync.Synchronizer
 	if cfg.Sequencer {
 		if cfg.SeqShadowMode && chain.Network().L2ChainID != utils.Sepolia.L2ChainID {
 			return nil, fmt.Errorf("the sequencers shadow mode can only be used for %v network. Provided network: %v", utils.Sepolia, cfg.Network)
@@ -189,7 +190,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {
-		synchronizer := sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
+		synchronizer = sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
 		gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		var p2pService *p2p.Service
