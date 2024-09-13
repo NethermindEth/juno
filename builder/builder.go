@@ -545,7 +545,6 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
 
 	if b.junoEndpoint != "" {
-		// fmt.Println("comparing against sepolia data")
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
 		refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
 		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
@@ -555,6 +554,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			b.log.Debugw("Generated transaction trace does not match that from Sepolia ")
 		}
 
+		// Note: the error message changes between blockifier-rc2 and blockifier-rc3.
+		// If we run with blockifier-rc3, we won't get the same revert-reason that was
+		// generated if the FGW was running blockifier-rc2. We account for this here.
+		receipt.RevertReason = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].RevertReason
 		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
 			b.log.Debugw("CompareReceipts")
 			b.log.Debugw(diffStr)
