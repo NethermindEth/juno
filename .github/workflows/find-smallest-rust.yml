@@ -1,0 +1,42 @@
+name: Minimum Supported Rust
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/find-smallest-rust.yml
+      - core/rust/*
+      - vm/rust/*
+      - starknet/rust/*
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  find-smallest-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find smallest supported Rust version
+        id: rust-version
+        uses: derrix060/detect-rust-minimum-version@v1
+        with:
+          paths: core/rust/,vm/rust/,starknet/rust/
+      - name: Send notification on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const msrv = '${{ steps.rust-version.outputs.highest-msrv }}'
+            const previous_msrv = '1.80.1'
+
+            if (msrv != previous_msrv) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: 'Minimum supported Rust version is `' + msrv + '`, previous `' + previous_msrv + '`.  Please update the README file and this workflow.'
+              })
+            }
