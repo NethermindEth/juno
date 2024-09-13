@@ -86,7 +86,7 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 		// foundDiff = true
 		// fmt.Println("r1.RevertReason", r1.RevertReason)
 		// fmt.Println("r2.RevertReason", r2.RevertReason)
-		r1.RevertReason = r2.RevertReason
+		// r1.RevertReason = r2.RevertReason
 		result.WriteString(fmt.Sprintf("RevertReason: DIFFERENT\n\t- r1: %s\n\t- r2: %s\n", r1.RevertReason, r2.RevertReason))
 	}
 

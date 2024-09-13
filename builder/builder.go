@@ -251,12 +251,12 @@ func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
 	}
 
 	// Todo: solve duplicate-problem at source
-	encountered := map[*felt.Felt]bool{}
+	encountered := map[string]bool{}
 	result := []*felt.Felt{}
-	for _, class := range sd.DeclaredV0Classes {
-		if !encountered[class] {
-			result = append(result, class)
-			encountered[class] = true
+	for i := range sd.DeclaredV0Classes {
+		if !encountered[sd.DeclaredV0Classes[i].String()] {
+			result = append(result, sd.DeclaredV0Classes[i])
+			encountered[sd.DeclaredV0Classes[i].String()] = true
 		}
 	}
 	sd.DeclaredV0Classes = result
