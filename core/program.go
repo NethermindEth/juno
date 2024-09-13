@@ -42,7 +42,7 @@ func (p *Program) Format() error {
 		// Anything since compiler version 0.10.0 can be hashed directly. No extra overhead incurred.
 		p.Identifiers = applyReplacer(p.Identifiers, nullSkipReplacer)
 	} else {
-		// This is needed for backward compatibility with pre-0.10.0 contract artifacts.
+		// This is needed for backward compatibility with pre-0.10.0 contract artefacts.
 		p.Identifiers = applyReplacer(p.Identifiers, identifiersNullSkipReplacer)
 	}
 	p.MainScope = applyReplacer(p.MainScope, nullSkipReplacer)
