@@ -7,6 +7,10 @@ import (
 	"unicode/utf16"
 )
 
+const (
+	numASCII = 127
+)
+
 func FormatJSONString(input string) (string, error) {
 	var result strings.Builder
 	result.Grow(len(input) + len(input)/5) // Estimate 20% growth
@@ -48,7 +52,7 @@ func FormatJSONString(input string) (string, error) {
 				result.WriteRune(nextChar)
 				i++
 			}
-		} else if char <= 127 { // ASCII character
+		} else if char <= numASCII { // ASCII character
 			result.WriteRune(char)
 		} else {
 			// For non-ASCII characters, convert to UTF-16 surrogate pairs

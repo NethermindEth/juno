@@ -21,6 +21,10 @@ var (
 	_ Class = (*Cairo1Class)(nil)
 )
 
+const (
+	debugInfo = "debug_info"
+)
+
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64
@@ -53,6 +57,7 @@ func (c *Cairo0Class) Version() uint64 {
 	return 0
 }
 
+//nolint:funlen
 func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 	definition, err := makeDeprecatedVMClass(c)
 	if err != nil {
@@ -77,7 +82,7 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 	var hintedClassHash *felt.Felt
 	var hintedClassHashErr error
 
-	wg.Add(6)
+	wg.Add(6) //nolint:mnd
 
 	go func() {
 		defer wg.Done()
@@ -185,7 +190,7 @@ func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
 
 	// Use a more efficient string concatenation method
 	var hintedClassHashJSON strings.Builder
-	hintedClassHashJSON.Grow(len(formattedABI) + len(formattedSpacesProgramStr) + 20)
+	hintedClassHashJSON.Grow(len(formattedABI) + len(formattedSpacesProgramStr))
 	hintedClassHashJSON.WriteString("{\"abi\": ")
 	hintedClassHashJSON.WriteString(formattedABI)
 	hintedClassHashJSON.WriteString(", \"program\": ")
@@ -229,7 +234,7 @@ func applyReplacer(data interface{}, replacer func(string, interface{}) interfac
 	case map[string]interface{}:
 		for key, val := range v {
 			v[key] = applyReplacer(replacer(key, val), replacer)
-			if v[key] == nil && key != "debug_info" {
+			if v[key] == nil && key != debugInfo {
 				delete(v, key)
 			}
 		}
@@ -262,7 +267,7 @@ func nullSkipReplacer(key string, value interface{}) interface{} {
 		if arr, ok := value.([]interface{}); ok && len(arr) == 0 {
 			return nil
 		}
-	case "debug_info":
+	case debugInfo:
 		return nil
 	}
 
@@ -274,13 +279,13 @@ func identifiersNullSkipReplacer(key string, value interface{}) interface{} {
 	switch key {
 	case "cairo_type":
 		if str, ok := value.(string); ok {
-			return strings.Replace(str, ": ", " : ", -1)
+			return strings.ReplaceAll(str, ": ", " : ")
 		}
 	case "attributes", "accessible_scopes", "flow_tracking_data":
 		if arr, ok := value.([]interface{}); ok && len(arr) == 0 {
 			return nil
 		}
-	case "debug_info":
+	case debugInfo:
 		return nil
 	}
 
@@ -305,13 +310,13 @@ func stringify(value interface{}, replacer func(string, interface{}) interface{}
 	modifiedData := applyReplacer(jsonData, replacer)
 
 	// Marshal the modified data back to JSON
-	modifiedJsonBytes, err := json.Marshal(modifiedData)
+	modifiedJSONBytes, err := json.Marshal(modifiedData)
 	if err != nil {
 		return "", err
 	}
 
 	// Convert the JSON bytes to a string and return
-	return string(modifiedJsonBytes), nil
+	return string(modifiedJSONBytes), nil
 }
 
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
