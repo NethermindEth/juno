@@ -183,12 +183,12 @@ sequencer-shadow-sepolia:
     --http-port=6064 \
     --http-host=0.0.0.0 \
     --db-path=../seq-db\
-    --log-level=debug \
+    --log-level=info \
     --seq-enable \
 	--seq-shadow-mode \
     --seq-block-time=5 \
 	--seq-shadow-mode-sync-to=1 \
-	--seq-rpc-endpoint="https://rpc-sepolia-juno.nethermind.dev/" \
+	--seq-rpc-endpoint="" \
 	--network sepolia \
     --rpc-call-max-steps=4123000
 	

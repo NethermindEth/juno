@@ -495,29 +495,6 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 }
 
-// todo(rian) : does blockifier need the correct value, or can we pass in any non-zero value?
-func getPaidOnL1Fees(txn *mempool.BroadcastedTransaction) ([]*felt.Felt, error) {
-	// if tx, ok := (txn.Transaction).(*core.L1HandlerTransaction); ok {
-	// 	handleDepositEPS, err := new(felt.Felt).SetString("0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5")
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	handleTokenDepositEPS, err := new(felt.Felt).SetString("0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19")
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if tx.EntryPointSelector.Equal(handleDepositEPS) {
-	// 		return []*felt.Felt{tx.CallData[2]}, nil
-	// 	} else if tx.EntryPointSelector.Equal(handleTokenDepositEPS) {
-	// 		return []*felt.Felt{tx.CallData[4]}, nil
-	// 	}
-	// 	return nil, fmt.Errorf("failed to get fees_paid_on_l1, unkmown entry point selector")
-	// }
-	// Blockifier only checks that the fee is non-zero. Currently the L1-fee is not present in the transaction
-	// and extracting from calldata is not standardised.
-	return []*felt.Felt{new(felt.Felt).SetUint64(1)}, nil
-}
-
 func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
@@ -526,11 +503,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
 	}
-	feesPaidOnL1, err := getPaidOnL1Fees(txn)
-	if err != nil {
-		return err
-	}
-
+	feesPaidOnL1 := []*felt.Felt{new(felt.Felt).SetUint64(1)}
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
 			Number:           b.shadowBlock.Number,           // Affects post 0.13.2 block hash

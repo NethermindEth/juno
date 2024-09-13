@@ -169,40 +169,21 @@ func compareSlices(s1, s2 []*felt.Felt) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
 
-	len1 := len(s1)
-	len2 := len(s2)
-	maxLen := len1
-	if len2 > len1 {
-		maxLen = len2
+	s1Sum := new(felt.Felt).SetUint64(0)
+	for _, s := range s1 {
+		s1Sum = s1Sum.Add(s1Sum, s)
 	}
-	// Todo : dont do stupid stuff like this
-	s1Copy := make([]*felt.Felt, len(s1))
-	copy(s1Copy, s1)
-	s2Copy := make([]*felt.Felt, len(s2))
-	copy(s2Copy, s2)
-	slices.SortFunc(s1, func(a, b *felt.Felt) int {
-		return a.Cmp(b)
-	})
-	slices.SortFunc(s2, func(a, b *felt.Felt) int {
-		return a.Cmp(b)
-	})
-	for i := 0; i < maxLen; i++ {
-		if i < len1 && i < len2 {
-			if !reflect.DeepEqual(s1Copy[i], s2Copy[i]) {
-				sb.WriteString(fmt.Sprintf("    %s -> %s (changed)\n", s1Copy[i].String(), s2Copy[i].String()))
-				differencesFound = true
-			}
-		} else if i < len1 {
-			sb.WriteString(fmt.Sprintf("    %s (missing in second slice)\n", s1Copy[i].String()))
-			differencesFound = true
-		} else {
-			sb.WriteString(fmt.Sprintf("    %s (missing in first slice)\n", s2Copy[i].String()))
-			differencesFound = true
-		}
+	s2Sum := new(felt.Felt).SetUint64(0)
+	for _, s := range s2 {
+		s2Sum = s2Sum.Add(s2Sum, s)
 	}
-	if !differencesFound {
-		sb.WriteString("Both maps are equal.\n")
+
+	if !s1Sum.Equal(s2Sum) {
+		differencesFound = true
+		sb.WriteString(fmt.Sprintf("slice 1: %v", s1))
+		sb.WriteString(fmt.Sprintf("slice 2: %v", s2))
 	}
+
 	return sb.String(), differencesFound
 }
 
