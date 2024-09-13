@@ -61,6 +61,8 @@ type Builder struct {
 
 	chanFinalise  chan struct{}
 	chanFinalised chan struct{}
+
+	blockHashToBeRevealed *felt.Felt
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
@@ -540,6 +542,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			L1DataGasPrice:   b.shadowBlock.L1DataGasPrice,   // Affects post 0.13.2 block hash
 			L1DAMode:         b.shadowBlock.L1DAMode,         // Affects data_availability
 		},
+		BlockHashToBeRevealed: b.blockHashToBeRevealed,
 	}
 	fee, _, trace, txnReceipts, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
 		b.bc.Network(), false, false, false, true)
@@ -662,6 +665,11 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // Affects data_availability
+
+			blockHashStorage := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
+			for _, blockHash := range blockHashStorage {
+				b.blockHashToBeRevealed = blockHash
+			}
 
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
