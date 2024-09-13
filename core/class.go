@@ -157,6 +157,8 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 	return clashHash, nil
 }
 
+// computeHintedClassHash calculates the hinted class hash by hashing the JSON combination
+// of ABI and Program.
 func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
 	var mProgram Program
 	d := json.NewDecoder(bytes.NewReader(program))
@@ -174,7 +176,7 @@ func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
 		return nil, err
 	}
 
-	formattedSpacesProgramStr, err := utils.FormatJSONString(string(formattedProgramBytes))
+	formattedSpacesProgramStr, err := utils.ToPythonicJSON(string(formattedProgramBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -183,12 +185,12 @@ func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
-	formattedABI, err := utils.FormatJSONString(stringifyABI)
+	formattedABI, err := utils.ToPythonicJSON(stringifyABI)
 	if err != nil {
 		return nil, err
 	}
 
-	// Use a more efficient string concatenation method
+	// Combine both ABI and Program JSON strings
 	var hintedClassHashJSON strings.Builder
 	hintedClassHashJSON.Grow(len(formattedABI) + len(formattedSpacesProgramStr))
 	hintedClassHashJSON.WriteString("{\"abi\": ")
@@ -274,7 +276,9 @@ func nullSkipReplacer(key string, value interface{}) interface{} {
 	return value
 }
 
-// identifiersNullSkipReplacer is same as nullSkipReplacer but only used for identifiers field
+// identifiersNullSkipReplacer is same as nullSkipReplacer with an addition condition
+// on the `cairo_type` field.
+// Used only in the `identifiers` field.
 func identifiersNullSkipReplacer(key string, value interface{}) interface{} {
 	switch key {
 	case "cairo_type":

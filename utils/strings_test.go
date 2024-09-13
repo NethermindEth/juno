@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFormatJSONString(t *testing.T) {
+func TestToPythonicJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -73,7 +73,7 @@ func TestFormatJSONString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := FormatJSONString(tt.input)
+			result, err := ToPythonicJSON(tt.input)
 			require.NoError(t, err)
 
 			// Check if the result is valid JSON

@@ -11,7 +11,8 @@ const (
 	numASCII = 127
 )
 
-func FormatJSONString(input string) (string, error) {
+// ToPythonicJSON formats a JSON string into pythonic format of JSON string.
+func ToPythonicJSON(input string) (string, error) {
 	var result strings.Builder
 	result.Grow(len(input) + len(input)/5) // Estimate 20% growth
 
@@ -21,6 +22,7 @@ func FormatJSONString(input string) (string, error) {
 	for i := 0; i < len(runes); i++ {
 		char := runes[i]
 
+		// determines if the current rune is within quotes
 		if char == '"' && (i == 0 || runes[i-1] != '\\') {
 			insideQuotes = !insideQuotes
 			result.WriteRune(char)
@@ -52,7 +54,7 @@ func FormatJSONString(input string) (string, error) {
 				result.WriteRune(nextChar)
 				i++
 			}
-		} else if char <= numASCII { // ASCII character
+		} else if char <= numASCII { // Just write normally if it's ASCII character
 			result.WriteRune(char)
 		} else {
 			// For non-ASCII characters, convert to UTF-16 surrogate pairs
