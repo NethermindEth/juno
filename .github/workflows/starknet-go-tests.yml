@@ -1,0 +1,33 @@
+name: starknet-go tests
+
+on:
+  workflow_call:
+    secrets:
+      TEST_RPC_URL:
+        required: false
+      TEST_ACCOUNT_PRIVATE_KEY:
+        required: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          repository: NethermindEth/starknet.go
+          ref: main
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Test RPC on testnet
+        run: cd rpc && go test -timeout 1200s -v -env testnet .
+        env:
+          TESTNET_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+          INTEGRATION_BASE: ${{ secrets.TEST_RPC_URL }}
