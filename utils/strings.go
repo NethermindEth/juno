@@ -43,7 +43,7 @@ func ToPythonicJSON(input string) (string, error) {
 			nextChar := runes[i+1]
 			if nextChar == 'u' && i+5 < len(runes) {
 				unicodeSeq := string(runes[i : i+6])
-				r, err := strconv.Unquote(`"` + unicodeSeq + `"`)
+				r, err := strconv.Unquote("\"" + unicodeSeq + "\"")
 				if err != nil {
 					return "", err
 				}
