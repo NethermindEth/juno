@@ -49,18 +49,17 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
-	shadowMode          bool
-	shadowStateUpdate   *core.StateUpdate
-	shadowBlock         *core.Block
-	shadowSyncToBlock   uint
-	starknetData        starknetdata.StarknetData
-	junoEndpoint        string
-	blockTraces         []rpc.TracedBlockTransaction
-	chanNumTxnsToShadow chan int
-	chanFinaliseShadow  chan struct{}
-
-	chanFinalise  chan struct{}
-	chanFinalised chan struct{}
+	shadowMode             bool
+	shadowStateUpdate      *core.StateUpdate
+	shadowBlock            *core.Block
+	shadowSyncToBlock      uint
+	starknetData           starknetdata.StarknetData
+	junoEndpoint           string
+	blockTraces            []rpc.TracedBlockTransaction
+	chanCanStartSequencing chan struct{}
+	chanFinaliseShadow     chan struct{} // Signal so that we don't start sequencering transactions when finalising a block
+	chanFinalise           chan struct{} // Signal when to finalise the block
+	chanFinalised          chan struct{} // Signal when th eblock has been finalised
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
@@ -99,10 +98,10 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
 
-		shadowMode:          true,
-		starknetData:        starknetData,
-		chanNumTxnsToShadow: make(chan int, 1),
-		chanFinaliseShadow:  make(chan struct{}, 1),
+		shadowMode:             true,
+		starknetData:           starknetData,
+		chanFinaliseShadow:     make(chan struct{}, 1),
+		chanCanStartSequencing: make(chan struct{}, 1),
 	}
 }
 
@@ -141,7 +140,6 @@ func (b *Builder) Run(ctx context.Context) error {
 				return err
 			}
 		}
-
 	}
 
 	if err := b.InitPendingBlock(); err != nil {
@@ -174,7 +172,9 @@ func (b *Builder) Run(ctx context.Context) error {
 			for {
 				select {
 				case <-b.chanFinaliseShadow:
+					fmt.Println("b.chanFinalise <- struct{}{}")
 					b.chanFinalise <- struct{}{}
+					fmt.Println("b.chanFinalise <- struct{}{} done")
 				case <-ctx.Done():
 					return
 				}
@@ -463,25 +463,48 @@ func (b *Builder) listenPool(ctx context.Context) error {
 
 func (b *Builder) depletePool(ctx context.Context) error {
 	for {
-		userTxn, err := b.pool.Pop()
-		if err != nil {
-			return err
-		}
-		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
-		if err = b.runTxn(&userTxn); err != nil {
-			var txnExecutionError vm.TransactionExecutionError
-			if !errors.As(err, &txnExecutionError) {
+		if b.shadowMode {
+			fmt.Println("<-b.chanCanStartSequencing")
+			<-b.chanCanStartSequencing
+			fmt.Println("<-b.chanCanStartSequencing done")
+			txns := make([]*mempool.BroadcastedTransaction, b.shadowBlock.Number)
+			for i := range b.shadowBlock.Number {
+				userTxn, err := b.pool.Pop()
+				if err != nil {
+					panic(err)
+					return err
+				}
+				txns[i] = &userTxn
+			}
+
+			b.log.Debugw("running block of transactions %s", b.shadowBlock.Number)
+			if err := b.runBlockTxns(txns); err != nil {
+				var txnExecutionError vm.TransactionExecutionError
+				if !errors.As(err, &txnExecutionError) {
+					return err
+				}
+				b.log.Debugw("failed to execute block of transactions %s", b.shadowBlock.Number)
+			}
+			// numTxnsToExecute := <-b.chanNumTxnsToShadow
+			// b.chanNumTxnsToShadow <- numTxnsToExecute - 1
+			// if numTxnsToExecute-1 == 0 {
+			fmt.Println("b.chanFinaliseShadow <- struct{}{}")
+			b.chanFinaliseShadow <- struct{}{}
+			fmt.Println("b.chanFinaliseShadow <- struct{}{} done")
+			// <-b.chanNumTxnsToShadow
+			// }
+		} else {
+			userTxn, err := b.pool.Pop()
+			if err != nil {
 				return err
 			}
-			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
-		}
-
-		if b.shadowMode {
-			numTxnsToExecute := <-b.chanNumTxnsToShadow
-			b.chanNumTxnsToShadow <- numTxnsToExecute - 1
-			if numTxnsToExecute-1 == 0 {
-				b.chanFinaliseShadow <- struct{}{}
-				<-b.chanNumTxnsToShadow
+			b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
+			if err = b.runTxn(&userTxn); err != nil {
+				var txnExecutionError vm.TransactionExecutionError
+				if !errors.As(err, &txnExecutionError) {
+					return err
+				}
+				b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 			}
 		}
 
@@ -493,29 +516,6 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 }
 
-// todo(rian) : does blockifier need the correct value, or can we pass in any non-zero value?
-func getPaidOnL1Fees(txn *mempool.BroadcastedTransaction) ([]*felt.Felt, error) {
-	// if tx, ok := (txn.Transaction).(*core.L1HandlerTransaction); ok {
-	// 	handleDepositEPS, err := new(felt.Felt).SetString("0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5")
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	handleTokenDepositEPS, err := new(felt.Felt).SetString("0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19")
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if tx.EntryPointSelector.Equal(handleDepositEPS) {
-	// 		return []*felt.Felt{tx.CallData[2]}, nil
-	// 	} else if tx.EntryPointSelector.Equal(handleTokenDepositEPS) {
-	// 		return []*felt.Felt{tx.CallData[4]}, nil
-	// 	}
-	// 	return nil, fmt.Errorf("failed to get fees_paid_on_l1, unkmown entry point selector")
-	// }
-	// Blockifier only checks that the fee is non-zero. Currently the L1-fee is not present in the transaction
-	// and extracting from calldata is not standardised.
-	return []*felt.Felt{new(felt.Felt).SetUint64(1)}, nil
-}
-
 func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingLock.Lock()
 	defer b.pendingLock.Unlock()
@@ -524,10 +524,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
 	}
-	feesPaidOnL1, err := getPaidOnL1Fees(txn)
-	if err != nil {
-		return err
-	}
+	feesPaidOnL1 := []*felt.Felt{new(felt.Felt).SetUint64(1)}
 
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
@@ -591,6 +588,90 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
 	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
+	return nil
+}
+
+func (b *Builder) runBlockTxns(txns []*mempool.BroadcastedTransaction) error {
+	b.pendingLock.Lock()
+	defer b.pendingLock.Unlock()
+	state := blockchain.NewPendingStateWriter(b.pendingBlock.StateUpdate.StateDiff, b.pendingBlock.NewClasses, b.headState)
+	var classes []core.Class
+	coreTxns := make([]core.Transaction, len(txns))
+	for i, txn := range txns {
+		coreTxns[i] = txn.Transaction
+		if txn.DeclaredClass != nil {
+			classes = append(classes, txn.DeclaredClass)
+		}
+	}
+	feesPaidOnL1 := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+	blockInfo := &vm.BlockInfo{
+		Header: &core.Header{
+			Number:           b.shadowBlock.Number,           // Affects post 0.13.2 block hash
+			SequencerAddress: b.shadowBlock.SequencerAddress, // Affects post 0.13.2 block hash
+			Timestamp:        b.shadowBlock.Timestamp,        // Affects post 0.13.2 block hash
+			ProtocolVersion:  b.shadowBlock.ProtocolVersion,  // Affects post 0.13.2 block hash
+			GasPrice:         b.shadowBlock.GasPrice,         // Affects post 0.13.2 block hash
+			GasPriceSTRK:     b.shadowBlock.GasPriceSTRK,     // Affects post 0.13.2 block hash
+			L1DataGasPrice:   b.shadowBlock.L1DataGasPrice,   // Affects post 0.13.2 block hash
+			L1DAMode:         b.shadowBlock.L1DAMode,         // Affects data_availability
+		},
+	}
+	fmt.Println("Execute")
+	fees, _, traces, txnReceipts, _, err := b.vm.Execute(coreTxns, classes, feesPaidOnL1, blockInfo, state,
+		b.bc.Network(), false, false, false, true)
+	fmt.Println("Execute")
+	if err != nil {
+		return err
+	}
+	fmt.Println("Execute")
+
+	receipts := make([]*core.TransactionReceipt, len(txns))
+	eventCount := uint64(0)
+	for i := range len(traces) {
+		feeUnit := core.WEI
+		if txns[i].Transaction.TxVersion().Is(3) {
+			feeUnit = core.STRK
+		}
+		if traces[i].StateDiff.DeclaredClasses != nil || traces[i].StateDiff.DeprecatedDeclaredClasses != nil {
+			if t, ok := (txns[i].Transaction).(*core.DeclareTransaction); ok {
+				err := state.SetContractClass(t.ClassHash, txns[i].DeclaredClass)
+				if err != nil {
+					b.log.Errorw("failed to set contract class : %s", err)
+				}
+				if t.CompiledClassHash != nil {
+					err := state.SetCompiledClassHash(t.ClassHash, t.CompiledClassHash)
+					if err != nil {
+						b.log.Errorw("failed to SetCompiledClassHash  : %s", err)
+					}
+				}
+			}
+		}
+		b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&traces[i]))
+
+		receipts[i] = Receipt(fees[i], feeUnit, txns[i].Transaction.Hash(), &traces[i], &txnReceipts[i])
+		eventCount += uint64(len(receipts[i].Events))
+		if b.junoEndpoint != "" {
+			seqTrace := vm2core.AdaptStateDiff(traces[i].StateDiff)
+			refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
+			diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
+			if diffsNotEqual {
+				// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
+				fmt.Println(diffString)
+				b.log.Debugw("Generated transaction trace does not match that from Sepolia ")
+			}
+
+			if differ, diffStr := core.CompareReceipts(receipts[i], b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
+				b.log.Debugw("CompareReceipts")
+				b.log.Debugw(diffStr)
+			}
+		}
+
+	}
+	b.pendingBlock.Block.Receipts = receipts
+	b.pendingBlock.Block.Transactions = coreTxns
+	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
+	b.pendingBlock.Block.EventCount = eventCount
+
 	return nil
 }
 
@@ -663,7 +744,6 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // Affects data_availability
 
-			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
 				var declaredClass core.Class
 				declareTxn, ok := txn.(*core.DeclareTransaction)
@@ -679,7 +759,9 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 					return err
 				}
 			}
-
+			fmt.Println("b.chanCanStartSequencing <- struct{}{}")
+			b.chanCanStartSequencing <- struct{}{}
+			fmt.Println("b.chanCanStartSequencing <- struct{}{} done")
 		} else {
 			var sleepTime uint = 1
 			b.log.Debugw("Juno Sequencer is at Sepolia chain head. Sleeping for %ds before querying for a new block.", sleepTime)

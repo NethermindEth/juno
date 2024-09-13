@@ -154,7 +154,7 @@ node3:
 sequencer:
 	./build/juno \
 	--http \
-	--http-port=6060 \
+	--http-port=6060 2\
 	--http-host=0.0.0.0 \
 	--db-path=./seq-db \
 	--log-level=debug \
@@ -180,10 +180,10 @@ sequencer-with-accounts:
 sequencer-shadow-sepolia:
 	./build/juno \
     --http \
-    --http-port=6063 \
+    --http-port=6062 \
     --http-host=0.0.0.0 \
     --db-path=../seq-db-clean\
-    --log-level=info \
+    --log-level=debug \
     --seq-enable \
 	--seq-shadow-mode \
     --seq-block-time=5 \
