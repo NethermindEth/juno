@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/ethereum/go-ethereum/common"
+	"reflect"
 )
 
 func AdaptHash(h *spec.Hash) *felt.Felt {
@@ -31,7 +32,6 @@ func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 	if v == nil || reflect.ValueOf(v).IsNil() {
 		return nil
 	}
-
 	return new(felt.Felt).SetBytes(v.GetElements())
 }
 

@@ -97,7 +97,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 
 	stateRoot := p2p2core.AdaptHash(request.Root)
 	startAddr := p2p2core.AdaptHash(request.Start)
-	b.log.Debugw("GetClassRange", "root", stateRoot, "start", startAddr, "chunks", request.ChunksPerProof)
+	b.log.Debugw("GetClassRange", "start", startAddr, "chunks", request.ChunksPerProof)
 
 	return func(yield yieldFunc) {
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
@@ -121,7 +121,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 
 		startAddr := p2p2core.AdaptHash(request.Start)
 		limitAddr := p2p2core.AdaptHash(request.End)
-		if limitAddr.IsZero() {
+		if limitAddr != nil && limitAddr.IsZero() {
 			limitAddr = nil
 		}
 
@@ -131,7 +131,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 			}
 
 			classkeys := []*felt.Felt{}
-			proofs, finished, err := iterateWithLimit(ctrie, startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof), b.log,
+			proofs, finished, err := ctrie.IterateWithLimit(startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof), b.log,
 				func(key, value *felt.Felt) error {
 					classkeys = append(classkeys, key)
 					return nil
@@ -164,7 +164,9 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 				RangeProof: Core2P2pProof(proofs),
 			}
 
-			b.log.Infow("sending class range response", "len(classes)", len(classkeys))
+			first := classkeys[0]
+			last := classkeys[len(classkeys)-1]
+			b.log.Infow("sending class range response", "len(classes)", len(classkeys), "first", first, "last", last)
 			if !yield(clsMsg) {
 				// we should not send `FinMsg` when the client explicitly asks to stop
 				return
@@ -176,7 +178,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 		}
 
 		yield(finMsg)
-		b.log.Infow("class range iteration completed")
+		b.log.Infow("GetClassRange iteration completed")
 	}, nil
 }
 
@@ -213,7 +215,7 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 		states := []*spec.ContractState{}
 
 		for {
-			proofs, finished, err := iterateWithLimit(strie, startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof), b.log,
+			proofs, finished, err := strie.IterateWithLimit(startAddr, limitAddr, determineMaxNodes(request.ChunksPerProof), b.log,
 				func(key, value *felt.Felt) error {
 					classHash, err := s.ContractClassHash(key)
 					if err != nil {
@@ -244,6 +246,7 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 					})
 					return nil
 				})
+
 			if err != nil {
 				log.Error("error iterating storage trie", "err", err)
 				return
@@ -261,7 +264,12 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 				},
 			}
 
-			b.log.Infow("sending contract range response", "len(states)", len(states))
+			var first, last *felt.Felt
+			if len(states) > 0 {
+				first = p2p2core.AdaptAddress(states[0].Address)
+				last = p2p2core.AdaptAddress(states[len(states)-1].Address)
+			}
+			b.log.Infow("sending contract range response", "len(states)", len(states), "first", first, "last", last)
 			if !yield(cntrMsg) {
 				// we should not send `FinMsg` when the client explicitly asks to stop
 				return
@@ -269,6 +277,8 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 			if finished {
 				break
 			}
+
+			states = states[:0]
 		}
 
 		yield(finMsg)
@@ -302,7 +312,8 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 
 			strie, err := s.StorageTrieForAddr(p2p2core.AdaptAddress(query.Address))
 			if err != nil {
-				log.Error("error getting storage trie for address", "addr", query.Address.String(), "err", err)
+				addr := p2p2core.AdaptAddress(query.Address)
+				log.Error("error getting storage trie for address", "addr", addr, "err", err)
 				return
 			}
 
@@ -399,7 +410,7 @@ func (b *snapServer) handleStorageRangeRequest(
 			limit = nodeLimit
 		}
 
-		proofs, finish, err := iterateWithLimit(stTrie, startAddr, endAddr, limit, logger,
+		proofs, finish, err := stTrie.IterateWithLimit(startAddr, endAddr, limit, logger,
 			func(key, value *felt.Felt) error {
 				response = append(response, &spec.ContractStoredValue{
 					Key:   core2p2p.AdaptFelt(key),
@@ -432,50 +443,6 @@ func (b *snapServer) handleStorageRangeRequest(
 	}
 
 	return uint32(totalSent), nil
-}
-
-func iterateWithLimit(
-	srcTrie *trie.Trie,
-	startAddr *felt.Felt,
-	limitAddr *felt.Felt,
-	maxNodes uint32,
-	logger utils.SimpleLogger,
-	consumer func(key, value *felt.Felt) error,
-) ([]trie.ProofNode, bool, error) {
-	pathes := make([]*felt.Felt, 0)
-	hashes := make([]*felt.Felt, 0)
-
-	logger.Infow("entering IterateAndGenerateProof", "startAddr", startAddr, "endAddr", limitAddr, "maxNodes", maxNodes)
-	count := uint32(0)
-	proof, finished, err := srcTrie.IterateAndGenerateProof(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
-		// Need at least one.
-		if limitAddr != nil && key.Cmp(limitAddr) > 1 && count > 0 {
-			return false, nil
-		}
-
-		pathes = append(pathes, key)
-		hashes = append(hashes, value)
-
-		err := consumer(key, value)
-		if err != nil {
-			logger.Errorw("error from consumer function", "err", err)
-			return false, err
-		}
-
-		count++
-		if count >= maxNodes {
-			logger.Infow("Max nodes reached", "count", count)
-			return false, nil
-		}
-		return true, nil
-	})
-	if err != nil {
-		logger.Errorw("IterateAndGenerateProof", "err", err, "finished", finished)
-		return nil, finished, err
-	}
-
-	logger.Infow("exiting IterateAndGenerateProof", "len(proof)", len(proof), "finished", finished, "err", err)
-	return proof, finished, err
 }
 
 func Core2P2pProof(proofs []trie.ProofNode) *spec.PatriciaRangeProof {

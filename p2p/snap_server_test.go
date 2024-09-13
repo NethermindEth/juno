@@ -19,9 +19,9 @@ import (
 
 func TestClassRange(t *testing.T) {
 	// Note: set to true to make test super long to complete
-	shouldFetchAllClasses := true
+	shouldFetchAllClasses := false
 	var d db.DB
-	//t.Skip("DB snapshot is needed for this test")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -91,7 +91,7 @@ func TestClassRange(t *testing.T) {
 
 func TestContractRange(t *testing.T) {
 	var d db.DB
-	//t.Skip("DB snapshot is needed for this test")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -180,7 +180,7 @@ func TestContractRange_FinMsg_Received(t *testing.T) {
 
 func TestContractStorageRange(t *testing.T) {
 	var d db.DB
-	//t.Skip("DB snapshot is needed for this test")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -205,6 +205,16 @@ func TestContractStorageRange(t *testing.T) {
 		storageRoot    *felt.Felt
 		expectedLeaves int
 	}{
+		{
+			address:        feltFromString("0x5eb8d1bc5aaf2f323f2a807d429686ac012ca16f90740071d2f3a160dc231"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 0,
+		},
+		{
+			address:        feltFromString("0x614a5e0519963324acb5640321240827c0cd6a9f7cf5f17a80c1596e607d0"),
+			storageRoot:    feltFromString("0x55ee7fd57d0aa3da8b89ea2feda16f9435186988a8b00b6f22f5ba39f3cf172"),
+			expectedLeaves: 1,
+		},
 		{
 			address:        feltFromString("0x3deecdb26a60e4c062d5bd98ab37f72ea2acc37f28dae6923359627ebde9"),
 			storageRoot:    feltFromString("0x276edbc91a945d11645ba0b8298c7d657e554d06ab2bb765cbc44d61fa01fd5"),
@@ -277,7 +287,7 @@ func TestContractStorageRange(t *testing.T) {
 
 func TestGetClassesByHash(t *testing.T) {
 	var d db.DB
-	//t.Skip("DB snapshot is needed for this test")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -331,6 +341,99 @@ func TestGetClassesByHash(t *testing.T) {
 		i++
 	}
 	assert.True(t, finMsgReceived)
+}
+
+func TestGetContractStorageRoot(t *testing.T) {
+	var d db.DB
+	t.Skip("DB snapshot is needed for this test")
+	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
+
+	b, err := bc.Head()
+	assert.NoError(t, err)
+
+	fmt.Printf("headblock %d\n", b.Number)
+
+	stateRoot := b.GlobalStateRoot
+
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
+	server := &snapServer{
+		log:        logger,
+		blockchain: bc,
+	}
+
+	tests := []struct {
+		address     *felt.Felt
+		storageRoot *felt.Felt
+	}{
+		{
+			address:     feltFromString("0x5eb8d1bc5aaf2f323f2a807d429686ac012ca16f90740071d2f3a160dc231"),
+			storageRoot: feltFromString("0x0"),
+		},
+		{
+			address:     feltFromString("0x5ec87443bcb74e1e58762be15c3c513926a91a5d5b4a204e9e7b5ca884fb7"),
+			storageRoot: feltFromString("0x36fc3942926334a24b739065f26ffe547044af7466a6f8d391e0750603ffa8c"),
+		},
+		{
+			address:     feltFromString("0x614a5e0519963324acb5640321240827c0cd6a9f7cf5f17a80c1596e607d0"),
+			storageRoot: feltFromString("0x55ee7fd57d0aa3da8b89ea2feda16f9435186988a8b00b6f22f5ba39f3cf172"),
+		},
+		{
+			address:     feltFromString("0x6b7d60ec8176d8a1c77afdca05191dad1e1a20fef2e5e3aceccee0b3cbd6a"),
+			storageRoot: feltFromString("0x726d42240f103a32ce1b6acc7498f52fdf83e308cf70e0a6394591cee1886c8"),
+		},
+		{
+			address:     feltFromString("0x3deecdb26a60e4c062d5bd98ab37f72ea2acc37f28dae6923359627ebde9"),
+			storageRoot: feltFromString("0x276edbc91a945d11645ba0b8298c7d657e554d06ab2bb765cbc44d61fa01fd5"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%.7s...", test.address), func(t *testing.T) {
+			request := &spec.ContractRangeRequest{
+				ChunksPerProof: 10,
+				Start:          core2p2p.AdaptAddress(test.address),
+				End:            core2p2p.AdaptAddress(test.address),
+				StateRoot:      core2p2p.AdaptHash(stateRoot),
+			}
+
+			iter, err := server.GetContractRange(request)
+			assert.NoError(t, err)
+
+			finMsgReceived := false
+			for res := range iter {
+				assert.NotNil(t, res)
+				resT, ok := res.(*spec.ContractRangeResponse)
+				assert.True(t, ok)
+				assert.NotNil(t, resT)
+
+				i := 0
+				switch v := resT.GetResponses().(type) {
+				case *spec.ContractRangeResponse_Range:
+					assert.False(t, finMsgReceived)
+					assert.Len(t, v.Range.State, 1)
+					contract := v.Range.State[0]
+					fmt.Println("Contract:", p2p2core.AdaptAddress(contract.Address), "StorageRoot:", p2p2core.AdaptHash(contract.Storage))
+					assert.Equal(t, test.address, p2p2core.AdaptAddress(contract.Address))
+					assert.Equal(t, test.storageRoot, p2p2core.AdaptHash(contract.Storage))
+
+					for j, s := range v.Range.State {
+						fmt.Println("[", j, "] Contract:", p2p2core.AdaptAddress(s.Address), "StorageRoot:", p2p2core.AdaptHash(s.Storage))
+					}
+					i++
+					if i > 5 {
+						t.Fatal("Too many contracts received")
+					}
+				case *spec.ContractRangeResponse_Fin:
+					finMsgReceived = true
+				default:
+					// we expect no any other message only just one range because we break the iteration
+					t.Fatal("received unexpected message", "type", v)
+				}
+			}
+		})
+	}
 }
 
 func feltFromString(str string) *felt.Felt {
