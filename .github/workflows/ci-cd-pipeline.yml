@@ -50,7 +50,7 @@ jobs:
 
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
 
       - name: Build and Push
         uses: docker/build-push-action@v6
@@ -104,7 +104,7 @@ jobs:
 
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
 
       - name: Promote to Staging
         run: |
@@ -145,7 +145,7 @@ jobs:
     steps:
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
 
       - name: Promote to Production
         run: |
