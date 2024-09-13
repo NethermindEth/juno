@@ -116,8 +116,8 @@ var (
 
 	// For some reason, the trie throughput is higher if the batch size is small.
 	classRangeChunksPerProof   = 500
-	contractRangeChunkPerProof = 500
-	storageRangeChunkPerProof  = 500
+	contractRangeChunkPerProof = 501
+	storageRangeChunkPerProof  = 502
 	maxStorageBatchSize        = 500
 	maxMaxPerStorageSize       = 500
 

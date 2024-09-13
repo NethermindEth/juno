@@ -2,6 +2,7 @@ package trie
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key, value *felt.Felt) (bool, error),
@@ -54,6 +55,48 @@ func (t *Trie) IterateAndGenerateProof(startValue *felt.Felt, consumer func(key,
 	}
 
 	return proofs, finished, nil
+}
+
+func (t *Trie) IterateWithLimit(
+	startAddr *felt.Felt,
+	limitAddr *felt.Felt,
+	maxNodes uint32,
+	// TODO: remove the logger - and move to the tree
+	logger utils.SimpleLogger,
+	consumer func(key, value *felt.Felt) error,
+) ([]ProofNode, bool, error) {
+	pathes := make([]*felt.Felt, 0)
+	hashes := make([]*felt.Felt, 0)
+
+	count := uint32(0)
+	proof, finished, err := t.IterateAndGenerateProof(startAddr, func(key *felt.Felt, value *felt.Felt) (bool, error) {
+		// Need at least one.
+		if limitAddr != nil && key.Cmp(limitAddr) > 0 {
+			return true, nil
+		}
+
+		pathes = append(pathes, key)
+		hashes = append(hashes, value)
+
+		err := consumer(key, value)
+		if err != nil {
+			logger.Errorw("error from consumer function", "err", err)
+			return false, err
+		}
+
+		count++
+		if count >= maxNodes {
+			logger.Infow("Max nodes reached", "count", count)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		logger.Errorw("IterateAndGenerateProof", "err", err, "finished", finished)
+		return nil, finished, err
+	}
+
+	return proof, finished, err
 }
 
 func VerifyRange(root, startKey *felt.Felt, keys, values []*felt.Felt, proofs []ProofNode, hash hashFunc,
