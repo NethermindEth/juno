@@ -131,7 +131,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 // and by then issues with unverifiable block hash were resolved.
 // In future, this may no longer be required.
 // Todo: Pass stateDiff so that p2p layer can calculate post 0.13.2 Block Hash
-func BlockHash(b *Block) (*felt.Felt, error) {
+func BlockHash(b *Block) (*felt.Felt, error) { // todo remove function?
 	if b.SequencerAddress == nil {
 		return nil, errors.New("block.SequencerAddress is nil")
 	}

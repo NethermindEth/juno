@@ -52,15 +52,20 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 			Keccak:       uint64(er.GetBuiltins().GetKeccak()),
 			Poseidon:     uint64(er.GetBuiltins().GetPoseidon()),
 			SegmentArena: 0, // todo(kirill) recheck
-			// todo(kirill) set fields after spec update
-			AddMod:       0,
-			MulMod:       0,
-			RangeCheck96: 0,
+			AddMod:       uint64(er.GetBuiltins().GetAddMod()),
+			MulMod:       uint64(er.GetBuiltins().GetMulMod()),
+			RangeCheck96: uint64(er.GetBuiltins().GetRangeCheck96()),
 		},
-		DataAvailability: nil, // todo(kirill) recheck
-		MemoryHoles:      uint64(er.MemoryHoles),
-		Steps:            uint64(er.Steps), // todo SPEC 32 -> 64 bytes
-		TotalGasConsumed: nil,              // todo(kirill) fill after spec update
+		DataAvailability: &core.DataAvailability{
+			L1Gas:     feltToUint64(er.L1Gas),
+			L1DataGas: feltToUint64(er.L1DataGas),
+		}, // todo(kirill) recheck
+		MemoryHoles: uint64(er.MemoryHoles),
+		Steps:       uint64(er.Steps), // todo SPEC 32 -> 64 bytes
+		TotalGasConsumed: &core.GasConsumed{
+			L1Gas:     feltToUint64(er.TotalL1Gas),
+			L1DataGas: 0, // todo(kirill) fill after spec update
+		},
 	}
 }
 
@@ -70,4 +75,12 @@ func adaptMessageToL1(m *spec.MessageToL1) *core.L2ToL1Message {
 		To:      AdaptEthAddress(m.ToAddress),
 		Payload: utils.Map(m.Payload, AdaptFelt),
 	}
+}
+
+func feltToUint64(f *spec.Felt252) uint64 {
+	var result uint64
+	if adapted := AdaptFelt(f); adapted != nil {
+		result = adapted.Uint64()
+	}
+	return result
 }
