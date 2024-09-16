@@ -407,10 +407,11 @@ func (s *Service) persistPeers() error {
 	}
 
 	store := s.host.Peerstore()
-	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
-		return peerID != s.host.ID()
-	})
+	peers := store.Peers()
 	for _, peerID := range peers {
+		if peerID == s.host.ID() {
+			continue
+		}
 		peerInfo := store.PeerInfo(peerID)
 
 		encodedAddrs, err := EncodeAddrs(peerInfo.Addrs)
