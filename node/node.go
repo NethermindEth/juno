@@ -151,8 +151,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 	}
 
+	const (
+		feederClientTimeout = 5 * time.Second
+		feederMaxBackoff    = 4 * time.Second
+	)
+	feederBackoff := utils.NewBackoff("feeder", log, feederMaxBackoff)
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
-		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
+		WithTimeout(feederClientTimeout).WithBackoff(feederBackoff).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
