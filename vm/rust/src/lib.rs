@@ -339,7 +339,7 @@ fn cairo_vm_execute(
     };
 
     if let Some(path) = JUNO_RECORD_DIR.clone() {
-        let mut args_path: PathBuf = path.into();
+        let mut args_path: PathBuf = path;
         args_path.push(format!("{}.args.cbor", block_info.block_number));
 
         let file_args = std::fs::File::create(args_path).unwrap();
@@ -401,7 +401,7 @@ fn cairo_vm_execute(
     }
 
     if let Some(path) = JUNO_RECORD_DIR.clone() {
-        let mut state_path: PathBuf = path.into();
+        let mut state_path: PathBuf = path;
         state_path.push(format!("{}.state.cbor", block_info.block_number));
 
         let state_file = File::create(state_path).unwrap();
@@ -424,14 +424,14 @@ pub fn execute_transaction<S: StateReader>(
     err_on_revert: bool,
 ) -> Result<TransactionExecutionInfo, String> {
     let class_info = match txn_and_query_bit.txn.clone() {
-        StarknetApiTransaction::Declare(declare_transaction) => {
+        StarknetApiTransaction::Declare(_declare_transaction) => {
             if classes.is_empty() {
                 Err("missing declared class".to_string())?
             }
             let class_json_str = classes.remove(0);
 
             let maybe_cc =
-                class_info_from_json_str(class_json_str.get(), declare_transaction.class_hash())?;
+                class_info_from_json_str(class_json_str.get())?;
 
             Some(maybe_cc)
         }
