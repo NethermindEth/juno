@@ -48,7 +48,7 @@ core-rust:
 	$(MAKE) -C core/rust $(VM_TARGET)
 
 compiler:
-	$(MAKE) -C starknet/rust $(VM_TARGET)
+	$(MAKE) -C starknet/compiler/rust $(VM_TARGET)
 
 generate: ## generate
 	mkdir -p mocks
@@ -94,13 +94,13 @@ tidy: ## add missing and remove unused modules
 format: ## run go & rust formatters
 	$(MAKE) -C vm/rust format
 	$(MAKE) -C core/rust format
-	$(MAKE) -C starknet/rust format
+	$(MAKE) -C starknet/compiler/rust format
 	gofumpt -l -w .
 
 clean: ## clean project builds
 	$(MAKE) -C vm/rust clean
 	$(MAKE) -C core/rust clean
-	$(MAKE) -C starknet/rust clean
+	$(MAKE) -C starknet/compiler/rust clean
 	@rm -rf ./build
 
 help: ## show this help

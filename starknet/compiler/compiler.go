@@ -1,4 +1,4 @@
-package starknet
+package compiler
 
 /*
 #include <stdint.h>
@@ -19,10 +19,12 @@ import (
 	"encoding/json"
 	"errors"
 	"unsafe"
+
+	"github.com/NethermindEth/juno/starknet"
 )
 
-func Compile(sierra *SierraDefinition) (*CompiledClass, error) {
-	sierraJSON, err := json.Marshal(SierraDefinition{
+func Compile(sierra *starknet.SierraDefinition) (*starknet.CompiledClass, error) {
+	sierraJSON, err := json.Marshal(starknet.SierraDefinition{
 		EntryPoints: sierra.EntryPoints,
 		Program:     sierra.Program,
 		Version:     sierra.Version,
@@ -45,7 +47,7 @@ func Compile(sierra *SierraDefinition) (*CompiledClass, error) {
 
 	casmJSON := C.GoString(result)
 
-	var casmClass CompiledClass
+	var casmClass starknet.CompiledClass
 	if err := json.Unmarshal([]byte(casmJSON), &casmClass); err != nil {
 		return nil, err
 	}
