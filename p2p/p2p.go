@@ -408,6 +408,11 @@ func (s *Service) persistPeers() error {
 
 	store := s.host.Peerstore()
 	peers := store.Peers()
+
+	peers = utils.Filter(peers, func(peerID peer.ID) bool {
+		return peerID != s.host.ID()
+	})
+
 	for _, peerID := range peers {
 		peerInfo := store.PeerInfo(peerID)
 
