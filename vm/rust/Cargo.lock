@@ -450,7 +450,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=native2.8.x#398a608a1d2a6be03d7cf7f34a60d4824ab72b9b"
+source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -469,6 +469,7 @@ dependencies = [
  "indexmap 2.4.0",
  "itertools 0.10.5",
  "keccak",
+ "lazy_static",
  "log",
  "num-bigint",
  "num-integer",
@@ -1129,7 +1130,7 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=4355357697e9ab57ab88ae3a4282aac61455619e#4355357697e9ab57ab88ae3a4282aac61455619e"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=a478e89b749bf0b596a7e63afd14e834c08a84e3#a478e89b749bf0b596a7e63afd14e834c08a84e3"
 dependencies = [
  "anyhow",
  "aquamarine",
@@ -1166,6 +1167,8 @@ dependencies = [
  "num-traits 0.2.19",
  "p256",
  "sec1",
+ "serde",
+ "serde_json",
  "sha2",
  "starknet-types-core",
  "stats_alloc",
@@ -1178,7 +1181,7 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=4355357697e9ab57ab88ae3a4282aac61455619e#4355357697e9ab57ab88ae3a4282aac61455619e"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=a478e89b749bf0b596a7e63afd14e834c08a84e3#a478e89b749bf0b596a7e63afd14e834c08a84e3"
 dependencies = [
  "cairo-lang-sierra-gas",
  "lazy_static",
@@ -3123,7 +3126,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=native2.8.x#398a608a1d2a6be03d7cf7f34a60d4824ab72b9b"
+source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "clap",
  "itertools 0.10.5",
@@ -4348,7 +4351,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=native2.8.x#398a608a1d2a6be03d7cf7f34a60d4824ab72b9b"
+source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",

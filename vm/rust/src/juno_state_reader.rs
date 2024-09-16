@@ -7,18 +7,15 @@ use blockifier::{
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
-use cairo_lang_sierra::{program::Program, program_registry::ProgramRegistry};
-use cairo_native::{
-    context::NativeContext, error::Error as NativeError, executor::AotNativeExecutor,
-    metadata::gas::GasMetadata, module::NativeModule,
-};
-use libloading::Library;
+use cairo_native::executor::contract::ContractExecutor;
+use cairo_native::OptLevel;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 use std::cell::RefCell;
+use std::sync::Arc;
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
     fs,
@@ -185,6 +182,7 @@ impl StateReader for JunoStateReader {
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         println!("Juno State Reader(Rust): calling `get_compiled_contract_class` with class hash: {class_hash}");
+
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
@@ -311,68 +309,16 @@ fn native_try_from_json_string(
     raw_contract_class: &str,
     library_output_path: &PathBuf,
 ) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
-    fn compile_and_load(
-        sierra_program: Program,
-        library_output_path: &PathBuf,
-    ) -> Result<AotNativeExecutor, Box<dyn std::error::Error>> {
-        let native_context = NativeContext::new();
-        let native_module = native_context.compile(&sierra_program)?;
-
-        persist_from_native_module(native_module, &sierra_program, library_output_path)
-    }
-
     let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
         serde_json::from_str(raw_contract_class)?;
-
-    // todo(rodro): we are having two instances of a sierra program, one it's object form
-    // and another in its felt encoded form. This can be avoided by either:
-    //   1. Having access to the encoding/decoding functions
-    //   2. Refactoring the code on the Cairo mono-repo
-
     let sierra_program = sierra_contract_class.extract_sierra_program()?;
-
-    // todo(xrvdg) lift this match out of the function once we do not need sierra_program anymore
-    let executor = match load_compiled_contract(&sierra_program, library_output_path) {
-        Some(executor) => {
-            executor.or_else(|_err| compile_and_load(sierra_program, library_output_path))
-        }
-        None => compile_and_load(sierra_program, library_output_path),
-    }?;
-
-    Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
-}
-
-/// Load a contract that is already compiled.
-///
-/// Returns None if the contract does not exist at the output_path.
-///
-/// To compile and load a contract use [persist_from_native_module] instead.
-fn load_compiled_contract(
-    sierra_program: &Program,
-    library_output_path: &PathBuf,
-) -> Option<Result<AotNativeExecutor, Box<dyn std::error::Error>>> {
-    fn load(
-        sierra_program: &Program,
-        library_output_path: &PathBuf,
-    ) -> Result<AotNativeExecutor, Box<dyn std::error::Error>> {
-        let has_gas_builtin = sierra_program
-            .type_declarations
-            .iter()
-            .any(|decl| decl.long_id.generic_id.0.as_str() == "GasBuiltin");
-        let config = has_gas_builtin.then_some(Default::default());
-        let gas_metadata = GasMetadata::new(sierra_program, config)?;
-        let program_registry = ProgramRegistry::new(sierra_program)?;
-        let library = unsafe { Library::new(library_output_path)? };
-        Ok(AotNativeExecutor::new(
-            library,
-            program_registry,
-            gas_metadata,
-        ))
-    }
-
-    library_output_path
-        .is_file()
-        .then_some(load(sierra_program, library_output_path))
+    let executor = ContractExecutor::load(library_output_path).or_else(|_| {
+        let executor = ContractExecutor::new(&sierra_program, OptLevel::Default)?;
+        executor.save(library_output_path)?;
+        Ok::<ContractExecutor, Box<dyn std::error::Error>>(executor)
+    })?;
+    let contract_executor = NativeContractClassV1::new(Arc::new(executor), sierra_contract_class)?;
+    Ok(contract_executor)
 }
 
 // todo(xrvdg) once [class_info_from_json_str] is part of JunoStateReader
@@ -402,34 +348,4 @@ fn generate_library_path(class_hash: ClassHash) -> PathBuf {
     let mut path = JUNO_NATIVE_CACHE_DIR.clone();
     path.push(class_hash.to_string().trim_start_matches("0x"));
     path
-}
-
-/// Compiles and load contract
-///
-/// Modelled after [AotNativeExecutor::from_native_module].
-/// Needs a sierra_program to workaround limitations of NativeModule
-fn persist_from_native_module(
-    mut native_module: NativeModule,
-    sierra_program: &Program,
-    library_output_path: &PathBuf,
-) -> Result<AotNativeExecutor, Box<dyn std::error::Error>> {
-    let object_data = cairo_native::module_to_object(native_module.module(), Default::default())
-        .map_err(|err| NativeError::LLVMCompileError(err.to_string()))?; // cairo native didn't include a from instance
-
-    cairo_native::object_to_shared_lib(&object_data, library_output_path)?;
-
-    let gas_metadata = native_module
-        .remove_metadata()
-        .expect("native_module should have set gas_metadata");
-
-    // Recreate the program registry as it can't be moved out of native module.
-    let program_registry = ProgramRegistry::new(sierra_program)?;
-
-    let library = unsafe { Library::new(library_output_path)? };
-
-    Ok(AotNativeExecutor::new(
-        library,
-        program_registry,
-        gas_metadata,
-    ))
 }
