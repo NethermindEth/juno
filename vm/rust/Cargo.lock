@@ -450,7 +450,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=native2.8.x#398a608a1d2a6be03d7cf7f34a60d4824ab72b9b"
+source = "git+https://github.com/NethermindEth/sequencer?rev=5d130cd6767373b5128d988f89f9870415ba7013#5d130cd6767373b5128d988f89f9870415ba7013"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -1129,7 +1129,7 @@ dependencies = [
 [[package]]
 name = "cairo-native"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=4355357697e9ab57ab88ae3a4282aac61455619e#4355357697e9ab57ab88ae3a4282aac61455619e"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=a478e89b749bf0b596a7e63afd14e834c08a84e3#a478e89b749bf0b596a7e63afd14e834c08a84e3"
 dependencies = [
  "anyhow",
  "aquamarine",
@@ -1166,6 +1166,8 @@ dependencies = [
  "num-traits 0.2.19",
  "p256",
  "sec1",
+ "serde",
+ "serde_json",
  "sha2",
  "starknet-types-core",
  "stats_alloc",
@@ -1178,7 +1180,7 @@ dependencies = [
 [[package]]
 name = "cairo-native-runtime"
 version = "0.2.0"
-source = "git+https://github.com/lambdaclass/cairo_native?rev=4355357697e9ab57ab88ae3a4282aac61455619e#4355357697e9ab57ab88ae3a4282aac61455619e"
+source = "git+https://github.com/lambdaclass/cairo_native?rev=a478e89b749bf0b596a7e63afd14e834c08a84e3#a478e89b749bf0b596a7e63afd14e834c08a84e3"
 dependencies = [
  "cairo-lang-sierra-gas",
  "lazy_static",
@@ -2750,7 +2752,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3123,7 +3125,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=native2.8.x#398a608a1d2a6be03d7cf7f34a60d4824ab72b9b"
+source = "git+https://github.com/NethermindEth/sequencer?rev=5d130cd6767373b5128d988f89f9870415ba7013#5d130cd6767373b5128d988f89f9870415ba7013"
 dependencies = [
  "clap",
  "itertools 0.10.5",
@@ -4348,7 +4350,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?branch=native2.8.x#398a608a1d2a6be03d7cf7f34a60d4824ab72b9b"
+source = "git+https://github.com/NethermindEth/sequencer?rev=5d130cd6767373b5128d988f89f9870415ba7013#5d130cd6767373b5128d988f89f9870415ba7013"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",
@@ -5169,7 +5171,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

@@ -8,9 +8,10 @@ use blockifier::{
 };
 use cached::{Cached, SizedCache};
 use cairo_lang_sierra::{program::Program, program_registry::ProgramRegistry};
+use cairo_native::OptLevel;
 use cairo_native::{
     context::NativeContext, error::Error as NativeError, executor::AotNativeExecutor,
-    metadata::gas::GasMetadata, module::NativeModule,
+    metadata::gas::GasMetadata, module::NativeModule, executor::contract::ContractExecutor
 };
 use libloading::Library;
 use once_cell::sync::Lazy;
@@ -19,6 +20,7 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
 use std::cell::RefCell;
+use std::sync::Arc;
 use std::{
     ffi::{c_char, c_uchar, c_void, CStr},
     fs,
@@ -331,13 +333,8 @@ fn native_try_from_json_string(
 
     let sierra_program = sierra_contract_class.extract_sierra_program()?;
 
-    // todo(xrvdg) lift this match out of the function once we do not need sierra_program anymore
-    let executor = match load_compiled_contract(&sierra_program, library_output_path) {
-        Some(executor) => {
-            executor.or_else(|_err| compile_and_load(sierra_program, library_output_path))
-        }
-        None => compile_and_load(sierra_program, library_output_path),
-    }?;
+    let executor = Arc::new( ContractExecutor::new(&sierra_program, OptLevel::Default)? );
+    executor.save(&library_output_path).expect("cache library");
 
     Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
 }
