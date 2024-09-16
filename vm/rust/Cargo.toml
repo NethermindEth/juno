@@ -8,21 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-
-#blockifier = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.8.x" }
-
-#blockifier = { path = "../../../nethermind_sequencer_2/crates/blockifier/" }
-#blockifier = { git = "https://github.com/NethermindEth/sequencer", rev = "185454b60b47c00e1a793a49326d84b47352b5bf" }
-#blockifier = { git = "https://github.com/NethermindEth/sequencer", rev = "9ae184ce278e62e87b6d8ee0f42f1cdeecd52b5d" }
-blockifier = { git = "https://github.com/NethermindEth/sequencer", rev = "5d130cd6767373b5128d988f89f9870415ba7013" }
-
-#starknet_api = { git = "https://github.com/NethermindEth/sequencer", branch = "native2.8.x" }
-
-#starknet_api = { path = "../../../nethermind_sequencer_2/crates/starknet_api/" }
-#starknet_api = { git = "https://github.com/NethermindEth/sequencer", rev = "9ae184ce278e62e87b6d8ee0f42f1cdeecd52b5d" }
-starknet_api = { git = "https://github.com/NethermindEth/sequencer", rev = "5d130cd6767373b5128d988f89f9870415ba7013" }
-
-
+blockifier = { git = "https://github.com/NethermindEth/sequencer", rev = "525c6af4a6f95d233fb2187da68d0ec4015f26ad" }
+starknet_api = { git = "https://github.com/NethermindEth/sequencer", rev = "525c6af4a6f95d233fb2187da68d0ec4015f26ad" }
 cairo-lang-sierra = "2.8.0"
 cairo-lang-starknet = "2.8.0"
 cairo-lang-starknet-classes = "2.8.0"
@@ -31,10 +18,7 @@ starknet-types-core = { version = "0.1.5", features = [
   "prime-bigint",
   "serde",
 ] }
-#cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "4355357697e9ab57ab88ae3a4282aac61455619e" }
-#cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "79a558de3175ae40c0d1f6b4c22159743ba2f30a" }
 cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "a478e89b749bf0b596a7e63afd14e834c08a84e3" }
-#cairo-native = { git = "https://github.com/lambdaclass/cairo_native", rev = "44d420814553c37cec7d2177892b36fc199f6cda" }
 cairo-vm = "1.0.0"
 indexmap = "2.1.0"
 cached = "0.46.1"
