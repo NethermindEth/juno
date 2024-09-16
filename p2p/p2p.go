@@ -268,7 +268,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
-	return s.host.Close()
+	return nil
 }
 
 func (s *Service) setProtocolHandlers() {
