@@ -339,7 +339,7 @@ fn cairo_vm_execute(
     };
 
     if let Some(path) = JUNO_RECORD_DIR.clone() {
-        let mut args_path: PathBuf = path.into();
+        let mut args_path: PathBuf = path;
         args_path.push(format!("{}.args.cbor", block_info.block_number));
 
         let file_args = std::fs::File::create(args_path).unwrap();
@@ -401,7 +401,7 @@ fn cairo_vm_execute(
     }
 
     if let Some(path) = JUNO_RECORD_DIR.clone() {
-        let mut state_path: PathBuf = path.into();
+        let mut state_path: PathBuf = path;
         state_path.push(format!("{}.state.cbor", block_info.block_number));
 
         let state_file = File::create(state_path).unwrap();
