@@ -36,6 +36,10 @@ func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 }
 
 func AdaptUint128(u *spec.Uint128) *felt.Felt {
+	if u == nil {
+		return nil
+	}
+
 	bytes := make([]byte, 16) //nolint:mnd
 
 	binary.BigEndian.PutUint64(bytes[:8], u.High)
