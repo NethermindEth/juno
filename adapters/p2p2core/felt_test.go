@@ -1,11 +1,11 @@
 package p2p2core
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 )
 
