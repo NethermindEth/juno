@@ -52,7 +52,6 @@ func TestPipeline(t *testing.T) {
 		var chs []<-chan string
 
 		for n := range nums {
-			n := n
 			strCh := make(chan string)
 			go func() {
 				defer close(strCh)
