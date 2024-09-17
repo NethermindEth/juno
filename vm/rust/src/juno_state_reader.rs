@@ -225,7 +225,7 @@ impl StateReader for JunoStateReader {
                 "Overwritten compiled contract_class"
             );
 
-            let class_info_res = class_info_from_json_str(json_str);
+            let class_info_res = class_info_from_json_str(json_str, class_hash);
             if let Ok(class_info) = &class_info_res {
                 CLASS_CACHE.lock().unwrap().cache_set(
                     class_hash,
@@ -269,7 +269,10 @@ pub struct ClassInfo {
     abi_length: usize,
 }
 
-pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
+pub fn class_info_from_json_str(
+    raw_json: &str,
+    class_hash: ClassHash,
+) -> Result<BlockifierClassInfo, String> {
     let class_info: ClassInfo = serde_json::from_str(raw_json)
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
@@ -283,7 +286,8 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
             class.into()
         } else if let Ok(class) = {
             println!("native contract");
-            native_try_from_json_string(class_def.as_str())
+            let library_output_path = generate_library_path(class_hash);
+            native_try_from_json_string(class_def.as_str(), class_hash, &library_output_path)
         } {
             class.into()
         } else {
@@ -307,20 +311,23 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
 /// and save the compilation artifact to library_output_path.
 fn native_try_from_json_string(
     raw_contract_class: &str,
+    class_hash: ClassHash,
+    library_output_path: &PathBuf,
 ) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
-    let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
-        serde_json::from_str(raw_contract_class)?;
-
     // todo(rodro): we are having two instances of a sierra program, one it's object form
     // and another in its felt encoded form. This can be avoided by either:
     //   1. Having access to the encoding/decoding functions
     //   2. Refactoring the code on the Cairo mono-repo
 
-    let sierra_program = sierra_contract_class.extract_sierra_program()?;
-
-    let executor = Arc::new(ContractExecutor::new(&sierra_program, OptLevel::Default)?);
-
-    Ok(NativeContractClassV1::new(executor, sierra_contract_class)?)
+    Ok(
+      NativeContractClassV1::load(&library_output_path).unwrap_or({
+        let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
+            serde_json::from_str(raw_contract_class)?;
+        let sierra_program = sierra_contract_class.extract_sierra_program()?;
+        let executor = ContractExecutor::new(&sierra_program, OptLevel::Default)?;
+        executor.save(&library_output_path);
+        NativeContractClassV1::new(Arc::new(executor), sierra_contract_class)?
+    }))
 }
 
 // todo(xrvdg) once [class_info_from_json_str] is part of JunoStateReader
@@ -343,5 +350,11 @@ fn setup_native_cache_dir() -> PathBuf {
     // by build.rs
     path.push(env!("NATIVE_VERSION"));
     let _ = fs::create_dir_all(&path);
+    path
+}
+
+fn generate_library_path(class_hash: ClassHash) -> PathBuf {
+    let mut path = JUNO_NATIVE_CACHE_DIR.clone();
+    path.push(class_hash.to_string().trim_start_matches("0x"));
     path
 }

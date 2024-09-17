@@ -50,12 +50,12 @@ impl CompiledNativeState {
 }
 
 trait ContractClassTrait {
-    fn compile(&self) -> StateResult<ContractClass>;
+    fn compile(&self, class_hash: ClassHash) -> StateResult<ContractClass>;
 }
 
 impl ContractClassTrait for String {
-    fn compile(&self) -> StateResult<ContractClass> {
-        class_info_from_json_str(self)
+    fn compile(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+        class_info_from_json_str(self, class_hash)
             .map(|class_info| class_info.contract_class())
             .map_err(|err| {
                 StateError::StateReadError(format!("parsing JSON string for class hash: {}", err))
@@ -64,7 +64,7 @@ impl ContractClassTrait for String {
 }
 
 impl ContractClassTrait for ContractClass {
-    fn compile(&self) -> StateResult<ContractClass> {
+    fn compile(&self, _class_hash: ClassHash) -> StateResult<ContractClass> {
         Ok(self.clone())
     }
 }
@@ -104,7 +104,7 @@ impl<C: ContractClassTrait> StateReader for RecordedState<C> {
             .contract_class
             .get(&class_hash)
             .expect("request non existed class");
-        contract_class.compile()
+        contract_class.compile(class_hash)
     }
 }
 

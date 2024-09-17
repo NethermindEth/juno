@@ -424,14 +424,14 @@ pub fn execute_transaction<S: StateReader>(
     err_on_revert: bool,
 ) -> Result<TransactionExecutionInfo, String> {
     let class_info = match txn_and_query_bit.txn.clone() {
-        StarknetApiTransaction::Declare(_declare_transaction) => {
+        StarknetApiTransaction::Declare(declare_transaction) => {
             if classes.is_empty() {
                 Err("missing declared class".to_string())?
             }
             let class_json_str = classes.remove(0);
 
             let maybe_cc =
-                class_info_from_json_str(class_json_str.get())?;
+                class_info_from_json_str(class_json_str.get(), declare_transaction.class_hash())?;
 
             Some(maybe_cc)
         }

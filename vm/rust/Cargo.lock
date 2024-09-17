@@ -450,7 +450,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=525c6af4a6f95d233fb2187da68d0ec4015f26ad#525c6af4a6f95d233fb2187da68d0ec4015f26ad"
+source = "git+https://github.com/NethermindEth/sequencer?rev=cb4db93330ab4a7a0e2aa5ea210a7c5880b9736a#cb4db93330ab4a7a0e2aa5ea210a7c5880b9736a"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -469,6 +469,7 @@ dependencies = [
  "indexmap 2.4.0",
  "itertools 0.10.5",
  "keccak",
+ "lazy_static",
  "log",
  "num-bigint",
  "num-integer",
@@ -3125,7 +3126,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=525c6af4a6f95d233fb2187da68d0ec4015f26ad#525c6af4a6f95d233fb2187da68d0ec4015f26ad"
+source = "git+https://github.com/NethermindEth/sequencer?rev=cb4db93330ab4a7a0e2aa5ea210a7c5880b9736a#cb4db93330ab4a7a0e2aa5ea210a7c5880b9736a"
 dependencies = [
  "clap",
  "itertools 0.10.5",
@@ -4350,7 +4351,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=525c6af4a6f95d233fb2187da68d0ec4015f26ad#525c6af4a6f95d233fb2187da68d0ec4015f26ad"
+source = "git+https://github.com/NethermindEth/sequencer?rev=cb4db93330ab4a7a0e2aa5ea210a7c5880b9736a#cb4db93330ab4a7a0e2aa5ea210a7c5880b9736a"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",
