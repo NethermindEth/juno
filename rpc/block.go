@@ -137,9 +137,61 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+type TransactionWithReceiptAndHash struct {
+	Hash    *felt.Felt          `json:"hash"`
+	Receipt *TransactionReceipt `json:"receipt"`
+}
+
+type BlockWithTxHashesAndReceipts struct {
+	Status BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	ReceiptsWithHashes []TransactionWithReceiptAndHash `json:"transactions"`
+}
+
 /****************************************************
 		Block Handlers
 *****************************************************/
+
+// BlockWithTxnHashesAndReceipts returns the block information with transaction hashes and receipts given a block ID.
+func (h *Handler) BlockWithTxHashesAndReceipts(id BlockID) (*BlockWithTxHashesAndReceipts, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	txnHashes := make([]*felt.Felt, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		txnHashes[index] = txn.Hash()
+	}
+
+	blockStatus, rpcErr := h.blockStatus(id, block)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	finalityStatus := TxnAcceptedOnL2
+	if blockStatus == BlockAcceptedL1 {
+		finalityStatus = TxnAcceptedOnL1
+	}
+
+	txsWithReceiptsAndHashes := make([]TransactionWithReceiptAndHash, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		r := block.Receipts[index]
+		hash := txn.Hash()
+
+		txsWithReceiptsAndHashes[index] = TransactionWithReceiptAndHash{
+			Hash: hash,
+			// block_hash, block_number are optional in BlockWithReceipts response
+			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
+		}
+	}
+
+	return &BlockWithTxHashesAndReceipts{
+		Status:             blockStatus,
+		BlockHeader:        adaptBlockHeader(block.Header),
+		ReceiptsWithHashes: txsWithReceiptsAndHashes,
+	}, nil
+}
 
 // BlockNumber returns the latest synced block number.
 //
