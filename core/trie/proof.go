@@ -133,6 +133,151 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
+// pathSplitOccurredCheck checks if there happens at most one split in the merged path
+// loops through the merged paths if left and right hashes of a node exist in the nodeHashes
+// then a split happened in case of multiple splits it returns an error
+func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]ProofNode) error {
+	splitHappened := false
+	for _, node := range mergedPath {
+		if node.Edge != nil {
+			continue
+		}
+
+		_, leftExists := nodeHashes[*node.Binary.LeftHash]
+		_, rightExists := nodeHashes[*node.Binary.RightHash]
+
+		if leftExists && rightExists {
+			if splitHappened {
+				return errors.New("split happened more than once")
+			}
+
+			splitHappened = true
+		}
+	}
+	return nil
+}
+
+func rootNodeExistsCheck(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode) (ProofNode, error) {
+	currNode, rootExists := nodeHashes[*rootHash]
+	if !rootExists {
+		return currNode, errors.New("root hash not found in the merged path")
+	}
+
+	return currNode, nil
+}
+
+// traverseNodes traverses the merged proof path starting at `currNode`
+// and adds nodes to `path` slice. It stops when the split node is added
+// or the path is exhausted, and `currNode` children are not included
+// in the path (nodeHashes)
+func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
+	*path = append(*path, currNode)
+
+	if currNode.Binary != nil {
+		nodeLeft, leftExist := nodeHashes[*currNode.Binary.LeftHash]
+		nodeRight, rightExist := nodeHashes[*currNode.Binary.RightHash]
+
+		if leftExist && rightExist {
+			return
+		} else if leftExist {
+			traverseNodes(nodeLeft, path, nodeHashes)
+		} else if rightExist {
+			traverseNodes(nodeRight, path, nodeHashes)
+		}
+	} else if currNode.Edge != nil {
+		edgeNode, exist := nodeHashes[*currNode.Edge.Child]
+		if exist {
+			traverseNodes(edgeNode, path, nodeHashes)
+		}
+	}
+}
+
+// MergeProofPaths removes duplicates and merges proof paths into a single path
+// merges paths in the specified order [commonNodes..., leftNodes..., rightNodes...]
+// ordering of the merged path is not important
+// since SplitProofPath can discover the left and right paths using the merged path and the rootHash
+func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, *felt.Felt, error) {
+	merged := []ProofNode{}
+	minLen := min(len(leftPath), len(rightPath))
+
+	if len(leftPath) == 0 || len(rightPath) == 0 {
+		return merged, nil, errors.New("empty proof paths")
+	}
+
+	if !leftPath[0].Hash(hash).Equal(rightPath[0].Hash(hash)) {
+		return merged, nil, errors.New("roots of the proof paths are different")
+	}
+
+	rootHash := leftPath[0].Hash(hash)
+
+	// Get duplicates and insert by one
+	i := 0
+	for i = 0; i < minLen; i++ {
+		leftNode := leftPath[i]
+		rightNode := rightPath[i]
+
+		if leftNode.Hash(hash).Equal(rightNode.Hash(hash)) {
+			merged = append(merged, leftNode)
+		} else {
+			break
+		}
+	}
+
+	// Add rest of the nodes
+	merged = append(merged, leftPath[i:]...)
+	merged = append(merged, rightPath[i:]...)
+
+	return merged, rootHash, nil
+}
+
+// SplitProofPath splits the merged proof path into two paths (left and right), which were merged before
+// it first validates that the merged path is not circular, the split happens at most once and rootHash exists
+// then calls traverseNodes to split the path to left and right paths
+func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) ([]ProofNode, []ProofNode, error) {
+	commonPath := []ProofNode{}
+	leftPath := []ProofNode{}
+	rightPath := []ProofNode{}
+	nodeHashes := make(map[felt.Felt]ProofNode)
+
+	for _, node := range mergedPath {
+		nodeHash := node.Hash(hash)
+		_, nodeExists := nodeHashes[*nodeHash]
+
+		if nodeExists {
+			return leftPath, rightPath, errors.New("duplicate node in the merged path")
+		}
+		nodeHashes[*nodeHash] = node
+	}
+
+	if len(mergedPath) == 0 {
+		return leftPath, rightPath, nil
+	}
+
+	currNode, err := rootNodeExistsCheck(rootHash, nodeHashes)
+	if err != nil {
+		return leftPath, rightPath, err
+	}
+
+	if err := pathSplitOccurredCheck(mergedPath, nodeHashes); err != nil {
+		return leftPath, rightPath, err
+	}
+
+	traverseNodes(currNode, &commonPath, nodeHashes)
+
+	leftPath = append(leftPath, commonPath...)
+	rightPath = append(rightPath, commonPath...)
+
+	currNode = commonPath[len(commonPath)-1]
+
+	leftNode := nodeHashes[*currNode.Binary.LeftHash]
+	rightNode := nodeHashes[*currNode.Binary.RightHash]
+
+	traverseNodes(leftNode, &leftPath, nodeHashes)
+	traverseNodes(rightNode, &rightPath, nodeHashes)
+
+	return leftPath, rightPath, nil
+}
+
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
 // GetProof generates a set of proof nodes from the root to the leaf.
 // The proof never contains the leaf node if it is set, as we already know it's hash.

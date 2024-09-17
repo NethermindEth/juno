@@ -40,7 +40,6 @@ func AdaptBlockHeader(h *spec.SignedBlockHeader, eventsBloom *bloom.BloomFilter)
 			PriceInWei: AdaptUint128(h.DataGasPriceWei),
 			PriceInFri: AdaptUint128(h.DataGasPriceFri),
 		},
-		// todo(kirill) check prices
 		GasPrice:     AdaptUint128(h.GasPriceWei),
 		GasPriceSTRK: AdaptUint128(h.GasPriceFri),
 	}

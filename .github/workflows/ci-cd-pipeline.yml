@@ -50,7 +50,7 @@ jobs:
 
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
 
       - name: Build and Push
         uses: docker/build-push-action@v6
@@ -58,7 +58,9 @@ jobs:
           context: .
           platforms: "linux/amd64"
           push: true
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ env.DOCKER_IMAGE_TAG }}
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ env.DOCKER_IMAGE_TAG }}
+            ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
 
 
   validate_dev:
@@ -102,16 +104,20 @@ jobs:
 
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
 
       - name: Promote to Staging
         run: |
           OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
           NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build_docker_image.outputs.DOCKER_IMAGE_TAG }}
+          LATEST_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:latest
 
           docker pull $OLD_TAG
           docker tag $OLD_TAG $NEW_TAG
           docker push $NEW_TAG
+
+          docker tag $OLD_TAG $LATEST_TAG
+          docker push $LATEST_TAG
 
       - name: Verify Deployment Version (Staging)
         run: |
@@ -139,7 +145,7 @@ jobs:
     steps:
       - name: Login to registry
         run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ vars.ARTIFACTORY_NUBIA_USER }} -p ${{ secrets.ARTIFACTORY_NUBIA_CONTRIBUTOR}}
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
 
       - name: Promote to Production
         run: |

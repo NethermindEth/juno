@@ -92,19 +92,17 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 		return
 	}
 
-	// todo add write timeout
-	responseIterator(func(msg proto.Message) bool {
+	for msg := range responseIterator {
 		if ctx.Err() != nil {
-			return false
+			break
 		}
 
+		// todo add write timeout
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
 			log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
-			return false
+			break
 		}
-
-		return true
-	})
+	}
 }
 
 func (h *Handler) HeadersHandler(stream network.Stream) {
@@ -152,7 +150,7 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 
 		return &spec.BlockHeadersResponse{
 			HeaderMessage: &spec.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Commitment(),
+				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Hash(),
 					stateUpdate.StateDiff.Length()),
 			},
 		}, nil

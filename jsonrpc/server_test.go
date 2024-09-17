@@ -40,17 +40,27 @@ func TestServer_RegisterMethod(t *testing.T) {
 		"no return": {
 			handler:    func(param1, param2 int) {},
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "handler must return 2 values",
+			want:       "handler must return 2 or 3 values",
 		},
 		"int return": {
 			handler:    func(param1, param2 int) (int, int) { return 0, 0 },
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error",
+			want:       "second return value must be a *jsonrpc.Error for 2 tuple handler",
+		},
+		"no error return 3": {
+			handler:    func(param1, param2 int) (int, int, int) { return 0, 0, 0 },
+			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
+			want:       "third return value must be a *jsonrpc.Error for 3 tuple handler",
+		},
+		"no header return 3": {
+			handler:    func(param1, param2 int) (int, int, *jsonrpc.Error) { return 0, 0, &jsonrpc.Error{} },
+			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
+			want:       "second return value must be a http.Header for 3 tuple handler",
 		},
 		"no error return": {
 			handler:    func(param1, param2 int) (any, int) { return 0, 0 },
 			paramNames: []jsonrpc.Parameter{{Name: "param1"}, {Name: "param2"}},
-			want:       "second return value must be a *jsonrpc.Error",
+			want:       "second return value must be a *jsonrpc.Error for 2 tuple handler",
 		},
 	}
 
@@ -472,8 +482,9 @@ func TestHandle(t *testing.T) {
 			oldRequestFailedEventCount := len(listener.OnRequestFailedCalls)
 			oldRequestHandledCalls := len(listener.OnRequestHandledCalls)
 
-			res, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
+			res, httpHeader, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
 			require.NoError(t, err)
+			assert.NotNil(t, httpHeader)
 
 			if test.isBatch {
 				assertBatchResponse(t, test.res, string(res))
@@ -515,8 +526,9 @@ func BenchmarkHandle(b *testing.B) {
 
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
 	for i := 0; i < b.N; i++ {
-		_, err := server.HandleReader(context.Background(), strings.NewReader(request))
+		_, header, err := server.HandleReader(context.Background(), strings.NewReader(request))
 		require.NoError(b, err)
+		require.NotNil(b, header)
 	}
 }
 
@@ -531,9 +543,10 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 			return 0, nil
 		},
 	}))
-	res, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	res, header, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
+	require.NotNil(t, header)
 }
 
 type fakeConn struct{}

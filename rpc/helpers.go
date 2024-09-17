@@ -89,7 +89,14 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 
 func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bool) *ExecutionResources {
 	if resources == nil {
-		return &ExecutionResources{}
+		var dataAvailability *DataAvailability
+		if !v0_6Response {
+			dataAvailability = &DataAvailability{}
+		}
+
+		return &ExecutionResources{
+			DataAvailability: dataAvailability,
+		}
 	}
 
 	res := &ExecutionResources{
@@ -106,10 +113,14 @@ func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bo
 			SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
 		},
 	}
-	if !v0_6Response && resources.DataAvailability != nil {
-		res.DataAvailability = &DataAvailability{
-			L1Gas:     resources.DataAvailability.L1Gas,
-			L1DataGas: resources.DataAvailability.L1DataGas,
+	if !v0_6Response {
+		if resources.DataAvailability == nil {
+			res.DataAvailability = &DataAvailability{}
+		} else {
+			res.DataAvailability = &DataAvailability{
+				L1Gas:     resources.DataAvailability.L1Gas,
+				L1DataGas: resources.DataAvailability.L1DataGas,
+			}
 		}
 	}
 
