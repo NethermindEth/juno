@@ -63,8 +63,9 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 		MemoryHoles: uint64(er.MemoryHoles),
 		Steps:       uint64(er.Steps), // todo SPEC 32 -> 64 bytes
 		TotalGasConsumed: &core.GasConsumed{
-			L1Gas:     feltToUint64(er.TotalL1Gas),
-			L1DataGas: 0, // todo(kirill) fill after spec update
+			L1Gas: feltToUint64(er.TotalL1Gas),
+			// total_l1_data_gas = l1_data_gas, because there's only one place that can generate l1_data_gas costs
+			L1DataGas: feltToUint64(er.L1DataGas),
 		},
 	}
 }
