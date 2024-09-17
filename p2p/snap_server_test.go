@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/stretchr/testify/require"
+	"maps"
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -343,6 +345,125 @@ func TestGetClassesByHash(t *testing.T) {
 	assert.True(t, finMsgReceived)
 }
 
+func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
+	var d db.DB
+	t.Skip("DB snapshot is needed for this test")
+	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
+
+	b, err := bc.Head()
+	assert.NoError(t, err)
+
+	fmt.Printf("headblock %d\n", b.Number)
+
+	stateRoot := b.GlobalStateRoot
+
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
+	server := &snapServer{
+		log:        logger,
+		blockchain: bc,
+	}
+
+	ctso := make(map[felt.Felt]*felt.Felt)
+	request := &spec.ContractRangeRequest{
+		ChunksPerProof: 100,
+		Start:          core2p2p.AdaptAddress(felt.Zero.Clone()),
+		End:            nil, //core2p2p.AdaptAddress(test.address),
+		StateRoot:      core2p2p.AdaptHash(stateRoot),
+	}
+
+	iter, err := server.GetContractRange(request)
+	assert.NoError(t, err)
+
+	contracts := 0
+	for res := range iter {
+		assert.NotNil(t, res)
+		resT, ok := res.(*spec.ContractRangeResponse)
+		assert.True(t, ok)
+		assert.NotNil(t, resT)
+
+		switch v := resT.GetResponses().(type) {
+		case *spec.ContractRangeResponse_Range:
+			for _, contract := range v.Range.State {
+				addr := p2p2core.AdaptAddress(contract.Address)
+				strt := p2p2core.AdaptHash(contract.Storage)
+				//assert.Equal(t, test.address, addr)
+				//assert.Equal(t, test.storageRoot, strt)
+				if !(strt.IsZero() || addr.IsOne()) {
+					ctso[*addr] = strt
+					contracts++
+				}
+			}
+		case *spec.ContractRangeResponse_Fin:
+			fmt.Println("Contract iteration ends", "contracts", contracts)
+		default:
+			// we expect no any other message only just one range because we break the iteration
+			t.Fatal("received unexpected message", "type", v)
+		}
+
+		if contracts > 1000 {
+			break
+		}
+	}
+
+	keys := make([]*felt.Felt, 0, len(ctso))
+	stoCnt := make(map[felt.Felt]int)
+	for k := range maps.Keys(ctso) {
+		keys = append(keys, k.Clone())
+	}
+
+	for len(keys) > 10 {
+		var queries []*spec.StorageRangeQuery
+		for i := range 10 {
+			addr := keys[i]
+			queries = append(queries, &spec.StorageRangeQuery{
+				Address: core2p2p.AdaptAddress(addr),
+				Start: &spec.StorageLeafQuery{
+					ContractStorageRoot: core2p2p.AdaptHash(ctso[*addr]),
+					Key:                 core2p2p.AdaptFelt(felt.Zero.Clone()),
+				},
+				End: nil,
+			})
+		}
+		keys = keys[10:]
+
+		sreq := &spec.ContractStorageRequest{
+			StateRoot:      core2p2p.AdaptHash(stateRoot),
+			ChunksPerProof: uint32(500),
+			Query:          queries,
+		}
+
+		iter, err := server.GetStorageRange(sreq)
+		require.NoError(t, err)
+
+		for res := range iter {
+			assert.NotNil(t, res)
+			resT, ok := res.(*spec.ContractStorageResponse)
+			assert.True(t, ok)
+			assert.NotNil(t, resT)
+
+			addr := p2p2core.AdaptAddress(resT.ContractAddress)
+
+			switch v := resT.GetResponses().(type) {
+			case *spec.ContractStorageResponse_Storage:
+				vl := stoCnt[*addr]
+				//if !ok { stoCnt[*addr] = 0 }
+				stoCnt[*addr] = vl + len(v.Storage.KeyValue)
+			case *spec.ContractStorageResponse_Fin:
+				// we expect just one fin message at the iteration end
+				fmt.Println("End of iter", "no addr")
+			}
+		}
+	}
+
+	for addr, cnt := range stoCnt {
+		if cnt > 100 {
+			fmt.Printf("[%5d]: address %s, storageRoot %s\n", cnt, &addr, ctso[addr])
+		}
+	}
+}
+
 func TestGetContractStorageRoot(t *testing.T) {
 	var d db.DB
 	t.Skip("DB snapshot is needed for this test")
@@ -364,74 +485,103 @@ func TestGetContractStorageRoot(t *testing.T) {
 	}
 
 	tests := []struct {
-		address     *felt.Felt
-		storageRoot *felt.Felt
+		address        *felt.Felt
+		storageRoot    *felt.Felt
+		expectedLeaves int
 	}{
 		{
-			address:     feltFromString("0x5eb8d1bc5aaf2f323f2a807d429686ac012ca16f90740071d2f3a160dc231"),
-			storageRoot: feltFromString("0x0"),
+			address:        feltFromString("0x2375219f8c73b77eef29d7cfd3749d64d2cca6ad7a776ed85bd33ff09201ea"),
+			storageRoot:    feltFromString("0x24e11cc263e8d4c37519a95dc5cc4bc2627a991da6048b9a41f011e586cd3cc"),
+			expectedLeaves: 140,
 		},
 		{
-			address:     feltFromString("0x5ec87443bcb74e1e58762be15c3c513926a91a5d5b4a204e9e7b5ca884fb7"),
-			storageRoot: feltFromString("0x36fc3942926334a24b739065f26ffe547044af7466a6f8d391e0750603ffa8c"),
+			address:        feltFromString("0xec1131fe035c235c03e0ad43646d8cbfd59d048b1825b0a36a167c468d5bf"),
+			storageRoot:    feltFromString("0x21c409ca7f7d064d5e580e756cc945d3b266ab852e6d982697177e57d4c96a0"),
+			expectedLeaves: 193,
 		},
 		{
-			address:     feltFromString("0x614a5e0519963324acb5640321240827c0cd6a9f7cf5f17a80c1596e607d0"),
-			storageRoot: feltFromString("0x55ee7fd57d0aa3da8b89ea2feda16f9435186988a8b00b6f22f5ba39f3cf172"),
+			address:        feltFromString("0xc41025be6d90828b1af119d384cecf1a57da8190ce79a2ffd925f02b59df"),
+			storageRoot:    feltFromString("0x3f6b341ce4fb8441a0b350932a89cb19e195479e43ade9eb9e2fcde31a64680"),
+			expectedLeaves: 187,
 		},
 		{
-			address:     feltFromString("0x6b7d60ec8176d8a1c77afdca05191dad1e1a20fef2e5e3aceccee0b3cbd6a"),
-			storageRoot: feltFromString("0x726d42240f103a32ce1b6acc7498f52fdf83e308cf70e0a6394591cee1886c8"),
+			address:        feltFromString("0xb5a14ddd6d1a6b33a10411e45bbff54f92265ede856cd0e12fee4a638c389"),
+			storageRoot:    feltFromString("0x331a990cf32f6eedf01ca9b577cb75b53d937333729f48091945e255fff4a3d"),
+			expectedLeaves: 137,
 		},
 		{
-			address:     feltFromString("0x3deecdb26a60e4c062d5bd98ab37f72ea2acc37f28dae6923359627ebde9"),
-			storageRoot: feltFromString("0x276edbc91a945d11645ba0b8298c7d657e554d06ab2bb765cbc44d61fa01fd5"),
+			address:        feltFromString("0x130b5a3035eef0470cff2f9a450a7a6856a3c5a4ea3f5b7886c2d03a50d2bf"),
+			storageRoot:    feltFromString("0x4cf3afb0828518a24c0f2a5cc6e87d188df58b5faf40c6b81d6d476cf7897f6"),
+			expectedLeaves: 338,
+		},
+		{
+			address:        feltFromString("0x267311365224e8d4eb4dd580f1b737f990dfc81112ca71ecce147e774bcecb"),
+			storageRoot:    feltFromString("0x71b0e71d2b69bfbfa25fd54e0cd3673f27f07110c3be72cb81c20aa0c6df4b0"),
+			expectedLeaves: 701,
+		},
+		{
+			address:        feltFromString("0x28f61c91275111e8c5af6febfa5c9d2191442b4fe48d30a84e51a09e8f18b5"),
+			storageRoot:    feltFromString("0x1de1bf792cd9221c8d6ba2953671d6a4f0890375eca3718989082225dccb7eb"),
+			expectedLeaves: 540,
 		},
 	}
 
+	ctso := make(map[felt.Felt]*felt.Felt)
+	stoCnt := make(map[felt.Felt]int)
+
+	t.Run("Storage validation ", func(t *testing.T) {
+		queries := []*spec.StorageRangeQuery{}
+		for _, dt := range tests {
+			queries = append(queries, &spec.StorageRangeQuery{
+				Address: core2p2p.AdaptAddress(dt.address),
+				Start: &spec.StorageLeafQuery{
+					ContractStorageRoot: core2p2p.AdaptHash(dt.storageRoot),
+					Key:                 core2p2p.AdaptFelt(felt.Zero.Clone()),
+				},
+				End: nil,
+			})
+			ctso[*dt.address] = dt.storageRoot
+		}
+
+		// Contract Storage request contains queries for each tests' contract
+		// also note we specify `chainsPerProof` to be 200, which will be not enough
+		// to get all contract's keys in one iteration
+		sreq := &spec.ContractStorageRequest{
+			StateRoot:      core2p2p.AdaptHash(stateRoot),
+			ChunksPerProof: uint32(200),
+			Query:          queries,
+		}
+
+		iter, err := server.GetStorageRange(sreq)
+		require.NoError(t, err)
+
+		// There will be one iteration for contracts where `expectedLeaves` < `chunksPerProof`
+		// and several iterations otherwise
+		// only at the end (all queries are responded) we will get `Fin` message
+		for res := range iter {
+			assert.NotNil(t, res)
+			resT, ok := res.(*spec.ContractStorageResponse)
+			assert.True(t, ok)
+			assert.NotNil(t, resT)
+
+			switch v := resT.GetResponses().(type) {
+			case *spec.ContractStorageResponse_Storage:
+				addr := p2p2core.AdaptAddress(resT.ContractAddress)
+				vl := stoCnt[*addr]
+				stoCnt[*addr] = vl + len(v.Storage.KeyValue)
+				fmt.Printf("Response for %s: %d\n", addr, stoCnt[*addr])
+
+			case *spec.ContractStorageResponse_Fin:
+				// we expect just one fin message at the iteration end
+				fmt.Println("End of iter", "no addr")
+			}
+		}
+	})
+
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("%.7s...", test.address), func(t *testing.T) {
-			request := &spec.ContractRangeRequest{
-				ChunksPerProof: 10,
-				Start:          core2p2p.AdaptAddress(test.address),
-				End:            core2p2p.AdaptAddress(test.address),
-				StateRoot:      core2p2p.AdaptHash(stateRoot),
-			}
-
-			iter, err := server.GetContractRange(request)
-			assert.NoError(t, err)
-
-			finMsgReceived := false
-			for res := range iter {
-				assert.NotNil(t, res)
-				resT, ok := res.(*spec.ContractRangeResponse)
-				assert.True(t, ok)
-				assert.NotNil(t, resT)
-
-				i := 0
-				switch v := resT.GetResponses().(type) {
-				case *spec.ContractRangeResponse_Range:
-					assert.False(t, finMsgReceived)
-					assert.Len(t, v.Range.State, 1)
-					contract := v.Range.State[0]
-					fmt.Println("Contract:", p2p2core.AdaptAddress(contract.Address), "StorageRoot:", p2p2core.AdaptHash(contract.Storage))
-					assert.Equal(t, test.address, p2p2core.AdaptAddress(contract.Address))
-					assert.Equal(t, test.storageRoot, p2p2core.AdaptHash(contract.Storage))
-
-					for j, s := range v.Range.State {
-						fmt.Println("[", j, "] Contract:", p2p2core.AdaptAddress(s.Address), "StorageRoot:", p2p2core.AdaptHash(s.Storage))
-					}
-					i++
-					if i > 5 {
-						t.Fatal("Too many contracts received")
-					}
-				case *spec.ContractRangeResponse_Fin:
-					finMsgReceived = true
-				default:
-					// we expect no any other message only just one range because we break the iteration
-					t.Fatal("received unexpected message", "type", v)
-				}
-			}
+			// validate storage leaves count
+			assert.Equal(t, test.expectedLeaves, stoCnt[*test.address])
 		})
 	}
 }

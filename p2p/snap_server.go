@@ -291,7 +291,7 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 		Responses: &spec.ContractStorageResponse_Fin{},
 	}
 	stateRoot := p2p2core.AdaptHash(request.StateRoot)
-	startKey := p2p2core.AdaptFelt(request.Query[0].Start.Key)
+	startKey := p2p2core.AdaptAddress(request.Query[0].Address)
 	b.log.Debugw("GetStorageRange", "root", stateRoot, "start[0]", startKey)
 
 	return func(yield yieldFunc) {
