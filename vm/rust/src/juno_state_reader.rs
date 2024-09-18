@@ -67,11 +67,7 @@ pub struct JunoStateReader {
 
 impl JunoStateReader {
     pub fn new(handle: usize, height: u64) -> Self {
-        Self {
-            handle,
-            height,
-            serdes: Default::default(),
-        }
+        Self { handle, height, serdes: Default::default() }
     }
 }
 
@@ -104,10 +100,7 @@ impl StateReader for JunoStateReader {
 
             // Note [Replay Invariant]
             assert_eq!(
-                self.serdes
-                    .borrow_mut()
-                    .storage
-                    .insert((contract_address, key), felt_val),
+                self.serdes.borrow_mut().storage.insert((contract_address, key), felt_val),
                 None,
                 "Overwritten storage"
             );
@@ -134,10 +127,7 @@ impl StateReader for JunoStateReader {
 
             // Note [Replay Invariant]
             assert_eq!(
-                self.serdes
-                    .borrow_mut()
-                    .nonce
-                    .insert(contract_address, nonce),
+                self.serdes.borrow_mut().nonce.insert(contract_address, nonce),
                 None,
                 "Overwriting nonce"
             );
@@ -149,10 +139,7 @@ impl StateReader for JunoStateReader {
     /// Returns the class hash of the contract class at the given contract instance.
     /// Default: 0 (uninitialized class hash) for an uninitialized contract address.
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        println!(
-            "Juno State Reader(Rust): calling `get_class_hash_at` {0}",
-            contract_address
-        );
+        println!("Juno State Reader(Rust): calling `get_class_hash_at` {0}", contract_address);
         let addr = contract_address.0.key().to_bytes_be();
         let ptr = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr()) };
         if ptr.is_null() {
@@ -173,10 +160,7 @@ impl StateReader for JunoStateReader {
 
             // Note [Replay Invariant]
             assert_eq!(
-                self.serdes
-                    .borrow_mut()
-                    .class_hash
-                    .insert(contract_address, class_hash),
+                self.serdes.borrow_mut().class_hash.insert(contract_address, class_hash),
                 None,
                 "Overwritten class_hash"
             );
@@ -187,6 +171,7 @@ impl StateReader for JunoStateReader {
     /// Returns the contract class of the given class hash.
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
         println!("Juno State Reader(Rust): calling `get_compiled_contract_class` with class hash: {class_hash}");
+
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
@@ -217,10 +202,7 @@ impl StateReader for JunoStateReader {
 
             // Note [Replay Invariant]
             assert_eq!(
-                self.serdes
-                    .borrow_mut()
-                    .contract_class
-                    .insert(class_hash, json_str.to_string()), // Can't serialize the Contract Class due to AotNativeExecutor therefore we store the string
+                self.serdes.borrow_mut().contract_class.insert(class_hash, json_str.to_string()), // Can't serialize the Contract Class due to AotNativeExecutor therefore we store the string
                 None,
                 "Overwritten compiled contract_class"
             );
@@ -294,12 +276,8 @@ pub fn class_info_from_json_str(
             return Err("not a valid contract class".to_string());
         };
 
-    BlockifierClassInfo::new(
-        &class,
-        class_info.sierra_program_length,
-        class_info.abi_length,
-    )
-    .map_err(|err| err.to_string())
+    BlockifierClassInfo::new(&class, class_info.sierra_program_length, class_info.abi_length)
+        .map_err(|err| err.to_string())
 }
 
 /// Compiled Native contracts
