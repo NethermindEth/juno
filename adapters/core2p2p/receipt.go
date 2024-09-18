@@ -27,7 +27,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 			Type: &spec.Receipt_L1Handler_{
 				L1Handler: &spec.Receipt_L1Handler{
 					Common:  receiptCommon(r),
-					MsgHash: &spec.Hash{Elements: t.MessageHash()},
+					MsgHash: &spec.Hash256{Elements: t.MessageHash()},
 				},
 			},
 		}
