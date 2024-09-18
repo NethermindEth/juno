@@ -47,6 +47,7 @@ linters-settings:
       - strings.SplitN
 
   govet:
+    enable: [nilness]
     shadow: true
     settings:
       printf:
