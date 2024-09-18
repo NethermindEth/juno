@@ -2,11 +2,15 @@ name: starknet-go tests
 
 on:
   workflow_call:
+    inputs:
+      ref:
+        description: 'The branch, tag or SHA to checkout'
+        required: false
+        default: 'v0.7.1'
+        type: string
     secrets:
       TEST_RPC_URL:
-        required: false
-      TEST_ACCOUNT_PRIVATE_KEY:
-        required: false
+        required: true
 
 jobs:
   test:
@@ -16,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: NethermindEth/starknet.go
-          ref: main
+          ref: ${{ inputs.ref }}
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -29,5 +33,4 @@ jobs:
       - name: Test RPC on testnet
         run: cd rpc && go test -timeout 1200s -v -env testnet .
         env:
-          TESTNET_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
           INTEGRATION_BASE: ${{ secrets.TEST_RPC_URL }}
