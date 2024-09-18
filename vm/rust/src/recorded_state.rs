@@ -58,7 +58,10 @@ impl ContractClassTrait for String {
         class_info_from_json_str(self, class_hash)
             .map(|class_info| class_info.contract_class())
             .map_err(|err| {
-                StateError::StateReadError(format!("parsing JSON string for class hash: {}", err))
+                StateError::StateReadError(format!(
+                    "parsing JSON string for class hash {}: {}",
+                    class_hash.0, err
+                ))
             })
     }
 }

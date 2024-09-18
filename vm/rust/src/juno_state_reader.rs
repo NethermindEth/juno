@@ -287,7 +287,7 @@ pub fn class_info_from_json_str(
         } else if let Ok(class) = {
             println!("native contract");
             let library_output_path = generate_library_path(class_hash);
-            native_try_from_json_string(class_def.as_str(), class_hash, &library_output_path)
+            native_try_from_json_string(class_def.as_str(), &library_output_path)
         } {
             class.into()
         } else {
@@ -311,23 +311,18 @@ pub fn class_info_from_json_str(
 /// and save the compilation artifact to library_output_path.
 fn native_try_from_json_string(
     raw_contract_class: &str,
-    class_hash: ClassHash,
     library_output_path: &PathBuf,
 ) -> Result<NativeContractClassV1, Box<dyn std::error::Error>> {
-    // todo(rodro): we are having two instances of a sierra program, one it's object form
-    // and another in its felt encoded form. This can be avoided by either:
-    //   1. Having access to the encoding/decoding functions
-    //   2. Refactoring the code on the Cairo mono-repo
-
-    Ok(
-      NativeContractClassV1::load(&library_output_path).unwrap_or({
-        let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
-            serde_json::from_str(raw_contract_class)?;
-        let sierra_program = sierra_contract_class.extract_sierra_program()?;
+    let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
+        serde_json::from_str(raw_contract_class)?;
+    let sierra_program = sierra_contract_class.extract_sierra_program()?;
+    let executor = ContractExecutor::load(&library_output_path).unwrap_or({
         let executor = ContractExecutor::new(&sierra_program, OptLevel::Default)?;
-        executor.save(&library_output_path);
-        NativeContractClassV1::new(Arc::new(executor), sierra_contract_class)?
-    }))
+        executor.save(&library_output_path)?;
+        executor
+    });
+    let contract_executor = NativeContractClassV1::new(Arc::new(executor), sierra_contract_class)?;
+    Ok(contract_executor)
 }
 
 // todo(xrvdg) once [class_info_from_json_str] is part of JunoStateReader
