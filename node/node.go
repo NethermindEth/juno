@@ -99,7 +99,7 @@ type Config struct {
 	SeqBlockTime        uint   `mapstructure:"seq-block-time"`
 	SeqGenesisFile      string `mapstructure:"seq-genesis-file"`
 	SeqShadowMode       bool   `mapstructure:"seq-shadow-mode"`
-	SeqShadowModeSyncTo uint   `mapstructure:"seq-shadow-mode-sync-to"`
+	SeqShadowModeSyncTo uint64 `mapstructure:"seq-shadow-mode-sync-to"`
 }
 
 type Node struct {

@@ -180,14 +180,14 @@ sequencer-with-accounts:
 sequencer-shadow-sepolia:
 	./build/juno \
     --http \
-    --http-port=6064 \
+    --http-port=6065 \
     --http-host=0.0.0.0 \
     --db-path=../seq-db\
     --log-level=info \
     --seq-enable \
 	--seq-shadow-mode \
     --seq-block-time=5 \
-	--seq-shadow-mode-sync-to=1 \
+	--seq-shadow-mode-sync-to=3 \
 	--seq-rpc-endpoint="" \
 	--network sepolia \
     --rpc-call-max-steps=4123000

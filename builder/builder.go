@@ -52,7 +52,7 @@ type Builder struct {
 	shadowMode          bool
 	shadowStateUpdate   *core.StateUpdate
 	shadowBlock         *core.Block
-	shadowSyncToBlock   uint
+	shadowSyncToBlock   uint64
 	starknetData        starknetdata.StarknetData
 	junoEndpoint        string
 	blockTraces         []rpc.TracedBlockTransaction
@@ -117,7 +117,7 @@ func (b *Builder) WithJunoEndpoint(endpoint string) *Builder {
 	b.junoEndpoint = endpoint
 	return b
 }
-func (b *Builder) WithSyncToBlock(syncTo uint) *Builder {
+func (b *Builder) WithSyncToBlock(syncTo uint64) *Builder {
 	b.shadowSyncToBlock = syncTo
 	return b
 }
@@ -125,17 +125,18 @@ func (b *Builder) WithSyncToBlock(syncTo uint) *Builder {
 func (b *Builder) Run(ctx context.Context) error {
 	signFunc := b.Sign
 	if b.shadowMode {
-		b.log.Debugw("b.shadowMode")
 		signFunc = nil
-		syncToBlockNum := uint64(b.shadowSyncToBlock) // Todo: skipped problematic transaction in block 129751,133371, 134062,134073
 		block, err := b.bc.Head()
-		if err != nil {
+		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
 		}
-		// fmt.Println("sequencer head block", block.Number, block.ParentHash.String(), block.GlobalStateRoot.String())
-		b.log.Debugw("attempting to sycn-store from block %i to %i", block.Number, syncToBlockNum)
-		if block.Number < syncToBlockNum {
-			if err := b.syncStore(block.Number, syncToBlockNum); err != nil {
+		sycnFromBlockNumber := uint64(0)
+		if block != nil {
+			sycnFromBlockNumber = block.Number + 1
+		}
+		b.log.Debugw("sync-store from block to block", "fromBlock", sycnFromBlockNumber, "toBlock", b.shadowSyncToBlock)
+		if sycnFromBlockNumber < b.shadowSyncToBlock {
+			if err := b.syncStore(sycnFromBlockNumber, b.shadowSyncToBlock); err != nil {
 				return err
 			}
 		} else {
@@ -671,29 +672,20 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 	}
 }
 
-func (b *Builder) syncStore(curBlockNum, toBlockNum uint64) error {
+func (b *Builder) syncStore(fromBlockNum, toBlockNum uint64) error {
 	var i uint64
-	for i = curBlockNum + 1; i < toBlockNum; i++ {
-		b.log.Infow("Sequencer, syncing block", "blockNumber", i)
+	for i = fromBlockNum; i <= toBlockNum; i++ {
+		b.log.Infow("Syncing block number", "blockNumber", i)
 		block, su, classes, err := b.getSyncData(i)
 		if err != nil {
 			return err
 		}
-		commitments, err := b.bc.SanityCheckNewHeight(block, su, classes)
+		b.pendingBlock.Block = block
+		b.pendingBlock.NewClasses = classes
+		b.pendingBlock.StateUpdate = su
+		err = b.bc.Finalise(&b.pendingBlock, nil, nil, nil)
 		if err != nil {
 			return err
-		}
-		err = b.bc.Store(block, commitments, su, classes)
-		if err != nil {
-			return err
-		}
-		seqBlock, err := b.bc.BlockByNumber(i)
-		if err != nil {
-			return err
-		}
-		if !seqBlock.GlobalStateRoot.Equal(block.GlobalStateRoot) {
-			return fmt.Errorf("sequencers state root %s != shadow block state root %s",
-				seqBlock.GlobalStateRoot.String(), block.GlobalStateRoot.String())
 		}
 	}
 	return nil
