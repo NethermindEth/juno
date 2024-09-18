@@ -98,7 +98,6 @@ jobs:
     uses: ./.github/workflows/starknet-go-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   promote_to_staging:
     needs: [build_docker_image, validate_dev]
@@ -145,7 +144,6 @@ jobs:
     uses: ./.github/workflows/starknet-go-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_7
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   promote_to_production:
     needs: [build_docker_image, promote_to_staging]
@@ -196,4 +194,3 @@ jobs:
     uses: ./.github/workflows/starknet-go-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
