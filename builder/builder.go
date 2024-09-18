@@ -49,18 +49,19 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
-	shadowMode          bool
-	shadowStateUpdate   *core.StateUpdate
-	shadowBlock         *core.Block
-	shadowSyncToBlock   uint64
-	starknetData        starknetdata.StarknetData
-	junoEndpoint        string
-	blockTraces         []rpc.TracedBlockTransaction
+	shadowMode        bool
+	shadowStateUpdate *core.StateUpdate
+	shadowBlock       *core.Block
+	shadowSyncToBlock uint64
+	starknetData      starknetdata.StarknetData
+	junoEndpoint      string
+	blockTraces       []rpc.TracedBlockTransaction
+
+	// Todo: simplify the channel logic?
 	chanNumTxnsToShadow chan int
 	chanFinaliseShadow  chan struct{}
-
-	chanFinalise  chan struct{}
-	chanFinalised chan struct{}
+	chanFinaliseBlock   chan struct{}
+	chanFinalised       chan struct{}
 
 	blockHashToBeRevealed *felt.Felt
 }
@@ -69,13 +70,13 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger,
 ) *Builder {
 	return &Builder{
-		ownAddress:    *ownAddr,
-		privKey:       privKey,
-		blockTime:     blockTime,
-		log:           log,
-		listener:      &SelectiveListener{},
-		chanFinalise:  make(chan struct{}),
-		chanFinalised: make(chan struct{}, 1),
+		ownAddress:        *ownAddr,
+		privKey:           privKey,
+		blockTime:         blockTime,
+		log:               log,
+		listener:          &SelectiveListener{},
+		chanFinaliseBlock: make(chan struct{}),
+		chanFinalised:     make(chan struct{}, 1),
 
 		bc:       bc,
 		pool:     pool,
@@ -88,13 +89,13 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, starknetData starknetdata.StarknetData,
 ) *Builder {
 	return &Builder{
-		ownAddress:    *ownAddr,
-		privKey:       privKey,
-		blockTime:     blockTime,
-		log:           log,
-		listener:      &SelectiveListener{},
-		chanFinalise:  make(chan struct{}, 1),
-		chanFinalised: make(chan struct{}, 1),
+		ownAddress:        *ownAddr,
+		privKey:           privKey,
+		blockTime:         blockTime,
+		log:               log,
+		listener:          &SelectiveListener{},
+		chanFinaliseBlock: make(chan struct{}, 1),
+		chanFinalised:     make(chan struct{}, 1),
 
 		bc:       bc,
 		pool:     pool,
@@ -139,12 +140,11 @@ func (b *Builder) Run(ctx context.Context) error {
 			if err := b.syncStore(sycnFromBlockNumber, b.shadowSyncToBlock); err != nil {
 				return err
 			}
-		} else {
-			if err := b.bc.CleanPendingState(); err != nil {
-				return err
-			}
 		}
-
+		err = b.bc.CleanPendingState()
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := b.InitPendingBlock(); err != nil {
@@ -164,6 +164,7 @@ func (b *Builder) Run(ctx context.Context) error {
 		}
 		close(doneListen)
 	}()
+
 	if b.shadowMode {
 		go func() {
 			if pErr := b.shadowTxns(ctx); pErr != nil {
@@ -177,7 +178,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			for {
 				select {
 				case <-b.chanFinaliseShadow:
-					b.chanFinalise <- struct{}{}
+					b.chanFinaliseBlock <- struct{}{}
 				case <-ctx.Done():
 					return
 				}
@@ -186,18 +187,19 @@ func (b *Builder) Run(ctx context.Context) error {
 		for {
 			select {
 			case <-time.After(b.blockTime):
-				b.chanFinalise <- struct{}{}
+				b.chanFinaliseBlock <- struct{}{}
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			<-doneListen
 			return nil
-		case <-b.chanFinalise:
+		case <-b.chanFinaliseBlock:
 			err := b.cleanStorageDiff(b.pendingBlock.StateUpdate.StateDiff)
 			if err != nil {
 				return err
@@ -226,7 +228,7 @@ func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
 				return err
 			}
 			if previousValue.Equal(v) {
-				b.log.Infof("the key %v at the storage of address %v is being deleted", k.String(), addr.String())
+				b.log.Debugw("the key %v at the storage of address %v is being deleted", k.String(), addr.String())
 				delete(sd.StorageDiffs[addr], k)
 			}
 		}
@@ -385,6 +387,7 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 	return sig, nil
 }
 
+// Todo: move to adapters??
 func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt) *core.TransactionReceipt {
 	return &core.TransactionReceipt{
 		Fee:                fee,
@@ -398,6 +401,7 @@ func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.
 	}
 }
 
+// Todo: move to adapters
 func StateDiff(trace *vm.TransactionTrace) *core.StateDiff {
 	if trace.StateDiff == nil {
 		return nil
@@ -621,7 +625,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 				return err
 			}
 			if b.junoEndpoint != "" {
-				blockTraces, err := b.JunoGetBlockTrace(int(block.Number))
+				blockTraces, err := b.RPCGetBlockTrace(int(block.Number))
 				if err != nil {
 					return err
 				}
@@ -647,6 +651,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 				b.blockHashToBeRevealed = blockHash
 			}
 
+			// Todo: should be able to sequence the entire block of transactions at once (ie skip mempool)
 			b.chanNumTxnsToShadow <- int(block.TransactionCount)
 			for _, txn := range block.Transactions {
 				var declaredClass core.Class
@@ -665,13 +670,16 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			}
 
 		} else {
-			var sleepTime uint = 1
+			var sleepTime uint = 5
 			b.log.Debugw("Juno Sequencer is at Sepolia chain head. Sleeping for %ds before querying for a new block.", sleepTime)
 			time.Sleep(time.Duration(sleepTime))
 		}
 	}
 }
 
+// syncStore pulls blocks, classes and state-updates directly from the FGW and stores them in the
+// blockchain. This is needed when a block can not be sequenced, eg Sepolia block0 uses deprecated
+// transactions to bootstrap the network, etc.
 func (b *Builder) syncStore(fromBlockNum, toBlockNum uint64) error {
 	var i uint64
 	for i = fromBlockNum; i <= toBlockNum; i++ {
@@ -680,10 +688,12 @@ func (b *Builder) syncStore(fromBlockNum, toBlockNum uint64) error {
 		if err != nil {
 			return err
 		}
-		b.pendingBlock.Block = block
-		b.pendingBlock.NewClasses = classes
-		b.pendingBlock.StateUpdate = su
-		err = b.bc.Finalise(&b.pendingBlock, nil, nil, nil)
+		b.pendingBlock = blockchain.Pending{
+			Block:       block,
+			NewClasses:  classes,
+			StateUpdate: su,
+		}
+		err = b.Finalise(nil)
 		if err != nil {
 			return err
 		}
@@ -716,7 +726,9 @@ func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdat
 	return block, su, classes, nil
 }
 
-func (b *Builder) JunoGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, error) {
+// RPCGetBlockTrace helps debug traces by comparing them against the traces that are returned
+// over RPC. This method is not needed to run the sequencer, but it's useful for debugging.
+func (b *Builder) RPCGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, error) {
 	type RequestPayload struct {
 		JSONRPC string                 `json:"jsonrpc"`
 		Method  string                 `json:"method"`
