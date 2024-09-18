@@ -62,7 +62,6 @@ func (sd *StateDiff) Print() {
 func (sd *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
-
 	checkDiff := func(label string, diffFunc func() (string, bool)) {
 		sb.WriteString(fmt.Sprintf("  %s:\n", label))
 		diffStr, found := diffFunc()
@@ -71,31 +70,24 @@ func (sd *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bo
 			sb.WriteString(diffStr)
 		}
 	}
-
 	checkDiff("StorageDiffs", func() (string, bool) {
 		return compareMapsOfMaps(sd.StorageDiffs, other.StorageDiffs, map1Tag, map2Tag)
 	})
-
 	checkDiff("Nonces", func() (string, bool) {
 		return compareMaps(sd.Nonces, other.Nonces)
 	})
-
 	checkDiff("DeployedContracts", func() (string, bool) {
 		return compareMaps(sd.DeployedContracts, other.DeployedContracts)
 	})
-
 	checkDiff("DeclaredV0Classes", func() (string, bool) {
 		return compareSlices(sd.DeclaredV0Classes, other.DeclaredV0Classes)
 	})
-
 	checkDiff("DeclaredV1Classes", func() (string, bool) {
 		return compareMaps(sd.DeclaredV1Classes, other.DeclaredV1Classes)
 	})
-
 	checkDiff("ReplacedClasses", func() (string, bool) {
 		return compareMaps(sd.ReplacedClasses, other.ReplacedClasses)
 	})
-
 	return sb.String(), differencesFound
 }
 
@@ -177,13 +169,11 @@ func compareSlices(s1, s2 []*felt.Felt) (string, bool) {
 	for _, s := range s2 {
 		s2Sum = s2Sum.Add(s2Sum, s)
 	}
-
 	if !s1Sum.Equal(s2Sum) {
 		differencesFound = true
 		sb.WriteString(fmt.Sprintf("slice 1: %v", s1))
 		sb.WriteString(fmt.Sprintf("slice 2: %v", s2))
 	}
-
 	return sb.String(), differencesFound
 }
 
@@ -200,7 +190,6 @@ func EmptyStateDiff() *StateDiff {
 
 func (d *StateDiff) Length() uint64 {
 	var length int
-
 	for _, storageDiff := range d.StorageDiffs {
 		length += len(storageDiff)
 	}
@@ -209,7 +198,6 @@ func (d *StateDiff) Length() uint64 {
 	length += len(d.DeclaredV0Classes)
 	length += len(d.DeclaredV1Classes)
 	length += len(d.ReplacedClasses)
-
 	return uint64(length)
 }
 
