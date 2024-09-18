@@ -630,10 +630,9 @@ func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (
 }
 
 func (s *syncService) randomPeer() peer.ID {
-	peers := s.host.Peerstore().Peers()
-
+	store := s.host.Peerstore()
 	// todo do not request same block from all peers
-	peers = utils.Filter(peers, func(peerID peer.ID) bool {
+	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
 		return peerID != s.host.ID()
 	})
 	if len(peers) == 0 {
@@ -643,7 +642,7 @@ func (s *syncService) randomPeer() peer.ID {
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
 	s.log.Debugw("Number of peers", "len", len(peers))
-	s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(p))
+	s.log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
 
 	return p
 }
