@@ -367,26 +367,32 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Sepolia)
+	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
-	sepoliaBlockNumber := uint64(56377)
-	sepoliaBlock, err := gw.BlockByNumber(context.Background(), sepoliaBlockNumber)
+	mainnetBlockNumber := uint64(2889)
+	mainnetBlock, err := gw.BlockByNumber(context.Background(), mainnetBlockNumber)
 	require.NoError(t, err)
-	sepoliaBlockHash := sepoliaBlock.Hash
+	mainnetBlockHash := mainnetBlock.Hash
 
-	sepoliaPendingBlock, err := gw.BlockPending(context.Background())
+	mainnetPendingBlock, err := gw.BlockPending(context.Background())
 	require.NoError(t, err)
 
 	compareBlocks := func(t *testing.T, a *core.Block, b *rpc.BlockWithTxHashesAndReceipts) {
 		t.Helper()
 		assert.Equal(t, a.ParentHash, b.ParentHash)
+		if a.SequencerAddress == nil { //if a.SequencerAddress is nil b.SequencerAddress should be felt.Zero
+			assert.Equal(t, &felt.Zero, b.SequencerAddress)
+			assert.Zero(t, new(felt.Felt))
+
+		} else {
+			assert.Equal(t, a.SequencerAddress, b.SequencerAddress)
+		}
 		assert.Equal(t, a.Timestamp, b.Timestamp)
-		assert.Equal(t, a.SequencerAddress, b.SequencerAddress)
 		assert.EqualValues(t, a.L1DataGasPrice, b.L1DataGasPrice)
 		assert.Equal(t, a.GasPrice, b.L1GasPrice.InWei)
 		assert.EqualValues(t, a.L1DAMode, b.L1DAMode)
@@ -408,14 +414,14 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 			assert.Nil(t, block.Number)
 			assert.Nil(t, block.NewRoot)
 			assert.Equal(t, rpc.BlockPending, block.Status)
-			compareBlocks(t, sepoliaPendingBlock, block)
+			compareBlocks(t, mainnetPendingBlock, block)
 		} else {
-			assert.Equal(t, sepoliaBlock.Hash, block.Hash)
-			assert.Equal(t, sepoliaBlock.Number, *block.Number)
-			assert.Equal(t, sepoliaBlock.GlobalStateRoot, block.NewRoot)
+			assert.Equal(t, mainnetBlock.Hash, block.Hash)
+			assert.Equal(t, mainnetBlock.Number, *block.Number)
+			assert.Equal(t, mainnetBlock.GlobalStateRoot, block.NewRoot)
 			assert.NotEqual(t, rpc.BlockPending, block.Status)
 			assert.NotEqual(t, rpc.BlockRejected, block.Status)
-			compareBlocks(t, sepoliaBlock, block)
+			compareBlocks(t, mainnetBlock, block)
 		}
 
 		return block
@@ -426,14 +432,12 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(nil, db.ErrKeyNotFound)
 
 		resp, rpcErr := handler.BlockWithTxHashesAndReceipts(blockID)
-		assert.Nil(t, resp)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		require.Nil(t, resp)
+		require.Equal(t, rpc.ErrBlockNotFound, rpcErr)
 	})
 	t.Run("blockID - pending", func(t *testing.T) {
-		sepoliaBlock.Hash = nil
-		sepoliaBlock.GlobalStateRoot = nil
 		mockReader.EXPECT().Pending().Return(blockchain.Pending{
-			Block: sepoliaBlock,
+			Block: mainnetPendingBlock,
 		}, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
@@ -441,35 +445,35 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(sepoliaBlock, nil)
+		mockReader.EXPECT().Head().Return(mainnetBlock, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
 		checkBlock(t, rpc.BlockID{Latest: true})
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(sepoliaBlockHash).Return(sepoliaBlock, nil)
+		mockReader.EXPECT().BlockByHash(mainnetBlockHash).Return(mainnetBlock, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		checkBlock(t, rpc.BlockID{Hash: sepoliaBlockHash})
+		checkBlock(t, rpc.BlockID{Hash: mainnetBlockHash})
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(sepoliaBlockNumber).Return(sepoliaBlock, nil)
+		mockReader.EXPECT().BlockByNumber(mainnetBlockNumber).Return(mainnetBlock, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		checkBlock(t, rpc.BlockID{Number: sepoliaBlockNumber})
+		checkBlock(t, rpc.BlockID{Number: mainnetBlockNumber})
 	})
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(sepoliaBlockNumber).Return(sepoliaBlock, nil)
+		mockReader.EXPECT().BlockByNumber(mainnetBlockNumber).Return(mainnetBlock, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
-			BlockNumber: sepoliaBlockNumber,
-			BlockHash:   sepoliaBlockHash,
-			StateRoot:   sepoliaBlock.GlobalStateRoot,
+			BlockNumber: mainnetBlockNumber,
+			BlockHash:   mainnetBlockHash,
+			StateRoot:   mainnetBlock.GlobalStateRoot,
 		}, nil)
 
-		block := checkBlock(t, rpc.BlockID{Number: sepoliaBlockNumber})
+		block := checkBlock(t, rpc.BlockID{Number: mainnetBlockNumber})
 		assert.Equal(t, rpc.BlockAcceptedL1, block.Status)
 	})
 }
