@@ -120,6 +120,21 @@ func (er *ExecutionResources) Print() {
 	}
 }
 
+type BuiltinInstanceCounter struct {
+	Pedersen     uint64
+	RangeCheck   uint64
+	Bitwise      uint64
+	Output       uint64
+	Ecsda        uint64
+	EcOp         uint64
+	Keccak       uint64
+	Poseidon     uint64
+	SegmentArena uint64
+	AddMod       uint64
+	MulMod       uint64
+	RangeCheck96 uint64
+}
+
 func (bic *BuiltinInstanceCounter) Print() {
 	fmt.Println("      Pedersen:", bic.Pedersen)
 	fmt.Println("      RangeCheck:", bic.RangeCheck)
@@ -140,29 +155,14 @@ func (gc *GasConsumed) Print() {
 	fmt.Println("      L1 Data Gas:", gc.L1DataGas)
 }
 
-func (da *DataAvailability) Print() {
-	fmt.Println("      L1 Gas:", da.L1Gas)
-	fmt.Println("      L1 Data Gas:", da.L1DataGas)
-}
-
 type DataAvailability struct {
 	L1Gas     uint64
 	L1DataGas uint64
 }
 
-type BuiltinInstanceCounter struct {
-	Pedersen     uint64
-	RangeCheck   uint64
-	Bitwise      uint64
-	Output       uint64
-	Ecsda        uint64
-	EcOp         uint64
-	Keccak       uint64
-	Poseidon     uint64
-	SegmentArena uint64
-	AddMod       uint64
-	MulMod       uint64
-	RangeCheck96 uint64
+func (da *DataAvailability) Print() {
+	fmt.Println("      L1 Gas:", da.L1Gas)
+	fmt.Println("      L1 Data Gas:", da.L1DataGas)
 }
 
 type Transaction interface {

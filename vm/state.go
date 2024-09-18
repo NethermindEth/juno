@@ -137,7 +137,7 @@ func JunoStateSetContractClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		return unsafe.Pointer(C.CString(fmt.Sprintf("class not declared: %s", classHashFelt)))
 	}
 	state := context.state.(StateReadWriter)
-	if err := state.SetContractClass(classHashFelt, class); err != nil {
+	if err := state.SetContractClass(classHashFelt, class); err != nil { //nolint:gocritic
 		return unsafe.Pointer(C.CString(err.Error()))
 	}
 	return nil
@@ -149,7 +149,7 @@ func JunoStateSetCompiledClassHash(readerHandle C.uintptr_t, classHash, compiled
 	classHashFelt := makeFeltFromPtr(classHash)
 	compiledClassHashFelt := makeFeltFromPtr(compiledClassHash)
 	state := context.state.(StateReadWriter)
-	if err := state.SetCompiledClassHash(classHashFelt, compiledClassHashFelt); err != nil {
+	if err := state.SetCompiledClassHash(classHashFelt, compiledClassHashFelt); err != nil { //nolint:gocritic
 		return unsafe.Pointer(C.CString(err.Error()))
 	}
 	return nil

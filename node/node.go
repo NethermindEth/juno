@@ -183,7 +183,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
 			time.Second*time.Duration(cfg.SeqBlockTime), p, log)
 		if cfg.SeqShadowMode {
-			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll
+			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll,mnd
 				log, starknetData).WithJunoEndpoint(cfg.SeqRPCEndpoint).WithSyncToBlock(cfg.SeqShadowModeSyncTo)
 		}
 

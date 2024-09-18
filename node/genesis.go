@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-func buildGenesis(genesisPath string, sequencerMode bool, shadowMode bool, bc *blockchain.Blockchain, v vm.VM, maxSteps uint64) error {
+func buildGenesis(genesisPath string, sequencerMode, shadowMode bool, bc *blockchain.Blockchain, v vm.VM, maxSteps uint64) error {
 	if _, err := bc.Height(); !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}

@@ -1142,7 +1142,10 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpda
 		pending.StateUpdate.BlockHash = pending.Block.Hash
 
 		if refStateUpdate != nil && refBlock != nil {
-			b.verifyAgainstReference(pending, commitments, refStateUpdate, refBlock)
+			err := b.verifyAgainstReference(pending, commitments, refStateUpdate, refBlock)
+			if err != nil {
+				return err
+			}
 		}
 
 		if sign != nil {
@@ -1202,7 +1205,7 @@ func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpd
 	return nil
 }
 
-func (b *Blockchain) validateHeader(shadowHeader *core.Header, sequenceHeader *core.Header) error {
+func (b *Blockchain) validateHeader(shadowHeader, sequenceHeader *core.Header) error {
 	if !shadowHeader.ParentHash.Equal(sequenceHeader.ParentHash) {
 		return fmt.Errorf("parent hash mismatch: shadowHeader parent hash %v, sequenceHeader parent hash %v", shadowHeader.ParentHash, sequenceHeader.ParentHash)
 	}

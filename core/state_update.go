@@ -27,39 +27,39 @@ type StateDiff struct {
 	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
-func (sd *StateDiff) Print() {
+func (d *StateDiff) Print() {
 	fmt.Println("StateDiff {")
 	fmt.Println("  StorageDiffs:")
-	for addr, keyValueMap := range sd.StorageDiffs {
+	for addr, keyValueMap := range d.StorageDiffs {
 		fmt.Printf("    %s:\n", addr.String())
 		for key, value := range keyValueMap {
 			fmt.Printf("      %s: %s\n", key.String(), value.String())
 		}
 	}
 	fmt.Println("  Nonces:")
-	for addr, nonce := range sd.Nonces {
+	for addr, nonce := range d.Nonces {
 		fmt.Printf("    %s: %s\n", addr.String(), nonce.String())
 	}
 	fmt.Println("  DeployedContracts:")
-	for addr, classHash := range sd.DeployedContracts {
+	for addr, classHash := range d.DeployedContracts {
 		fmt.Printf("    %s: %s\n", addr.String(), classHash.String())
 	}
 	fmt.Println("  DeclaredV0Classes:")
-	for _, classHash := range sd.DeclaredV0Classes {
+	for _, classHash := range d.DeclaredV0Classes {
 		fmt.Printf("    %s\n", classHash.String())
 	}
 	fmt.Println("  DeclaredV1Classes:")
-	for classHash, compiledClassHash := range sd.DeclaredV1Classes {
+	for classHash, compiledClassHash := range d.DeclaredV1Classes {
 		fmt.Printf("    %s: %s\n", classHash.String(), compiledClassHash.String())
 	}
 	fmt.Println("  ReplacedClasses:")
-	for addr, classHash := range sd.ReplacedClasses {
+	for addr, classHash := range d.ReplacedClasses {
 		fmt.Printf("    %s: %s\n", addr.String(), classHash.String())
 	}
 	fmt.Println("}")
 }
 
-func (sd *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bool) {
+func (d *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
 	checkDiff := func(label string, diffFunc func() (string, bool)) {
@@ -71,22 +71,22 @@ func (sd *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bo
 		}
 	}
 	checkDiff("StorageDiffs", func() (string, bool) {
-		return compareMapsOfMaps(sd.StorageDiffs, other.StorageDiffs, map1Tag, map2Tag)
+		return compareMapsOfMaps(d.StorageDiffs, other.StorageDiffs, map1Tag, map2Tag)
 	})
 	checkDiff("Nonces", func() (string, bool) {
-		return compareMaps(sd.Nonces, other.Nonces)
+		return compareMaps(d.Nonces, other.Nonces)
 	})
 	checkDiff("DeployedContracts", func() (string, bool) {
-		return compareMaps(sd.DeployedContracts, other.DeployedContracts)
+		return compareMaps(d.DeployedContracts, other.DeployedContracts)
 	})
 	checkDiff("DeclaredV0Classes", func() (string, bool) {
-		return compareSlices(sd.DeclaredV0Classes, other.DeclaredV0Classes)
+		return compareSlices(d.DeclaredV0Classes, other.DeclaredV0Classes)
 	})
 	checkDiff("DeclaredV1Classes", func() (string, bool) {
-		return compareMaps(sd.DeclaredV1Classes, other.DeclaredV1Classes)
+		return compareMaps(d.DeclaredV1Classes, other.DeclaredV1Classes)
 	})
 	checkDiff("ReplacedClasses", func() (string, bool) {
-		return compareMaps(sd.ReplacedClasses, other.ReplacedClasses)
+		return compareMaps(d.ReplacedClasses, other.ReplacedClasses)
 	})
 	return sb.String(), differencesFound
 }

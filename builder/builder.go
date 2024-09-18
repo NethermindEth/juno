@@ -221,7 +221,11 @@ func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
 	if err != nil {
 		return err
 	}
-	defer closer()
+	defer func() {
+		if closeErr := closer(); closeErr != nil {
+			b.log.Errorw("Failed to close the state", "error", closeErr)
+		}
+	}()
 	for addr, storage := range sd.StorageDiffs {
 		for k, v := range storage {
 			previousValue, err := state.ContractStorage(&addr, &k)
@@ -567,8 +571,6 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			b.log.Debugw("CompareReceipts")
 			b.log.Debugw(diffStr)
 		}
-		// b.pendingBlock.StateUpdate.StateDiff.Print()
-		// b.shadowStateUpdate.StateDiff.Print()
 	}
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
@@ -670,7 +672,6 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 					return err
 				}
 			}
-
 		} else {
 			var sleepTime uint = 5
 			b.log.Debugw("Juno Sequencer is at Sepolia chain head. Sleeping for %ds before querying for a new block.", sleepTime)
@@ -757,7 +758,7 @@ func (b *Builder) RPCGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, 
 		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", b.junoEndpoint, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", b.junoEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
