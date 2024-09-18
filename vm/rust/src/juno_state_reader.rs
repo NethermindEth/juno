@@ -7,13 +7,10 @@ use blockifier::{
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
-use cairo_lang_sierra::{program::Program, program_registry::ProgramRegistry};
 use cairo_native::OptLevel;
-use cairo_native::{
-    context::NativeContext, error::Error as NativeError, executor::contract::ContractExecutor,
-    executor::AotNativeExecutor, metadata::gas::GasMetadata, module::NativeModule,
-};
-use libloading::Library;
+use cairo_native::
+    executor::contract::ContractExecutor
+;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
