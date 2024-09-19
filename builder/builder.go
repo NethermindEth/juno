@@ -55,11 +55,10 @@ type Builder struct {
 	shadowSyncToBlock uint64
 	starknetData      starknetdata.StarknetData
 	junoEndpoint      string
-	blockTraces       []rpc.TracedBlockTransaction
+	snBlockTraces     []rpc.TracedBlockTransaction
 
 	// Todo: simplify the channel logic?
 	chanNumTxnsToShadow chan int
-	chanFinaliseShadow  chan struct{}
 	chanFinaliseBlock   chan struct{}
 	chanFinalised       chan struct{}
 
@@ -105,7 +104,6 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 		shadowMode:          true,
 		starknetData:        starknetData,
 		chanNumTxnsToShadow: make(chan int, 1),
-		chanFinaliseShadow:  make(chan struct{}, 1),
 	}
 }
 
@@ -125,29 +123,15 @@ func (b *Builder) WithSyncToBlock(syncTo uint64) *Builder {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
-	signFunc := b.Sign
-	if b.shadowMode {
-		signFunc = nil
-		block, err := b.bc.Head()
-		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-			return err
-		}
-		sycnFromBlockNumber := uint64(0)
-		if block != nil {
-			sycnFromBlockNumber = block.Number + 1
-		}
-		b.log.Debugw("sync-store from block to block", "fromBlock", sycnFromBlockNumber, "toBlock", b.shadowSyncToBlock)
-		if sycnFromBlockNumber < b.shadowSyncToBlock {
-			if err := b.syncStore(sycnFromBlockNumber, b.shadowSyncToBlock); err != nil {
-				return err
-			}
-		}
-		err = b.bc.CleanPendingState()
-		if err != nil {
-			return err
-		}
+	switch {
+	case b.shadowMode:
+		return b.runShadowMode(ctx)
+	default:
+		return b.runSequencer(ctx)
 	}
+}
 
+func (b *Builder) runSequencer(ctx context.Context) error {
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
@@ -166,32 +150,56 @@ func (b *Builder) Run(ctx context.Context) error {
 		close(doneListen)
 	}()
 
-	if b.shadowMode {
-		go func() {
-			if pErr := b.shadowTxns(ctx); pErr != nil {
-				b.log.Errorw("shadowTxns", "err", pErr)
+	for {
+		select {
+		case <-ctx.Done():
+			<-doneListen
+			return nil
+		case <-b.chanFinaliseBlock:
+			b.log.Infof("Finalising new block")
+			err := b.Finalise(b.Sign)
+			if err != nil {
+				return err
 			}
-		}()
+			<-b.chanFinalised
+		}
+	}
+}
+
+func (b *Builder) runShadowMode(ctx context.Context) error {
+	if err := b.syncStore(); err != nil {
+		return err
 	}
 
-	go func() {
-		if b.shadowMode {
-			for {
-				select {
-				case <-b.chanFinaliseShadow:
-					b.chanFinaliseBlock <- struct{}{}
-				case <-ctx.Done():
-					return
-				}
-			}
+	// Snapshots that have non-empty pending states need cleaned.
+	err := b.bc.CleanPendingState()
+	if err != nil {
+		return err
+	}
+
+	if err := b.InitPendingBlock(); err != nil {
+		return err
+	}
+
+	defer func() {
+		if pErr := b.ClearPending(); pErr != nil {
+			b.log.Errorw("clearing pending", "err", pErr)
 		}
-		for {
-			select {
-			case <-time.After(b.blockTime):
-				b.chanFinaliseBlock <- struct{}{}
-			case <-ctx.Done():
-				return
-			}
+	}()
+
+	doneListen := make(chan struct{})
+	go func() {
+		// Todo: in shadow mode, we can execute all transactions at once,
+		// popping them from the mempool and executing one by one is less efficient
+		if pErr := b.listenPool(ctx); pErr != nil {
+			b.log.Errorw("listening pool", "err", pErr)
+		}
+		close(doneListen)
+	}()
+
+	go func() {
+		if pErr := b.shadowTxns(ctx); pErr != nil {
+			b.log.Errorw("shadowTxns", "err", pErr)
 		}
 	}()
 
@@ -206,7 +214,7 @@ func (b *Builder) Run(ctx context.Context) error {
 				return err
 			}
 			b.log.Infof("Finalising new block")
-			err = b.Finalise(signFunc)
+			err = b.Finalise(nil)
 			if err != nil {
 				return err
 			}
@@ -492,7 +500,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			numTxnsToExecute := <-b.chanNumTxnsToShadow
 			b.chanNumTxnsToShadow <- numTxnsToExecute - 1
 			if numTxnsToExecute-1 == 0 {
-				b.chanFinaliseShadow <- struct{}{}
+				b.chanFinaliseBlock <- struct{}{}
 				<-b.chanNumTxnsToShadow
 			}
 		}
@@ -513,30 +521,27 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
 	}
-	feesPaidOnL1 := []*felt.Felt{new(felt.Felt).SetUint64(1)}
-	blockInfo := &vm.BlockInfo{
-		Header: &core.Header{
-			Number:           b.shadowBlock.Number,           // Affects post 0.13.2 block hash
-			SequencerAddress: b.shadowBlock.SequencerAddress, // Affects post 0.13.2 block hash
-			Timestamp:        b.shadowBlock.Timestamp,        // Affects post 0.13.2 block hash
-			ProtocolVersion:  b.shadowBlock.ProtocolVersion,  // Affects post 0.13.2 block hash
-			GasPrice:         b.shadowBlock.GasPrice,         // Affects post 0.13.2 block hash
-			GasPriceSTRK:     b.shadowBlock.GasPriceSTRK,     // Affects post 0.13.2 block hash
-			L1DataGasPrice:   b.shadowBlock.L1DataGasPrice,   // Affects post 0.13.2 block hash
-			L1DAMode:         b.shadowBlock.L1DAMode,         // Affects data_availability
+	fee, _, trace, txnReceipts, _, err := b.vm.Execute(
+		[]core.Transaction{txn.Transaction},
+		classes,
+		[]*felt.Felt{new(felt.Felt).SetUint64(1)},
+		&vm.BlockInfo{
+			Header:                b.pendingBlock.Block.Header,
+			BlockHashToBeRevealed: b.blockHashToBeRevealed,
 		},
-		BlockHashToBeRevealed: b.blockHashToBeRevealed,
-	}
-	fee, _, trace, txnReceipts, _, err := b.vm.Execute([]core.Transaction{txn.Transaction}, classes, feesPaidOnL1, blockInfo, state,
-		b.bc.Network(), false, false, false, true)
+		state,
+		b.bc.Network(),
+		false, false, false, true)
 	if err != nil {
 		return err
 	}
 
+	// Todo: can we remove this? Eg does blockifier handler this for us?
 	feeUnit := core.WEI
 	if txn.Transaction.TxVersion().Is(3) {
 		feeUnit = core.STRK
 	}
+
 	if trace[0].StateDiff.DeclaredClasses != nil || trace[0].StateDiff.DeprecatedDeclaredClasses != nil {
 		if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 			err := state.SetContractClass(t.ClassHash, txn.DeclaredClass)
@@ -559,12 +564,12 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	receipt.RevertReason = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].RevertReason
 	if b.junoEndpoint != "" {
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
-		refTrace := vm2core.AdaptStateDiff(b.blockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
+		refTrace := vm2core.AdaptStateDiff(b.snBlockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
 		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
 		if diffsNotEqual {
 			// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
-			fmt.Println(diffString)
-			b.log.Debugw("Generated transaction trace does not match that from Sepolia ")
+			b.log.Debugw("Generated transaction trace does not match that from Sepolia")
+			b.log.Debugw(diffString) // Todo: Debug doesn't seem to format this nicely
 		}
 
 		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
@@ -572,9 +577,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			b.log.Debugw(diffStr)
 		}
 	}
+
 	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
-	b.pendingBlock.Block.TransactionCount = uint64(len(b.pendingBlock.Block.Transactions))
+	b.pendingBlock.Block.TransactionCount += 1
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
 	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
 	return nil
@@ -607,6 +613,9 @@ func mergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff
 	return oldStateDiff
 }
 
+// shadowTxns pulls transactions from the FGW and feeds them into the mempool for execution.
+// If the optional RPC endpoint is provided, traces are queried and compared against those
+// generated by the Juno sequencer, which can be very helpful with debugging.
 func (b *Builder) shadowTxns(ctx context.Context) error {
 	for {
 		b.chanFinalised <- struct{}{}
@@ -628,14 +637,14 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 				return err
 			}
 			if b.junoEndpoint != "" {
-				blockTraces, err := b.RPCGetBlockTrace(int(block.Number))
+				snBlockTraces, err := b.RPCGetBlockTrace(int(block.Number))
 				if err != nil {
 					return err
 				}
-				if len(blockTraces) != int(block.TransactionCount) {
+				if len(snBlockTraces) != int(block.TransactionCount) {
 					b.log.Fatalf("number of transaction traces does not equal the number of transactions")
 				}
-				b.blockTraces = blockTraces
+				b.snBlockTraces = snBlockTraces
 			}
 
 			b.shadowStateUpdate = su
@@ -649,10 +658,9 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // Affects data_availability
-
 			blockHashStorage := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
 			for _, blockHash := range blockHashStorage {
-				b.blockHashToBeRevealed = blockHash
+				b.blockHashToBeRevealed = blockHash // Affects execution
 			}
 
 			// Todo: should be able to sequence the entire block of transactions at once (ie skip mempool)
@@ -683,9 +691,25 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 // syncStore pulls blocks, classes and state-updates directly from the FGW and stores them in the
 // blockchain. This is needed when a block can not be sequenced, eg Sepolia block0 uses deprecated
 // transactions to bootstrap the network, etc.
-func (b *Builder) syncStore(fromBlockNum, toBlockNum uint64) error {
+func (b *Builder) syncStore() error {
+	syncFromBlock := uint64(0)
+	syncToBlock := b.shadowSyncToBlock
+	block, err := b.bc.Head()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	}
+	if block != nil {
+		syncFromBlock = block.Number + 1
+	}
+
+	if syncFromBlock > syncToBlock {
+		b.log.Debugw("Skipping sync: sequencer is already ahead of or at the target block",
+			"next block to sync", syncFromBlock, "targetBlock", syncToBlock)
+		return nil
+	}
+
 	var i uint64
-	for i = fromBlockNum; i <= toBlockNum; i++ {
+	for i = syncFromBlock; i <= syncToBlock; i++ {
 		b.log.Infow("Syncing block number", "blockNumber", i)
 		block, su, classes, err := b.getSyncData(i)
 		if err != nil {
@@ -758,7 +782,7 @@ func (b *Builder) RPCGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, 
 		return nil, fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), "POST", b.junoEndpoint, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, b.junoEndpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}

@@ -149,7 +149,7 @@ func JunoStateSetCompiledClassHash(readerHandle C.uintptr_t, classHash, compiled
 	classHashFelt := makeFeltFromPtr(classHash)
 	compiledClassHashFelt := makeFeltFromPtr(compiledClassHash)
 	state := context.state.(StateReadWriter)
-	if err := state.SetCompiledClassHash(classHashFelt, compiledClassHashFelt); err != nil { //nolint:gocritic
+	if err := state.SetCompiledClassHash(classHashFelt, compiledClassHashFelt); err != nil {
 		return unsafe.Pointer(C.CString(err.Error()))
 	}
 	return nil
