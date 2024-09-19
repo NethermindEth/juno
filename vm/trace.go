@@ -165,7 +165,6 @@ func (t *TransactionTrace) AllEvents() []OrderedEvent {
 
 	addEvents := func(invocation *FunctionInvocation) {
 		if invocation != nil {
-
 			allEvents := invocation.allEvents()
 			for _, event := range allEvents {
 				event.Order += uint64(globalOrder)

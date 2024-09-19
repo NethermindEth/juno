@@ -21,7 +21,6 @@ func TestRevertReason(t *testing.T) {
 	}).RevertReason())
 }
 
-//nolint:dupl
 func TestAllEvents(t *testing.T) {
 	numEvents := uint64(10)
 	events := make([]vm.OrderedEvent, 0, numEvents)
@@ -73,7 +72,6 @@ func TestAllEvents(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestAllMessages(t *testing.T) {
 	nummessages := uint64(10)
 	messages := make([]vm.OrderedL2toL1Message, 0, nummessages)
