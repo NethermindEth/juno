@@ -100,7 +100,6 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 			return err
 		}
 		commitment = root
-
 		return nil
 	})
 }
