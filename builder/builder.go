@@ -402,7 +402,8 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 
 // Todo: move to adapters??
 func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt,
-	trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt) *core.TransactionReceipt {
+	trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt,
+) *core.TransactionReceipt {
 	return &core.TransactionReceipt{
 		Fee:                fee,
 		FeeUnit:            feeUnit,
