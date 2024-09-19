@@ -387,7 +387,8 @@ func (n *Node) Run(ctx context.Context) {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
-	if err = buildGenesis(n.cfg.SeqGenesisFile, n.cfg.Sequencer, n.cfg.SeqShadowMode, n.blockchain, vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+	if err = buildGenesis(n.cfg.SeqGenesisFile, n.cfg.Sequencer, n.cfg.SeqShadowMode, n.blockchain,
+		vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 		n.log.Errorw("Error building genesis state", "err", err)
 		return
 	}

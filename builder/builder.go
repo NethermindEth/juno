@@ -362,8 +362,8 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 			GasPriceSTRK:     pendingBlock.Block.GasPriceSTRK,
 		},
 	}
-	_, _, _, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, []*felt.Felt{}, blockInfo, state, //nolint:dogsled
-		b.bc.Network(), false, false, false, false)
+	_, _, _, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, //nolint:dogsled
+		[]*felt.Felt{}, blockInfo, state, b.bc.Network(), false, false, false, false)
 	return err
 }
 
@@ -401,7 +401,8 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 }
 
 // Todo: move to adapters??
-func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt, trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt) *core.TransactionReceipt {
+func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt,
+	trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt) *core.TransactionReceipt {
 	return &core.TransactionReceipt{
 		Fee:                fee,
 		FeeUnit:            feeUnit,

@@ -100,16 +100,34 @@ func compareMapsOfMaps(map1, map2 map[felt.Felt]map[felt.Felt]*felt.Felt, map1Ta
 		if innerMap2, exists := map2[addrMap1]; exists {
 			for innerKeyMap1, map1Value := range innerMap1 {
 				if map2Value, exists := innerMap2[innerKeyMap1]; !exists {
-					result.WriteString(fmt.Sprintf("\tAddr '%s': \n\t\tKey '%s' Value '%s' is in %s, but missing in %s.\n", addrMap1.String(), innerKeyMap1.String(), map1Value.String(), map1Tag, map2Tag))
+					result.WriteString(fmt.Sprintf(
+						"\tAddr '%s': \n\t\tKey '%s' Value '%s' is in %s, but missing in %s.\n",
+						addrMap1.String(),
+						innerKeyMap1.String(),
+						map1Value.String(),
+						map1Tag,
+						map2Tag))
 					differencesFound = true
 				} else if !reflect.DeepEqual(map1Value, map2Value) {
-					result.WriteString(fmt.Sprintf("\tAddr '%s': \n\t\tKey '%s' has different values:\n\t\t\t%s = '%s', %s = '%s'.\n", addrMap1.String(), innerKeyMap1.String(), map1Tag, map1Value.String(), map2Tag, map2Value.String()))
+					result.WriteString(fmt.Sprintf(
+						"\tAddr '%s': \n\t\tKey '%s' has different values:\n\t\t\t%s = '%s', %s = '%s'.\n",
+						addrMap1.String(),
+						innerKeyMap1.String(),
+						map1Tag,
+						map1Value.String(),
+						map2Tag, map2Value.String()))
 					differencesFound = true
 				}
 			}
 			for innerKeyMap2 := range innerMap2 {
 				if _, exists := innerMap1[innerKeyMap2]; !exists {
-					result.WriteString(fmt.Sprintf("\tAddr '%s': \n\t\tKey '%s' Value '%s' is in %s, but missing in %s.\n", addrMap1.String(), innerKeyMap2.String(), innerMap2[innerKeyMap2].String(), map2Tag, map1Tag))
+					result.WriteString(fmt.Sprintf(
+						"\tAddr '%s': \n\t\tKey '%s' Value '%s' is in %s, but missing in %s.\n",
+						addrMap1.String(),
+						innerKeyMap2.String(),
+						innerMap2[innerKeyMap2].String(),
+						map2Tag,
+						map1Tag))
 					differencesFound = true
 				}
 			}

@@ -34,34 +34,49 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 		result.WriteString("TransactionHash: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("TransactionHash: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n", r1.TransactionHash.String(), r2.TransactionHash.String()))
+		result.WriteString(fmt.Sprintf(
+			"TransactionHash: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
+			r1.TransactionHash.String(),
+			r2.TransactionHash.String()))
 	}
 
 	if r1.Fee.Equal(r2.Fee) {
 		result.WriteString("Fee: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("Fee: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n", r1.Fee.String(), r2.Fee.String()))
+		result.WriteString(fmt.Sprintf(
+			"Fee: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
+			r1.Fee.String(),
+			r2.Fee.String()))
 	}
 
 	if MessagesSentHash(r1.L2ToL1Message).Equal(MessagesSentHash(r2.L2ToL1Message)) {
 		result.WriteString("MessagesSentHash: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("MessagesSentHash: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n", MessagesSentHash(r1.L2ToL1Message).String(), MessagesSentHash(r2.L2ToL1Message).String()))
+		result.WriteString(fmt.Sprintf(
+			"MessagesSentHash: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
+			MessagesSentHash(r1.L2ToL1Message).String(),
+			MessagesSentHash(r2.L2ToL1Message).String()))
 	}
 
 	if r1.Reverted == r2.Reverted {
 		result.WriteString("Reverted: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("Reverted: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n", r1.Reverted, r2.Reverted))
+		result.WriteString(fmt.Sprintf(
+			"Reverted: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
+			r1.Reverted,
+			r2.Reverted))
 	}
 
 	if r1.RevertReason == r2.RevertReason {
 		result.WriteString("RevertReason: EQUAL\n")
 	} else {
-		result.WriteString(fmt.Sprintf("RevertReason: DIFFERENT\n\t- r1: %s\n\t- r2: %s\n", r1.RevertReason, r2.RevertReason))
+		result.WriteString(fmt.Sprintf(
+			"RevertReason: DIFFERENT\n\t- r1: %s\n\t- r2: %s\n",
+			r1.RevertReason,
+			r2.RevertReason))
 	}
 
 	r1Gas := r1.ExecutionResources.TotalGasConsumed
@@ -76,35 +91,53 @@ func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
 		result.WriteString("TotalGasConsumed.L1Gas: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("TotalGasConsumed.L1Gas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n", r1Gas.L1Gas, r2Gas.L1Gas))
+		result.WriteString(fmt.Sprintf(
+			"TotalGasConsumed.L1Gas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n",
+			r1Gas.L1Gas,
+			r2Gas.L1Gas))
 	}
 
 	if r1Gas.L1DataGas == r2Gas.L1DataGas {
 		result.WriteString("TotalGasConsumed.L1DataGas: EQUAL\n")
 	} else {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("TotalGasConsumed.L1DataGas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n", r1Gas.L1DataGas, r2Gas.L1DataGas))
+		result.WriteString(fmt.Sprintf(
+			"TotalGasConsumed.L1DataGas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n",
+			r1Gas.L1DataGas,
+			r2Gas.L1DataGas))
 	}
 	if len(r1.Events) != len(r2.Events) {
 		foundDiff = true
-		result.WriteString(fmt.Sprintf("Events have DIFFERENT length \n\t- g1: %d\n\t- g2: %d\n", len(r1.Events), len(r1.Events)))
+		result.WriteString(fmt.Sprintf(
+			"Events have DIFFERENT length \n\t- g1: %d\n\t- g2: %d\n",
+			len(r1.Events),
+			len(r1.Events)))
 	} else {
 		for ind, event := range r1.Events {
 			if !event.From.Equal(r2.Events[ind].From) {
 				foundDiff = true
-				result.WriteString(fmt.Sprintf("Events have DIFFERENT From value at index %d \n\t- g1: %v\n\t- g2: %v\n", ind, event.From, r2.Events[ind].From))
+				result.WriteString(fmt.Sprintf(
+					"Events have DIFFERENT From value at index %d \n\t- g1: %v\n\t- g2: %v\n",
+					ind, event.From,
+					r2.Events[ind].From))
 				printEvents(r1.Events, r2.Events)
 				break
 			}
 			if !equalSlices(r1.Events[ind].Keys, r2.Events[ind].Keys) {
 				foundDiff = true
-				result.WriteString(fmt.Sprintf("Events have DIFFERENT Keys \n\t- g1: %v\n\t- g2: %v\n", event.Keys, r2.Events[ind].Keys))
+				result.WriteString(fmt.Sprintf(
+					"Events have DIFFERENT Keys \n\t- g1: %v\n\t- g2: %v\n",
+					event.Keys,
+					r2.Events[ind].Keys))
 				printEvents(r1.Events, r2.Events)
 				break
 			}
 			if !equalSlices(r1.Events[ind].Data, r2.Events[ind].Data) {
 				foundDiff = true
-				result.WriteString(fmt.Sprintf("Events have DIFFERENT Data \n\t- g1: %v\n\t- g2: %v\n", event.Keys, r2.Events[ind].Keys))
+				result.WriteString(fmt.Sprintf(
+					"Events have DIFFERENT Data \n\t- g1: %v\n\t- g2: %v\n",
+					event.Keys,
+					r2.Events[ind].Keys))
 				printEvents(r1.Events, r2.Events)
 				break
 			}

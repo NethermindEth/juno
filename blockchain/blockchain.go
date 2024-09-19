@@ -1135,7 +1135,11 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpda
 		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
 
 		var commitments *core.BlockCommitments
-		pending.Block.Hash, commitments, err = core.BlockHash(pending.Block, pending.StateUpdate.StateDiff, b.network, pending.Block.SequencerAddress)
+		pending.Block.Hash, commitments, err = core.BlockHash(
+			pending.Block,
+			pending.StateUpdate.StateDiff,
+			b.network,
+			pending.Block.SequencerAddress)
 		if err != nil {
 			return err
 		}
@@ -1164,7 +1168,9 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpda
 	})
 }
 
-func (b *Blockchain) verifyAgainstReference(pending *Pending, commitments *core.BlockCommitments, refStateUpdate *core.StateUpdate, refBlock *core.Block) error {
+func (b *Blockchain) verifyAgainstReference(pending *Pending, commitments *core.BlockCommitments,
+	refStateUpdate *core.StateUpdate, refBlock *core.Block,
+) error {
 	if err := b.validateStateDiff(refStateUpdate, pending.StateUpdate); err != nil {
 		return err
 	}
@@ -1185,65 +1191,84 @@ func (b *Blockchain) validateStateDiff(shadowStateUpdate, pendingStateUpdate *co
 	return nil
 }
 
-func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpdate *core.StateUpdate, sequenceCommitments *core.BlockCommitments) error {
+func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpdate *core.StateUpdate,
+	sequenceCommitments *core.BlockCommitments,
+) error {
 	_, shadowCommitments, err := core.Post0132Hash(shadowBlock, shadowStateUpdate.StateDiff)
 	if err != nil {
 		return fmt.Errorf("failed to compute the shadow commitments %s", err)
 	}
 	if !shadowCommitments.TransactionCommitment.Equal(sequenceCommitments.TransactionCommitment) {
-		return fmt.Errorf("transaction commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.TransactionCommitment, sequenceCommitments.TransactionCommitment)
+		return fmt.Errorf("transaction commitment mismatch: shadow commitment %v, sequence commitment %v",
+			shadowCommitments.TransactionCommitment, sequenceCommitments.TransactionCommitment)
 	}
 	if !shadowCommitments.EventCommitment.Equal(sequenceCommitments.EventCommitment) {
-		return fmt.Errorf("event commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.EventCommitment, sequenceCommitments.EventCommitment)
+		return fmt.Errorf("event commitment mismatch: shadow commitment %v, sequence commitment %v",
+			shadowCommitments.EventCommitment, sequenceCommitments.EventCommitment)
 	}
 	if !shadowCommitments.ReceiptCommitment.Equal(sequenceCommitments.ReceiptCommitment) {
-		return fmt.Errorf("receipt commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.ReceiptCommitment, sequenceCommitments.ReceiptCommitment)
+		return fmt.Errorf("receipt commitment mismatch: shadow commitment %v, sequence commitment %v",
+			shadowCommitments.ReceiptCommitment, sequenceCommitments.ReceiptCommitment)
 	}
 	if !shadowCommitments.StateDiffCommitment.Equal(sequenceCommitments.StateDiffCommitment) {
-		return fmt.Errorf("state diff commitment mismatch: shadow commitment %v, sequence commitment %v", shadowCommitments.StateDiffCommitment, sequenceCommitments.StateDiffCommitment)
+		return fmt.Errorf("state diff commitment mismatch: shadow commitment %v, sequence commitment %v",
+			shadowCommitments.StateDiffCommitment, sequenceCommitments.StateDiffCommitment)
 	}
 	return nil
 }
 
 func (b *Blockchain) validateHeader(shadowHeader, sequenceHeader *core.Header) error {
 	if !shadowHeader.ParentHash.Equal(sequenceHeader.ParentHash) {
-		return fmt.Errorf("parent hash mismatch: shadowHeader parent hash %v, sequenceHeader parent hash %v", shadowHeader.ParentHash, sequenceHeader.ParentHash)
+		return fmt.Errorf("parent hash mismatch: shadowHeader parent hash %v, sequenceHeader parent hash %v",
+			shadowHeader.ParentHash, sequenceHeader.ParentHash)
 	}
 	if shadowHeader.Number != sequenceHeader.Number {
-		return fmt.Errorf("block number mismatch: shadowHeader number %v, sequenceHeader number %v", shadowHeader.Number, sequenceHeader.Number)
+		return fmt.Errorf("block number mismatch: shadowHeader number %v, sequenceHeader number %v",
+			shadowHeader.Number, sequenceHeader.Number)
 	}
 	if !shadowHeader.SequencerAddress.Equal(sequenceHeader.SequencerAddress) {
-		return fmt.Errorf("sequencer address mismatch: shadowHeader sequencer address %v, sequenceHeader sequencer address %v", shadowHeader.SequencerAddress, sequenceHeader.SequencerAddress)
+		return fmt.Errorf("sequencer address mismatch: shadowHeader sequencer address %v, sequenceHeader sequencer address %v",
+			shadowHeader.SequencerAddress, sequenceHeader.SequencerAddress)
 	}
 	if shadowHeader.TransactionCount != sequenceHeader.TransactionCount {
-		return fmt.Errorf("transaction count mismatch: shadowHeader transaction count %v, sequenceHeader transaction count %v", shadowHeader.TransactionCount, sequenceHeader.TransactionCount)
+		return fmt.Errorf("transaction count mismatch: shadowHeader transaction count %v, sequenceHeader transaction count %v",
+			shadowHeader.TransactionCount, sequenceHeader.TransactionCount)
 	}
 	if shadowHeader.EventCount != sequenceHeader.EventCount {
-		return fmt.Errorf("event count mismatch: shadowHeader event count %v, sequenceHeader event count %v", shadowHeader.EventCount, sequenceHeader.EventCount)
+		return fmt.Errorf("event count mismatch: shadowHeader event count %v, sequenceHeader event count %v",
+			shadowHeader.EventCount, sequenceHeader.EventCount)
 	}
 	if shadowHeader.Timestamp != sequenceHeader.Timestamp {
-		return fmt.Errorf("timestamp mismatch: shadowHeader timestamp %v, sequenceHeader timestamp %v", shadowHeader.Timestamp, sequenceHeader.Timestamp)
+		return fmt.Errorf("timestamp mismatch: shadowHeader timestamp %v, sequenceHeader timestamp %v",
+			shadowHeader.Timestamp, sequenceHeader.Timestamp)
 	}
 	if shadowHeader.ProtocolVersion != sequenceHeader.ProtocolVersion {
-		return fmt.Errorf("protocol version mismatch: shadowHeader protocol version %v, sequenceHeader protocol version %v", shadowHeader.ProtocolVersion, sequenceHeader.ProtocolVersion)
+		return fmt.Errorf("protocol version mismatch: shadowHeader protocol version %v, sequenceHeader protocol version %v",
+			shadowHeader.ProtocolVersion, sequenceHeader.ProtocolVersion)
 	}
 	if !shadowHeader.GasPrice.Equal(sequenceHeader.GasPrice) {
-		return fmt.Errorf("gas price mismatch: shadowHeader gas price %v, sequenceHeader gas price %v", shadowHeader.GasPrice, sequenceHeader.GasPrice)
+		return fmt.Errorf("gas price mismatch: shadowHeader gas price %v, sequenceHeader gas price %v",
+			shadowHeader.GasPrice, sequenceHeader.GasPrice)
 	}
 	if !shadowHeader.GasPriceSTRK.Equal(sequenceHeader.GasPriceSTRK) {
-		return fmt.Errorf("gas price STRK mismatch: shadowHeader gas price STRK %v, sequenceHeader gas price STRK %v", shadowHeader.GasPriceSTRK, sequenceHeader.GasPriceSTRK)
+		return fmt.Errorf("gas price STRK mismatch: shadowHeader gas price STRK %v, sequenceHeader gas price STRK %v",
+			shadowHeader.GasPriceSTRK, sequenceHeader.GasPriceSTRK)
 	}
 	if shadowHeader.L1DAMode != sequenceHeader.L1DAMode {
-		return fmt.Errorf("L1 data availability mode mismatch: shadowHeader L1DAMode %v, sequenceHeader L1DAMode %v", shadowHeader.L1DAMode, sequenceHeader.L1DAMode)
+		return fmt.Errorf("L1 data availability mode mismatch: shadowHeader L1DAMode %v, sequenceHeader L1DAMode %v",
+			shadowHeader.L1DAMode, sequenceHeader.L1DAMode)
 	}
 	if !shadowHeader.L1DataGasPrice.PriceInFri.Equal(sequenceHeader.L1DataGasPrice.PriceInFri) {
-		return fmt.Errorf("L1 data gas PriceInFri mismatch: shadowHeader L1DataGasPrice %v, sequenceHeader L1DataGasPrice %v", shadowHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
+		return fmt.Errorf("L1 data gas PriceInFri mismatch: shadowHeader L1DataGasPrice %v, sequenceHeader L1DataGasPrice %v",
+			shadowHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
 	}
 	if !shadowHeader.L1DataGasPrice.PriceInWei.Equal(sequenceHeader.L1DataGasPrice.PriceInWei) {
-		return fmt.Errorf("L1 data gas PriceInFri mismatch: shadowHeader L1DataGasPrice %v, sequenceHeader L1DataGasPrice %v", shadowHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
+		return fmt.Errorf("L1 data gas PriceInFri mismatch: shadowHeader L1DataGasPrice %v, sequenceHeader L1DataGasPrice %v",
+			shadowHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
 	}
 	if !shadowHeader.GlobalStateRoot.Equal(sequenceHeader.GlobalStateRoot) {
-		return fmt.Errorf("global state root mismatch: shadowHeader global state root %v, sequenceHeader global state root %v", shadowHeader.GlobalStateRoot, sequenceHeader.GlobalStateRoot)
+		return fmt.Errorf("global state root mismatch: shadowHeader global state root %v, sequenceHeader global state root %v",
+			shadowHeader.GlobalStateRoot, sequenceHeader.GlobalStateRoot)
 	}
 	if !shadowHeader.Hash.Equal(sequenceHeader.Hash) {
 		return fmt.Errorf("hash mismatch: shadowHeader hash %v, sequenceHeader hash %v", shadowHeader.Hash, sequenceHeader.Hash)
