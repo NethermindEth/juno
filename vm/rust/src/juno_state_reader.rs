@@ -7,10 +7,8 @@ use blockifier::{
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
+use cairo_native::executor::contract::ContractExecutor;
 use cairo_native::OptLevel;
-use cairo_native::
-    executor::contract::ContractExecutor
-;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
@@ -291,11 +289,11 @@ fn native_try_from_json_string(
     let sierra_contract_class: cairo_lang_starknet_classes::contract_class::ContractClass =
         serde_json::from_str(raw_contract_class)?;
     let sierra_program = sierra_contract_class.extract_sierra_program()?;
-    let executor = ContractExecutor::load(&library_output_path).unwrap_or({
+    let executor = ContractExecutor::load(library_output_path).or_else(|_| {
         let executor = ContractExecutor::new(&sierra_program, OptLevel::Default)?;
-        executor.save(&library_output_path)?;
-        executor
-    });
+        executor.save(library_output_path)?;
+        Ok::<ContractExecutor, Box<dyn std::error::Error>>(executor)
+    })?;
     let contract_executor = NativeContractClassV1::new(Arc::new(executor), sierra_contract_class)?;
     Ok(contract_executor)
 }
