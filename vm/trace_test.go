@@ -31,55 +31,34 @@ func TestAllEvents(t *testing.T) {
 	}
 	tests := map[string]*vm.TransactionTrace{
 		"many top-level invocations": {
+			Type: vm.TxnDeclare,
 			ValidateInvocation: &vm.FunctionInvocation{
+				ContractAddress: *contractAddr,
+				Events:          []vm.OrderedEvent{events[0]},
+			},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				FunctionInvocation: &vm.FunctionInvocation{
+					ContractAddress: *contractAddr,
+					Events:          []vm.OrderedEvent{events[0]},
+				},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{
+				ContractAddress: *contractAddr,
+				Events:          []vm.OrderedEvent{events[0]},
+			},
+			FeeTransferInvocation: &vm.FunctionInvocation{
 				ContractAddress: *contractAddr,
 				Events:          []vm.OrderedEvent{events[0]},
 			},
 			FunctionInvocation: &vm.FunctionInvocation{
 				ContractAddress: *contractAddr,
-				Events:          []vm.OrderedEvent{events[1]},
-			},
-			ConstructorInvocation: &vm.FunctionInvocation{
-				ContractAddress: *contractAddr,
-				Events:          []vm.OrderedEvent{events[2]},
-			},
-			ExecuteInvocation: &vm.ExecuteInvocation{
-				FunctionInvocation: &vm.FunctionInvocation{
-					ContractAddress: *contractAddr,
-					Events:          []vm.OrderedEvent{events[3]},
-				},
-			},
-			FeeTransferInvocation: &vm.FunctionInvocation{
-				ContractAddress: *contractAddr,
-				Events:          events[4:],
+				Events:          events[0:6],
 			},
 		},
 		"only validate invocation": {
 			ValidateInvocation: &vm.FunctionInvocation{
 				ContractAddress: *contractAddr,
 				Events:          events,
-			},
-		},
-		"present in some sub-calls": {
-			ValidateInvocation: &vm.FunctionInvocation{
-				ContractAddress: *contractAddr,
-				Events:          []vm.OrderedEvent{events[0]},
-				Calls: []vm.FunctionInvocation{
-					{
-						ContractAddress: *contractAddr,
-						Events:          events[1:5],
-					},
-				},
-			},
-			FunctionInvocation: &vm.FunctionInvocation{
-				ContractAddress: *contractAddr,
-				Events:          []vm.OrderedEvent{events[5]},
-				Calls: []vm.FunctionInvocation{
-					{
-						ContractAddress: *contractAddr,
-						Events:          events[6:],
-					},
-				},
 			},
 		},
 	}
