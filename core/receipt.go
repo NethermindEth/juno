@@ -1,9 +1,13 @@
 package core
 
 import (
+	"runtime"
+	"sync"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type GasConsumed struct {
@@ -62,14 +66,33 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 
 func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
-
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
-		for i, receipt := range receipts {
-			receiptTrieKey := new(felt.Felt).SetUint64(uint64(i))
-			_, err := trie.Put(receiptTrieKey, receipt.hash())
-			if err != nil {
-				return err
-			}
+		numWorkers := runtime.GOMAXPROCS(0)
+		receiptsPerWorker := max(1, len(receipts)/numWorkers)
+		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
+		var trieMutex sync.Mutex
+
+		for receiptIdx := 0; receiptIdx < len(receipts); receiptIdx += receiptsPerWorker {
+			startIdx := receiptIdx
+			endIdx := min(startIdx+receiptsPerWorker, len(receipts))
+			workerPool.Go(func() error {
+				for i, receipt := range receipts[startIdx:endIdx] {
+					receiptTrieKey := new(felt.Felt).SetUint64(uint64(receiptIdx + i))
+					receiptHash := receipt.hash()
+
+					trieMutex.Lock()
+					_, err := trie.Put(receiptTrieKey, receiptHash)
+					trieMutex.Unlock()
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		}
+
+		if err := workerPool.Wait(); err != nil {
+			return err
 		}
 
 		root, err := trie.Root()
@@ -77,7 +100,6 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 			return err
 		}
 		commitment = root
-
 		return nil
 	})
 }
