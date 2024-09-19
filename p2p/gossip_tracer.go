@@ -22,8 +22,8 @@ type gossipTracer struct {
 	host host.Host
 }
 
-func NewGossipTracer(host host.Host) *gossipTracer {
-	return &gossipTracer{host: host}
+func NewGossipTracer(h host.Host) *gossipTracer {
+	return &gossipTracer{host: h}
 }
 
 func (g gossipTracer) AddPeer(p peer.ID, proto protocol.ID) {
