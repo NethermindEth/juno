@@ -66,6 +66,8 @@ func receiptCommon(r *core.TransactionReceipt) *spec.Receipt_Common {
 	var revertReason *string
 	if r.RevertReason != "" {
 		revertReason = &r.RevertReason
+	} else if r.Reverted {
+		revertReason = utils.Ptr("")
 	}
 
 	return &spec.Receipt_Common{

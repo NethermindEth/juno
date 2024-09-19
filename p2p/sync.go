@@ -261,7 +261,7 @@ func (s *syncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-//nolint:gocyclo,funlen
+//nolint:gocyclo
 func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
 	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
@@ -326,17 +326,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				return
 			}
 
-			h, err := core.BlockHash(coreBlock)
-			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
-				return
-			}
-			coreBlock.Hash = h
-
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, cls := range classes {
 				coreC := p2p2core.AdaptClass(cls)
-				h, err = coreC.Hash()
+				h, err := coreC.Hash()
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
 					return
