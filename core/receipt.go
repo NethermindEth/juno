@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/sourcegraph/conc/pool"
 )
 
 type GasConsumed struct {
@@ -64,35 +63,62 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 	return crypto.PoseidonArray(chain...)
 }
 
-func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+func ReceiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+	type result struct {
+		key   *felt.Felt
+		value *felt.Felt
+	}
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
-		numWorkers := runtime.GOMAXPROCS(0)
-		receiptsPerWorker := max(1, len(receipts)/numWorkers)
-		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
+		numWorkers := min(runtime.GOMAXPROCS(0), len(receipts))
+		resultChan := make(chan result, len(receipts))
 		var trieMutex sync.Mutex
 
-		for receiptIdx := 0; receiptIdx < len(receipts); receiptIdx += receiptsPerWorker {
-			startIdx := receiptIdx
-			endIdx := min(startIdx+receiptsPerWorker, len(receipts))
-			workerPool.Go(func() error {
-				for i, receipt := range receipts[startIdx:endIdx] {
-					receiptTrieKey := new(felt.Felt).SetUint64(uint64(receiptIdx + i))
-					receiptHash := receipt.hash()
+		errChan := make(chan error, numWorkers)
 
-					trieMutex.Lock()
-					_, err := trie.Put(receiptTrieKey, receiptHash)
-					trieMutex.Unlock()
-					if err != nil {
-						return err
-					}
+		var wg sync.WaitGroup
+		wg.Add(numWorkers)
+
+		receiptsPerWorker := max(1, (len(receipts)+numWorkers-1)/numWorkers)
+
+		for workerID := 0; workerID < numWorkers; workerID++ {
+			go func(id int) {
+				defer wg.Done()
+				startIdx := id * receiptsPerWorker
+				endIdx := min(startIdx+receiptsPerWorker, len(receipts))
+
+				for i, receipt := range receipts[startIdx:endIdx] {
+					receiptTrieKey := new(felt.Felt).SetUint64(uint64(startIdx + i))
+					receiptHash := receipt.hash()
+					resultChan <- result{receiptTrieKey, receiptHash}
 				}
-				return nil
-			})
+
+				errChan <- nil
+			}(workerID)
 		}
 
-		if err := workerPool.Wait(); err != nil {
-			return err
+		go func() {
+			wg.Wait()
+			close(resultChan)
+		}()
+
+		go func() {
+			for result := range resultChan {
+				trieMutex.Lock()
+				_, err := trie.Put(result.key, result.value)
+				trieMutex.Unlock()
+				if err != nil {
+					errChan <- err
+					return
+				}
+			}
+			errChan <- nil
+		}()
+
+		for i := 0; i < numWorkers+1; i++ {
+			if err := <-errChan; err != nil {
+				return err
+			}
 		}
 
 		root, err := trie.Root()
@@ -100,6 +126,7 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 			return err
 		}
 		commitment = root
+
 		return nil
 	})
 }
