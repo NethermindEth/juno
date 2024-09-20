@@ -26,119 +26,122 @@ type TransactionReceipt struct {
 	RevertReason       string
 }
 
-func CompareReceipts(r1, r2 *TransactionReceipt) (bool, string) {
+func CompareReceipts(seq, ref *TransactionReceipt) (bool, string) {
 	var result strings.Builder
 	foundDiff := false
 
-	if r1.TransactionHash.Equal(r2.TransactionHash) {
+	if seq.TransactionHash.Equal(ref.TransactionHash) {
 		result.WriteString("TransactionHash: EQUAL\n")
 	} else {
 		foundDiff = true
 		result.WriteString(fmt.Sprintf(
-			"TransactionHash: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
-			r1.TransactionHash.String(),
-			r2.TransactionHash.String()))
+			"TransactionHash: DIFFERENT\n\t- seq: %v\n\t- ref: %v\n",
+			seq.TransactionHash.String(),
+			ref.TransactionHash.String()))
 	}
 
-	if r1.Fee.Equal(r2.Fee) {
+	if seq.Fee.Equal(ref.Fee) {
 		result.WriteString("Fee: EQUAL\n")
 	} else {
 		foundDiff = true
 		result.WriteString(fmt.Sprintf(
-			"Fee: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
-			r1.Fee.String(),
-			r2.Fee.String()))
+			"Fee: DIFFERENT\n\t- seq: %v\n\t- ref: %v\n",
+			seq.Fee.String(),
+			ref.Fee.String()))
 	}
 
-	if MessagesSentHash(r1.L2ToL1Message).Equal(MessagesSentHash(r2.L2ToL1Message)) {
+	if MessagesSentHash(seq.L2ToL1Message).Equal(MessagesSentHash(ref.L2ToL1Message)) {
 		result.WriteString("MessagesSentHash: EQUAL\n")
 	} else {
 		foundDiff = true
 		result.WriteString(fmt.Sprintf(
-			"MessagesSentHash: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
-			MessagesSentHash(r1.L2ToL1Message).String(),
-			MessagesSentHash(r2.L2ToL1Message).String()))
+			"MessagesSentHash: DIFFERENT\n\t- seq: %v\n\t- ref: %v\n",
+			MessagesSentHash(seq.L2ToL1Message).String(),
+			MessagesSentHash(ref.L2ToL1Message).String()))
 	}
 
-	if r1.Reverted == r2.Reverted {
+	if seq.Reverted == ref.Reverted {
 		result.WriteString("Reverted: EQUAL\n")
 	} else {
 		foundDiff = true
 		result.WriteString(fmt.Sprintf(
-			"Reverted: DIFFERENT\n\t- r1: %v\n\t- r2: %v\n",
-			r1.Reverted,
-			r2.Reverted))
+			"Reverted: DIFFERENT\n\t- seq: %v\n\t- ref: %v\n",
+			seq.Reverted,
+			ref.Reverted))
 	}
 
-	if r1.RevertReason == r2.RevertReason {
+	if seq.RevertReason == ref.RevertReason {
 		result.WriteString("RevertReason: EQUAL\n")
 	} else {
 		result.WriteString(fmt.Sprintf(
-			"RevertReason: DIFFERENT\n\t- r1: %s\n\t- r2: %s\n",
-			r1.RevertReason,
-			r2.RevertReason))
+			"RevertReason: DIFFERENT\n\t- seq: %s\n\t- ref: %s\n",
+			seq.RevertReason,
+			ref.RevertReason))
 	}
 
-	r1Gas := r1.ExecutionResources.TotalGasConsumed
-	r2Gas := r2.ExecutionResources.TotalGasConsumed
-	if r1Gas == nil {
-		panic("r1 TotalGasConsumed is inil")
-	}
-	if r2Gas == nil {
-		panic("r2 TotalGasConsumed is inil")
-	}
-	if r1Gas.L1Gas == r2Gas.L1Gas {
-		result.WriteString("TotalGasConsumed.L1Gas: EQUAL\n")
-	} else {
-		foundDiff = true
-		result.WriteString(fmt.Sprintf(
-			"TotalGasConsumed.L1Gas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n",
-			r1Gas.L1Gas,
-			r2Gas.L1Gas))
+	seqGas := seq.ExecutionResources.TotalGasConsumed
+	refGas := ref.ExecutionResources.TotalGasConsumed
+	if refGas != nil {
+		if seqGas == nil {
+			foundDiff = true
+			result.WriteString(fmt.Sprintf(
+				"TotalGasConsumed: DIFFERENT\n\t- g1: nil\n\t- g2: %d\n", refGas))
+		} else {
+			if seqGas.L1Gas == refGas.L1Gas {
+				result.WriteString("TotalGasConsumed.L1Gas: EQUAL\n")
+			} else {
+				foundDiff = true
+				result.WriteString(fmt.Sprintf(
+					"TotalGasConsumed.L1Gas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n",
+					seqGas.L1Gas,
+					refGas.L1Gas))
+			}
+
+			if seqGas.L1DataGas == refGas.L1DataGas {
+				result.WriteString("TotalGasConsumed.L1DataGas: EQUAL\n")
+			} else {
+				foundDiff = true
+				result.WriteString(fmt.Sprintf(
+					"TotalGasConsumed.L1DataGas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n",
+					seqGas.L1DataGas,
+					refGas.L1DataGas))
+			}
+		}
 	}
 
-	if r1Gas.L1DataGas == r2Gas.L1DataGas {
-		result.WriteString("TotalGasConsumed.L1DataGas: EQUAL\n")
-	} else {
-		foundDiff = true
-		result.WriteString(fmt.Sprintf(
-			"TotalGasConsumed.L1DataGas: DIFFERENT\n\t- g1: %d\n\t- g2: %d\n",
-			r1Gas.L1DataGas,
-			r2Gas.L1DataGas))
-	}
-	if len(r1.Events) != len(r2.Events) {
+	if len(seq.Events) != len(ref.Events) {
 		foundDiff = true
 		result.WriteString(fmt.Sprintf(
 			"Events have DIFFERENT length \n\t- g1: %d\n\t- g2: %d\n",
-			len(r1.Events),
-			len(r1.Events)))
+			len(seq.Events),
+			len(seq.Events)))
 	} else {
-		for ind, event := range r1.Events {
-			if !event.From.Equal(r2.Events[ind].From) {
+		for ind, event := range seq.Events {
+			if !event.From.Equal(ref.Events[ind].From) {
 				foundDiff = true
 				result.WriteString(fmt.Sprintf(
 					"Events have DIFFERENT From value at index %d \n\t- g1: %v\n\t- g2: %v\n",
 					ind, event.From,
-					r2.Events[ind].From))
-				printEvents(r1.Events, r2.Events)
+					ref.Events[ind].From))
+				printEvents(seq.Events, ref.Events)
 				break
 			}
-			if !equalSlices(r1.Events[ind].Keys, r2.Events[ind].Keys) {
+			if !equalSlices(seq.Events[ind].Keys, ref.Events[ind].Keys) {
 				foundDiff = true
 				result.WriteString(fmt.Sprintf(
 					"Events have DIFFERENT Keys \n\t- g1: %v\n\t- g2: %v\n",
 					event.Keys,
-					r2.Events[ind].Keys))
-				printEvents(r1.Events, r2.Events)
+					ref.Events[ind].Keys))
+				printEvents(seq.Events, ref.Events)
 				break
 			}
-			if !equalSlices(r1.Events[ind].Data, r2.Events[ind].Data) {
+			if !equalSlices(seq.Events[ind].Data, ref.Events[ind].Data) {
 				foundDiff = true
 				result.WriteString(fmt.Sprintf(
 					"Events have DIFFERENT Data \n\t- g1: %v\n\t- g2: %v\n",
 					event.Keys,
-					r2.Events[ind].Keys))
-				printEvents(r1.Events, r2.Events)
+					ref.Events[ind].Keys))
+				printEvents(seq.Events, ref.Events)
 				break
 			}
 		}

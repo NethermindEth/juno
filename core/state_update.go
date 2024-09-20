@@ -62,7 +62,21 @@ func (d *StateDiff) Print() {
 func (d *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
-	checkDiff := func(label string, diffFunc func() (string, bool)) {
+	checkDiff := func(label string, map1, map2 interface{}, diffFunc func() (string, bool)) {
+		if map1 == nil && map2 == nil {
+			sb.WriteString(fmt.Sprintf("Both %s and %s %s are nil\n", map1Tag, map2Tag, label))
+			return
+		}
+		if map1 == nil {
+			sb.WriteString(fmt.Sprintf("%s %s is nil\n", map1Tag, label))
+			differencesFound = true
+			return
+		}
+		if map2 == nil {
+			sb.WriteString(fmt.Sprintf("%s %s is nil\n", map2Tag, label))
+			differencesFound = true
+			return
+		}
 		sb.WriteString(fmt.Sprintf("  %s:\n", label))
 		diffStr, found := diffFunc()
 		if found {
@@ -70,22 +84,22 @@ func (d *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, boo
 			sb.WriteString(diffStr)
 		}
 	}
-	checkDiff("StorageDiffs", func() (string, bool) {
+	checkDiff("StorageDiffs", d.StorageDiffs, other.StorageDiffs, func() (string, bool) {
 		return compareMapsOfMaps(d.StorageDiffs, other.StorageDiffs, map1Tag, map2Tag)
 	})
-	checkDiff("Nonces", func() (string, bool) {
+	checkDiff("Nonces", d.Nonces, other.Nonces, func() (string, bool) {
 		return compareMaps(d.Nonces, other.Nonces)
 	})
-	checkDiff("DeployedContracts", func() (string, bool) {
+	checkDiff("DeployedContracts", d.DeployedContracts, other.DeployedContracts, func() (string, bool) {
 		return compareMaps(d.DeployedContracts, other.DeployedContracts)
 	})
-	checkDiff("DeclaredV0Classes", func() (string, bool) {
+	checkDiff("DeclaredV0Classes", d.DeclaredV0Classes, other.DeclaredV0Classes, func() (string, bool) {
 		return compareSlices(d.DeclaredV0Classes, other.DeclaredV0Classes)
 	})
-	checkDiff("DeclaredV1Classes", func() (string, bool) {
+	checkDiff("DeclaredV1Classes", d.DeclaredV1Classes, other.DeclaredV1Classes, func() (string, bool) {
 		return compareMaps(d.DeclaredV1Classes, other.DeclaredV1Classes)
 	})
-	checkDiff("ReplacedClasses", func() (string, bool) {
+	checkDiff("ReplacedClasses", d.ReplacedClasses, other.ReplacedClasses, func() (string, bool) {
 		return compareMaps(d.ReplacedClasses, other.ReplacedClasses)
 	})
 	return sb.String(), differencesFound
@@ -157,18 +171,32 @@ func compareMaps(m1, m2 map[felt.Felt]*felt.Felt) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
 
+	// Compare m1 against m2
 	for k, v := range m1 {
-		if v2, exists := m2[k]; !exists || !reflect.DeepEqual(v, v2) {
-			sb.WriteString(fmt.Sprintf("    %s: %s -> %s (changed or missing in second map)\n", k.String(), v.String(), v2.String()))
+		if v2, exists := m2[k]; !exists {
+			// Key is missing in the second map
+			sb.WriteString(fmt.Sprintf("    %s: %s -> <nil> (missing in second map)\n", k.String(), v.String()))
+			differencesFound = true
+		} else if !reflect.DeepEqual(v, v2) {
+			// Key exists in both maps but values are different
+			v2Str := "<nil>"
+			if v2 != nil {
+				v2Str = v2.String()
+			}
+			sb.WriteString(fmt.Sprintf("    %s: %s -> %s (changed in second map)\n", k.String(), v.String(), v2Str))
 			differencesFound = true
 		}
 	}
+
+	// Compare m2 against m1 to find keys missing in the first map
 	for k, v := range m2 {
 		if _, exists := m1[k]; !exists {
-			sb.WriteString(fmt.Sprintf("    %s: %s (missing in first map)\n", k.String(), v.String()))
+			sb.WriteString(fmt.Sprintf("    %s: <nil> -> %s (missing in first map)\n", k.String(), v.String()))
 			differencesFound = true
 		}
 	}
+
+	// If no differences were found, state that both maps are equal
 	if !differencesFound {
 		sb.WriteString("Both maps are equal.\n")
 	}
@@ -189,8 +217,8 @@ func compareSlices(s1, s2 []*felt.Felt) (string, bool) {
 	}
 	if !s1Sum.Equal(s2Sum) {
 		differencesFound = true
-		sb.WriteString(fmt.Sprintf("slice 1: %v", s1))
-		sb.WriteString(fmt.Sprintf("slice 2: %v", s2))
+		sb.WriteString(fmt.Sprintf("    slice 1: %v\n", s1))
+		sb.WriteString(fmt.Sprintf("    slice 2: %v\n", s2))
 	}
 	return sb.String(), differencesFound
 }

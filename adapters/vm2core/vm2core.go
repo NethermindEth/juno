@@ -84,6 +84,9 @@ func AdaptStateDiff(sd *vm.StateDiff) *core.StateDiff {
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
+	if sd == nil {
+		return &result
+	}
 	for _, entries := range sd.StorageDiffs {
 		KeyVals := map[felt.Felt]*felt.Felt{}
 		for _, entry := range entries.StorageEntries {

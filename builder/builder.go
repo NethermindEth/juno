@@ -10,6 +10,7 @@ import (
 	stdsync "sync"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -560,10 +561,10 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	}
 
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
-	// Note: the error message changes between blockifier-rc2 and blockifier-rc3.
-	// If we run with blockifier-rc3, we won't get the same revert-reason that was
-	// generated if the FGW was running blockifier-rc2. We account for this here.
-	receipt.RevertReason = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].RevertReason
+	err = b.overrideTraces(receipt)
+	if err != nil {
+		return err
+	}
 	if b.junoEndpoint != "" {
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
 		refTrace := vm2core.AdaptStateDiff(b.snBlockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
@@ -613,6 +614,23 @@ func mergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff
 	oldStateDiff.DeclaredV0Classes = append(oldStateDiff.DeclaredV0Classes, newStateDiff.DeclaredV0Classes...)
 
 	return oldStateDiff
+}
+
+func (b *Builder) overrideTraces(receipt *core.TransactionReceipt) error {
+	// Note: the error message changes between blockifier-rc2 and blockifier-rc3.
+	// If we run with blockifier-rc3, we won't get the same revert-reason that was
+	// generated if the FGW was running blockifier-rc2. We account for this here.
+	receipt.RevertReason = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].RevertReason
+
+	// Todo: early 0.12.3 blocks don't charge fees, but blockifier does (breaking change??)
+	blockVer, err := core.ParseBlockVersion(b.pendingBlock.Block.Header.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+	if blockVer.LessThanEqual(semver.MustParse("0.12.3")) {
+		receipt.Fee = new(felt.Felt).SetUint64(0)
+	}
+	return nil
 }
 
 // shadowTxns pulls transactions from the FGW and feeds them into the mempool for execution.
