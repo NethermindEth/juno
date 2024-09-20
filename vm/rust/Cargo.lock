@@ -450,7 +450,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=a4ffa01d8000142bb7fa630ad2497c6020663883#a4ffa01d8000142bb7fa630ad2497c6020663883"
+source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -2753,7 +2753,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -3126,7 +3126,7 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=a4ffa01d8000142bb7fa630ad2497c6020663883#a4ffa01d8000142bb7fa630ad2497c6020663883"
+source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "clap",
  "itertools 0.10.5",
@@ -4351,7 +4351,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=a4ffa01d8000142bb7fa630ad2497c6020663883#a4ffa01d8000142bb7fa630ad2497c6020663883"
+source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",
@@ -5172,7 +5172,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

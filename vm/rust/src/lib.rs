@@ -89,7 +89,9 @@ type BlockInfo = BlockInfoF<Felt, StarknetVersion>;
 
 impl From<CBlockInfo> for BlockInfo {
     fn from(block_info: CBlockInfo) -> Self {
-        let version_str = unsafe { CStr::from_ptr(block_info.version) }.to_str().unwrap();
+        let version_str = unsafe { CStr::from_ptr(block_info.version) }
+            .to_str()
+            .unwrap();
         let version = StarknetVersion::from_str(version_str)
             .unwrap_or(StarknetVersion::from_str("0.0.0").unwrap());
 
@@ -234,8 +236,9 @@ pub extern "C" fn cairoVMExecute(
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
-    let paid_fees_on_l1_json_str =
-        unsafe { CStr::from_ptr(paid_fees_on_l1_json) }.to_str().unwrap();
+    let paid_fees_on_l1_json_str = unsafe { CStr::from_ptr(paid_fees_on_l1_json) }
+        .to_str()
+        .unwrap();
 
     let paid_fees_on_l1: Vec<Fee> = match serde_json::from_str(paid_fees_on_l1_json_str) {
         Ok(f) => f,
@@ -368,7 +371,10 @@ fn cairo_vm_execute(
             validate,
             err_on_revert,
         )
-        .map_err(|err| ReportError { txn_index, error: err })?;
+        .map_err(|err| ReportError {
+            txn_index,
+            error: err,
+        })?;
 
         let actual_fee: Felt = transaction_execution_info.receipt.fee.0.into();
         let data_gas_consumed: Felt = transaction_execution_info.receipt.da_gas.l1_data_gas.into();
@@ -476,7 +482,10 @@ pub fn execute_transaction<S: StateReader>(
                 }
                 other => other.to_string(),
             };
-            Err(format!("failed txn {} reason: {}", txn_and_query_bit.txn_hash, err_string,))
+            Err(format!(
+                "failed txn {} reason: {}",
+                txn_and_query_bit.txn_hash, err_string,
+            ))
         }
 
         Ok(mut t) => {
@@ -488,9 +497,16 @@ pub fn execute_transaction<S: StateReader>(
             // we are estimating fee, override actual fee calculation
             if t.receipt.fee.0 == 0 {
                 let minimal_l1_gas_amount_vector = minimal_l1_gas_amount_vector.unwrap_or_default();
-                let gas_consumed = t.receipt.gas.l1_gas.max(minimal_l1_gas_amount_vector.l1_gas);
-                let data_gas_consumed =
-                    t.receipt.gas.l1_data_gas.max(minimal_l1_gas_amount_vector.l1_data_gas);
+                let gas_consumed = t
+                    .receipt
+                    .gas
+                    .l1_gas
+                    .max(minimal_l1_gas_amount_vector.l1_gas);
+                let data_gas_consumed = t
+                    .receipt
+                    .gas
+                    .l1_data_gas
+                    .max(minimal_l1_gas_amount_vector.l1_data_gas);
 
                 t.receipt.fee = fee_utils::get_fee_by_gas_vector(
                     block_context.block_info(),
