@@ -64,10 +64,6 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 }
 
 func ReceiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
-	type result struct {
-		key   *felt.Felt
-		value *felt.Felt
-	}
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(receipts))
