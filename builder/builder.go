@@ -644,67 +644,74 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			return err
 		}
 		nextBlockToSequence := builderHeadBlock.Number + 1
-		snHeadBlock, err := b.starknetData.BlockLatest(ctx)
+
+		var snHeadBlock *core.Block
+		snHeadBlock, err = b.starknetData.BlockLatest(ctx)
 		if err != nil {
 			return err
 		}
-
-		b.log.Debugw(fmt.Sprintf("Juno currently at block %d, Sepolia at block %d. Attempting to sequence block %d.",
-			builderHeadBlock.Number, snHeadBlock.Number, nextBlockToSequence))
-		if builderHeadBlock.Number < snHeadBlock.Number {
-			block, su, classes, err := b.getSyncData(nextBlockToSequence)
+		for nextBlockToSequence >= snHeadBlock.Number {
+			var sleepTime uint = 5
+			b.log.Infof("Juno Sequencer is at Sepolia chain head. Sleeping for %ds before querying for a new block.", sleepTime)
+			time.Sleep(time.Second * time.Duration(sleepTime))
+			snHeadBlock, err = b.starknetData.BlockLatest(ctx)
 			if err != nil {
 				return err
 			}
-			if b.junoEndpoint != "" {
-				snBlockTraces, err := b.RPCGetBlockTrace(int(block.Number))
-				if err != nil {
-					return err
-				}
-				if len(snBlockTraces) != int(block.TransactionCount) {
-					b.log.Fatalf("number of transaction traces does not equal the number of transactions")
-				}
-				b.snBlockTraces = snBlockTraces
-			}
-
-			b.shadowStateUpdate = su
-			b.shadowBlock = block
-			b.pendingBlock.Block.Transactions = nil
-			b.pendingBlock.Block.Number = nextBlockToSequence
-			b.pendingBlock.Block.SequencerAddress = block.SequencerAddress      // Affects post 0.13.2 block hash
-			b.pendingBlock.Block.Timestamp = block.Timestamp                    // Affects post 0.13.2 block hash
-			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion // Affects post 0.13.2 block hash
-			b.pendingBlock.Block.Header.GasPrice = block.GasPrice               // Affects post 0.13.2 block hash
-			b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // Affects post 0.13.2 block hash
-			b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
-			b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // Affects data_availability
-			blockHashStorage := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
-			for _, blockHash := range blockHashStorage {
-				b.blockHashToBeRevealed = blockHash // Affects execution
-			}
-
-			// Todo: should be able to sequence the entire block of transactions at once (ie skip mempool)
-			b.chanNumTxnsToShadow <- int(block.TransactionCount)
-			for _, txn := range block.Transactions {
-				var declaredClass core.Class
-				declareTxn, ok := txn.(*core.DeclareTransaction)
-				if ok {
-					declaredClass = classes[*declareTxn.ClassHash]
-				}
-				err = b.pool.Push(
-					&mempool.BroadcastedTransaction{
-						Transaction:   txn,
-						DeclaredClass: declaredClass,
-					})
-				if err != nil {
-					return err
-				}
-			}
-		} else {
-			var sleepTime uint = 5
-			b.log.Debugw("Juno Sequencer is at Sepolia chain head. Sleeping for %ds before querying for a new block.", sleepTime)
-			time.Sleep(time.Duration(sleepTime))
 		}
+
+		b.log.Infof(fmt.Sprintf("Juno currently at block %d, Sepolia at block %d. Attempting to sequence block %d.",
+			builderHeadBlock.Number, snHeadBlock.Number, nextBlockToSequence))
+
+		block, su, classes, err := b.getSyncData(nextBlockToSequence)
+		if err != nil {
+			return err
+		}
+		if b.junoEndpoint != "" {
+			snBlockTraces, err := b.RPCGetBlockTrace(int(block.Number))
+			if err != nil {
+				return err
+			}
+			if len(snBlockTraces) != int(block.TransactionCount) {
+				b.log.Fatalf("number of transaction traces does not equal the number of transactions")
+			}
+			b.snBlockTraces = snBlockTraces
+		}
+
+		b.shadowStateUpdate = su
+		b.shadowBlock = block
+		b.pendingBlock.Block.Transactions = nil
+		b.pendingBlock.Block.Number = nextBlockToSequence
+		b.pendingBlock.Block.SequencerAddress = block.SequencerAddress      // Affects post 0.13.2 block hash
+		b.pendingBlock.Block.Timestamp = block.Timestamp                    // Affects post 0.13.2 block hash
+		b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion // Affects post 0.13.2 block hash
+		b.pendingBlock.Block.Header.GasPrice = block.GasPrice               // Affects post 0.13.2 block hash
+		b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // Affects post 0.13.2 block hash
+		b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
+		b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // Affects data_availability
+		blockHashStorage := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
+		for _, blockHash := range blockHashStorage {
+			b.blockHashToBeRevealed = blockHash // Affects execution
+		}
+
+		// Todo: should be able to sequence the entire block of transactions at once (ie skip mempool)
+		b.chanNumTxnsToShadow <- int(block.TransactionCount)
+		for _, txn := range block.Transactions {
+			var declaredClass core.Class
+			declareTxn, ok := txn.(*core.DeclareTransaction)
+			if ok {
+				declaredClass = classes[*declareTxn.ClassHash]
+			}
+			err = b.pool.Push(
+				&mempool.BroadcastedTransaction{
+					Transaction:   txn,
+					DeclaredClass: declaredClass,
+				})
+			if err != nil {
+				return err
+			}
+		}
+
 	}
 }
 
