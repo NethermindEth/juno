@@ -63,7 +63,7 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 	return crypto.PoseidonArray(chain...)
 }
 
-func ReceiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(receipts))
