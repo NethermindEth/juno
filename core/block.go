@@ -185,7 +185,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts)
 	})
 	wg.Go(func() {
-		rCommitment, rErr = receiptCommitment(b.Receipts)
+		rCommitment, rErr = ReceiptCommitment(b.Receipts)
 	})
 
 	wg.Go(func() {
