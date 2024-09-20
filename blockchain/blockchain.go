@@ -1194,7 +1194,7 @@ func (b *Blockchain) validateStateDiff(shadowStateUpdate, pendingStateUpdate *co
 func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpdate *core.StateUpdate,
 	sequenceCommitments *core.BlockCommitments,
 ) error {
-	_, shadowCommitments, err := core.Post0132Hash(shadowBlock, shadowStateUpdate.StateDiff)
+	_, shadowCommitments, err := core.BlockHash(shadowBlock, shadowStateUpdate.StateDiff, b.network, nil)
 	if err != nil {
 		return fmt.Errorf("failed to compute the shadow commitments %s", err)
 	}
@@ -1206,11 +1206,11 @@ func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpd
 		return fmt.Errorf("event commitment mismatch: shadow commitment %v, sequence commitment %v",
 			shadowCommitments.EventCommitment, sequenceCommitments.EventCommitment)
 	}
-	if !shadowCommitments.ReceiptCommitment.Equal(sequenceCommitments.ReceiptCommitment) {
+	if shadowCommitments.ReceiptCommitment != nil && !shadowCommitments.ReceiptCommitment.Equal(sequenceCommitments.ReceiptCommitment) {
 		return fmt.Errorf("receipt commitment mismatch: shadow commitment %v, sequence commitment %v",
 			shadowCommitments.ReceiptCommitment, sequenceCommitments.ReceiptCommitment)
 	}
-	if !shadowCommitments.StateDiffCommitment.Equal(sequenceCommitments.StateDiffCommitment) {
+	if shadowCommitments.StateDiffCommitment != nil && !shadowCommitments.StateDiffCommitment.Equal(sequenceCommitments.StateDiffCommitment) {
 		return fmt.Errorf("state diff commitment mismatch: shadow commitment %v, sequence commitment %v",
 			shadowCommitments.StateDiffCommitment, sequenceCommitments.StateDiffCommitment)
 	}

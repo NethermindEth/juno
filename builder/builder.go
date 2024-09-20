@@ -670,7 +670,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.shadowStateUpdate = su
 			b.shadowBlock = block
 			b.pendingBlock.Block.Transactions = nil
-			b.pendingBlock.Block.Number = block.Number + 1
+			b.pendingBlock.Block.Number = nextBlockToSequence
 			b.pendingBlock.Block.SequencerAddress = block.SequencerAddress      // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Timestamp = block.Timestamp                    // Affects post 0.13.2 block hash
 			b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion // Affects post 0.13.2 block hash

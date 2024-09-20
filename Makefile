@@ -188,7 +188,7 @@ sequencer-shadow-sepolia:
 	--seq-shadow-mode \
     --seq-block-time=5 \
 	--seq-shadow-mode-sync-to=1 \
-	--seq-rpc-endpoint="https://free-rpc.nethermind.io/sepolia-juno" \
+	--seq-rpc-endpoint="" \
 	--network sepolia \
     --rpc-call-max-steps=4123000
 	

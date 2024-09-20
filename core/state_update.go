@@ -94,7 +94,7 @@ func (d *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, boo
 		return compareMaps(d.DeployedContracts, other.DeployedContracts)
 	})
 	checkDiff("DeclaredV0Classes", d.DeclaredV0Classes, other.DeclaredV0Classes, func() (string, bool) {
-		return compareSlices(d.DeclaredV0Classes, other.DeclaredV0Classes)
+		return compareSlices(d.DeclaredV0Classes, other.DeclaredV0Classes, map1Tag, map2Tag)
 	})
 	checkDiff("DeclaredV1Classes", d.DeclaredV1Classes, other.DeclaredV1Classes, func() (string, bool) {
 		return compareMaps(d.DeclaredV1Classes, other.DeclaredV1Classes)
@@ -203,7 +203,7 @@ func compareMaps(m1, m2 map[felt.Felt]*felt.Felt) (string, bool) {
 	return sb.String(), differencesFound
 }
 
-func compareSlices(s1, s2 []*felt.Felt) (string, bool) {
+func compareSlices(s1, s2 []*felt.Felt, map1Tag, map2Tag string) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false
 
@@ -217,8 +217,8 @@ func compareSlices(s1, s2 []*felt.Felt) (string, bool) {
 	}
 	if !s1Sum.Equal(s2Sum) {
 		differencesFound = true
-		sb.WriteString(fmt.Sprintf("    slice 1: %v\n", s1))
-		sb.WriteString(fmt.Sprintf("    slice 2: %v\n", s2))
+		sb.WriteString(fmt.Sprintf("    %s: %v\n", map1Tag, s1))
+		sb.WriteString(fmt.Sprintf("    %s: %v\n", map2Tag, s2))
 	}
 	return sb.String(), differencesFound
 }
