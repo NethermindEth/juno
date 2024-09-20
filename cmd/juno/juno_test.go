@@ -65,6 +65,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultGwTimeout := 5 * time.Second
 	defaultSeqBlockTime := uint(60)
+	defaultSeqShadowModeSyncTo := uint64(1)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -112,6 +113,7 @@ func TestConfigPrecedence(t *testing.T) {
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"custom network config file": {
@@ -158,6 +160,7 @@ cn-unverifiable-range: [0,10]
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"default config with no flags": {
@@ -191,6 +194,7 @@ cn-unverifiable-range: [0,10]
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file path is empty string": {
@@ -224,6 +228,7 @@ cn-unverifiable-range: [0,10]
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file doesn't exist": {
@@ -262,6 +267,7 @@ cn-unverifiable-range: [0,10]
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -302,6 +308,7 @@ pprof: true
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -339,6 +346,7 @@ http-port: 4576
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"all flags without config file": {
@@ -375,6 +383,7 @@ http-port: 4576
 				GatewayTimeout:      defaultGwTimeout,
 				PendingPollInterval: defaultPendingPollInterval,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some flags without config file": {
@@ -411,6 +420,7 @@ http-port: 4576
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -471,6 +481,7 @@ db-cache-size: 8
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -510,6 +521,7 @@ network: sepolia
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -545,6 +557,7 @@ network: sepolia
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"only set env variables": {
@@ -578,6 +591,7 @@ network: sepolia
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -612,6 +626,7 @@ network: sepolia
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -647,6 +662,7 @@ network: sepolia
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 	}

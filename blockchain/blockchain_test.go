@@ -989,7 +989,7 @@ func TestStoreGenesis(t *testing.T) {
 							SequencerAddress: new(felt.Felt),
 							EventsBloom:      core.EventsBloom(receipts),
 							GasPrice:         new(felt.Felt),
-							Signatures:       make([][]*felt.Felt, 0),
+							Signatures:       make([][]*felt.Felt, 1),
 							GasPriceSTRK:     new(felt.Felt),
 						},
 						Transactions: make([]core.Transaction, 0),
