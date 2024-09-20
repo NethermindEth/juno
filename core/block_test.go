@@ -267,17 +267,3 @@ func Test0132BlockHash(t *testing.T) {
 		})
 	}
 }
-
-func TestBlockHashP2P(t *testing.T) {
-	mainnetGW := adaptfeeder.New(feeder.NewTestClient(t, &utils.Mainnet))
-
-	t.Run("error if block.SequencerAddress is nil", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
-		require.NoError(t, err)
-
-		mainnetBlock1.SequencerAddress = nil
-
-		_, _, err = core.BlockHashP2P(mainnetBlock1)
-		assert.EqualError(t, err, "block.SequencerAddress is nil")
-	})
-}

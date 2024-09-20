@@ -27,7 +27,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 			Type: &spec.Receipt_L1Handler_{
 				L1Handler: &spec.Receipt_L1Handler{
 					Common:  receiptCommon(r),
-					MsgHash: &spec.Hash{Elements: t.MessageHash()},
+					MsgHash: &spec.Hash256{Elements: t.MessageHash()},
 				},
 			},
 		}
@@ -66,6 +66,8 @@ func receiptCommon(r *core.TransactionReceipt) *spec.Receipt_Common {
 	var revertReason *string
 	if r.RevertReason != "" {
 		revertReason = &r.RevertReason
+	} else if r.Reverted {
+		revertReason = utils.Ptr("")
 	}
 
 	return &spec.Receipt_Common{

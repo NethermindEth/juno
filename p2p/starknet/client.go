@@ -1,7 +1,5 @@
 package starknet
 
-// TODO: remove this nolint when the issue is fixed https://github.com/daixiang0/gci/issues/209
-//nolint:gci
 import (
 	"context"
 	"errors"
@@ -19,7 +17,7 @@ import (
 
 const (
 	unmarshalMaxSize = 15 * utils.Megabyte
-	readTimeout      = 5 * time.Second
+	readTimeout      = 10 * time.Second
 )
 
 type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Stream, error)

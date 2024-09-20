@@ -261,7 +261,7 @@ func (s *syncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-//nolint:gocyclo,funlen
+//nolint:gocyclo
 func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
 	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
@@ -326,17 +326,10 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				return
 			}
 
-			h, _, err := core.BlockHashP2P(coreBlock)
-			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("block hash calculation error: %v", err)}
-				return
-			}
-			coreBlock.Hash = h
-
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, cls := range classes {
 				coreC := p2p2core.AdaptClass(cls)
-				h, err = coreC.Hash()
+				h, err := coreC.Hash()
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
 					return
@@ -630,10 +623,9 @@ func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (
 }
 
 func (s *syncService) randomPeer() peer.ID {
-	peers := s.host.Peerstore().Peers()
-
+	store := s.host.Peerstore()
 	// todo do not request same block from all peers
-	peers = utils.Filter(peers, func(peerID peer.ID) bool {
+	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
 		return peerID != s.host.ID()
 	})
 	if len(peers) == 0 {
@@ -643,7 +635,7 @@ func (s *syncService) randomPeer() peer.ID {
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
 	s.log.Debugw("Number of peers", "len", len(peers))
-	s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(p))
+	s.log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
 
 	return p
 }
