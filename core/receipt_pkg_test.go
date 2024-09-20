@@ -26,6 +26,7 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 	receipts := getReceipts(b, 35748)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		core.ReceiptCommitment(receipts)
+		_, err := core.ReceiptCommitment(receipts)
+		require.NoError(b, err)
 	}
 }
