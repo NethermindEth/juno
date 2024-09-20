@@ -86,6 +86,65 @@ func (l *LogLevel) UnmarshalText(text []byte) error {
 	return l.Set(string(text))
 }
 
+var ErrUnknownLogEncoding = fmt.Errorf(
+	"unknown log encoding (known: %s, %s)",
+	CONSOLE, JSON,
+)
+
+type LogEncoding int
+
+// The following are necessary for Cobra and Viper, respectively, to unmarshal log level
+// CLI/config parameters properly.
+var (
+	_ pflag.Value              = (*LogEncoding)(nil)
+	_ encoding.TextUnmarshaler = (*LogEncoding)(nil)
+)
+
+const (
+	CONSOLE LogEncoding = iota
+	JSON
+)
+
+func (l LogEncoding) String() string {
+	switch l {
+	case CONSOLE:
+		return "console"
+	case JSON:
+		return "json"
+	default:
+		// Should not happen.
+		panic(ErrUnknownLogEncoding)
+	}
+}
+
+func (l LogEncoding) MarshalYAML() (interface{}, error) {
+	return l.String(), nil
+}
+
+func (l *LogEncoding) Set(s string) error {
+	switch s {
+	case "CONSOLE", "console":
+		*l = CONSOLE
+	case "JSON", "json":
+		*l = JSON
+	default:
+		return ErrUnknownLogEncoding
+	}
+	return nil
+}
+
+func (l *LogEncoding) Type() string {
+	return "LogEncoding"
+}
+
+func (l *LogEncoding) MarshalText() ([]byte, error) {
+	return []byte(l.String()), nil
+}
+
+func (l *LogEncoding) UnmarshalText(text []byte) error {
+	return l.Set(string(text))
+}
+
 type Logger interface {
 	SimpleLogger
 	pebble.Logger
@@ -127,12 +186,12 @@ func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}
 }
 
-func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
+func NewZapLogger(logLevel LogLevel, colour bool, encoding LogEncoding) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Sampling = nil
-	config.Encoding = "console"
+	config.Encoding = encoding.String()
 	config.EncoderConfig.EncodeLevel = capitalColorLevelEncoder
-	if !colour {
+	if encoding == JSON || !colour {
 		config.EncoderConfig.EncodeLevel = capitalLevelEncoder
 	}
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
