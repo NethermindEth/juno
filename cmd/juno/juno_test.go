@@ -279,7 +279,7 @@ db-path: /home/.juno
 network: sepolia
 pprof: true
 `,
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:            utils.DEBUG,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -391,7 +391,7 @@ http-port: 4576
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0", "--db-path", "/home/.juno",
 				"--network", "sepolia",
 			},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:            utils.DEBUG,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -492,7 +492,7 @@ http-port: 4576
 network: sepolia
 `,
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:            utils.WARN,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
