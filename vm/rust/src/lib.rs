@@ -159,7 +159,7 @@ pub extern "C" fn cairoVMCall(
 
     let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
-    let context = EntryPointExecutionContext::new_invoke(
+    let mut context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
             block_context: build_block_context(
                 &mut state,
@@ -171,12 +171,8 @@ pub extern "C" fn cairoVMCall(
         }),
         false,
     );
-    if let Err(e) = context {
-        report_error(reader_handle, e.to_string().as_str(), -1);
-        return;
-    }
 
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
+    match entry_point.execute(&mut state, &mut resources, &mut context) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -461,9 +457,17 @@ pub fn execute_transaction<S: StateReader>(
     let minimal_l1_gas_amount_vector: Option<GasVector>;
     let res = match txn {
         Transaction::AccountTransaction(t) => {
+            let tx_context = block_context.to_tx_context(&t);
             fee_type = t.fee_type();
-            minimal_l1_gas_amount_vector =
-                Some(gas_usage::estimate_minimal_gas_vector(block_context, &t).unwrap());
+            minimal_l1_gas_amount_vector = Some(
+                gas_usage::estimate_minimal_gas_vector(
+                    block_context,
+                    &t,
+                    &tx_context.get_gas_vector_computation_mode(),
+                )
+                .unwrap(),
+            );
+
             t.execute(txn_state, block_context, charge_fee, validate)
         }
         Transaction::L1HandlerTransaction(t) => {
@@ -619,11 +623,11 @@ fn build_block_context(
             gas_to_nzu128(block_info.data_gas_price_wei),
             gas_to_nzu128(block_info.data_gas_price_fri),
             VersionedConstants::latest_constants()
-                .l1_to_l2_gas_price_conversion(felt_to_u128(block_info.gas_price_wei))
+                .convert_l1_to_l2_gas(felt_to_u128(block_info.gas_price_wei))
                 .try_into()
                 .expect("gas price wei is zero :O"),
             VersionedConstants::latest_constants()
-                .l1_to_l2_gas_price_conversion(felt_to_u128(block_info.gas_price_fri))
+                .convert_l1_to_l2_gas(felt_to_u128(block_info.gas_price_fri))
                 .try_into()
                 .expect("gas price fri is zero :O"),
         ),

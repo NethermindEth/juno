@@ -450,7 +450,6 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -484,8 +483,8 @@ dependencies = [
  "sha3",
  "starknet-types-core",
  "starknet_api",
- "strum 0.25.0",
- "strum_macros 0.25.3",
+ "strum",
+ "strum_macros",
  "tempfile",
  "thiserror",
  "toml",
@@ -3126,13 +3125,12 @@ dependencies = [
 [[package]]
 name = "papyrus_config"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "clap",
  "itertools 0.10.5",
  "serde",
  "serde_json",
- "strum_macros 0.25.3",
+ "strum_macros",
  "thiserror",
  "validator",
 ]
@@ -4351,22 +4349,21 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.0.0"
-source = "git+https://github.com/NethermindEth/sequencer?rev=68cd327a71062ea4ad03f930b11d1f6a0b019c17#68cd327a71062ea4ad03f930b11d1f6a0b019c17"
 dependencies = [
  "bitvec",
  "cairo-lang-starknet-classes",
  "derive_more",
  "hex",
  "indexmap 2.4.0",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "primitive-types",
  "serde",
  "serde_json",
  "sha3",
  "starknet-crypto 0.5.2",
  "starknet-types-core",
- "strum 0.24.1",
- "strum_macros 0.24.3",
+ "strum",
+ "strum_macros",
  "thiserror",
 ]
 
@@ -4409,28 +4406,9 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
-
-[[package]]
-name = "strum"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
-
-[[package]]
-name = "strum_macros"
-version = "0.24.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "strum_macros"
