@@ -531,7 +531,6 @@ func TestShadowSepolia(t *testing.T) {
 	}
 	for _, hash := range classHashes {
 		classHash := utils.HexToFelt(t, hash)
-		fmt.Println("classHash", classHash.String())
 		class, err2 := gw.Class(context.Background(), classHash)
 		require.NoError(t, err2)
 		snData.EXPECT().Class(context.Background(), classHash).Return(class, nil)
