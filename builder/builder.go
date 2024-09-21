@@ -707,7 +707,6 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 				return err
 			}
 		}
-
 	}
 }
 
