@@ -58,8 +58,7 @@ type Builder struct {
 	junoEndpoint      string
 	snBlockTraces     []rpc.TracedBlockTransaction
 
-	// Todo: simplify the channel logic?
-	chanNumTxnsToShadow chan int
+	chanNumTxnsToShadow chan int // Todo: can remove when we execute transactions in blocks
 	chanFinaliseBlock   chan struct{}
 	chanFinalised       chan struct{}
 
@@ -70,13 +69,11 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger,
 ) *Builder {
 	return &Builder{
-		ownAddress:        *ownAddr,
-		privKey:           privKey,
-		blockTime:         blockTime,
-		log:               log,
-		listener:          &SelectiveListener{},
-		chanFinaliseBlock: make(chan struct{}),
-		chanFinalised:     make(chan struct{}, 1),
+		ownAddress: *ownAddr,
+		privKey:    privKey,
+		blockTime:  blockTime,
+		log:        log,
+		listener:   &SelectiveListener{},
 
 		bc:       bc,
 		pool:     pool,
@@ -156,13 +153,12 @@ func (b *Builder) runSequencer(ctx context.Context) error {
 		case <-ctx.Done():
 			<-doneListen
 			return nil
-		case <-b.chanFinaliseBlock:
+		case <-time.After(b.blockTime):
 			b.log.Infof("Finalising new block")
 			err := b.Finalise(b.Sign)
 			if err != nil {
 				return err
 			}
-			<-b.chanFinalised
 		}
 	}
 }
