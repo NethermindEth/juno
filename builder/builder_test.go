@@ -340,7 +340,8 @@ func TestBuildBlocks(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger())
+	blockTime := time.Millisecond
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, blockTime, p, utils.NewNopZapLogger())
 
 	txnHashes := []*felt.Felt{}
 	for i := uint64(0); i < 100; i++ {
@@ -360,8 +361,8 @@ func TestBuildBlocks(t *testing.T) {
 		}
 
 		mockVM.EXPECT().Execute([]core.Transaction{invokeTxn}, gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), false, false, false, false).Return(
-			[]*felt.Felt{&felt.Zero}, []*felt.Felt{}, []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}}, executionErr,
+			gomock.Any(), gomock.Any(), false, false, false, true).Return(
+			[]*felt.Felt{&felt.Zero}, []core.GasConsumed{}, []vm.TransactionTrace{{StateDiff: &vm.StateDiff{}}}, []vm.TransactionReceipt{{}}, uint64(0), executionErr,
 		)
 	}
 
@@ -371,7 +372,6 @@ func TestBuildBlocks(t *testing.T) {
 		cancel()
 	}()
 	require.NoError(t, testBuilder.Run(ctx))
-
 	var totalTxns uint64
 	height, err := bc.Height()
 	require.NoError(t, err)
@@ -531,6 +531,7 @@ func TestShadowSepolia(t *testing.T) {
 	}
 	for _, hash := range classHashes {
 		classHash := utils.HexToFelt(t, hash)
+		fmt.Println("classHash", classHash.String())
 		class, err2 := gw.Class(context.Background(), classHash)
 		require.NoError(t, err2)
 		snData.EXPECT().Class(context.Background(), classHash).Return(class, nil)

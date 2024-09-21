@@ -86,22 +86,23 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, starknetData starknetdata.StarknetData,
 ) *Builder {
 	return &Builder{
-		ownAddress:        *ownAddr,
-		privKey:           privKey,
-		blockTime:         blockTime,
-		log:               log,
-		listener:          &SelectiveListener{},
-		chanFinaliseBlock: make(chan struct{}, 1),
-		chanFinalised:     make(chan struct{}, 1),
+		ownAddress: *ownAddr,
+		privKey:    privKey,
+		blockTime:  blockTime,
+		log:        log,
+		listener:   &SelectiveListener{},
+
+		chanFinaliseBlock:   make(chan struct{}, 1),
+		chanFinalised:       make(chan struct{}, 1),
+		chanNumTxnsToShadow: make(chan int, 1),
 
 		bc:       bc,
 		pool:     pool,
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
 
-		shadowMode:          true,
-		starknetData:        starknetData,
-		chanNumTxnsToShadow: make(chan int, 1),
+		shadowMode:   true,
+		starknetData: starknetData,
 	}
 }
 
@@ -470,7 +471,6 @@ func (b *Builder) listenPool(ctx context.Context) error {
 				return err
 			}
 		}
-
 		select {
 		case <-ctx.Done():
 			return nil
@@ -503,7 +503,6 @@ func (b *Builder) depletePool(ctx context.Context) error {
 				<-b.chanNumTxnsToShadow
 			}
 		}
-
 		select {
 		case <-ctx.Done():
 			return nil
@@ -557,9 +556,11 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	}
 
 	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
-	err = b.overrideTraces(receipt)
-	if err != nil {
-		return err
+	if b.shadowBlock != nil {
+		err = b.overrideTraces(receipt)
+		if err != nil {
+			return err
+		}
 	}
 	if b.junoEndpoint != "" {
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
@@ -676,15 +677,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 
 		b.shadowStateUpdate = su
 		b.shadowBlock = block
-		b.pendingBlock.Block.Transactions = nil
-		b.pendingBlock.Block.Number = nextBlockToSequence
-		b.pendingBlock.Block.SequencerAddress = block.SequencerAddress      // Affects post 0.13.2 block hash
-		b.pendingBlock.Block.Timestamp = block.Timestamp                    // Affects post 0.13.2 block hash
-		b.pendingBlock.Block.Header.ProtocolVersion = block.ProtocolVersion // Affects post 0.13.2 block hash
-		b.pendingBlock.Block.Header.GasPrice = block.GasPrice               // Affects post 0.13.2 block hash
-		b.pendingBlock.Block.Header.GasPriceSTRK = block.GasPriceSTRK       // Affects post 0.13.2 block hash
-		b.pendingBlock.Block.Header.L1DataGasPrice = block.L1DataGasPrice   // Affects post 0.13.2 block hash
-		b.pendingBlock.Block.Header.L1DAMode = block.L1DAMode               // Affects data_availability
+		b.setPendingHeader(block, nextBlockToSequence)
 		blockHashStorage := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
 		for _, blockHash := range blockHashStorage {
 			b.blockHashToBeRevealed = blockHash // Affects execution
@@ -708,6 +701,18 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (b *Builder) setPendingHeader(refBlock *core.Block, nextBlockToSequence uint64) {
+	b.pendingBlock.Block.Transactions = nil
+	b.pendingBlock.Block.Number = nextBlockToSequence
+	b.pendingBlock.Block.SequencerAddress = refBlock.SequencerAddress      // Affects post 0.13.2 block hash
+	b.pendingBlock.Block.Timestamp = refBlock.Timestamp                    // Affects post 0.13.2 block hash
+	b.pendingBlock.Block.Header.ProtocolVersion = refBlock.ProtocolVersion // Affects post 0.13.2 block hash
+	b.pendingBlock.Block.Header.GasPrice = refBlock.GasPrice               // Affects post 0.13.2 block hash
+	b.pendingBlock.Block.Header.GasPriceSTRK = refBlock.GasPriceSTRK       // Affects post 0.13.2 block hash
+	b.pendingBlock.Block.Header.L1DataGasPrice = refBlock.L1DataGasPrice   // Affects post 0.13.2 block hash
+	b.pendingBlock.Block.Header.L1DAMode = refBlock.L1DAMode               // Affects data_availability
 }
 
 // syncStore pulls blocks, classes and state-updates directly from the FGW and stores them in the
