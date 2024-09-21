@@ -8,10 +8,8 @@ edition = "2021"
 [dependencies]
 serde = "1.0.171"
 serde_json = { version = "1.0.96", features = ["raw_value"] }
-#blockifier = { git = "https://github.com/NethermindEth/sequencer", rev = "68cd327a71062ea4ad03f930b11d1f6a0b019c17" }
-#starknet_api = { git = "https://github.com/NethermindEth/sequencer", rev = "68cd327a71062ea4ad03f930b11d1f6a0b019c17" }
-blockifier = { path = "../../../nethermind_sequencer/crates/blockifier" }
-starknet_api = { path = "../../../nethermind_sequencer/crates/starknet_api" }
+blockifier = { git = "https://github.com/NethermindEth/sequencer", rev = "de05be2f904cf23cfc25eeaa68bf89546298577d" }
+starknet_api = { git = "https://github.com/NethermindEth/sequencer", rev = "de05be2f904cf23cfc25eeaa68bf89546298577d" }
 cairo-lang-sierra = "2.8.0"
 cairo-lang-starknet = "2.8.0"
 cairo-lang-starknet-classes = "2.8.0"
