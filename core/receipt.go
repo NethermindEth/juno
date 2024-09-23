@@ -72,8 +72,8 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 		wg.Add(numWorkers)
 
 		jobs := make(chan int, len(receipts))
-		for i := range receipts {
-			jobs <- i
+		for idx := range receipts {
+			jobs <- idx
 		}
 		close(jobs)
 
