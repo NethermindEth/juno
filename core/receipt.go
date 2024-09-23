@@ -88,9 +88,8 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 
 		wg.Wait()
 
-		key := new(felt.Felt)
 		for i, res := range results {
-			key.SetUint64(uint64(i))
+			key := new(felt.Felt).SetUint64(uint64(i))
 			if _, err := trie.Put(key, res); err != nil {
 				return err
 			}
