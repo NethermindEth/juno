@@ -662,29 +662,18 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 }
 
 func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
-	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
-		for i, transaction := range transactions {
-			var digest crypto.PoseidonDigest
-			digest.Update(transaction.Hash())
+	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
+		var digest crypto.PoseidonDigest
+		digest.Update(transaction.Hash())
 
-			switch transaction.(type) {
-			case *DeployTransaction, *L1HandlerTransaction:
-				digest.Update(&felt.Zero)
-			default:
-				digest.Update(transaction.Signature()...)
-			}
+		switch transaction.(type) {
+		case *DeployTransaction, *L1HandlerTransaction:
+			digest.Update(&felt.Zero)
+		default:
+			digest.Update(transaction.Signature()...)
+		}
 
-			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), digest.Finish()); err != nil {
-				return err
-			}
-		}
-		root, err := trie.Root()
-		if err != nil {
-			return err
-		}
-		commitment = root
-		return nil
+		return digest.Finish()
 	})
 }
 
