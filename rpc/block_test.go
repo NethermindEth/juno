@@ -343,6 +343,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkLatestBlock(t, block)
 	})
 }
+
 func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
@@ -370,37 +371,31 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", nil)
-
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
 	mainnetBlockNumber := uint64(2889)
-	mainnetBlock, err := gw.BlockByNumber(context.Background(), mainnetBlockNumber)
-	require.NoError(t, err)
-	mainnetBlockHash := mainnetBlock.Hash
 
-	mainnetPendingBlock, err := gw.BlockPending(context.Background())
+	coreBlock, err := gw.BlockByNumber(context.Background(), mainnetBlockNumber)
+	require.NoError(t, err)
+	corePendingBlock, err := gw.BlockPending(context.Background())
+	require.NoError(t, err)
+	coreLatestBlock, err := gw.BlockLatest(context.Background())
 	require.NoError(t, err)
 
-	compareBlocks := func(t *testing.T, a *core.Block, b *rpc.BlockWithTxHashesAndReceipts) {
+	compareBlocks := func(t *testing.T, a *rpc.BlockWithReceipts, b *rpc.BlockWithTxHashesAndReceipts) {
 		t.Helper()
 		assert.Equal(t, a.ParentHash, b.ParentHash)
-		if a.SequencerAddress == nil { //if a.SequencerAddress is nil b.SequencerAddress should be felt.Zero
-			assert.Equal(t, &felt.Zero, b.SequencerAddress)
-			assert.Zero(t, new(felt.Felt))
-
-		} else {
-			assert.Equal(t, a.SequencerAddress, b.SequencerAddress)
-		}
+		assert.Equal(t, a.SequencerAddress, b.SequencerAddress)
 		assert.Equal(t, a.Timestamp, b.Timestamp)
-		assert.EqualValues(t, a.L1DataGasPrice, b.L1DataGasPrice)
-		assert.Equal(t, a.GasPrice, b.L1GasPrice.InWei)
+		assert.Equal(t, a.L1DataGasPrice, b.L1DataGasPrice)
+		assert.Equal(t, a.L1GasPrice, b.L1GasPrice)
 		assert.EqualValues(t, a.L1DAMode, b.L1DAMode)
-		assert.Equal(t, a.ProtocolVersion, b.StarknetVersion)
-		assert.Equal(t, len(a.Receipts), len(b.ReceiptsWithHashes))
-		for i := 0; i < len(a.Receipts); i++ {
-			assert.Equal(t, a.Transactions[i].Hash(), b.ReceiptsWithHashes[i].Hash)
-			assert.Equal(t, a.Receipts[i], b.ReceiptsWithHashes[i].Receipt)
+		assert.Equal(t, a.StarknetVersion, b.StarknetVersion)
+		assert.Equal(t, len(a.Transactions), len(b.ReceiptsWithHashes))
+		for i := 0; i < len(a.Transactions); i++ {
+			assert.Equal(t, a.Transactions[i].Transaction.Hash, b.ReceiptsWithHashes[i].Hash)
+			assert.Equal(t, a.Transactions[i].Receipt, b.ReceiptsWithHashes[i].Receipt)
 		}
 	}
 
@@ -414,18 +409,26 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 			assert.Nil(t, block.Number)
 			assert.Nil(t, block.NewRoot)
 			assert.Equal(t, rpc.BlockPending, block.Status)
+
+			mainnetPendingBlock, rpcErr := handler.BlockWithReceipts(blockID)
+			require.Nil(t, rpcErr)
 			compareBlocks(t, mainnetPendingBlock, block)
 		} else {
+			mainnetBlock, rpcErr := handler.BlockWithReceipts(blockID)
+			require.Nil(t, rpcErr)
+
 			assert.Equal(t, mainnetBlock.Hash, block.Hash)
-			assert.Equal(t, mainnetBlock.Number, *block.Number)
-			assert.Equal(t, mainnetBlock.GlobalStateRoot, block.NewRoot)
+			assert.Equal(t, mainnetBlock.Number, block.Number)
+			assert.Equal(t, mainnetBlock.NewRoot, block.NewRoot)
 			assert.NotEqual(t, rpc.BlockPending, block.Status)
 			assert.NotEqual(t, rpc.BlockRejected, block.Status)
+
 			compareBlocks(t, mainnetBlock, block)
 		}
 
 		return block
 	}
+
 	t.Run("block not found", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
 
@@ -437,41 +440,41 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 	})
 	t.Run("blockID - pending", func(t *testing.T) {
 		mockReader.EXPECT().Pending().Return(blockchain.Pending{
-			Block: mainnetPendingBlock,
-		}, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+			Block: corePendingBlock,
+		}, nil).Times(2)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		checkBlock(t, rpc.BlockID{Pending: true})
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(mainnetBlock, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().Head().Return(coreLatestBlock, nil).Times(2)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		checkBlock(t, rpc.BlockID{Latest: true})
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockByHash(mainnetBlockHash).Return(mainnetBlock, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockByHash(coreBlock.Hash).Return(coreBlock, nil).Times(2)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		checkBlock(t, rpc.BlockID{Hash: mainnetBlockHash})
+		checkBlock(t, rpc.BlockID{Hash: coreBlock.Hash})
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(mainnetBlockNumber).Return(mainnetBlock, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockByNumber(mainnetBlockNumber).Return(coreBlock, nil).Times(2)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		checkBlock(t, rpc.BlockID{Number: mainnetBlockNumber})
 	})
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
-		mockReader.EXPECT().BlockByNumber(mainnetBlockNumber).Return(mainnetBlock, nil)
+		mockReader.EXPECT().BlockByNumber(mainnetBlockNumber).Return(coreBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
 			BlockNumber: mainnetBlockNumber,
-			BlockHash:   mainnetBlockHash,
-			StateRoot:   mainnetBlock.GlobalStateRoot,
-		}, nil)
+			BlockHash:   coreBlock.Hash,
+			StateRoot:   coreBlock.GlobalStateRoot,
+		}, nil).Times(2)
 
 		block := checkBlock(t, rpc.BlockID{Number: mainnetBlockNumber})
 		assert.Equal(t, rpc.BlockAcceptedL1, block.Status)
