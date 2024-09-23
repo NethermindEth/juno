@@ -1,11 +1,12 @@
 package core
 
 import (
+	"testing"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestTransactionCommitmentPoseidon(t *testing.T) {
