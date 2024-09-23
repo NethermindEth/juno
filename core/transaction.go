@@ -723,7 +723,7 @@ func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error)
 			})
 		}
 	}
-	return generateAndPutCommitment(items, trie.RunOnTempTriePoseidon, func(item *eventWithTxHash) *felt.Felt {
+	return getCommitment(items, trie.RunOnTempTriePoseidon, func(item *eventWithTxHash) *felt.Felt {
 		return crypto.PoseidonArray(
 			slices.Concat(
 				[]*felt.Felt{
@@ -751,7 +751,7 @@ func eventCommitmentPedersen(receipts []*TransactionReceipt) (*felt.Felt, error)
 	for _, receipt := range receipts {
 		events = append(events, receipt.Events...)
 	}
-	return generateAndPutCommitment(events, trie.RunOnTempTriePedersen, func(event *Event) *felt.Felt {
+	return getCommitment(events, trie.RunOnTempTriePedersen, func(event *Event) *felt.Felt {
 		return crypto.PedersenArray(
 			event.From,
 			crypto.PedersenArray(event.Keys...),

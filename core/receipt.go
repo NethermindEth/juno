@@ -64,7 +64,7 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 }
 
 func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
-	return generateAndPutCommitment(
+	return getCommitment(
 		receipts,
 		trie.RunOnTempTriePoseidon,
 		func(receipt *TransactionReceipt) *felt.Felt {
@@ -76,7 +76,7 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 type onTempTrieFunc func(uint8, func(*trie.Trie) error) error
 
 // General function for parallel processing of receipts
-func generateAndPutCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, processFunc func(T) *felt.Felt) (*felt.Felt, error) {
+func getCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process func(T) *felt.Felt) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(items))
@@ -94,7 +94,7 @@ func generateAndPutCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, pr
 			go func() {
 				defer wg.Done()
 				for i := range jobs {
-					results[i] = processFunc(items[i])
+					results[i] = process(items[i])
 				}
 			}()
 		}
