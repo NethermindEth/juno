@@ -101,3 +101,41 @@ func TestAdaptExecutionResources(t *testing.T) {
 		},
 	}, &vm.GasConsumed{L1Gas: 1, L1DataGas: 2}))
 }
+
+func TestStateDiff(t *testing.T) {
+	address1 := *new(felt.Felt).SetUint64(1)
+	key1 := *new(felt.Felt).SetUint64(2)
+	value1 := *new(felt.Felt).SetUint64(3)
+	nonce1 := *new(felt.Felt).SetUint64(4)
+	classHash1 := *new(felt.Felt).SetUint64(5)
+	compiledClassHash1 := *new(felt.Felt).SetUint64(6)
+	trace := &vm.TransactionTrace{
+		StateDiff: &vm.StateDiff{
+			StorageDiffs: []vm.StorageDiff{
+				{
+					Address: address1,
+					StorageEntries: []vm.Entry{
+						{Key: key1, Value: value1},
+					},
+				},
+			},
+			Nonces:                    []vm.Nonce{{ContractAddress: address1, Nonce: nonce1}},
+			DeployedContracts:         []vm.DeployedContract{{Address: address1, ClassHash: classHash1}},
+			DeclaredClasses:           []vm.DeclaredClass{{ClassHash: classHash1, CompiledClassHash: compiledClassHash1}},
+			ReplacedClasses:           []vm.ReplacedClass{{ContractAddress: address1, ClassHash: classHash1}},
+			DeprecatedDeclaredClasses: []*felt.Felt{&classHash1},
+		},
+	}
+
+	expected := &core.StateDiff{
+		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			address1: {key1: &value1},
+		},
+		Nonces:            map[felt.Felt]*felt.Felt{address1: &nonce1},
+		DeployedContracts: map[felt.Felt]*felt.Felt{address1: &classHash1},
+		DeclaredV0Classes: []*felt.Felt{&classHash1},
+		DeclaredV1Classes: map[felt.Felt]*felt.Felt{classHash1: &compiledClassHash1},
+		ReplacedClasses:   map[felt.Felt]*felt.Felt{address1: &classHash1},
+	}
+	require.Equal(t, expected, vm2core.StateDiff(trace))
+}

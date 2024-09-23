@@ -414,56 +414,6 @@ func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt,
 	}
 }
 
-// Todo: move to adapters
-func StateDiff(trace *vm.TransactionTrace) *core.StateDiff {
-	if trace.StateDiff == nil {
-		return nil
-	}
-	stateDiff := trace.StateDiff
-	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
-	for _, sd := range stateDiff.StorageDiffs {
-		entries := make(map[felt.Felt]*felt.Felt)
-		for _, entry := range sd.StorageEntries {
-			val := entry.Value
-			entries[entry.Key] = &val
-		}
-		newStorageDiffs[sd.Address] = entries
-	}
-
-	newNonces := make(map[felt.Felt]*felt.Felt)
-	for _, nonce := range stateDiff.Nonces {
-		nonc := nonce.Nonce
-		newNonces[nonce.ContractAddress] = &nonc
-	}
-
-	newDeployedContracts := make(map[felt.Felt]*felt.Felt)
-	for _, dc := range stateDiff.DeployedContracts {
-		ch := dc.ClassHash
-		newDeployedContracts[dc.Address] = &ch
-	}
-
-	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt)
-	for _, dc := range stateDiff.DeclaredClasses {
-		cch := dc.CompiledClassHash
-		newDeclaredV1Classes[dc.ClassHash] = &cch
-	}
-
-	newReplacedClasses := make(map[felt.Felt]*felt.Felt)
-	for _, rc := range stateDiff.ReplacedClasses {
-		ch := rc.ClassHash
-		newReplacedClasses[rc.ContractAddress] = &ch
-	}
-
-	return &core.StateDiff{
-		StorageDiffs:      newStorageDiffs,
-		Nonces:            newNonces,
-		DeployedContracts: newDeployedContracts,
-		DeclaredV0Classes: stateDiff.DeprecatedDeclaredClasses,
-		DeclaredV1Classes: newDeclaredV1Classes,
-		ReplacedClasses:   newReplacedClasses,
-	}
-}
-
 func (b *Builder) listenPool(ctx context.Context) error {
 	for {
 		if err := b.depletePool(ctx); err != nil {
@@ -582,7 +532,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount += 1
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
-	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, StateDiff(&trace[0]))
+	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, vm2core.StateDiff(&trace[0]))
 	return nil
 }
 
