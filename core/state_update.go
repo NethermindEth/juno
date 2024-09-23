@@ -27,38 +27,6 @@ type StateDiff struct {
 	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
-func (d *StateDiff) Print() {
-	fmt.Println("StateDiff {")
-	fmt.Println("  StorageDiffs:")
-	for addr, keyValueMap := range d.StorageDiffs {
-		fmt.Printf("    %s:\n", addr.String())
-		for key, value := range keyValueMap {
-			fmt.Printf("      %s: %s\n", key.String(), value.String())
-		}
-	}
-	fmt.Println("  Nonces:")
-	for addr, nonce := range d.Nonces {
-		fmt.Printf("    %s: %s\n", addr.String(), nonce.String())
-	}
-	fmt.Println("  DeployedContracts:")
-	for addr, classHash := range d.DeployedContracts {
-		fmt.Printf("    %s: %s\n", addr.String(), classHash.String())
-	}
-	fmt.Println("  DeclaredV0Classes:")
-	for _, classHash := range d.DeclaredV0Classes {
-		fmt.Printf("    %s\n", classHash.String())
-	}
-	fmt.Println("  DeclaredV1Classes:")
-	for classHash, compiledClassHash := range d.DeclaredV1Classes {
-		fmt.Printf("    %s: %s\n", classHash.String(), compiledClassHash.String())
-	}
-	fmt.Println("  ReplacedClasses:")
-	for addr, classHash := range d.ReplacedClasses {
-		fmt.Printf("    %s: %s\n", addr.String(), classHash.String())
-	}
-	fmt.Println("}")
-}
-
 func (d *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bool) {
 	var sb strings.Builder
 	differencesFound := false

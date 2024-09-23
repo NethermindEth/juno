@@ -103,23 +103,6 @@ type ExecutionResources struct {
 	TotalGasConsumed       *GasConsumed
 }
 
-func (er *ExecutionResources) Print() {
-	fmt.Println("    Builtin Instance Counter:")
-	er.BuiltinInstanceCounter.Print()
-	fmt.Println("    Memory Holes:", er.MemoryHoles)
-	fmt.Println("    Steps:", er.Steps)
-
-	if er.DataAvailability != nil {
-		fmt.Println("    Data Availability:")
-		er.DataAvailability.Print()
-	}
-
-	if er.TotalGasConsumed != nil {
-		fmt.Println("    Total Gas Consumed:")
-		er.TotalGasConsumed.Print()
-	}
-}
-
 type BuiltinInstanceCounter struct {
 	Pedersen     uint64
 	RangeCheck   uint64
@@ -135,34 +118,9 @@ type BuiltinInstanceCounter struct {
 	RangeCheck96 uint64
 }
 
-func (bic *BuiltinInstanceCounter) Print() {
-	fmt.Println("      Pedersen:", bic.Pedersen)
-	fmt.Println("      RangeCheck:", bic.RangeCheck)
-	fmt.Println("      Bitwise:", bic.Bitwise)
-	fmt.Println("      Output:", bic.Output)
-	fmt.Println("      Ecsda:", bic.Ecsda)
-	fmt.Println("      EcOp:", bic.EcOp)
-	fmt.Println("      Keccak:", bic.Keccak)
-	fmt.Println("      Poseidon:", bic.Poseidon)
-	fmt.Println("      SegmentArena:", bic.SegmentArena)
-	fmt.Println("      AddMod:", bic.AddMod)
-	fmt.Println("      MulMod:", bic.MulMod)
-	fmt.Println("      RangeCheck96:", bic.RangeCheck96)
-}
-
-func (gc *GasConsumed) Print() {
-	fmt.Println("      L1 Gas:", gc.L1Gas)
-	fmt.Println("      L1 Data Gas:", gc.L1DataGas)
-}
-
 type DataAvailability struct {
 	L1Gas     uint64
 	L1DataGas uint64
-}
-
-func (da *DataAvailability) Print() {
-	fmt.Println("      L1 Gas:", da.L1Gas)
-	fmt.Println("      L1 Data Gas:", da.L1DataGas)
 }
 
 type Transaction interface {

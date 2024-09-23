@@ -3,10 +3,10 @@
 .PHONY: vm
 
 ifeq ($(VM_DEBUG),true)
-    GO_TAGS = -tags vm_debug
+    GO_TAGS = -tags 'vm_debug,no_coverage'
     VM_TARGET = debug
 else
-    GO_TAGS =
+    GO_TAGS = -tags 'no_coverage'
     VM_TARGET = all
 endif
 

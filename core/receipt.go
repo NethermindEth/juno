@@ -172,40 +172,6 @@ func equalSlices(a, b []*felt.Felt) bool {
 	return true
 }
 
-func (r *TransactionReceipt) Print() {
-	fmt.Println("Transaction Receipt:")
-	fmt.Println("  Fee:", r.Fee.String())
-	fmt.Println("  Fee Unit:", r.FeeUnit)
-	fmt.Println("  Transaction Hash:", r.TransactionHash.String())
-	fmt.Println("  Reverted:", r.Reverted)
-	if r.Reverted {
-		fmt.Println("  Revert Reason:", r.RevertReason)
-	}
-
-	fmt.Println("  Events:")
-	for i, event := range r.Events {
-		fmt.Printf("    Event %d:\n", i+1)
-		fmt.Println("      From:", event.From.String())
-		fmt.Println("      Data:")
-		for j, data := range event.Data {
-			fmt.Printf("        Data %d: %s\n", j+1, data.String())
-		}
-		fmt.Println("      Keys:")
-		for j, key := range event.Keys {
-			fmt.Printf("        Key %d: %s\n", j+1, key.String())
-		}
-	}
-
-	if r.ExecutionResources != nil {
-		fmt.Println("  Execution Resources:")
-		r.ExecutionResources.Print()
-	}
-
-	fmt.Println("  L1 To L2 Message: TODO")
-
-	fmt.Println("  L2 To L1 Messages: TODO")
-}
-
 func (r *TransactionReceipt) hash() *felt.Felt {
 	revertReasonHash := &felt.Zero
 	if r.Reverted {
