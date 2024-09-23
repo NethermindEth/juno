@@ -272,12 +272,6 @@ pub extern "C" fn cairoVMExecute(
                     report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
                     return;
                 }
-                println!(
-                    "class_info abi len {} bytecode len{} code len {}",
-                    maybe_cc.clone().unwrap().abi_length(),
-                    maybe_cc.clone().unwrap().bytecode_length(),
-                    maybe_cc.clone().unwrap().code_size()
-                );
                 Some(maybe_cc.unwrap())
             }
             _ => None,
@@ -325,9 +319,6 @@ pub extern "C" fn cairoVMExecute(
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
-
-        // println!("block_context.block_info().gas_prices.get_data_gas_price_by_fee_type(&fee_type).get() {:?}",block_context.block_info().gas_prices.get_data_gas_price_by_fee_type(&fee_type).get());
-        // println!("block_context.block_info().gas_prices.get_gas_price_by_fee_type(&fee_type).get() {:?}",block_context.block_info().gas_prices.get_gas_price_by_fee_type(&fee_type).get());
         match res {
             Err(error) => {
                 let err_string = match &error {
@@ -357,9 +348,6 @@ pub extern "C" fn cairoVMExecute(
                     );
                     return;
                 }
-                // println!(" t.transaction_receipt.da_gas {:?}",t.transaction_receipt.da_gas);
-                // println!(" t.transaction_receipt.gas {:?}",t.transaction_receipt.gas);
-                // println!(" t.transaction_receipt.fee {:?}",t.transaction_receipt.fee);
 
                 // we are estimating fee, override actual fee calculation
                 if t.transaction_receipt.fee.0 == 0 && !is_l1_handler_txn {
@@ -533,7 +521,6 @@ fn build_block_context(
         })
     }
     let mut constants = get_versioned_constants(block_info.version);
-    // println!("constants.l2_resource_gas_costs.gas_per_code_byte {:?} {:?}",constants.l2_resource_gas_costs.gas_per_code_byte.numer(),constants.l2_resource_gas_costs.gas_per_code_byte.denom());
     if let Some(max_steps) = max_steps {
         constants.invoke_tx_max_n_steps = max_steps as u32;
     }

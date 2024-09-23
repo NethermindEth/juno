@@ -1184,10 +1184,10 @@ func (b *Blockchain) verifyAgainstReference(pending *Pending, commitments *core.
 }
 
 func (b *Blockchain) validateStateDiff(shadowStateUpdate, pendingStateUpdate *core.StateUpdate) error {
-	diffString, diffFound := pendingStateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
+	_, diffFound := pendingStateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
 	if diffFound {
 		// Todo: make format nicely
-		fmt.Println(diffString)
+		// fmt.Println(diffString)
 		return fmt.Errorf("state diff validation failed")
 	}
 	return nil

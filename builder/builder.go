@@ -10,7 +10,6 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -468,7 +467,6 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		return err
 	}
 
-	// Todo: can we remove this? Eg does blockifier handler this for us?
 	feeUnit := core.WEI
 	if txn.Transaction.TxVersion().Is(3) {
 		feeUnit = core.STRK
@@ -503,7 +501,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		if diffsNotEqual {
 			// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
 			b.log.Debugw("Generated transaction trace does not match that from Sepolia")
-			b.log.Debugw(diffString) // Todo: Debug doesn't seem to format this nicely
+			b.log.Debugw(diffString) // Todo: Debug doesn't seem to format this nicely, use print?
 		}
 
 		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
@@ -552,15 +550,6 @@ func (b *Builder) overrideTraces(receipt *core.TransactionReceipt) error {
 	// If we run with blockifier-rc3, we won't get the same revert-reason that was
 	// generated if the FGW was running blockifier-rc2. We account for this here.
 	receipt.RevertReason = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].RevertReason
-
-	// Todo: early 0.12.3 blocks don't charge fees, but blockifier does (breaking change??)
-	blockVer, err := core.ParseBlockVersion(b.pendingBlock.Block.Header.ProtocolVersion)
-	if err != nil {
-		return err
-	}
-	if blockVer.LessThanEqual(semver.MustParse("0.12.3")) {
-		receipt.Fee = new(felt.Felt).SetUint64(0)
-	}
 	return nil
 }
 
@@ -599,7 +588,7 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			return err
 		}
 		if b.junoEndpoint != "" {
-			snBlockTraces, err := b.RPCGetBlockTrace(int(block.Number))
+			snBlockTraces, err := b.rpcGetBlockTrace(int(block.Number))
 			if err != nil {
 				return err
 			}
@@ -714,9 +703,9 @@ func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdat
 	return block, su, classes, nil
 }
 
-// RPCGetBlockTrace helps debug traces by comparing them against the traces that are returned
+// rpcGetBlockTrace helps debug traces by comparing them against the traces that are returned
 // over RPC. This method is not needed to run the sequencer, but it's useful for debugging.
-func (b *Builder) RPCGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, error) {
+func (b *Builder) rpcGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, error) {
 	type RequestPayload struct {
 		JSONRPC string                 `json:"jsonrpc"`
 		Method  string                 `json:"method"`
