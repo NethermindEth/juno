@@ -5,7 +5,7 @@ go 1.23.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
-	github.com/bits-and-blooms/bitset v1.14.2
+	github.com/bits-and-blooms/bitset v1.14.3
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/coder/websocket v1.8.12
