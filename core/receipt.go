@@ -84,8 +84,8 @@ func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process
 		var wg sync.WaitGroup
 		wg.Add(numWorkers)
 
-		jobs := make(chan int, len(receipts))
-		for idx := range receipts {
+		jobs := make(chan int, len(items))
+		for idx := range items {
 			jobs <- idx
 		}
 		close(jobs)
