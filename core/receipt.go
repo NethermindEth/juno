@@ -73,10 +73,13 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	)
 }
 
-type onTempTrieFunc func(uint8, func(*trie.Trie) error) error
+type (
+	onTempTrieFunc     func(uint8, func(*trie.Trie) error) error
+	processFunc[T any] func(T) *felt.Felt
+)
 
 // General function for parallel processing of items and calculation of a commitment
-func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process func(T) *felt.Felt) (*felt.Felt, error) {
+func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process processFunc[T]) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(items))

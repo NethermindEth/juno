@@ -629,36 +629,28 @@ const commitmentTrieHeight = 64
 // transactionCommitmentPedersen is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
 func transactionCommitmentPedersen(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
-	var commitment *felt.Felt
+	blockVersion, err := ParseBlockVersion(protocolVersion)
 	v0_11_1 := semver.MustParse("0.11.1")
-	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
-		blockVersion, err := ParseBlockVersion(protocolVersion)
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return nil, err
+	}
+	var process processFunc[Transaction]
 
-		for i, transaction := range transactions {
+	if blockVersion.GreaterThanEqual(v0_11_1) {
+		process = func(transaction Transaction) *felt.Felt {
+			signatureHash := crypto.PedersenArray(transaction.Signature()...)
+			return crypto.Pedersen(transaction.Hash(), signatureHash)
+		}
+	} else {
+		process = func(transaction Transaction) *felt.Felt {
 			signatureHash := crypto.PedersenArray()
-
-			// blockVersion >= 0.11.1
-			if blockVersion.GreaterThanEqual(v0_11_1) {
-				signatureHash = crypto.PedersenArray(transaction.Signature()...)
-			} else if _, ok := transaction.(*InvokeTransaction); ok {
+			if _, ok := transaction.(*InvokeTransaction); ok {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			}
-
-			if _, err = trie.Put(new(felt.Felt).SetUint64(uint64(i)),
-				crypto.Pedersen(transaction.Hash(), signatureHash)); err != nil {
-				return err
-			}
+			return crypto.Pedersen(transaction.Hash(), signatureHash)
 		}
-		root, err := trie.Root()
-		if err != nil {
-			return err
-		}
-		commitment = root
-		return nil
-	})
+	}
+	return calculateCommitment(transactions, trie.RunOnTempTriePedersen, process)
 }
 
 func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
