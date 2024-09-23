@@ -150,6 +150,112 @@ func TestContractRange(t *testing.T) {
 	assert.Equal(t, 1, chunksReceived)
 }
 
+func TestContractRangeByOneContract(t *testing.T) {
+	var d db.DB
+	//t.Skip("DB snapshot is needed for this test")
+	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
+
+	b, err := bc.Head()
+	assert.NoError(t, err)
+
+	fmt.Printf("headblock %d\n", b.Number)
+
+	stateRoot := b.GlobalStateRoot
+
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
+	server := &snapServer{
+		log:        logger,
+		blockchain: bc,
+	}
+
+	tests := []struct {
+		address             *felt.Felt
+		expectedStorageRoot *felt.Felt
+		expectedClassHash   *felt.Felt
+		expectedNonce       uint64
+	}{
+		{
+			address:             feltFromString("0x27b0a1ba755185b8d05126a1e00ca687e6680e51d634b5218760b716b8d06"),
+			expectedStorageRoot: feltFromString("0xa8d7943793ddd09e49b8650a71755ed04d0de087b28ad5967b519864f9844"),
+			expectedClassHash:   feltFromString("0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3"),
+			expectedNonce:       0,
+		},
+		{
+			address:             feltFromString("0x292854fdd7653f65d8adc66739866567c212f2ef15ad8616e713eafc97e0a"),
+			expectedStorageRoot: feltFromString("0x718f57f8cd2950a0f240941876eafdffe86c84bd2601de4ea244956d96d85b6"),
+			expectedClassHash:   feltFromString("0x29927c8af6bccf3f6fda035981e765a7bdbf18a2dc0d630494f8758aa908e2b"),
+			expectedNonce:       2,
+		},
+		{
+			address:             feltFromString("0xf3c569521d6ca43a0e2b86fd251031e2158aae502bf199f7eec986fe348f"),
+			expectedStorageRoot: feltFromString("0x41c2705457dfa3872cbc862ac86c85d118259154f08408c3cd350a15646d596"),
+			expectedClassHash:   feltFromString("0x29927c8af6bccf3f6fda035981e765a7bdbf18a2dc0d630494f8758aa908e2b"),
+			expectedNonce:       1,
+		},
+		{
+			address:             feltFromString("0x5edd7ece0dc39633f9825e16e39e17a0bded7bf540a685876ceb75cdfd9eb"),
+			expectedStorageRoot: feltFromString("0x26f6e269f9462b6bf1649394aa4080d40ca4f4bc792bd0c1a72a8b524a93a9d"),
+			expectedClassHash:   feltFromString("0x66559c86e66214ba1bc5d6512f6411aa066493e6086ff5d54f41a970d47fc5a"),
+			expectedNonce:       0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%.7s...", test.address), func(t *testing.T) {
+			chunksPerProof := 5
+			ctrIter, err := server.GetContractRange(
+				&spec.ContractRangeRequest{
+					StateRoot:      core2p2p.AdaptHash(stateRoot),
+					Start:          core2p2p.AdaptAddress(test.address),
+					End:            core2p2p.AdaptAddress(test.address),
+					ChunksPerProof: uint32(chunksPerProof),
+				})
+			assert.NoError(t, err)
+
+			finReceived := false
+			chunksReceived := 0
+
+			for res := range ctrIter {
+				assert.NotNil(t, res)
+
+				resT, ok := res.(*spec.ContractRangeResponse)
+				assert.True(t, ok)
+				assert.NotNil(t, resT)
+
+				switch v := resT.GetResponses().(type) {
+				case *spec.ContractRangeResponse_Range:
+					crctStates := v.Range.State
+					assert.Len(t, crctStates, 1)
+
+					crct := crctStates[0]
+					address := p2p2core.AdaptAddress(crct.Address)
+					assert.Equal(t, test.address, address)
+
+					storageRoot := p2p2core.AdaptHash(crct.Storage)
+					assert.Equal(t, test.expectedStorageRoot, storageRoot)
+
+					classHash := p2p2core.AdaptHash(crct.Class)
+					assert.Equal(t, test.expectedClassHash, classHash, "classHash", classHash)
+
+					assert.Equal(t, test.expectedNonce, crct.Nonce)
+
+					chunksReceived++
+				case *spec.ContractRangeResponse_Fin:
+					assert.Equal(t, 1, chunksReceived)
+					finReceived = true
+				default:
+					// we expect no any other message only just one range because we break the iteration
+					t.Fatal("received unexpected message", "type", v)
+				}
+			}
+
+			assert.True(t, finReceived)
+		})
+	}
+}
+
 func TestContractRange_FinMsg_Received(t *testing.T) {
 	// TODO: Fix the test so it demonstrated FinMsg is returned at the iteration end
 	t.Skip("Fix me")
@@ -347,7 +453,7 @@ func TestGetClassesByHash(t *testing.T) {
 
 func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 	var d db.DB
-	t.Skip("DB snapshot is needed for this test")
+	//t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -402,7 +508,7 @@ func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 			t.Fatal("received unexpected message", "type", v)
 		}
 
-		if contracts > 1000 {
+		if contracts > 100 {
 			break
 		}
 	}
@@ -458,7 +564,7 @@ func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 	}
 
 	for addr, cnt := range stoCnt {
-		if cnt > 100 {
+		if cnt <= 3 {
 			fmt.Printf("[%5d]: address %s, storageRoot %s\n", cnt, &addr, ctso[addr])
 		}
 	}
