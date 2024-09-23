@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"runtime"
 	"slices"
 	"strings"
-	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -18,7 +16,6 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/sourcegraph/conc/pool"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -706,125 +703,60 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	return semver.NewVersion(strings.Join(digits[:3], sep))
 }
 
+type eventWithTxHash struct {
+	Event  *Event
+	TxHash *felt.Felt
+}
+
 // eventCommitmentPoseidon computes the event commitment for a block.
 func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error) {
-	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
-		eventCount := uint64(0)
-		numWorkers := runtime.GOMAXPROCS(0)
-		receiptPerWorker := len(receipts) / numWorkers
-		if receiptPerWorker == 0 {
-			receiptPerWorker = 1
+	eventCounter := 0
+	for _, receipt := range receipts {
+		eventCounter += len(receipt.Events)
+	}
+	items := make([]*eventWithTxHash, 0, eventCounter)
+	for _, receipt := range receipts {
+		for _, event := range receipt.Events {
+			items = append(items, &eventWithTxHash{
+				Event:  event,
+				TxHash: receipt.TransactionHash,
+			})
 		}
-		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
-		var trieMutex sync.Mutex
-
-		for receiptIdx := range receipts {
-			if receiptIdx%receiptPerWorker == 0 {
-				curReceiptIdx := receiptIdx
-				curEventIdx := eventCount
-
-				workerPool.Go(func() error {
-					maxIndex := curReceiptIdx + receiptPerWorker
-					if maxIndex > len(receipts) {
-						maxIndex = len(receipts)
-					}
-					receiptsSliced := receipts[curReceiptIdx:maxIndex]
-
-					for _, receipt := range receiptsSliced {
-						for _, event := range receipt.Events {
-							hashElems := []*felt.Felt{event.From, receipt.TransactionHash}
-							hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(len(event.Keys))))
-							hashElems = append(hashElems, event.Keys...)
-							hashElems = append(hashElems, new(felt.Felt).SetUint64(uint64(len(event.Data))))
-							hashElems = append(hashElems, event.Data...)
-
-							eventHash := crypto.PoseidonArray(hashElems...)
-
-							eventTrieKey := new(felt.Felt).SetUint64(curEventIdx)
-							trieMutex.Lock()
-							_, err := trie.Put(eventTrieKey, eventHash)
-							trieMutex.Unlock()
-							if err != nil {
-								return err
-							}
-							curEventIdx++
-						}
-					}
-					return nil
-				})
-			}
-			eventCount += uint64(len(receipts[receiptIdx].Events))
-		}
-		if err := workerPool.Wait(); err != nil {
-			return err
-		}
-		root, err := trie.Root()
-		if err != nil {
-			return err
-		}
-		commitment = root
-		return nil
+	}
+	return generateCommitment(items, func(item *eventWithTxHash) *felt.Felt {
+		return crypto.PoseidonArray(
+			slices.Concat(
+				[]*felt.Felt{
+					item.Event.From,
+					item.TxHash,
+					new(felt.Felt).SetUint64(uint64(len(item.Event.Keys))),
+				},
+				item.Event.Keys,
+				[]*felt.Felt{
+					new(felt.Felt).SetUint64(uint64(len(item.Event.Data))),
+				},
+				item.Event.Data,
+			)...,
+		)
 	})
 }
 
 // eventCommitmentPedersen computes the event commitment for a block.
 func eventCommitmentPedersen(receipts []*TransactionReceipt) (*felt.Felt, error) {
-	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTriePedersen(commitmentTrieHeight, func(trie *trie.Trie) error {
-		eventCount := uint64(0)
-		numWorkers := runtime.GOMAXPROCS(0)
-		receiptPerWorker := len(receipts) / numWorkers
-		if receiptPerWorker == 0 {
-			receiptPerWorker = 1
-		}
-		workerPool := pool.New().WithErrors().WithMaxGoroutines(numWorkers)
-		var trieMutex sync.Mutex
-
-		for receiptIdx := range receipts {
-			if receiptIdx%receiptPerWorker == 0 {
-				curReceiptIdx := receiptIdx
-				curEventIdx := eventCount
-
-				workerPool.Go(func() error {
-					maxIndex := curReceiptIdx + receiptPerWorker
-					if maxIndex > len(receipts) {
-						maxIndex = len(receipts)
-					}
-					receiptsSliced := receipts[curReceiptIdx:maxIndex]
-
-					for _, receipt := range receiptsSliced {
-						for _, event := range receipt.Events {
-							eventHash := crypto.PedersenArray(
-								event.From,
-								crypto.PedersenArray(event.Keys...),
-								crypto.PedersenArray(event.Data...),
-							)
-
-							eventTrieKey := new(felt.Felt).SetUint64(curEventIdx)
-							trieMutex.Lock()
-							_, err := trie.Put(eventTrieKey, eventHash)
-							trieMutex.Unlock()
-							if err != nil {
-								return err
-							}
-							curEventIdx++
-						}
-					}
-					return nil
-				})
-			}
-			eventCount += uint64(len(receipts[receiptIdx].Events))
-		}
-		if err := workerPool.Wait(); err != nil {
-			return err
-		}
-		root, err := trie.Root()
-		if err != nil {
-			return err
-		}
-		commitment = root
-		return nil
+	eventCounter := 0
+	for _, receipt := range receipts {
+		eventCounter += len(receipt.Events)
+	}
+	events := make([]*Event, 0, eventCounter)
+	for _, receipt := range receipts {
+		events = append(events, receipt.Events...)
+	}
+	return generateCommitment(events, func(event *Event) *felt.Felt {
+		return crypto.PedersenArray(
+			event.From,
+			crypto.PedersenArray(event.Keys...),
+			crypto.PedersenArray(event.Data...),
+		)
 	})
 }
 
