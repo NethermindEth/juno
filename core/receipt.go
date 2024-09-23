@@ -68,7 +68,7 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(receipts))
 		results := make([]*felt.Felt, len(receipts))
-		wg := sync.WaitGroup{}
+		var wg sync.WaitGroup
 		wg.Add(numWorkers)
 
 		jobs := make(chan int, len(receipts))
