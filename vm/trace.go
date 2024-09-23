@@ -134,6 +134,9 @@ func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
 	total := new(ExecutionResources)
 	for _, invocation := range t.allInvocations() {
 		r := invocation.ExecutionResources
+		if r == nil {
+			continue
+		}
 		total.Pedersen += r.Pedersen
 		total.RangeCheck += r.RangeCheck
 		total.Bitwise += r.Bitwise

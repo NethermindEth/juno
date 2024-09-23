@@ -139,3 +139,35 @@ func TestStateDiff(t *testing.T) {
 	}
 	require.Equal(t, expected, vm2core.StateDiff(trace))
 }
+
+func TestReceipt(t *testing.T) {
+	fee := new(felt.Felt).SetUint64(1)
+	feeUnit := core.WEI
+	txHash := new(felt.Felt).SetUint64(2)
+	trace := &vm.TransactionTrace{
+		Type:                  vm.TxnInvoke,
+		ValidateInvocation:    &vm.FunctionInvocation{},
+		ExecuteInvocation:     &vm.ExecuteInvocation{},
+		FeeTransferInvocation: &vm.FunctionInvocation{},
+		ConstructorInvocation: &vm.FunctionInvocation{},
+		FunctionInvocation:    &vm.FunctionInvocation{},
+		StateDiff:             &vm.StateDiff{},
+		ExecutionResources:    &vm.ExecutionResources{},
+	}
+	txnReceipt := &vm.TransactionReceipt{
+		Fee:   fee,
+		Gas:   vm.GasConsumed{L1Gas: 1, L1DataGas: 2},
+		DAGas: vm.DataAvailability{L1Gas: 1, L1DataGas: 2},
+	}
+	expectedReceipt := &core.TransactionReceipt{
+		Fee:                fee,
+		FeeUnit:            feeUnit,
+		Events:             vm2core.AdaptOrderedEvents(trace.AllEvents()),
+		ExecutionResources: vm2core.AdaptExecutionResources(trace.TotalExecutionResources(), &txnReceipt.Gas),
+		L2ToL1Message:      vm2core.AdaptOrderedMessagesToL1(trace.AllMessages()),
+		TransactionHash:    txHash,
+		Reverted:           trace.IsReverted(),
+		RevertReason:       trace.RevertReason(),
+	}
+	require.Equal(t, expectedReceipt, vm2core.Receipt(fee, feeUnit, txHash, trace, txnReceipt))
+}

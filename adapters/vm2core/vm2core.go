@@ -158,3 +158,18 @@ func StateDiff(trace *vm.TransactionTrace) *core.StateDiff {
 		ReplacedClasses:   newReplacedClasses,
 	}
 }
+
+func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt,
+	trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt,
+) *core.TransactionReceipt {
+	return &core.TransactionReceipt{
+		Fee:                fee,
+		FeeUnit:            feeUnit,
+		Events:             AdaptOrderedEvents(trace.AllEvents()),
+		ExecutionResources: AdaptExecutionResources(trace.TotalExecutionResources(), &txnReceipt.Gas),
+		L2ToL1Message:      AdaptOrderedMessagesToL1(trace.AllMessages()),
+		TransactionHash:    txHash,
+		Reverted:           trace.IsReverted(),
+		RevertReason:       trace.RevertReason(),
+	}
+}

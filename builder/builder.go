@@ -398,22 +398,6 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 	return sig, nil
 }
 
-// Todo: move to adapters??
-func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt,
-	trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt,
-) *core.TransactionReceipt {
-	return &core.TransactionReceipt{
-		Fee:                fee,
-		FeeUnit:            feeUnit,
-		Events:             vm2core.AdaptOrderedEvents(trace.AllEvents()),
-		ExecutionResources: vm2core.AdaptExecutionResources(trace.TotalExecutionResources(), &txnReceipt.Gas),
-		L2ToL1Message:      vm2core.AdaptOrderedMessagesToL1(trace.AllMessages()),
-		TransactionHash:    txHash,
-		Reverted:           trace.IsReverted(),
-		RevertReason:       trace.RevertReason(),
-	}
-}
-
 func (b *Builder) listenPool(ctx context.Context) error {
 	for {
 		if err := b.depletePool(ctx); err != nil {
@@ -505,7 +489,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		}
 	}
 
-	receipt := Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
+	receipt := vm2core.Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
 	if b.shadowBlock != nil {
 		err = b.overrideTraces(receipt)
 		if err != nil {

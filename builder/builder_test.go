@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -293,7 +294,7 @@ func TestReceipt(t *testing.T) {
 		Reverted:        true,
 		RevertReason:    "oops",
 	}
-	got := builder.Receipt(want.Fee, want.FeeUnit, want.TransactionHash, trace, &txnReceipt)
+	got := vm2core.Receipt(want.Fee, want.FeeUnit, want.TransactionHash, trace, &txnReceipt)
 	require.Equal(t, want, got)
 }
 
