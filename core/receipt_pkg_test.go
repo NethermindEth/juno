@@ -14,6 +14,7 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 		return utils.HexToFelt(b, hex)
 	}
 	// receipts were taken from sepolia block 35748
+	// we don't use adaptfeeder here because it causes cyclic import
 	baseReceipts := []*TransactionReceipt{
 		{
 			TransactionHash: fromHex("0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747"),
