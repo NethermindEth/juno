@@ -503,7 +503,7 @@ func TestShadowSepolia(t *testing.T) {
 	require.NoError(t, err)
 
 	blockTime := time.Second
-	testBuilder := builder.NewShadow(privKey, seqAddr, bc, vmm, blockTime, p, log, snData)
+	testBuilder := builder.NewShadow(privKey, seqAddr, bc, vmm, blockTime, p, log, snData).WithSyncToBlock(0)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
 
 	const numTestBlocks = 3 // Note: depends on the number of blocks that the buidler syncStores (see Run())
@@ -519,10 +519,9 @@ func TestShadowSepolia(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), numTestBlocks*blockTime)
 	defer cancel()
-	// We sync store block 0, then sequence blocks 1 and 2
-	snData.EXPECT().BlockLatest(ctx).Return(blocks[1], nil)
-	snData.EXPECT().BlockLatest(ctx).Return(blocks[2], nil)
-	snData.EXPECT().BlockLatest(ctx).Return(nil, errors.New("only sequence up to block 2"))
+
+	snData.EXPECT().BlockLatest(gomock.Any()).Return(&core.Block{Header: &core.Header{Number: numTestBlocks}}, nil).Times(3)
+
 	classHashes := []string{
 		"0x5c478ee27f2112411f86f207605b2e2c58cdb647bac0df27f660ef2252359c6",
 		"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3",
@@ -537,6 +536,9 @@ func TestShadowSepolia(t *testing.T) {
 	}
 	err = testBuilder.Run(ctx)
 	require.NoError(t, err)
+	head, err := bc.Head()
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), head.Number)
 	runTest := func(t *testing.T, wantBlockNum uint64, wantBlock *core.Block) {
 		gotBlock, err := bc.BlockByNumber(wantBlockNum)
 		require.NoError(t, err)
@@ -547,7 +549,4 @@ func TestShadowSepolia(t *testing.T) {
 	for i := range numTestBlocks {
 		runTest(t, uint64(i), blocks[i])
 	}
-	head, err := bc.Head()
-	require.NoError(t, err)
-	require.Equal(t, uint64(2), head.Number)
 }
