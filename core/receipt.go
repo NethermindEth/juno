@@ -75,7 +75,7 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 
 type onTempTrieFunc func(uint8, func(*trie.Trie) error) error
 
-// General function for parallel processing of receipts
+// General function for parallel processing of items and calculation of a commitment
 func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process func(T) *felt.Felt) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
