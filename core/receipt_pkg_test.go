@@ -11,6 +11,7 @@ import (
 
 func BenchmarkReceiptCommitment(b *testing.B) {
 	fromHex := func(hex string) *felt.Felt {
+		b.Helper()
 		return utils.HexToFelt(b, hex)
 	}
 	// receipts were taken from sepolia block 35748
