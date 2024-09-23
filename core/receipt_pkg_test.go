@@ -1,12 +1,12 @@
 package core
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
-	"slices"
 )
 
 func BenchmarkReceiptCommitment(b *testing.B) {
