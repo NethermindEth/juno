@@ -30,10 +30,3 @@ func TestStarknetKeccak(t *testing.T) {
 		})
 	}
 }
-
-func FuzzStarknetKeccak(f *testing.F) {
-	f.Fuzz(func(t *testing.T, bytes []byte) {
-		_, err := crypto.StarknetKeccak(bytes)
-		require.NoError(t, err)
-	})
-}

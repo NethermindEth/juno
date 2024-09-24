@@ -68,12 +68,12 @@ func TestShortString(t *testing.T) {
 	})
 }
 
+const digits = "abcdefABCDEF0123456789"
+
 // TODO: check input data length and update
 func FuzzUnmarshalJson(f *testing.F) {
-	digits := "abcdefABCDEF0123456789"
 	var ft felt.Felt
 	f.Fuzz(func(t *testing.T, bytes []byte) {
-		// bytes = bytes[:len(bytes)%62]
 		bytes = bytes[:len(bytes)%(fp.Bits*3-1)] // Why Bits*3?
 		bytes = append(bytes, digits[rand.Intn(len(digits))])
 		for i := range bytes {
@@ -90,7 +90,6 @@ func FuzzUnmarshalJson(f *testing.F) {
 }
 
 func FuzzSetString(f *testing.F) {
-	digits := "abcdefABCDEF0123456789"
 	var ft felt.Felt
 	f.Fuzz(func(t *testing.T, bytes []byte) {
 		bytes = bytes[:len(bytes)%62]
@@ -110,7 +109,6 @@ func FuzzSetString(f *testing.F) {
 }
 
 func FuzzFeltCbor(f *testing.F) {
-	digits := "abcdefABCDEF0123456789"
 	var ft felt.Felt
 	f.Fuzz(func(t *testing.T, bytes []byte) {
 		bytes = bytes[:len(bytes)%62]
@@ -119,7 +117,8 @@ func FuzzFeltCbor(f *testing.F) {
 			bytes[i] = digits[int(bytes[i])%len(digits)]
 		}
 		str := string(bytes)
-		ft.SetString(str)
+		_, err := ft.SetString(str)
+		assert.NoError(t, err, str)
 
 		encoder.TestSymmetry(t, ft)
 	})

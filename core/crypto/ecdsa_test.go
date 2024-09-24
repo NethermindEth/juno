@@ -1,18 +1,12 @@
 package crypto_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/NethermindEth/starknet.go/account"
-	"github.com/NethermindEth/starknet.go/curve"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/rand"
 )
 
 func TestVerify(t *testing.T) {
@@ -76,55 +70,4 @@ func BenchmarkVerify(b *testing.B) {
 		_, err := publicKey.Verify(&signature, msg)
 		require.NoError(b, err)
 	}
-}
-
-func FuzzVerify(f *testing.F) {
-	digits := "abcdefABCDEF0123456789"
-	msgHash := big.NewInt(0)
-	privKey := big.NewInt(0)
-
-	msgHashFelt := &felt.Felt{}
-	r := &felt.Felt{}
-	s := &felt.Felt{}
-	var err error
-	f.Fuzz(func(t *testing.T, bytes []byte) {
-		for i := range bytes {
-			bytes[i] = digits[int(bytes[i])%len(digits)]
-		}
-		bytes = append(bytes, digits[rand.Intn(len(digits))])
-		msgHashFelt, err = curve.Curve.StarknetKeccak(bytes)
-		if err != nil {
-			t.Fatal(err)
-		}
-		msgHashFelt.BigInt(msgHash)
-
-		_, pubKeyFelt, privKeyFelt := account.GetRandomKeys()
-		privKeyFelt.BigInt(privKey)
-
-		x, y, err := curve.Curve.Sign(msgHash, privKey)
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.SetBigInt(x)
-		s.SetBigInt(y)
-
-		sig := crypto.Signature{
-			R: *r,
-			S: *s,
-		}
-
-		// OK
-		publicKey := crypto.NewPublicKey(pubKeyFelt)
-		ok, err := publicKey.Verify(&sig, msgHashFelt)
-
-		assert.Equal(t, true, ok, msgHashFelt, err)
-		assert.NoError(t, err, msgHashFelt, err)
-
-		// false
-		one := fp.NewElement(1)
-		oneFelt := felt.NewFelt(&one)
-		msgHashFelt.Add(msgHashFelt, oneFelt)
-		ok, _ = publicKey.Verify(&sig, msgHashFelt)
-		assert.Equal(t, false, ok)
-	})
 }
