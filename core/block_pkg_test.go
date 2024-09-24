@@ -19,20 +19,22 @@ func TestTransactionCommitmentPoseidon(t *testing.T) {
 		var txs []Transaction
 
 		type signature = []*felt.Felt
+		// actual tx hash is irrelevant so it's ok to have different transactions with the same hash
+		txHash := utils.HexToFelt(t, "0xCAFEBABE")
 		// nil signature, empty signature and signature with some non-empty value
-		for i, sign := range []signature{nil, make(signature, 0), {new(felt.Felt).SetUint64(uint64(3))}} {
+		for _, sign := range []signature{nil, make(signature, 0), {new(felt.Felt).SetUint64(uint64(3))}} {
 			invoke := &InvokeTransaction{
-				TransactionHash:      new(felt.Felt).SetUint64(uint64(0 + i*3)),
+				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
 			deployAccount := &DeployAccountTransaction{
 				DeployTransaction: DeployTransaction{
-					TransactionHash: new(felt.Felt).SetUint64(uint64(1 + i*3)),
+					TransactionHash: txHash,
 				},
 				TransactionSignature: sign,
 			}
 			declare := &DeclareTransaction{
-				TransactionHash:      new(felt.Felt).SetUint64(uint64(2 + i*3)),
+				TransactionHash:      txHash,
 				TransactionSignature: sign,
 			}
 			txs = append(txs, invoke, deployAccount, declare)
@@ -40,7 +42,7 @@ func TestTransactionCommitmentPoseidon(t *testing.T) {
 
 		c, err := transactionCommitmentPoseidon(txs)
 		require.NoError(t, err)
-		expected := utils.HexToFelt(t, "0x602c33ad4fecd30bc8857e87554ae3a1b87dd090f93b4c5ffd5940e98cb712e")
+		expected := utils.HexToFelt(t, "0x4ca6d4ceb367bf070d896a1479190d3c7b751f525e69a46ee2c83f0afe7cb8")
 		assert.Equal(t, expected, c, "expected: %s, got: %s", expected, c)
 	})
 	t.Run("txs without signature", func(t *testing.T) {
