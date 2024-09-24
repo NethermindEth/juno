@@ -153,7 +153,7 @@ func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]Pro
 				splitHappened = true
 			}
 		default:
-			return ErrUnknownProofNode
+			return fmt.Errorf("%w: %T", ErrUnknownProofNode, node)
 		}
 	}
 	return nil
@@ -451,22 +451,23 @@ func compressNode(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 	}
 
 	child := proofNodes[idx+1]
-
+	_, isChildBinary := child.(*Binary)
+	isChildEdge := !isChildBinary
 	switch parent := parent.(type) {
 	case *Edge:
-		if _, ok := child.(*Binary); !ok {
+		if isChildEdge {
 			break
 		}
 		return 1, parent.Len(), nil
 	case *Binary:
-		if _, ok := child.(*Edge); !ok {
+		if isChildBinary {
 			break
 		}
 		childHash := child.Hash(hashF)
 		if parent.LeftHash.Equal(childHash) || parent.RightHash.Equal(childHash) {
 			return 1, child.Len(), nil
 		}
-		return 0, 0, errors.New("can't determine the child hash from the parent and child")
+		return 0, 0, ErrChildHashNotFound
 	}
 
 	return 0, 1, nil
@@ -513,7 +514,6 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 
 		// Set the key of the current node
 		compressParent, compressParentOffset, err := compressNode(i, proofNodes, hashF)
-		fmt.Printf("compressParent: %d, compressParentOffset: %d\n", compressParent, compressParentOffset)
 		if err != nil {
 			return nil, err
 		}
@@ -577,9 +577,10 @@ func getLeftRightHash(parentInd int, proofNodes []ProofNode) (*felt.Felt, *felt.
 		if parentInd+1 > len(proofNodes)-1 {
 			return nil, nil, errors.New("cant get hash of children from proof node, out of range")
 		}
-		return proofNodes[parentInd+1].(*Binary).LeftHash, proofNodes[parentInd+1].(*Binary).RightHash, nil
+		parentBinary := proofNodes[parentInd+1].(*Binary)
+		return parentBinary.LeftHash, parentBinary.RightHash, nil
 	default:
-		return nil, nil, ErrUnknownProofNode
+		return nil, nil, fmt.Errorf("%w: %T", ErrUnknownProofNode, parent)
 	}
 }
 
