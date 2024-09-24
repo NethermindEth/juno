@@ -61,7 +61,7 @@ func (s *syncService) start(ctx context.Context) {
 		iterCtx, cancelIteration := context.WithCancel(ctx)
 		nextHeight, err := s.getNextHeight()
 		if err != nil {
-			s.logError("Failed to get current height", fmt.Errorf("blockNumber: %d, err: %w", nextHeight, err))
+			s.logError("Failed to get current height", err)
 			cancelIteration()
 			continue
 		}
