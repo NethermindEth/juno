@@ -349,7 +349,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 				return false
 			}
 			expectedHash = proofNode.Child
-			remainingPath.Truncate(251 - proofNode.Path.Len()) //nolint:mnd
+			remainingPath.Truncate(GlobalTrieHeight - proofNode.Path.Len()) //nolint:mnd
 		}
 	}
 

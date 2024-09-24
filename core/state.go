@@ -18,8 +18,6 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
-const globalTrieHeight = 251
-
 var (
 	stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 	leafVersion  = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
@@ -150,7 +148,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 		return nil, nil, err
 	}
 
-	gTrie, err := newTrie(tTxn, globalTrieHeight)
+	gTrie, err := newTrie(tTxn, trie.GlobalTrieHeight)
 	if err != nil {
 		return nil, nil, err
 	}

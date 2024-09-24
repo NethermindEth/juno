@@ -13,6 +13,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+const GlobalTrieHeight = 251
+
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
