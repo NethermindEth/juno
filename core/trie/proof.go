@@ -12,7 +12,6 @@ var (
 	ErrChildHashNotFound = errors.New("can't determine the child hash from the parent and child")
 )
 
-// https://github.com/starknet-io/starknet-p2p-specs/blob/main/p2p/proto/snapshot.proto#L6
 type ProofNode interface {
 	Hash(hash hashFunc) *felt.Felt
 	Len() uint8
