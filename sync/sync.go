@@ -188,25 +188,40 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 	return newClasses, closer()
 }
 
-func (s *Synchronizer) handlePluginRevertBlock(block *core.Block, stateUpdate *core.StateUpdate, reverseStateDiff *core.StateDiff) {
+func (s *Synchronizer) handlePluginRevertBlock() {
 	if s.plugin == nil {
 		return
 	}
-
-	toBlock, err := s.blockchain.Head()
+	fromBlock, err := s.blockchain.Head()
 	if err != nil {
 		s.log.Warnw("Failed to retrieve the reverted blockchain head block for the plugin", "err", err)
 		return
 	}
-
-	toSU, err := s.blockchain.StateUpdateByNumber(toBlock.Number)
+	fromSU, err := s.blockchain.StateUpdateByNumber(fromBlock.Number)
 	if err != nil {
 		s.log.Warnw("Failed to retrieve the reverted blockchain head state-update for the plugin", "err", err)
 		return
 	}
-
+	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
+	if err != nil {
+		s.log.Warnw("Failed to retrieve reverse state diff", "head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)
+	}
+	var toBlock *core.Block
+	var toSU *core.StateUpdate
+	if fromBlock.Number != 0 {
+		toBlock, err = s.blockchain.BlockByHash(fromBlock.ParentHash)
+		if err != nil {
+			s.log.Warnw("Failed to retrieve the parent block for the plugin", "err", err)
+			return
+		}
+		toSU, err = s.blockchain.StateUpdateByNumber(toBlock.Number)
+		if err != nil {
+			s.log.Warnw("Failed to retrieve the parents state-update for the plugin", "err", err)
+			return
+		}
+	}
 	err = (s.plugin).RevertBlock(
-		&junoplugin.BlockAndStateUpdate{Block: block, StateUpdate: stateUpdate},
+		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
 		&junoplugin.BlockAndStateUpdate{Block: toBlock, StateUpdate: toSU},
 		reverseStateDiff)
 	if err != nil {
@@ -239,14 +254,10 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					// revert the head and restart the sync process, hoping that the reorg is not deep
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
 					// blocks
-					reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
-					if err != nil {
-						s.log.Warnw("Failed to retrieve reverse state diff", "head", block.Number, "hash", block.Hash.ShortString(), "err", err)
+					if s.plugin != nil {
+						s.handlePluginRevertBlock()
 					}
 					s.revertHead(block)
-					if s.plugin != nil {
-						s.handlePluginRevertBlock(block, stateUpdate, reverseStateDiff)
-					}
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,
 						"hash", block.Hash.ShortString(), "err", err)
