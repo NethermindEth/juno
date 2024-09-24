@@ -1,6 +1,9 @@
 package core
 
 import (
+	"runtime"
+	"sync"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -62,12 +65,32 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 
 func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	var commitment *felt.Felt
-
 	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
-		for i, receipt := range receipts {
-			receiptTrieKey := new(felt.Felt).SetUint64(uint64(i))
-			_, err := trie.Put(receiptTrieKey, receipt.hash())
-			if err != nil {
+		numWorkers := min(runtime.GOMAXPROCS(0), len(receipts))
+		results := make([]*felt.Felt, len(receipts))
+		var wg sync.WaitGroup
+		wg.Add(numWorkers)
+
+		jobs := make(chan int, len(receipts))
+		for idx := range receipts {
+			jobs <- idx
+		}
+		close(jobs)
+
+		for range numWorkers {
+			go func() {
+				defer wg.Done()
+				for i := range jobs {
+					results[i] = receipts[i].hash()
+				}
+			}()
+		}
+
+		wg.Wait()
+
+		for i, res := range results {
+			key := new(felt.Felt).SetUint64(uint64(i))
+			if _, err := trie.Put(key, res); err != nil {
 				return err
 			}
 		}

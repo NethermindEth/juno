@@ -13,6 +13,11 @@ func AdaptClass(class core.Class) *spec.Class {
 		return nil
 	}
 
+	hash, err := class.Hash()
+	if err != nil {
+		panic(fmt.Errorf("failed to hash %t: %w", class, err))
+	}
+
 	switch v := class.(type) {
 	case *core.Cairo0Class:
 		return &spec.Class{
@@ -25,7 +30,8 @@ func AdaptClass(class core.Class) *spec.Class {
 					Program:      v.Program,
 				},
 			},
-			Domain: 0, // todo(kirill) recheck
+			Domain:    0, // todo(kirill) recheck
+			ClassHash: AdaptHash(hash),
 		}
 	case *core.Cairo1Class:
 		return &spec.Class{
@@ -41,7 +47,8 @@ func AdaptClass(class core.Class) *spec.Class {
 					ContractClassVersion: v.SemanticVersion,
 				},
 			},
-			Domain: 0, // todo(kirill) recheck
+			Domain:    0, // todo(kirill) recheck
+			ClassHash: AdaptHash(hash),
 		}
 	default:
 		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, class.Version()))

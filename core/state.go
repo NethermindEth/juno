@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
 	"runtime"
 	"slices"
+	"sort"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -144,7 +146,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 	})
 
 	// if some error other than "not found"
-	if err != nil && !errors.Is(db.ErrKeyNotFound, err) {
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil, err
 	}
 
@@ -396,11 +398,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
-	keys := make([]felt.Felt, 0, len(diffs))
-	for key := range diffs {
-		keys = append(keys, key)
-	}
-	slices.SortStableFunc(keys, func(a, b felt.Felt) int { return a.Cmp(&b) })
+	keys := slices.SortedStableFunc(maps.Keys(diffs), func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))

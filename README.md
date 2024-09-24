@@ -45,9 +45,9 @@
 
 ### Prerequisites
 
-- Golang 1.22 or higher is required to build and run the project. You can find the installer on
+- Golang 1.23 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
-- [Rust](https://www.rust-lang.org/tools/install).
+- [Rust](https://www.rust-lang.org/tools/install) 1.80.1 or higher.
 - A C compiler: `gcc` or `clang`.
 - Install `jemalloc` and `pkg-config` on your system:
   
@@ -119,6 +119,12 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 | ------- | ------------- |
 | **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
 
+## Sepolia-Integration
+
+| Version | Download Link |
+| ------- | ------------- |
+| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest) |
+
 ### Getting the size for each snapshot
 ```console
 $date
@@ -129,6 +135,9 @@ $curl -s -I -L https://juno-snapshots.nethermind.dev/files/mainnet/latest | gawk
 
 $curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
 5.67 GB
+
+$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+2.4 GB
 ```
 
 ### Run Juno Using Snapshot

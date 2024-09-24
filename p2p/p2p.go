@@ -54,7 +54,7 @@ type Service struct {
 	database   db.DB
 }
 
-func New(addr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	if addr == "" {
@@ -66,12 +66,46 @@ func New(addr, version, peers, privKeyStr string, feederNode bool, bc *blockchai
 		return nil, err
 	}
 
+	var publicMultiAddr multiaddr.Multiaddr
+	if publicAddr != "" {
+		publicMultiAddr, err = multiaddr.NewMultiaddr(publicAddr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	prvKey, err := privateKey(privKeyStr)
 	if err != nil {
 		return nil, err
 	}
 
-	p2pHost, err := libp2p.New(libp2p.ListenAddrs(sourceMultiAddr), libp2p.Identity(prvKey), libp2p.UserAgent(makeAgentName(version)))
+	// The address Factory is used when the public ip is passed to the node.
+	// In this case the node will NOT try to listen to the public IP because
+	// it is not possible to listen to a public IP. Instead, the node will
+	// listen to the private one (or 0.0.0.0) and will add the public IP to
+	// the list of addresses that it will advertise to the network.
+	addressFactory := func(addrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+		if publicMultiAddr != nil {
+			addrs = append(addrs, publicMultiAddr)
+		}
+		return addrs
+	}
+
+	p2pHost, err := libp2p.New(
+		libp2p.ListenAddrs(sourceMultiAddr),
+		libp2p.Identity(prvKey),
+		libp2p.UserAgent(makeAgentName(version)),
+		// Use address factory to add the public address to the list of
+		// addresses that the node will advertise.
+		libp2p.AddrsFactory(addressFactory),
+		// If we know the public ip, enable the relay service.
+		libp2p.EnableRelayService(),
+		// When listening behind NAT, enable peers to try to poke thought the
+		// NAT in order to reach the node.
+		libp2p.EnableHolePunching(),
+		// Try to open a port in the NAT router to accept incoming connections.
+		libp2p.NATPortMap(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +165,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(starknet.KadPrefix()),
+		dht.ProtocolPrefix(starknet.Prefix),
 		dht.BootstrapPeers(addrInfos...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
@@ -199,7 +233,11 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
 func (s *Service) Run(ctx context.Context) error {
-	defer s.host.Close()
+	defer func() {
+		if err := s.host.Close(); err != nil {
+			s.log.Warnw("Failed to close host", "err", err)
+		}
+	}()
 
 	err := s.dht.Bootstrap(ctx)
 	if err != nil {
@@ -234,7 +272,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
-	return s.host.Close()
+	return nil
 }
 
 func (s *Service) setProtocolHandlers() {
@@ -373,7 +411,9 @@ func (s *Service) persistPeers() error {
 	}
 
 	store := s.host.Peerstore()
-	peers := store.Peers()
+	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
+		return peerID != s.host.ID()
+	})
 	for _, peerID := range peers {
 		peerInfo := store.PeerInfo(peerID)
 

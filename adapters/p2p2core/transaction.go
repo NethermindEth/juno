@@ -15,21 +15,12 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		return nil
 	}
 
-	hash := func(tx core.Transaction) *felt.Felt {
-		h, err := core.TransactionHash(tx, network)
-		if err != nil {
-			panic(fmt.Errorf("failed to compute transaction hash: %w", err))
-		}
-
-		return h
-	}
-
 	// can Txn be nil?
 	switch t.Txn.(type) {
 	case *spec.Transaction_DeclareV0_:
 		tx := t.GetDeclareV0()
 		declareTx := &core.DeclareTransaction{
-			TransactionHash:      nil, // overridden below
+			TransactionHash:      AdaptHash(t.TransactionHash),
 			Nonce:                nil, // for v0 nonce is not used for hash calculation
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
@@ -46,13 +37,12 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:           0,
 			FeeDAMode:             0,
 		}
-		declareTx.TransactionHash = hash(declareTx)
 
 		return declareTx
 	case *spec.Transaction_DeclareV1_:
 		tx := t.GetDeclareV1()
 		declareTx := &core.DeclareTransaction{
-			TransactionHash:      nil, // overridden below
+			TransactionHash:      AdaptHash(t.TransactionHash),
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -69,13 +59,12 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:           0,
 			FeeDAMode:             0,
 		}
-		declareTx.TransactionHash = hash(declareTx)
 
 		return declareTx
 	case *spec.Transaction_DeclareV2_:
 		tx := t.GetDeclareV2()
 		declareTx := &core.DeclareTransaction{
-			TransactionHash:      nil, // overridden below
+			TransactionHash:      AdaptHash(t.TransactionHash),
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -91,7 +80,6 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:           0,
 			FeeDAMode:             0,
 		}
-		declareTx.TransactionHash = hash(declareTx)
 
 		return declareTx
 	case *spec.Transaction_DeclareV3_:
@@ -108,7 +96,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		declareTx := &core.DeclareTransaction{
-			TransactionHash:      nil, // overridden below
+			TransactionHash:      AdaptHash(t.TransactionHash),
 			ClassHash:            AdaptHash(tx.ClassHash),
 			SenderAddress:        AdaptAddress(tx.Sender),
 			MaxFee:               nil, // in 3 version this field was removed
@@ -126,7 +114,6 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:           nDAMode,
 			FeeDAMode:             fDAMode,
 		}
-		declareTx.TransactionHash = hash(declareTx)
 
 		return declareTx
 	case *spec.Transaction_Deploy_:
@@ -136,14 +123,13 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		classHash := AdaptHash(tx.ClassHash)
 		callData := utils.Map(tx.Calldata, AdaptFelt)
 		deployTx := &core.DeployTransaction{
-			TransactionHash:     nil, // overridden below
+			TransactionHash:     AdaptHash(t.TransactionHash),
 			ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 			ContractAddressSalt: addressSalt,
 			ClassHash:           classHash,
 			ConstructorCallData: callData,
 			Version:             txVersion(0),
 		}
-		deployTx.TransactionHash = hash(deployTx)
 
 		return deployTx
 	case *spec.Transaction_DeployAccountV1_:
@@ -154,7 +140,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		callData := utils.Map(tx.Calldata, AdaptFelt)
 		deployAccTx := &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
-				TransactionHash:     nil, // overridden below
+				TransactionHash:     AdaptHash(t.TransactionHash),
 				ContractAddressSalt: addressSalt,
 				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 				ClassHash:           classHash,
@@ -171,7 +157,6 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:    0,
 			FeeDAMode:      0,
 		}
-		deployAccTx.DeployTransaction.TransactionHash = hash(deployAccTx)
 
 		return deployAccTx
 	case *spec.Transaction_DeployAccountV3_:
@@ -192,7 +177,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		callData := utils.Map(tx.Calldata, AdaptFelt)
 		deployAccTx := &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
-				TransactionHash:     nil, // overridden below
+				TransactionHash:     AdaptHash(t.TransactionHash),
 				ContractAddressSalt: addressSalt,
 				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
 				ClassHash:           classHash,
@@ -211,13 +196,12 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:   nDAMode,
 			FeeDAMode:     fDAMode,
 		}
-		deployAccTx.DeployTransaction.TransactionHash = hash(deployAccTx)
 
 		return deployAccTx
 	case *spec.Transaction_InvokeV0_:
 		tx := t.GetInvokeV0()
 		invTx := &core.InvokeTransaction{
-			TransactionHash:      nil, // overridden below
+			TransactionHash:      AdaptHash(t.TransactionHash),
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
 			MaxFee:               AdaptFelt(tx.MaxFee),
@@ -235,13 +219,12 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:           0,
 			FeeDAMode:             0,
 		}
-		invTx.TransactionHash = hash(invTx)
 
 		return invTx
 	case *spec.Transaction_InvokeV1_:
 		tx := t.GetInvokeV1()
 		invTx := &core.InvokeTransaction{
-			TransactionHash:      nil, // overridden below
+			TransactionHash:      AdaptHash(t.TransactionHash),
 			ContractAddress:      nil, // todo call core.ContractAddress() ?
 			Nonce:                AdaptFelt(tx.Nonce),
 			SenderAddress:        AdaptAddress(tx.Sender),
@@ -258,7 +241,6 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			NonceDAMode:           0,
 			FeeDAMode:             0,
 		}
-		invTx.TransactionHash = hash(invTx)
 
 		return invTx
 	case *spec.Transaction_InvokeV3_:
@@ -275,7 +257,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		invTx := &core.InvokeTransaction{
-			TransactionHash:      nil, // overridden below
+			TransactionHash:      AdaptHash(t.TransactionHash),
 			ContractAddress:      nil, // todo call core.ContractAddress() ?
 			CallData:             utils.Map(tx.Calldata, AdaptFelt),
 			TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -294,20 +276,18 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 			FeeDAMode:             fDAMode,
 			AccountDeploymentData: nil, // todo(kirill) recheck
 		}
-		invTx.TransactionHash = hash(invTx)
 
 		return invTx
 	case *spec.Transaction_L1Handler:
 		tx := t.GetL1Handler()
 		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash:    nil, // overridden below
+			TransactionHash:    AdaptHash(t.TransactionHash),
 			ContractAddress:    AdaptAddress(tx.Address),
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
 			Nonce:              AdaptFelt(tx.Nonce),
 			CallData:           utils.Map(tx.Calldata, AdaptFelt),
 			Version:            txVersion(0),
 		}
-		l1Tx.TransactionHash = hash(l1Tx)
 
 		return l1Tx
 	default:

@@ -27,7 +27,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *spec.Receip
 			Type: &spec.Receipt_L1Handler_{
 				L1Handler: &spec.Receipt_L1Handler{
 					Common:  receiptCommon(r),
-					MsgHash: &spec.Hash{Elements: t.MessageHash()},
+					MsgHash: &spec.Hash256{Elements: t.MessageHash()},
 				},
 			},
 		}
@@ -66,6 +66,8 @@ func receiptCommon(r *core.TransactionReceipt) *spec.Receipt_Common {
 	var revertReason *string
 	if r.RevertReason != "" {
 		revertReason = &r.RevertReason
+	} else if r.Reverted {
+		revertReason = utils.Ptr("")
 	}
 
 	return &spec.Receipt_Common{
@@ -101,25 +103,33 @@ func AdaptExecutionResources(er *core.ExecutionResources) *spec.Receipt_Executio
 		return nil
 	}
 
-	var l1Gas, l1DataGas *spec.Felt252
+	var l1Gas, l1DataGas, totalL1Gas *felt.Felt
 	if da := er.DataAvailability; da != nil { // todo(kirill) check that it might be null
-		l1Gas = AdaptFelt(new(felt.Felt).SetUint64(da.L1Gas))
-		l1DataGas = AdaptFelt(new(felt.Felt).SetUint64(da.L1DataGas))
+		l1Gas = new(felt.Felt).SetUint64(da.L1Gas)
+		l1DataGas = new(felt.Felt).SetUint64(da.L1DataGas)
 	}
+	if tgs := er.TotalGasConsumed; tgs != nil {
+		totalL1Gas = new(felt.Felt).SetUint64(tgs.L1Gas)
+	}
+
 	return &spec.Receipt_ExecutionResources{
 		Builtins: &spec.Receipt_ExecutionResources_BuiltinCounter{
-			Bitwise:    uint32(er.BuiltinInstanceCounter.Bitwise),
-			Ecdsa:      uint32(er.BuiltinInstanceCounter.Ecsda),
-			EcOp:       uint32(er.BuiltinInstanceCounter.EcOp),
-			Pedersen:   uint32(er.BuiltinInstanceCounter.Pedersen),
-			RangeCheck: uint32(er.BuiltinInstanceCounter.RangeCheck),
-			Poseidon:   uint32(er.BuiltinInstanceCounter.Poseidon),
-			Keccak:     uint32(er.BuiltinInstanceCounter.Keccak),
-			Output:     uint32(er.BuiltinInstanceCounter.Output),
+			Bitwise:      uint32(er.BuiltinInstanceCounter.Bitwise),
+			Ecdsa:        uint32(er.BuiltinInstanceCounter.Ecsda),
+			EcOp:         uint32(er.BuiltinInstanceCounter.EcOp),
+			Pedersen:     uint32(er.BuiltinInstanceCounter.Pedersen),
+			RangeCheck:   uint32(er.BuiltinInstanceCounter.RangeCheck),
+			Poseidon:     uint32(er.BuiltinInstanceCounter.Poseidon),
+			Keccak:       uint32(er.BuiltinInstanceCounter.Keccak),
+			Output:       uint32(er.BuiltinInstanceCounter.Output),
+			AddMod:       uint32(er.BuiltinInstanceCounter.AddMod),
+			MulMod:       uint32(er.BuiltinInstanceCounter.MulMod),
+			RangeCheck96: uint32(er.BuiltinInstanceCounter.RangeCheck96),
 		},
 		Steps:       uint32(er.Steps),
 		MemoryHoles: uint32(er.MemoryHoles),
-		L1Gas:       l1Gas,
-		L1DataGas:   l1DataGas,
+		L1Gas:       AdaptFelt(l1Gas),
+		L1DataGas:   AdaptFelt(l1DataGas),
+		TotalL1Gas:  AdaptFelt(totalL1Gas),
 	}
 }

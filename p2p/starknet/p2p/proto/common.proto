@@ -6,7 +6,14 @@ message Felt252 {
     bytes elements = 1;
 }
 
+// A hash value representable as a Felt252
 message Hash {
+    bytes elements = 1;
+}
+
+// A 256 bit hash value (like Keccak256)
+message Hash256 {
+    // Required to be 32 bytes long
     bytes elements = 1;
 }
 
@@ -34,7 +41,7 @@ message ConsensusSignature {
 
 message Patricia {
     uint64 n_leaves = 1;  // needed to know the height, so as to how many nodes to expect in a proof.
-    // and also when receiving all leaves, how many to expect
+                          // and also when receiving all leaves, how many to expect
     Hash root = 2;
 }
 

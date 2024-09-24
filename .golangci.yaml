@@ -47,6 +47,7 @@ linters-settings:
       - strings.SplitN
 
   govet:
+    enable: [nilness]
     shadow: true
     settings:
       printf:
@@ -67,6 +68,10 @@ linters-settings:
   exhaustruct:
     include: []
 
+  gosec:
+    excludes:
+      - G115 #TODO: remove after fixing https://github.com/securego/gosec/issues/1212
+
 linters:
   disable-all: true
   enable:
@@ -75,7 +80,7 @@ linters:
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
     - funlen
     - gochecknoinits
     - goconst
@@ -108,14 +113,12 @@ linters:
 
   # don't enable:
   # - asciicheck
-  # - scopelint
   # - gochecknoglobals
   # - gocognit
   # - godot
   # - godox
-  # - goerr113
+  # - err113
   # - interfacer
-  # - maligned
   # - nestif
   # - prealloc
   # - testpackage

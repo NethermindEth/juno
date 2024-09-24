@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
@@ -72,6 +73,7 @@ type Config struct {
 
 	P2P           bool   `mapstructure:"p2p"`
 	P2PAddr       string `mapstructure:"p2p-addr"`
+	P2PPublicAddr string `mapstructure:"p2p-public-addr"`
 	P2PPeers      string `mapstructure:"p2p-peers"`
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
@@ -165,7 +167,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		p2pService, err = p2p.New(cfg.P2PAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
+		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
 			chain, &cfg.Network, log, database)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
@@ -208,10 +210,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		"/rpc" + legacyPath: jsonrpcServerLegacy,
 	}
 	if cfg.HTTP {
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
+		httpHandlers := map[string]http.HandlerFunc{
+			"/ready/sync": readinessHandlers.HandleReadySync,
+		}
+		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.Websocket {
-		services = append(services, makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(services,
+			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	var metricsService service.Service
 	if cfg.Metrics {
@@ -283,9 +290,6 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 	}
 
 	network := chain.Network()
-	if err != nil {
-		return nil, fmt.Errorf("find core contract address for network %s: %w", network.String(), err)
-	}
 
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
@@ -293,10 +297,7 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
-	l1Client, err := l1.NewClient(ethSubscriber, chain, log), nil
-	if err != nil {
-		return nil, fmt.Errorf("set up l1 client: %w", err)
-	}
+	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
 	if cfg.Metrics {
 		l1Client.WithEventListener(makeL1Metrics())
@@ -351,7 +352,6 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	for _, s := range n.services {
-		s := s
 		wg.Go(func() {
 			// Immediately acknowledge panicing services by shutting down the node
 			// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C

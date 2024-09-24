@@ -644,7 +644,7 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 			signatureHash := crypto.PedersenArray()
 
 			// blockVersion >= 0.11.1
-			if blockVersion.Compare(v0_11_1) != -1 {
+			if blockVersion.GreaterThanEqual(v0_11_1) {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
 			} else if _, ok := transaction.(*InvokeTransaction); ok {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
@@ -671,10 +671,11 @@ func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, erro
 			var digest crypto.PoseidonDigest
 			digest.Update(transaction.Hash())
 
-			if txSignature := transaction.Signature(); len(txSignature) > 0 {
-				digest.Update(txSignature...)
-			} else {
+			switch transaction.(type) {
+			case *DeployTransaction, *L1HandlerTransaction:
 				digest.Update(&felt.Zero)
+			default:
+				digest.Update(transaction.Signature()...)
 			}
 
 			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), digest.Finish()); err != nil {
