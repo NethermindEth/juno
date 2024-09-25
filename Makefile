@@ -110,6 +110,7 @@ feedernode: juno-cached
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
+	--metrics \
 	--db-path=./p2p-dbs/feedernode \
 	--p2p \
 	--p2p-feeder-node \

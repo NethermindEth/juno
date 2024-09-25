@@ -19,71 +19,72 @@ const (
 
 // Metrics collection for gossipsub
 type gossipTracer struct {
-	host host.Host
+	host    host.Host
+	metrics *P2PMetrics
 }
 
 func NewGossipTracer(h host.Host) *gossipTracer {
-	return &gossipTracer{host: h}
+	return &gossipTracer{host: h, metrics: NewP2PMetrics()}
 }
 
 func (g gossipTracer) AddPeer(p peer.ID, proto protocol.ID) {
-	p2pPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Inc()
+	g.metrics.P2PPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Inc()
 }
 
 func (g gossipTracer) RemovePeer(p peer.ID) {
-	p2pPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Dec()
+	g.metrics.P2PPeerCount.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Dec()
 }
 
 func (g gossipTracer) Join(topic string) {
-	psTopicsActive.WithLabelValues(topic).Set(1)
+	g.metrics.PSTopicsActive.WithLabelValues(topic).Set(1)
 }
 
 func (g gossipTracer) Leave(topic string) {
-	psTopicsActive.WithLabelValues(topic).Set(0)
+	g.metrics.PSTopicsActive.WithLabelValues(topic).Set(0)
 }
 
 func (g gossipTracer) Graft(p peer.ID, topic string) {
-	psTopicsGraft.WithLabelValues(topic).Inc()
+	g.metrics.PSTopicsGraft.WithLabelValues(topic).Inc()
 }
 
 func (g gossipTracer) Prune(p peer.ID, topic string) {
-	psTopicsPrune.WithLabelValues(topic).Inc()
+	g.metrics.PSTopicsPrune.WithLabelValues(topic).Inc()
 }
 
 func (g gossipTracer) DeliverMessage(msg *pubsub.Message) {
-	psMsgDeliver.WithLabelValues(*msg.Topic).Inc()
+	g.metrics.PSMsgDeliver.WithLabelValues(*msg.Topic).Inc()
 }
 
 func (g gossipTracer) ValidateMessage(msg *pubsub.Message) {
-	psMsgValidate.WithLabelValues(*msg.Topic).Inc()
+	g.metrics.PSMsgValidate.WithLabelValues(*msg.Topic).Inc()
 }
 
 func (g gossipTracer) RejectMessage(msg *pubsub.Message, reason string) {
-	psMsgReject.WithLabelValues(*msg.Topic, reason).Inc()
+	g.metrics.PSMsgReject.WithLabelValues(*msg.Topic, reason).Inc()
 }
 
 func (g gossipTracer) DuplicateMessage(msg *pubsub.Message) {
-	psMsgDuplicate.WithLabelValues(*msg.Topic).Inc()
+	g.metrics.PSMsgDuplicate.WithLabelValues(*msg.Topic).Inc()
 }
 
 func (g gossipTracer) UndeliverableMessage(msg *pubsub.Message) {
-	psMsgUndeliverable.WithLabelValues(*msg.Topic).Inc()
+	g.metrics.PSMsgUndeliverable.WithLabelValues(*msg.Topic).Inc()
 }
 
 func (g gossipTracer) ThrottlePeer(p peer.ID) {
-	psThrottlePeer.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Inc()
+	g.metrics.PSThrottlePeer.WithLabelValues(agentNameFromPeerID(p, g.host.Peerstore())).Inc()
 }
 
 func (g gossipTracer) RecvRPC(rpc *pubsub.RPC) {
-	g.setRPCMetrics(psRPCSubRecv, psRPCPubRecv, psRPCRecv, rpc)
+	g.setRPCMetrics(g.metrics.PSRPCSubRecv, g.metrics.PSRPCPubRecv, g.metrics.PSRPCRecv, rpc)
 }
 
 func (g gossipTracer) SendRPC(rpc *pubsub.RPC, p peer.ID) {
-	g.setRPCMetrics(psRPCSubSent, psRPCPubSent, psRPCSent, rpc)
+	g.setRPCMetrics(g.metrics.PSRPCSubSent, g.metrics.PSRPCPubSent, g.metrics.PSRPCSent, rpc)
 }
 
 func (g gossipTracer) DropRPC(rpc *pubsub.RPC, p peer.ID) {
-	g.setRPCMetrics(psRPCSubDrop, psRPCPubDrop, psRPCDrop, rpc)
+	g.setRPCMetrics(g.metrics.PSRPCSubDrop, g.metrics.PSRPCPubDrop, g.metrics.PSRPCDrop, rpc)
 }
 
 func (g gossipTracer) setRPCMetrics(subCtr prometheus.Counter, pubCtr, ctrlCtr *prometheus.CounterVec, rpc *pubsub.RPC) {
