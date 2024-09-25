@@ -29,7 +29,7 @@ typedef struct BlockInfo {
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps, unsigned char concurrency_mode);
+	unsigned long long max_steps, unsigned char concurrency_mode, unsigned char is_mutable);
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
@@ -65,7 +65,7 @@ type VM interface {
 		maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error)
+	) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, []TransactionReceipt, uint64, error)
 }
 
 type vm struct {
@@ -78,6 +78,15 @@ func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 		log:             log,
 		concurrencyMode: concurrencyMode,
 	}
+}
+
+type StateReadWriter interface {
+	core.StateReader
+	SetStorage(contractAddress, storageKey, value *felt.Felt) error
+	IncrementNonce(contractAddress *felt.Felt) error
+	SetClassHash(contractAddress, classHash *felt.Felt) error
+	SetContractClass(classHash *felt.Felt, contractClass core.Class) error
+	SetCompiledClassHash(classHash *felt.Felt, compiledClassHash *felt.Felt) error
 }
 
 // callContext manages the context that a Call instance executes on
@@ -94,8 +103,28 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees      []*felt.Felt
 	traces          []json.RawMessage
-	dataGasConsumed []*felt.Felt
+	receipts        []json.RawMessage
+	daGas           []core.GasConsumed
+	declaredClasses map[felt.Felt]core.Class
 	executionSteps  uint64
+}
+
+func newContext(state core.StateReader, log utils.SimpleLogger, declaredClasses []core.Class) (*callContext, error) {
+	declaredClassesMap := make(map[felt.Felt]core.Class)
+	for _, declaredClass := range declaredClasses {
+		classHash, err := declaredClass.Hash()
+		if err != nil {
+			return nil, fmt.Errorf("calculate declared class hash: %v", err)
+		}
+		declaredClassesMap[*classHash] = declaredClass
+	}
+
+	return &callContext{
+		state:           state,
+		response:        []*felt.Felt{},
+		log:             log,
+		declaredClasses: declaredClassesMap,
+	}, nil
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -112,6 +141,13 @@ func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char) {
 	context := unwrapContext(readerHandle)
 	context.errTxnIndex = int64(txnIndex)
 	context.err = C.GoString(str)
+}
+
+//export JunoAppendReceipt
+func JunoAppendReceipt(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.receipts = append(context.receipts, json.RawMessage(byteSlice))
 }
 
 //export JunoAppendTrace
@@ -134,9 +170,12 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 }
 
 //export JunoAppendDataGasConsumed
-func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.dataGasConsumed = append(context.dataGasConsumed, makeFeltFromPtr(ptr))
+	context.daGas = append(context.daGas, core.GasConsumed{
+		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
+		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+	})
 }
 
 //export JunoAddExecutionSteps
@@ -219,14 +258,22 @@ func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
 	return cBlockInfo
 }
 
+func makeByteFromBool(b bool) byte {
+	var boolByte byte
+	if b {
+		boolByte = 1
+	}
+	return boolByte
+}
+
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
 	network *utils.Network, maxSteps uint64, useBlobData bool,
 ) ([]*felt.Felt, error) {
-	context := &callContext{
-		state:    state,
-		response: []*felt.Felt{},
-		log:      v.log,
+	context, err := newContext(state, v.log, nil)
+	if err != nil {
+		return nil, err
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -234,6 +281,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 	C.setVersionedConstants(C.CString("my_json"))
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
@@ -246,6 +295,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		chainID,
 		C.ulonglong(maxSteps),        //nolint:gocritic
 		C.uchar(concurrencyModeByte), //nolint:gocritic
+		C.uchar(mutableStateByte),    //nolint:gocritic
+
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -258,25 +309,27 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
+//
+//nolint:gocritic
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error) {
+) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, []TransactionReceipt, uint64, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, nil, 0, err
 	}
-
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, nil, 0, err
 	}
 
 	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
@@ -325,22 +378,29 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	if context.err != "" {
 		if context.errTxnIndex >= 0 {
-			return nil, nil, nil, 0, TransactionExecutionError{
+			return nil, nil, nil, nil, 0, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),
 				Cause: errors.New(context.err),
 			}
 		}
-		return nil, nil, nil, 0, errors.New(context.err)
+		return nil, nil, nil, nil, 0, errors.New(context.err)
 	}
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
+			return nil, nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
 
-	return context.actualFees, context.dataGasConsumed, traces, context.executionSteps, nil
+	receipts := make([]TransactionReceipt, len(context.receipts))
+	for index, traceJSON := range context.receipts {
+		if err := json.Unmarshal(traceJSON, &receipts[index]); err != nil {
+			return nil, nil, nil, nil, 0, fmt.Errorf("unmarshal receipt: %v", err)
+		}
+	}
+
+	return context.actualFees, context.daGas, traces, receipts, context.executionSteps, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll

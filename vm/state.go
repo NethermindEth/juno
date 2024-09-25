@@ -6,6 +6,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -89,6 +90,69 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 	}
 
 	return unsafe.Pointer(cstring(compiledClass))
+}
+
+//export JunoStateSetStorage
+func JunoStateSetStorage(readerHandle C.uintptr_t, addr, key, value unsafe.Pointer) unsafe.Pointer {
+	context := unwrapContext(readerHandle)
+	addrFelt := makeFeltFromPtr(addr)
+	keyFelt := makeFeltFromPtr(key)
+	valueFelt := makeFeltFromPtr(value)
+	state := context.state.(StateReadWriter)
+	if err := state.SetStorage(addrFelt, keyFelt, valueFelt); err != nil { //nolint:gocritic
+		return unsafe.Pointer(C.CString(err.Error()))
+	}
+	return nil
+}
+
+//export JunoStateIncrementNonce
+func JunoStateIncrementNonce(readerHandle C.uintptr_t, addr unsafe.Pointer) unsafe.Pointer {
+	context := unwrapContext(readerHandle)
+	addrFelt := makeFeltFromPtr(addr)
+	state := context.state.(StateReadWriter)
+	if err := state.IncrementNonce(addrFelt); err != nil { //nolint:gocritic
+		return unsafe.Pointer(C.CString(err.Error()))
+	}
+	return nil
+}
+
+//export JunoStateSetClassHashAt
+func JunoStateSetClassHashAt(readerHandle C.uintptr_t, addr, classHash unsafe.Pointer) unsafe.Pointer {
+	context := unwrapContext(readerHandle)
+	addrFelt := makeFeltFromPtr(addr)
+	classHashFelt := makeFeltFromPtr(classHash)
+	state := context.state.(StateReadWriter)
+	if err := state.SetClassHash(addrFelt, classHashFelt); err != nil { //nolint:gocritic
+		return unsafe.Pointer(C.CString(err.Error()))
+	}
+	return nil
+}
+
+//export JunoStateSetContractClass
+func JunoStateSetContractClass(readerHandle C.uintptr_t, classHash unsafe.Pointer) unsafe.Pointer {
+	context := unwrapContext(readerHandle)
+	classHashFelt := makeFeltFromPtr(classHash)
+	class, found := context.declaredClasses[*classHashFelt]
+	if !found {
+		return unsafe.Pointer(C.CString(fmt.Sprintf("class not declared: %s", classHashFelt)))
+	}
+	state := context.state.(StateReadWriter)
+	if err := state.SetContractClass(classHashFelt, class); err != nil { //nolint:gocritic
+		return unsafe.Pointer(C.CString(err.Error()))
+	}
+	return nil
+}
+
+//export JunoStateSetCompiledClassHash
+func JunoStateSetCompiledClassHash(readerHandle C.uintptr_t, classHash, compiledClassHash unsafe.Pointer) unsafe.Pointer {
+	context := unwrapContext(readerHandle)
+	classHashFelt := makeFeltFromPtr(classHash)
+	compiledClassHashFelt := makeFeltFromPtr(compiledClassHash)
+	state := context.state.(StateReadWriter)
+	if err := state.SetCompiledClassHash(classHashFelt, compiledClassHashFelt); err != nil {
+		return unsafe.Pointer(C.CString(err.Error()))
+	}
+	return nil
 }
 
 func fillBufferWithFelt(val *felt.Felt, buffer unsafe.Pointer) C.int {
