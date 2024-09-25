@@ -162,4 +162,4 @@ pathfinder: juno-cached
     	--metrics-port=9094
 
 test-fuzz: ## run fuzzing script
-	./scripts/fuzzAll.sh
+	./scripts/fuzz_all.sh
