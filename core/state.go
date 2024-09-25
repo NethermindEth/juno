@@ -541,7 +541,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 	}
 
 	// update contracts
-	reversedDiff, err := s.buildReverseDiff(blockNumber, update.StateDiff)
+	reversedDiff, err := s.BuildReverseDiff(blockNumber, update.StateDiff)
 	if err != nil {
 		return fmt.Errorf("build reverse diff: %v", err)
 	}
@@ -657,7 +657,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 	return storageCloser()
 }
 
-func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
+func (s *State) BuildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
 	reversed := *diff
 
 	// storage diffs
