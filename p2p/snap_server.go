@@ -290,9 +290,10 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 	var finMsg proto.Message = &spec.ContractStorageResponse{
 		Responses: &spec.ContractStorageResponse_Fin{},
 	}
-	stateRoot := p2p2core.AdaptHash(request.StateRoot)
 	startKey := p2p2core.AdaptAddress(request.Query[0].Address)
-	b.log.Debugw("GetStorageRange", "root", stateRoot, "start[0]", startKey)
+	last := len(request.Query) - 1
+	endKey := p2p2core.AdaptAddress(request.Query[last].Address)
+	b.log.Debugw("GetStorageRange", "query[0]", startKey, "query[", last, "]", endKey)
 
 	return func(yield yieldFunc) {
 		stateRoot := p2p2core.AdaptHash(request.StateRoot)

@@ -86,7 +86,6 @@ func (t *Trie) IterateWithLimit(
 
 		count++
 		if count >= maxNodes {
-			logger.Infow("Max nodes reached", "count", count)
 			return false, nil
 		}
 		return true, nil

@@ -21,11 +21,11 @@ func (m MockStarkData) BlockByNumber(ctx context.Context, blockNumber uint64) (*
 
 func (m MockStarkData) BlockLatest(ctx context.Context) (*core.Block, error) {
 	// This is snapshot I have
-	root, _ := (&felt.Felt{}).SetString("0x6df37678051ab529c243a5ae08e95eea4ddb40b874b4c537e2e6a9a459e2548")
+	root, _ := (&felt.Felt{}).SetString("0x472e84b65d387c9364b5117f4afaba3fb88897db1f28867b398506e2af89f25")
 
 	return &core.Block{
 		Header: &core.Header{
-			Number:          uint64(66489),
+			Number:          uint64(66477),
 			GlobalStateRoot: root,
 		},
 	}, nil
