@@ -117,23 +117,17 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []trie.ProofNode) {
 	key3Bytes := new(felt.Felt).SetUint64(1).Bytes()
 	path3 := trie.NewKey(1, key3Bytes[:])
 	expectedProofNodes := []trie.ProofNode{
-		{
-			Edge: &trie.Edge{
-				Path:  &zero,
-				Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
-			},
+		&trie.Edge{
+			Path:  &zero,
+			Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
 		},
-		{
-			Binary: &trie.Binary{
-				LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-				RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
-			},
+		&trie.Binary{
+			LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+			RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
 		},
-		{
-			Edge: &trie.Edge{
-				Path:  &path3,
-				Child: value3,
-			},
+		&trie.Edge{
+			Path:  &path3,
+			Child: value3,
 		},
 	}
 
@@ -292,13 +286,10 @@ func isSameProofPath(proofNodes, expectedProofNodes []trie.ProofNode) bool {
 	return true
 }
 
-func newBinaryProofNode() trie.ProofNode {
-	return trie.ProofNode{
-		Edge: nil,
-		Binary: &trie.Binary{
-			LeftHash:  new(felt.Felt).SetUint64(1),
-			RightHash: new(felt.Felt).SetUint64(2),
-		},
+func newBinaryProofNode() *trie.Binary {
+	return &trie.Binary{
+		LeftHash:  new(felt.Felt).SetUint64(1),
+		RightHash: new(felt.Felt).SetUint64(2),
 	}
 }
 
@@ -308,17 +299,14 @@ func TestGetProof(t *testing.T) {
 
 		zero := trie.NewKey(250, []byte{0})
 		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-				},
+			&trie.Edge{
+				Path:  &zero,
+				Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
 			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
-				},
+
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+				RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 			},
 		}
 		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
@@ -336,11 +324,9 @@ func TestGetProof(t *testing.T) {
 	t.Run("GP Simple Trie - simple double binary", func(t *testing.T) {
 		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
 
-		expectedProofNodes[2] = trie.ProofNode{
-			Binary: &trie.Binary{
-				LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-				RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
-			},
+		expectedProofNodes[2] = &trie.Binary{
+			LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+			RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 		}
 
 		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
@@ -375,17 +361,13 @@ func TestGetProof(t *testing.T) {
 		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
 		path1 := trie.NewKey(250, key1Bytes[:])
 		expectedProofNodes := []trie.ProofNode{
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x06E08BF82793229338CE60B65D1845F836C8E2FBFE2BC59FF24AEDBD8BA219C4"),
-					RightHash: utils.HexToFelt(t, "0x04F9B8E66212FB528C0C1BD02F43309C53B895AA7D9DC91180001BDD28A588FA"),
-				},
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x06E08BF82793229338CE60B65D1845F836C8E2FBFE2BC59FF24AEDBD8BA219C4"),
+				RightHash: utils.HexToFelt(t, "0x04F9B8E66212FB528C0C1BD02F43309C53B895AA7D9DC91180001BDD28A588FA"),
 			},
-			{
-				Edge: &trie.Edge{
-					Path:  &path1,
-					Child: utils.HexToFelt(t, "0xcc"),
-				},
+			&trie.Edge{
+				Path:  &path1,
+				Child: utils.HexToFelt(t, "0xcc"),
 			},
 		}
 		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
@@ -426,11 +408,9 @@ func TestGetProof(t *testing.T) {
 
 		child := utils.HexToFelt(t, "0x00000000000000000000000000000000000000000000000000000000000000AA")
 		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &path1,
-					Child: child,
-				},
+			&trie.Edge{
+				Path:  &path1,
+				Child: child,
 			},
 		}
 		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
@@ -497,17 +477,13 @@ func TestVerifyProof(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
 		zero := trie.NewKey(250, []byte{0})
 		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-				},
+			&trie.Edge{
+				Path:  &zero,
+				Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
 			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
-				},
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+				RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 			},
 		}
 
@@ -525,23 +501,17 @@ func TestVerifyProof(t *testing.T) {
 		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
 		zero := trie.NewKey(249, []byte{0})
 		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
-				},
+			&trie.Edge{
+				Path:  &zero,
+				Child: utils.HexToFelt(t, "0x055C81F6A791FD06FC2E2CCAD922397EC76C3E35F2E06C0C0D43D551005A8DEA"),
 			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-					RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
-				},
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+				RightHash: utils.HexToFelt(t, "0x07C5BC1CC68B7BC8CA2F632DE98297E6DA9594FA23EDE872DD2ABEAFDE353B43"),
 			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
-				},
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+				RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 			},
 		}
 
@@ -559,23 +529,17 @@ func TestVerifyProof(t *testing.T) {
 		felt2 := new(felt.Felt).SetUint64(0).Bytes()
 		lastPath := trie.NewKey(1, felt2[:])
 		expectedProofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x0768DEB8D0795D80AAAC2E5E326141F33044759F97A1BF092D8EB9C4E4BE9234"),
-				},
+			&trie.Edge{
+				Path:  &zero,
+				Child: utils.HexToFelt(t, "0x0768DEB8D0795D80AAAC2E5E326141F33044759F97A1BF092D8EB9C4E4BE9234"),
 			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x057166F9476D0A2D6875124251841EB85A9AE37462FAE3CBF7304BCD593938E7"),
-					RightHash: utils.HexToFelt(t, "0x060FBDE29F96F706498EFD132DC7F312A4C99A9AE051BF152C2AF2B3CAF31E5B"),
-				},
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x057166F9476D0A2D6875124251841EB85A9AE37462FAE3CBF7304BCD593938E7"),
+				RightHash: utils.HexToFelt(t, "0x060FBDE29F96F706498EFD132DC7F312A4C99A9AE051BF152C2AF2B3CAF31E5B"),
 			},
-			{
-				Edge: &trie.Edge{
-					Path:  &lastPath,
-					Child: utils.HexToFelt(t, "0x6"),
-				},
+			&trie.Edge{
+				Path:  &lastPath,
+				Child: utils.HexToFelt(t, "0x6"),
 			},
 		}
 
@@ -630,17 +594,13 @@ func TestProofToPath(t *testing.T) {
 		leafValue := utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002")
 		siblingValue := utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003")
 		proofNodes := []trie.ProofNode{
-			{
-				Edge: &trie.Edge{
-					Path:  &zero,
-					Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
-				},
+			&trie.Edge{
+				Path:  &zero,
+				Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
 			},
-			{
-				Binary: &trie.Binary{
-					LeftHash:  leafValue,
-					RightHash: siblingValue,
-				},
+			&trie.Binary{
+				LeftHash:  leafValue,
+				RightHash: siblingValue,
 			},
 		}
 
@@ -664,17 +624,13 @@ func TestProofToPath(t *testing.T) {
 		leafkey := trie.NewKey(251, zeroFeltBytes[:])
 		path1 := trie.NewKey(250, zeroFeltBytes[:])
 		proofNodes := []trie.ProofNode{
-			{
-				Binary: &trie.Binary{
-					LeftHash:  utils.HexToFelt(t, "0x06E08BF82793229338CE60B65D1845F836C8E2FBFE2BC59FF24AEDBD8BA219C4"),
-					RightHash: utils.HexToFelt(t, "0x04F9B8E66212FB528C0C1BD02F43309C53B895AA7D9DC91180001BDD28A588FA"),
-				},
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x06E08BF82793229338CE60B65D1845F836C8E2FBFE2BC59FF24AEDBD8BA219C4"),
+				RightHash: utils.HexToFelt(t, "0x04F9B8E66212FB528C0C1BD02F43309C53B895AA7D9DC91180001BDD28A588FA"),
 			},
-			{
-				Edge: &trie.Edge{
-					Path:  &path1,
-					Child: utils.HexToFelt(t, "0xcc"),
-				},
+			&trie.Edge{
+				Path:  &path1,
+				Child: utils.HexToFelt(t, "0xcc"),
 			},
 		}
 
@@ -1147,13 +1103,13 @@ func TestSplitProofPaths(t *testing.T) {
 		p4 := newBinaryProofNode()
 		p5 := newBinaryProofNode()
 
-		p4.Binary.LeftHash = new(felt.Felt).SetUint64(3)
-		p2.Binary.RightHash = new(felt.Felt).SetUint64(4)
+		p4.LeftHash = new(felt.Felt).SetUint64(3)
+		p2.RightHash = new(felt.Felt).SetUint64(4)
 
-		p3.Binary.RightHash = p5.Hash(crypto.Pedersen)
-		p3.Binary.LeftHash = p4.Hash(crypto.Pedersen)
-		p1.Binary.RightHash = p3.Hash(crypto.Pedersen)
-		p1.Binary.LeftHash = p2.Hash(crypto.Pedersen)
+		p3.RightHash = p5.Hash(crypto.Pedersen)
+		p3.LeftHash = p4.Hash(crypto.Pedersen)
+		p1.RightHash = p3.Hash(crypto.Pedersen)
+		p1.LeftHash = p2.Hash(crypto.Pedersen)
 
 		mergedProofs := []trie.ProofNode{p1, p2, p3, p4, p5}
 		rootHash := p1.Hash(crypto.Pedersen)
@@ -1169,10 +1125,10 @@ func TestSplitProofPaths(t *testing.T) {
 		p4 := newBinaryProofNode()
 		p5 := newBinaryProofNode()
 
-		p3.Binary.RightHash = p5.Hash(crypto.Pedersen)
-		p3.Binary.LeftHash = p4.Hash(crypto.Pedersen)
-		p1.Binary.RightHash = p3.Hash(crypto.Pedersen)
-		p1.Binary.LeftHash = p2.Hash(crypto.Pedersen)
+		p3.RightHash = p5.Hash(crypto.Pedersen)
+		p3.LeftHash = p4.Hash(crypto.Pedersen)
+		p1.RightHash = p3.Hash(crypto.Pedersen)
+		p1.LeftHash = p2.Hash(crypto.Pedersen)
 
 		mergedProofs := []trie.ProofNode{p1, p2, p3, p4, p5}
 		rootHash := p1.Hash(crypto.Pedersen)
