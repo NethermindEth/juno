@@ -111,19 +111,20 @@ var (
 )
 
 var (
-	storageJobWorker    = 8
-	storageBatchSize    = 50
-	storageJobQueueSize = storageJobWorker * storageBatchSize // Too high and the progress from address range would be inaccurate.
+	storageJobWorkerCount = 4
+	storageBatchSize      = 10
+	storageJobQueueSize   = storageJobWorkerCount * storageBatchSize // Too high and the progress from address range would be inaccurate.
 
 	// For some reason, the trie throughput is higher if the batch size is small.
-	classRangeChunksPerProof   = 500
-	contractRangeChunkPerProof = 501
-	storageRangeChunkPerProof  = 1000
+	classRangeChunksPerProof   = 50
+	contractRangeChunkPerProof = 150
+	storageRangeChunkPerProof  = 300
 	maxStorageBatchSize        = 1000
 	maxMaxPerStorageSize       = 1000
 
-	fetchClassWorkerCount = 8 // Fairly parallelizable. But this is brute force...
+	fetchClassWorkerCount = 4 // Fairly parallelizable. But this is brute force...
 	classesJobQueueSize   = 128
+	classBatchSize        = 50
 
 	maxPivotDistance     = 32        // Set to 1 to test updated storage.
 	newPivotHeadDistance = uint64(0) // This should be the reorg depth
@@ -217,7 +218,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 	})
 
 	storageEg, sctx := errgroup.WithContext(ectx)
-	for i := 0; i < storageJobWorker; i++ {
+	for i := 0; i < storageJobWorkerCount; i++ {
 		i := i
 		storageEg.Go(func() error {
 			defer func() {
@@ -348,7 +349,7 @@ func calculatePercentage(f *felt.Felt) uint64 {
 
 //nolint:gocyclo,nolintlint
 func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
-	totaladded := 0
+	totalAdded := 0
 	completed := false
 	startAddr := &felt.Zero
 
@@ -389,7 +390,6 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				s.log.Warnw("Unexpected class range message", "GetResponses", v)
 				continue
 			}
-			s.log.Infow("class range worker received response", "classes", len(classes))
 
 			if classes == nil || len(classes) == 0 {
 				s.log.Errorw("class range respond with empty classes")
@@ -399,8 +399,6 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				s.log.Errorw("class range respond with nil proof")
 				continue
 			}
-
-			s.log.Infow("got", "res", len(classes), "startAdr", startAddr)
 
 			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
 			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
@@ -413,14 +411,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 			}
 
 			s.log.Infow("class range progress", "progress", calculatePercentage(startAddr))
-			s.log.Infow("class range state root", "stateroot", stateRoot)
-
-			if classRoot.Equal(&felt.Zero) {
-				// Special case, no V1 at all
-				s.log.Infow("class range completed", "totalClass", totaladded)
-				completed = true
-				return nil
-			}
+			s.log.Infow("class range info", "classes", len(classes), "totalAdded", totalAdded, "startAddr", startAddr)
 
 			paths := make([]*felt.Felt, len(classes))
 			values := make([]*felt.Felt, len(classes))
@@ -447,6 +438,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				s.log.Infow("class range adaptation failure", "err", err)
 				return err
 			}
+			s.log.Infow("class range adaptation completed", "classes", len(classes))
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
 			hasNext, err := VerifyTrie(classRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Poseidon)
@@ -469,9 +461,11 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				fmt.Printf("Unable to update the chain %s\n", err)
 				panic(err)
 			}
+			totalAdded += len(classes)
+			s.log.Infow("class range added classes into state", "classes", len(classes), "total", totalAdded)
 
 			if !hasNext {
-				s.log.Infow("class range completed", "totalClass", totaladded)
+				s.log.Infow("class range completed", "totalClass", totalAdded)
 				completed = true
 				return nil
 			}
@@ -488,9 +482,10 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 //nolint:gocyclo
 func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) error {
 	keyBatches := make([]*felt.Felt, 0)
+	s.log.Infow("class fetch worker entering infinite loop", "worker", workerIdx)
 	for {
 	requestloop:
-		for len(keyBatches) < 100 {
+		for len(keyBatches) < classBatchSize {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -499,7 +494,7 @@ func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) er
 				if len(keyBatches) > 0 {
 					break requestloop
 				}
-				s.log.Infow("waiting for more class job", "worker", workerIdx, "count", s.classFetchJobCount)
+				s.log.Infow("waiting for more class job", "worker", workerIdx, "pendind", s.classFetchJobCount)
 			case key := <-s.classesJob:
 				if key == nil {
 					// channel finished.
@@ -528,6 +523,7 @@ func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) er
 				atomic.AddInt32(&s.classFetchJobCount, -1)
 			}
 		}
+		s.log.Infow("class fetch job completes batch", "asked keys", len(keyBatches), "worker", workerIdx, "pending", s.classFetchJobCount)
 
 		var hashes []*spec.Hash
 		for _, key := range keyBatches {
@@ -555,13 +551,12 @@ func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) er
 			case *spec.ClassesResponse_Class:
 				classes = append(classes, v.Class)
 			case *spec.ClassesResponse_Fin:
-				s.log.Infow("[FinMsg] class batch completed", "classes", len(classes), "workers", workerIdx)
+				s.log.Infow("[FinMsg] class batch completed", "classes", len(classes), "worker", workerIdx)
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
 			}
 		}
-		s.log.Infow("class fetch job received response", "classes", len(classes), "asked keys", len(keyBatches), "worker", workerIdx)
 
 		processedClasses := map[felt.Felt]bool{}
 		newClasses := map[felt.Felt]core.Class{}
@@ -598,6 +593,7 @@ func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) er
 				s.log.Errorw("error storing class", "err", err)
 				return err
 			}
+			s.log.Infow("class fetch job added classes into state", "classes", len(newClasses), "worker", workerIdx)
 		} else {
 			s.log.Errorw("Unable to fetch any class from peer")
 			// TODO: Penalise peer?
@@ -611,11 +607,13 @@ func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) er
 		}
 
 		keyBatches = newBatch
+		s.log.Infow("class fetch job completed batch", "processed", len(processedClasses), "unprocessed", len(newBatch), "worker", workerIdx)
 	}
 }
 
 //nolint:gocyclo
 func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
+	totalAdded := 0
 	startAddr := &felt.Zero
 	completed := false
 
@@ -642,21 +640,17 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				continue
 			}
 
-			s.log.Infow("snap range progress", "progress", calculatePercentage(startAddr), "addr", startAddr)
-			rangeProgress.Set(float64(calculatePercentage(startAddr)))
-
 			var crange *spec.ContractRange
 			switch v := response.GetResponses().(type) {
 			case *spec.ContractRangeResponse_Range:
 				crange = v.Range
 			case *spec.ContractRangeResponse_Fin:
-				s.log.Infow("[finMsg] contract range completed")
+				s.log.Infow("[finMsg] contract range completed", "totalAdded", totalAdded)
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected contract range message", "GetResponses", v)
 				continue
 			}
-			s.log.Infow("contract range worker received response", "states", len(crange.State))
 
 			if crange == nil || crange.State == nil {
 				s.log.Errorw("contract range respond with nil state")
@@ -666,6 +660,10 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				s.log.Errorw("contract range respond with nil proof")
 				continue
 			}
+
+			s.log.Infow("contract range progress", "progress", calculatePercentage(startAddr))
+			s.log.Infow("contract range info", "states", len(crange.State), "totalAdded", totalAdded, "startAddr", startAddr)
+			rangeProgress.Set(float64(calculatePercentage(startAddr)))
 
 			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
 			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
@@ -679,9 +677,9 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 			paths := make([]*felt.Felt, len(crange.State))
 			values := make([]*felt.Felt, len(crange.State))
 
-			for i, rangeValue := range crange.State {
-				paths[i] = p2p2core.AdaptAddress(rangeValue.Address)
-				values[i] = CalculateRangeValueHash(rangeValue)
+			for i, state := range crange.State {
+				paths[i] = p2p2core.AdaptAddress(state.Address)
+				values[i] = CalculateContractStateHash(state)
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
@@ -691,6 +689,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				s.log.Infow("trie verification failed", "err", err)
 				return err
 			}
+			s.log.Infow("contract range adaptation completed", "hasNext", hasNext, "states", len(paths), "totalAdded", totalAdded)
 
 			classes := []*felt.Felt{}
 			nonces := []*felt.Felt{}
@@ -705,6 +704,8 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				fmt.Printf("Unable to update the chain %s\n", err)
 				panic(err)
 			}
+			totalAdded += len(paths)
+			s.log.Infow("contract range added contracts into state", "contracts", len(paths), "totalAdded", totalAdded)
 
 			// We don't actually store it directly here... only put it as part of job.
 			// Can't remember why. Could be because it would be some wasted work.
@@ -767,14 +768,14 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				if len(jobs) > 0 {
 					break requestloop
 				}
-				s.log.Infow("waiting for more storage job", "count", s.storageRangeJobCount)
+				s.log.Infow("waiting for more storage job", "len(jobs)", len(jobs), "worker", workerIdx, "pending", s.storageRangeJobCount)
 			case <-contractDoneChecker:
 				// Its done...
 				return nil
 			}
 		}
 
-		s.log.Infow("Pending jobs count", "pending", s.storageRangeJobCount)
+		//s.log.Infow("storage range job completes batch", "jobs", len(jobs), "worker", workerIdx, "pending", s.storageRangeJobCount)
 
 		requests := make([]*spec.StorageRangeQuery, 0)
 		for _, job := range jobs {
@@ -792,17 +793,19 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		stateRoot := s.currentGlobalStateRoot
 		processedJobs := struct {
 			jobIdx  int
+			jobAddr *felt.Felt
 			address *felt.Felt
 		}{}
 		storage := map[felt.Felt]map[felt.Felt]*felt.Felt{}
 		totalPath := 0
 		maxPerStorageSize := 0
 
-		s.log.Infow("storage range",
-			"rootDistance", s.lastBlock.Number-s.startingBlock.Number,
-			"root", stateRoot.String(),
-			"requestcount", len(requests),
-		)
+		//s.log.Infow("storage range",
+		//	"rootDistance", s.lastBlock.Number-s.startingBlock.Number,
+		//	"root", stateRoot.String(),
+		//	"requestcount", len(requests),
+		//	"worker", workerIdx,
+		//)
 		iter, err := s.client.RequestStorageRange(ctx, &spec.ContractStorageRequest{
 			StateRoot:      core2p2p.AdaptHash(stateRoot),
 			ChunksPerProof: uint32(storageRangeChunkPerProof),
@@ -829,7 +832,8 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 				csto = v.Storage
 			case *spec.ContractStorageResponse_Fin:
 				s.log.Infow("[FinMsg] storage range completed",
-					"totalPath", totalPath, "worker", workerIdx, "jobs", processedJobs.jobIdx)
+					"totalPath", totalPath, "worker", workerIdx, "jobs", processedJobs.jobIdx,
+					"pending", s.storageRangeJobCount, "contract", processedJobs.jobAddr)
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected storage range message", "GetResponses", v)
@@ -853,14 +857,13 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 
 			storageAddr := p2p2core.AdaptAddress(response.ContractAddress)
 			storageRange := csto.KeyValue
-			if processedJobs.address == nil {
-				processedJobs.address = storageAddr
-			}
+			processedJobs.address = storageAddr
 
 			job := jobs[processedJobs.jobIdx]
+			processedJobs.jobAddr = job.path
 			if !job.path.Equal(storageAddr) {
 				s.log.Infow("[Missed response?] storage chunks completed",
-					"address", storageAddr, "worker", workerIdx, "job", processedJobs.jobIdx)
+					"address", storageAddr, "jobAddr", processedJobs.jobAddr, "worker", workerIdx, "job", processedJobs.jobIdx)
 				// move to the next job
 				processedJobs.jobIdx++
 				job = jobs[processedJobs.jobIdx]
@@ -872,6 +875,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 					// what to do?
 				}
 				processedJobs.address = storageAddr
+				processedJobs.jobAddr = job.path
 			}
 
 			// Validate response
@@ -952,6 +956,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 		}
 		processedJobs.jobIdx = 0
 		processedJobs.address = nil
+		processedJobs.jobAddr = nil
 	}
 }
 
@@ -975,7 +980,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-time.After(JobDuration):
-					s.log.Infow("waiting for more refresh job", "count", s.storageRangeJobCount)
+					s.log.Infow("no storagge refresh job")
 				case <-contractDoneChecker:
 					// Its done...
 					return nil
@@ -1041,7 +1046,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 
 			for i, rangeValue := range crange.State {
 				paths[i] = p2p2core.AdaptAddress(rangeValue.Address)
-				values[i] = CalculateRangeValueHash(rangeValue)
+				values[i] = CalculateContractStateHash(rangeValue)
 			}
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
@@ -1101,6 +1106,11 @@ func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path, storageRoo
 }
 
 func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageRangeJob) error {
+	if job.storageRoot == nil || job.storageRoot.IsZero() {
+		// contract's with storage root of 0x0 has no storage
+		return nil
+	}
+
 	queued := false
 	for !queued {
 		select {
@@ -1122,7 +1132,6 @@ func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRa
 		select {
 		case s.storageRefreshJob <- job:
 			queued = true
-			atomic.AddInt32(&s.storageRangeJobCount, 1)
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(10 * time.Second):
@@ -1246,7 +1255,7 @@ func CalculateCompiledClassHash(cls core.Class) *felt.Felt {
 	return cls.(*core.Cairo1Class).Compiled.Hash()
 }
 
-func CalculateRangeValueHash(value *spec.ContractState) *felt.Felt {
+func CalculateContractStateHash(value *spec.ContractState) *felt.Felt {
 	nonce := fp.NewElement(value.Nonce)
 	return calculateContractCommitment(
 		p2p2core.AdaptHash(value.Storage),

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	unmarshalMaxSize = 15 * utils.Megabyte
+	unmarshalMaxSize = 30 * utils.Megabyte
 	// TODO: allow a looot and tweak it later if needed, was 5 seconds before
 	readTimeout = 60 * time.Second
 )

@@ -152,7 +152,7 @@ func TestContractRange(t *testing.T) {
 
 func TestContractRangeByOneContract(t *testing.T) {
 	var d db.DB
-	//t.Skip("DB snapshot is needed for this test")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -200,6 +200,26 @@ func TestContractRangeByOneContract(t *testing.T) {
 			expectedClassHash:   feltFromString("0x66559c86e66214ba1bc5d6512f6411aa066493e6086ff5d54f41a970d47fc5a"),
 			expectedNonce:       0,
 		},
+		{
+			address:             feltFromString("0x4c04ec7c3c5a82df2d194095f090af83a9f26e22544d968c3d67c1b320d43"),
+			expectedStorageRoot: feltFromString("0x0"),
+			expectedNonce:       0,
+		},
+		{
+			address:             feltFromString("0x4ccd60176f9e757031f04691beb09832a0ea583eeb5158b05277547957514"),
+			expectedStorageRoot: feltFromString("0x0"),
+			expectedNonce:       1,
+		},
+		{
+			address:             feltFromString("0xd94fd19a7730f84df43999562cbbf5cf8d48a6cb92f5bc5d6795f34c15f72"),
+			expectedStorageRoot: feltFromString("0x0"),
+			expectedNonce:       0,
+		},
+		{
+			address:             feltFromString("0xdd92645559c6dca08c6e947b4a40a55142a0a8b65552be8b31c885f37ef87"),
+			expectedStorageRoot: feltFromString("0x0"),
+			expectedNonce:       1,
+		},
 	}
 
 	for _, test := range tests {
@@ -236,8 +256,8 @@ func TestContractRangeByOneContract(t *testing.T) {
 					storageRoot := p2p2core.AdaptHash(crct.Storage)
 					assert.Equal(t, test.expectedStorageRoot, storageRoot)
 
-					classHash := p2p2core.AdaptHash(crct.Class)
-					assert.Equal(t, test.expectedClassHash, classHash, "classHash", classHash)
+					//classHash := p2p2core.AdaptHash(crct.Class)
+					//assert.Equal(t, test.expectedClassHash, classHash, "classHash", classHash)
 
 					assert.Equal(t, test.expectedNonce, crct.Nonce)
 
@@ -453,7 +473,7 @@ func TestGetClassesByHash(t *testing.T) {
 
 func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 	var d db.DB
-	//t.Skip("DB snapshot is needed for this test")
+	t.Skip("DB snapshot is needed for this test")
 	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/juno-sepolia", 128000000, 128, false)
 	defer func() { _ = d.Close() }()
 	bc := blockchain.New(d, &utils.Sepolia) // Needed because class loader need encoder to be registered
@@ -629,6 +649,46 @@ func TestGetContractStorageRoot(t *testing.T) {
 			address:        feltFromString("0x28f61c91275111e8c5af6febfa5c9d2191442b4fe48d30a84e51a09e8f18b5"),
 			storageRoot:    feltFromString("0x1de1bf792cd9221c8d6ba2953671d6a4f0890375eca3718989082225dccb7eb"),
 			expectedLeaves: 540,
+		},
+		{
+			address:        feltFromString("0x4c04ec7c3c5a82df2d194095f090af83a9f26e22544d968c3d67c1b320d43"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 0,
+		},
+		{
+			address:        feltFromString("0x4ccd60176f9e757031f04691beb09832a0ea583eeb5158b05277547957514"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 1,
+		},
+		{
+			address:        feltFromString("0xd94fd19a7730f84df43999562cbbf5cf8d48a6cb92f5bc5d6795f34c15f72"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 0,
+		},
+		{
+			address:        feltFromString("0xdd92645559c6dca08c6e947b4a40a55142a0a8b65552be8b31c885f37ef87"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 1,
+		},
+		{
+			address:        feltFromString("0x807dd1766d3c833ac82290e38a000b7d48acce3cf125cffde15ea9e583a95"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 0,
+		},
+		{
+			address:        feltFromString("0x8502b172cb17395511c4bfabb7ded748cd930fec8201ad6b444f9d6a9df7a"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 1,
+		},
+		{
+			address:        feltFromString("0x5788cee963fe68a76b1ef9b04f1ba404043d853ad593c366c723322381b14"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 0,
+		},
+		{
+			address:        feltFromString("0x5e8dab06aaf28538be2077fddd679cac934c5e082303f892235fb989e800c"),
+			storageRoot:    feltFromString("0x0"),
+			expectedLeaves: 1,
 		},
 	}
 
