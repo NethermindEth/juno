@@ -419,13 +419,11 @@ func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *
 	return txn.Set(db.BlockCommitments.Key(numBytes), commitmentBytes)
 }
 
-// L1Hash computes the L1 transaction hash that created the l1 handler transaction
-
-func L1Hash(tx *core.L1HandlerTransaction) *felt.Felt {
+func MessageHash(tx *core.L1HandlerTransaction) []byte {
 	// It shouldn't be possible to trigger an l1 handler transaction
 	// using an L1 transaction with empty calldata, but we catch this here.
 	if len(tx.CallData) == 0 {
-		return new(felt.Felt).SetUint64(0)
+		return []byte{}
 	}
 
 	hash := sha3.NewLegacyKeccak256()
@@ -451,33 +449,34 @@ func L1Hash(tx *core.L1HandlerTransaction) *felt.Felt {
 			hash.Write(payloadElm[:])
 		}
 	}
-	return new(felt.Felt).SetBytes(hash.Sum(nil))
+
+	return hash.Sum([]byte{})
 }
 
-func StoreL1HandlerTxns(txn db.Transaction, block *core.Block) error {
-	keysL1TxnHashes := []*felt.Felt{}
-	values := map[*felt.Felt][]*felt.Felt{}
-	for _, txn := range block.Transactions {
-		if l1handler, ok := (txn).(*core.L1HandlerTransaction); ok {
-			l1hash := L1Hash(l1handler)
-			keysL1TxnHashes = append(keysL1TxnHashes, l1hash)
-			values[l1hash] = append(values[l1hash], l1handler.Hash())
-		}
-	}
+// func StoreL1HandlerTxns(txn db.Transaction, block *core.Block) error {
+// 	keysL1TxnHashes := []*felt.Felt{}
+// 	values := map[*felt.Felt][]*felt.Felt{}
+// 	for _, txn := range block.Transactions {
+// 		if l1handler, ok := (txn).(*core.L1HandlerTransaction); ok {
+// 			// l1hash := MessageHash(l1handler)
+// 			// keysL1TxnHashes = append(keysL1TxnHashes, l1hash)
+// 			// values[l1hash] = append(values[l1hash], l1handler.Hash())
+// 		}
+// 	}
 
-	for _, l1hash := range keysL1TxnHashes {
-		keyBytes := l1hash.Bytes()
-		l1HandlerHashesBytes, err := encoder.Marshal(values[l1hash])
-		if err != nil {
-			return err
-		}
-		err = txn.Set(db.L1Hashes.Key(keyBytes[:]), l1HandlerHashesBytes)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// 	for _, l1hash := range keysL1TxnHashes {
+// 		keyBytes := l1hash.Bytes()
+// 		l1HandlerHashesBytes, err := encoder.Marshal(values[l1hash])
+// 		if err != nil {
+// 			return err
+// 		}
+// 		err = txn.Set(db.L1Hashes.Key(keyBytes[:]), l1HandlerHashesBytes)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
 	b.listener.OnRead("BlockCommitmentsByNumber")

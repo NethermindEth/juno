@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -864,23 +865,21 @@ func TestMakeStateDiffForEmptyBlock(t *testing.T) {
 	})
 }
 
-func TestL1Hash(t *testing.T) {
+func TestMessageHash(t *testing.T) {
 	l1HandlerTxn := &core.L1HandlerTransaction{
-		TransactionHash:    utils.HexToFelt(t, "0x46995a28ce018efb26e67af1481cd0e96340606e4ff3826d5e23f7835b9be9"),
-		ContractAddress:    utils.HexToFelt(t, "0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f"),
-		EntryPointSelector: utils.HexToFelt(t, "0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19"),
-		Nonce:              utils.HexToFelt(t, "0x239a"),
+		TransactionHash:    utils.HexToFelt(t, "0x63f36452a4255a9d3f06def95a08bbc295f0de0515adefbf04ee795ed4c3f12"),
+		ContractAddress:    utils.HexToFelt(t, "0x73314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82"),
+		EntryPointSelector: utils.HexToFelt(t, "0x2d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5"),
+		Nonce:              utils.HexToFelt(t, "0x17824b"),
 		CallData: []*felt.Felt{
-			utils.HexToFelt(t, "0x8453fc6cd1bcfe8d4dfc069c400b433054d47bdc"),
-			utils.HexToFelt(t, "0x455448"),
-			utils.HexToFelt(t, "0x7877e6ee1a4f79fb6086565ab5da4ced6605310a"),
-			utils.HexToFelt(t, "0x47f5fc53bc5c71c218c92981b34403bea56b4e5cec877b77232ff71d3586245"),
-			utils.HexToFelt(t, "0x89ff260"),
+			utils.HexToFelt(t, "0xae0ee0a63a2ce6baeeffe56e7714fb4efe48d419"),
+			utils.HexToFelt(t, "0x2c63ec1313901744d1321b93bda51418cc18998a1562d368960711367f7530f"),
+			utils.HexToFelt(t, "0x11e14e1039c000"),
 			utils.HexToFelt(t, "0x0"),
 		},
 		Version: new(core.TransactionVersion).SetUint64(0),
 	}
-	computedHash := blockchain.L1Hash(l1HandlerTxn)
-	expectedHash := utils.HexToFelt(t, "0x00f0ca9df935c08a05603806140d1140a24aa6334d295d98eb81a345bb2475b2")
-	require.Equal(t, expectedHash.String(), computedHash.String())
+	l1bytes := blockchain.MessageHash(l1HandlerTxn)
+	expectedBytes := common.HexToHash("0x573aeff3cf703775e8a76a27adee9e80f2ce558a6a38ec87e0249a8b175e5c1a")
+	require.Equal(t, expectedBytes.Bytes(), l1bytes)
 }
