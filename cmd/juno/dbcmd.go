@@ -66,7 +66,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	database, err := pebble.New(dbPath)
+	database, err := pebble.New(dbPath, false)
 	if err != nil {
 		return fmt.Errorf("open DB: %w", err)
 	}
@@ -125,7 +125,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	pebbleDB, err := pebble.New(dbPath)
+	pebbleDB, err := pebble.New(dbPath, false)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 
 	for _, b := range db.BucketValues() {
 		fmt.Fprintf(cmd.OutOrStdout(), "Calculating size of %s, remaining buckets: %d\n", b, len(db.BucketValues())-int(b)-1)
-		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)})
+		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB, []byte{byte(b)})
 		if err != nil {
 			return err
 		}

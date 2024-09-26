@@ -41,7 +41,7 @@ func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 	require.NoError(t, err)
 
 	dbPath := t.TempDir()
-	testDB, err := pebble.New(dbPath)
+	testDB, err := pebble.New(dbPath, false)
 	require.NoError(t, err)
 
 	chain := blockchain.New(testDB, &utils.Mainnet)
