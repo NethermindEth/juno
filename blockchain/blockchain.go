@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
 	"sync/atomic"
 	"time"
 
@@ -15,9 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"golang.org/x/crypto/sha3"
 )
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -423,55 +420,38 @@ func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *
 }
 
 // L1Hash computes the L1 transaction hash that created the l1 handler transaction
-func L1Hash(tx *core.L1HandlerTransaction) (*felt.Felt, error) {
-	// Define ABI types
-	uint256Ty, _ := abi.NewType("uint256", "", nil)
-	bytes32Ty, _ := abi.NewType("bytes32", "", nil)
-	addressTy, _ := abi.NewType("address", "", nil)
 
+func L1Hash(tx *core.L1HandlerTransaction) *felt.Felt {
+	// It shouldn't be possible to trigger an l1 handler transaction
+	// using an L1 transaction with empty calldata, but we catch this here.
+	if len(tx.CallData) == 0 {
+		return new(felt.Felt).SetUint64(0)
+	}
+
+	hash := sha3.NewLegacyKeccak256()
 	fromAddress := tx.CallData[0].Bytes()
 	toAddress := tx.ContractAddress.Bytes()
-	nonce := tx.Nonce.Bytes()
 	selector := tx.EntryPointSelector.Bytes()
+	nonce := tx.Nonce.Bytes()
+	hash.Write(fromAddress[:])
+	hash.Write(toAddress[:])
+	hash.Write(nonce[:])
+	hash.Write(selector[:])
+	if len(tx.CallData) > 1 {
+		// Add 24 zero bytes (padding) to the hash
+		padding := make([]byte, 24)
+		hash.Write(padding)
+		// Convert the payload length to a big-endian 64-bit integer (u64 -> 8 bytes) and add it to the hash
+		payloadLengthBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(payloadLengthBytes, uint64(len(tx.CallData[1:])))
+		hash.Write(payloadLengthBytes)
 
-	// Pack each argument according to its type
-	arguments := abi.Arguments{
-		{
-			Type: addressTy, // fromAddress (tx.calldata[0])
-		},
-		{
-			Type: addressTy, // toAddress (tx.ContractAddress)
-		},
-		{
-			Type: bytes32Ty, // nonce
-		},
-		{
-			Type: bytes32Ty, // selector (tx.EntryPointSelector)
-		},
-		{
-			Type: uint256Ty, // payload length (len(tx.CallData))
-		},
+		for _, elem := range tx.CallData[1:] {
+			payloadElm := elem.Bytes()
+			hash.Write(payloadElm[:])
+		}
 	}
-
-	// https://docs.starknet.io/architecture-and-concepts/network-architecture/messaging-mechanism/#hashing_l1-l2
-	packedBytes, err := arguments.Pack(
-		common.BytesToAddress(fromAddress[:]),
-		common.BytesToAddress(toAddress[:]),
-		common.BytesToHash(nonce[:]),
-		common.BytesToHash(selector[:]),
-		big.NewInt(int64(len(tx.CallData))),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to pack arguments: %v", err)
-	}
-
-	// Append the rest of the calldata as bytes
-	for i := 1; i < len(tx.CallData); i++ {
-		txCallDataBytes := tx.CallData[i].Bytes()
-		packedBytes = append(packedBytes, txCallDataBytes[:]...)
-	}
-
-	return new(felt.Felt).SetBytes(crypto.Keccak256(packedBytes)), nil
+	return new(felt.Felt).SetBytes(hash.Sum(nil))
 }
 
 func StoreL1HandlerTxns(txn db.Transaction, block *core.Block) error {
@@ -479,10 +459,7 @@ func StoreL1HandlerTxns(txn db.Transaction, block *core.Block) error {
 	values := map[*felt.Felt][]*felt.Felt{}
 	for _, txn := range block.Transactions {
 		if l1handler, ok := (txn).(*core.L1HandlerTransaction); ok {
-			l1hash, err := L1Hash(l1handler)
-			if err != nil {
-				return err
-			}
+			l1hash := L1Hash(l1handler)
 			keysL1TxnHashes = append(keysL1TxnHashes, l1hash)
 			values[l1hash] = append(values[l1hash], l1handler.Hash())
 		}

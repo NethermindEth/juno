@@ -880,8 +880,7 @@ func TestL1Hash(t *testing.T) {
 		},
 		Version: new(core.TransactionVersion).SetUint64(0),
 	}
-	computedHash, err := blockchain.L1Hash(l1HandlerTxn)
-	require.NoError(t, err)
+	computedHash := blockchain.L1Hash(l1HandlerTxn)
 	expectedHash := utils.HexToFelt(t, "0x00f0ca9df935c08a05603806140d1140a24aa6334d295d98eb81a345bb2475b2")
 	require.Equal(t, expectedHash.String(), computedHash.String())
 }
