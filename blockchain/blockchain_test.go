@@ -863,3 +863,25 @@ func TestMakeStateDiffForEmptyBlock(t *testing.T) {
 		assert.Equal(t, blockHash, sd.StorageDiffs[*storageContractAddr][felt.Zero])
 	})
 }
+
+func TestL1Hash(t *testing.T) {
+	l1HandlerTxn := &core.L1HandlerTransaction{
+		TransactionHash:    utils.HexToFelt(t, "0x46995a28ce018efb26e67af1481cd0e96340606e4ff3826d5e23f7835b9be9"),
+		ContractAddress:    utils.HexToFelt(t, "0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f"),
+		EntryPointSelector: utils.HexToFelt(t, "0x1b64b1b3b690b43b9b514fb81377518f4039cd3e4f4914d8a6bdf01d679fb19"),
+		Nonce:              utils.HexToFelt(t, "0x239a"),
+		CallData: []*felt.Felt{
+			utils.HexToFelt(t, "0x8453fc6cd1bcfe8d4dfc069c400b433054d47bdc"),
+			utils.HexToFelt(t, "0x455448"),
+			utils.HexToFelt(t, "0x7877e6ee1a4f79fb6086565ab5da4ced6605310a"),
+			utils.HexToFelt(t, "0x47f5fc53bc5c71c218c92981b34403bea56b4e5cec877b77232ff71d3586245"),
+			utils.HexToFelt(t, "0x89ff260"),
+			utils.HexToFelt(t, "0x0"),
+		},
+		Version: new(core.TransactionVersion).SetUint64(0),
+	}
+	computedHash, err := blockchain.L1Hash(l1HandlerTxn)
+	require.NoError(t, err)
+	expectedHash := utils.HexToFelt(t, "0x00f0ca9df935c08a05603806140d1140a24aa6334d295d98eb81a345bb2475b2")
+	require.Equal(t, expectedHash.String(), computedHash.String())
+}

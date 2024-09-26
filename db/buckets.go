@@ -33,6 +33,7 @@ const (
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
+	L1Hashes
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
