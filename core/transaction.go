@@ -634,15 +634,15 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 	if err != nil {
 		return nil, err
 	}
-	var process processFunc[Transaction]
+	var hashFunc processFunc[Transaction]
 
 	if blockVersion.GreaterThanEqual(v0_11_1) {
-		process = func(transaction Transaction) *felt.Felt {
+		hashFunc = func(transaction Transaction) *felt.Felt {
 			signatureHash := crypto.PedersenArray(transaction.Signature()...)
 			return crypto.Pedersen(transaction.Hash(), signatureHash)
 		}
 	} else {
-		process = func(transaction Transaction) *felt.Felt {
+		hashFunc = func(transaction Transaction) *felt.Felt {
 			signatureHash := crypto.PedersenArray()
 			if _, ok := transaction.(*InvokeTransaction); ok {
 				signatureHash = crypto.PedersenArray(transaction.Signature()...)
@@ -650,7 +650,7 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 			return crypto.Pedersen(transaction.Hash(), signatureHash)
 		}
 	}
-	return calculateCommitment(transactions, trie.RunOnTempTriePedersen, process)
+	return calculateCommitment(transactions, trie.RunOnTempTriePedersen, hashFunc)
 }
 
 func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
