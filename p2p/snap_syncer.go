@@ -122,9 +122,9 @@ var (
 	maxStorageBatchSize        = 1000
 	maxMaxPerStorageSize       = 1000
 
-	fetchClassWorkerCount = 4 // Fairly parallelizable. But this is brute force...
-	classesJobQueueSize   = 128
-	classBatchSize        = 50
+	fetchClassWorkerCount = 3 // Fairly parallelizable. But this is brute force...
+	classesJobQueueSize   = 64
+	classBatchSize        = 30
 
 	maxPivotDistance     = 32        // Set to 1 to test updated storage.
 	newPivotHeadDistance = uint64(0) // This should be the reorg depth
@@ -152,6 +152,11 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 
 	err := s.runPhase1(ctx)
 	if err != nil {
+		return err
+	}
+
+	s.log.Infow("phase 1 completed")
+	if err = s.PhraseVerify(ctx); err != nil {
 		return err
 	}
 
@@ -286,6 +291,64 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 	return nil
 }
 
+func (s *SnapSyncher) PhraseVerify(ctx context.Context) error {
+	// 1. Get the correct tries roots (again)
+	iter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
+		StateRoot:      core2p2p.AdaptHash(s.currentGlobalStateRoot),
+		ChunksPerProof: 1,
+	})
+	if err != nil {
+		s.log.Errorw("error getting contract range from client", "err", err)
+		return err
+	}
+
+	var classRoot, contractRoot *felt.Felt
+	iter(func(response *spec.ContractRangeResponse) bool {
+		if _, ok := response.GetResponses().(*spec.ContractRangeResponse_Range); ok {
+			classRoot = p2p2core.AdaptHash(response.ClassesRoot)
+			contractRoot = p2p2core.AdaptHash(response.ContractsRoot)
+		} else {
+			s.log.Errorw("unexpected response", "response", response)
+		}
+
+		return false
+	})
+	if classRoot == nil || contractRoot == nil {
+		s.log.Errorw("cannot obtain the trie roots from client response")
+		return errors.New("cannot obtain the trie roots")
+	}
+
+	// 2. Verify the global state root
+	if err = VerifyGlobalStateRoot(s.currentGlobalStateRoot, classRoot, contractRoot); err != nil {
+		s.log.Errorw("global state root verification failure", "err", err)
+		return err
+	}
+
+	// 3. Verify the class & contract trie roots
+	st, err := s.blockchain.(*blockchain.Blockchain).GetStateForStateRoot(s.currentGlobalStateRoot)
+	if err != nil {
+		s.log.Errorw("error getting state for state root", "err", err)
+		return err
+	}
+	ctrtRoot, clsRoot, err := st.StateAndClassRoot()
+	if err != nil {
+		s.log.Errorw("error getting contract and class root", "err", err)
+		return err
+	}
+
+	if !classRoot.Equal(clsRoot) {
+		s.log.Errorw("class root mismatch", "got", clsRoot, "expected", classRoot)
+		return errors.New("class root mismatch")
+	}
+
+	if !contractRoot.Equal(ctrtRoot) {
+		s.log.Errorw("contract root mismatch", "got", ctrtRoot, "expected", contractRoot)
+		return errors.New("contract root mismatch")
+	}
+
+	return nil
+}
+
 func (s *SnapSyncher) getNextStartingBlock(ctx context.Context) (*core.Block, error) {
 	for {
 		select {
@@ -335,7 +398,7 @@ func (s *SnapSyncher) initState(ctx context.Context) error {
 	return nil
 }
 
-func calculatePercentage(f *felt.Felt) uint64 {
+func CalculatePercentage(f *felt.Felt) uint64 {
 	const maxPercent = 100
 	maxint := big.NewInt(1)
 	maxint.Lsh(maxint, core.GlobalTrieHeight)
@@ -410,7 +473,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 				return err
 			}
 
-			s.log.Infow("class range progress", "progress", calculatePercentage(startAddr))
+			s.log.Infow("class range progress", "progress", CalculatePercentage(startAddr))
 			s.log.Infow("class range info", "classes", len(classes), "totalAdded", totalAdded, "startAddr", startAddr)
 
 			paths := make([]*felt.Felt, len(classes))
@@ -661,9 +724,9 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 				continue
 			}
 
-			s.log.Infow("contract range progress", "progress", calculatePercentage(startAddr))
+			s.log.Infow("contract range progress", "progress", CalculatePercentage(startAddr))
 			s.log.Infow("contract range info", "states", len(crange.State), "totalAdded", totalAdded, "startAddr", startAddr)
-			rangeProgress.Set(float64(calculatePercentage(startAddr)))
+			rangeProgress.Set(float64(CalculatePercentage(startAddr)))
 
 			classRoot := p2p2core.AdaptHash(response.ClassesRoot)
 			contractRoot := p2p2core.AdaptHash(response.ContractsRoot)
@@ -749,6 +812,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 //nolint:funlen,gocyclo
 func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) error {
 	nextjobs := make([]*storageRangeJob, 0)
+	s.log.Infow("storage range worker entering infinite loop", "worker", workerIdx)
 	for {
 		jobs := nextjobs
 
@@ -980,7 +1044,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-time.After(JobDuration):
-					s.log.Infow("no storagge refresh job")
+					s.log.Infow("no storage refresh job")
 				case <-contractDoneChecker:
 					// Its done...
 					return nil
