@@ -752,6 +752,38 @@ func TestGetContractStorageRoot(t *testing.T) {
 	}
 }
 
+func TestPercentageCalculation(t *testing.T) {
+	tests := []struct {
+		actual  *felt.Felt
+		percent uint64
+	}{
+		{
+			actual:  feltFromString("0x0"),
+			percent: 0,
+		},
+		{
+			// actual felt.MaxValue:2^251 + 17 * 2^192
+			actual:  feltFromString("0x800000000000011000000000000000000000000000000000000000000000000"),
+			percent: 100,
+		},
+		{
+			actual:  feltFromString("0x400000000000008800000000000000000000000000000000000000000000000"),
+			percent: 50,
+		},
+		{
+			actual:  feltFromString("0x0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+			percent: 12,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("%d%%", test.percent), func(t *testing.T) {
+			percent := CalculatePercentage(test.actual)
+			assert.Equal(t, test.percent, percent)
+		})
+	}
+}
+
 func feltFromString(str string) *felt.Felt {
 	f, err := (&felt.Felt{}).SetString(str)
 	if err != nil {
