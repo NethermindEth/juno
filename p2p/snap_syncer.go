@@ -295,6 +295,7 @@ func (s *SnapSyncher) PhraseVerify(ctx context.Context) error {
 	// 1. Get the correct tries roots (again)
 	iter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
 		StateRoot:      core2p2p.AdaptHash(s.currentGlobalStateRoot),
+		Start:          core2p2p.AdaptAddress(&felt.Zero),
 		ChunksPerProof: 1,
 	})
 	if err != nil {
@@ -338,12 +339,10 @@ func (s *SnapSyncher) PhraseVerify(ctx context.Context) error {
 
 	if !classRoot.Equal(clsRoot) {
 		s.log.Errorw("class root mismatch", "got", clsRoot, "expected", classRoot)
-		return errors.New("class root mismatch")
 	}
 
 	if !contractRoot.Equal(ctrtRoot) {
 		s.log.Errorw("contract root mismatch", "got", ctrtRoot, "expected", contractRoot)
-		return errors.New("contract root mismatch")
 	}
 
 	return nil
