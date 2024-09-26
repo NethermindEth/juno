@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - .github/workflows/find-smallest-rust.yml
-      - core/rust/*
       - vm/rust/*
       - starknet/compiler/rust/*
   workflow_dispatch:
@@ -24,7 +23,7 @@ jobs:
         id: rust-version
         uses: derrix060/detect-rust-minimum-version@v1
         with:
-          paths: core/rust/,vm/rust/,starknet/compiler/rust/
+          paths: vm/rust/,starknet/compiler/rust/
       - name: Send notification on PR
         uses: actions/github-script@v7
         with:
