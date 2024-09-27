@@ -193,9 +193,9 @@ func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
 	// Combine both ABI and Program JSON strings
 	var hintedClassHashJSON strings.Builder
 	hintedClassHashJSON.Grow(len(formattedABI) + len(formattedSpacesProgramStr))
-	hintedClassHashJSON.WriteString("{\"abi\": ")
+	hintedClassHashJSON.WriteString(`{"abi": `)
 	hintedClassHashJSON.WriteString(formattedABI)
-	hintedClassHashJSON.WriteString(", \"program\": ")
+	hintedClassHashJSON.WriteString(`, "program": `)
 	hintedClassHashJSON.WriteString(formattedSpacesProgramStr)
 	hintedClassHashJSON.WriteString("}")
 

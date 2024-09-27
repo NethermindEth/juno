@@ -54,7 +54,7 @@ func (p *Program) Format() error {
 
 func (p *Program) ReorderHints() error {
 	// Extract keys and convert them to integers
-	intKeys := make([]int, p.Hints.Len())
+	intKeys := []int{}
 
 	for pair := p.Hints.Oldest(); pair != nil; pair = pair.Next() {
 		key := pair.Key
