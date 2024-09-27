@@ -33,6 +33,7 @@ const (
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
+	L1HandlerTxnHash // maps l1 handler msg hash to l1 handler txn hash
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

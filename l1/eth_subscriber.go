@@ -41,10 +41,28 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 	}
 	return &EthSubscriber{
 		ethClient: ethClient,
-		client:    client,
+		client:    ethClient.Client(),
 		filterer:  filterer,
 		listener:  SelectiveListener{},
 	}, nil
+}
+
+//go:generate mockgen -destination=../mocks/mock_ethclient.go -package=mocks  github.com/NethermindEth/juno/l1 EthClient
+type EthClient interface {
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+}
+
+func NewETHClient(ethClientAddress string) (EthClient, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	// TODO replace with our own client once we have one.
+	// Geth pulls in a lot of dependencies that we don't use.
+	client, err := rpc.DialContext(ctx, ethClientAddress)
+	if err != nil {
+		return nil, err
+	}
+	ethClient := ethclient.NewClient(client)
+	return ethClient, nil
 }
 
 func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {
