@@ -9,20 +9,20 @@ import (
 )
 
 type Program struct {
-	Attributes       []interface{}                               `json:"attributes,omitempty"`
-	Builtins         []string                                    `json:"builtins"`
-	CompilerVersion  interface{}                                 `json:"compiler_version,omitempty"`
-	Data             []string                                    `json:"data"`
-	DebugInfo        interface{}                                 `json:"debug_info"`
-	Hints            *orderedmap.OrderedMap[string, interface{}] `json:"hints,omitempty"`
-	Identifiers      interface{}                                 `json:"identifiers,omitempty"`
-	MainScope        interface{}                                 `json:"main_scope,omitempty"`
-	Prime            interface{}                                 `json:"prime,omitempty"`
-	ReferenceManager interface{}                                 `json:"reference_manager"`
+	Attributes       []any                               `json:"attributes,omitempty"`
+	Builtins         []string                            `json:"builtins"`
+	CompilerVersion  any                                 `json:"compiler_version,omitempty"`
+	Data             []string                            `json:"data"`
+	DebugInfo        any                                 `json:"debug_info"`
+	Hints            *orderedmap.OrderedMap[string, any] `json:"hints,omitempty"`
+	Identifiers      any                                 `json:"identifiers,omitempty"`
+	MainScope        any                                 `json:"main_scope,omitempty"`
+	Prime            any                                 `json:"prime,omitempty"`
+	ReferenceManager any                                 `json:"reference_manager"`
 }
 
 func (p *Program) Format() error {
-	p.Attributes = applyReplacer(p.Attributes, nullSkipReplacer).([]interface{})
+	p.Attributes = applyReplacer(p.Attributes, nullSkipReplacer).([]any)
 	if len(p.Attributes) == 0 {
 		p.Attributes = nil
 	}
@@ -36,7 +36,7 @@ func (p *Program) Format() error {
 	if err := p.ReorderHints(); err != nil {
 		return err
 	}
-	p.Hints = applyReplacer(p.Hints, nullSkipReplacer).(*orderedmap.OrderedMap[string, interface{}])
+	p.Hints = applyReplacer(p.Hints, nullSkipReplacer).(*orderedmap.OrderedMap[string, any])
 
 	if p.CompilerVersion != nil {
 		// Anything since compiler version 0.10.0 can be hashed directly. No extra overhead incurred.
@@ -69,7 +69,7 @@ func (p *Program) ReorderHints() error {
 	sort.Ints(intKeys)
 
 	// Rebuild the OrderedMap using sorted keys
-	newHints := orderedmap.New[string, interface{}]()
+	newHints := orderedmap.New[string, any]()
 	for _, intKey := range intKeys {
 		strKey := strconv.Itoa(intKey)
 		value, _ := p.Hints.Get(strKey)

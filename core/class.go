@@ -231,9 +231,9 @@ func makeDeprecatedVMClass(class *Cairo0Class) (*starknet.Cairo0Definition, erro
 }
 
 // applyReplacer recursively applies the replacer function to the JSON data
-func applyReplacer(data interface{}, replacer func(string, interface{}) interface{}) interface{} {
+func applyReplacer(data any, replacer func(string, any) any) any {
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for key, val := range v {
 			v[key] = applyReplacer(replacer(key, val), replacer)
 			if v[key] == nil && key != debugInfo {
@@ -242,12 +242,12 @@ func applyReplacer(data interface{}, replacer func(string, interface{}) interfac
 		}
 
 		return v
-	case []interface{}:
+	case []any:
 		for i, val := range v {
 			v[i] = applyReplacer(replacer("", val), replacer)
 		}
 		return v
-	case *orderedmap.OrderedMap[string, interface{}]:
+	case *orderedmap.OrderedMap[string, any]:
 		for pair := v.Oldest(); pair != nil; pair = pair.Next() {
 			val := applyReplacer(replacer(pair.Key, pair.Value), replacer)
 			if val == nil {
@@ -263,10 +263,10 @@ func applyReplacer(data interface{}, replacer func(string, interface{}) interfac
 }
 
 // nullSkipReplacer is a custom JSON replacer that handles specific keys and null values
-func nullSkipReplacer(key string, value interface{}) interface{} {
+func nullSkipReplacer(key string, value any) any {
 	switch key {
 	case "attributes", "accessible_scopes", "flow_tracking_data":
-		if arr, ok := value.([]interface{}); ok && len(arr) == 0 {
+		if arr, ok := value.([]any); ok && len(arr) == 0 {
 			return nil
 		}
 	case debugInfo:
@@ -279,14 +279,14 @@ func nullSkipReplacer(key string, value interface{}) interface{} {
 // identifiersNullSkipReplacer is same as nullSkipReplacer with an addition condition
 // on the `cairo_type` field.
 // Used only in the `identifiers` field.
-func identifiersNullSkipReplacer(key string, value interface{}) interface{} {
+func identifiersNullSkipReplacer(key string, value any) any {
 	switch key {
 	case "cairo_type":
 		if str, ok := value.(string); ok {
 			return strings.ReplaceAll(str, ": ", " : ")
 		}
 	case "attributes", "accessible_scopes", "flow_tracking_data":
-		if arr, ok := value.([]interface{}); ok && len(arr) == 0 {
+		if arr, ok := value.([]any); ok && len(arr) == 0 {
 			return nil
 		}
 	case debugInfo:
@@ -297,7 +297,7 @@ func identifiersNullSkipReplacer(key string, value interface{}) interface{} {
 }
 
 // stringify converts a Go value to a JSON string, using a custom replacer function
-func stringify(value interface{}, replacer func(string, interface{}) interface{}) (string, error) {
+func stringify(value any, replacer func(string, any) any) (string, error) {
 	// Marshal the value to JSON
 	jsonBytes, err := json.Marshal(value)
 	if err != nil {
@@ -305,7 +305,7 @@ func stringify(value interface{}, replacer func(string, interface{}) interface{}
 	}
 
 	// Determine the type of the JSON data
-	var jsonData interface{}
+	var jsonData any
 	if err := json.Unmarshal(jsonBytes, &jsonData); err != nil {
 		return "", err
 	}
