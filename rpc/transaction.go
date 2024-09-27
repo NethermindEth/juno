@@ -224,8 +224,9 @@ type Transaction struct {
 }
 
 type TransactionStatus struct {
-	Finality  TxnStatus          `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
+	Finality      TxnStatus          `json:"finality_status"`
+	Execution     TxnExecutionStatus `json:"execution_status,omitempty"`
+	FailureReason string             `json:"failure_reason,omitempty"`
 }
 
 type MsgFromL1 struct {
