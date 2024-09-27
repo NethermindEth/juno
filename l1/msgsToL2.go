@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/l1/contract"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/crypto/sha3"
@@ -52,32 +51,25 @@ func (log *LogMessageToL2) HashMessage() *common.Hash {
 	return &tmp
 }
 
-// PullMessageToL2Logs pulls the logs from the CoreContract's MessageToL2 event
-func (es *EthSubscriber) PullMessageToL2Logs(contractAddress string, fromBlock *big.Int, toBlock *big.Int) ([]MsgAndTxnHash, error) {
+// MessageToL2Logs pulls the "LogMessageToL2" event from the transaction and returns the message hash and txn hash
+func (es *EthSubscriber) MessageToL2Logs(txHash common.Hash) ([]MsgAndTxnHash, error) {
 	// Todo: push to consts
-	contractAddr := common.HexToAddress(contractAddress)
 	logMsgToL2SigHash := common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
 	if err != nil {
 		log.Fatalf("Failed to parse ABI: %v", err)
 	}
 
-	query := ethereum.FilterQuery{
-		Addresses: []common.Address{contractAddr},
-		FromBlock: fromBlock,
-		ToBlock:   toBlock,
-		Topics:    [][]common.Hash{{logMsgToL2SigHash}},
-	}
-
-	// Fetch logs
-	logs, err := es.ethClient.FilterLogs(context.Background(), query)
+	receipt, err := es.ethClient.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to filter logs: %v", err)
+		return nil, fmt.Errorf("failed to fetch transaction receipt: %v", err)
 	}
 
-	// Process each log
 	var results []MsgAndTxnHash
-	for _, vLog := range logs {
+	for _, vLog := range receipt.Logs {
+		if common.HexToHash(vLog.Topics[0].Hex()).Cmp(logMsgToL2SigHash) != 0 {
+			continue
+		}
 		var event LogMessageToL2
 		err = contractABI.UnpackIntoInterface(&event, "LogMessageToL2", vLog.Data)
 		if err != nil {

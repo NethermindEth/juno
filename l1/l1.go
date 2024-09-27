@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/event"
 )
 
@@ -20,6 +21,7 @@ type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
 	ChainID(ctx context.Context) (*big.Int, error)
+	MessageToL2Logs(txHash common.Hash) ([]MsgAndTxnHash, error)
 
 	Close()
 }
