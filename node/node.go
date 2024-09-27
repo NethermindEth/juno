@@ -66,6 +66,7 @@ type Config struct {
 	PendingPollInterval    time.Duration  `mapstructure:"pending-poll-interval"`
 	RemoteDB               string         `mapstructure:"remote-db"`
 	VersionedConstantsFile string         `mapstructure:"versioned-constants-file"`
+	VMConcurrencyMode      bool           `mapstructure:"vm-concurrency-mode"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -179,7 +180,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services, synchronizer)
 	}
 
-	throttledVM := NewThrottledVM(vm.New(false, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
+	throttledVM := NewThrottledVM(vm.New(cfg.VMConcurrencyMode, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
 	var syncReader sync.Reader = &sync.NoopSynchronizer{}
 	if synchronizer != nil {
