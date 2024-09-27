@@ -70,42 +70,42 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	externalEntryPointElements := make([]*felt.Felt, 0, len(definition.EntryPoints.External)*2)
-	l1HandlerEntryPointElements := make([]*felt.Felt, 0, len(definition.EntryPoints.L1Handler)*2)
-	constructorEntryPointElements := make([]*felt.Felt, 0, len(definition.EntryPoints.Constructor)*2)
-	builtInsHashElements := make([]*felt.Felt, 0, len(program.Builtins))
-	dataHashElements := make([]*felt.Felt, 0, len(program.Data))
-
 	// Use goroutines to parallelize hash computations
 	var wg sync.WaitGroup
 	var externalEntryPointHash, l1HandlerEntryPointHash, constructorEntryPointHash, builtInsHash, dataHash *felt.Felt
 	var hintedClassHash *felt.Felt
 	var hintedClassHashErr error
 
+	externalEntryPointDigest := crypto.PedersenDigest{}
+	l1HandlerEntryPointDigest := crypto.PedersenDigest{}
+	constructorEntryPointDigest := crypto.PedersenDigest{}
+	builtInsDigest := crypto.PedersenDigest{}
+	dataDigest := crypto.PedersenDigest{}
+
 	wg.Add(6) //nolint:mnd
 
 	go func() {
 		defer wg.Done()
 		for _, ep := range definition.EntryPoints.External {
-			externalEntryPointElements = append(externalEntryPointElements, ep.Selector, ep.Offset)
+			externalEntryPointDigest.Update(ep.Selector, ep.Offset)
 		}
-		externalEntryPointHash = crypto.PedersenArray(externalEntryPointElements...)
+		externalEntryPointHash = externalEntryPointDigest.Finish()
 	}()
 
 	go func() {
 		defer wg.Done()
 		for _, ep := range definition.EntryPoints.L1Handler {
-			l1HandlerEntryPointElements = append(l1HandlerEntryPointElements, ep.Selector, ep.Offset)
+			l1HandlerEntryPointDigest.Update(ep.Selector, ep.Offset)
 		}
-		l1HandlerEntryPointHash = crypto.PedersenArray(l1HandlerEntryPointElements...)
+		l1HandlerEntryPointHash = l1HandlerEntryPointDigest.Finish()
 	}()
 
 	go func() {
 		defer wg.Done()
 		for _, ep := range definition.EntryPoints.Constructor {
-			constructorEntryPointElements = append(constructorEntryPointElements, ep.Selector, ep.Offset)
+			constructorEntryPointDigest.Update(ep.Selector, ep.Offset)
 		}
-		constructorEntryPointHash = crypto.PedersenArray(constructorEntryPointElements...)
+		constructorEntryPointHash = constructorEntryPointDigest.Finish()
 	}()
 
 	go func() {
@@ -116,9 +116,9 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 			if err != nil {
 				return
 			}
-			builtInsHashElements = append(builtInsHashElements, builtInFelt)
+			builtInsDigest.Update(builtInFelt)
 		}
-		builtInsHash = crypto.PedersenArray(builtInsHashElements...)
+		builtInsHash = builtInsDigest.Finish()
 	}()
 
 	go func() {
@@ -133,9 +133,9 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 			if err != nil {
 				return
 			}
-			dataHashElements = append(dataHashElements, dataFelt)
+			dataDigest.Update(dataFelt)
 		}
-		dataHash = crypto.PedersenArray(dataHashElements...)
+		dataHash = dataDigest.Finish()
 	}()
 
 	wg.Wait()
