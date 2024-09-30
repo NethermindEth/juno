@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"context"
 	"fmt"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -750,6 +751,24 @@ func TestGetContractStorageRoot(t *testing.T) {
 			assert.Equal(t, test.expectedLeaves, stoCnt[*test.address])
 		})
 	}
+}
+
+func TestReadAndVerifySnapshot(t *testing.T) {
+	var d db.DB
+	t.Skip("DB snapshot is needed for this test")
+	d, _ = pebble.NewWithOptions("/Users/pnowosie/juno/snapshots/node1", 128000000, 128, false)
+	defer func() { _ = d.Close() }()
+	bc := blockchain.New(d, &utils.Sepolia)
+
+	logger, _ := utils.NewZapLogger(utils.DEBUG, false)
+	syncer := SnapSyncer{
+		log:                    logger,
+		blockchain:             bc,
+		currentGlobalStateRoot: feltFromString("0x472e84b65d387c9364b5117f4afaba3fb88897db1f28867b398506e2af89f25"),
+	}
+
+	err := syncer.PhraseVerify(context.Background())
+	assert.NoError(t, err)
 }
 
 func TestPercentageCalculation(t *testing.T) {

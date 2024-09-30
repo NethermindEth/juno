@@ -148,11 +148,12 @@ func (s *SnapSyncer) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	s.log.Infow("phase 1 completed")
+
 	if err = s.PhraseVerify(ctx); err != nil {
 		return err
 	}
+	s.log.Infow("trie roots verification completed")
 
 	s.log.Infow("delegating to standard synchronizer")
 
@@ -286,7 +287,33 @@ func (s *SnapSyncer) runPhase1(ctx context.Context) error {
 }
 
 func (s *SnapSyncer) PhraseVerify(ctx context.Context) error {
-	// 1. Get the correct tries roots (again)
+	// 1. Get the actual class & contract trie roots
+	st, closer, err := s.blockchain.(*blockchain.Blockchain).HeadStateFreakingState()
+	defer func() { _ = closer() }()
+	if err != nil {
+		s.log.Errorw("error getting state for state root", "err", err)
+		return err
+	}
+	contractRoot, classRoot, err := st.StateAndClassRoot()
+	if err != nil {
+		s.log.Errorw("error getting contract and class root", "err", err)
+		return err
+	}
+
+	// 2. Verify the global state root
+	err = VerifyGlobalStateRoot(s.currentGlobalStateRoot, classRoot, contractRoot)
+	if err == nil {
+		s.log.Infow("PhraseVerify",
+			"global state root", s.currentGlobalStateRoot, "contract root", contractRoot, "class root", classRoot)
+		// all good no need for additional verification
+		return nil
+	}
+
+	if err != nil {
+		s.log.Errorw("global state root verification failure", "err", err)
+	}
+
+	// 3. Get the correct tries roots from the client
 	iter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
 		StateRoot:      core2p2p.AdaptHash(s.currentGlobalStateRoot),
 		Start:          core2p2p.AdaptAddress(&felt.Zero),
@@ -297,49 +324,27 @@ func (s *SnapSyncer) PhraseVerify(ctx context.Context) error {
 		return err
 	}
 
-	var classRoot, contractRoot *felt.Felt
+	var classR, contractR *felt.Felt
 	iter(func(response *spec.ContractRangeResponse) bool {
 		if _, ok := response.GetResponses().(*spec.ContractRangeResponse_Range); ok {
-			classRoot = p2p2core.AdaptHash(response.ClassesRoot)
-			contractRoot = p2p2core.AdaptHash(response.ContractsRoot)
+			classR = p2p2core.AdaptHash(response.ClassesRoot)
+			contractR = p2p2core.AdaptHash(response.ContractsRoot)
 		} else {
 			s.log.Errorw("unexpected response", "response", response)
 		}
 
 		return false
 	})
-	if classRoot == nil || contractRoot == nil {
+	if classR == nil || contractR == nil {
 		s.log.Errorw("cannot obtain the trie roots from client response")
 		return errors.New("cannot obtain the trie roots")
 	}
 
-	// 2. Verify the global state root
-	if err = VerifyGlobalStateRoot(s.currentGlobalStateRoot, classRoot, contractRoot); err != nil {
-		s.log.Errorw("global state root verification failure", "err", err)
-		return err
-	}
+	// 4. Log which one is incorrect
+	s.log.Infow("Contract trie root", "expected", contractR, "actual", contractRoot)
+	s.log.Infow("Class trie root", "expected", classR, "actual", classRoot)
 
-	// 3. Verify the class & contract trie roots
-	st, err := s.blockchain.(*blockchain.Blockchain).GetStateForStateRoot(s.currentGlobalStateRoot)
-	if err != nil {
-		s.log.Errorw("error getting state for state root", "err", err)
-		return err
-	}
-	ctrtRoot, clsRoot, err := st.StateAndClassRoot()
-	if err != nil {
-		s.log.Errorw("error getting contract and class root", "err", err)
-		return err
-	}
-
-	if !classRoot.Equal(clsRoot) {
-		s.log.Errorw("class root mismatch", "got", clsRoot, "expected", classRoot)
-	}
-
-	if !contractRoot.Equal(ctrtRoot) {
-		s.log.Errorw("contract root mismatch", "got", ctrtRoot, "expected", contractRoot)
-	}
-
-	return nil
+	return errors.New("trie roots verification failed")
 }
 
 func (s *SnapSyncer) getNextStartingBlock(ctx context.Context) (*core.Block, error) {
@@ -440,7 +445,6 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 			case *spec.ClassRangeResponse_Classes:
 				classes = v.Classes.Classes
 			case *spec.ClassRangeResponse_Fin:
-				s.log.Infow("[finMsg] class range completed")
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected class range message", "GetResponses", v)
@@ -491,16 +495,15 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 
 			err = egrp.Wait()
 			if err != nil {
-				s.log.Infow("class range adaptation failure", "err", err)
+				s.log.Errorw("class range adaptation failure", "err", err)
 				return err
 			}
-			s.log.Infow("class range adaptation completed", "classes", len(classes))
 
 			proofs := P2pProofToTrieProofs(response.RangeProof)
 			hasNext, err := VerifyTrie(classRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Poseidon)
 			if err != nil {
 				// TODO: Ban peer
-				s.log.Infow("trie verification failed", "err", err)
+				s.log.Errorw("trie verification failed", "err", err)
 				return err
 			}
 
@@ -518,7 +521,6 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 				panic(err)
 			}
 			totalAdded += len(classes)
-			s.log.Infow("class range added classes into state", "classes", len(classes), "total", totalAdded)
 
 			if !hasNext {
 				s.log.Infow("class range completed", "totalClass", totalAdded)
@@ -579,7 +581,6 @@ func (s *SnapSyncer) runFetchClassWorker(ctx context.Context, workerIdx int) err
 				atomic.AddInt32(&s.classFetchJobCount, -1)
 			}
 		}
-		s.log.Infow("class fetch job completes batch", "asked keys", len(keyBatches), "worker", workerIdx, "pending", s.classFetchJobCount)
 
 		var hashes []*spec.Hash
 		for _, key := range keyBatches {
@@ -607,7 +608,6 @@ func (s *SnapSyncer) runFetchClassWorker(ctx context.Context, workerIdx int) err
 			case *spec.ClassesResponse_Class:
 				classes = append(classes, v.Class)
 			case *spec.ClassesResponse_Fin:
-				s.log.Infow("[FinMsg] class batch completed", "classes", len(classes), "worker", workerIdx)
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
@@ -649,7 +649,6 @@ func (s *SnapSyncer) runFetchClassWorker(ctx context.Context, workerIdx int) err
 				s.log.Errorw("error storing class", "err", err)
 				return err
 			}
-			s.log.Infow("class fetch job added classes into state", "classes", len(newClasses), "worker", workerIdx)
 		} else {
 			s.log.Errorw("Unable to fetch any class from peer")
 			// TODO: Penalise peer?
@@ -663,7 +662,6 @@ func (s *SnapSyncer) runFetchClassWorker(ctx context.Context, workerIdx int) err
 		}
 
 		keyBatches = newBatch
-		s.log.Infow("class fetch job completed batch", "processed", len(processedClasses), "unprocessed", len(newBatch), "worker", workerIdx)
 	}
 }
 
@@ -701,7 +699,6 @@ func (s *SnapSyncer) runContractRangeWorker(ctx context.Context) error {
 			case *spec.ContractRangeResponse_Range:
 				crange = v.Range
 			case *spec.ContractRangeResponse_Fin:
-				s.log.Infow("[finMsg] contract range completed", "totalAdded", totalAdded)
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected contract range message", "GetResponses", v)
@@ -742,10 +739,9 @@ func (s *SnapSyncer) runContractRangeWorker(ctx context.Context) error {
 			hasNext, err := VerifyTrie(contractRoot, paths, values, proofs, core.GlobalTrieHeight, crypto.Pedersen)
 			if err != nil {
 				// The peer should get penalised in this case
-				s.log.Infow("trie verification failed", "err", err)
+				s.log.Errorw("trie verification failed", "err", err)
 				return err
 			}
-			s.log.Infow("contract range adaptation completed", "hasNext", hasNext, "states", len(paths), "totalAdded", totalAdded)
 
 			classes := []*felt.Felt{}
 			nonces := []*felt.Felt{}
@@ -761,7 +757,6 @@ func (s *SnapSyncer) runContractRangeWorker(ctx context.Context) error {
 				panic(err)
 			}
 			totalAdded += len(paths)
-			s.log.Infow("contract range added contracts into state", "contracts", len(paths), "totalAdded", totalAdded)
 
 			// We don't actually store it directly here... only put it as part of job.
 			// Can't remember why. Could be because it would be some wasted work.
@@ -888,9 +883,6 @@ func (s *SnapSyncer) runStorageRangeWorker(ctx context.Context, workerIdx int) e
 			case *spec.ContractStorageResponse_Storage:
 				csto = v.Storage
 			case *spec.ContractStorageResponse_Fin:
-				s.log.Infow("[FinMsg] storage range completed",
-					"totalPath", totalPath, "worker", workerIdx, "jobs", processedJobs.jobIdx,
-					"pending", s.storageRangeJobCount, "contract", processedJobs.jobAddr)
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected storage range message", "GetResponses", v)
@@ -1072,13 +1064,11 @@ func (s *SnapSyncer) runStorageRefreshWorker(ctx context.Context) error {
 			case *spec.ContractRangeResponse_Range:
 				crange = v.Range
 			case *spec.ContractRangeResponse_Fin:
-				s.log.Infow("[finMsg] contract range [storage refresh] completed")
 				break ResponseIter
 			default:
 				s.log.Warnw("Unexpected contract range message [storage refresh]", "GetResponses", v)
 				continue
 			}
-			s.log.Infow("storage refresh worker received response", "states", len(crange.State))
 
 			if crange == nil || crange.State == nil {
 				s.log.Errorw("contract range [storage refresh] respond with nil state")

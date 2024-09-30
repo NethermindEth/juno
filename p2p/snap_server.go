@@ -89,8 +89,6 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 	}
 
 	stateRoot := p2p2core.AdaptHash(request.Root)
-	startAddr := p2p2core.AdaptHash(request.Start)
-	b.log.Debugw("GetClassRange", "start", startAddr, "chunks", request.ChunksPerProof)
 
 	return func(yield yieldFunc) {
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
@@ -171,7 +169,7 @@ func (b *snapServer) GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[pr
 		}
 
 		yield(finMsg)
-		b.log.Infow("GetClassRange iteration completed")
+		b.log.Infow("class range iteration completed")
 	}, nil
 }
 
@@ -180,8 +178,6 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 		Responses: &spec.ContractRangeResponse_Fin{},
 	}
 	stateRoot := p2p2core.AdaptHash(request.StateRoot)
-	startAddr := p2p2core.AdaptAddress(request.Start)
-	b.log.Debugw("GetContractRange", "root", stateRoot, "start", startAddr, "chunks", request.ChunksPerProof)
 
 	return func(yield yieldFunc) {
 		s, err := b.blockchain.GetStateForStateRoot(stateRoot)
@@ -256,12 +252,6 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 				},
 			}
 
-			var first, last *felt.Felt
-			if len(states) > 0 {
-				first = p2p2core.AdaptAddress(states[0].Address)
-				last = p2p2core.AdaptAddress(states[len(states)-1].Address)
-			}
-			b.log.Infow("sending contract range response", "len(states)", len(states), "first", first, "last", last)
 			if !yield(cntrMsg) {
 				// we should not send `FinMsg` when the client explicitly asks to stop
 				return
@@ -282,10 +272,6 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 	var finMsg proto.Message = &spec.ContractStorageResponse{
 		Responses: &spec.ContractStorageResponse_Fin{},
 	}
-	startKey := p2p2core.AdaptAddress(request.Query[0].Address)
-	last := len(request.Query) - 1
-	endKey := p2p2core.AdaptAddress(request.Query[last].Address)
-	b.log.Debugw("GetStorageRange", "query[0]", startKey, "query[", last, "]", endKey)
 
 	return func(yield yieldFunc) {
 		stateRoot := p2p2core.AdaptHash(request.StateRoot)
@@ -349,7 +335,6 @@ func (b *snapServer) GetClasses(request *spec.ClassHashesRequest) (iter.Seq[prot
 	var finMsg proto.Message = &spec.ClassesResponse{
 		ClassMessage: &spec.ClassesResponse_Fin{},
 	}
-	b.log.Debugw("GetClasses", "len(hashes)", len(request.ClassHashes))
 
 	return func(yield yieldFunc) {
 		felts := make([]*felt.Felt, len(request.ClassHashes))
