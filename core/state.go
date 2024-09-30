@@ -545,7 +545,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return fmt.Errorf("error getting reverse state diff: %v", err)
 	}
 
-	err = s.PerformStateDeletions(blockNumber, update.StateDiff)
+	err = s.performStateDeletions(blockNumber, update.StateDiff)
 	if err != nil {
 		return fmt.Errorf("error performing state deletions: %v", err)
 	}
@@ -719,7 +719,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 	return &reversed, nil
 }
 
-func (s *State) PerformStateDeletions(blockNumber uint64, diff *StateDiff) error {
+func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error {
 	// storage diffs
 	for addr, storageDiffs := range diff.StorageDiffs {
 		for key := range storageDiffs {
