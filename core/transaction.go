@@ -129,6 +129,10 @@ type Transaction interface {
 	TxVersion() *TransactionVersion
 }
 
+type SignatureCarrier interface {
+	Signature() []*felt.Felt
+}
+
 var (
 	_            Transaction = (*DeployTransaction)(nil)
 	_            Transaction = (*DeployAccountTransaction)(nil)
@@ -672,10 +676,10 @@ func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, erro
 			digest.Update(transaction.Hash())
 
 			switch transaction.(type) {
-			case *DeployTransaction, *L1HandlerTransaction:
-				digest.Update(&felt.Zero)
-			default:
+			case SignatureCarrier:
 				digest.Update(transaction.Signature()...)
+			default:
+				digest.Update(&felt.Zero)
 			}
 
 			if _, err := trie.Put(new(felt.Felt).SetUint64(uint64(i)), digest.Finish()); err != nil {
