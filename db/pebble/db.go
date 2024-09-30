@@ -118,8 +118,9 @@ func newPebble(path string, enableMetrics bool, options *pebble.Options) (*DB, e
 	if err != nil {
 		return nil, err
 	}
+	database.pebble = pDB
 
-	return &DB{pebble: pDB, wMutex: new(sync.Mutex), listener: &db.SelectiveListener{}}, nil
+	return database, nil
 }
 
 // Option is a functional option for configuring the DB
@@ -318,27 +319,14 @@ func (d *DB) StartMetricsCollection(ctx context.Context, refresh time.Duration) 
 		compReads[i%2] = compRead
 		nWrites[i%2] = nWrite
 
-		if d.writeDelayCountMeter != nil {
-			d.writeDelayCountMeter.Add(float64(writeDelayCounts[i%2] - writeDelayCounts[(i-1)%2]))
-		}
-		if d.writeDelayTimeMeter != nil {
-			d.writeDelayTimeMeter.Add(float64(writeDelayTimes[i%2] - writeDelayTimes[(i-1)%2]))
-		}
-		if d.compTimeMeter != nil {
-			d.compTimeMeter.Add(float64(compTimes[i%2] - compTimes[(i-1)%2]))
-		}
-		if d.compReadMeter != nil {
-			d.compReadMeter.Add(float64(compReads[i%2] - compReads[(i-1)%2]))
-		}
-		if d.compWriteMeter != nil {
-			d.compWriteMeter.Add(float64(compWrites[i%2] - compWrites[(i-1)%2]))
-		}
-		if d.diskSizeGauge != nil {
-			d.diskSizeGauge.Set(float64(metrics.DiskSpaceUsage()))
-		}
-		if d.diskWriteMeter != nil {
-			d.diskWriteMeter.Add(float64(nWrites[i%2] - nWrites[(i-1)%2]))
-		}
+		d.writeDelayCountMeter.Add(float64(writeDelayCounts[i%2] - writeDelayCounts[(i-1)%2]))
+		d.writeDelayTimeMeter.Add(float64(writeDelayTimes[i%2] - writeDelayTimes[(i-1)%2]))
+		d.compTimeMeter.Add(float64(compTimes[i%2] - compTimes[(i-1)%2]))
+		d.compReadMeter.Add(float64(compReads[i%2] - compReads[(i-1)%2]))
+		d.compWriteMeter.Add(float64(compWrites[i%2] - compWrites[(i-1)%2]))
+		d.diskSizeGauge.Set(float64(metrics.DiskSpaceUsage()))
+		d.diskWriteMeter.Add(float64(nWrites[i%2] - nWrites[(i-1)%2]))
+
 		// See https://github.com/cockroachdb/pebble/pull/1628#pullrequestreview-1026664054
 		manuallyAllocated := metrics.BlockCache.Size + int64(metrics.MemTable.Size) + int64(metrics.MemTable.ZombieSize)
 		d.manualMemAllocGauge.Set(float64(manuallyAllocated))

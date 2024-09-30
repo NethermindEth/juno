@@ -346,9 +346,7 @@ func (n *Node) Run(ctx context.Context) {
 				n.log.Errorw("Metrics error", "err", err)
 			}
 		})
-	}
 
-	if n.db != nil {
 		wg.Go(func() {
 			defer cancel()
 			n.db.StartMetricsCollection(ctx, metricsGatheringInterval)
