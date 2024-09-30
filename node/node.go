@@ -103,6 +103,8 @@ type Node struct {
 	log            utils.Logger
 
 	version string
+
+	plugin junoplugin.JunoPlugin
 }
 
 // New sets the config and logger to the StarknetNode.
@@ -159,8 +161,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
+	var plugin junoplugin.JunoPlugin
 	if cfg.PluginPath != "" {
-		plugin, err := junoplugin.Load(cfg.PluginPath)
+		plugin, err = junoplugin.Load(cfg.PluginPath)
 		if err != nil {
 			return nil, err
 		}
@@ -268,6 +271,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		blockchain:     chain,
 		services:       services,
 		metricsService: metricsService,
+		plugin:         plugin,
 	}
 
 	if n.cfg.EthNode == "" {
@@ -360,6 +364,13 @@ func (n *Node) Run(ctx context.Context) {
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.plugin != nil {
+		go func() {
+			<-ctx.Done()
+			n.plugin.Shutdown()
+		}()
 	}
 
 	for _, s := range n.services {
