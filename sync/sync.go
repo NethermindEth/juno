@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -206,7 +205,6 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
 	if err != nil {
 		s.log.Warnw("Failed to retrieve reverse state diff", "head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)
-		fmt.Println("werwerwer", err)
 		return
 	}
 	var toBlock *core.Block

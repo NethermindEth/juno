@@ -369,7 +369,10 @@ func (n *Node) Run(ctx context.Context) {
 	if n.plugin != nil {
 		go func() {
 			<-ctx.Done()
-			n.plugin.Shutdown()
+			err := n.plugin.Shutdown()
+			if err != nil {
+				n.log.Errorw("Error while calling plugins Shutdown() function", "err", err)
+			}
 		}()
 	}
 
