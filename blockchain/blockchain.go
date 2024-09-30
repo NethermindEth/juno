@@ -840,7 +840,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 			return err
 		}
 		state := core.NewState(txn)
-		reverseStateDiff, err = state.BuildReverseDiff(blockNumber, stateUpdate.StateDiff)
+		reverseStateDiff, err = state.GetReverseStateDiff(blockNumber, stateUpdate.StateDiff)
 		return err
 	})
 }
