@@ -154,6 +154,7 @@ const (
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
 	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	p2pSyncModeUsage     = "EXPERIMENTAL: Synchronization mode: 'full', 'snap'"
 	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
 	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
 	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
@@ -172,7 +173,6 @@ const (
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
-	p2pSyncModeUsage            = "Synchronization mode: 'full', 'snap'"
 )
 
 var Version string
