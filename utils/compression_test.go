@@ -19,3 +19,13 @@ func TestGzip64(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, bytes, decompBytes)
 }
+
+func FuzzGzip64(f *testing.F) {
+	f.Fuzz(func(t *testing.T, data []byte) {
+		compressed, err := utils.Gzip64Encode(data)
+		require.NoError(t, err)
+		decompressed, err := utils.Gzip64Decode(compressed)
+		require.NoError(t, err)
+		assert.Equal(t, data, decompressed)
+	})
+}
