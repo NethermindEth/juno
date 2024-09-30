@@ -205,6 +205,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
 	if err != nil {
 		s.log.Warnw("Failed to retrieve reverse state diff", "head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)
+		return
 	}
 	var toBlock *core.Block
 	var toSU *core.StateUpdate
@@ -254,9 +255,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					// revert the head and restart the sync process, hoping that the reorg is not deep
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
 					// blocks
-					if s.plugin != nil {
-						s.handlePluginRevertBlock()
-					}
+					s.handlePluginRevertBlock()
 					s.revertHead(block)
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,

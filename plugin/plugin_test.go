@@ -17,9 +17,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-const timeout = time.Second
-
 func TestPlugin(t *testing.T) {
+	timeout := time.Second
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
