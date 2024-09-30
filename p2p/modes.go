@@ -69,14 +69,6 @@ func (s SyncMode) MarshalText() ([]byte, error) {
 	}
 }
 
-func (mode *SyncMode) UnmarshalText(text []byte) error {
-	switch string(text) {
-	case "full":
-		*mode = FullSync
-	case "snap":
-		*mode = SnapSync
-	default:
-		return fmt.Errorf(`unknown sync mode %q, want "full" or "snap"`, text)
-	}
-	return nil
+func (s *SyncMode) UnmarshalText(text []byte) error {
+	return s.Set(string(text))
 }
