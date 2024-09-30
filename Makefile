@@ -133,7 +133,10 @@ node1: juno-cached
 	--p2p-peers=/ip4/127.0.0.1/tcp/7777/p2p/12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG \
 	--p2p-addr=/ip4/0.0.0.0/tcp/7778 \
 	--p2p-private-key="8aeffc26c3c371565dbe634c5248ae26f4fa5c33bc8f7328ac95e73fb94eaf263550f02449521f7cf64af17d248c5f170be46c06986a29803124c0819cb8fac3" \
-	--metrics-port=9091
+	--metrics-port=9091 \
+	--pprof \
+	--pprof-port=9096 \
+	--p2p-sync-mode="snap"
 
 #	--p2p-peers=/ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
 

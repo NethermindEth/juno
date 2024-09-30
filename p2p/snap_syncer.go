@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/p2p/starknet"
 	big "math/big"
 	"sync"
 	"sync/atomic"
@@ -17,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
@@ -38,8 +38,7 @@ type Blockchain interface {
 
 var _ Blockchain = (*blockchain.Blockchain)(nil)
 
-type SnapSyncher struct {
-	baseSync     *syncService
+type SnapSyncer struct {
 	starknetData starknetdata.StarknetData
 	client       *starknet.Client
 	blockchain   Blockchain
@@ -65,7 +64,7 @@ type SnapSyncher struct {
 	mtxL *sync.Mutex
 }
 
-var _ service.Service = (*SnapSyncher)(nil)
+var _ service.Service = (*SnapSyncer)(nil)
 
 type storageRangeJob struct {
 	path        *felt.Felt
@@ -76,12 +75,12 @@ type storageRangeJob struct {
 }
 
 func NewSnapSyncer(
-	baseSyncher *syncService,
+	client *starknet.Client,
 	bc *blockchain.Blockchain,
 	log utils.SimpleLogger,
-) *SnapSyncher {
-	return &SnapSyncher{
-		baseSync:   baseSyncher,
+) *SnapSyncer {
+	return &SnapSyncer{
+		client:     client,
 		blockchain: bc,
 		log:        log,
 	}
@@ -130,7 +129,7 @@ var (
 	newPivotHeadDistance = uint64(0) // This should be the reorg depth
 )
 
-func (s *SnapSyncher) Run(ctx context.Context) error {
+func (s *SnapSyncer) Run(ctx context.Context) error {
 	s.log.Infow("starting snap sync")
 	// 1. Get the current head
 	// 2. Start the snap sync with pivot set to that head
@@ -143,11 +142,6 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 	// 6. Probably download old state updato/bodies too
 	// 7. Send back control to base sync.
 
-	// TODO: hacky client
-	if s.baseSync == nil {
-		panic("can't start snap syncer without base syncer")
-	}
-	s.client = s.baseSync.Client()
 	s.starknetData = &MockStarkData{}
 
 	err := s.runPhase1(ctx)
@@ -164,11 +158,11 @@ func (s *SnapSyncher) Run(ctx context.Context) error {
 
 	return nil
 	// TODO: start p2p syncer
-	//s.baseSync.start(ctx)
+	// s.baseSync.start(ctx)
 }
 
 //nolint:gocyclo,nolintlint
-func (s *SnapSyncher) runPhase1(ctx context.Context) error {
+func (s *SnapSyncer) runPhase1(ctx context.Context) error {
 	starttime := time.Now()
 
 	err := s.initState(ctx)
@@ -291,7 +285,7 @@ func (s *SnapSyncher) runPhase1(ctx context.Context) error {
 	return nil
 }
 
-func (s *SnapSyncher) PhraseVerify(ctx context.Context) error {
+func (s *SnapSyncer) PhraseVerify(ctx context.Context) error {
 	// 1. Get the correct tries roots (again)
 	iter, err := s.client.RequestContractRange(ctx, &spec.ContractRangeRequest{
 		StateRoot:      core2p2p.AdaptHash(s.currentGlobalStateRoot),
@@ -348,7 +342,7 @@ func (s *SnapSyncher) PhraseVerify(ctx context.Context) error {
 	return nil
 }
 
-func (s *SnapSyncher) getNextStartingBlock(ctx context.Context) (*core.Block, error) {
+func (s *SnapSyncer) getNextStartingBlock(ctx context.Context) (*core.Block, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -371,7 +365,7 @@ func (s *SnapSyncher) getNextStartingBlock(ctx context.Context) (*core.Block, er
 	}
 }
 
-func (s *SnapSyncher) initState(ctx context.Context) error {
+func (s *SnapSyncer) initState(ctx context.Context) error {
 	startingBlock, err := s.getNextStartingBlock(ctx)
 	if err != nil {
 		return errors.Join(err, errors.New("error getting current head"))
@@ -410,7 +404,7 @@ func CalculatePercentage(f *felt.Felt) uint64 {
 }
 
 //nolint:gocyclo,nolintlint
-func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
+func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 	totalAdded := 0
 	completed := false
 	startAddr := &felt.Zero
@@ -542,7 +536,7 @@ func (s *SnapSyncher) runClassRangeWorker(ctx context.Context) error {
 }
 
 //nolint:gocyclo
-func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) error {
+func (s *SnapSyncer) runFetchClassWorker(ctx context.Context, workerIdx int) error {
 	keyBatches := make([]*felt.Felt, 0)
 	s.log.Infow("class fetch worker entering infinite loop", "worker", workerIdx)
 	for {
@@ -674,7 +668,7 @@ func (s *SnapSyncher) runFetchClassWorker(ctx context.Context, workerIdx int) er
 }
 
 //nolint:gocyclo
-func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
+func (s *SnapSyncer) runContractRangeWorker(ctx context.Context) error {
 	totalAdded := 0
 	startAddr := &felt.Zero
 	completed := false
@@ -809,7 +803,7 @@ func (s *SnapSyncher) runContractRangeWorker(ctx context.Context) error {
 }
 
 //nolint:funlen,gocyclo
-func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) error {
+func (s *SnapSyncer) runStorageRangeWorker(ctx context.Context, workerIdx int) error {
 	nextjobs := make([]*storageRangeJob, 0)
 	s.log.Infow("storage range worker entering infinite loop", "worker", workerIdx)
 	for {
@@ -838,7 +832,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 			}
 		}
 
-		//s.log.Infow("storage range job completes batch", "jobs", len(jobs), "worker", workerIdx, "pending", s.storageRangeJobCount)
+		// s.log.Infow("storage range job completes batch", "jobs", len(jobs), "worker", workerIdx, "pending", s.storageRangeJobCount)
 
 		requests := make([]*spec.StorageRangeQuery, 0)
 		for _, job := range jobs {
@@ -1024,7 +1018,7 @@ func (s *SnapSyncher) runStorageRangeWorker(ctx context.Context, workerIdx int) 
 }
 
 //nolint:gocyclo
-func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
+func (s *SnapSyncer) runStorageRefreshWorker(ctx context.Context) error {
 	// In ethereum, this is normally done with get tries, but since we don't have that here, we'll have to be
 	// creative. This does mean that this is impressively inefficient.
 	var job *storageRangeJob
@@ -1142,7 +1136,7 @@ func (s *SnapSyncher) runStorageRefreshWorker(ctx context.Context) error {
 	return nil
 }
 
-func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
+func (s *SnapSyncer) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
 	queued := false
 	for !queued {
 		select {
@@ -1158,7 +1152,7 @@ func (s *SnapSyncher) queueClassJob(ctx context.Context, classHash *felt.Felt) e
 	return nil
 }
 
-func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path, storageRoot, classHash *felt.Felt, nonce uint64) error {
+func (s *SnapSyncer) queueStorageRangeJob(ctx context.Context, path, storageRoot, classHash *felt.Felt, nonce uint64) error {
 	return s.queueStorageRangeJobJob(ctx, &storageRangeJob{
 		path:        path,
 		storageRoot: storageRoot,
@@ -1168,7 +1162,7 @@ func (s *SnapSyncher) queueStorageRangeJob(ctx context.Context, path, storageRoo
 	})
 }
 
-func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageRangeJob) error {
+func (s *SnapSyncer) queueStorageRangeJobJob(ctx context.Context, job *storageRangeJob) error {
 	if job.storageRoot == nil || job.storageRoot.IsZero() {
 		// contract's with storage root of 0x0 has no storage
 		return nil
@@ -1189,7 +1183,7 @@ func (s *SnapSyncher) queueStorageRangeJobJob(ctx context.Context, job *storageR
 	return nil
 }
 
-func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRangeJob) error {
+func (s *SnapSyncer) queueStorageRefreshJob(ctx context.Context, job *storageRangeJob) error {
 	queued := false
 	for !queued {
 		select {
@@ -1204,7 +1198,7 @@ func (s *SnapSyncher) queueStorageRefreshJob(ctx context.Context, job *storageRa
 	return nil
 }
 
-func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
+func (s *SnapSyncer) poolLatestBlock(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -1237,7 +1231,7 @@ func (s *SnapSyncher) poolLatestBlock(ctx context.Context) error {
 	}
 }
 
-func (s *SnapSyncher) ApplyStateUpdate(blockNumber uint64) error {
+func (s *SnapSyncer) ApplyStateUpdate(blockNumber uint64) error {
 	return errors.New("unimplemented")
 }
 
@@ -1271,7 +1265,7 @@ func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []trie.ProofNode {
 }
 
 func VerifyGlobalStateRoot(globalStateRoot, classRoot, storageRoot *felt.Felt) error {
-	var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
+	stateVersion := new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 
 	if classRoot.IsZero() {
 		if globalStateRoot.Equal(storageRoot) {

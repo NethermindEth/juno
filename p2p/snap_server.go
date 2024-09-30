@@ -1,9 +1,10 @@
 package p2p
 
 import (
+	"math/big"
+
 	"github.com/NethermindEth/juno/utils"
 	"google.golang.org/protobuf/proto"
-	"math/big"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -44,14 +45,6 @@ type ClassRangeStreamingResult struct {
 	RangeProof    *spec.PatriciaRangeProof
 }
 
-// TODO: delete, duplicate of SnapProvider
-type SnapServer interface {
-	GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[proto.Message], error)
-	GetContractRange(request *spec.ContractRangeRequest) (iter.Seq[proto.Message], error)
-	GetStorageRange(request *spec.ContractStorageRequest) (iter.Seq[proto.Message], error)
-	GetClasses(request *spec.ClassHashesRequest) (iter.Seq[proto.Message], error)
-}
-
 type SnapServerBlockchain interface {
 	GetStateForStateRoot(stateRoot *felt.Felt) (*core.State, error)
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
@@ -61,7 +54,7 @@ type yieldFunc = func(proto.Message) bool
 
 var _ SnapServerBlockchain = (*blockchain.Blockchain)(nil)
 
-func NewSnapServer(blockchain SnapServerBlockchain, log utils.SimpleLogger) SnapServer {
+func NewSnapServer(blockchain SnapServerBlockchain, log utils.SimpleLogger) *snapServer {
 	return &snapServer{
 		log:        log,
 		blockchain: blockchain,
@@ -246,7 +239,6 @@ func (b *snapServer) GetContractRange(request *spec.ContractRangeRequest) (iter.
 					})
 					return nil
 				})
-
 			if err != nil {
 				log.Error("error iterating storage trie", "err", err)
 				return
@@ -335,7 +327,6 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 					}
 					return true
 				})
-
 			if err != nil {
 				log.Error("error handling storage range request", "err", err)
 				return
