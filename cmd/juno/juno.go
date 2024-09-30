@@ -38,6 +38,7 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 const (
 	configF                 = "config"
 	logLevelF               = "log-level"
+	logEncodingF            = "log-encoding"
 	httpF                   = "http"
 	httpHostF               = "http-host"
 	httpPortF               = "http-port"
@@ -122,6 +123,7 @@ const (
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
+	logEncodingFlagUsage                  = "The encoding of the log: console, json."
 	httpUsage                             = "Enables the HTTP RPC server on the default port and interface."
 	httpHostUsage                         = "The interface on which the HTTP RPC server will listen for requests."
 	httpPortUsage                         = "The port on which the HTTP server will listen for requests."
@@ -191,9 +193,11 @@ func main() {
 
 	config := new(node.Config)
 	cmd := NewCmd(config, func(cmd *cobra.Command, _ []string) error {
-		_, err := fmt.Fprintf(cmd.OutOrStdout(), greeting, Version)
-		if err != nil {
-			return err
+		if config.LogEncoding == utils.CONSOLE {
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), greeting, Version)
+			if err != nil {
+				return err
+			}
 		}
 
 		n, err := node.New(config, Version)
@@ -302,12 +306,14 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
+	defaultLogEncoding := utils.CONSOLE
 	defaultNetwork := utils.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
+	junoCmd.Flags().Var(&defaultLogEncoding, logEncodingF, logEncodingFlagUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)

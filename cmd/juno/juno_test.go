@@ -31,6 +31,7 @@ func TestConfigPrecedence(t *testing.T) {
 	// checks on the config, those will be checked by the node implementation.
 	defaultHost := "localhost"
 	defaultLogLevel := utils.INFO
+	defaultLogEncoding := utils.CONSOLE
 	defaultHTTP := false
 	defaultHTTPPort := uint16(6060)
 	defaultWS := false
@@ -84,6 +85,7 @@ func TestConfigPrecedence(t *testing.T) {
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
+				LogEncoding:         utils.CONSOLE,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            4576,
@@ -115,6 +117,7 @@ func TestConfigPrecedence(t *testing.T) {
 		"custom network config file": {
 			cfgFile: true,
 			cfgFileContents: `log-level: debug
+log-encoding: JSON
 http-host: 0.0.0.0
 http-port: 4576
 db-path: /home/.juno
@@ -129,6 +132,7 @@ cn-unverifiable-range: [0,10]
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
+				LogEncoding:         utils.JSON,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            4576,
@@ -161,6 +165,7 @@ cn-unverifiable-range: [0,10]
 			inputArgs: []string{""},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            defaultHost,
 				HTTPPort:            defaultHTTPPort,
@@ -193,6 +198,7 @@ cn-unverifiable-range: [0,10]
 			inputArgs: []string{"--config", ""},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            defaultHost,
 				HTTPPort:            defaultHTTPPort,
@@ -230,6 +236,7 @@ cn-unverifiable-range: [0,10]
 			cfgFileContents: "\n",
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            defaultHost,
 				HTTPPort:            defaultHTTPPort,
@@ -269,6 +276,7 @@ pprof: true
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            4576,
@@ -305,6 +313,7 @@ http-port: 4576
 `,
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            4576,
@@ -340,6 +349,7 @@ http-port: 4576
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            4576,
@@ -375,6 +385,7 @@ http-port: 4576
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            4576,
@@ -434,6 +445,7 @@ db-cache-size: 8
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.ERROR,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                true,
 				HTTPHost:            "127.0.0.1",
 				HTTPPort:            4577,
@@ -472,6 +484,7 @@ network: sepolia
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.WARN,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            4576,
@@ -506,6 +519,7 @@ network: sepolia
 			inputArgs:       []string{"--db-path", "/home/flag/.juno", "--pprof"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            defaultHost,
 				HTTPPort:            defaultHTTPPort,
@@ -538,6 +552,7 @@ network: sepolia
 			env: []string{"JUNO_HTTP_PORT", "8080", "JUNO_WS", "true", "JUNO_HTTP_HOST", "0.0.0.0"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
 				HTTPPort:            8080,
@@ -571,6 +586,7 @@ network: sepolia
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            defaultHost,
 				HTTPPort:            defaultHTTPPort,
@@ -604,6 +620,7 @@ network: sepolia
 			env:             []string{"JUNO_DB_PATH", "/home/env/.juno", "JUNO_GW_API_KEY", "apikey"},
 			expectedConfig: &node.Config{
 				LogLevel:            defaultLogLevel,
+				LogEncoding:         defaultLogEncoding,
 				HTTP:                defaultHTTP,
 				HTTPHost:            defaultHost,
 				HTTPPort:            defaultHTTPPort,
