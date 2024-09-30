@@ -22,10 +22,6 @@ const (
 	// This is also pebble's default value.
 	minCacheSizeMB = 8
 
-	// metricsGatheringInterval specifies the interval to retrieve pebble database
-	// compaction, io and pause stats to report to the user.
-	metricsGatheringInterval = 3 * time.Second
-
 	// dbNamespace is the namespace for the database metrics
 	dbNamespace = "db"
 )
@@ -66,7 +62,7 @@ type DB struct {
 
 func New(path string, enableMetrics bool, options ...Option) (*DB, error) {
 	opts := &pebble.Options{
-		MaxConcurrentCompactions: func() int { return runtime.NumCPU() },
+		MaxConcurrentCompactions: runtime.NumCPU,
 	}
 
 	for _, option := range options {
@@ -241,7 +237,7 @@ func (d *DB) enableMetrics() db.DB {
 	return d
 }
 
-func (d *DB) onCompactionBegin(info pebble.CompactionInfo) {
+func (d *DB) onCompactionBegin(info pebble.CompactionInfo) { //nolint:gocritic // Used by pebble's event listener
 	if d.activeComp == 0 {
 		d.compStartTime = time.Now()
 	}
@@ -254,7 +250,7 @@ func (d *DB) onCompactionBegin(info pebble.CompactionInfo) {
 	d.activeComp++
 }
 
-func (d *DB) onCompactionEnd(info pebble.CompactionInfo) {
+func (d *DB) onCompactionEnd(info pebble.CompactionInfo) { //nolint:gocritic // Used by pebble's event listener
 	if d.activeComp == 1 {
 		d.compTime.Add(int64(time.Since(d.compStartTime)))
 	} else if d.activeComp == 0 {
@@ -306,7 +302,8 @@ func (d *DB) StartMetricsCollection(ctx context.Context, refresh time.Duration) 
 		writeDelayCounts[i%2] = writeDelayCount
 		compTimes[i%2] = compTime
 
-		for _, levelMetrics := range metrics.Levels {
+		for j := range metrics.Levels {
+			levelMetrics := metrics.Levels[j]
 			nWrite += int64(levelMetrics.BytesCompacted)
 			nWrite += int64(levelMetrics.BytesFlushed)
 			compWrite += int64(levelMetrics.BytesCompacted)

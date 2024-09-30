@@ -38,10 +38,13 @@ import (
 )
 
 const (
-	upgraderDelay            = 5 * time.Minute
-	metricsGatheringInterval = 3 * time.Second
-	githubAPIUrl             = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL         = "https://github.com/NethermindEth/juno/releases/latest"
+	upgraderDelay = 5 * time.Minute
+
+	// metricsGatheringInterval specifies the interval to retrieve pebble database
+	// compaction, io and pause stats to report to the user.
+	dbMetricsGatheringInterval = 3 * time.Second
+	githubAPIUrl               = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL           = "https://github.com/NethermindEth/juno/releases/latest"
 )
 
 // Config is the top-level juno configuration.
@@ -349,7 +352,7 @@ func (n *Node) Run(ctx context.Context) {
 
 		wg.Go(func() {
 			defer cancel()
-			n.db.StartMetricsCollection(ctx, metricsGatheringInterval)
+			n.db.StartMetricsCollection(ctx, dbMetricsGatheringInterval)
 		})
 	}
 
