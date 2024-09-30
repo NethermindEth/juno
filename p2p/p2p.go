@@ -5,9 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/NethermindEth/juno/service"
 	"math/rand"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -50,15 +48,11 @@ type Service struct {
 	topics     map[string]*pubsub.Topic
 	topicsLock sync.RWMutex
 
-	synchroniser *syncService
-	snapSyncher  service.Service
-	//snapServer   *snapServer
-
-	feederNode bool
+	downloader *Downloader
 	database   db.DB
 }
 
-func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, syncMode SyncMode, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	if addr == "" {
@@ -116,10 +110,10 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(p2pHost, peers, feederNode, syncMode, bc, snNetwork, log, database)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func NewWithHost(p2phost host.Host, peers string, feederNode bool, syncMode SyncMode, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	var (
@@ -150,22 +144,19 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		return nil, err
 	}
 
-	// todo: reconsider initialising synchroniser here because if node is a feedernode we should not create an instance of it.
-
-	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
+	downloader := NewDownloader(feederNode, syncMode, p2phost, snNetwork, bc, log)
 	handler := starknet.NewHandler(bc, log)
-	handler.WithSnapsyncSupport(NewSnapServer(bc, log))
+	handler.WithSnapsyncSupport(NewSnapServer(bc, log)) // TODO: initialize the snap server in the starknet handler
+
 	s := &Service{
-		synchroniser: synchroniser,
-		snapSyncher:  NewSnapSyncer(synchroniser, bc, log),
-		log:          log,
-		host:         p2phost,
-		network:      snNetwork,
-		dht:          p2pdht,
-		feederNode:   feederNode,
-		topics:       make(map[string]*pubsub.Topic),
-		handler:      handler,
-		database:     database,
+		downloader: downloader,
+		log:        log,
+		host:       p2phost,
+		network:    snNetwork,
+		dht:        p2pdht,
+		topics:     make(map[string]*pubsub.Topic),
+		handler:    handler,
+		database:   database,
 	}
 	return s, nil
 }
@@ -264,18 +255,8 @@ func (s *Service) Run(ctx context.Context) error {
 
 	s.setProtocolHandlers()
 
-	if !s.feederNode {
-		//s.synchroniser.start(ctx)
-		if os.Getenv("JUNO_P2P_NO_SYNC") == "" {
-			err := s.snapSyncher.Run(ctx)
-			if err != nil {
-				s.log.Errorw("Snapsyncer failed to start")
-				return err
-			}
-		} else {
-			s.log.Infow("Syncing is disabled")
-		}
-	}
+	// Start the syncing process
+	s.downloader.Start(ctx)
 
 	<-ctx.Done()
 	if err := s.persistPeers(); err != nil {
@@ -416,7 +397,7 @@ func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Strea
 
 func (s *Service) WithListener(l junoSync.EventListener) {
 	runMetrics(s.host.Peerstore())
-	s.synchroniser.WithListener(l)
+	s.downloader.WithListener(l)
 }
 
 // persistPeers stores the given peers in the peers database

@@ -71,12 +71,13 @@ type Config struct {
 	MetricsHost string `mapstructure:"metrics-host"`
 	MetricsPort uint16 `mapstructure:"metrics-port"`
 
-	P2P           bool   `mapstructure:"p2p"`
-	P2PAddr       string `mapstructure:"p2p-addr"`
-	P2PPublicAddr string `mapstructure:"p2p-public-addr"`
-	P2PPeers      string `mapstructure:"p2p-peers"`
-	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
-	P2PPrivateKey string `mapstructure:"p2p-private-key"`
+	P2P           bool         `mapstructure:"p2p"`
+	P2PAddr       string       `mapstructure:"p2p-addr"`
+	P2PPublicAddr string       `mapstructure:"p2p-public-addr"`
+	P2PPeers      string       `mapstructure:"p2p-peers"`
+	P2PFeederNode bool         `mapstructure:"p2p-feeder-node"`
+	P2PPrivateKey string       `mapstructure:"p2p-private-key"`
+	P2PSyncMode   p2p.SyncMode `mapstructure:"p2p-sync-mode"`
 
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
@@ -127,7 +128,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	chain := blockchain.New(database, &cfg.Network)
 
-	//TODO: close a blockchain? better way?
+	// TODO: close a blockchain? better way?
 	services = append(services, blockchain.NewBlockchainCloser(chain, log))
 
 	// Verify that cfg.Network is compatible with the database.
@@ -170,12 +171,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			// Do not start the feeder synchronisation
 			synchronizer = nil
 		}
-		if os.Getenv("JUNO_P2P_NO_SYNC") != "" {
+		if os.Getenv("JUNO_P2P_NO_SYNC") != "" { // TODO(weiihann): remove this in the future
 			log.Warnw("Got 'JUNO_P2P_NO_SYNC' to not syncing from p2p network")
 			synchronizer = nil
 		}
 		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-			chain, &cfg.Network, log, database)
+			cfg.P2PSyncMode, chain, &cfg.Network, log, database)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
@@ -372,7 +373,7 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	<-ctx.Done()
-	//TODO: chain.Close() - which service should do this?
+	// TODO: chain.Close() - which service should do this?
 	n.log.Infow("Shutting down Juno...")
 }
 

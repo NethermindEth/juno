@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type syncService struct {
+type SyncService struct {
 	host    host.Host
 	network *utils.Network
 	client  *starknet.Client // todo: merge all the functionality of Client with p2p SyncService
@@ -36,28 +36,28 @@ type syncService struct {
 	log        utils.SimpleLogger
 }
 
-func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *syncService {
-	return &syncService{
+func newSyncService(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *SyncService {
+	s := &SyncService{
 		host:       h,
 		network:    n,
 		blockchain: bc,
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
 	}
+
+	s.client = starknet.NewClient(s.randomPeerStream, s.network, s.log)
+
+	return s
 }
 
-// Client is a nasty hack to provide `CLient` to `SnapSyncher`
-// TODO: clean this
-func (s *syncService) Client() *starknet.Client {
-	return starknet.NewClient(s.randomPeerStream, s.network, s.log)
+func (s *SyncService) Client() *starknet.Client {
+	return s.client
 }
 
 //nolint:funlen
-func (s *syncService) start(ctx context.Context) {
+func (s *SyncService) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	s.client = starknet.NewClient(s.randomPeerStream, s.network, s.log)
 
 	for i := 0; ; i++ {
 		if err := ctx.Err(); err != nil {
@@ -149,7 +149,7 @@ func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEven
 	return specBlockParts(i)
 }
 
-func (s *syncService) logError(msg string, err error) {
+func (s *SyncService) logError(msg string, err error) {
 	if !errors.Is(err, context.Canceled) {
 		var log utils.SimpleLogger
 		if v, ok := s.log.(*utils.ZapLogger); ok {
@@ -175,7 +175,7 @@ type blockBody struct {
 }
 
 //nolint:gocyclo
-func (s *syncService) processSpecBlockParts(
+func (s *SyncService) processSpecBlockParts(
 	ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts,
 ) <-chan <-chan blockBody {
 	orderedBlockBodiesCh := make(chan (<-chan blockBody))
@@ -268,7 +268,7 @@ func (s *syncService) processSpecBlockParts(
 }
 
 //nolint:gocyclo,funlen
-func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
+func (s *SyncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
 	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
@@ -404,7 +404,7 @@ func (s specBlockHeaderAndSigs) blockNumber() uint64 {
 	return s.header.Number
 }
 
-func (s *syncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-chan specBlockHeaderAndSigs, error) {
+func (s *SyncService) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-chan specBlockHeaderAndSigs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	headersIt, err := s.client.RequestBlockHeaders(ctx, &spec.BlockHeadersRequest{Iteration: it})
 	if err != nil {
@@ -449,7 +449,7 @@ func (s specClasses) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *syncService) genClasses(ctx context.Context, blockNumber uint64) (<-chan specClasses, error) {
+func (s *SyncService) genClasses(ctx context.Context, blockNumber uint64) (<-chan specClasses, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	classesIt, err := s.client.RequestClasses(ctx, &spec.ClassesRequest{Iteration: it})
 	if err != nil {
@@ -495,7 +495,7 @@ func (s specContractDiffs) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *syncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan specContractDiffs, error) {
+func (s *SyncService) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan specContractDiffs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	stateDiffsIt, err := s.client.RequestStateDiffs(ctx, &spec.StateDiffsRequest{Iteration: it})
 	if err != nil {
@@ -543,7 +543,7 @@ func (s specEvents) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *syncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan specEvents, error) {
+func (s *SyncService) genEvents(ctx context.Context, blockNumber uint64) (<-chan specEvents, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	eventsIt, err := s.client.RequestEvents(ctx, &spec.EventsRequest{Iteration: it})
 	if err != nil {
@@ -589,7 +589,7 @@ func (s specTxWithReceipts) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
+func (s *SyncService) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	txsIt, err := s.client.RequestTransactions(ctx, &spec.TransactionsRequest{Iteration: it})
 	if err != nil {
@@ -634,7 +634,7 @@ func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (
 	return txsCh, nil
 }
 
-func (s *syncService) randomPeer() peer.ID {
+func (s *SyncService) randomPeer() peer.ID {
 	peers := s.host.Peerstore().Peers()
 
 	// todo do not request same block from all peers
@@ -647,15 +647,15 @@ func (s *syncService) randomPeer() peer.ID {
 
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
-	//s.log.Debugw("Number of peers", "len", len(peers))
-	//s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(p))
+	// s.log.Debugw("Number of peers", "len", len(peers))
+	// s.log.Debugw("Random chosen peer's info", "peerInfo", s.host.Peerstore().PeerInfo(p))
 
 	return p
 }
 
 var errNoPeers = errors.New("no peers available")
 
-func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
+func (s *SyncService) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
 	randPeer := s.randomPeer()
 	if randPeer == "" {
 		return nil, errNoPeers
@@ -669,13 +669,13 @@ func (s *syncService) randomPeerStream(ctx context.Context, pids ...protocol.ID)
 	return stream, err
 }
 
-func (s *syncService) removePeer(id peer.ID) {
+func (s *SyncService) removePeer(id peer.ID) {
 	s.log.Debugw("Removing peer", "peerID", id)
 	s.host.Peerstore().RemovePeer(id)
 	s.host.Peerstore().ClearAddrs(id)
 }
 
-func (s *syncService) createIteratorForBlock(blockNumber uint64) *spec.Iteration {
+func (s *SyncService) createIteratorForBlock(blockNumber uint64) *spec.Iteration {
 	return &spec.Iteration{
 		Start:     &spec.Iteration_BlockNumber{BlockNumber: blockNumber},
 		Direction: spec.Iteration_Forward,
@@ -684,12 +684,12 @@ func (s *syncService) createIteratorForBlock(blockNumber uint64) *spec.Iteration
 	}
 }
 
-func (s *syncService) WithListener(l junoSync.EventListener) {
+func (s *SyncService) WithListener(l junoSync.EventListener) {
 	s.listener = l
 }
 
 //nolint:unused
-func (s *syncService) sleep(d time.Duration) {
+func (s *SyncService) sleep(d time.Duration) {
 	s.log.Debugw("Sleeping...", "for", d)
 	time.Sleep(d)
 }

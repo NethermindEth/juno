@@ -82,6 +82,7 @@ const (
 	callMaxStepsF           = "rpc-call-max-steps"
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
+	p2pSyncModeF            = "p2p-sync-mode"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -119,6 +120,7 @@ const (
 	defaultGwTimeout                = 5 * time.Second
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
+	defaultP2pSyncMode              = "full"
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -170,6 +172,7 @@ const (
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
+	p2pSyncModeUsage            = "Synchronization mode: 'full', 'snap'"
 )
 
 var Version string
@@ -335,6 +338,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
+	junoCmd.Flags().String(p2pSyncModeF, defaultP2pSyncMode, p2pSyncModeUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
