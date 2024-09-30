@@ -45,14 +45,6 @@ type ClassRangeStreamingResult struct {
 	RangeProof    *spec.PatriciaRangeProof
 }
 
-// TODO: delete, duplicate of SnapProvider
-type SnapServer interface {
-	GetClassRange(request *spec.ClassRangeRequest) (iter.Seq[proto.Message], error)
-	GetContractRange(request *spec.ContractRangeRequest) (iter.Seq[proto.Message], error)
-	GetStorageRange(request *spec.ContractStorageRequest) (iter.Seq[proto.Message], error)
-	GetClasses(request *spec.ClassHashesRequest) (iter.Seq[proto.Message], error)
-}
-
 type SnapServerBlockchain interface {
 	GetStateForStateRoot(stateRoot *felt.Felt) (*core.State, error)
 	GetClasses(felts []*felt.Felt) ([]core.Class, error)
