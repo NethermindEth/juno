@@ -434,10 +434,8 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 	ResponseIter:
 		for response := range classIter {
 			if response == nil {
-				if response == nil {
-					s.log.Errorw("contract range respond with nil response")
-					continue
-				}
+				s.log.Errorw("contract range respond with nil response")
+				continue
 			}
 
 			var classes []*spec.Class
@@ -451,7 +449,7 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 				continue
 			}
 
-			if classes == nil || len(classes) == 0 {
+			if len(classes) == 0 {
 				s.log.Errorw("class range respond with empty classes")
 				continue
 			}
