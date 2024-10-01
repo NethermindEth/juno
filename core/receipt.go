@@ -64,15 +64,31 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 }
 
 func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
+	return calculateCommitment(
+		receipts,
+		trie.RunOnTempTriePoseidon,
+		func(receipt *TransactionReceipt) *felt.Felt {
+			return receipt.hash()
+		},
+	)
+}
+
+type (
+	onTempTrieFunc     func(uint8, func(*trie.Trie) error) error
+	processFunc[T any] func(T) *felt.Felt
+)
+
+// General function for parallel processing of items and calculation of a commitment
+func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process processFunc[T]) (*felt.Felt, error) {
 	var commitment *felt.Felt
-	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
-		numWorkers := min(runtime.GOMAXPROCS(0), len(receipts))
-		results := make([]*felt.Felt, len(receipts))
+	return commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+		numWorkers := min(runtime.GOMAXPROCS(0), len(items))
+		results := make([]*felt.Felt, len(items))
 		var wg sync.WaitGroup
 		wg.Add(numWorkers)
 
-		jobs := make(chan int, len(receipts))
-		for idx := range receipts {
+		jobs := make(chan int, len(items))
+		for idx := range items {
 			jobs <- idx
 		}
 		close(jobs)
@@ -81,7 +97,7 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 			go func() {
 				defer wg.Done()
 				for i := range jobs {
-					results[i] = receipts[i].hash()
+					results[i] = process(items[i])
 				}
 			}()
 		}
