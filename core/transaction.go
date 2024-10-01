@@ -630,12 +630,12 @@ const commitmentTrieHeight = 64
 // transaction hashes and signatures in a block.
 func transactionCommitmentPedersen(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
 	blockVersion, err := ParseBlockVersion(protocolVersion)
-	v0_11_1 := semver.MustParse("0.11.1")
 	if err != nil {
 		return nil, err
 	}
-	var hashFunc processFunc[Transaction]
 
+	v0_11_1 := semver.MustParse("0.11.1")
+	var hashFunc processFunc[Transaction]
 	if blockVersion.GreaterThanEqual(v0_11_1) {
 		hashFunc = func(transaction Transaction) *felt.Felt {
 			signatureHash := crypto.PedersenArray(transaction.Signature()...)
