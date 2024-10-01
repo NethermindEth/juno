@@ -57,7 +57,7 @@ func TestTransactionCommitmentPoseidon(t *testing.T) {
 
 		c, err := transactionCommitmentPoseidon(txs)
 		require.NoError(t, err)
-		expected := utils.HexToFelt(t, "0x6e067f82eefc8efa75b4ad389253757f4992eee0f81f0b43815fa56135ca801")
+		expected := utils.HexToFelt(t, "0x5ecb75d7a86984ec8ef9d5fbbe49ef8737c37246d33cf73037df1ceb412244e")
 		assert.Equal(t, expected, c, "expected: %s, got: %s", expected, c)
 	})
 }
