@@ -42,13 +42,12 @@ func (b *batch) Discard() error {
 
 // Commit : see db.Transaction.Commit
 func (b *batch) Commit() error {
-	start := time.Now()
-	defer func() { b.listener.OnCommit(time.Since(start)) }()
-
 	if b.batch == nil {
 		return ErrDiscardedTransaction
 	}
 
+	start := time.Now()
+	defer func() { b.listener.OnCommit(time.Since(start)) }()
 	return utils.RunAndWrapOnError(b.Discard, b.batch.Commit(pebble.Sync))
 }
 
@@ -70,12 +69,12 @@ func (b *batch) Set(key, val []byte) error {
 
 // Delete : see db.Transaction.Delete
 func (b *batch) Delete(key []byte) error {
-	start := time.Now()
-	defer func() { b.listener.OnIO(true, time.Since(start)) }()
-
 	if b.batch == nil {
 		return ErrDiscardedTransaction
 	}
+
+	start := time.Now()
+	defer func() { b.listener.OnIO(true, time.Since(start)) }()
 
 	return b.batch.Delete(key, pebble.Sync)
 }
