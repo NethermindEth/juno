@@ -42,6 +42,12 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
+
+	// NOTE: Not a best way to add them here - it assumes current state and atm cannot be implemented for hitsrical states
+	ClassTrie() (*trie.Trie, func() error, error)
+	StorageTrie() (*trie.Trie, func() error, error)
+	StorageTrieForAddr(addr *felt.Felt) (*trie.Trie, error)
+	StateAndClassRoot() (*felt.Felt, *felt.Felt, error)
 }
 
 type State struct {
@@ -127,6 +133,18 @@ func (s *State) Root() (*felt.Felt, error) {
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
 func (s *State) storage() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.StateTrie, trie.NewTriePedersen)
+}
+
+func (s *State) StorageTrie() (*trie.Trie, func() error, error) {
+	return s.storage()
+}
+
+func (s *State) ClassTrie() (*trie.Trie, func() error, error) {
+	return s.classesTrie()
+}
+
+func (s *State) StorageTrieForAddr(addr *felt.Felt) (*trie.Trie, error) {
+	return storage(addr, s.txn)
 }
 
 func (s *State) classesTrie() (*trie.Trie, func() error, error) {
@@ -547,7 +565,7 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 
 	err = s.performStateDeletions(blockNumber, update.StateDiff)
 	if err != nil {
-		return fmt.Errorf("error performing state deletions: %v", err)
+		return fmt.Errorf("build reverse diff: %v", err)
 	}
 
 	stateTrie, storageCloser, err := s.storage()
@@ -581,6 +599,7 @@ func (s *State) purgeNoClassContracts() error {
 	// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
 	// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
 	// we can use the lack of key's existence as reason for purging noClassContracts.
+
 	for addr := range noClassContracts {
 		noClassC, err := NewContractUpdater(&addr, s.txn)
 		if err != nil {
@@ -742,4 +761,36 @@ func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error
 	}
 
 	return nil
+}
+
+func (s *State) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
+	var storageRoot, classesRoot *felt.Felt
+
+	sStorage, closer, err := s.storage()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if storageRoot, err = sStorage.Root(); err != nil {
+		return nil, nil, err
+	}
+
+	if err = closer(); err != nil {
+		return nil, nil, err
+	}
+
+	classes, closer, err := s.classesTrie()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if classesRoot, err = classes.Root(); err != nil {
+		return nil, nil, err
+	}
+
+	if err = closer(); err != nil {
+		return nil, nil, err
+	}
+
+	return storageRoot, classesRoot, nil
 }

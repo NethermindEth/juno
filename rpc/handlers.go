@@ -58,6 +58,12 @@ var (
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
+
+	// TODO[pnowosie]: Update the error while specification describe it
+	ErrBlockNotRecentForProof = &jsonrpc.Error{
+		Code:    1001,
+		Message: "Block is not sufficiently recent for storage proofs. Use 'latest' as block id",
+	}
 )
 
 const (
@@ -391,6 +397,11 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.StorageAt,
+		},
+		{
+			Name:    "starknet_getStorageProof",
+			Params:  []jsonrpc.Parameter{},
+			Handler: h.StorageProof,
 		},
 		{
 			Name:    "starknet_getClassHashAt",

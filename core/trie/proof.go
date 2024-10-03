@@ -13,7 +13,7 @@ var (
 )
 
 type ProofNode interface {
-	Hash(hash hashFunc) *felt.Felt
+	Hash(hash HashFunc) *felt.Felt
 	Len() uint8
 	PrettyPrint()
 }
@@ -23,7 +23,7 @@ type Binary struct {
 	RightHash *felt.Felt
 }
 
-func (b *Binary) Hash(hash hashFunc) *felt.Felt {
+func (b *Binary) Hash(hash HashFunc) *felt.Felt {
 	return hash(b.LeftHash, b.RightHash)
 }
 
@@ -42,7 +42,7 @@ type Edge struct {
 	Path  *Key       // path from parent to child
 }
 
-func (e *Edge) Hash(hash hashFunc) *felt.Felt {
+func (e *Edge) Hash(hash HashFunc) *felt.Felt {
 	length := make([]byte, len(e.Path.bitset))
 	length[len(e.Path.bitset)-1] = e.Path.len
 	pathFelt := e.Path.Felt()
@@ -52,6 +52,11 @@ func (e *Edge) Hash(hash hashFunc) *felt.Felt {
 
 func (e *Edge) Len() uint8 {
 	return e.Path.Len()
+}
+
+func (e *Edge) PathInt() uint64 {
+	f := e.Path.Felt()
+	return f.Uint64()
 }
 
 func (e *Edge) PrettyPrint() {
@@ -199,7 +204,7 @@ func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Fe
 // merges paths in the specified order [commonNodes..., leftNodes..., rightNodes...]
 // ordering of the merged path is not important
 // since SplitProofPath can discover the left and right paths using the merged path and the rootHash
-func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, *felt.Felt, error) {
+func MergeProofPaths(leftPath, rightPath []ProofNode, hash HashFunc) ([]ProofNode, *felt.Felt, error) {
 	merged := []ProofNode{}
 	minLen := min(len(leftPath), len(rightPath))
 
@@ -236,7 +241,7 @@ func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNod
 // SplitProofPath splits the merged proof path into two paths (left and right), which were merged before
 // it first validates that the merged path is not circular, the split happens at most once and rootHash exists
 // then calls traverseNodes to split the path to left and right paths
-func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) ([]ProofNode, []ProofNode, error) {
+func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash HashFunc) ([]ProofNode, []ProofNode, error) {
 	commonPath := []ProofNode{}
 	leftPath := []ProofNode{}
 	rightPath := []ProofNode{}
@@ -316,7 +321,7 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 
 // verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
+func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash HashFunc) bool {
 	expectedHash := root
 	remainingPath := NewKey(key.len, key.bitset[:])
 	for i, proofNode := range proofs {
@@ -345,7 +350,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 				return true
 			}
 
-			if !proofNode.Path.Equal(subKey) {
+			if !proofNode.Path.Equal(subKey) && !subKey.Equal(&Key{}) {
 				return false
 			}
 			expectedHash = proofNode.Child
@@ -363,7 +368,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 // and therefore it's hash won't match the expected root.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
 func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*Key, proofValues [2]*felt.Felt,
-	proofs [2][]ProofNode, hash hashFunc,
+	proofs [2][]ProofNode, hash HashFunc,
 ) (bool, error) {
 	// Step 0: checks
 	if len(keys) != len(values) {
@@ -440,7 +445,7 @@ func ensureMonotonicIncreasing(proofKeys [2]*Key, keys []*felt.Felt) error {
 }
 
 // compressNode determines if the node needs compressed, and if so, the len needed to arrive at the next key
-func compressNode(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, error) {
+func compressNode(idx int, proofNodes []ProofNode, hashF HashFunc) (int, uint8, error) {
 	parent := proofNodes[idx]
 
 	if idx == len(proofNodes)-1 {
@@ -474,7 +479,7 @@ func compressNode(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 }
 
 func assignChild(i, compressedParent int, parentNode *Node,
-	nilKey, leafKey, parentKey *Key, proofNodes []ProofNode, hashF hashFunc,
+	nilKey, leafKey, parentKey *Key, proofNodes []ProofNode, hashF HashFunc,
 ) (*Key, error) {
 	childInd := i + compressedParent + 1
 	childKey, err := getChildKey(childInd, parentKey, leafKey, nilKey, proofNodes, hashF)
@@ -494,7 +499,7 @@ func assignChild(i, compressedParent int, parentNode *Node,
 // ProofToPath returns a set of storage nodes from the root to the end of the proof path.
 // The storage nodes will have the hashes of the children, but only the key of the child
 // along the path outlined by the proof.
-func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]StorageNode, error) {
+func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF HashFunc) ([]StorageNode, error) {
 	pathNodes := []StorageNode{}
 
 	// Child keys that can't be derived are set to nilKey, so that we can store the node
@@ -552,7 +557,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 	return pathNodes, nil
 }
 
-func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF hashFunc) bool {
+func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF HashFunc) bool {
 	lastNode := pathNodes[len(pathNodes)-1].node
 	noLeftMatch, noRightMatch := false, false
 	if lastNode.LeftHash != nil && !pNode.Hash(hashF).Equal(lastNode.LeftHash) {
@@ -607,7 +612,7 @@ func getParentKey(idx int, compressedParentOffset uint8, leafKey *Key,
 	return crntKey, err
 }
 
-func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
+func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF HashFunc) (*Key, error) {
 	if childIdx > len(proofNodes)-1 {
 		return nilKey, nil
 	}
