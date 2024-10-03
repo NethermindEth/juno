@@ -393,6 +393,11 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.StorageAt,
 		},
 		{
+			Name:    "starknet_getStorageProof",
+			Params:  []jsonrpc.Parameter{},
+			Handler: h.StorageProof,
+		},
+		{
 			Name:    "starknet_getClassHashAt",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
 			Handler: h.ClassHashAt,
