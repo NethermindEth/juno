@@ -13,7 +13,7 @@ var (
 )
 
 type ProofNode interface {
-	Hash(hash hashFunc) *felt.Felt
+	Hash(hash HashFunc) *felt.Felt
 	Len() uint8
 	PrettyPrint()
 }
@@ -23,7 +23,7 @@ type Binary struct {
 	RightHash *felt.Felt
 }
 
-func (b *Binary) Hash(hash hashFunc) *felt.Felt {
+func (b *Binary) Hash(hash HashFunc) *felt.Felt {
 	return hash(b.LeftHash, b.RightHash)
 }
 
@@ -42,7 +42,7 @@ type Edge struct {
 	Path  *Key       // path from parent to child
 }
 
-func (e *Edge) Hash(hash hashFunc) *felt.Felt {
+func (e *Edge) Hash(hash HashFunc) *felt.Felt {
 	length := make([]byte, len(e.Path.bitset))
 	length[len(e.Path.bitset)-1] = e.Path.len
 	pathFelt := e.Path.Felt()
@@ -280,7 +280,7 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 //   - Any node's computed hash doesn't match its expected hash
 //   - The path bits don't match the key bits
 //   - The proof ends before processing all key bits
-func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (*felt.Felt, error) {
+func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash HashFunc) (*felt.Felt, error) {
 	expectedHash := root
 	keyLen := key.Len()
 	var processedBits uint8
@@ -341,7 +341,7 @@ func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
 // and therefore its hash won't match the expected root.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt.Felt, proofSet *ProofSet, hash hashFunc) (bool, error) {
+func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt.Felt, proofSet *ProofSet, hash HashFunc) (bool, error) {
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, number of keys: %d, number of values: %d", len(keys), len(values))
@@ -422,7 +422,7 @@ func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt
 }
 
 // compressNode determines if the node needs compressed, and if so, the len needed to arrive at the next key
-func compressNode(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, error) {
+func compressNode(idx int, proofNodes []ProofNode, hashF HashFunc) (int, uint8, error) {
 	parent := proofNodes[idx]
 
 	if idx == len(proofNodes)-1 {
@@ -456,7 +456,7 @@ func compressNode(idx int, proofNodes []ProofNode, hashF hashFunc) (int, uint8, 
 }
 
 func assignChild(i, compressedParent int, parentNode *Node,
-	nilKey, leafKey, parentKey *Key, proofNodes []ProofNode, hashF hashFunc,
+	nilKey, leafKey, parentKey *Key, proofNodes []ProofNode, hashF HashFunc,
 ) (*Key, error) {
 	childInd := i + compressedParent + 1
 	childKey, err := getChildKey(childInd, parentKey, leafKey, nilKey, proofNodes, hashF)
@@ -476,7 +476,7 @@ func assignChild(i, compressedParent int, parentNode *Node,
 // ProofToPath returns a set of storage nodes from the root to the end of the proof path.
 // The storage nodes will have the hashes of the children, but only the key of the child
 // along the path outlined by the proof.
-func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]StorageNode, error) {
+func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF HashFunc) ([]StorageNode, error) {
 	pathNodes := []StorageNode{}
 
 	// Child keys that can't be derived are set to nilKey, so that we can store the node
@@ -534,7 +534,7 @@ func ProofToPath(proofNodes []ProofNode, leafKey *Key, hashF hashFunc) ([]Storag
 	return pathNodes, nil
 }
 
-func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF hashFunc) bool {
+func skipNode(pNode ProofNode, pathNodes []StorageNode, hashF HashFunc) bool {
 	lastNode := pathNodes[len(pathNodes)-1].node
 	noLeftMatch, noRightMatch := false, false
 	if lastNode.LeftHash != nil && !pNode.Hash(hashF).Equal(lastNode.LeftHash) {
@@ -589,7 +589,7 @@ func getParentKey(idx int, compressedParentOffset uint8, leafKey *Key,
 	return crntKey, err
 }
 
-func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF hashFunc) (*Key, error) {
+func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []ProofNode, hashF HashFunc) (*Key, error) {
 	if childIdx > len(proofNodes)-1 {
 		return nilKey, nil
 	}
