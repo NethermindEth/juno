@@ -16,7 +16,7 @@ Your plugin must implement the `JunoPlugin` interface, which includes methods fo
 ```go
 type JunoPlugin interface {
 	Init() error
-	Shutdown() error // Note: Currently this function will never be called.
+	Shutdown() error 
 	NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error
 	RevertBlock(from, to *BlockAndStateUpdate, reverseStateDiff *core.StateDiff) error
 }
@@ -25,7 +25,7 @@ type JunoPlugin interface {
 
 **Init**: Called when the plugin is initialized. This can be used to set up database connections or any other necessary resources.
 
-**Shutdown**: Called when the plugin is shut down, though this function is currently never called by Juno. This can be used to clean up resources like database connections.
+**Shutdown**: Called when the Juno node is shut down. This can be used to clean up resources like database connections.
 
 **NewBlock**: Triggered when a new block is synced by the Juno client. Juno will send the block, the corresponding state update, and any new classes. Importantly, Juno waits for the plugin to finish processing this function call before continuing. This ensures that the plugin completes its task before Juno proceeds with the blockchain sync.
 

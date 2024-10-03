@@ -11,7 +11,7 @@ import (
 //go:generate mockgen -destination=../mocks/mock_plugin.go -package=mocks github.com/NethermindEth/juno/plugin JunoPlugin
 type JunoPlugin interface {
 	Init() error
-	Shutdown() error // Todo: Currently this function will never be called.
+	Shutdown() error
 	NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error
 	// The state is reverted by applying a write operation with the reverseStateDiff's StorageDiffs, Nonces, and ReplacedClasses,
 	// and a delete option with its DeclaredV0Classes, DeclaredV1Classes, and ReplacedClasses.
