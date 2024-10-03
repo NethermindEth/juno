@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	ErrDiscardedTransaction = errors.New("discarded txn")
+	ErrDiscardedTransaction = errors.New("discarded transaction")
 	ErrReadOnlyTransaction  = errors.New("read-only transaction")
 )
 var _ db.DB = (*DB)(nil)
