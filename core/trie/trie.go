@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
+type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
@@ -37,7 +37,7 @@ type Trie struct {
 	rootKey *Key
 	maxKey  *felt.Felt
 	storage *Storage
-	hash    hashFunc
+	hash    HashFunc
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
@@ -53,7 +53,7 @@ func NewTriePoseidon(storage *Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
+func newTrie(storage *Storage, height uint8, hash HashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -666,6 +666,10 @@ func (t *Trie) Commit() error {
 // RootKey returns db key of the [Trie] root node
 func (t *Trie) RootKey() *Key {
 	return t.rootKey
+}
+
+func (t *Trie) HashFunc() HashFunc {
+	return t.hash
 }
 
 func (t *Trie) Dump() {
