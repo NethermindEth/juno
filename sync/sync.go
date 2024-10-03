@@ -283,7 +283,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 			if s.plugin != nil {
-				err := (s.plugin).NewBlock(block, stateUpdate, newClasses)
+				err := s.plugin.NewBlock(block, stateUpdate, newClasses)
 				if err != nil {
 					s.log.Errorw("Plugin NewBlock failure:", err)
 				}
@@ -372,13 +372,8 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	if err == nil {
 		localHead = head.Hash
 	}
-
 	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
-	if err != nil {
-		s.log.Warnw("Failed getting reverse state-diff, err: ", err)
-	}
-	err = s.blockchain.RevertHead()
-	if err != nil {
+	if err := s.blockchain.RevertHead(); err != nil {
 		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)

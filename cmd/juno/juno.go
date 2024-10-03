@@ -172,7 +172,7 @@ const (
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
-	pluginPathUsage             = "Path to the plugins .so file"
+	pluginPathUsage             = "Path to the plugin .so file"
 )
 
 var Version string
