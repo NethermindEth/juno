@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	_                  = pubsub.RawTracer(&gossipTracer{})
-	knownAgentVersions = []string{"juno", "papyrus", "pathfinder", "madara"}
+	_                  pubsub.RawTracer = (*gossipTracer)(nil)
+	knownAgentVersions                  = []string{"juno", "papyrus", "pathfinder", "madara"}
 )
 
 // Metrics collection for gossipsub
@@ -199,7 +199,7 @@ func (g *gossipTracer) setRPCMetrics(subCtr prometheus.Counter, pubCtr, ctrlCtr 
 	}
 }
 
-func agentNameFromPeerID(pid peer.ID, store peerstore.Peerstore) string {
+func agentNameFromPeerID(pid peer.ID, store peerstore.PeerMetadata) string {
 	const unknownAgent = "unknown"
 
 	rawAgent, err := store.Get(pid, "AgentVersion")
