@@ -658,11 +658,10 @@ func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, erro
 		var digest crypto.PoseidonDigest
 		digest.Update(transaction.Hash())
 
-		switch transaction.(type) {
-		case *DeployTransaction, *L1HandlerTransaction:
+		if txSignature := transaction.Signature(); len(txSignature) > 0 {
+			digest.Update(txSignature...)
+		} else {
 			digest.Update(&felt.Zero)
-		default:
-			digest.Update(transaction.Signature()...)
 		}
 
 		return digest.Finish()
