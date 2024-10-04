@@ -26,7 +26,7 @@ func (h *history) deleteLog(key []byte, height uint64) error {
 	return h.txn.Delete(logDBKey(key, height))
 }
 
-// valueAt returns the value at the given height for the given key if it exists
+// valueAt returns the old value at the given height for the given key if it exists
 func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 	var value []byte
 	err := h.txn.Get(logDBKey(key, height), func(val []byte) error {
