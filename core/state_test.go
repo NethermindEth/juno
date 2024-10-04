@@ -289,6 +289,9 @@ func TestStateHistory(t *testing.T) {
 		assert.ErrorIs(t, err, core.ErrCheckHeadState)
 	})
 
+	prevValue, err := state.ContractStorage(contractAddr, changedLoc)
+	require.NoError(t, err)
+
 	// update the same location again
 	su := &core.StateUpdate{
 		NewRoot: utils.HexToFelt(t, "0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c"),
@@ -304,9 +307,9 @@ func TestStateHistory(t *testing.T) {
 	require.NoError(t, state.Update(1, su, nil))
 
 	t.Run("should give old value for a location that changed after the given height", func(t *testing.T) {
-		oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
+		oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 1)
 		require.NoError(t, err)
-		require.Equal(t, oldValue, utils.HexToFelt(t, "0x22b"))
+		require.Equal(t, oldValue, prevValue)
 	})
 }
 

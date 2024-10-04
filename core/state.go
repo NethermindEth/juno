@@ -354,7 +354,7 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 	}
 
 	onValueChanged := func(location, oldValue *felt.Felt) error {
-		if logChanges {
+		if blockNumber != 0 && logChanges {
 			return bufferedState.LogContractStorage(contractAddr, location, oldValue, blockNumber)
 		}
 		return nil
@@ -667,7 +667,7 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 		for key := range storageDiffs {
 			value := &felt.Zero
 			if blockNumber > 0 {
-				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber-1)
+				oldValue, err := s.ContractStorageAt(&addr, &key, blockNumber)
 				if err != nil {
 					return nil, err
 				}
@@ -689,7 +689,7 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 
 		if blockNumber > 0 {
 			var err error
-			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
+			oldNonce, err = s.ContractNonceAt(&addr, blockNumber)
 			if err != nil {
 				return nil, err
 			}
@@ -707,7 +707,7 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 		classHash := &felt.Zero
 		if blockNumber > 0 {
 			var err error
-			classHash, err = s.ContractClassHashAt(&addr, blockNumber-1)
+			classHash, err = s.ContractClassHashAt(&addr, blockNumber)
 			if err != nil {
 				return nil, err
 			}

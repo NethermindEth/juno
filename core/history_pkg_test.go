@@ -62,42 +62,36 @@ func TestHistory(t *testing.T) {
 				assert.NoError(t, test.logger(location, value, 10))
 			})
 
-			t.Run("get value before height 5", func(t *testing.T) {
-				oldValue, err := test.getter(location, 1)
-				require.NoError(t, err)
-				assert.Equal(t, &felt.Zero, oldValue)
+			t.Run("get value between height 5-10", func(t *testing.T) {
+				_, err := test.getter(location, 7)
+				require.ErrorIs(t, err, ErrCheckHeadState) // there's no history at height 7
 			})
 
-			t.Run("get value between height 5-10 ", func(t *testing.T) {
-				oldValue, err := test.getter(location, 7)
-				require.NoError(t, err)
-				assert.Equal(t, value, oldValue)
-			})
-
-			t.Run("get value on height that change happened ", func(t *testing.T) {
+			t.Run("get value on height that change happened", func(t *testing.T) {
 				oldValue, err := test.getter(location, 5)
 				require.NoError(t, err)
-				assert.Equal(t, value, oldValue)
+				assert.Equal(t, &felt.Zero, oldValue)
 
-				_, err = test.getter(location, 10)
-				assert.ErrorIs(t, err, ErrCheckHeadState)
+				oldValue, err = test.getter(location, 10)
+				require.NoError(t, err)
+				assert.Equal(t, value, oldValue)
 			})
 
 			t.Run("get value after height 10 ", func(t *testing.T) {
 				_, err := test.getter(location, 13)
-				assert.ErrorIs(t, err, ErrCheckHeadState)
+				assert.ErrorIs(t, err, ErrCheckHeadState) // there's no history at height 13
 			})
 
 			t.Run("get a random location ", func(t *testing.T) {
 				_, err := test.getter(new(felt.Felt).SetUint64(37), 13)
-				assert.ErrorIs(t, err, ErrCheckHeadState)
+				assert.ErrorIs(t, err, ErrCheckHeadState) // there's no history at height 13
 			})
 
 			require.NoError(t, test.deleter(location, 10))
 
 			t.Run("get after delete", func(t *testing.T) {
-				_, err := test.getter(location, 7)
-				assert.ErrorIs(t, err, ErrCheckHeadState)
+				_, err := test.getter(location, 10)
+				assert.ErrorIs(t, err, ErrCheckHeadState) // there's no history at height 10
 			})
 		})
 	}

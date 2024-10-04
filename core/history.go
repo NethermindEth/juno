@@ -1,13 +1,11 @@
 package core
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var ErrCheckHeadState = errors.New("check head state")
@@ -28,39 +26,18 @@ func (h *history) deleteLog(key []byte, height uint64) error {
 	return h.txn.Delete(logDBKey(key, height))
 }
 
+// valueAt returns the value at the given height for the given key if it exists
 func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
-	it, err := h.txn.NewIterator()
+	var value []byte
+	err := h.txn.Get(logDBKey(key, height), func(val []byte) error {
+		value = val
+		return nil
+	})
 	if err != nil {
-		return nil, err
+		return nil, ErrCheckHeadState
 	}
 
-	for it.Seek(logDBKey(key, height)); it.Valid(); it.Next() {
-		seekedKey := it.Key()
-		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
-		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
-			break
-		}
-
-		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
-		if seekedHeight < height {
-			// last change happened before the height we are looking for
-			// check head state
-			break
-		} else if seekedHeight == height {
-			// a log exists for the height we are looking for, so the old value in this log entry is not useful.
-			// advance the iterator and see we can use the next entry. If not, ErrCheckHeadState will be returned
-			continue
-		}
-
-		val, itErr := it.Value()
-		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
-			return nil, err
-		}
-		// seekedHeight > height
-		return val, nil
-	}
-
-	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
+	return value, nil
 }
 
 func storageLogKey(contractAddress, storageLocation *felt.Felt) []byte {
@@ -78,7 +55,7 @@ func (h *history) DeleteContractStorageLog(contractAddress, storageLocation *fel
 	return h.deleteLog(storageLogKey(contractAddress, storageLocation), height)
 }
 
-// ContractStorageAt returns the value of a storage location of the given contract at the height `height`
+// ContractStorageAt returns the old value of a storage location for the given contract at the given height
 func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt, height uint64) (*felt.Felt, error) {
 	key := storageLogKey(contractAddress, storageLocation)
 	value, err := h.valueAt(key, height)
