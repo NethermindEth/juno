@@ -11,10 +11,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var _ = pubsub.RawTracer(gossipTracer{})
-
-const (
-	unknownAgent = "unknown"
+var (
+	_                  = pubsub.RawTracer(gossipTracer{})
+	knownAgentVersions = []string{"juno", "papyrus", "pathfinder", "madara"}
 )
 
 // Metrics collection for gossipsub
@@ -94,20 +93,26 @@ func (g gossipTracer) setRPCMetrics(subCtr prometheus.Counter, pubCtr, ctrlCtr *
 		ctrlCtr.WithLabelValues("iwant").Add(float64(len(rpc.Control.Iwant)))
 		ctrlCtr.WithLabelValues("graft").Add(float64(len(rpc.Control.Graft)))
 		ctrlCtr.WithLabelValues("prune").Add(float64(len(rpc.Control.Prune)))
+		ctrlCtr.WithLabelValues("idontwant").Add(float64(len(rpc.Control.Idontwant)))
 	}
+
 	for _, msg := range rpc.Publish {
 		pubCtr.WithLabelValues(*msg.Topic).Inc()
 	}
 }
 
 func agentNameFromPeerID(pid peer.ID, store peerstore.Peerstore) string {
+	const unknownAgent = "unknown"
+
 	rawAgent, err := store.Get(pid, "AgentVersion")
 	agent, ok := rawAgent.(string)
 	if err != nil || !ok {
 		return unknownAgent
 	}
+
+	agent = strings.ToLower(agent)
 	for _, knownAgent := range knownAgentVersions {
-		if strings.Contains(strings.ToLower(agent), knownAgent) {
+		if strings.Contains(agent, knownAgent) {
 			return knownAgent
 		}
 	}

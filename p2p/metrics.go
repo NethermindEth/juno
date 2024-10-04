@@ -5,8 +5,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var knownAgentVersions = []string{"juno", "papyrus", "pathfinder", "madara"}
-
 type P2PMetrics struct {
 	P2PPeerCount       *prometheus.GaugeVec
 	PSMsgDeliver       *prometheus.CounterVec

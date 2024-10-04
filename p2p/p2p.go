@@ -245,7 +245,12 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 
-	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, pubsub.WithRawTracer(s.gossipTracer))
+	var options []pubsub.Option
+	if s.gossipTracer != nil {
+		options = append(options, pubsub.WithRawTracer(s.gossipTracer))
+	}
+
+	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, options...)
 	if err != nil {
 		return err
 	}

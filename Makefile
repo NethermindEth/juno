@@ -110,13 +110,11 @@ feedernode: juno-cached
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
-	--metrics \
 	--db-path=./p2p-dbs/feedernode \
 	--p2p \
 	--p2p-feeder-node \
 	--p2p-addr=/ip4/0.0.0.0/tcp/7777 \
 	--p2p-private-key="5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089" \
-	--metrics-port=9090
 
 node1: juno-cached
 	./build/juno \
