@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/sourcegraph/conc"
 	"github.com/wk8/go-ordered-map/v2"
 )
 
@@ -57,7 +57,6 @@ func (c *Cairo0Class) Version() uint64 {
 	return 0
 }
 
-//nolint:funlen
 func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 	definition, err := makeDeprecatedVMClass(c)
 	if err != nil {
@@ -70,46 +69,30 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 		return nil, err
 	}
 
-	// Use goroutines to parallelize hash computations
-	var wg sync.WaitGroup
 	var externalEntryPointHash, l1HandlerEntryPointHash, constructorEntryPointHash, builtInsHash, dataHash *felt.Felt
 	var hintedClassHash *felt.Felt
 	var hintedClassHashErr error
 
-	externalEntryPointDigest := crypto.PedersenDigest{}
-	l1HandlerEntryPointDigest := crypto.PedersenDigest{}
-	constructorEntryPointDigest := crypto.PedersenDigest{}
-	builtInsDigest := crypto.PedersenDigest{}
-	dataDigest := crypto.PedersenDigest{}
-
-	wg.Add(6) //nolint:mnd
-
-	go func() {
-		defer wg.Done()
-		for _, ep := range definition.EntryPoints.External {
-			externalEntryPointDigest.Update(ep.Selector, ep.Offset)
+	entryPointsDigest := func(entryPoints []starknet.EntryPoint) *felt.Felt {
+		var epDigest crypto.PedersenDigest
+		for _, ep := range entryPoints {
+			epDigest.Update(ep.Selector, ep.Offset)
 		}
-		externalEntryPointHash = externalEntryPointDigest.Finish()
-	}()
+		return epDigest.Finish()
+	}
 
-	go func() {
-		defer wg.Done()
-		for _, ep := range definition.EntryPoints.L1Handler {
-			l1HandlerEntryPointDigest.Update(ep.Selector, ep.Offset)
-		}
-		l1HandlerEntryPointHash = l1HandlerEntryPointDigest.Finish()
-	}()
-
-	go func() {
-		defer wg.Done()
-		for _, ep := range definition.EntryPoints.Constructor {
-			constructorEntryPointDigest.Update(ep.Selector, ep.Offset)
-		}
-		constructorEntryPointHash = constructorEntryPointDigest.Finish()
-	}()
-
-	go func() {
-		defer wg.Done()
+	wg := conc.NewWaitGroup()
+	wg.Go(func() {
+		externalEntryPointHash = entryPointsDigest(definition.EntryPoints.External)
+	})
+	wg.Go(func() {
+		l1HandlerEntryPointHash = entryPointsDigest(definition.EntryPoints.L1Handler)
+	})
+	wg.Go(func() {
+		constructorEntryPointHash = entryPointsDigest(definition.EntryPoints.Constructor)
+	})
+	wg.Go(func() {
+		var builtInsDigest crypto.PedersenDigest
 		for _, builtIn := range program.Builtins {
 			builtInHex := hex.EncodeToString([]byte(builtIn))
 			builtInFelt, err := new(felt.Felt).SetString("0x" + builtInHex)
@@ -119,15 +102,12 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 			builtInsDigest.Update(builtInFelt)
 		}
 		builtInsHash = builtInsDigest.Finish()
-	}()
-
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		hintedClassHash, hintedClassHashErr = computeHintedClassHash(definition.Abi, definition.Program)
-	}()
-
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
+		var dataDigest crypto.PedersenDigest
 		for _, data := range program.Data {
 			dataFelt, err := new(felt.Felt).SetString(data)
 			if err != nil {
@@ -136,8 +116,7 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 			dataDigest.Update(dataFelt)
 		}
 		dataHash = dataDigest.Finish()
-	}()
-
+	})
 	wg.Wait()
 
 	if hintedClassHashErr != nil {
@@ -191,7 +170,7 @@ func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
 	}
 
 	// Combine both ABI and Program JSON strings
-	var hintedClassHashJSON strings.Builder
+	var hintedClassHashJSON bytes.Buffer
 	hintedClassHashJSON.Grow(len(formattedABI) + len(formattedSpacesProgramStr))
 	hintedClassHashJSON.WriteString(`{"abi": `)
 	hintedClassHashJSON.WriteString(formattedABI)
@@ -199,7 +178,7 @@ func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
 	hintedClassHashJSON.WriteString(formattedSpacesProgramStr)
 	hintedClassHashJSON.WriteString("}")
 
-	return crypto.StarknetKeccak([]byte(hintedClassHashJSON.String())), nil
+	return crypto.StarknetKeccak(hintedClassHashJSON.Bytes()), nil
 }
 
 func makeDeprecatedVMClass(class *Cairo0Class) (*starknet.Cairo0Definition, error) {
@@ -297,7 +276,7 @@ func identifiersNullSkipReplacer(key string, value any) any {
 }
 
 // stringify converts a Go value to a JSON string, using a custom replacer function
-func stringify(value any, replacer func(string, any) any) (string, error) {
+func stringify(value json.RawMessage, replacer func(string, any) any) (string, error) {
 	// Marshal the value to JSON
 	jsonBytes, err := json.Marshal(value)
 	if err != nil {
@@ -311,10 +290,10 @@ func stringify(value any, replacer func(string, any) any) (string, error) {
 	}
 
 	// Apply the replacer function recursively
-	modifiedData := applyReplacer(jsonData, replacer)
+	jsonData = applyReplacer(jsonData, replacer)
 
 	// Marshal the modified data back to JSON
-	modifiedJSONBytes, err := json.Marshal(modifiedData)
+	modifiedJSONBytes, err := json.Marshal(jsonData)
 	if err != nil {
 		return "", err
 	}
