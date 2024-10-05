@@ -1,17 +1,28 @@
 package core
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils"
+	"github.com/sourcegraph/conc"
+	"github.com/wk8/go-ordered-map/v2"
 )
 
 var (
 	_ Class = (*Cairo0Class)(nil)
 	_ Class = (*Cairo1Class)(nil)
+)
+
+const (
+	debugInfo = "debug_info"
 )
 
 // Class unambiguously defines a [Contract]'s semantics.
@@ -47,7 +58,248 @@ func (c *Cairo0Class) Version() uint64 {
 }
 
 func (c *Cairo0Class) Hash() (*felt.Felt, error) {
-	return cairo0ClassHash(c)
+	definition, err := makeDeprecatedVMClass(c)
+	if err != nil {
+		return nil, err
+	}
+
+	var program Program
+	err = json.Unmarshal(definition.Program, &program)
+	if err != nil {
+		return nil, err
+	}
+
+	var externalEntryPointHash, l1HandlerEntryPointHash, constructorEntryPointHash, builtInsHash, dataHash *felt.Felt
+	var hintedClassHash *felt.Felt
+	var hintedClassHashErr error
+
+	entryPointsDigest := func(entryPoints []starknet.EntryPoint) *felt.Felt {
+		var epDigest crypto.PedersenDigest
+		for _, ep := range entryPoints {
+			epDigest.Update(ep.Selector, ep.Offset)
+		}
+		return epDigest.Finish()
+	}
+
+	wg := conc.NewWaitGroup()
+	wg.Go(func() {
+		externalEntryPointHash = entryPointsDigest(definition.EntryPoints.External)
+	})
+	wg.Go(func() {
+		l1HandlerEntryPointHash = entryPointsDigest(definition.EntryPoints.L1Handler)
+	})
+	wg.Go(func() {
+		constructorEntryPointHash = entryPointsDigest(definition.EntryPoints.Constructor)
+	})
+	wg.Go(func() {
+		var builtInsDigest crypto.PedersenDigest
+		for _, builtIn := range program.Builtins {
+			builtInHex := hex.EncodeToString([]byte(builtIn))
+			builtInFelt, err := new(felt.Felt).SetString("0x" + builtInHex)
+			if err != nil {
+				return
+			}
+			builtInsDigest.Update(builtInFelt)
+		}
+		builtInsHash = builtInsDigest.Finish()
+	})
+	wg.Go(func() {
+		hintedClassHash, hintedClassHashErr = computeHintedClassHash(definition.Abi, definition.Program)
+	})
+	wg.Go(func() {
+		var dataDigest crypto.PedersenDigest
+		for _, data := range program.Data {
+			dataFelt, err := new(felt.Felt).SetString(data)
+			if err != nil {
+				return
+			}
+			dataDigest.Update(dataFelt)
+		}
+		dataHash = dataDigest.Finish()
+	})
+	wg.Wait()
+
+	if hintedClassHashErr != nil {
+		return nil, hintedClassHashErr
+	}
+
+	clashHash := crypto.PedersenArray(
+		&felt.Zero,
+		externalEntryPointHash,
+		l1HandlerEntryPointHash,
+		constructorEntryPointHash,
+		builtInsHash,
+		hintedClassHash,
+		dataHash,
+	)
+
+	return clashHash, nil
+}
+
+// computeHintedClassHash calculates the hinted class hash by hashing the JSON combination
+// of ABI and Program.
+func computeHintedClassHash(abi, program json.RawMessage) (*felt.Felt, error) {
+	var mProgram Program
+	d := json.NewDecoder(bytes.NewReader(program))
+	d.UseNumber()
+	if err := d.Decode(&mProgram); err != nil {
+		return nil, err
+	}
+	err := mProgram.Format()
+	if err != nil {
+		return nil, err
+	}
+
+	formattedProgramBytes, err := json.Marshal(mProgram)
+	if err != nil {
+		return nil, err
+	}
+
+	formattedSpacesProgramStr, err := utils.ToPythonicJSON(string(formattedProgramBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	stringifyABI, err := stringify(abi, nullSkipReplacer)
+	if err != nil {
+		return nil, err
+	}
+	formattedABI, err := utils.ToPythonicJSON(stringifyABI)
+	if err != nil {
+		return nil, err
+	}
+
+	// Combine both ABI and Program JSON strings
+	var hintedClassHashJSON bytes.Buffer
+	hintedClassHashJSON.Grow(len(formattedABI) + len(formattedSpacesProgramStr))
+	hintedClassHashJSON.WriteString(`{"abi": `)
+	hintedClassHashJSON.WriteString(formattedABI)
+	hintedClassHashJSON.WriteString(`, "program": `)
+	hintedClassHashJSON.WriteString(formattedSpacesProgramStr)
+	hintedClassHashJSON.WriteString("}")
+
+	return crypto.StarknetKeccak(hintedClassHashJSON.Bytes()), nil
+}
+
+func makeDeprecatedVMClass(class *Cairo0Class) (*starknet.Cairo0Definition, error) {
+	adaptEntryPoint := func(ep EntryPoint) starknet.EntryPoint {
+		return starknet.EntryPoint{
+			Selector: ep.Selector,
+			Offset:   ep.Offset,
+		}
+	}
+
+	constructors := utils.Map(utils.NonNilSlice(class.Constructors), adaptEntryPoint)
+	external := utils.Map(utils.NonNilSlice(class.Externals), adaptEntryPoint)
+	handlers := utils.Map(utils.NonNilSlice(class.L1Handlers), adaptEntryPoint)
+
+	decompressedProgram, err := utils.Gzip64Decode(class.Program)
+	if err != nil {
+		return nil, err
+	}
+
+	return &starknet.Cairo0Definition{
+		Program: decompressedProgram,
+		Abi:     class.Abi,
+		EntryPoints: starknet.EntryPoints{
+			Constructor: constructors,
+			External:    external,
+			L1Handler:   handlers,
+		},
+	}, nil
+}
+
+// applyReplacer recursively applies the replacer function to the JSON data
+func applyReplacer(data any, replacer func(string, any) any) any {
+	switch v := data.(type) {
+	case map[string]any:
+		for key, val := range v {
+			v[key] = applyReplacer(replacer(key, val), replacer)
+			if v[key] == nil && key != debugInfo {
+				delete(v, key)
+			}
+		}
+
+		return v
+	case []any:
+		for i, val := range v {
+			v[i] = applyReplacer(replacer("", val), replacer)
+		}
+		return v
+	case *orderedmap.OrderedMap[string, any]:
+		for pair := v.Oldest(); pair != nil; pair = pair.Next() {
+			val := applyReplacer(replacer(pair.Key, pair.Value), replacer)
+			if val == nil {
+				v.Delete(pair.Key)
+			} else {
+				v.Set(pair.Key, val)
+			}
+		}
+		return v
+	default:
+		return replacer("", v)
+	}
+}
+
+// nullSkipReplacer is a custom JSON replacer that handles specific keys and null values
+func nullSkipReplacer(key string, value any) any {
+	switch key {
+	case "attributes", "accessible_scopes", "flow_tracking_data":
+		if arr, ok := value.([]any); ok && len(arr) == 0 {
+			return nil
+		}
+	case debugInfo:
+		return nil
+	}
+
+	return value
+}
+
+// identifiersNullSkipReplacer is same as nullSkipReplacer with an addition condition
+// on the `cairo_type` field.
+// Used only in the `identifiers` field.
+func identifiersNullSkipReplacer(key string, value any) any {
+	switch key {
+	case "cairo_type":
+		if str, ok := value.(string); ok {
+			return strings.ReplaceAll(str, ": ", " : ")
+		}
+	case "attributes", "accessible_scopes", "flow_tracking_data":
+		if arr, ok := value.([]any); ok && len(arr) == 0 {
+			return nil
+		}
+	case debugInfo:
+		return nil
+	}
+
+	return value
+}
+
+// stringify converts a Go value to a JSON string, using a custom replacer function
+func stringify(value json.RawMessage, replacer func(string, any) any) (string, error) {
+	// Marshal the value to JSON
+	jsonBytes, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+
+	// Determine the type of the JSON data
+	var jsonData any
+	if err := json.Unmarshal(jsonBytes, &jsonData); err != nil {
+		return "", err
+	}
+
+	// Apply the replacer function recursively
+	jsonData = applyReplacer(jsonData, replacer)
+
+	// Marshal the modified data back to JSON
+	modifiedJSONBytes, err := json.Marshal(jsonData)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert the JSON bytes to a string and return
+	return string(modifiedJSONBytes), nil
 }
 
 // Cairo1Class unambiguously defines a [Contract]'s semantics.

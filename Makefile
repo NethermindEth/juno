@@ -31,7 +31,7 @@ endif
 
 MAKEFLAGS += -j$(NPROCS)
 
-rustdeps: vm core-rust compiler
+rustdeps: vm compiler
 
 juno: rustdeps ## compile
 	@mkdir -p build
@@ -43,9 +43,6 @@ juno-cached:
 
 vm:
 	$(MAKE) -C vm/rust $(VM_TARGET)
-
-core-rust:
-	$(MAKE) -C core/rust $(VM_TARGET)
 
 compiler:
 	$(MAKE) -C starknet/compiler/rust $(VM_TARGET)
@@ -93,13 +90,11 @@ tidy: ## add missing and remove unused modules
 
 format: ## run go & rust formatters
 	$(MAKE) -C vm/rust format
-	$(MAKE) -C core/rust format
 	$(MAKE) -C starknet/compiler/rust format
 	gofumpt -l -w .
 
 clean: ## clean project builds
 	$(MAKE) -C vm/rust clean
-	$(MAKE) -C core/rust clean
 	$(MAKE) -C starknet/compiler/rust clean
 	@rm -rf ./build
 
