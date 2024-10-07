@@ -38,11 +38,11 @@ type DB struct {
 	listener db.EventListener
 
 	// Operational Counters for Compaction (Atomic Variables and Others)
-	activeComp    int           // Current number of active compactions
-	compStartTime time.Time     // The start time of the earliest currently-active compaction
-	compTime      atomic.Int64  // Total time spent in compaction in ns
-	level0Comp    atomic.Uint32 // Total number of level-zero compactions
-	nonLevel0Comp atomic.Uint32 // Total number of non level-zero compactions
+	numActiveComps int           // Current number of active compactions
+	compStartTime  time.Time     // The start time of the earliest currently-active compaction
+	compTime       atomic.Int64  // Total time spent in compaction in ns
+	level0Comp     atomic.Uint32 // Total number of level-zero compactions
+	nonLevel0Comp  atomic.Uint32 // Total number of non level-zero compactions
 
 	// Write Delay Operational Counters (Atomic Variables)
 	writeDelayStartTime time.Time    // The start time of the latest write stall
@@ -53,7 +53,7 @@ type DB struct {
 	compTimeMeter      prometheus.Counter // Total time spent in database compaction
 	compReadMeter      prometheus.Counter // Total bytes read during compaction
 	compWriteMeter     prometheus.Counter // Total bytes written during compaction
-	memCompGauge       prometheus.Gauge   // Tracks the amount of memory allocated for compaction
+	memCompGauge       prometheus.Gauge   // Tracks the number of memory allocations
 	level0CompGauge    prometheus.Gauge   // Tracks the number of level-zero compactions
 	nonlevel0CompGauge prometheus.Gauge   // Tracks the number of non level-zero compactions
 	seekCompGauge      prometheus.Gauge   // Tracks the number of table compaction caused by read opt
@@ -246,7 +246,7 @@ func (d *DB) enableMetrics() db.DB {
 }
 
 func (d *DB) onCompactionBegin(info pebble.CompactionInfo) { //nolint:gocritic // Used by pebble's event listener
-	if d.activeComp == 0 {
+	if d.numActiveComps == 0 {
 		d.compStartTime = time.Now()
 	}
 	l0 := info.Input[0]
@@ -255,16 +255,16 @@ func (d *DB) onCompactionBegin(info pebble.CompactionInfo) { //nolint:gocritic /
 	} else {
 		d.nonLevel0Comp.Add(1)
 	}
-	d.activeComp++
+	d.numActiveComps++
 }
 
 func (d *DB) onCompactionEnd(info pebble.CompactionInfo) { //nolint:gocritic // Used by pebble's event listener
-	if d.activeComp == 1 {
+	if d.numActiveComps == 1 {
 		d.compTime.Add(int64(time.Since(d.compStartTime)))
-	} else if d.activeComp == 0 {
+	} else if d.numActiveComps == 0 {
 		panic("should not happen")
 	}
-	d.activeComp--
+	d.numActiveComps--
 }
 
 func (d *DB) onWriteStallBegin(b pebble.WriteStallBeginInfo) {
@@ -314,6 +314,7 @@ func (d *DB) StartMetricsCollection(ctx context.Context, refresh time.Duration) 
 			levelMetrics := metrics.Levels[j]
 			nWrite += int64(levelMetrics.BytesCompacted)
 			nWrite += int64(levelMetrics.BytesFlushed)
+			nWrite += int64(levelMetrics.BytesIngested)
 			compWrite += int64(levelMetrics.BytesCompacted)
 			compRead += int64(levelMetrics.BytesRead)
 		}
