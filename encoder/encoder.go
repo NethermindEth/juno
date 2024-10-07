@@ -50,6 +50,11 @@ func RegisterType(rType reflect.Type) error {
 	return nil
 }
 
+func DeregisterType(rType reflect.Type) {
+	ts.Remove(rType)
+	initEncAndDecModes()
+}
+
 // Marshal returns encoding of param v
 func Marshal(v any) ([]byte, error) {
 	initialiseEncoder.Do(initEncAndDecModes)
