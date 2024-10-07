@@ -27,25 +27,22 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	types := []reflect.Type{
-		reflect.TypeOf(core.DeclareTransaction{}),
-		reflect.TypeOf(core.DeployTransaction{}),
-		reflect.TypeOf(core.InvokeTransaction{}),
-		reflect.TypeOf(core.L1HandlerTransaction{}),
-		reflect.TypeOf(core.DeployAccountTransaction{}),
-		reflect.TypeOf(core.Cairo0Class{}),
-		reflect.TypeOf(core.Cairo1Class{}),
+	txTypes := []core.Transaction{
+		&core.DeclareTransaction{},
+		&core.DeployTransaction{},
+		&core.InvokeTransaction{},
+		&core.L1HandlerTransaction{},
+		&core.DeployAccountTransaction{},
 	}
 
-	for _, tp := range types {
-		_ = encoder.RegisterType(tp)
+	for _, tx := range txTypes {
+		_ = encoder.RegisterType(reflect.TypeOf(tx))
 	}
+
+	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{}))
+	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo1Class{}))
 
 	code := m.Run()
-
-	for _, tp := range types {
-		encoder.DeregisterType(tp)
-	}
 
 	os.Exit(code)
 }
