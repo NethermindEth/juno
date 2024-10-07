@@ -221,12 +221,14 @@ func (d *DeployTransaction) Signature() []*felt.Felt {
 
 type DeployAccountTransaction struct {
 	DeployTransaction
-	// The maximum fee that the sender is willing to pay for the transaction.
-	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	TransactionSignature []*felt.Felt
 	// The transaction nonce.
 	Nonce *felt.Felt
+
+	// Version 0 fields
+	// The maximum fee that the sender is willing to pay for the transaction.
+	MaxFee *felt.Felt
 
 	// Version 3 fields
 	// See InvokeTransaction for descriptions of the fields.
@@ -251,11 +253,6 @@ type InvokeTransaction struct {
 	CallData []*felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	TransactionSignature []*felt.Felt
-	// The maximum fee that the sender is willing to pay for the transaction
-	// Available in version 1 only
-	MaxFee *felt.Felt
-	// The address of the contract invoked by this transaction.
-	ContractAddress *felt.Felt
 	// When the fields that comprise a transaction change,
 	// either with the addition of a new field or the removal of an existing field,
 	// then the transaction version increases.
@@ -264,14 +261,20 @@ type InvokeTransaction struct {
 	// Version 0 fields
 	// The encoding of the selector for the function invoked (the entry point in the contract)
 	EntryPointSelector *felt.Felt
+	// The address of the contract invoked by this transaction.
+	ContractAddress *felt.Felt
 
-	// Version 1 fields
+	// Versions 0 and 1 fields
+	// The maximum fee that the sender is willing to pay for the transaction
+	MaxFee *felt.Felt
+
+	// Version 1 and 3 fields
 	// The transaction nonce.
 	Nonce *felt.Felt
 	// The address of the sender of this transaction
 	SenderAddress *felt.Felt
 
-	// Version 3 fields (there was no version 2)
+	// Version 3 fields
 	ResourceBounds map[Resource]ResourceBounds
 	Tip            uint64
 	// From the RPC spec: data needed to allow the paymaster to pay for the transaction in native tokens
@@ -302,9 +305,6 @@ type DeclareTransaction struct {
 	ClassHash *felt.Felt
 	// The address of the account initiating the transaction.
 	SenderAddress *felt.Felt
-	// The maximum fee that the sender is willing to pay for the transaction.
-	// Available in versions 1, 2
-	MaxFee *felt.Felt
 	// Additional information given by the sender, used to validate the transaction.
 	TransactionSignature []*felt.Felt
 	// The transaction nonce.
@@ -316,7 +316,11 @@ type DeclareTransaction struct {
 	// Transaction version 0 is deprecated and will be removed in a future version of Starknet.
 	Version *TransactionVersion
 
-	// Version 2 fields
+	// Versions 0 (deprecated and unsupported), 1 and 2 fields
+	// The maximum fee that the sender is willing to pay for the transaction.
+	MaxFee *felt.Felt
+
+	// Versions 2 and 3 fields
 	CompiledClassHash *felt.Felt
 
 	// Version 3 fields
