@@ -10,7 +10,6 @@ import (
 )
 
 func TestTransactionCommitmentPoseidon(t *testing.T) {
-	t.Skip("fix tests and remove skip before merge")
 	t.Run("nil", func(t *testing.T) {
 		c, err := transactionCommitmentPoseidon(nil)
 		require.NoError(t, err)
@@ -43,7 +42,7 @@ func TestTransactionCommitmentPoseidon(t *testing.T) {
 
 		c, err := transactionCommitmentPoseidon(txs)
 		require.NoError(t, err)
-		expected := utils.HexToFelt(t, "0x4ca6d4ceb367bf070d896a1479190d3c7b751f525e69a46ee2c83f0afe7cb8")
+		expected := utils.HexToFelt(t, "0x68303856fce63d62acb85da0766b370c03754aa316b0b5bce05982f9561b73d")
 		assert.Equal(t, expected, c, "expected: %s, got: %s", expected, c)
 	})
 	t.Run("txs without signature", func(t *testing.T) {
