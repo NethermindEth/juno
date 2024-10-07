@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
@@ -25,10 +26,31 @@ var (
 	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
 )
 
-func TestUpdate(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
+func TestMain(m *testing.M) {
+	types := []reflect.Type{
+		reflect.TypeOf(core.DeclareTransaction{}),
+		reflect.TypeOf(core.DeployTransaction{}),
+		reflect.TypeOf(core.InvokeTransaction{}),
+		reflect.TypeOf(core.L1HandlerTransaction{}),
+		reflect.TypeOf(core.DeployAccountTransaction{}),
+		reflect.TypeOf(core.Cairo0Class{}),
+		reflect.TypeOf(core.Cairo1Class{}),
+	}
 
+	for _, tp := range types {
+		_ = encoder.RegisterType(tp)
+	}
+
+	code := m.Run()
+
+	for _, tp := range types {
+		encoder.DeregisterType(tp)
+	}
+
+	os.Exit(code)
+}
+
+func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -156,9 +178,6 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -219,9 +238,6 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -271,9 +287,6 @@ func TestNonce(t *testing.T) {
 }
 
 func TestStateHistory(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -323,9 +336,6 @@ func TestStateHistory(t *testing.T) {
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -378,9 +388,6 @@ func TestContractIsDeployedAt(t *testing.T) {
 }
 
 func TestClass(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -417,9 +424,6 @@ func TestClass(t *testing.T) {
 }
 
 func TestRevert(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -567,9 +571,6 @@ func TestRevert(t *testing.T) {
 
 // TestRevertGenesisStateDiff ensures the reverse diff for the genesis block sets all storage values to zero.
 func TestRevertGenesisStateDiff(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -598,9 +599,6 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 }
 
 func TestRevertNoClassContracts(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -643,9 +641,6 @@ func TestRevertNoClassContracts(t *testing.T) {
 }
 
 func TestRevertDeclaredClasses(t *testing.T) {
-	done := registerCoreTypesToEncoder(t)
-	defer done()
-
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -709,29 +704,4 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	_, err = state.Class(sierraHash)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
-}
-
-func registerCoreTypesToEncoder(t *testing.T) func() {
-	types := []reflect.Type{
-		reflect.TypeOf(core.DeclareTransaction{}),
-		reflect.TypeOf(core.DeployTransaction{}),
-		reflect.TypeOf(core.InvokeTransaction{}),
-		reflect.TypeOf(core.L1HandlerTransaction{}),
-		reflect.TypeOf(core.DeployAccountTransaction{}),
-		reflect.TypeOf(core.Cairo0Class{}),
-		reflect.TypeOf(core.Cairo1Class{}),
-	}
-
-	for _, tp := range types {
-		err := encoder.RegisterType(tp)
-		if err != nil {
-			require.Contains(t, err.Error(), "already exists in TagSet")
-		}
-	}
-
-	return func() {
-		for _, tp := range types {
-			encoder.DeregisterType(tp)
-		}
-	}
 }
