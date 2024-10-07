@@ -37,27 +37,35 @@ type DB struct {
 	wMutex   *sync.Mutex
 	listener db.EventListener
 
-	compTimeMeter        prometheus.Counter // Total time spent in database compaction
-	compReadMeter        prometheus.Counter // Total bytes read during compaction
-	compWriteMeter       prometheus.Counter // Total bytes written during compaction
+	// Operational Counters for Compaction (Atomic Variables and Others)
+	activeComp    int           // Current number of active compactions
+	compStartTime time.Time     // The start time of the earliest currently-active compaction
+	compTime      atomic.Int64  // Total time spent in compaction in ns
+	level0Comp    atomic.Uint32 // Total number of level-zero compactions
+	nonLevel0Comp atomic.Uint32 // Total number of non level-zero compactions
+
+	// Write Delay Operational Counters (Atomic Variables)
+	writeDelayStartTime time.Time    // The start time of the latest write stall
+	writeDelayCount     atomic.Int64 // Total number of write stall counts
+	writeDelayTime      atomic.Int64 // Total time spent in write stalls
+
+	// Compaction metrics (Prometheus Counters and Gauges)
+	compTimeMeter      prometheus.Counter // Total time spent in database compaction
+	compReadMeter      prometheus.Counter // Total bytes read during compaction
+	compWriteMeter     prometheus.Counter // Total bytes written during compaction
+	memCompGauge       prometheus.Gauge   // Tracks the amount of memory allocated for compaction
+	level0CompGauge    prometheus.Gauge   // Tracks the number of level-zero compactions
+	nonlevel0CompGauge prometheus.Gauge   // Tracks the number of non level-zero compactions
+	seekCompGauge      prometheus.Gauge   // Tracks the number of table compaction caused by read opt
+
+	// Write Delay Metrics (Prometheus Counters and Gauges)
 	writeDelayCountMeter prometheus.Counter // Total write delay counts due to database compaction
 	writeDelayTimeMeter  prometheus.Counter // Total write delay duration due to database compaction
-	diskSizeGauge        prometheus.Gauge   // Tracks the size of all of the levels of the database
-	diskWriteMeter       prometheus.Counter // Measures the effective amount of data written to disk
-	memCompGauge         prometheus.Gauge   // Tracks the amount of memory allocated for compaction
-	level0CompGauge      prometheus.Gauge   // Tracks the number of level-zero compactions
-	nonlevel0CompGauge   prometheus.Gauge   // Tracks the number of non level-zero compactions
-	seekCompGauge        prometheus.Gauge   // Tracks the number of table compaction caused by read opt
-	manualMemAllocGauge  prometheus.Gauge   // Tracks the amount of non-managed memory currently allocated
 
-	activeComp          int           // Current number of active compactions
-	compStartTime       time.Time     // The start time of the earliest currently-active compaction
-	compTime            atomic.Int64  // Total time spent in compaction in ns
-	level0Comp          atomic.Uint32 // Total number of level-zero compactions
-	nonLevel0Comp       atomic.Uint32 // Total number of non level-zero compactions
-	writeDelayStartTime time.Time     // The start time of the latest write stall
-	writeDelayCount     atomic.Int64  // Total number of write stall counts
-	writeDelayTime      atomic.Int64  // Total time spent in write stalls
+	// Disk and Memory Usage Metrics (Prometheus Counters and Gauges)
+	diskSizeGauge       prometheus.Gauge   // Tracks the size of all of the levels of the database
+	diskWriteMeter      prometheus.Counter // Measures the effective amount of data written to disk
+	manualMemAllocGauge prometheus.Gauge   // Tracks the amount of non-managed memory currently allocated
 }
 
 func New(path string, enableMetrics bool, options ...Option) (*DB, error) {
