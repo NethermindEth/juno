@@ -119,7 +119,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 | ------- | ------------- |
 | **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
 
-## Sepolia-Integration
+#### Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
