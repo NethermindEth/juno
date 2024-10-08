@@ -158,7 +158,7 @@ func TestTraceTransaction(t *testing.T) {
 		}`, executionResources)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
-		consumedGas := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		consumedGas := []core.GasConsumed{{L1Gas: 1, L1DataGas: 0}}
 		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
@@ -249,7 +249,7 @@ func TestTraceTransaction(t *testing.T) {
 		}`, executionResources)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
-		consumedGas := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		consumedGas := []core.GasConsumed{{L1Gas: 1, L1DataGas: 0}}
 		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"

@@ -33,14 +33,14 @@ func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, sta
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert,
 	useBlobData bool,
-) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, uint64, error) {
+) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
 	var ret []*felt.Felt
 	var traces []vm.TransactionTrace
-	var dataGasConsumed []*felt.Felt
+	var daGas []core.GasConsumed
 	var numSteps uint64
-	return ret, dataGasConsumed, traces, numSteps, tvm.Do(func(vm *vm.VM) error {
+	return ret, daGas, traces, numSteps, tvm.Do(func(vm *vm.VM) error {
 		var err error
-		ret, dataGasConsumed, traces, numSteps, err = (*vm).Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network,
+		ret, daGas, traces, numSteps, err = (*vm).Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network,
 			skipChargeFee, skipValidate, errOnRevert, useBlobData)
 		return err
 	})
