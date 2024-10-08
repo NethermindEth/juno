@@ -763,7 +763,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Execution = TxnFailure
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError // Todo: placeholder - does revertError also hold the error for Rejected Txns?
+		status.FailureReason = txStatus.RevertError
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
