@@ -38,9 +38,13 @@ import (
 )
 
 const (
-	upgraderDelay    = 5 * time.Minute
-	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	upgraderDelay = 5 * time.Minute
+
+	// metricsGatheringInterval specifies the interval to retrieve pebble database
+	// compaction, io and pause stats to report to the user.
+	dbMetricsGatheringInterval = 3 * time.Second
+	githubAPIUrl               = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL           = "https://github.com/NethermindEth/juno/releases/latest"
 )
 
 // Config is the top-level juno configuration.
@@ -115,7 +119,11 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
+		database, err = pebble.New(cfg.DatabasePath, cfg.Metrics,
+			pebble.WithCacheSize(cfg.DBCacheSize),
+			pebble.WithMaxOpenFiles(cfg.DBMaxHandles),
+			pebble.WithColouredLogger(cfg.Colour),
+		)
 	}
 
 	if err != nil {
@@ -340,6 +348,11 @@ func (n *Node) Run(ctx context.Context) {
 			if err := n.metricsService.Run(ctx); err != nil {
 				n.log.Errorw("Metrics error", "err", err)
 			}
+		})
+
+		wg.Go(func() {
+			defer cancel()
+			n.db.StartMetricsCollection(ctx, dbMetricsGatheringInterval)
 		})
 	}
 

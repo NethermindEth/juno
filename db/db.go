@@ -1,10 +1,12 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/NethermindEth/juno/utils"
 )
@@ -33,6 +35,8 @@ type DB interface {
 
 	// WithListener registers an EventListener
 	WithListener(listener EventListener) DB
+
+	StartMetricsCollection(ctx context.Context, interval time.Duration)
 }
 
 // Iterator is an iterator over a DB's key/value pairs.

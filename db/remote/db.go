@@ -73,6 +73,10 @@ func (d *DB) WithListener(listener db.EventListener) db.DB {
 	return d
 }
 
+func (d *DB) StartMetricsCollection(ctx context.Context, interval time.Duration) {
+	d.log.Errorw("Metrics collection not supported for remote DB")
+}
+
 func (d *DB) Close() error {
 	return d.grpcClient.Close()
 }
