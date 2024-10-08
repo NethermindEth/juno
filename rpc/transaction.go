@@ -115,6 +115,8 @@ type TxnFinalityStatus uint8
 const (
 	TxnAcceptedOnL1 TxnFinalityStatus = iota + 1
 	TxnAcceptedOnL2
+	TxnReceived
+	TxnRejected
 )
 
 func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
@@ -123,6 +125,10 @@ func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnReceived:
+		return []byte("RECEIVED"), nil
+	case TxnRejected:
+		return []byte("REJECTED"), nil
 	default:
 		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
@@ -782,6 +788,8 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
+	case starknet.Rejected:
+		status.Finality = TxnStatusRejected
 	default:
 		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
@@ -791,8 +799,6 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
 		status.Execution = TxnFailure
-	case starknet.Rejected:
-		status.Finality = TxnStatusRejected
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
