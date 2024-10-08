@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
+	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -88,6 +89,8 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+
+	PluginPath string `mapstructure:"plugin-path"`
 }
 
 type Node struct {
@@ -100,6 +103,8 @@ type Node struct {
 	log            utils.Logger
 
 	version string
+
+	plugin junoplugin.JunoPlugin
 }
 
 // New sets the config and logger to the StarknetNode.
@@ -155,6 +160,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+
+	var plugin junoplugin.JunoPlugin
+	if cfg.PluginPath != "" {
+		plugin, err = junoplugin.Load(cfg.PluginPath)
+		if err != nil {
+			return nil, err
+		}
+		synchronizer.WithPlugin(plugin)
+	}
 
 	var p2pService *p2p.Service
 	if cfg.P2P {
@@ -258,6 +272,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		blockchain:     chain,
 		services:       services,
 		metricsService: metricsService,
+		plugin:         plugin,
 	}
 
 	if n.cfg.EthNode == "" {
@@ -350,6 +365,16 @@ func (n *Node) Run(ctx context.Context) {
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.plugin != nil {
+		go func() {
+			<-ctx.Done()
+			err := n.plugin.Shutdown()
+			if err != nil {
+				n.log.Errorw("Error while calling plugins Shutdown() function", "err", err)
+			}
+		}()
 	}
 
 	for _, s := range n.services {
