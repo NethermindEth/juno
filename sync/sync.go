@@ -229,8 +229,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 
 			s.newHeads.Send(block.Header)
-			s.log.Infow("Stored Block", "number", block.Number, "hash",
-				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			//s.log.Infow("Stored Block", "number", block.Number, "hash",
+			//	block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 		}
 	}
 }
