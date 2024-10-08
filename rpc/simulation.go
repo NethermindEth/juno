@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -50,22 +51,22 @@ type TracedBlockTransaction struct {
 		Simulate Handlers
 *****************************************************/
 
-func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(ctx context.Context, id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false, false)
+	return h.simulateTransactions(ctx, id, transactions, simulationFlags, false, false)
 }
 
 // pre 13.1
-func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactionsV0_6(ctx context.Context, id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	// todo double check errOnRevert = false
-	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
+	return h.simulateTransactions(ctx, id, transactions, simulationFlags, true, false)
 }
 
 //nolint:funlen,gocyclo
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) simulateTransactions(ctx context.Context, id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, v0_6Response, errOnRevert bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
@@ -114,7 +115,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
+	overallFees, dataGasConsumed, traces, numSteps, err := h.vm.Execute(ctx, txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, useBlobData)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))

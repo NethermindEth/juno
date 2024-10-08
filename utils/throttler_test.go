@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestThrottler(t *testing.T) {
-	throttledRes := utils.NewThrottler(2, new(int)).WithMaxQueueLen(2)
+	throttledRes := utils.NewThrottler(2, 2, new(int))
 	waitOn := make(chan struct{})
 
 	var runCount int64
@@ -26,12 +27,14 @@ func TestThrottler(t *testing.T) {
 		return nil
 	}
 
+	ctx := context.Background()
+
 	var wg sync.WaitGroup
 	do := func() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			require.NoError(t, throttledRes.Do(doer))
+			require.NoError(t, throttledRes.Do(ctx, doer))
 		}()
 		time.Sleep(time.Millisecond)
 	}
@@ -46,7 +49,7 @@ func TestThrottler(t *testing.T) {
 	do() // should be queued
 	assert.Equal(t, 2, throttledRes.QueueLen())
 
-	require.ErrorIs(t, throttledRes.Do(doer), utils.ErrResourceBusy)
+	require.ErrorIs(t, throttledRes.Do(ctx, doer), utils.ErrResourceBusy)
 
 	waitOn <- struct{}{} // release one of the slots
 	time.Sleep(time.Millisecond)

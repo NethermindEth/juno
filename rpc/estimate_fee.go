@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,10 +64,10 @@ func (f FeeEstimate) MarshalJSON() ([]byte, error) {
 		Estimate Fee Handlers
 *****************************************************/
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
+func (h *Handler) EstimateFee(ctx context.Context, broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true)
+	result, httpHeader, err := h.simulateTransactions(ctx, id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true)
 	if err != nil {
 		return nil, httpHeader, err
 	}
@@ -76,10 +77,10 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), httpHeader, nil
 }
 
-func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
+func (h *Handler) EstimateFeeV0_6(ctx context.Context, broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, true)
+	result, httpHeader, err := h.simulateTransactions(ctx, id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, true)
 	if err != nil {
 		return nil, httpHeader, err
 	}
@@ -89,12 +90,18 @@ func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
 	}), httpHeader, nil
 }
 
-func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
-	return h.estimateMessageFee(msg, id, h.EstimateFee)
+//nolint:gocritic
+func (h *Handler) EstimateMessageFee(ctx context.Context, msg MsgFromL1, id BlockID) (*FeeEstimate,
+	http.Header, *jsonrpc.Error,
+) {
+	return h.estimateMessageFee(ctx, msg, id, h.EstimateFee)
 }
 
-func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
-	feeEstimate, httpHeader, rpcErr := h.estimateMessageFee(msg, id, h.EstimateFeeV0_6)
+//nolint:gocritic
+func (h *Handler) EstimateMessageFeeV0_6(ctx context.Context, msg MsgFromL1, id BlockID) (*FeeEstimate,
+	http.Header, *jsonrpc.Error,
+) {
+	feeEstimate, httpHeader, rpcErr := h.estimateMessageFee(ctx, msg, id, h.EstimateFeeV0_6)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
@@ -106,12 +113,12 @@ func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimat
 	return feeEstimate, httpHeader, nil
 }
 
-type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
+type estimateFeeHandler func(ctx context.Context, broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error)
 
 //nolint:gocritic
-func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate,
+func (h *Handler) estimateMessageFee(ctx context.Context, msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate,
 	http.Header, *jsonrpc.Error,
 ) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
@@ -133,7 +140,7 @@ func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHan
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
-	estimates, httpHeader, rpcErr := f([]BroadcastedTransaction{tx}, nil, id)
+	estimates, httpHeader, rpcErr := f(ctx, []BroadcastedTransaction{tx}, nil, id)
 	if rpcErr != nil {
 		if rpcErr.Code == ErrTransactionExecutionError.Code {
 			data := rpcErr.Data.(TransactionExecutionErrorData)
