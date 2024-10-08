@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
@@ -24,6 +25,27 @@ var (
 	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
 	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
 )
+
+func TestMain(m *testing.M) {
+	txTypes := []core.Transaction{
+		&core.DeclareTransaction{},
+		&core.DeployTransaction{},
+		&core.InvokeTransaction{},
+		&core.L1HandlerTransaction{},
+		&core.DeployAccountTransaction{},
+	}
+
+	for _, tx := range txTypes {
+		_ = encoder.RegisterType(reflect.TypeOf(tx))
+	}
+
+	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{}))
+	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo1Class{}))
+
+	code := m.Run()
+
+	os.Exit(code)
+}
 
 func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
@@ -379,15 +401,6 @@ func TestClass(t *testing.T) {
 	cairo1Hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	cairo1Class, err := gw.Class(context.Background(), cairo0Hash)
 	require.NoError(t, err)
-
-	err = encoder.RegisterType(reflect.TypeOf(cairo0Class))
-	if err != nil {
-		require.Contains(t, err.Error(), "already exists in TagSet")
-	}
-	err = encoder.RegisterType(reflect.TypeOf(cairo1Hash))
-	if err != nil {
-		require.Contains(t, err.Error(), "already exists in TagSet")
-	}
 
 	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(context.Background(), 0)
