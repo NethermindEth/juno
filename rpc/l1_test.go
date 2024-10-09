@@ -42,7 +42,7 @@ func TestGetMessageStatus(t *testing.T) {
 		l1TxnHash: common.HexToHash("0x5780c6fe46f958a7ebf9308e6db16d819ff9e06b1e88f9e718c50cde10898f38"),
 		msgs: []rpc.MsgStatus{{
 			L1HandlerHash:  utils.HexToFelt(t, "0xc470e30f97f64255a62215633e35a7c6ae10332a9011776dde1143ab0202c3"),
-			FinalityStatus: rpc.TxnAcceptedOnL1,
+			FinalityStatus: rpc.TxnStatusAcceptedOnL1,
 			FailureReason:  "",
 		}},
 		msgHashes:    []common.Hash{common.HexToHash("0x618402cb4ba8206046d99e0b128b2a65a7a592546ad239df8fa0eeee18848d37")},
