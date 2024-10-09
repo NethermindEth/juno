@@ -375,7 +375,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := storeL1HandlerMsgHashes(txn, block); err != nil {
+		if err := StoreL1HandlerMsgHashes(txn, block); err != nil {
 			return err
 		}
 
@@ -605,7 +605,7 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	})
 }
 
-func storeL1HandlerMsgHashes(dbTxn db.Transaction, block *core.Block) error {
+func StoreL1HandlerMsgHashes(dbTxn db.Transaction, block *core.Block) error {
 	for _, txn := range block.Transactions {
 		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
 			l1HandlerTxnHashBytes := txn.Hash().Bytes()
