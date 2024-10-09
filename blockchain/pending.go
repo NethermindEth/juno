@@ -1,8 +1,10 @@
 package blockchain
 
 import (
+	"errors"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 )
 
 type Pending struct {
@@ -65,3 +67,22 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 
 	return p.head.Class(classHash)
 }
+
+// Note[pnowosie]: Maybe extending StateReader with the following methods was not a good idea?
+func (s *PendingState) ClassTrie() (*trie.Trie, func() error, error) {
+	return nil, nopCloser, featureNotImplemented
+}
+func (s *PendingState) StorageTrie() (*trie.Trie, func() error, error) {
+	return nil, nopCloser, featureNotImplemented
+}
+func (s *PendingState) StorageTrieForAddr(*felt.Felt) (*trie.Trie, error) {
+	return nil, featureNotImplemented
+}
+func (s *PendingState) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
+	return nil, nil, featureNotImplemented
+}
+
+var (
+	featureNotImplemented = errors.New("feature not implemented for a historical state")
+	nopCloser             = func() error { return nil }
+)
