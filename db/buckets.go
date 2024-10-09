@@ -9,30 +9,39 @@ type Bucket byte
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
 const (
-	StateTrie         Bucket = iota // state metadata (e.g., the state root)
-	Peer                            // maps peer ID to peer multiaddresses
-	ContractClassHash               // maps contract addresses and class hashes
-	ContractStorage                 // contract storages
-	Class                           // maps class hashes to classes
-	ContractNonce                   // contract nonce
-	ChainHeight                     // Latest height of the blockchain
-	BlockHeaderNumbersByHash
-	BlockHeadersByNumber
-	TransactionBlockNumbersAndIndicesByHash // maps transaction hashes to block number and index
-	TransactionsByBlockNumberAndIndex       // maps block number and index to transaction
-	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
-	StateUpdatesByBlockNumber
+	// StateTrie -> Latest state trie's root key
+	// StateTrie + ContractAddr -> Contract's commitment value
+	// StateTrie + ContractAddr + Trie node path -> Trie node value
+	StateTrie         Bucket = iota
+	Peer                     // Peer + PeerID bytes -> Encoded peer multiaddresses
+	ContractClassHash        // (Legacy) ContractClassHash + ContractAddr -> Contract's class hash value
+	// ContractStorage + ContractAddr -> Latest contract storage trie's root key
+	// ContractStorage + ContractAddr + Trie node path -> Trie node value
+	ContractStorage
+	Class                                   // Class + Class hash -> Class object
+	ContractNonce                           // (Legacy) ContractNonce + ContractAddr -> Contract's nonce value
+	ChainHeight                             // ChainHeight -> Latest height of the blockchain
+	BlockHeaderNumbersByHash                // BlockHeaderNumbersByHash + BlockHash -> Block number
+	BlockHeadersByNumber                    // BlockHeadersByNumber + BlockNumber -> Block header object
+	TransactionBlockNumbersAndIndicesByHash // TransactionBlockNumbersAndIndicesByHash + TransactionHash -> Encoded(BlockNumber, Index)
+	TransactionsByBlockNumberAndIndex       // TransactionsByBlockNumberAndIndex + Encoded(BlockNumber, Index) -> Encoded(Transaction)
+	ReceiptsByBlockNumberAndIndex           // ReceiptsByBlockNumberAndIndex + Encoded(BlockNumber, Index) -> Encoded(Receipt)
+	StateUpdatesByBlockNumber               // StateUpdatesByBlockNumber + BlockNumber -> Encoded(StateUpdate)
+	// ClassesTrie -> Latest classes trie's root key
+	// ClassesTrie + ClassHash -> PoseidonHash(leafVersion, compiledClassHash)
 	ClassesTrie
-	ContractStorageHistory
-	ContractNonceHistory
-	ContractClassHashHistory
-	ContractDeploymentHeight
-	L1Height
-	SchemaVersion
-	Pending
-	BlockCommitments
-	Temporary // used temporarily for migrations
-	SchemaIntermediateState
+	ContractStorageHistory   // (Legacy) ContractStorageHistory + ContractAddr + BlockHeight + StorageLocation -> StorageValue
+	ContractNonceHistory     // (Legacy) ContractNonceHistory + ContractAddr + BlockHeight -> Contract's nonce value
+	ContractClassHashHistory // (Legacy) ContractClassHashHistory + ContractAddr + BlockHeight -> Contract's class hash value
+	ContractDeploymentHeight // ContractDeploymentHeight + ContractAddr -> BlockHeight
+	L1Height                 // L1Height -> Latest height of the L1 chain
+	SchemaVersion            // SchemaVersion -> DB schema version
+	Pending                  // Pending -> Pending block
+	BlockCommitments         // BlockCommitments + BlockNumber -> Block commitments
+	Temporary                // used temporarily for migrations
+	SchemaIntermediateState  // used for db schema metadata
+	Contract                 // Contract + ContractAddr -> Encoded(Contract)
+	ContractHistory          // ContractHistory + ContractAddr + BlockHeight -> Encoded(Contract)
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
