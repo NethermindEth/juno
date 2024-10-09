@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
+	"log"
 	"math"
+	"strings"
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -14,9 +16,12 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/sourcegraph/conc"
 )
@@ -79,6 +84,7 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
+	ethClient     l1.EthClient
 
 	version  string
 	newHeads *feed.Feed[*core.Header]
@@ -89,8 +95,9 @@ type Handler struct {
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
-	filterLimit  uint
-	callMaxSteps uint64
+	filterLimit     uint
+	callMaxSteps    uint64
+	coreContractABI abi.ABI
 }
 
 type subscription struct {
@@ -102,6 +109,10 @@ type subscription struct {
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger,
 ) *Handler {
+	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
+	if err != nil {
+		log.Fatalf("Failed to parse ABI: %v", err)
+	}
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
@@ -119,12 +130,18 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
+		coreContractABI: contractABI,
 	}
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	h.filterLimit = limit
+	return h
+}
+
+func (h *Handler) WithETHClient(ethClient l1.EthClient) *Handler {
+	h.ethClient = ethClient
 	return h
 }
 

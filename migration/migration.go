@@ -66,6 +66,7 @@ var defaultMigrations = []Migration{
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
+	MigrationFunc(calculateL1MsgHashes),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -458,6 +459,29 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 			txnLock.Lock()
 			defer txnLock.Unlock()
 			return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
+		})
+	}
+
+	return workerPool.Wait()
+}
+
+func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
+	var txnLock sync.RWMutex
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+
+	for blockNumber := 0; ; blockNumber++ {
+		txnLock.RLock()
+		block, err := blockchain.BlockByNumber(txn, uint64(blockNumber))
+		txnLock.RUnlock()
+
+		if errors.Is(err, db.ErrKeyNotFound) {
+			break
+		}
+
+		workerPool.Go(func() error {
+			txnLock.Lock()
+			defer txnLock.Unlock()
+			return blockchain.StoreL1HandlerMsgHashes(txn, block)
 		})
 	}
 
