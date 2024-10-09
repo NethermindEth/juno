@@ -48,7 +48,7 @@ func (l *LogMessageToL2) HashMessage() *common.Hash {
 
 type MsgStatus struct {
 	L1HandlerHash  *felt.Felt
-	FinalityStatus TxnFinalityStatus
+	FinalityStatus TxnStatus
 	FailureReason  string
 }
 
@@ -71,7 +71,7 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 		}
 		results[i] = MsgStatus{
 			L1HandlerHash:  hash,
-			FinalityStatus: TxnFinalityStatus(status.Finality),
+			FinalityStatus: status.Finality,
 			FailureReason:  status.FailureReason,
 		}
 	}

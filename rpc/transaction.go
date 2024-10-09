@@ -751,7 +751,6 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
-		status.FailureReason = txStatus.RevertError
 	default:
 		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
@@ -761,6 +760,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
 		status.Execution = TxnFailure
+		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
 		status.FailureReason = txStatus.RevertError
