@@ -5,8 +5,14 @@ import (
 	"encoding/json"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+)
+
+const (
+	MaxBlocksBack = 1024
 )
 
 type EventsArg struct {
@@ -44,14 +50,23 @@ type EventsChunk struct {
 	ContinuationToken string          `json:"continuation_token,omitempty"`
 }
 
+type SubscriptionID struct {
+	ID uint64 `json:"subscription_id"`
+}
+
 /****************************************************
 		Events Handlers
 *****************************************************/
 
-func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error) {
+func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	startHeader, latestHeader, rpcErr := h.getStartAndLatestHeaders(blockID)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	id := h.idgen()
@@ -63,37 +78,130 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 	h.mu.Lock()
 	h.subscriptions[id] = sub
 	h.mu.Unlock()
+
 	headerSub := h.newHeads.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
-			headerSub.Unsubscribe()
 			h.unsubscribe(sub, id)
+			headerSub.Unsubscribe()
 		}()
-		for {
-			select {
-			case <-subscriptionCtx.Done():
-				return
-			case header := <-headerSub.Recv():
-				resp, err := json.Marshal(jsonrpc.Request{
-					Version: "2.0",
-					Method:  "juno_subscribeNewHeads",
-					Params: map[string]any{
-						"result":       adaptBlockHeader(header),
-						"subscription": id,
-					},
-				})
-				if err != nil {
-					h.log.Warnw("Error marshalling a subscription reply", "err", err)
-					return
-				}
-				if _, err = w.Write(resp); err != nil {
-					h.log.Warnw("Error writing a subscription reply", "err", err)
-					return
-				}
+
+		newHeadersChan := make(chan *core.Header, MaxBlocksBack)
+
+		sub.wg.Go(func() {
+			h.bufferNewHeaders(subscriptionCtx, headerSub, newHeadersChan)
+		})
+
+		if err := h.sendHistoricalHeaders(subscriptionCtx, startHeader, latestHeader, w, id); err != nil {
+			h.log.Errorw("Error sending old headers", "err", err)
+			return
+		}
+
+		h.processNewHeaders(subscriptionCtx, newHeadersChan, w, id)
+	})
+
+	return &SubscriptionID{ID: id}, nil
+}
+
+// getStartAndLatestHeaders gets the start and latest header for the subscription
+func (h *Handler) getStartAndLatestHeaders(blockID *BlockID) (*core.Header, *core.Header, *jsonrpc.Error) {
+	if blockID == nil || blockID.Latest {
+		return nil, nil, nil
+	}
+
+	latestHeader, err := h.bcReader.HeadsHeader()
+	if err != nil {
+		return nil, nil, ErrInternal
+	}
+
+	startHeader, rpcErr := h.blockHeaderByID(blockID)
+	if rpcErr != nil {
+		return nil, nil, rpcErr
+	}
+
+	if latestHeader.Number > MaxBlocksBack && startHeader.Number < latestHeader.Number-MaxBlocksBack {
+		return nil, nil, ErrTooManyBlocksBack
+	}
+
+	return startHeader, latestHeader, nil
+}
+
+// sendHistoricalHeaders sends a range of headers from the start header until the latest header
+func (h *Handler) sendHistoricalHeaders(
+	ctx context.Context,
+	startHeader *core.Header,
+	latestHeader *core.Header,
+	w jsonrpc.Conn,
+	id uint64,
+) error {
+	if startHeader == nil {
+		return nil
+	}
+
+	var err error
+
+	lastHeader := startHeader
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if err := h.sendHeader(w, lastHeader, id); err != nil {
+				return err
+			}
+
+			if lastHeader.Number == latestHeader.Number {
+				return nil
+			}
+
+			lastHeader, err = h.bcReader.BlockHeaderByNumber(lastHeader.Number + 1)
+			if err != nil {
+				return err
 			}
 		}
+	}
+}
+
+func (h *Handler) bufferNewHeaders(ctx context.Context, headerSub *feed.Subscription[*core.Header], newHeadersChan chan<- *core.Header) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case header := <-headerSub.Recv():
+			newHeadersChan <- header
+		}
+	}
+}
+
+func (h *Handler) processNewHeaders(ctx context.Context, newHeadersChan <-chan *core.Header, w jsonrpc.Conn, id uint64) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case header := <-newHeadersChan:
+			if err := h.sendHeader(w, header, id); err != nil {
+				h.log.Warnw("Error sending header", "err", err)
+				return
+			}
+		}
+	}
+}
+
+// sendHeader creates a request and sends it to the client
+func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
+	resp, err := json.Marshal(jsonrpc.Request{
+		Version: "2.0",
+		Method:  "starknet_subscriptionNewHeads",
+		Params: map[string]any{
+			"subscription_id": id,
+			"result":          adaptBlockHeader(header),
+		},
 	})
-	return id, nil
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(resp)
+	return err
 }
 
 func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {

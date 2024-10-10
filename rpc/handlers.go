@@ -56,6 +56,8 @@ var (
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
 
+	ErrTooManyBlocksBack = &jsonrpc.Error{Code: 68, Message: "Cannot go back more than 1024 blocks"}
+
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
 )
@@ -312,7 +314,8 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen, dupl
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{
@@ -470,7 +473,8 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen, d
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{

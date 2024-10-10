@@ -255,7 +255,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	})
 
 	// Subscribe without setting the connection on the context.
-	id, rpcErr := handler.SubscribeNewHeads(ctx)
+	id, rpcErr := handler.SubscribeNewHeads(ctx, nil)
 	require.Zero(t, id)
 	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
 
@@ -271,7 +271,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	// Subscribe.
 	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-	id, rpcErr = handler.SubscribeNewHeads(subCtx)
+	id, rpcErr = handler.SubscribeNewHeads(subCtx, nil)
 	require.Nil(t, rpcErr)
 
 	// Sync the block we reverted above.
@@ -280,32 +280,32 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncCancel()
 
 	// Receive a block header.
-	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription":%d}}`
-	want = fmt.Sprintf(want, id)
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	want = fmt.Sprintf(want, id.ID)
 	got := make([]byte, len(want))
 	_, err := clientConn.Read(got)
 	require.NoError(t, err)
 	require.Equal(t, want, string(got))
 
 	// Unsubscribe without setting the connection on the context.
-	ok, rpcErr := handler.Unsubscribe(ctx, id)
+	ok, rpcErr := handler.Unsubscribe(ctx, id.ID)
 	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
 	require.False(t, ok)
 
 	// Unsubscribe on correct connection with the incorrect id.
-	ok, rpcErr = handler.Unsubscribe(subCtx, id+1)
+	ok, rpcErr = handler.Unsubscribe(subCtx, id.ID+1)
 	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
 	require.False(t, ok)
 
 	// Unsubscribe on incorrect connection with the correct id.
 	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{})
-	ok, rpcErr = handler.Unsubscribe(subCtx, id)
+	ok, rpcErr = handler.Unsubscribe(subCtx, id.ID)
 	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
 	require.False(t, ok)
 
 	// Unsubscribe on correct connection with the correct id.
 	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-	ok, rpcErr = handler.Unsubscribe(subCtx, id)
+	ok, rpcErr = handler.Unsubscribe(subCtx, id.ID)
 	require.Nil(t, rpcErr)
 	require.True(t, ok)
 }
@@ -340,7 +340,8 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	server := jsonrpc.NewServer(1, log)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "juno_subscribeNewHeads",
+		Name:    "starknet_subscribeNewHeads",
+		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 		Handler: handler.SubscribeNewHeads,
 	}, jsonrpc.Method{
 		Name:    "juno_unsubscribe",
@@ -354,14 +355,14 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
 
-	subscribeMsg := []byte(`{"jsonrpc":"2.0","id":1,"method":"juno_subscribeNewHeads"}`)
+	subscribeMsg := []byte(`{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads"}`)
 
 	firstID := uint64(1)
 	secondID := uint64(2)
 	handler.WithIDGen(func() uint64 { return firstID })
 	require.NoError(t, conn1.Write(ctx, websocket.MessageText, subscribeMsg))
 
-	want := `{"jsonrpc":"2.0","result":%d,"id":1}`
+	want := `{"jsonrpc":"2.0","result":{"subscription_id":%d},"id":1}`
 	firstWant := fmt.Sprintf(want, firstID)
 	_, firstGot, err := conn1.Read(ctx)
 	require.NoError(t, err)
@@ -380,7 +381,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncCancel()
 
 	// Receive a block header.
-	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription":%d}}`
+	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
 	firstWant = fmt.Sprintf(want, firstID)
 	_, firstGot, err = conn1.Read(ctx)
 	require.NoError(t, err)
