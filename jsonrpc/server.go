@@ -422,10 +422,6 @@ func isBatch(reader *bufio.Reader) bool {
 	return false
 }
 
-func isNil(i any) bool {
-	return i == nil || reflect.ValueOf(i).IsNil()
-}
-
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
 	s.log.Tracew("Received request", "req", req)
 
@@ -471,7 +467,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 		header = (tuple[1].Interface()).(http.Header)
 	}
 
-	if errAny := tuple[errorIndex].Interface(); !isNil(errAny) {
+	if errAny := tuple[errorIndex].Interface(); !utils.IsNil(errAny) {
 		res.Error = errAny.(*Error)
 		if res.Error.Code == InternalError {
 			s.listener.OnRequestFailed(req.Method, res.Error)
@@ -498,7 +494,7 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		addContext = 1
 	}
 
-	if isNil(params) {
+	if utils.IsNil(params) {
 		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
 			return p.Optional
 		})
