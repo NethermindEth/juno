@@ -144,7 +144,6 @@ func TestStorageProof(t *testing.T) {
 	blockLatest := rpc.BlockID{Latest: true}
 
 	t.Run("Trie proofs sanity check", func(t *testing.T) {
-		t.Skip("It is not working as (I'd) expected")
 		kbs := key.Bytes()
 		kKey := trie.NewKey(251, kbs[:])
 		proof, err := trie.GetProof(&kKey, tempTrie)

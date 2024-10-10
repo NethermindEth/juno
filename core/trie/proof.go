@@ -350,7 +350,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 				return true
 			}
 
-			if !proofNode.Path.Equal(subKey) {
+			if !proofNode.Path.Equal(subKey) && !subKey.Equal(&Key{}) {
 				return false
 			}
 			expectedHash = proofNode.Child
