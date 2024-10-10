@@ -74,7 +74,7 @@ docker logs -f juno
 <details>
   <summary>How can I get real-time updates of new blocks?</summary>
 
-The [WebSocket](websocket#subscribe-to-newly-created-blocks) interface provides a `juno_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain.
+The [WebSocket](websocket#subscribe-to-newly-created-blocks) interface provides a `starknet_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain.
 
 </details>
 

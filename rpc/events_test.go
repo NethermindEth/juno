@@ -215,6 +215,7 @@ func TestEvents(t *testing.T) {
 	})
 }
 
+// TODO[pnowosie]: Refactor. fakeConn - this is redefined in subscription test, but also used in NewHeads
 type fakeConn struct {
 	w io.Writer
 }
