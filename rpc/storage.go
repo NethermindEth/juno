@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -237,10 +236,6 @@ func getProof(t *trie.Trie, elt *felt.Felt) ([]*HashToNode, error) {
 	feltBytes := elt.Bytes()
 	key := trie.NewKey(core.ContractStorageTrieHeight, feltBytes[:])
 	nodes, err := trie.GetProof(&key, t)
-	for i, n := range nodes {
-		fmt.Printf("[%d]", i)
-		n.PrettyPrint()
-	}
 	if err != nil {
 		return nil, err
 	}

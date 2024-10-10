@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"errors"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -69,20 +70,23 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 }
 
 // Note[pnowosie]: Maybe extending StateReader with the following methods was not a good idea?
-func (s *PendingState) ClassTrie() (*trie.Trie, func() error, error) {
-	return nil, nopCloser, featureNotImplemented
+func (p *PendingState) ClassTrie() (*trie.Trie, func() error, error) {
+	return nil, nopCloser, errFeatureNotImplemented
 }
-func (s *PendingState) StorageTrie() (*trie.Trie, func() error, error) {
-	return nil, nopCloser, featureNotImplemented
+
+func (p *PendingState) StorageTrie() (*trie.Trie, func() error, error) {
+	return nil, nopCloser, errFeatureNotImplemented
 }
-func (s *PendingState) StorageTrieForAddr(*felt.Felt) (*trie.Trie, error) {
-	return nil, featureNotImplemented
+
+func (p *PendingState) StorageTrieForAddr(*felt.Felt) (*trie.Trie, error) {
+	return nil, errFeatureNotImplemented
 }
-func (s *PendingState) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
-	return nil, nil, featureNotImplemented
+
+func (p *PendingState) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
+	return nil, nil, errFeatureNotImplemented
 }
 
 var (
-	featureNotImplemented = errors.New("feature not implemented for a historical state")
-	nopCloser             = func() error { return nil }
+	errFeatureNotImplemented = errors.New("feature not implemented for a historical state")
+	nopCloser                = func() error { return nil }
 )

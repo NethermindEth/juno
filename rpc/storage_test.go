@@ -124,25 +124,6 @@ func TestStorageProof(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tempTrie.Commit())
 
-	// TODO[pnowosie]: There is smth wrong with proof verification, see `Trie proofs sanity check` test
-	//verifyIf := func(proof []*rpc.HashToNode, key *felt.Felt, value *felt.Felt) bool {
-	//	root, err := tempTrie.Root()
-	//	require.NoError(t, err)
-	//	fmt.Println("root", root)
-	//
-	//	pnodes := []trie.ProofNode{}
-	//	for _, hn := range proof {
-	//		pnodes = append(pnodes, NodeToProofNode(hn))
-	//	}
-	//
-	//	kbs := key.Bytes()
-	//	kkey := trie.NewKey(251, kbs[:])
-	//	result := trie.VerifyProof(root, &kkey, value, pnodes, tempTrie.HashFunc())
-	//	fmt.Println("result", result)
-	//
-	//	return result
-	//}
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -311,27 +292,4 @@ func emptyTrie(t *testing.T) *trie.Trie {
 	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)
 	return tempTrie
-}
-
-func NodeToProofNode(hn *rpc.HashToNode) trie.ProofNode {
-	var proofNode trie.ProofNode
-
-	switch pnode := hn.Node.(type) {
-	case *rpc.MerkleEdgeNode:
-		pbs := pnode.Path.Bytes()
-		path := trie.NewKey(uint8(pnode.Length), pbs[:])
-		proofNode = &trie.Edge{
-			Path:  &path,
-			Child: pnode.Child,
-		}
-	case *rpc.MerkleBinaryNode:
-		proofNode = &trie.Binary{
-			LeftHash:  pnode.Left,
-			RightHash: pnode.Right,
-		}
-	default:
-		panic(fmt.Errorf("unsupported node type %T", pnode))
-	}
-
-	return proofNode
 }
