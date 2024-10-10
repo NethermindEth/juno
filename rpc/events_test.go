@@ -3,8 +3,6 @@ package rpc_test
 import (
 	"context"
 	"fmt"
-	"io"
-	"net"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -14,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -22,6 +21,14 @@ import (
 	"github.com/coder/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+var emptyCommitments = core.BlockCommitments{}
+
+const (
+	subscribeNewHeads = `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads"}`
+	newHeadsResponse  = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	subscribeResponse = `{"jsonrpc":"2.0","result":{"subscription_id":%d},"id":1}`
 )
 
 func TestEvents(t *testing.T) {
@@ -213,185 +220,431 @@ func TestEvents(t *testing.T) {
 	})
 }
 
-type fakeConn struct {
-	w io.Writer
+type fakeSyncer struct {
+	newHeads   *feed.Feed[*core.Header]
+	reorgs     *feed.Feed[*sync.ReorgData]
+	pendingTxs *feed.Feed[[]core.Transaction]
 }
 
-func (fc *fakeConn) Write(p []byte) (int, error) {
-	return fc.w.Write(p)
-}
-
-func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
-	fc2, ok := other.(*fakeConn)
-	if !ok {
-		return false
+func newFakeSyncer() *fakeSyncer {
+	return &fakeSyncer{
+		newHeads:   feed.New[*core.Header](),
+		reorgs:     feed.New[*sync.ReorgData](),
+		pendingTxs: feed.New[[]core.Transaction](),
 	}
-	return fc.w == fc2.w
 }
 
-func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
+func (fs *fakeSyncer) SubscribeNewHeads() sync.HeaderSubscription {
+	return sync.HeaderSubscription{Subscription: fs.newHeads.Subscribe()}
+}
+
+func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
+	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
+}
+
+func (fs *fakeSyncer) SubscribePendingTxs() sync.PendingTxSubscription {
+	return sync.PendingTxSubscription{Subscription: fs.pendingTxs.Subscribe()}
+}
+
+func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
+	return 0, nil
+}
+
+func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
+	return nil
+}
+
+func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
-	log := utils.NewNopZapLogger()
-	n := utils.Ptr(utils.Mainnet)
-	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), n)
-	syncer := sync.New(chain, gw, log, 0, false)
-	handler := rpc.New(chain, syncer, nil, "", log)
 
-	go func() {
-		require.NoError(t, handler.Run(ctx))
-	}()
-	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
-	// Sleep for a moment just in case.
-	time.Sleep(50 * time.Millisecond)
+	handler, syncer, server := setupSubscriptionTest(t, ctx)
 
-	serverConn, clientConn := net.Pipe()
-	t.Cleanup(func() {
-		require.NoError(t, serverConn.Close())
-		require.NoError(t, clientConn.Close())
-	})
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "starknet_subscribeNewHeads",
+		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
+		Handler: handler.SubscribeNewHeads,
+	}))
 
-	// Subscribe without setting the connection on the context.
-	id, rpcErr := handler.SubscribeNewHeads(ctx)
-	require.Zero(t, id)
-	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
+	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
+	httpSrv := httptest.NewServer(ws)
 
-	// Sync blocks and then revert head.
-	// This is a super hacky way to deterministically receive a single block on the subscription.
-	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
-	syncCtx, syncCancel := context.WithTimeout(context.Background(), time.Second)
-	require.NoError(t, syncer.Run(syncCtx))
-	syncCancel()
-	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
-	// But it works.
-	require.NoError(t, chain.RevertHead())
+	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+	require.NoError(t, err)
 
-	// Subscribe.
-	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-	id, rpcErr = handler.SubscribeNewHeads(subCtx)
-	require.Nil(t, rpcErr)
+	id := uint64(1)
+	handler.WithIDGen(func() uint64 { return id })
 
-	// Sync the block we reverted above.
-	syncCtx, syncCancel = context.WithTimeout(context.Background(), 250*time.Millisecond)
-	require.NoError(t, syncer.Run(syncCtx))
-	syncCancel()
+	got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
+	want := fmt.Sprintf(subscribeResponse, id)
+	require.Equal(t, want, got)
+
+	// Simulate a new block
+	syncer.newHeads.Send(testHeader(t))
 
 	// Receive a block header.
-	want := `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription":%d}}`
-	want = fmt.Sprintf(want, id)
-	got := make([]byte, len(want))
-	_, err := clientConn.Read(got)
+	want = fmt.Sprintf(newHeadsResponse, id)
+	_, headerGot, err := conn.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, want, string(got))
-
-	// Unsubscribe without setting the connection on the context.
-	ok, rpcErr := handler.Unsubscribe(ctx, id)
-	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
-	require.False(t, ok)
-
-	// Unsubscribe on correct connection with the incorrect id.
-	ok, rpcErr = handler.Unsubscribe(subCtx, id+1)
-	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
-	require.False(t, ok)
-
-	// Unsubscribe on incorrect connection with the correct id.
-	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{})
-	ok, rpcErr = handler.Unsubscribe(subCtx, id)
-	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
-	require.False(t, ok)
-
-	// Unsubscribe on correct connection with the correct id.
-	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-	ok, rpcErr = handler.Unsubscribe(subCtx, id)
-	require.Nil(t, rpcErr)
-	require.True(t, ok)
+	require.Equal(t, want, string(headerGot))
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Parallel()
-	log := utils.NewNopZapLogger()
-	n := utils.Ptr(utils.Mainnet)
-	feederClient := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(feederClient)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), n)
-	syncer := sync.New(chain, gw, log, 0, false)
-	handler := rpc.New(chain, syncer, nil, "", log)
-	go func() {
-		require.NoError(t, handler.Run(ctx))
-	}()
-	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
-	// Sleep for a moment just in case.
-	time.Sleep(50 * time.Millisecond)
 
-	// Sync blocks and then revert head.
-	// This is a super hacky way to deterministically receive a single block on the subscription.
-	// It would be nicer if we could tell the synchronizer to exit after a certain block height, but, alas, we can't do that.
-	syncCtx, syncCancel := context.WithTimeout(context.Background(), time.Second)
-	require.NoError(t, syncer.Run(syncCtx))
-	syncCancel()
-	// This is technically an unsafe thing to do. We're modifying the synchronizer's blockchain while it is owned by the synchronizer.
-	// But it works.
-	require.NoError(t, chain.RevertHead())
+	handler, syncer, server := setupSubscriptionTest(t, ctx)
 
-	server := jsonrpc.NewServer(1, log)
 	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "juno_subscribeNewHeads",
+		Name:    "starknet_subscribeNewHeads",
+		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 		Handler: handler.SubscribeNewHeads,
 	}, jsonrpc.Method{
 		Name:    "juno_unsubscribe",
 		Params:  []jsonrpc.Parameter{{Name: "id"}},
 		Handler: handler.Unsubscribe,
 	}))
-	ws := jsonrpc.NewWebsocket(server, log)
+
+	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
+
 	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
 	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
 
-	subscribeMsg := []byte(`{"jsonrpc":"2.0","id":1,"method":"juno_subscribeNewHeads"}`)
-
 	firstID := uint64(1)
 	secondID := uint64(2)
-	handler.WithIDGen(func() uint64 { return firstID })
-	require.NoError(t, conn1.Write(ctx, websocket.MessageText, subscribeMsg))
 
-	want := `{"jsonrpc":"2.0","result":%d,"id":1}`
-	firstWant := fmt.Sprintf(want, firstID)
-	_, firstGot, err := conn1.Read(ctx)
+	handler.WithIDGen(func() uint64 { return firstID })
+	firstWant := fmt.Sprintf(subscribeResponse, firstID)
+	firstGot := sendAndReceiveMessage(t, ctx, conn1, subscribeNewHeads)
 	require.NoError(t, err)
-	require.Equal(t, firstWant, string(firstGot))
+	require.Equal(t, firstWant, firstGot)
 
 	handler.WithIDGen(func() uint64 { return secondID })
-	require.NoError(t, conn2.Write(ctx, websocket.MessageText, subscribeMsg))
-	secondWant := fmt.Sprintf(want, secondID)
-	_, secondGot, err := conn2.Read(ctx)
+	secondWant := fmt.Sprintf(subscribeResponse, secondID)
+	secondGot := sendAndReceiveMessage(t, ctx, conn2, subscribeNewHeads)
 	require.NoError(t, err)
-	require.Equal(t, secondWant, string(secondGot))
+	require.Equal(t, secondWant, secondGot)
 
-	// Now we're subscribed. Sync the block we reverted above.
-	syncCtx, syncCancel = context.WithTimeout(context.Background(), 250*time.Millisecond)
-	require.NoError(t, syncer.Run(syncCtx))
-	syncCancel()
+	// Simulate a new block
+	syncer.newHeads.Send(testHeader(t))
 
 	// Receive a block header.
-	want = `{"jsonrpc":"2.0","method":"juno_subscribeNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription":%d}}`
-	firstWant = fmt.Sprintf(want, firstID)
-	_, firstGot, err = conn1.Read(ctx)
+	firstHeaderWant := fmt.Sprintf(newHeadsResponse, firstID)
+	_, firstHeaderGot, err := conn1.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, firstWant, string(firstGot))
-	secondWant = fmt.Sprintf(want, secondID)
-	_, secondGot, err = conn2.Read(ctx)
+	require.Equal(t, firstHeaderWant, string(firstHeaderGot))
+
+	secondHeaderWant := fmt.Sprintf(newHeadsResponse, secondID)
+	_, secondHeaderGot, err := conn2.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, secondWant, string(secondGot))
+	require.Equal(t, secondHeaderWant, string(secondHeaderGot))
 
 	// Unsubscribe
 	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"juno_unsubscribe","params":[%d]}`
 	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, firstID))))
 	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, secondID))))
+}
+
+func TestSubscribeNewHeadsHistorical(t *testing.T) {
+	t.Parallel()
+
+	log := utils.NewNopZapLogger()
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	block0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+
+	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(testDB, &utils.Mainnet)
+	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+
+	chain = blockchain.New(testDB, &utils.Mainnet)
+	syncer := newFakeSyncer()
+	handler := rpc.New(chain, syncer, nil, "", utils.NewNopZapLogger())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	time.Sleep(50 * time.Millisecond)
+
+	server := jsonrpc.NewServer(1, log)
+
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "starknet_subscribeNewHeads",
+		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
+		Handler: handler.SubscribeNewHeads,
+	}))
+
+	ws := jsonrpc.NewWebsocket(server, log)
+	httpSrv := httptest.NewServer(ws)
+
+	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+	require.NoError(t, err)
+
+	id := uint64(1)
+	handler.WithIDGen(func() uint64 { return id })
+
+	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block":{"block_number":0}}}`
+	got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
+	want := fmt.Sprintf(subscribeResponse, id)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+
+	// Check block 0 content
+	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	want = fmt.Sprintf(want, id)
+	_, block0Got, err := conn.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, string(block0Got))
+
+	// Simulate a new block
+	syncer.newHeads.Send(testHeader(t))
+
+	// Check new block content
+	want = fmt.Sprintf(newHeadsResponse, id)
+	_, newBlockGot, err := conn.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, string(newBlockGot))
+}
+
+func TestSubscriptionReorg(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	handler, syncer, server := setupSubscriptionTest(t, ctx)
+
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "starknet_subscribeNewHeads",
+		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
+		Handler: handler.SubscribeNewHeads,
+	}))
+
+	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
+	httpSrv := httptest.NewServer(ws)
+
+	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+	require.NoError(t, err)
+
+	id := uint64(1)
+	handler.WithIDGen(func() uint64 { return id })
+
+	got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
+	want := fmt.Sprintf(subscribeResponse, id)
+	require.Equal(t, want, got)
+
+	// Simulate a reorg
+	syncer.reorgs.Send(&sync.ReorgData{
+		StartBlockHash: utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+		StartBlockNum:  0,
+		EndBlockHash:   utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"),
+		EndBlockNum:    2,
+	})
+
+	// Receive reorg event
+	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":%d}}`
+	want = fmt.Sprintf(want, id)
+	_, reorgGot, err := conn.Read(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, string(reorgGot))
+}
+
+func TestSubscribePendingTxs(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	handler, syncer, server := setupSubscriptionTest(t, ctx)
+
+	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
+		Name:    "starknet_subscribePendingTransactions",
+		Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
+		Handler: handler.SubscribePendingTxs,
+	}))
+
+	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
+	httpSrv := httptest.NewServer(ws)
+
+	t.Run("Basic subscription", func(t *testing.T) {
+		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+		require.NoError(t, err)
+
+		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
+		id := uint64(1)
+		handler.WithIDGen(func() uint64 { return id })
+		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		want := fmt.Sprintf(subscribeResponse, id)
+		require.Equal(t, want, got)
+
+		hash1 := new(felt.Felt).SetUint64(1)
+		addr1 := new(felt.Felt).SetUint64(11)
+
+		hash2 := new(felt.Felt).SetUint64(2)
+		addr2 := new(felt.Felt).SetUint64(22)
+
+		hash3 := new(felt.Felt).SetUint64(3)
+		hash4 := new(felt.Felt).SetUint64(4)
+		hash5 := new(felt.Felt).SetUint64(5)
+
+		syncer.pendingTxs.Send([]core.Transaction{
+			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+			&core.DeployTransaction{TransactionHash: hash3},
+			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+			&core.L1HandlerTransaction{TransactionHash: hash5},
+		})
+
+		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
+		want = fmt.Sprintf(want, id)
+		_, pendingTxsGot, err := conn1.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, want, string(pendingTxsGot))
+	})
+
+	t.Run("Filtered subscription", func(t *testing.T) {
+		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+		require.NoError(t, err)
+
+		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
+		id := uint64(1)
+		handler.WithIDGen(func() uint64 { return id })
+		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		want := fmt.Sprintf(subscribeResponse, id)
+		require.Equal(t, want, got)
+
+		hash1 := new(felt.Felt).SetUint64(1)
+		addr1 := new(felt.Felt).SetUint64(11)
+
+		hash2 := new(felt.Felt).SetUint64(2)
+		addr2 := new(felt.Felt).SetUint64(22)
+
+		hash3 := new(felt.Felt).SetUint64(3)
+		hash4 := new(felt.Felt).SetUint64(4)
+		hash5 := new(felt.Felt).SetUint64(5)
+
+		hash6 := new(felt.Felt).SetUint64(6)
+		addr6 := new(felt.Felt).SetUint64(66)
+
+		hash7 := new(felt.Felt).SetUint64(7)
+		addr7 := new(felt.Felt).SetUint64(77)
+
+		syncer.pendingTxs.Send([]core.Transaction{
+			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+			&core.DeployTransaction{TransactionHash: hash3},
+			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+			&core.L1HandlerTransaction{TransactionHash: hash5},
+			&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
+			&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+		})
+
+		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
+		want = fmt.Sprintf(want, id)
+		_, pendingTxsGot, err := conn1.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, want, string(pendingTxsGot))
+	})
+
+	t.Run("Full details subscription", func(t *testing.T) {
+		t.Parallel()
+		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+		require.NoError(t, err)
+
+		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
+		id := uint64(1)
+		handler.WithIDGen(func() uint64 { return id })
+		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		want := fmt.Sprintf(subscribeResponse, id)
+		require.Equal(t, want, got)
+
+		syncer.pendingTxs.Send([]core.Transaction{
+			&core.InvokeTransaction{
+				TransactionHash:       new(felt.Felt).SetUint64(1),
+				CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
+				TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+				MaxFee:                new(felt.Felt).SetUint64(4),
+				ContractAddress:       new(felt.Felt).SetUint64(5),
+				Version:               new(core.TransactionVersion).SetUint64(3),
+				EntryPointSelector:    new(felt.Felt).SetUint64(6),
+				Nonce:                 new(felt.Felt).SetUint64(7),
+				SenderAddress:         new(felt.Felt).SetUint64(8),
+				ResourceBounds:        map[core.Resource]core.ResourceBounds{},
+				Tip:                   9,
+				PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
+				AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+			},
+		})
+
+		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
+		want = fmt.Sprintf(want, id)
+		_, pendingTxsGot, err := conn1.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, want, string(pendingTxsGot))
+	})
+}
+
+func testHeader(t *testing.T) *core.Header {
+	t.Helper()
+
+	header := &core.Header{
+		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
+		Number:           2,
+		GlobalStateRoot:  utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
+		Timestamp:        1637084470,
+		SequencerAddress: utils.HexToFelt(t, "0x0"),
+		L1DataGasPrice: &core.GasPrice{
+			PriceInFri: utils.HexToFelt(t, "0x0"),
+			PriceInWei: utils.HexToFelt(t, "0x0"),
+		},
+		GasPrice:        utils.HexToFelt(t, "0x0"),
+		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
+		L1DAMode:        core.Calldata,
+		ProtocolVersion: "",
+	}
+	return header
+}
+
+func setupSubscriptionTest(t *testing.T, ctx context.Context) (*rpc.Handler, *fakeSyncer, *jsonrpc.Server) {
+	t.Helper()
+
+	log := utils.NewNopZapLogger()
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	syncer := newFakeSyncer()
+	handler := rpc.New(chain, syncer, nil, "", log)
+
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	time.Sleep(50 * time.Millisecond)
+
+	server := jsonrpc.NewServer(1, log)
+
+	return handler, syncer, server
+}
+
+func sendAndReceiveMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, message string) string {
+	t.Helper()
+
+	require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(message)))
+
+	_, response, err := conn.Read(ctx)
+	require.NoError(t, err)
+	return string(response)
 }
