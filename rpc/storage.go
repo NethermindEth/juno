@@ -173,7 +173,7 @@ func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*Contrac
 	}
 
 	for _, contract := range contracts {
-		leafData, err := addLeafDataIfExists(reader, &contract)
+		leafData, err := getLeafData(reader, &contract)
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +189,7 @@ func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*Contrac
 	return result, nil
 }
 
-func addLeafDataIfExists(reader core.StateReader, contract *felt.Felt) (*LeafData, error) {
+func getLeafData(reader core.StateReader, contract *felt.Felt) (*LeafData, error) {
 	nonce, err := reader.ContractNonce(contract)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil
