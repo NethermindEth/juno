@@ -69,6 +69,8 @@ var (
 	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
 	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
 
+	ErrTooManyBlocksBack = &jsonrpc.Error{Code: 68, Message: "Cannot go back more than 1024 blocks"}
+
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
 )
@@ -339,12 +341,8 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "starknet_subscribeEvents",
-			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block", Optional: true}},
-			Handler: h.SubscribeEvents,
-		},
-		{
-			Name:    "juno_subscribeNewHeads",
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{
@@ -512,7 +510,8 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersionV0_7,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{
