@@ -1,9 +1,7 @@
 package rpc_test
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -110,6 +108,7 @@ func TestStorageProof(t *testing.T) {
 		key         = new(felt.Felt).SetUint64(1)
 		noSuchKey   = new(felt.Felt).SetUint64(0)
 		value       = new(felt.Felt).SetUint64(51)
+		blockLatest = rpc.BlockID{Latest: true}
 		blockNumber = uint64(1313)
 		nopCloser   = func() error {
 			return nil
@@ -141,7 +140,19 @@ func TestStorageProof(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, nil, "", log)
 
-	blockLatest := rpc.BlockID{Latest: true}
+	verifyIf := func(proof []*rpc.HashToNode, key *felt.Felt, value *felt.Felt) {
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		pnodes := []trie.ProofNode{}
+		for _, hn := range proof {
+			pnodes = append(pnodes, hn.Node.AsProofNode())
+		}
+
+		kbs := key.Bytes()
+		kkey := trie.NewKey(251, kbs[:])
+		require.True(t, trie.VerifyProof(root, &kkey, value, pnodes, tempTrie.HashFunc()))
+	}
 
 	t.Run("Trie proofs sanity check", func(t *testing.T) {
 		kbs := key.Bytes()
@@ -151,6 +162,13 @@ func TestStorageProof(t *testing.T) {
 		root, err := tempTrie.Root()
 		require.NoError(t, err)
 		require.True(t, trie.VerifyProof(root, &kKey, value, proof, tempTrie.HashFunc()))
+
+		// non-membership test
+		kbs = noSuchKey.Bytes()
+		kKey = trie.NewKey(251, kbs[:])
+		proof, err = trie.GetProof(&kKey, tempTrie)
+		require.NoError(t, err)
+		require.True(t, trie.VerifyProof(root, &kKey, nil, proof, tempTrie.HashFunc()))
 	})
 	t.Run("global roots are filled", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
@@ -167,62 +185,60 @@ func TestStorageProof(t *testing.T) {
 		assert.Equal(t, rpc.ErrBlockNotRecentForProof, rpcErr)
 		require.Nil(t, proof)
 	})
-	t.Run("no error when blknum matches head", func(t *testing.T) {
+	t.Run("error is returned even when blknum matches head", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber}, nil, nil, nil)
-		assert.Nil(t, rpcErr)
+		assert.Equal(t, rpc.ErrBlockNotRecentForProof, rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("empty request", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
+		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
+		arityTest(t, proof, 0, 0, 0, 0)
 	})
 	t.Run("class trie hash does not exist in a trie", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*noSuchKey}, nil, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
-		require.NotNil(t, proof.ClassesProof)
-		require.True(t, len(proof.ClassesProof) > 0)
+		arityTest(t, proof, 3, 0, 0, 0)
+		verifyIf(proof.ClassesProof, noSuchKey, nil)
 	})
 	t.Run("class trie hash exists in a trie", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, nil, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
-		require.True(t, len(proof.ClassesProof) > 0)
-		require.Len(t, proof.ContractsStorageProofs, 0)
-		require.NotNil(t, proof.ContractsProof)
-		require.Len(t, proof.ContractsProof.Nodes, 0)
-		jsonStr, err := json.Marshal(proof)
-		require.NoError(t, err)
-		fmt.Println(string(jsonStr))
+		arityTest(t, proof, 3, 0, 0, 0)
+		verifyIf(proof.ClassesProof, key, value)
 	})
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
-		mockState.EXPECT().ContractNonce(noSuchKey).Return(nil, db.ErrKeyNotFound)
-		mockState.EXPECT().ContractClassHash(noSuchKey).Return(nil, db.ErrKeyNotFound)
+		mockState.EXPECT().ContractNonce(noSuchKey).Return(nil, db.ErrKeyNotFound).Times(1)
+		mockState.EXPECT().ContractClassHash(noSuchKey).Return(nil, db.ErrKeyNotFound).Times(0)
 
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, []felt.Felt{*noSuchKey}, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
-		require.Len(t, proof.ClassesProof, 0)
-		require.Len(t, proof.ContractsStorageProofs, 0)
-		require.NotNil(t, proof.ContractsProof)
-		require.True(t, len(proof.ContractsProof.Nodes) > 0)
-		require.Len(t, proof.ContractsProof.LeavesData, 1)
+		arityTest(t, proof, 0, 3, 1, 0)
 		require.Nil(t, proof.ContractsProof.LeavesData[0])
+
+		verifyIf(proof.ContractsProof.Nodes, noSuchKey, nil)
 	})
 	t.Run("storage trie address exists in a trie", func(t *testing.T) {
 		nonce := new(felt.Felt).SetUint64(121)
-		mockState.EXPECT().ContractNonce(key).Return(nonce, nil)
+		mockState.EXPECT().ContractNonce(key).Return(nonce, nil).Times(1)
 		classHasah := new(felt.Felt).SetUint64(1234)
-		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil)
+		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil).Times(1)
 
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
-		require.Len(t, proof.ClassesProof, 0)
-		require.Len(t, proof.ContractsStorageProofs, 0)
-		require.NotNil(t, proof.ContractsProof)
-		require.True(t, len(proof.ContractsProof.Nodes) > 0)
-		require.Len(t, proof.ContractsProof.LeavesData, 1)
+		arityTest(t, proof, 0, 3, 1, 0)
+
 		require.NotNil(t, proof.ContractsProof.LeavesData[0])
 		ld := proof.ContractsProof.LeavesData[0]
 		require.Equal(t, nonce, ld.Nonce)
 		require.Equal(t, classHasah, ld.ClassHash)
+
+		verifyIf(proof.ContractsProof.Nodes, key, value)
 	})
 	t.Run("contract storage trie address does not exist in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xdead")
@@ -232,10 +248,7 @@ func TestStorageProof(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
 		require.NotNil(t, proof)
 		require.Nil(t, rpcErr)
-		require.Len(t, proof.ClassesProof, 0)
-		require.NotNil(t, proof.ContractsProof)
-		require.Len(t, proof.ContractsProof.Nodes, 0)
-		require.Len(t, proof.ContractsStorageProofs, 1)
+		arityTest(t, proof, 0, 0, 0, 1)
 		require.Len(t, proof.ContractsStorageProofs[0], 0)
 	})
 	t.Run("contract storage trie key slot does not exist in a trie", func(t *testing.T) {
@@ -246,11 +259,10 @@ func TestStorageProof(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
 		require.NotNil(t, proof)
 		require.Nil(t, rpcErr)
-		require.Len(t, proof.ClassesProof, 0)
-		require.NotNil(t, proof.ContractsProof)
-		require.Len(t, proof.ContractsProof.Nodes, 0)
-		require.Len(t, proof.ContractsStorageProofs, 1)
-		require.True(t, len(proof.ContractsStorageProofs[0]) > 0)
+		arityTest(t, proof, 0, 0, 0, 1)
+		require.Len(t, proof.ContractsStorageProofs[0], 3)
+
+		verifyIf(proof.ContractsStorageProofs[0], noSuchKey, nil)
 	})
 	t.Run("contract storage trie address/key exists in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xabcd")
@@ -260,11 +272,10 @@ func TestStorageProof(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
 		require.NotNil(t, proof)
 		require.Nil(t, rpcErr)
-		require.Len(t, proof.ClassesProof, 0)
-		require.NotNil(t, proof.ContractsProof)
-		require.Len(t, proof.ContractsProof.Nodes, 0)
-		require.Len(t, proof.ContractsStorageProofs, 1)
-		require.True(t, len(proof.ContractsStorageProofs[0]) > 0)
+		arityTest(t, proof, 0, 0, 0, 1)
+		require.Len(t, proof.ContractsStorageProofs[0], 3)
+
+		verifyIf(proof.ContractsStorageProofs[0], key, value)
 	})
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
 		nonce := new(felt.Felt).SetUint64(121)
@@ -275,12 +286,22 @@ func TestStorageProof(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
-		require.True(t, len(proof.ClassesProof) > 0)
-		require.Len(t, proof.ContractsStorageProofs, 0)
-		require.NotNil(t, proof.ContractsProof)
-		require.True(t, len(proof.ContractsProof.Nodes) > 0)
-		require.Len(t, proof.ContractsProof.LeavesData, 1)
+		arityTest(t, proof, 3, 3, 1, 0)
 	})
+}
+
+func arityTest(t *testing.T,
+	proof *rpc.StorageProofResult,
+	classesProofArity int,
+	contractsProofNodesArity int,
+	contractsProofLeavesArity int,
+	contractStorageArity int,
+) {
+	require.Len(t, proof.ClassesProof, classesProofArity)
+	require.Len(t, proof.ContractsStorageProofs, contractStorageArity)
+	require.NotNil(t, proof.ContractsProof)
+	require.Len(t, proof.ContractsProof.Nodes, contractsProofNodesArity)
+	require.Len(t, proof.ContractsProof.LeavesData, contractsProofLeavesArity)
 }
 
 func emptyTrie(t *testing.T) *trie.Trie {

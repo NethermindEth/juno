@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"errors"
-
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -49,7 +48,7 @@ func (h *Handler) StorageProof(id BlockID, classes, contracts []felt.Felt, stora
 		return nil, ErrInternal.CloneWithData(err)
 	}
 
-	if !(id.Latest || head.Number == id.Number) {
+	if !id.Latest {
 		return nil, ErrBlockNotRecentForProof
 	}
 
@@ -91,12 +90,22 @@ type StorageKeys struct {
 
 // MerkleNode represents a proof node in a trie
 // https://github.com/starkware-libs/starknet-specs/blob/647caa00c0223e1daab1b2f3acc4e613ba2138aa/api/starknet_api_openrpc.json#L3632
-type MerkleNode interface{}
+// Implemented by MerkleBinaryNode, MerkleEdgeNode
+type MerkleNode interface {
+	AsProofNode() trie.ProofNode
+}
 
 // https://github.com/starkware-libs/starknet-specs/blob/647caa00c0223e1daab1b2f3acc4e613ba2138aa/api/starknet_api_openrpc.json#L3644
 type MerkleBinaryNode struct {
 	Left  *felt.Felt `json:"left"`
 	Right *felt.Felt `json:"right"`
+}
+
+func (mbn *MerkleBinaryNode) AsProofNode() trie.ProofNode {
+	return &trie.Binary{
+		LeftHash:  mbn.Left,
+		RightHash: mbn.Right,
+	}
 }
 
 // TODO[pnowosie]: link to specs
@@ -106,7 +115,16 @@ type MerkleEdgeNode struct {
 	Child  *felt.Felt `json:"child"`
 }
 
-// TODO[pnowosie]: link to specs
+func (men *MerkleEdgeNode) AsProofNode() trie.ProofNode {
+	pbs := men.Path.Bytes()
+	path := trie.NewKey(uint8(men.Length), pbs[:])
+	return &trie.Edge{
+		Path:  &path,
+		Child: men.Child,
+	}
+}
+
+// TODO[pnowosie]: link to specs, but hoping for removal
 type MerkleLeafNode struct {
 	Value *felt.Felt `json:"value"`
 }
@@ -146,13 +164,13 @@ type StorageProofResult struct {
 }
 
 func getClassesProof(reader core.StateReader, classes []felt.Felt) ([]*HashToNode, error) {
-	ctrie, _, err := reader.ClassTrie()
+	cTrie, _, err := reader.ClassTrie()
 	if err != nil {
 		return nil, err
 	}
 	result := []*HashToNode{}
 	for _, class := range classes {
-		nodes, err := getProof(ctrie, &class)
+		nodes, err := getProof(cTrie, &class)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +180,7 @@ func getClassesProof(reader core.StateReader, classes []felt.Felt) ([]*HashToNod
 }
 
 func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*ContractProof, error) {
-	strie, _, err := reader.StorageTrie()
+	sTrie, _, err := reader.StorageTrie()
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +197,7 @@ func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*Contrac
 		}
 		result.LeavesData = append(result.LeavesData, leafData)
 
-		nodes, err := getProof(strie, &contract)
+		nodes, err := getProof(sTrie, &contract)
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +230,7 @@ func getContractsStorageProofs(reader core.StateReader, keys []StorageKeys) ([][
 	result := make([][]*HashToNode, 0, len(keys))
 
 	for _, key := range keys {
-		cstrie, err := reader.StorageTrieForAddr(&key.Contract)
+		csTrie, err := reader.StorageTrieForAddr(&key.Contract)
 		if err != nil {
 			// Note: if contract does not exist, `StorageTrieForAddr()` returns an empty trie, not an error
 			return nil, err
@@ -220,7 +238,7 @@ func getContractsStorageProofs(reader core.StateReader, keys []StorageKeys) ([][
 
 		nodes := []*HashToNode{}
 		for _, slot := range key.Keys {
-			proof, err := getProof(cstrie, &slot)
+			proof, err := getProof(csTrie, &slot)
 			if err != nil {
 				return nil, err
 			}
