@@ -1,9 +1,13 @@
 package rpc
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 )
 
@@ -44,6 +48,10 @@ func (h *Handler) StorageProof(id BlockID, classes, contracts []felt.Felt, stora
 	head, err := h.bcReader.Head()
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
+	}
+
+	if !(id.Latest || head.Number == id.Number) {
+		return nil, ErrBlockNotRecentForProof
 	}
 
 	storageRoot, classRoot, err := stateReader.StateAndClassRoot()
@@ -166,12 +174,7 @@ func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*Contrac
 	}
 
 	for _, contract := range contracts {
-		leafData := &LeafData{}
-		leafData.Nonce, err = reader.ContractNonce(&contract)
-		if err != nil {
-			return nil, err
-		}
-		leafData.ClassHash, err = reader.ContractClassHash(&contract)
+		leafData, err := addLeafDataIfExists(reader, &contract)
 		if err != nil {
 			return nil, err
 		}
@@ -187,6 +190,25 @@ func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*Contrac
 	return result, nil
 }
 
+func addLeafDataIfExists(reader core.StateReader, contract *felt.Felt) (*LeafData, error) {
+	nonce, err := reader.ContractNonce(contract)
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	classHash, err := reader.ContractClassHash(contract)
+	if err != nil {
+		return nil, err
+	}
+
+	return &LeafData{
+		Nonce:     nonce,
+		ClassHash: classHash,
+	}, nil
+}
+
 func getContractsStorageProofs(reader core.StateReader, keys []StorageKeys) ([][]*HashToNode, error) {
 	result := make([][]*HashToNode, 0, len(keys))
 
@@ -196,8 +218,8 @@ func getContractsStorageProofs(reader core.StateReader, keys []StorageKeys) ([][
 			// Note: if contract does not exist, `StorageTrieForAddr()` returns an empty trie, not an error
 			return nil, err
 		}
+
 		nodes := []*HashToNode{}
-		result = append(result, nodes)
 		for _, slot := range key.Keys {
 			proof, err := getProof(cstrie, &slot)
 			if err != nil {
@@ -205,6 +227,7 @@ func getContractsStorageProofs(reader core.StateReader, keys []StorageKeys) ([][
 			}
 			nodes = append(nodes, proof...)
 		}
+		result = append(result, nodes)
 	}
 
 	return result, nil
@@ -214,6 +237,10 @@ func getProof(t *trie.Trie, elt *felt.Felt) ([]*HashToNode, error) {
 	feltBytes := elt.Bytes()
 	key := trie.NewKey(core.ContractStorageTrieHeight, feltBytes[:])
 	nodes, err := trie.GetProof(&key, t)
+	for i, n := range nodes {
+		fmt.Printf("[%d]", i)
+		n.PrettyPrint()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +257,8 @@ func getProof(t *trie.Trie, elt *felt.Felt) ([]*HashToNode, error) {
 			}
 		}
 		if edge, ok := node.(*trie.Edge); ok {
-			f := edge.Path.Felt()
+			path := edge.Path
+			f := path.Felt()
 			merkle = &MerkleEdgeNode{
 				Path:   &f, // TODO[pnowosie]: specs says its int
 				Length: int(edge.Len()),

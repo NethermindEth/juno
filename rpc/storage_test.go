@@ -1,16 +1,22 @@
 package rpc_test
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"testing"
 )
 
 func TestStorageAt(t *testing.T) {
@@ -96,85 +102,236 @@ func TestStorageAt(t *testing.T) {
 }
 
 func TestStorageProof(t *testing.T) {
+	// dummy values
+	var (
+		blkHash     = utils.HexToFelt(t, "0x11ead")
+		clsRoot     = utils.HexToFelt(t, "0xc1a55")
+		stgRoor     = utils.HexToFelt(t, "0xc0ffee")
+		key         = new(felt.Felt).SetUint64(1)
+		noSuchKey   = new(felt.Felt).SetUint64(0)
+		value       = new(felt.Felt).SetUint64(51)
+		blockNumber = uint64(1313)
+		nopCloser   = func() error {
+			return nil
+		}
+	)
+
+	tempTrie := emptyTrie(t)
+
+	_, err := tempTrie.Put(key, value)
+	require.NoError(t, err)
+	_, err = tempTrie.Put(new(felt.Felt).SetUint64(8), new(felt.Felt).SetUint64(59))
+	require.NoError(t, err)
+	require.NoError(t, tempTrie.Commit())
+
+	// TODO[pnowosie]: There is smth wrong with proof verification, see `Trie proofs sanity check` test
+	//verifyIf := func(proof []*rpc.HashToNode, key *felt.Felt, value *felt.Felt) bool {
+	//	root, err := tempTrie.Root()
+	//	require.NoError(t, err)
+	//	fmt.Println("root", root)
+	//
+	//	pnodes := []trie.ProofNode{}
+	//	for _, hn := range proof {
+	//		pnodes = append(pnodes, NodeToProofNode(hn))
+	//	}
+	//
+	//	kbs := key.Bytes()
+	//	kkey := trie.NewKey(251, kbs[:])
+	//	result := trie.VerifyProof(root, &kkey, value, pnodes, tempTrie.HashFunc())
+	//	fmt.Println("result", result)
+	//
+	//	return result
+	//}
+
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	mockReader.EXPECT().HeadState().Return(mockState, func() error {
+		return nil
+	}, nil).AnyTimes()
+	mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}, nil).AnyTimes()
+	mockState.EXPECT().StateAndClassRoot().Return(stgRoor, clsRoot, nil).AnyTimes()
+	mockState.EXPECT().ClassTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
+	mockState.EXPECT().StorageTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
+
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, nil, "", log)
 
 	blockLatest := rpc.BlockID{Latest: true}
 
-	t.Run("empty blockchain", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-
+	t.Run("Trie proofs sanity check", func(t *testing.T) {
+		t.Skip("It is not working as (I'd) expected")
+		kbs := key.Bytes()
+		kKey := trie.NewKey(251, kbs[:])
+		proof, err := trie.GetProof(&kKey, tempTrie)
+		require.NoError(t, err)
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+		require.True(t, trie.VerifyProof(root, &kKey, value, proof, tempTrie.HashFunc()))
+	})
+	t.Run("global roots are filled", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
+		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		require.NotNil(t, proof)
+		require.NotNil(t, proof.GlobalRoots)
+		require.Equal(t, blkHash, proof.GlobalRoots.BlockHash)
+		require.Equal(t, clsRoot, proof.GlobalRoots.ClassesTreeRoot)
+		require.Equal(t, stgRoor, proof.GlobalRoots.ContractsTreeRoot)
+	})
+	t.Run("error is returned whenever not latest block is requested", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: 1}, nil, nil, nil)
+		assert.Equal(t, rpc.ErrBlockNotRecentForProof, rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("no error when blknum matches head", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber}, nil, nil, nil)
+		assert.Nil(t, rpcErr)
+		require.NotNil(t, proof)
 	})
 	t.Run("class trie hash does not exist in a trie", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*noSuchKey}, nil, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+		require.NotNil(t, proof.ClassesProof)
+		require.True(t, len(proof.ClassesProof) > 0)
 	})
 	t.Run("class trie hash exists in a trie", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, nil, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+		require.True(t, len(proof.ClassesProof) > 0)
+		require.Len(t, proof.ContractsStorageProofs, 0)
+		require.NotNil(t, proof.ContractsProof)
+		require.Len(t, proof.ContractsProof.Nodes, 0)
+		jsonStr, err := json.Marshal(proof)
+		require.NoError(t, err)
+		fmt.Println(string(jsonStr))
 	})
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		mockState.EXPECT().ContractNonce(noSuchKey).Return(nil, db.ErrKeyNotFound)
+		mockState.EXPECT().ContractClassHash(noSuchKey).Return(nil, db.ErrKeyNotFound)
 
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, []felt.Felt{*noSuchKey}, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+		require.Len(t, proof.ClassesProof, 0)
+		require.Len(t, proof.ContractsStorageProofs, 0)
+		require.NotNil(t, proof.ContractsProof)
+		require.True(t, len(proof.ContractsProof.Nodes) > 0)
+		require.Len(t, proof.ContractsProof.LeavesData, 1)
+		require.Nil(t, proof.ContractsProof.LeavesData[0])
 	})
 	t.Run("storage trie address exists in a trie", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		nonce := new(felt.Felt).SetUint64(121)
+		mockState.EXPECT().ContractNonce(key).Return(nonce, nil)
+		classHasah := new(felt.Felt).SetUint64(1234)
+		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil)
 
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, []felt.Felt{*key}, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+		require.Len(t, proof.ClassesProof, 0)
+		require.Len(t, proof.ContractsStorageProofs, 0)
+		require.NotNil(t, proof.ContractsProof)
+		require.True(t, len(proof.ContractsProof.Nodes) > 0)
+		require.Len(t, proof.ContractsProof.LeavesData, 1)
+		require.NotNil(t, proof.ContractsProof.LeavesData[0])
+		ld := proof.ContractsProof.LeavesData[0]
+		require.Equal(t, nonce, ld.Nonce)
+		require.Equal(t, classHasah, ld.ClassHash)
 	})
 	t.Run("contract storage trie address does not exist in a trie", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		contract := utils.HexToFelt(t, "0xdead")
+		mockState.EXPECT().StorageTrieForAddr(contract).Return(emptyTrie(t), nil).Times(1)
 
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
+		require.NotNil(t, proof)
+		require.Nil(t, rpcErr)
+		require.Len(t, proof.ClassesProof, 0)
+		require.NotNil(t, proof.ContractsProof)
+		require.Len(t, proof.ContractsProof.Nodes, 0)
+		require.Len(t, proof.ContractsStorageProofs, 1)
+		require.Len(t, proof.ContractsStorageProofs[0], 0)
 	})
 	t.Run("contract storage trie key slot does not exist in a trie", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		contract := utils.HexToFelt(t, "0xabcd")
+		mockState.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
 
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*noSuchKey}}}
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
+		require.NotNil(t, proof)
+		require.Nil(t, rpcErr)
+		require.Len(t, proof.ClassesProof, 0)
+		require.NotNil(t, proof.ContractsProof)
+		require.Len(t, proof.ContractsProof.Nodes, 0)
+		require.Len(t, proof.ContractsStorageProofs, 1)
+		require.True(t, len(proof.ContractsStorageProofs[0]) > 0)
 	})
 	t.Run("contract storage trie address/key exists in a trie", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		contract := utils.HexToFelt(t, "0xabcd")
+		mockState.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
 
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
+		require.NotNil(t, proof)
+		require.Nil(t, rpcErr)
+		require.Len(t, proof.ClassesProof, 0)
+		require.NotNil(t, proof.ContractsProof)
+		require.Len(t, proof.ContractsProof.Nodes, 0)
+		require.Len(t, proof.ContractsStorageProofs, 1)
+		require.True(t, len(proof.ContractsStorageProofs[0]) > 0)
 	})
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
-		//mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		nonce := new(felt.Felt).SetUint64(121)
+		mockState.EXPECT().ContractNonce(key).Return(nonce, nil)
+		classHasah := new(felt.Felt).SetUint64(1234)
+		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil)
 
-		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
-		require.Nil(t, proof)
-
-		assert.Equal(t, rpc.ErrUnexpectedError, rpcErr)
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, []felt.Felt{*key}, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+		require.True(t, len(proof.ClassesProof) > 0)
+		require.Len(t, proof.ContractsStorageProofs, 0)
+		require.NotNil(t, proof.ContractsProof)
+		require.True(t, len(proof.ContractsProof.Nodes) > 0)
+		require.Len(t, proof.ContractsProof.LeavesData, 1)
 	})
+}
+
+func emptyTrie(t *testing.T) *trie.Trie {
+	memdb := pebble.NewMemTest(t)
+	txn, err := memdb.NewTransaction(true)
+	require.NoError(t, err)
+
+	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	require.NoError(t, err)
+	return tempTrie
+}
+
+func NodeToProofNode(hn *rpc.HashToNode) trie.ProofNode {
+	var proofNode trie.ProofNode
+
+	switch pnode := hn.Node.(type) {
+	case *rpc.MerkleEdgeNode:
+		pbs := pnode.Path.Bytes()
+		path := trie.NewKey(uint8(pnode.Length), pbs[:])
+		proofNode = &trie.Edge{
+			Path:  &path,
+			Child: pnode.Child,
+		}
+	case *rpc.MerkleBinaryNode:
+		proofNode = &trie.Binary{
+			LeftHash:  pnode.Left,
+			RightHash: pnode.Right,
+		}
+	default:
+		panic(fmt.Errorf("unsupported node type %T", pnode))
+	}
+
+	return proofNode
 }

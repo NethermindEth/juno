@@ -42,6 +42,8 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
+
+	// NOTE: Not a best way to add them here - it assumes current state and atm cannot be implemented for hitsrical states
 	ClassTrie() (*trie.Trie, func() error, error)
 	StorageTrie() (*trie.Trie, func() error, error)
 	StorageTrieForAddr(addr *felt.Felt) (*trie.Trie, error)
