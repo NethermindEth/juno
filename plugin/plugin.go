@@ -1,12 +1,42 @@
 package junoplugin
 
 import (
+	"context"
 	"fmt"
 	"plugin"
+	"sync"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
+
+type PluginService struct {
+	plugin JunoPlugin
+	wg     sync.WaitGroup
+	log    utils.SimpleLogger
+}
+
+func New(log utils.SimpleLogger) *PluginService {
+	return &PluginService{wg: sync.WaitGroup{}, log: log}
+}
+
+func (p *PluginService) WithPlugin(plugin JunoPlugin) {
+	p.plugin = plugin
+}
+
+func (p *PluginService) Run(ctx context.Context) error {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		<-ctx.Done()
+		if err := p.plugin.Shutdown(); err != nil {
+			p.log.Errorw("Error while calling plugin Shutdown() function", "err", err)
+		}
+	}()
+	p.wg.Wait()
+	return nil
+}
 
 //go:generate mockgen -destination=../mocks/mock_plugin.go -package=mocks github.com/NethermindEth/juno/plugin JunoPlugin
 type JunoPlugin interface {
