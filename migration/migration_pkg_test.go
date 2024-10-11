@@ -193,7 +193,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
-	for i := uint64(0); i <= 6; i++ { // First l1 hander is in block 6
+	for i := uint64(0); i <= 6; i++ { // First l1 handler txn is in block 6
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 		su, err := gw.StateUpdate(context.Background(), i)
@@ -201,13 +201,21 @@ func TestL1HandlerTxns(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
+	msgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+
+	// Delete the L1 handler txn hash from the database
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		return txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(msgHash.Bytes()))
+	}))
+
+	// Ensure the key has been deleted
+	_, err := chain.L1HandlerTxnHash(&msgHash)
+	require.Error(t, err)
+
+	// Recalculate and store the L1 message hashes
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		return calculateL1MsgHashes(txn, &utils.Sepolia)
 	}))
-
-	msgHash := common.HexToHash("0xcoffee")
-	_, err := chain.L1HandlerTxnHash(&msgHash)
-	require.EqualError(t, err, db.ErrKeyNotFound.Error())
 
 	msgHash = common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&msgHash)
