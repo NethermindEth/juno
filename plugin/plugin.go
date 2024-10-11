@@ -12,17 +12,17 @@ import (
 )
 
 type PluginService struct {
-	plugin JunoPlugin
-	wg     sync.WaitGroup
-	log    utils.SimpleLogger
+	jPlugin JunoPlugin
+	wg      sync.WaitGroup
+	log     utils.SimpleLogger
 }
 
 func New(log utils.SimpleLogger) *PluginService {
 	return &PluginService{wg: sync.WaitGroup{}, log: log}
 }
 
-func (p *PluginService) WithPlugin(plugin JunoPlugin) {
-	p.plugin = plugin
+func (p *PluginService) WithPlugin(jPlugin JunoPlugin) {
+	p.jPlugin = jPlugin
 }
 
 func (p *PluginService) Run(ctx context.Context) error {
@@ -30,7 +30,7 @@ func (p *PluginService) Run(ctx context.Context) error {
 	go func() {
 		defer p.wg.Done()
 		<-ctx.Done()
-		if err := p.plugin.Shutdown(); err != nil {
+		if err := p.jPlugin.Shutdown(); err != nil {
 			p.log.Errorw("Error while calling plugin Shutdown() function", "err", err)
 		}
 	}()
