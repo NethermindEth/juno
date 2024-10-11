@@ -436,7 +436,7 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, 
 	return nil, iterator.Close()
 }
 
-func processBlocks(txn db.Transaction, n *utils.Network, processBlock func(uint64) error) error {
+func processBlocks(txn db.Transaction, processBlock func(uint64) error) error {
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
@@ -480,7 +480,7 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 		}
 		return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
 	}
-	return processBlocks(txn, network, processBlockFunc)
+	return processBlocks(txn, processBlockFunc)
 }
 
 func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
@@ -491,7 +491,7 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 		}
 		return blockchain.StoreL1HandlerMsgHashes(txn, txns)
 	}
-	return processBlocks(txn, n, processBlockFunc)
+	return processBlocks(txn, processBlockFunc)
 }
 
 func bitset2Key(bs *bitset.BitSet) *trie.Key {
