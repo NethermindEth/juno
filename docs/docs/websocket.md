@@ -153,7 +153,60 @@ When a new block is added, you will receive a message like this:
 }
 ```
 
-## Unsubscribe from newly created blocks
+## Subscribe to transaction status changes
+
+The WebSocket server provides a `starknet_subscribeTransactionStatus` method that emits an event when a transaction status changes:
+
+<Tabs>
+<TabItem value="request" label="Request">
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribeTransactionStatus",
+  "params": [
+    {
+      "transaction_hash": "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df"
+    }
+  ],
+  "id": 1
+}
+```
+
+</TabItem>
+<TabItem value="response" label="Response">
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": 16570962336122680234,
+  "id": 1
+}
+```
+
+</TabItem>
+</Tabs>
+
+When a transaction get a new status, you will receive a message like this:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscriptionTransactionsStatus",
+  "params": {
+    "result": {
+      "transaction_hash": "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
+      "status": {
+        "finality_status": "ACCEPTED_ON_L2",
+        "execution_status": "SUCCEEDED"
+      }
+    },
+    "subscription_id": 16570962336122680234
+  }
+}
+```
+
+## Unsubscribe from previous subscription
 
 Use the `juno_unsubscribe` method with the `result` value from the subscription response or the `subscription` field from any new block event to stop receiving updates for new blocks:
 

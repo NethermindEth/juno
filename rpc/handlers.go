@@ -98,6 +98,7 @@ type Handler struct {
 	newHeads   *feed.Feed[*core.Header]
 	reorgs     *feed.Feed[*sync.ReorgData]
 	pendingTxs *feed.Feed[[]core.Transaction]
+	txnStatus  *feed.Feed[*NewTransactionStatus]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -140,6 +141,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		newHeads:      feed.New[*core.Header](),
 		reorgs:        feed.New[*sync.ReorgData](),
 		pendingTxs:    feed.New[[]core.Transaction](),
+		txnStatus:     feed.New[*NewTransactionStatus](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -364,6 +366,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_subscribePendingTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
 			Handler: h.SubscribePendingTxs,
+		},
+		{
+			Name:    "starknet_subscribeTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block", Optional: true}},
+			Handler: h.SubscribeTxnStatus,
 		},
 		{
 			Name:    "juno_unsubscribe",
