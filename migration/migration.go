@@ -450,7 +450,7 @@ func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) er
 	}
 	blockNumbers := make(chan uint64, 1024) //nolint:mnd
 	go func() {
-		for bNumber := range chainHeight {
+		for bNumber := range chainHeight + 1 {
 			blockNumbers <- bNumber
 		}
 		close(blockNumbers)
@@ -467,15 +467,6 @@ func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) er
 		})
 	}
 	return workerPool.Wait()
-	// This causes the transaction to be discarded
-	// err = workerPool.Wait()
-	// if err != nil {
-	// 	return err
-	// }
-	// txnLock.Lock()
-	// err = txn.Commit()
-	// txnLock.Unlock()
-	// return err
 }
 
 // calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
