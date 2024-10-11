@@ -11,6 +11,11 @@ on:
       - starknet/compiler/rust/*
   workflow_dispatch:
 
+
+permissions:
+  issues: write # Required for sending comments
+  pull-requests: write # Required for sending comments
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
