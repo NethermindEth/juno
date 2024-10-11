@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,15 +24,11 @@ import (
 
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
-type Backoff func(wait time.Duration) time.Duration
-
 type Client struct {
 	url        string
 	client     *http.Client
-	backoff    Backoff
+	backoff    utils.Backoff
 	maxRetries int
-	maxWait    time.Duration
-	minWait    time.Duration
 	log        utils.SimpleLogger
 	userAgent  string
 	apiKey     string
@@ -43,23 +40,13 @@ func (c *Client) WithListener(l EventListener) *Client {
 	return c
 }
 
-func (c *Client) WithBackoff(b Backoff) *Client {
+func (c *Client) WithBackoff(b utils.Backoff) *Client {
 	c.backoff = b
 	return c
 }
 
 func (c *Client) WithMaxRetries(num int) *Client {
 	c.maxRetries = num
-	return c
-}
-
-func (c *Client) WithMaxWait(d time.Duration) *Client {
-	c.maxWait = d
-	return c
-}
-
-func (c *Client) WithMinWait(d time.Duration) *Client {
-	c.minWait = d
 	return c
 }
 
@@ -83,14 +70,6 @@ func (c *Client) WithAPIKey(key string) *Client {
 	return c
 }
 
-func ExponentialBackoff(wait time.Duration) time.Duration {
-	return wait * 2
-}
-
-func NopBackoff(d time.Duration) time.Duration {
-	return 0
-}
-
 // NewTestClient returns a client and a function to close a test server.
 func NewTestClient(t *testing.T, network *utils.Network) *Client {
 	srv := newTestServer(t, network)
@@ -98,7 +77,7 @@ func NewTestClient(t *testing.T, network *utils.Network) *Client {
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	apiKey := "API_KEY"
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
+	c := NewClient(srv.URL).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -200,10 +179,8 @@ func NewClient(clientURL string) *Client {
 	return &Client{
 		url:        clientURL,
 		client:     http.DefaultClient,
-		backoff:    ExponentialBackoff,
-		maxRetries: 10, // ~40 secs with default backoff and maxWait (block time on mainnet is 20 seconds on average)
-		maxWait:    4 * time.Second,
-		minWait:    time.Second,
+		backoff:    utils.NewNopBackoff(),
+		maxRetries: 20,
 		log:        utils.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
 	}
@@ -231,46 +208,36 @@ func (c *Client) buildQueryString(endpoint string, args map[string]string) strin
 func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error) {
 	var res *http.Response
 	var err error
-	wait := time.Duration(0)
 	for i := 0; i <= c.maxRetries; i++ {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(wait):
-			var req *http.Request
-			req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
-			if err != nil {
-				return nil, err
-			}
-			if c.userAgent != "" {
-				req.Header.Set("User-Agent", c.userAgent)
-			}
-			if c.apiKey != "" {
-				req.Header.Set("X-Throttling-Bypass", c.apiKey)
-			}
-
-			reqTimer := time.Now()
-			res, err = c.client.Do(req)
-			if err == nil {
-				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
-				if res.StatusCode == http.StatusOK {
-					return res.Body, nil
-				} else {
-					err = errors.New(res.Status)
-				}
-
-				res.Body.Close()
-			}
-
-			if wait < c.minWait {
-				wait = c.minWait
-			}
-			wait = c.backoff(wait)
-			if wait > c.maxWait {
-				wait = c.maxWait
-			}
-			c.log.Debugw("Failed query to feeder, retrying...", "req", req.URL.String(), "retryAfter", wait.String(), "err", err)
+		var req *http.Request
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, queryURL, http.NoBody)
+		if err != nil {
+			return nil, err
 		}
+		if c.userAgent != "" {
+			req.Header.Set("User-Agent", c.userAgent)
+		}
+		if c.apiKey != "" {
+			req.Header.Set("X-Throttling-Bypass", c.apiKey)
+		}
+
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		reqTimer := time.Now()
+		res, err = c.client.Do(req)
+		if err == nil {
+			c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
+			if res.StatusCode == http.StatusOK {
+				c.backoff.BackOff(ctx, err)
+				return res.Body, nil
+			}
+			err = errors.New(res.Status)
+			res.Body.Close()
+		}
+		c.log.Debugw("Failed query to feeder, retrying...",
+			"req", req.URL.String(), "attempt", fmt.Sprintf("%d/%d", i+1, c.maxRetries+1), "err", err)
+		c.backoff.BackOff(ctx, err)
 	}
 	return nil, err
 }
