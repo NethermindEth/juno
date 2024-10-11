@@ -20,6 +20,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bitset"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -179,12 +180,39 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		return calculateBlockCommitments(txn, &utils.Mainnet)
 	}))
-
 	for i := uint64(0); i < 3; i++ {
 		b, err := chain.BlockCommitmentsByNumber(i)
 		require.NoError(t, err)
 		assert.NotNil(t, b.TransactionCommitment)
 	}
+}
+
+func TestL1HandlerTxns(t *testing.T) {
+	testdb := pebble.NewMemTest(t)
+	chain := blockchain.New(testdb, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	for i := uint64(0); i <= 6; i++ { // First l1 hander is in block 6
+		b, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+	}
+
+	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+		return calculateL1MsgHashes(txn, &utils.Sepolia)
+	}))
+
+	msgHash := common.HexToHash("0xcoffee")
+	_, err := chain.L1HandlerTxnHash(&msgHash)
+	require.EqualError(t, err, db.ErrKeyNotFound.Error())
+
+	msgHash = common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&msgHash)
+	require.NoError(t, err)
+	assert.Equal(t, l1HandlerTxnHash.String(), "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5")
 }
 
 func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
