@@ -189,9 +189,6 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 }
 
 func (s *Synchronizer) handlePluginRevertBlock() {
-	if s.plugin == nil {
-		return
-	}
 	fromBlock, err := s.blockchain.Head()
 	if err != nil {
 		s.log.Warnw("Failed to retrieve the reverted blockchain head block for the plugin", "err", err)
@@ -207,23 +204,27 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 		s.log.Warnw("Failed to retrieve reverse state diff", "head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)
 		return
 	}
-	var toBlock *core.Block
-	var toSU *core.StateUpdate
+
+	var toBlockAndStateUpdate *junoplugin.BlockAndStateUpdate
 	if fromBlock.Number != 0 {
-		toBlock, err = s.blockchain.BlockByHash(fromBlock.ParentHash)
+		toBlock, err := s.blockchain.BlockByHash(fromBlock.ParentHash)
 		if err != nil {
 			s.log.Warnw("Failed to retrieve the parent block for the plugin", "err", err)
 			return
 		}
-		toSU, err = s.blockchain.StateUpdateByNumber(toBlock.Number)
+		toSU, err := s.blockchain.StateUpdateByNumber(toBlock.Number)
 		if err != nil {
 			s.log.Warnw("Failed to retrieve the parents state-update for the plugin", "err", err)
 			return
 		}
+		toBlockAndStateUpdate = &junoplugin.BlockAndStateUpdate{
+			Block:       toBlock,
+			StateUpdate: toSU,
+		}
 	}
 	err = (s.plugin).RevertBlock(
 		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
-		&junoplugin.BlockAndStateUpdate{Block: toBlock, StateUpdate: toSU},
+		toBlockAndStateUpdate,
 		reverseStateDiff)
 	if err != nil {
 		s.log.Errorw("Plugin RevertBlock failure:", "err", err)
@@ -255,7 +256,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					// revert the head and restart the sync process, hoping that the reorg is not deep
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
 					// blocks
-					s.handlePluginRevertBlock()
+					if s.plugin != nil {
+						s.handlePluginRevertBlock()
+					}
 					s.revertHead(block)
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,
