@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"maps"
 	"runtime"
-	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -437,35 +436,7 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, 
 	return nil, iterator.Close()
 }
 
-// calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
-func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error {
-	var txnLock sync.RWMutex
-	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
-
-	for blockNumber := 0; ; blockNumber++ {
-		txnLock.RLock()
-		block, err := blockchain.BlockByNumber(txn, uint64(blockNumber))
-		txnLock.RUnlock()
-
-		if errors.Is(err, db.ErrKeyNotFound) {
-			break
-		}
-
-		workerPool.Go(func() error {
-			commitments, err := core.VerifyBlockHash(block, network, nil)
-			if err != nil {
-				return err
-			}
-			txnLock.Lock()
-			defer txnLock.Unlock()
-			return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
-		})
-	}
-
-	return workerPool.Wait()
-}
-
-func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
+func processBlocks(txn db.Transaction, n *utils.Network, processBlock func(uint64) error) error {
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
@@ -486,12 +457,7 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 	for range numOfWorkers {
 		workerPool.Go(func() error {
 			for bNumber := range blockNumbers {
-				txns, err := blockchain.TransactionsByBlockNumber(txn, bNumber)
-				if err != nil {
-					return err
-				}
-				err = blockchain.StoreL1HandlerMsgHashes(txn, txns)
-				if err != nil {
+				if err := processBlock(bNumber); err != nil {
 					return err
 				}
 			}
@@ -499,6 +465,33 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 		})
 	}
 	return workerPool.Wait()
+}
+
+// calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
+func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error {
+	processBlockFunc := func(blockNumber uint64) error {
+		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		if err != nil {
+			return err
+		}
+		commitments, err := core.VerifyBlockHash(block, network, nil)
+		if err != nil {
+			return err
+		}
+		return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
+	}
+	return processBlocks(txn, network, processBlockFunc)
+}
+
+func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
+	processBlockFunc := func(blockNumber uint64) error {
+		txns, err := blockchain.TransactionsByBlockNumber(txn, blockNumber)
+		if err != nil {
+			return err
+		}
+		return blockchain.StoreL1HandlerMsgHashes(txn, txns)
+	}
+	return processBlocks(txn, n, processBlockFunc)
 }
 
 func bitset2Key(bs *bitset.BitSet) *trie.Key {
