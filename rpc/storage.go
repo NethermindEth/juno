@@ -42,6 +42,10 @@ func (h *Handler) StorageProof(
 	classes, contracts []felt.Felt,
 	storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {
+	if !id.Latest {
+		return nil, ErrStorageProofNotSupported
+	}
+
 	stateReader, stateCloser, err := h.bcReader.HeadState()
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
@@ -53,11 +57,13 @@ func (h *Handler) StorageProof(
 		return nil, ErrInternal.CloneWithData(err)
 	}
 
-	if !id.Latest {
-		return nil, ErrBlockNotRecentForProof
+	trieReader, stateCloser2, err := h.bcReader.HeadTrie()
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
 	}
+	defer h.callAndLogErr(stateCloser2, "Error closing trie reader in getStorageProof")
 
-	storageRoot, classRoot, err := stateReader.StateAndClassRoot()
+	storageRoot, classRoot, err := trieReader.StateAndClassRoot()
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
 	}
@@ -70,15 +76,15 @@ func (h *Handler) StorageProof(
 		},
 	}
 
-	result.ClassesProof, err = getClassesProof(stateReader, classes)
+	result.ClassesProof, err = getClassesProof(trieReader, classes)
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
 	}
-	result.ContractsProof, err = getContractsProof(stateReader, contracts)
+	result.ContractsProof, err = getContractsProof(stateReader, trieReader, contracts)
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
 	}
-	result.ContractsStorageProofs, err = getContractsStorageProofs(stateReader, storageKeys)
+	result.ContractsStorageProofs, err = getContractsStorageProofs(trieReader, storageKeys)
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
 	}
@@ -113,25 +119,22 @@ func (mbn *MerkleBinaryNode) AsProofNode() trie.ProofNode {
 	}
 }
 
-// TODO[pnowosie]: link to specs
+// https://github.com/starkware-libs/starknet-specs/blob/8cf463b79ba1dd876f67c7f637e5ea48beb07b5b/api/starknet_api_openrpc.json#L3720
 type MerkleEdgeNode struct {
-	Path   *felt.Felt `json:"path"`
+	Path   string     `json:"path"`
 	Length int        `json:"length"`
 	Child  *felt.Felt `json:"child"`
 }
 
 func (men *MerkleEdgeNode) AsProofNode() trie.ProofNode {
-	pbs := men.Path.Bytes()
+	f, _ := new(felt.Felt).SetString(men.Path)
+	pbs := f.Bytes()
 	path := trie.NewKey(uint8(men.Length), pbs[:])
+
 	return &trie.Edge{
 		Path:  &path,
 		Child: men.Child,
 	}
-}
-
-// TODO[pnowosie]: link to specs, but hoping for removal
-type MerkleLeafNode struct {
-	Value *felt.Felt `json:"value"`
 }
 
 // HashToNode represents an item in `NODE_HASH_TO_NODE_MAPPING` specified here
@@ -141,26 +144,26 @@ type HashToNode struct {
 	Node MerkleNode `json:"node"`
 }
 
-// TODO[pnowosie]: link to specs
+// https://github.com/starkware-libs/starknet-specs/blob/8cf463b79ba1dd876f67c7f637e5ea48beb07b5b/api/starknet_api_openrpc.json#L986
 type LeafData struct {
 	Nonce     *felt.Felt `json:"nonce"`
 	ClassHash *felt.Felt `json:"class_hash"`
 }
 
-// TODO[pnowosie]: link to specs
+// https://github.com/starkware-libs/starknet-specs/blob/8cf463b79ba1dd876f67c7f637e5ea48beb07b5b/api/starknet_api_openrpc.json#L979
 type ContractProof struct {
 	Nodes      []*HashToNode `json:"nodes"`
 	LeavesData []*LeafData   `json:"contract_leaves_data"`
 }
 
-// TODO[pnowosie]: link to specs
+// https://github.com/starkware-libs/starknet-specs/blob/8cf463b79ba1dd876f67c7f637e5ea48beb07b5b/api/starknet_api_openrpc.json#L1011
 type GlobalRoots struct {
 	ContractsTreeRoot *felt.Felt `json:"contracts_tree_root"`
 	ClassesTreeRoot   *felt.Felt `json:"classes_tree_root"`
 	BlockHash         *felt.Felt `json:"block_hash"`
 }
 
-// TODO[pnowosie]: link to specs
+// https://github.com/starkware-libs/starknet-specs/blob/8cf463b79ba1dd876f67c7f637e5ea48beb07b5b/api/starknet_api_openrpc.json#L970
 type StorageProofResult struct {
 	ClassesProof           []*HashToNode   `json:"classes_proof"`
 	ContractsProof         *ContractProof  `json:"contracts_proof"`
@@ -168,7 +171,7 @@ type StorageProofResult struct {
 	GlobalRoots            *GlobalRoots    `json:"global_roots"`
 }
 
-func getClassesProof(reader core.StateReader, classes []felt.Felt) ([]*HashToNode, error) {
+func getClassesProof(reader core.TrieReader, classes []felt.Felt) ([]*HashToNode, error) {
 	cTrie, _, err := reader.ClassTrie()
 	if err != nil {
 		return nil, err
@@ -184,8 +187,8 @@ func getClassesProof(reader core.StateReader, classes []felt.Felt) ([]*HashToNod
 	return result, nil
 }
 
-func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*ContractProof, error) {
-	sTrie, _, err := reader.StorageTrie()
+func getContractsProof(stReader core.StateReader, trReader core.TrieReader, contracts []felt.Felt) (*ContractProof, error) {
+	sTrie, _, err := trReader.StorageTrie()
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +199,7 @@ func getContractsProof(reader core.StateReader, contracts []felt.Felt) (*Contrac
 	}
 
 	for _, contract := range contracts {
-		leafData, err := getLeafData(reader, &contract)
+		leafData, err := getLeafData(stReader, &contract)
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +234,7 @@ func getLeafData(reader core.StateReader, contract *felt.Felt) (*LeafData, error
 	}, nil
 }
 
-func getContractsStorageProofs(reader core.StateReader, keys []StorageKeys) ([][]*HashToNode, error) {
+func getContractsStorageProofs(reader core.TrieReader, keys []StorageKeys) ([][]*HashToNode, error) {
 	result := make([][]*HashToNode, 0, len(keys))
 
 	for _, key := range keys {
@@ -264,7 +267,7 @@ func getProof(t *trie.Trie, elt *felt.Felt) ([]*HashToNode, error) {
 	}
 
 	// adapt proofs to the expected format
-	hashnodes := make([]*HashToNode, len(nodes))
+	hashNodes := make([]*HashToNode, len(nodes))
 	for i, node := range nodes {
 		var merkle MerkleNode
 
@@ -278,19 +281,17 @@ func getProof(t *trie.Trie, elt *felt.Felt) ([]*HashToNode, error) {
 			path := edge.Path
 			f := path.Felt()
 			merkle = &MerkleEdgeNode{
-				Path:   &f, // TODO[pnowosie]: specs says its int
+				Path:   f.String(),
 				Length: int(edge.Len()),
 				Child:  edge.Child,
 			}
 		}
 
-		hashnodes[i] = &HashToNode{
+		hashNodes[i] = &HashToNode{
 			Hash: node.Hash(t.HashFunc()),
 			Node: merkle,
 		}
 	}
 
-	// TODO[pnowosie]: add a LeafNode here ... are they really needed?
-
-	return hashnodes, nil
+	return hashNodes, nil
 }

@@ -1,16 +1,23 @@
 package rpc_test
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -104,7 +111,7 @@ func TestStorageProof(t *testing.T) {
 	var (
 		blkHash     = utils.HexToFelt(t, "0x11ead")
 		clsRoot     = utils.HexToFelt(t, "0xc1a55")
-		stgRoor     = utils.HexToFelt(t, "0xc0ffee")
+		stgRoot     = utils.HexToFelt(t, "0xc0ffee")
 		key         = new(felt.Felt).SetUint64(1)
 		noSuchKey   = new(felt.Felt).SetUint64(0)
 		value       = new(felt.Felt).SetUint64(51)
@@ -128,14 +135,16 @@ func TestStorageProof(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockTrie := mocks.NewMockTrieReader(mockCtrl)
 
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
+	mockReader.EXPECT().HeadTrie().Return(mockTrie, func() error { return nil }, nil).AnyTimes()
 	mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}, nil).AnyTimes()
-	mockState.EXPECT().StateAndClassRoot().Return(stgRoor, clsRoot, nil).AnyTimes()
-	mockState.EXPECT().ClassTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
-	mockState.EXPECT().StorageTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
+	mockTrie.EXPECT().StateAndClassRoot().Return(stgRoot, clsRoot, nil).AnyTimes()
+	mockTrie.EXPECT().ClassTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
+	mockTrie.EXPECT().StorageTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
 
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, nil, "", log)
@@ -178,16 +187,16 @@ func TestStorageProof(t *testing.T) {
 		require.NotNil(t, proof.GlobalRoots)
 		require.Equal(t, blkHash, proof.GlobalRoots.BlockHash)
 		require.Equal(t, clsRoot, proof.GlobalRoots.ClassesTreeRoot)
-		require.Equal(t, stgRoor, proof.GlobalRoots.ContractsTreeRoot)
+		require.Equal(t, stgRoot, proof.GlobalRoots.ContractsTreeRoot)
 	})
 	t.Run("error is returned whenever not latest block is requested", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: 1}, nil, nil, nil)
-		assert.Equal(t, rpc.ErrBlockNotRecentForProof, rpcErr)
+		assert.Equal(t, rpc.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("error is returned even when blknum matches head", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber}, nil, nil, nil)
-		assert.Equal(t, rpc.ErrBlockNotRecentForProof, rpcErr)
+		assert.Equal(t, rpc.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("empty request", func(t *testing.T) {
@@ -242,7 +251,7 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("contract storage trie address does not exist in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xdead")
-		mockState.EXPECT().StorageTrieForAddr(contract).Return(emptyTrie(t), nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(contract).Return(emptyTrie(t), nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
@@ -254,7 +263,7 @@ func TestStorageProof(t *testing.T) {
 	//nolint:dupl
 	t.Run("contract storage trie key slot does not exist in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xabcd")
-		mockState.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*noSuchKey}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
@@ -268,7 +277,7 @@ func TestStorageProof(t *testing.T) {
 	//nolint:dupl
 	t.Run("contract storage trie address/key exists in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xabcd")
-		mockState.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
@@ -314,4 +323,150 @@ func emptyTrie(t *testing.T) *trie.Trie {
 	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)
 	return tempTrie
+}
+
+func TestStorageRoots(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	log := utils.NewNopZapLogger()
+	testDB := pebble.NewMemTest(t)
+	bc := blockchain.New(testDB, &utils.Mainnet)
+	synchronizer := sync.New(bc, gw, log, time.Duration(0), false)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+
+	require.NoError(t, synchronizer.Run(ctx))
+	cancel()
+
+	var (
+		expectedBlockHash       = utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6")
+		expectedGlobalRoot      = utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9")
+		expectedClsRoot         = utils.HexToFelt(t, "0x0")
+		expectedStgRoot         = utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9")
+		expectedContractAddress = utils.HexToFelt(t, "0x2d6c9569dea5f18628f1ef7c15978ee3093d2d3eec3b893aac08004e678ead3")
+		expectedContractLeaf    = utils.HexToFelt(t, "0x7036d8dd68dc9539c6db8c88f72b1ab16e76d62b5f09118eca5ae78276b0ee4")
+	)
+
+	t.Run("sanity check - mainnet block 2", func(t *testing.T) {
+		expectedBlockNumber := uint64(2)
+
+		blk, err := bc.Head()
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBlockNumber, blk.Number)
+		assert.Equal(t, expectedBlockHash, blk.Hash, blk.Hash.String())
+		assert.Equal(t, expectedGlobalRoot, blk.GlobalStateRoot, blk.GlobalStateRoot.String())
+	})
+
+	t.Run("check class and storage roots matches the global", func(t *testing.T) {
+		reader, closer, err := bc.HeadTrie()
+		assert.NoError(t, err)
+		defer func() { _ = closer() }()
+
+		stgRoot, clsRoot, err := reader.StateAndClassRoot()
+		assert.NoError(t, err)
+
+		assert.Equal(t, expectedClsRoot, clsRoot, clsRoot.String())
+		assert.Equal(t, expectedStgRoot, stgRoot, stgRoot.String())
+
+		verifyGlobalStateRoot(t, expectedGlobalRoot, clsRoot, stgRoot)
+	})
+
+	t.Run("check requested contract and storage slot exists", func(t *testing.T) {
+		trieReader, closer, err := bc.HeadTrie()
+		assert.NoError(t, err)
+		defer func() { _ = closer() }()
+
+		sTrie, sCloser, err := trieReader.StorageTrie()
+		assert.NoError(t, err)
+		defer func() { _ = sCloser() }()
+
+		leaf, err := sTrie.Get(expectedContractAddress)
+		assert.NoError(t, err)
+		assert.Equal(t, leaf, expectedContractLeaf, leaf.String())
+
+		stateReader, stCloser, err := bc.HeadState()
+		assert.NoError(t, err)
+		defer func() { _ = stCloser() }()
+
+		clsHash, err := stateReader.ContractClassHash(expectedContractAddress)
+		assert.NoError(t, err)
+		assert.Equal(t, clsHash, utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"), clsHash.String())
+	})
+
+	t.Run("get contract proof", func(t *testing.T) {
+		handler := rpc.New(bc, nil, nil, "", log)
+		result, rpcErr := handler.StorageProof(
+			rpc.BlockID{Latest: true}, nil, []felt.Felt{*expectedContractAddress}, nil)
+		require.Nil(t, rpcErr)
+
+		expectedResult := rpc.StorageProofResult{
+			ClassesProof:           []*rpc.HashToNode{},
+			ContractsStorageProofs: [][]*rpc.HashToNode{},
+			ContractsProof: &rpc.ContractProof{
+				LeavesData: []*rpc.LeafData{
+					{
+						Nonce:     utils.HexToFelt(t, "0x0"),
+						ClassHash: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+					},
+				},
+				Nodes: []*rpc.HashToNode{
+					{
+						Hash: utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
+						Node: &rpc.MerkleBinaryNode{
+							Left:  utils.HexToFelt(t, "0x4e1f289e55ac8a821fd463478e6f5543256beb934a871be91d00a0d3f2e7964"),
+							Right: utils.HexToFelt(t, "0x67d9833b51e7bf1cab0e71e68477bf7f0b704391d753f9d793008e4f6587c53"),
+						},
+					},
+					{
+						Hash: utils.HexToFelt(t, "0x4e1f289e55ac8a821fd463478e6f5543256beb934a871be91d00a0d3f2e7964"),
+						Node: &rpc.MerkleBinaryNode{
+							Left:  utils.HexToFelt(t, "0x1ef87d62309ff1cad58d39e8f5480f9caa9acd78a43f139d87220a1babe38a4"),
+							Right: utils.HexToFelt(t, "0x9a258d24b3aeb7e263e910d68a18d85305703a2f20df2e806ecbb1fb28760f"),
+						},
+					},
+					{
+						Hash: utils.HexToFelt(t, "0x9a258d24b3aeb7e263e910d68a18d85305703a2f20df2e806ecbb1fb28760f"),
+						Node: &rpc.MerkleBinaryNode{
+							Left:  utils.HexToFelt(t, "0x53f61d0cb8099e2e7ffc214c4ef7ac8520abb5327510f84affe90b1890d314c"),
+							Right: utils.HexToFelt(t, "0x45ca67f381dcd01fec774743a4aaed6b36e1bda979185cf5dce538ad0007914"),
+						},
+					},
+					{
+						Hash: utils.HexToFelt(t, "0x53f61d0cb8099e2e7ffc214c4ef7ac8520abb5327510f84affe90b1890d314c"),
+						Node: &rpc.MerkleBinaryNode{
+							Left:  utils.HexToFelt(t, "0x17d6fc8431c48e41222a3ede441d1e2d91c31eb67a8aa9c030c99c510e9f34c"),
+							Right: utils.HexToFelt(t, "0x1cf95259ae39c038e87224fa5fdb7c7eeba6dd4263e05e80c9a8e27c3240f2c"),
+						},
+					},
+					{
+						Hash: utils.HexToFelt(t, "0x1cf95259ae39c038e87224fa5fdb7c7eeba6dd4263e05e80c9a8e27c3240f2c"),
+						Node: &rpc.MerkleEdgeNode{
+							Path:   "0x56c9569dea5f18628f1ef7c15978ee3093d2d3eec3b893aac08004e678ead3",
+							Length: 247,
+							Child:  expectedContractLeaf,
+						},
+					},
+				},
+			},
+			GlobalRoots: &rpc.GlobalRoots{
+				BlockHash:         expectedBlockHash,
+				ClassesTreeRoot:   expectedClsRoot,
+				ContractsTreeRoot: expectedStgRoot,
+			},
+		}
+
+		assert.Equal(t, expectedResult, *result)
+	})
+}
+
+func verifyGlobalStateRoot(t *testing.T, globalStateRoot, classRoot, storageRoot *felt.Felt) {
+	stateVersion := new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
+	if classRoot.IsZero() {
+		assert.Equal(t, globalStateRoot, storageRoot)
+	} else {
+		assert.Equal(t, globalStateRoot, crypto.PoseidonArray(stateVersion, storageRoot, classRoot))
+	}
 }

@@ -60,9 +60,9 @@ var (
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
 
 	// TODO[pnowosie]: Update the error while specification describe it
-	ErrBlockNotRecentForProof = &jsonrpc.Error{
-		Code:    1001,
-		Message: "Block is not sufficiently recent for storage proofs. Use 'latest' as block id",
+	ErrStorageProofNotSupported = &jsonrpc.Error{
+		Code:    42,
+		Message: "the node doesn't support storage proofs for blocks that are too far in the past. Use 'latest' as block id",
 	}
 )
 
@@ -241,6 +241,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.StorageAt,
 		},
 		{
+			Name:    "starknet_getStorageProof",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "classes"}, {Name: "contracts"}, {Name: "storage_keys"}},
+			Handler: h.StorageProof,
+		},
+		{
 			Name:    "starknet_getClassHashAt",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
 			Handler: h.ClassHashAt,
@@ -400,7 +405,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_getStorageProof",
-			Params:  []jsonrpc.Parameter{},
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "classes"}, {Name: "contracts"}, {Name: "storage_keys"}},
 			Handler: h.StorageProof,
 		},
 		{

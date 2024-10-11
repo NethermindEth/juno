@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -88,25 +87,3 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	}
 	return declaredClass, nil
 }
-
-// Note[pnowosie]: Maybe extending StateReader with the following methods was not a good idea?
-func (s *stateSnapshot) ClassTrie() (*trie.Trie, func() error, error) {
-	return nil, nopCloser, errFeatureNotImplemented
-}
-
-func (s *stateSnapshot) StorageTrie() (*trie.Trie, func() error, error) {
-	return nil, nopCloser, errFeatureNotImplemented
-}
-
-func (s *stateSnapshot) StorageTrieForAddr(*felt.Felt) (*trie.Trie, error) {
-	return nil, errFeatureNotImplemented
-}
-
-func (s *stateSnapshot) StateAndClassRoot() (*felt.Felt, *felt.Felt, error) {
-	return nil, nil, errFeatureNotImplemented
-}
-
-var (
-	errFeatureNotImplemented = errors.New("feature not implemented for a historical state")
-	nopCloser                = func() error { return nil }
-)

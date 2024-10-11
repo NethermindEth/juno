@@ -54,11 +54,6 @@ func (e *Edge) Len() uint8 {
 	return e.Path.Len()
 }
 
-func (e *Edge) PathInt() uint64 {
-	f := e.Path.Felt()
-	return f.Uint64()
-}
-
 func (e *Edge) PrettyPrint() {
 	fmt.Printf("  Edge:\n")
 	fmt.Printf("    Child: %v\n", e.Child)
@@ -345,7 +340,7 @@ func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode
 
 			// Todo:
 			// If we are verifying the key doesn't exist, then we should
-			// update subKey to point in the other direction
+			// update.Status subKey to point in the other direction
 			if value == nil && i == len(proofs)-1 {
 				return true
 			}
