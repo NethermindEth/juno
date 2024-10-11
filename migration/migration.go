@@ -466,25 +466,38 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 }
 
 func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
-	var txnLock sync.RWMutex
-	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	numOfWorkers := runtime.GOMAXPROCS(0)
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
-	for blockNumber := 0; ; blockNumber++ {
-		txnLock.RLock()
-		block, err := blockchain.BlockByNumber(txn, uint64(blockNumber))
-		txnLock.RUnlock()
-
+	chainHeight, err := blockchain.ChainHeight(txn)
+	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			break
+			return nil
 		}
-
+		return err
+	}
+	blockNumbers := make(chan uint64, 1024)
+	go func() {
+		for bNumber := range chainHeight {
+			blockNumbers <- bNumber
+		}
+		close(blockNumbers)
+	}()
+	for range numOfWorkers {
 		workerPool.Go(func() error {
-			txnLock.Lock()
-			defer txnLock.Unlock()
-			return blockchain.StoreL1HandlerMsgHashes(txn, block)
+			for bNumber := range blockNumbers {
+				txns, err := blockchain.TransactionsByBlockNumber(txn, bNumber)
+				if err != nil {
+					return err
+				}
+				err = blockchain.StoreL1HandlerMsgHashes(txn, txns)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 	}
-
 	return workerPool.Wait()
 }
 

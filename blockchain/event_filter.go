@@ -97,7 +97,7 @@ type FilteredEvent struct {
 //nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
-	latest, err := chainHeight(e.txn)
+	latest, err := ChainHeight(e.txn)
 	if err != nil {
 		return nil, nil, err
 	}

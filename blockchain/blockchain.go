@@ -117,12 +117,12 @@ func (b *Blockchain) Height() (uint64, error) {
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
-		height, err = chainHeight(txn)
+		height, err = ChainHeight(txn)
 		return err
 	})
 }
 
-func chainHeight(txn db.Transaction) (uint64, error) {
+func ChainHeight(txn db.Transaction) (uint64, error) {
 	var height uint64
 	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
@@ -152,7 +152,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 }
 
 func head(txn db.Transaction) (*core.Block, error) {
-	height, err := chainHeight(txn)
+	height, err := ChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func head(txn db.Transaction) (*core.Block, error) {
 }
 
 func headsHeader(txn db.Transaction) (*core.Header, error) {
-	height, err := chainHeight(txn)
+	height, err := ChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +233,7 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) 
 	var l1HandlerTxnHash *felt.Felt
 	return l1HandlerTxnHash, b.database.View(func(txn db.Transaction) error {
 		var err error
-		l1HandlerTxnHash, err = l1MsgHashes(txn, msgHash)
+		l1HandlerTxnHash, err = l1HandlerTxnHashByMsgHash(txn, msgHash)
 		return err
 	})
 }
@@ -375,7 +375,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := StoreL1HandlerMsgHashes(txn, block); err != nil {
+		if err := StoreL1HandlerMsgHashes(txn, block.Transactions); err != nil {
 			return err
 		}
 
@@ -513,7 +513,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 
 	block := new(core.Block)
 	block.Header = header
-	block.Transactions, err = transactionsByBlockNumber(txn, number)
+	block.Transactions, err = TransactionsByBlockNumber(txn, number)
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +525,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	return block, nil
 }
 
-func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
+func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
 	iterator, err := txn.NewIterator()
 	if err != nil {
 		return nil, err
@@ -605,8 +605,8 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	})
 }
 
-func StoreL1HandlerMsgHashes(dbTxn db.Transaction, block *core.Block) error {
-	for _, txn := range block.Transactions {
+func StoreL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
+	for _, txn := range blockTxns {
 		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
 			l1HandlerTxnHashBytes := txn.Hash().Bytes()
 			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(l1Handler.MessageHash()), l1HandlerTxnHashBytes[:])
@@ -651,7 +651,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 	})
 }
 
-func l1MsgHashes(txn db.Transaction, l1HandlerMsgHash *common.Hash) (*felt.Felt, error) {
+func l1HandlerTxnHashByMsgHash(txn db.Transaction, l1HandlerMsgHash *common.Hash) (*felt.Felt, error) {
 	var raw []byte
 	err := txn.Get(db.L1HandlerTxnHashByMsgHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
 		if len(val) == 0 {
@@ -805,7 +805,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	_, err = chainHeight(txn)
+	_, err = ChainHeight(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
@@ -859,7 +859,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFil
 		return nil, err
 	}
 
-	latest, err := chainHeight(txn)
+	latest, err := ChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -890,7 +890,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 }
 
 func (b *Blockchain) revertHead(txn db.Transaction) error {
-	blockNumber, err := chainHeight(txn)
+	blockNumber, err := ChainHeight(txn)
 	if err != nil {
 		return err
 	}
