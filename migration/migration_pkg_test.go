@@ -210,7 +210,7 @@ func TestL1HandlerTxns(t *testing.T) {
 
 	// Ensure the key has been deleted
 	_, err := chain.L1HandlerTxnHash(&msgHash)
-	require.Error(t, err)
+	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	// Recalculate and store the L1 message hashes
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
