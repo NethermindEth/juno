@@ -476,7 +476,7 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 		}
 		return err
 	}
-	blockNumbers := make(chan uint64, 1024)
+	blockNumbers := make(chan uint64, 1024) //nolint:mnd
 	go func() {
 		for bNumber := range chainHeight {
 			blockNumbers <- bNumber
