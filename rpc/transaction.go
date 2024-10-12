@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -607,6 +608,10 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		if h.feederClient == nil {
 			break
 		}
+
+		const feederTimeout = 5 * time.Second
+		ctx, cancel := context.WithTimeout(ctx, feederTimeout)
+		defer cancel()
 
 		txStatus, err := h.feederClient.Transaction(ctx, &hash)
 		if err != nil {
