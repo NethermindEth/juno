@@ -66,7 +66,7 @@ func DBRevertCmd() *cobra.Command {
 		Long:  `This subcommand revert all data related to all blocks till given so it becomes new head.`,
 		RunE:  dbRevert,
 	}
-	cmd.Flags().Uint64(dbRevertToBlockF, 0, "TODO")
+	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
 
 	return cmd
 }
