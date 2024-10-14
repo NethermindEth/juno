@@ -27,6 +27,10 @@ import (
 
 var emptyCommitments = core.BlockCommitments{}
 
+const (
+	testResponse = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+)
+
 func TestEvents(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	n := utils.Ptr(utils.Sepolia)
@@ -282,26 +286,10 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.Nil(t, rpcErr)
 
 	// Simulate a new block
-	syncer.newHeads.Send(&core.Header{
-		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
-		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
-		Number:           2,
-		GlobalStateRoot:  utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
-		Timestamp:        1637084470,
-		SequencerAddress: utils.HexToFelt(t, "0x0"),
-		L1DataGasPrice: &core.GasPrice{
-			PriceInFri: utils.HexToFelt(t, "0x0"),
-			PriceInWei: utils.HexToFelt(t, "0x0"),
-		},
-		GasPrice:        utils.HexToFelt(t, "0x0"),
-		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
-		L1DAMode:        core.Calldata,
-		ProtocolVersion: "",
-	})
+	syncer.newHeads.Send(testHeader(t))
 
 	// Receive a block header.
-	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
-	want = fmt.Sprintf(want, id.ID)
+	want := fmt.Sprintf(testResponse, id.ID)
 	got := make([]byte, len(want))
 	_, err := clientConn.Read(got)
 	require.NoError(t, err)
@@ -386,30 +374,14 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.Equal(t, secondWant, string(secondGot))
 
 	// Simulate a new block
-	syncer.newHeads.Send(&core.Header{
-		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
-		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
-		Number:           2,
-		GlobalStateRoot:  utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
-		Timestamp:        1637084470,
-		SequencerAddress: utils.HexToFelt(t, "0x0"),
-		L1DataGasPrice: &core.GasPrice{
-			PriceInFri: utils.HexToFelt(t, "0x0"),
-			PriceInWei: utils.HexToFelt(t, "0x0"),
-		},
-		GasPrice:        utils.HexToFelt(t, "0x0"),
-		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
-		L1DAMode:        core.Calldata,
-		ProtocolVersion: "",
-	})
+	syncer.newHeads.Send(testHeader(t))
 
 	// Receive a block header.
-	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
-	firstWant = fmt.Sprintf(want, firstID)
+	firstWant = fmt.Sprintf(testResponse, firstID)
 	_, firstGot, err = conn1.Read(ctx)
 	require.NoError(t, err)
 	require.Equal(t, firstWant, string(firstGot))
-	secondWant = fmt.Sprintf(want, secondID)
+	secondWant = fmt.Sprintf(testResponse, secondID)
 	_, secondGot, err = conn2.Read(ctx)
 	require.NoError(t, err)
 	require.Equal(t, secondWant, string(secondGot))
@@ -475,7 +447,20 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.Equal(t, want, string(got))
 
 	// Simulate a new block
-	syncer.newHeads.Send(&core.Header{
+	syncer.newHeads.Send(testHeader(t))
+
+	// Check new block content
+	want = fmt.Sprintf(testResponse, id.ID)
+	got = make([]byte, len(want))
+	_, err = clientConn.Read(got)
+	require.NoError(t, err)
+	require.Equal(t, want, string(got))
+}
+
+func testHeader(t *testing.T) *core.Header {
+	t.Helper()
+
+	header := &core.Header{
 		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
 		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
 		Number:           2,
@@ -490,13 +475,6 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
 		L1DAMode:        core.Calldata,
 		ProtocolVersion: "",
-	})
-
-	// Check new block content
-	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
-	want = fmt.Sprintf(want, id.ID)
-	got = make([]byte, len(want))
-	_, err = clientConn.Read(got)
-	require.NoError(t, err)
-	require.Equal(t, want, string(got))
+	}
+	return header
 }
