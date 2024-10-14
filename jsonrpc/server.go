@@ -426,6 +426,19 @@ func isNil(i any) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
+func isNilOrEmpty(i any) (bool, error) {
+	if isNil(i) {
+		return true, nil
+	}
+
+	switch reflect.TypeOf(i).Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map:
+		return reflect.ValueOf(i).Len() == 0, nil
+	default:
+		return false, fmt.Errorf("impossible param type: check request.isSane")
+	}
+}
+
 func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, http.Header, error) {
 	s.log.Tracew("Received request", "req", req)
 
@@ -486,6 +499,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	return res, header, nil
 }
 
+//nolint:gocyclo
 func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
 	handlerType := reflect.TypeOf(method.Handler)
 
@@ -498,7 +512,12 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		addContext = 1
 	}
 
-	if isNil(params) {
+	isNilOrEmpty, err := isNilOrEmpty(params)
+	if err != nil {
+		return nil, err
+	}
+
+	if isNilOrEmpty {
 		allParamsAreOptional := utils.All(method.Params, func(p Parameter) bool {
 			return p.Optional
 		})
