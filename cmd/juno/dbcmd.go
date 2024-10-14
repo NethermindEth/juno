@@ -151,7 +151,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		}
 
 		if head.Number == revertToBlock {
-			fmt.Fprintf(cmd.OutOrStdout(), "Successfully reverted all blocks to %d", revertToBlock)
+			fmt.Fprintf(cmd.OutOrStdout(), "Successfully reverted all blocks to %d\n", revertToBlock)
 			break
 		}
 
