@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/sync"
+	"github.com/sourcegraph/conc"
 )
 
 const (
@@ -80,15 +82,18 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 	h.mu.Unlock()
 
 	headerSub := h.newHeads.Subscribe()
+	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the new heads subscription
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
 			headerSub.Unsubscribe()
+			reorgSub.Unsubscribe()
 		}()
 
-		newHeadersChan := make(chan *core.Header, MaxBlocksBack)
+		var wg conc.WaitGroup
 
-		sub.wg.Go(func() {
+		newHeadersChan := make(chan *core.Header, MaxBlocksBack)
+		wg.Go(func() {
 			h.bufferNewHeaders(subscriptionCtx, headerSub, newHeadersChan)
 		})
 
@@ -97,7 +102,15 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 			return
 		}
 
-		h.processNewHeaders(subscriptionCtx, newHeadersChan, w, id)
+		wg.Go(func() {
+			h.processNewHeaders(subscriptionCtx, newHeadersChan, w, id)
+		})
+
+		wg.Go(func() {
+			h.processReorgs(subscriptionCtx, reorgSub, w, id)
+		})
+
+		wg.Wait()
 	})
 
 	return &SubscriptionID{ID: id}, nil
@@ -195,6 +208,36 @@ func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) err
 		Params: map[string]any{
 			"subscription_id": id,
 			"result":          adaptBlockHeader(header),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(resp)
+	return err
+}
+
+func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription[*sync.ReorgData], w jsonrpc.Conn, id uint64) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case reorg := <-reorgSub.Recv():
+			if err := h.sendReorg(w, reorg, id); err != nil {
+				h.log.Warnw("Error sending reorg", "err", err)
+				return
+			}
+		}
+	}
+}
+
+func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *sync.ReorgData, id uint64) error {
+	resp, err := json.Marshal(jsonrpc.Request{
+		Version: "2.0",
+		Method:  "starknet_subscriptionReorg",
+		Params: map[string]any{
+			"subscription_id": id,
+			"result":          reorg,
 		},
 	})
 	if err != nil {

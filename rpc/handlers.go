@@ -97,6 +97,7 @@ type Handler struct {
 
 	version  string
 	newHeads *feed.Feed[*core.Header]
+	reorgs   *feed.Feed[*sync.ReorgData]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -137,6 +138,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		},
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
+		reorgs:        feed.New[*sync.ReorgData](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -178,8 +180,12 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
+	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	defer reorgsSub.Unsubscribe()
+	feed.Tee(newHeadsSub, h.newHeads)
+	feed.Tee(reorgsSub, h.reorgs)
+
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
