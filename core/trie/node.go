@@ -55,12 +55,12 @@ func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
 	if n.Left != nil {
 		wrote, errInner := n.Left.WriteTo(buf)
 		totalBytes += wrote
-		if err != nil {
+		if errInner != nil {
 			return totalBytes, errInner
 		}
 		wrote, errInner = n.Right.WriteTo(buf) // n.Right is non-nil by design
 		totalBytes += wrote
-		if err != nil {
+		if errInner != nil {
 			return totalBytes, errInner
 		}
 	}

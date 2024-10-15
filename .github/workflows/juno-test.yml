@@ -33,7 +33,7 @@ jobs:
           workspaces: |
             vm/rust
             core/rust
-            starknet/rust
+            starknet/compiler/rust
 
       - name: Install deps
         run: make install-deps

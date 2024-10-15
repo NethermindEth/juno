@@ -1,6 +1,7 @@
 package p2p2core
 
 import (
+	"encoding/binary"
 	"reflect"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -35,6 +36,14 @@ func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 }
 
 func AdaptUint128(u *spec.Uint128) *felt.Felt {
-	// todo handle u128
-	return &felt.Zero
+	if u == nil {
+		return nil
+	}
+
+	bytes := make([]byte, 16) //nolint:mnd
+
+	binary.BigEndian.PutUint64(bytes[:8], u.High)
+	binary.BigEndian.PutUint64(bytes[8:], u.Low)
+
+	return new(felt.Felt).SetBytes(bytes)
 }

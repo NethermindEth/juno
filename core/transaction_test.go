@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -127,7 +126,6 @@ func TestTransactionEncoding(t *testing.T) {
 
 func checkTransactionSymmetry(t *testing.T, input core.Transaction) {
 	t.Helper()
-	require.NoError(t, encoder.RegisterType(reflect.TypeOf(input)))
 
 	data, err := encoder.Marshal(input)
 	require.NoError(t, err)

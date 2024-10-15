@@ -1,6 +1,9 @@
 package core
 
 import (
+	"runtime"
+	"sync"
+
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -61,13 +64,49 @@ func messagesSentHash(messages []*L2ToL1Message) *felt.Felt {
 }
 
 func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
-	var commitment *felt.Felt
+	return calculateCommitment(
+		receipts,
+		trie.RunOnTempTriePoseidon,
+		func(receipt *TransactionReceipt) *felt.Felt {
+			return receipt.hash()
+		},
+	)
+}
 
-	return commitment, trie.RunOnTempTriePoseidon(commitmentTrieHeight, func(trie *trie.Trie) error {
-		for i, receipt := range receipts {
-			receiptTrieKey := new(felt.Felt).SetUint64(uint64(i))
-			_, err := trie.Put(receiptTrieKey, receipt.hash())
-			if err != nil {
+type (
+	onTempTrieFunc     func(uint8, func(*trie.Trie) error) error
+	processFunc[T any] func(T) *felt.Felt
+)
+
+// General function for parallel processing of items and calculation of a commitment
+func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process processFunc[T]) (*felt.Felt, error) {
+	var commitment *felt.Felt
+	return commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
+		numWorkers := min(runtime.GOMAXPROCS(0), len(items))
+		results := make([]*felt.Felt, len(items))
+		var wg sync.WaitGroup
+		wg.Add(numWorkers)
+
+		jobs := make(chan int, len(items))
+		for idx := range items {
+			jobs <- idx
+		}
+		close(jobs)
+
+		for range numWorkers {
+			go func() {
+				defer wg.Done()
+				for i := range jobs {
+					results[i] = process(items[i])
+				}
+			}()
+		}
+
+		wg.Wait()
+
+		for i, res := range results {
+			key := new(felt.Felt).SetUint64(uint64(i))
+			if _, err := trie.Put(key, res); err != nil {
 				return err
 			}
 		}

@@ -49,6 +49,7 @@ type Service struct {
 	topicsLock sync.RWMutex
 
 	synchroniser *syncService
+	gossipTracer *gossipTracer
 
 	feederNode bool
 	database   db.DB
@@ -233,14 +234,23 @@ func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan
 
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
 func (s *Service) Run(ctx context.Context) error {
-	defer s.host.Close()
+	defer func() {
+		if err := s.host.Close(); err != nil {
+			s.log.Warnw("Failed to close host", "err", err)
+		}
+	}()
 
 	err := s.dht.Bootstrap(ctx)
 	if err != nil {
 		return err
 	}
 
-	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host)
+	var options []pubsub.Option
+	if s.gossipTracer != nil {
+		options = append(options, pubsub.WithRawTracer(s.gossipTracer))
+	}
+
+	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, options...)
 	if err != nil {
 		return err
 	}
@@ -268,7 +278,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
-	return s.host.Close()
+	return nil
 }
 
 func (s *Service) setProtocolHandlers() {
@@ -395,8 +405,11 @@ func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Strea
 }
 
 func (s *Service) WithListener(l junoSync.EventListener) {
-	runMetrics(s.host.Peerstore())
 	s.synchroniser.WithListener(l)
+}
+
+func (s *Service) WithGossipTracer() {
+	s.gossipTracer = NewGossipTracer(s.host)
 }
 
 // persistPeers stores the given peers in the peers database
