@@ -38,6 +38,10 @@ type HeaderSubscription struct {
 	*feed.Subscription[*core.Header]
 }
 
+type ReorgSubscription struct {
+	*feed.Subscription[*ReorgData]
+}
+
 // Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
@@ -45,10 +49,7 @@ type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
-
-	Pending() (*Pending, error)
-	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
+	SubscribeReorg() ReorgSubscription
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -66,16 +67,20 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) PendingBlock() *core.Block {
-	return nil
+func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
+	return ReorgSubscription{feed.New[*ReorgData]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) Pending() (*Pending, error) {
-	return nil, errors.New("Pending() is not implemented")
-}
-
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingState() not implemented")
+// ReorgData represents data about reorganised blocks, starting and ending block number and hash
+type ReorgData struct {
+	// StartBlockHash is the hash of the first known block of the orphaned chain
+	StartBlockHash *felt.Felt `json:"starting_block_hash"`
+	// StartBlockNum is the number of the first known block of the orphaned chain
+	StartBlockNum uint64 `json:"starting_block_number"`
+	// The last known block of the orphaned chain
+	EndBlockHash *felt.Felt `json:"ending_block_hash"`
+	// Number of the last known block of the orphaned chain
+	EndBlockNum uint64 `json:"ending_block_number"`
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -87,6 +92,7 @@ type Synchronizer struct {
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
+	reorgFeed           *feed.Feed[*ReorgData]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -95,6 +101,8 @@ type Synchronizer struct {
 	pendingPollInterval time.Duration
 	catchUpMode         bool
 	plugin              junoplugin.JunoPlugin
+
+	currReorg *ReorgData // If nil, no reorg is happening
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
@@ -106,6 +114,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
+		reorgFeed:           feed.New[*ReorgData](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -304,6 +313,11 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
 			}
 
+			if s.currReorg != nil {
+				s.reorgFeed.Send(s.currReorg)
+				s.currReorg = nil // reset the reorg data
+			}
+
 			s.newHeads.Send(block.Header)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
@@ -403,6 +417,19 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
+
+	if s.currReorg == nil { // first block of the reorg
+		s.currReorg = &ReorgData{
+			StartBlockHash: localHead,
+			StartBlockNum:  head.Number,
+			EndBlockHash:   localHead,
+			EndBlockNum:    head.Number,
+		}
+	} else { // not the first block of the reorg, adjust the starting block
+		s.currReorg.StartBlockHash = localHead
+		s.currReorg.StartBlockNum = head.Number
+	}
+
 	s.listener.OnReorg(head.Number)
 }
 
@@ -519,77 +546,8 @@ func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
 	}
 }
 
-// StorePending stores a pending block given that it is for the next height
-func (s *Synchronizer) StorePending(p *Pending) error {
-	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
-	if err != nil {
-		return err
+func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
+	return ReorgSubscription{
+		Subscription: s.reorgFeed.Subscribe(),
 	}
-
-	expectedParentHash := new(felt.Felt)
-	h, err := s.blockchain.HeadsHeader()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return err
-	} else if err == nil {
-		expectedParentHash = h.Hash
-	}
-
-	if !expectedParentHash.Equal(p.Block.ParentHash) {
-		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
-	}
-
-	if existingPending, err := s.Pending(); err == nil {
-		if existingPending.Block.TransactionCount >= p.Block.TransactionCount {
-			// ignore the incoming pending if it has fewer transactions than the one we already have
-			return nil
-		}
-	} else if !errors.Is(err, ErrPendingBlockNotFound) {
-		return err
-	}
-	s.pending.Store(p)
-
-	return nil
-}
-
-func (s *Synchronizer) Pending() (*Pending, error) {
-	p := s.pending.Load()
-	if p == nil {
-		return nil, ErrPendingBlockNotFound
-	}
-
-	expectedParentHash := &felt.Zero
-	if head, err := s.blockchain.HeadsHeader(); err == nil {
-		expectedParentHash = head.Hash
-	}
-	if p.Block.ParentHash.Equal(expectedParentHash) {
-		return p, nil
-	}
-
-	// Since the pending block in the cache is outdated remove it
-	s.pending.Store(nil)
-
-	return nil, ErrPendingBlockNotFound
-}
-
-func (s *Synchronizer) PendingBlock() *core.Block {
-	pending, err := s.Pending()
-	if err != nil {
-		return nil
-	}
-	return pending.Block
-}
-
-// PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
-	txn, err := s.db.NewTransaction(false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pending, err := s.Pending()
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
 }
