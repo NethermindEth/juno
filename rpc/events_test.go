@@ -28,7 +28,7 @@ import (
 var emptyCommitments = core.BlockCommitments{}
 
 const (
-	testResponse = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	newHeadsResponse = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
 )
 
 func TestEvents(t *testing.T) {
@@ -238,10 +238,22 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 
 type fakeSyncer struct {
 	newHeads *feed.Feed[*core.Header]
+	reorgs   *feed.Feed[*sync.ReorgData]
+}
+
+func newFakeSyncer() *fakeSyncer {
+	return &fakeSyncer{
+		newHeads: feed.New[*core.Header](),
+		reorgs:   feed.New[*sync.ReorgData](),
+	}
 }
 
 func (fs *fakeSyncer) SubscribeNewHeads() sync.HeaderSubscription {
 	return sync.HeaderSubscription{Subscription: fs.newHeads.Subscribe()}
+}
+
+func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
+	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
 }
 
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
@@ -256,7 +268,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Parallel()
 
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
-	syncer := &fakeSyncer{newHeads: feed.New[*core.Header]()}
+	syncer := newFakeSyncer()
 	handler := rpc.New(chain, syncer, nil, "", utils.NewNopZapLogger())
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -289,7 +301,7 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncer.newHeads.Send(testHeader(t))
 
 	// Receive a block header.
-	want := fmt.Sprintf(testResponse, id.ID)
+	want := fmt.Sprintf(newHeadsResponse, id.ID)
 	got := make([]byte, len(want))
 	_, err := clientConn.Read(got)
 	require.NoError(t, err)
@@ -323,7 +335,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	log := utils.NewNopZapLogger()
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
-	syncer := &fakeSyncer{newHeads: feed.New[*core.Header]()}
+	syncer := newFakeSyncer()
 	handler := rpc.New(chain, syncer, nil, "", log)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -377,11 +389,11 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncer.newHeads.Send(testHeader(t))
 
 	// Receive a block header.
-	firstWant = fmt.Sprintf(testResponse, firstID)
+	firstWant = fmt.Sprintf(newHeadsResponse, firstID)
 	_, firstGot, err = conn1.Read(ctx)
 	require.NoError(t, err)
 	require.Equal(t, firstWant, string(firstGot))
-	secondWant = fmt.Sprintf(testResponse, secondID)
+	secondWant = fmt.Sprintf(newHeadsResponse, secondID)
 	_, secondGot, err = conn2.Read(ctx)
 	require.NoError(t, err)
 	require.Equal(t, secondWant, string(secondGot))
@@ -407,7 +419,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
 	chain = blockchain.New(testDB, &utils.Mainnet)
-	syncer := &fakeSyncer{newHeads: feed.New[*core.Header]()}
+	syncer := newFakeSyncer()
 	handler := rpc.New(chain, syncer, nil, "", utils.NewNopZapLogger())
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -450,7 +462,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	syncer.newHeads.Send(testHeader(t))
 
 	// Check new block content
-	want = fmt.Sprintf(testResponse, id.ID)
+	want = fmt.Sprintf(newHeadsResponse, id.ID)
 	got = make([]byte, len(want))
 	_, err = clientConn.Read(got)
 	require.NoError(t, err)
@@ -477,4 +489,49 @@ func testHeader(t *testing.T) *core.Header {
 		ProtocolVersion: "",
 	}
 	return header
+}
+
+func TestSubscriptionReorg(t *testing.T) {
+	t.Parallel()
+
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	syncer := newFakeSyncer()
+	handler := rpc.New(chain, syncer, nil, "", utils.NewNopZapLogger())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	time.Sleep(50 * time.Millisecond)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+	// Subscribe to new heads which will send a
+	id, rpcErr := handler.SubscribeNewHeads(subCtx, nil)
+	require.Nil(t, rpcErr)
+	require.NotZero(t, id)
+
+	// Simulate a reorg
+	syncer.reorgs.Send(&sync.ReorgData{
+		StartBlockHash: utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+		StartBlockNum:  0,
+		EndBlockHash:   utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"),
+		EndBlockNum:    2,
+	})
+
+	// Receive reorg event
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":%d}}`
+	want = fmt.Sprintf(want, id.ID)
+	got := make([]byte, len(want))
+	_, err := clientConn.Read(got)
+	require.NoError(t, err)
+	require.Equal(t, want, string(got))
 }
