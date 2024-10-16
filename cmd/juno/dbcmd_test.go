@@ -12,7 +12,9 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 )
 
 var emptyCommitments = core.BlockCommitments{}
@@ -27,27 +29,69 @@ func TestDBCmd(t *testing.T) {
 		cmd := juno.DBSizeCmd()
 		executeCmdInDB(t, cmd)
 	})
+
+	t.Run("revert db by 1 block", func(t *testing.T) {
+		network := utils.Mainnet
+
+		const (
+			syncTillBlock = uint64(2)
+			revertToBlock = syncTillBlock - 1
+		)
+
+		cmd := juno.DBRevertCmd()
+		cmd.Flags().String("db-path", "", "")
+
+		dbPath := prepareDB(t, network, syncTillBlock)
+
+		require.NoError(t, cmd.Flags().Set("db-path", dbPath))
+		require.NoError(t, cmd.Flags().Set("to-block", strconv.Itoa(int(revertToBlock))))
+		require.NoError(t, cmd.Execute())
+
+		// unfortunately we cannot use blockchain from prepareDB because
+		// inside revert cmd another pebble instance is used which will panic if there are other instances
+		// that use the same db path
+		db, err := pebble.New(dbPath)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, db.Close())
+		})
+
+		chain := blockchain.New(db, &network)
+		block, err := chain.Head()
+		require.NoError(t, err)
+		assert.Equal(t, revertToBlock, block.Number)
+	})
 }
 
 func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 	cmd.Flags().String("db-path", "", "")
 
-	client := feeder.NewTestClient(t, &utils.Mainnet)
-	gw := adaptfeeder.New(client)
-	block0, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
+	dbPath := prepareDB(t, utils.Mainnet, 0)
 
-	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
-	require.NoError(t, err)
+	require.NoError(t, cmd.Flags().Set("db-path", dbPath))
+	require.NoError(t, cmd.Execute())
+}
+
+func prepareDB(t *testing.T, network utils.Network, syncTillBlock uint64) string {
+	client := feeder.NewTestClient(t, &network)
+	gw := adaptfeeder.New(client)
 
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	chain := blockchain.New(testDB, &utils.Mainnet)
-	require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
-	testDB.Close()
+	chain := blockchain.New(testDB, &network)
 
-	require.NoError(t, cmd.Flags().Set("db-path", dbPath))
-	require.NoError(t, cmd.Execute())
+	for blockNumber := uint64(0); blockNumber <= syncTillBlock; blockNumber++ {
+		block, err := gw.BlockByNumber(context.Background(), blockNumber)
+		require.NoError(t, err)
+
+		stateUpdate, err := gw.StateUpdate(context.Background(), blockNumber)
+		require.NoError(t, err)
+
+		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+	}
+	require.NoError(t, testDB.Close())
+
+	return dbPath
 }
