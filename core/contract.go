@@ -59,7 +59,7 @@ func (c *StateContract) StorageRoot(txn db.Transaction) (*felt.Felt, error) {
 	return storageTrie.Root()
 }
 
-func (c *StateContract) UpdateStorage(key *felt.Felt, value *felt.Felt) {
+func (c *StateContract) UpdateStorage(key, value *felt.Felt) {
 	if c.dirtyStorage == nil {
 		c.dirtyStorage = make(map[felt.Felt]*felt.Felt)
 	}
