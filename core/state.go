@@ -42,8 +42,13 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
+}
 
-	// NOTE: Not a best way to add them here - it assumes current state and atm cannot be implemented for hitsrical states
+// TrieReader used for storage proofs, can only be supported by current state implementation (for now, we plan to add db snapshots)
+var _ TrieReader = (*State)(nil)
+
+//go:generate mockgen -destination=../mocks/mock_trie.go -package=mocks github.com/NethermindEth/juno/core TrieReader
+type TrieReader interface {
 	ClassTrie() (*trie.Trie, func() error, error)
 	StorageTrie() (*trie.Trie, func() error, error)
 	StorageTrieForAddr(addr *felt.Felt) (*trie.Trie, error)

@@ -60,9 +60,9 @@ var (
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
 
 	// TODO[pnowosie]: Update the error while specification describe it
-	ErrBlockNotRecentForProof = &jsonrpc.Error{
-		Code:    1001,
-		Message: "Block is not sufficiently recent for storage proofs. Use 'latest' as block id",
+	ErrStorageProofNotSupported = &jsonrpc.Error{
+		Code:    42,
+		Message: "the node doesn't support storage proofs for blocks that are too far in the past. Use 'latest' as block id",
 	}
 )
 

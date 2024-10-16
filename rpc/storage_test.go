@@ -128,14 +128,16 @@ func TestStorageProof(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockTrie := mocks.NewMockTrieReader(mockCtrl)
 
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
 		return nil
 	}, nil).AnyTimes()
+	mockReader.EXPECT().HeadTrie().Return(mockTrie, func() error { return nil }, nil).AnyTimes()
 	mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}, nil).AnyTimes()
-	mockState.EXPECT().StateAndClassRoot().Return(stgRoor, clsRoot, nil).AnyTimes()
-	mockState.EXPECT().ClassTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
-	mockState.EXPECT().StorageTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
+	mockTrie.EXPECT().StateAndClassRoot().Return(stgRoor, clsRoot, nil).AnyTimes()
+	mockTrie.EXPECT().ClassTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
+	mockTrie.EXPECT().StorageTrie().Return(tempTrie, nopCloser, nil).AnyTimes()
 
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, nil, "", log)
@@ -182,12 +184,12 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("error is returned whenever not latest block is requested", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: 1}, nil, nil, nil)
-		assert.Equal(t, rpc.ErrBlockNotRecentForProof, rpcErr)
+		assert.Equal(t, rpc.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("error is returned even when blknum matches head", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber}, nil, nil, nil)
-		assert.Equal(t, rpc.ErrBlockNotRecentForProof, rpcErr)
+		assert.Equal(t, rpc.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("empty request", func(t *testing.T) {
@@ -242,7 +244,7 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("contract storage trie address does not exist in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xdead")
-		mockState.EXPECT().StorageTrieForAddr(contract).Return(emptyTrie(t), nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(contract).Return(emptyTrie(t), nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
@@ -254,7 +256,7 @@ func TestStorageProof(t *testing.T) {
 	//nolint:dupl
 	t.Run("contract storage trie key slot does not exist in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xabcd")
-		mockState.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*noSuchKey}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
@@ -268,7 +270,7 @@ func TestStorageProof(t *testing.T) {
 	//nolint:dupl
 	t.Run("contract storage trie address/key exists in a trie", func(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xabcd")
-		mockState.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
