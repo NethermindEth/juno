@@ -215,6 +215,20 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		} else if blockVer.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion != excludedVersion {
 			// version <= 0.13.1 and not 0.13.1.1 fetch blocks from feeder gateway
 			result, err := h.fetchTraces(ctx, block.Hash)
+			if err != nil {
+				return nil, httpHeader, err
+			}
+
+			if !v0_6Response {
+				// add execution resources on root level
+				for index, trace := range result {
+					executionResources := trace.TraceRoot.TotalExecutionResources()
+					// fgw doesn't provide this data in traces endpoint
+					executionResources.DataAvailability = &vm.DataAvailability{}
+					result[index].TraceRoot.ExecutionResources = executionResources
+				}
+			}
+
 			return result, httpHeader, err
 		}
 
