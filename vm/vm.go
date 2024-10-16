@@ -65,7 +65,7 @@ type VM interface {
 		maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error)
+	) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error)
 }
 
 type vm struct {
@@ -92,10 +92,10 @@ type callContext struct {
 	// response from the executed Cairo function
 	response []*felt.Felt
 	// fee amount taken per transaction during VM execution
-	actualFees      []*felt.Felt
-	traces          []json.RawMessage
-	dataGasConsumed []*felt.Felt
-	executionSteps  uint64
+	actualFees     []*felt.Felt
+	traces         []json.RawMessage
+	daGas          []core.GasConsumed
+	executionSteps uint64
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -133,10 +133,13 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
 }
 
-//export JunoAppendDataGasConsumed
-func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+//export JunoAppendGasConsumed
+func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.dataGasConsumed = append(context.dataGasConsumed, makeFeltFromPtr(ptr))
+	context.daGas = append(context.daGas, core.GasConsumed{
+		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
+		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+	})
 }
 
 //export JunoAddExecutionSteps
@@ -261,7 +264,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error) {
+) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
@@ -339,8 +342,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 			return nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
-
-	return context.actualFees, context.dataGasConsumed, traces, context.executionSteps, nil
+	return context.actualFees, context.daGas, traces, context.executionSteps, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll
