@@ -102,6 +102,16 @@ func (c *StateContract) LogClassHash(height uint64, txn db.Transaction) error {
 	return c.logOldValue(key, c.ClassHash, height, txn)
 }
 
+func (c *StateContract) BufferedCommit(txn db.Transaction, logChanges bool, blockNum uint64) (*db.BufferedTransaction, error) {
+	bufferedTxn := db.NewBufferedTransaction(txn)
+
+	if err := c.Commit(bufferedTxn, logChanges, blockNum); err != nil {
+		return nil, err
+	}
+
+	return bufferedTxn, nil
+}
+
 func (c *StateContract) Commit(txn db.Transaction, logChanges bool, blockNum uint64) error {
 	storageTrie, err := storage(c.Address, txn)
 	if err != nil {
@@ -202,7 +212,6 @@ func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallD
 
 // storage returns the [core.Trie] that represents the
 // storage of the contract.
-// TODO(weiihann): how to deal with the root key?
 func storage(addr *felt.Felt, txn db.Transaction) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
 	trieTxn := trie.NewStorage(txn, db.ContractStorage.Key(addrBytes))
