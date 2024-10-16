@@ -96,14 +96,14 @@ type TxnExecutionStatus uint8
 
 const (
 	TxnSuccess TxnExecutionStatus = iota + 1
-	TxnFailure
+	TxnReverted
 )
 
 func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 	switch es {
 	case TxnSuccess:
 		return []byte("SUCCEEDED"), nil
-	case TxnFailure:
+	case TxnReverted:
 		return []byte("REVERTED"), nil
 	default:
 		return nil, fmt.Errorf("unknown ExecutionStatus %v", es)
@@ -747,7 +747,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 
 	var es TxnExecutionStatus
 	if receipt.Reverted {
-		es = TxnFailure
+		es = TxnReverted
 	} else {
 		es = TxnSuccess
 	}
@@ -782,6 +782,8 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
+	case starknet.NotReceived:
+		// FGW can return "NOT_RECEIVED", but the rpc spec doesn't require/handle it.
 	default:
 		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
@@ -790,7 +792,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 	case starknet.Succeeded:
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
-		status.Execution = TxnFailure
+		status.Execution = TxnReverted
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
 	default: // Omit the field on error. It's optional in the spec.
