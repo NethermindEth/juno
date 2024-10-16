@@ -11,10 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var NoopOnValueChanged = func(location, oldValue *felt.Felt) error {
-	return nil
-}
-
 func TestContractAddress(t *testing.T) {
 	tests := []struct {
 		callerAddress       *felt.Felt
@@ -71,8 +67,8 @@ func TestNewContract(t *testing.T) {
 
 	var contract *core.StateContract
 	t.Run("commit contract", func(t *testing.T) {
-		contract = core.NewStateContract(addr, classHash, &felt.Zero, nil, blockNumber)
-		require.NoError(t, contract.Commit(txn, nil))
+		contract = core.NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+		require.NoError(t, contract.Commit(txn, true, blockNumber))
 	})
 
 	t.Run("get contract from db", func(t *testing.T) {
@@ -84,7 +80,6 @@ func TestNewContract(t *testing.T) {
 		assert.Equal(t, addr, contract.Address)
 		assert.Equal(t, classHash, contract.ClassHash)
 		assert.Equal(t, &felt.Zero, contract.Nonce)
-		assert.Empty(t, contract.Storage)
 		assert.Equal(t, blockNumber, contract.DeployHeight)
 	})
 }
@@ -98,8 +93,8 @@ func TestUpdateContract(t *testing.T) {
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract := core.NewStateContract(addr, classHash, &felt.Zero, nil, blockNumber)
-	require.NoError(t, contract.Commit(txn, nil))
+	contract := core.NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+	require.NoError(t, contract.Commit(txn, true, blockNumber))
 
 	contract, err = core.GetContract(addr, txn)
 	require.NoError(t, err)
@@ -111,7 +106,7 @@ func TestUpdateContract(t *testing.T) {
 	t.Run("update contract nonce", func(t *testing.T) {
 		newNonce := new(felt.Felt).SetUint64(1)
 		contract.Nonce = newNonce
-		require.NoError(t, contract.Commit(txn, nil))
+		require.NoError(t, contract.Commit(txn, true, blockNumber))
 
 		contract, err = core.GetContract(addr, txn)
 		require.NoError(t, err)
@@ -126,7 +121,7 @@ func TestUpdateContract(t *testing.T) {
 	t.Run("update class hash", func(t *testing.T) {
 		newHash := new(felt.Felt).SetUint64(1)
 		contract.ClassHash = newHash
-		require.NoError(t, contract.Commit(txn, nil))
+		require.NoError(t, contract.Commit(txn, true, blockNumber))
 
 		contract, err = core.GetContract(addr, txn)
 		require.NoError(t, err)
@@ -144,8 +139,8 @@ func TestContractStorage(t *testing.T) {
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract := core.NewStateContract(addr, classHash, &felt.Zero, nil, blockNumber)
-	require.NoError(t, contract.Commit(txn, nil))
+	contract := core.NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+	require.NoError(t, contract.Commit(txn, true, blockNumber))
 
 	t.Run("get initial storage", func(t *testing.T) {
 		gotValue, err := contract.GetStorage(addr, txn)
@@ -157,8 +152,8 @@ func TestContractStorage(t *testing.T) {
 		oldRoot, err := contract.StorageRoot(txn)
 		require.NoError(t, err)
 
-		contract.Storage = map[felt.Felt]*felt.Felt{*addr: classHash}
-		require.NoError(t, contract.Commit(txn, NoopOnValueChanged))
+		contract.UpdateStorage(addr, classHash)
+		require.NoError(t, contract.Commit(txn, false, blockNumber))
 
 		contract, err = core.GetContract(addr, txn)
 		require.NoError(t, err)
@@ -173,8 +168,8 @@ func TestContractStorage(t *testing.T) {
 	})
 
 	t.Run("delete key from storage with storage diff", func(t *testing.T) {
-		contract.Storage[*addr] = new(felt.Felt)
-		require.NoError(t, contract.Commit(txn, NoopOnValueChanged))
+		contract.UpdateStorage(addr, new(felt.Felt))
+		require.NoError(t, contract.Commit(txn, false, blockNumber))
 
 		contract, err = core.GetContract(addr, txn)
 		require.NoError(t, err)
@@ -194,8 +189,8 @@ func TestPurge(t *testing.T) {
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract := core.NewStateContract(addr, classHash, &felt.Zero, nil, blockNumber)
-	require.NoError(t, contract.Commit(txn, nil))
+	contract := core.NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+	require.NoError(t, contract.Commit(txn, false, blockNumber))
 
 	require.NoError(t, contract.Purge(txn))
 	_, err = core.GetContract(addr, txn)

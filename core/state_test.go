@@ -41,6 +41,7 @@ func TestMain(m *testing.M) {
 
 	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{}))
 	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo1Class{}))
+	_ = encoder.RegisterType(reflect.TypeOf(core.StateContract{}))
 
 	code := m.Run()
 
@@ -440,17 +441,22 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, state.Update(1, su1, nil))
 
 	t.Run("revert a replaced class", func(t *testing.T) {
+		replacedVal := utils.HexToFelt(t, "0xDEADBEEF")
 		replaceStateUpdate := &core.StateUpdate{
 			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{
-					su1FirstDeployedAddress: utils.HexToFelt(t, "0xDEADBEEF"),
+					su1FirstDeployedAddress: replacedVal,
 				},
 			},
 		}
 
 		require.NoError(t, state.Update(2, replaceStateUpdate, nil))
+		classHash, err := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
+		require.NoError(t, err)
+		assert.Equal(t, replacedVal, classHash)
+
 		require.NoError(t, state.Revert(2, replaceStateUpdate))
 		classHash, sErr := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
@@ -458,19 +464,24 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("revert a nonce update", func(t *testing.T) {
+		replacedVal := utils.HexToFelt(t, "0xDEADBEEF")
 		nonceStateUpdate := &core.StateUpdate{
 			NewRoot: utils.HexToFelt(t, "0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{
-					su1FirstDeployedAddress: utils.HexToFelt(t, "0xDEADBEEF"),
+					su1FirstDeployedAddress: replacedVal,
 				},
 			},
 		}
 
 		require.NoError(t, state.Update(2, nonceStateUpdate, nil))
-		require.NoError(t, state.Revert(2, nonceStateUpdate))
 		nonce, sErr := state.ContractNonce(new(felt.Felt).Set(&su1FirstDeployedAddress))
+		require.NoError(t, sErr)
+		assert.Equal(t, replacedVal, nonce)
+
+		require.NoError(t, state.Revert(2, nonceStateUpdate))
+		nonce, sErr = state.ContractNonce(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
 		assert.Equal(t, &felt.Zero, nonce)
 	})

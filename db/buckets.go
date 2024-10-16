@@ -30,10 +30,10 @@ const (
 	// ClassesTrie -> Latest classes trie's root key
 	// ClassesTrie + ClassHash -> PoseidonHash(leafVersion, compiledClassHash)
 	ClassesTrie
-	ContractStorageHistory   // (Legacy) ContractStorageHistory + ContractAddr + BlockHeight + StorageLocation -> StorageValue
-	ContractNonceHistory     // (Legacy) ContractNonceHistory + ContractAddr + BlockHeight -> Contract's nonce value
-	ContractClassHashHistory // (Legacy) ContractClassHashHistory + ContractAddr + BlockHeight -> Contract's class hash value
-	ContractDeploymentHeight // ContractDeploymentHeight + ContractAddr -> BlockHeight
+	ContractStorageHistory   // ContractStorageHistory + ContractAddr + BlockHeight + StorageLocation -> StorageValue
+	ContractNonceHistory     // ContractNonceHistory + ContractAddr + BlockHeight -> Contract's nonce value
+	ContractClassHashHistory // ContractClassHashHistory + ContractAddr + BlockHeight -> Contract's class hash value
+	ContractDeploymentHeight // (Legacy) ContractDeploymentHeight + ContractAddr -> BlockHeight
 	L1Height                 // L1Height -> Latest height of the L1 chain
 	SchemaVersion            // SchemaVersion -> DB schema version
 	Pending                  // Pending -> Pending block

@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils"
 )
 
 const globalTrieHeight = 251
@@ -50,22 +52,6 @@ func NewState(txn db.Transaction) *State {
 	}
 }
 
-// putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
-// queried later with [GetContractClass].
-// func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64) error {
-// 	contract, err := DeployContract(addr, classHash, s.txn)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	numBytes := MarshalBlockNumber(blockNumber)
-// 	if err = s.txn.Set(db.ContractDeploymentHeight.Key(addr.Marshal()), numBytes); err != nil {
-// 		return err
-// 	}
-
-// 	return s.updateContractCommitment(stateTrie, contract)
-// }
-
 // ContractClassHash returns class hash of a contract at a given address.
 func (s *State) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
 	contract, err := GetContract(addr, s.txn)
@@ -94,6 +80,63 @@ func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 	}
 
 	return contract.GetStorage(key, s.txn)
+}
+
+func (s *State) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
+	return s.contractValueAt(classHashLogKey, addr, blockNumber)
+}
+
+func (s *State) ContractStorageAt(addr, loc *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
+	return s.contractValueAt(func(a *felt.Felt) []byte { return storageLogKey(a, loc) }, addr, blockNumber)
+}
+
+func (s *State) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
+	return s.contractValueAt(nonceLogKey, addr, blockNumber)
+}
+
+func (s *State) contractValueAt(keyFunc func(*felt.Felt) []byte, addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
+	key := keyFunc(addr)
+	value, err := s.valueAt(key, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(felt.Felt).SetBytes(value), nil
+}
+
+func (s *State) valueAt(key []byte, height uint64) ([]byte, error) {
+	it, err := s.txn.NewIterator()
+	if err != nil {
+		return nil, err
+	}
+
+	for it.Seek(logDBKey(key, height)); it.Valid(); it.Next() {
+		seekedKey := it.Key()
+		// seekedKey size should be `len(key) + sizeof(uint64)` and seekedKey should match key prefix
+		if len(seekedKey) != len(key)+8 || !bytes.HasPrefix(seekedKey, key) {
+			break
+		}
+
+		seekedHeight := binary.BigEndian.Uint64(seekedKey[len(key):])
+		if seekedHeight < height {
+			// last change happened before the height we are looking for
+			// check head state
+			break
+		} else if seekedHeight == height {
+			// a log exists for the height we are looking for, so the old value in this log entry is not useful.
+			// advance the iterator and see we can use the next entry. If not, ErrCheckHeadState will be returned
+			continue
+		}
+
+		val, itErr := it.Value()
+		if err = utils.RunAndWrapOnError(it.Close, itErr); err != nil {
+			return nil, err
+		}
+		// seekedHeight > height
+		return val, nil
+	}
+
+	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
 }
 
 // Root returns the state commitment.
@@ -242,21 +285,16 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 			return err
 		}
 
-		contracts[addr] = NewStateContract(&addr, classHash, &felt.Zero, nil, blockNumber)
+		contracts[addr] = NewStateContract(&addr, classHash, &felt.Zero, blockNumber)
 	}
 
 	if err = s.updateContracts(blockNumber, update.StateDiff, true, contracts); err != nil {
 		return err
 	}
 
-	// TODO(weiihann): handle history
-	tempOnValChanged := func(location, oldValue *felt.Felt) error {
-		return nil
-	}
-
 	// Commit all contract updates
 	for _, contract := range contracts {
-		if err = contract.Commit(s.txn, tempOnValChanged); err != nil {
+		if err = contract.Commit(s.txn, true, blockNumber); err != nil {
 			return err
 		}
 
@@ -298,14 +336,13 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff, logChanges 
 			contracts[addr] = contract
 		}
 
-		oldClassHash := contract.ClassHash
-		contract.ClassHash = classHash
-
 		if logChanges {
-			if err := s.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
+			if err := contract.logClassHash(blockNumber, s.txn); err != nil {
 				return err
 			}
 		}
+
+		contract.ClassHash = classHash
 	}
 
 	// update contract nonces
@@ -319,14 +356,13 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff, logChanges 
 			contracts[addr] = contract
 		}
 
-		oldNonce := contract.Nonce
-		contract.Nonce = nonce
-
 		if logChanges {
-			if err := s.LogContractNonce(&addr, oldNonce, blockNumber); err != nil {
+			if err := contract.logNonce(blockNumber, s.txn); err != nil {
 				return err
 			}
 		}
+
+		contract.Nonce = nonce
 	}
 
 	// update contract storages
@@ -337,7 +373,7 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff, logChanges 
 			if err != nil {
 				// makes sure that all noClassContracts are deployed
 				if _, ok := noClassContracts[addr]; ok && errors.Is(err, ErrContractNotDeployed) {
-					contract = NewStateContract(&addr, noClassContractsClassHash, &felt.Zero, nil, blockNumber)
+					contract = NewStateContract(&addr, noClassContractsClassHash, &felt.Zero, blockNumber)
 				} else {
 					return err
 				}
@@ -345,7 +381,7 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff, logChanges 
 			contracts[addr] = contract
 		}
 
-		contract.Storage = diff
+		contract.dirtyStorage = diff
 	}
 
 	return nil
@@ -471,13 +507,21 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return fmt.Errorf("update contracts: %v", err)
 	}
 
-	if err = storageCloser(); err != nil {
-		return err
+	// TODO(weiihann): make concurrent
+	// Commit the changes to the contracts and update their commitments
+	for _, contract := range contracts {
+		if err = contract.Commit(s.txn, false, blockNumber); err != nil {
+			return fmt.Errorf("commit contract: %v", err)
+		}
+
+		if err = s.updateContractCommitment(stateTrie, contract); err != nil {
+			return fmt.Errorf("update contract commitment: %v", err)
+		}
 	}
 
 	// purge deployed contracts
 	for addr := range update.StateDiff.DeployedContracts {
-		if err = s.purgeContract(&addr); err != nil {
+		if err = s.purgeContract(stateTrie, &addr); err != nil {
 			return fmt.Errorf("purge contract: %v", err)
 		}
 	}
@@ -502,27 +546,14 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		}
 
 		if rootKey.Equal(&felt.Zero) {
-			if err = s.purgeContract(&addr); err != nil {
+			if err = s.purgeContract(stateTrie, &addr); err != nil {
 				return fmt.Errorf("purge contract: %v", err)
 			}
 		}
 	}
 
-	// TODO(weiihann): handle this
-	tempOnValChanged := func(location, oldValue *felt.Felt) error {
-		return nil
-	}
-
-	// TODO(weiihann): make concurrent
-	// Commit the changes to the contracts and update their commitments
-	for _, contract := range contracts {
-		if err = contract.Commit(s.txn, tempOnValChanged); err != nil {
-			return fmt.Errorf("commit contract: %v", err)
-		}
-
-		if err = s.updateContractCommitment(stateTrie, contract); err != nil {
-			return fmt.Errorf("update contract commitment: %v", err)
-		}
+	if err = storageCloser(); err != nil {
+		return err
 	}
 
 	return s.verifyStateUpdateRoot(update.OldRoot)
@@ -563,13 +594,8 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 	return classesCloser()
 }
 
-func (s *State) purgeContract(addr *felt.Felt) error {
+func (s *State) purgeContract(stateTrie *trie.Trie, addr *felt.Felt) error {
 	contract, err := GetContract(addr, s.txn)
-	if err != nil {
-		return err
-	}
-
-	stateTrie, storageCloser, err := s.storage()
 	if err != nil {
 		return err
 	}
@@ -582,7 +608,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	return storageCloser()
+	return nil
 }
 
 func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
@@ -648,4 +674,8 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 	}
 
 	return &reversed, nil
+}
+
+func logDBKey(key []byte, height uint64) []byte {
+	return binary.BigEndian.AppendUint64(key, height)
 }

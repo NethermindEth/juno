@@ -29,27 +29,22 @@ type StateContract struct {
 	DeployHeight uint64
 	// Address that this contract instance is deployed to
 	Address *felt.Felt `cbor:"-"`
-	// Storage is the contract's storage
-	Storage map[felt.Felt]*felt.Felt `cbor:"-"`
+	// dirtyStorage is a map of storage locations that have been updated
+	dirtyStorage map[felt.Felt]*felt.Felt `cbor:"-"`
 }
 
 func NewStateContract(
 	addr *felt.Felt,
 	classHash *felt.Felt,
 	nonce *felt.Felt,
-	storage map[felt.Felt]*felt.Felt,
-	DeployHeight uint64,
+	deployHeight uint64,
 ) *StateContract {
 	sc := &StateContract{
 		Address:      addr,
 		ClassHash:    classHash,
 		Nonce:        nonce,
-		Storage:      storage,
-		DeployHeight: DeployHeight,
-	}
-
-	if storage == nil {
-		sc.Storage = make(map[felt.Felt]*felt.Felt)
+		DeployHeight: deployHeight,
+		dirtyStorage: make(map[felt.Felt]*felt.Felt),
 	}
 
 	return sc
@@ -64,9 +59,17 @@ func (c *StateContract) StorageRoot(txn db.Transaction) (*felt.Felt, error) {
 	return storageTrie.Root()
 }
 
+func (c *StateContract) UpdateStorage(key *felt.Felt, value *felt.Felt) {
+	if c.dirtyStorage == nil {
+		c.dirtyStorage = make(map[felt.Felt]*felt.Felt)
+	}
+
+	c.dirtyStorage[*key] = value
+}
+
 func (c *StateContract) GetStorage(key *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
-	if c.Storage != nil {
-		if val, ok := c.Storage[*key]; ok {
+	if c.dirtyStorage != nil {
+		if val, ok := c.dirtyStorage[*key]; ok {
 			return val, nil
 		}
 	}
@@ -80,20 +83,39 @@ func (c *StateContract) GetStorage(key *felt.Felt, txn db.Transaction) (*felt.Fe
 	return storage.Get(key)
 }
 
-func (c *StateContract) Commit(txn db.Transaction, cb OnValueChanged) error {
+func (c *StateContract) logOldValue(key []byte, oldValue *felt.Felt, height uint64, txn db.Transaction) error {
+	return txn.Set(logDBKey(key, height), oldValue.Marshal())
+}
+
+func (c *StateContract) logStorage(location, oldVal *felt.Felt, height uint64, txn db.Transaction) error {
+	key := storageLogKey(c.Address, location)
+	return c.logOldValue(key, oldVal, height, txn)
+}
+
+func (c *StateContract) logNonce(height uint64, txn db.Transaction) error {
+	key := nonceLogKey(c.Address)
+	return c.logOldValue(key, c.Nonce, height, txn)
+}
+
+func (c *StateContract) logClassHash(height uint64, txn db.Transaction) error {
+	key := classHashLogKey(c.Address)
+	return c.logOldValue(key, c.ClassHash, height, txn)
+}
+
+func (c *StateContract) Commit(txn db.Transaction, logChanges bool, blockNum uint64) error {
 	storageTrie, err := storage(c.Address, txn)
 	if err != nil {
 		return err
 	}
 
-	for key, value := range c.Storage {
+	for key, value := range c.dirtyStorage {
 		oldVal, err := storageTrie.Put(&key, value)
 		if err != nil {
 			return err
 		}
 
-		if oldVal != nil {
-			if err = cb(&key, oldVal); err != nil {
+		if oldVal != nil && logChanges {
+			if err = c.logStorage(&key, oldVal, blockNum, txn); err != nil {
 				return err
 			}
 		}
@@ -116,11 +138,19 @@ func (c *StateContract) Commit(txn db.Transaction, cb OnValueChanged) error {
 func (c *StateContract) Purge(txn db.Transaction) error {
 	addrBytes := c.Address.Marshal()
 
-	if err := txn.Delete(db.Contract.Key(addrBytes)); err != nil {
-		return err
-	}
+	return txn.Delete(db.Contract.Key(addrBytes))
+}
 
-	return txn.Delete(db.ContractDeploymentHeight.Key(addrBytes))
+func storageLogKey(contractAddress, storageLocation *felt.Felt) []byte {
+	return db.ContractStorageHistory.Key(contractAddress.Marshal(), storageLocation.Marshal())
+}
+
+func nonceLogKey(contractAddress *felt.Felt) []byte {
+	return db.ContractNonceHistory.Key(contractAddress.Marshal())
+}
+
+func classHashLogKey(contractAddress *felt.Felt) []byte {
+	return db.ContractClassHashHistory.Key(contractAddress.Marshal())
 }
 
 // GetContract is a wrapper around getContract which checks if a contract is deployed
@@ -146,7 +176,7 @@ func getContract(addr *felt.Felt, txn db.Transaction) (*StateContract, error) {
 		}
 
 		contract.Address = addr
-		contract.Storage = make(map[felt.Felt]*felt.Felt)
+		contract.dirtyStorage = make(map[felt.Felt]*felt.Felt)
 
 		return nil
 	}); err != nil {
