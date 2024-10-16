@@ -13,8 +13,8 @@ endif
 ifeq ($(shell uname -s),Darwin)
 	export CGO_LDFLAGS=-framework Foundation -framework SystemConfiguration
 
-	# Set macOS deployment target in order to avoid linker warnings linke
-	# "ld: warning: object file XX was built for newer macOS version (14.4) than being linked (14.0)"
+	# Set macOS deployment target in order to avoid linker warnings linke
+	# "ld: warning: object file XX was built for newer macOS version (14.4) than being linked (14.0)"
 	export MACOSX_DEPLOYMENT_TARGET=$(shell sw_vers --productVersion)
 
 	# for test-race we need to pass -ldflags to fix linker warnings on macOS
@@ -31,7 +31,7 @@ endif
 
 MAKEFLAGS += -j$(NPROCS)
 
-rustdeps: vm core-rust compiler
+rustdeps: check-rust vm core-rust compiler
 
 juno: rustdeps ## compile
 	@mkdir -p build
@@ -40,6 +40,13 @@ juno: rustdeps ## compile
 juno-cached:
 	@mkdir -p build
 	@go build $(GO_TAGS) -ldflags="-X main.Version=$(shell git describe --tags)" -o build/juno ./cmd/juno/
+
+
+MINIMUM_RUST_VERSION = 1.80.1
+CURR_RUST_VERSION = $(shell rustc --version | grep -o '[0-9.]\+' | head -n1)
+check-rust: ## Ensure rust version is greater than minimum
+	@echo "Checking if current rust version >= $(MINIMUM_RUST_VERSION)"
+	@bash -c '[[ $(CURR_RUST_VERSION) < $(MINIMUM_RUST_VERSION) ]] && (echo "Rust version must be >= $(MINIMUM_RUST_VERSION).  Found version $(CURR_RUST_VERSION)" && exit 1) || echo "Current rust version is $(CURR_RUST_VERSION)"'
 
 vm:
 	$(MAKE) -C vm/rust $(VM_TARGET)
@@ -74,7 +81,7 @@ test-cover: clean-testcache rustdeps ## tests with coverage
 	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: | install-gofumpt install-mockgen install-golangci-lint## install some project dependencies
+install-deps: | install-gofumpt install-mockgen install-golangci-lint check-rust ## install some project dependencies
 
 install-gofumpt:
 	go install mvdan.cc/gofumpt@latest
