@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -14,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"strconv"
 )
 
 var emptyCommitments = core.BlockCommitments{}
@@ -34,14 +34,14 @@ func TestDBCmd(t *testing.T) {
 		network := utils.Mainnet
 
 		const (
-			syncTillBlock = uint64(2)
-			revertToBlock = syncTillBlock - 1
+			syncToBlock   = uint64(2)
+			revertToBlock = syncToBlock - 1
 		)
 
 		cmd := juno.DBRevertCmd()
 		cmd.Flags().String("db-path", "", "")
 
-		dbPath := prepareDB(t, network, syncTillBlock)
+		dbPath := prepareDB(t, &network, syncToBlock)
 
 		require.NoError(t, cmd.Flags().Set("db-path", dbPath))
 		require.NoError(t, cmd.Flags().Set("to-block", strconv.Itoa(int(revertToBlock))))
@@ -66,23 +66,23 @@ func TestDBCmd(t *testing.T) {
 func executeCmdInDB(t *testing.T, cmd *cobra.Command) {
 	cmd.Flags().String("db-path", "", "")
 
-	dbPath := prepareDB(t, utils.Mainnet, 0)
+	dbPath := prepareDB(t, &utils.Mainnet, 0)
 
 	require.NoError(t, cmd.Flags().Set("db-path", dbPath))
 	require.NoError(t, cmd.Execute())
 }
 
-func prepareDB(t *testing.T, network utils.Network, syncTillBlock uint64) string {
-	client := feeder.NewTestClient(t, &network)
+func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string {
+	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	chain := blockchain.New(testDB, &network)
+	chain := blockchain.New(testDB, network)
 
-	for blockNumber := uint64(0); blockNumber <= syncTillBlock; blockNumber++ {
+	for blockNumber := uint64(0); blockNumber <= syncToBlock; blockNumber++ {
 		block, err := gw.BlockByNumber(context.Background(), blockNumber)
 		require.NoError(t, err)
 
