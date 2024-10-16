@@ -36,6 +36,7 @@ type Reader interface {
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 
 	HeadState() (core.StateReader, StateCloser, error)
+	HeadTrie() (core.TrieReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 	PendingState() (core.StateReader, StateCloser, error)
@@ -764,6 +765,17 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	_, err = chainHeight(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return core.NewState(txn), txn.Discard, nil
+}
+
+func (b *Blockchain) HeadTrie() (core.TrieReader, StateCloser, error) {
+	// Note: I'm not sure I should open a new db txn since the TrieReader is a State
+	// so the same instance of the state we create in HeadState will do job.
+	txn, err := b.database.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return core.NewState(txn), txn.Discard, nil
