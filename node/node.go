@@ -89,8 +89,6 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
-
-	PluginPath string `mapstructure:"plugin-path"`
 }
 
 type Node struct {
