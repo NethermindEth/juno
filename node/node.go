@@ -22,7 +22,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
-	junoplugin "github.com/NethermindEth/juno/plugin"
+	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -159,15 +159,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
-	pluginService := junoplugin.New(log)
 	if cfg.PluginPath != "" {
-		plugin, err := junoplugin.Load(cfg.PluginPath)
+		p, err := plugin.Load(cfg.PluginPath)
 		if err != nil {
 			return nil, err
 		}
-		synchronizer.WithPlugin(plugin)
-		pluginService.WithPlugin(plugin)
-		services = append(services, pluginService)
+		synchronizer.WithPlugin(p)
+		services = append(services, plugin.NewService(p))
 	}
 
 	var p2pService *p2p.Service
