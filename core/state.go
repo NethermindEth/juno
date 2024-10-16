@@ -17,8 +17,9 @@ import (
 const globalTrieHeight = 251
 
 var (
-	stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
-	leafVersion  = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
+	stateVersion      = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
+	leafVersion       = new(felt.Felt).SetBytes([]byte(`CONTRACT_CLASS_LEAF_V0`))
+	ErrCheckHeadState = errors.New("check head state")
 )
 
 var _ StateHistoryReader = (*State)(nil)
@@ -41,14 +42,12 @@ type StateReader interface {
 }
 
 type State struct {
-	*history
 	txn db.Transaction
 }
 
 func NewState(txn db.Transaction) *State {
 	return &State{
-		history: &history{txn: txn},
-		txn:     txn,
+		txn: txn,
 	}
 }
 
@@ -92,6 +91,22 @@ func (s *State) ContractStorageAt(addr, loc *felt.Felt, blockNumber uint64) (*fe
 
 func (s *State) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
 	return s.contractValueAt(nonceLogKey, addr, blockNumber)
+}
+
+func (s *State) deleteLog(key []byte, height uint64) error {
+	return s.txn.Delete(logDBKey(key, height))
+}
+
+func (s *State) DeleteContractStorageLog(contractAddress, storageLocation *felt.Felt, height uint64) error {
+	return s.deleteLog(storageLogKey(contractAddress, storageLocation), height)
+}
+
+func (s *State) DeleteContractNonceLog(contractAddress *felt.Felt, height uint64) error {
+	return s.deleteLog(nonceLogKey(contractAddress), height)
+}
+
+func (s *State) DeleteContractClassHashLog(contractAddress *felt.Felt, height uint64) error {
+	return s.deleteLog(classHashLogKey(contractAddress), height)
 }
 
 func (s *State) contractValueAt(keyFunc func(*felt.Felt) []byte, addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
@@ -337,7 +352,7 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff, logChanges 
 		}
 
 		if logChanges {
-			if err := contract.logClassHash(blockNumber, s.txn); err != nil {
+			if err := contract.LogClassHash(blockNumber, s.txn); err != nil {
 				return err
 			}
 		}
@@ -357,7 +372,7 @@ func (s *State) updateContracts(blockNumber uint64, diff *StateDiff, logChanges 
 		}
 
 		if logChanges {
-			if err := contract.logNonce(blockNumber, s.txn); err != nil {
+			if err := contract.LogNonce(blockNumber, s.txn); err != nil {
 				return err
 			}
 		}

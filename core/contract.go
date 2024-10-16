@@ -87,17 +87,17 @@ func (c *StateContract) logOldValue(key []byte, oldValue *felt.Felt, height uint
 	return txn.Set(logDBKey(key, height), oldValue.Marshal())
 }
 
-func (c *StateContract) logStorage(location, oldVal *felt.Felt, height uint64, txn db.Transaction) error {
+func (c *StateContract) LogStorage(location, oldVal *felt.Felt, height uint64, txn db.Transaction) error {
 	key := storageLogKey(c.Address, location)
 	return c.logOldValue(key, oldVal, height, txn)
 }
 
-func (c *StateContract) logNonce(height uint64, txn db.Transaction) error {
+func (c *StateContract) LogNonce(height uint64, txn db.Transaction) error {
 	key := nonceLogKey(c.Address)
 	return c.logOldValue(key, c.Nonce, height, txn)
 }
 
-func (c *StateContract) logClassHash(height uint64, txn db.Transaction) error {
+func (c *StateContract) LogClassHash(height uint64, txn db.Transaction) error {
 	key := classHashLogKey(c.Address)
 	return c.logOldValue(key, c.ClassHash, height, txn)
 }
@@ -115,7 +115,7 @@ func (c *StateContract) Commit(txn db.Transaction, logChanges bool, blockNum uin
 		}
 
 		if oldVal != nil && logChanges {
-			if err = c.logStorage(&key, oldVal, blockNum, txn); err != nil {
+			if err = c.LogStorage(&key, oldVal, blockNum, txn); err != nil {
 				return err
 			}
 		}

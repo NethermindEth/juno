@@ -713,3 +713,130 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	_, err = state.Class(sierraHash)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 }
+
+func TestHistory(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	state := core.NewState(txn)
+	addr := &felt.Zero
+	location := new(felt.Felt).SetUint64(456)
+	value := new(felt.Felt).SetUint64(789)
+
+	t.Run("no history", func(t *testing.T) {
+		_, err := state.ContractNonceAt(new(felt.Felt).SetUint64(1), 1)
+		require.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(new(felt.Felt).SetUint64(1), 1)
+		require.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractStorageAt(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(1), 1)
+		require.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	contract := core.NewStateContract(&felt.Zero, &felt.Zero, &felt.Zero, 0)
+	t.Run("log value changed at height 5 and 10", func(t *testing.T) {
+		assert.NoError(t, contract.LogNonce(5, txn))
+		assert.NoError(t, contract.LogClassHash(5, txn))
+		assert.NoError(t, contract.LogStorage(location, &felt.Zero, 5, txn))
+
+		contract.Nonce = value
+		contract.ClassHash = value
+
+		assert.NoError(t, contract.LogNonce(10, txn))
+		assert.NoError(t, contract.LogClassHash(10, txn))
+		assert.NoError(t, contract.LogStorage(location, value, 10, txn))
+	})
+
+	t.Run("get value before height 5", func(t *testing.T) {
+		oldValue, err := state.ContractStorageAt(addr, location, 1)
+		require.NoError(t, err)
+		assert.Equal(t, &felt.Zero, oldValue)
+
+		oldValue, err = state.ContractNonceAt(addr, 1)
+		require.NoError(t, err)
+		assert.Equal(t, &felt.Zero, oldValue)
+
+		oldValue, err = state.ContractClassHashAt(addr, 1)
+		require.NoError(t, err)
+		assert.Equal(t, &felt.Zero, oldValue)
+	})
+
+	t.Run("get value between height 5-10", func(t *testing.T) {
+		oldValue, err := state.ContractStorageAt(addr, location, 7)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		oldValue, err = state.ContractNonceAt(addr, 7)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		oldValue, err = state.ContractClassHashAt(addr, 7)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+	})
+
+	t.Run("get value on height that change happened", func(t *testing.T) {
+		oldValue, err := state.ContractStorageAt(addr, location, 5)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		_, err = state.ContractStorageAt(addr, location, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		oldValue, err = state.ContractNonceAt(addr, 5)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		_, err = state.ContractNonceAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		oldValue, err = state.ContractClassHashAt(addr, 5)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		_, err = state.ContractClassHashAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	t.Run("get value after height 10 ", func(t *testing.T) {
+		_, err = state.ContractStorageAt(addr, location, 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractNonceAt(addr, 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(addr, 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	t.Run("get a random location ", func(t *testing.T) {
+		_, err = state.ContractStorageAt(new(felt.Felt).SetUint64(37), new(felt.Felt).SetUint64(37), 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractNonceAt(new(felt.Felt).SetUint64(37), 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(new(felt.Felt).SetUint64(37), 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	t.Run("delete storage and get value after delete", func(t *testing.T) {
+		assert.NoError(t, state.DeleteContractClassHashLog(addr, 10))
+		assert.NoError(t, state.DeleteContractNonceLog(addr, 10))
+		assert.NoError(t, state.DeleteContractStorageLog(addr, location, 10))
+
+		_, err = state.ContractStorageAt(addr, location, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractNonceAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+}
