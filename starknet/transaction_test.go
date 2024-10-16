@@ -15,6 +15,7 @@ func TestUnmarshalExecutionStatus(t *testing.T) {
 	cases := map[string]starknet.ExecutionStatus{
 		"SUCCEEDED": starknet.Succeeded,
 		"REVERTED":  starknet.Reverted,
+		"REJECTED":  starknet.Rejected,
 	}
 	for str, expected := range cases {
 		quotedStr := `"` + str + `"`
