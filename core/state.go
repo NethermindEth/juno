@@ -5,6 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"maps"
+	"runtime"
+	"slices"
+	"sort"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -12,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/sourcegraph/conc/pool"
 )
 
 const globalTrieHeight = 251
@@ -307,15 +312,8 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 		return err
 	}
 
-	// Commit all contract updates
-	for _, contract := range contracts {
-		if err = contract.Commit(s.txn, true, blockNumber); err != nil {
-			return err
-		}
-
-		if err := s.updateContractCommitment(stateTrie, contract); err != nil {
-			return err
-		}
+	if err = s.Commit(stateTrie, contracts, true, blockNumber); err != nil {
+		return fmt.Errorf("state commit: %v", err)
 	}
 
 	if err = storageCloser(); err != nil {
@@ -332,6 +330,63 @@ var (
 		*new(felt.Felt).SetUint64(1): {},
 	}
 )
+
+func (s *State) Commit(
+	stateTrie *trie.Trie,
+	contracts map[felt.Felt]*StateContract,
+	logChanges bool,
+	blockNumber uint64,
+) error {
+	type bufferedTransactionWithAddress struct {
+		txn  *db.BufferedTransaction
+		addr *felt.Felt
+	}
+
+	// // sort the contracts in descending storage diff order
+	keys := slices.SortedStableFunc(maps.Keys(contracts), func(a, b felt.Felt) int {
+		return len(contracts[a].dirtyStorage) - len(contracts[b].dirtyStorage)
+	})
+
+	contractPools := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	for _, addr := range keys {
+		contract := contracts[addr]
+		contractPools.Go(func() (*bufferedTransactionWithAddress, error) {
+			txn, err := contract.BufferedCommit(s.txn, logChanges, blockNumber)
+			if err != nil {
+				return nil, err
+			}
+
+			return &bufferedTransactionWithAddress{
+				txn:  txn,
+				addr: contract.Address,
+			}, nil
+		})
+	}
+
+	bufferedTxns, err := contractPools.Wait()
+	if err != nil {
+		return err
+	}
+
+	// we sort bufferedTxns in ascending contract address order to achieve an additional speedup
+	sort.Slice(bufferedTxns, func(i, j int) bool {
+		return bufferedTxns[i].addr.Cmp(bufferedTxns[j].addr) < 0
+	})
+
+	for _, bufferedTxn := range bufferedTxns {
+		if err := bufferedTxn.txn.Flush(); err != nil {
+			return err
+		}
+	}
+
+	for _, contract := range contracts {
+		if err := s.updateContractCommitment(stateTrie, contract); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 func (s *State) updateContracts(blockNumber uint64, diff *StateDiff, logChanges bool, contracts map[felt.Felt]*StateContract) error {
 	if contracts == nil {
@@ -522,16 +577,8 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		return fmt.Errorf("update contracts: %v", err)
 	}
 
-	// TODO(weiihann): make concurrent
-	// Commit the changes to the contracts and update their commitments
-	for _, contract := range contracts {
-		if err = contract.Commit(s.txn, false, blockNumber); err != nil {
-			return fmt.Errorf("commit contract: %v", err)
-		}
-
-		if err = s.updateContractCommitment(stateTrie, contract); err != nil {
-			return fmt.Errorf("update contract commitment: %v", err)
-		}
+	if err = s.Commit(stateTrie, contracts, false, blockNumber); err != nil {
+		return fmt.Errorf("state commit: %v", err)
 	}
 
 	// purge deployed contracts
