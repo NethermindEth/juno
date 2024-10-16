@@ -222,7 +222,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 			StateUpdate: toSU,
 		}
 	}
-	err = (s.plugin).RevertBlock(
+	err = s.plugin.RevertBlock(
 		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
 		toBlockAndStateUpdate,
 		reverseStateDiff)
