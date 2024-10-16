@@ -228,6 +228,7 @@ After following these steps, Juno should be up and running on your machine, util
 - Starknet state construction and storage using a path-based Merkle Patricia trie.
 - Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
 - Block and Transaction hash verification.
+- Plugins 
 
 ## 🛣 Roadmap
 
