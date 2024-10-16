@@ -840,3 +840,41 @@ func TestHistory(t *testing.T) {
 		assert.ErrorIs(t, err, core.ErrCheckHeadState)
 	})
 }
+
+func BenchmarkStateUpdate(b *testing.B) {
+	client := feeder.NewTestClient(b, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(b, err)
+
+	su1, err := gw.StateUpdate(context.Background(), 1)
+	require.NoError(b, err)
+
+	su2, err := gw.StateUpdate(context.Background(), 2)
+	require.NoError(b, err)
+
+	stateUpdates := []*core.StateUpdate{su0, su1, su2}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		// Create a new test database for each iteration
+		testDB := pebble.NewMemTest(b)
+		txn, err := testDB.NewTransaction(true)
+		require.NoError(b, err)
+
+		state := core.NewState(txn)
+		b.StartTimer()
+
+		for i, su := range stateUpdates {
+			err = state.Update(uint64(i), su, nil)
+			if err != nil {
+				b.Fatalf("Error updating state: %v", err)
+			}
+		}
+
+		b.StopTimer()
+		require.NoError(b, txn.Discard())
+	}
+}
