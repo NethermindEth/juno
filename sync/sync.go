@@ -34,6 +34,10 @@ type HeaderSubscription struct {
 	*feed.Subscription[*core.Header]
 }
 
+type ReorgSubscription struct {
+	*feed.Subscription[*ReorgData]
+}
+
 // Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
@@ -41,6 +45,7 @@ type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
+	SubscribeReorg() ReorgSubscription
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -58,6 +63,22 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
 }
 
+func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
+	return ReorgSubscription{feed.New[*ReorgData]().Subscribe()}
+}
+
+// ReorgData represents data about reorganised blocks, starting and ending block number and hash
+type ReorgData struct {
+	// StartBlockHash is the hash of the first known block of the orphaned chain
+	StartBlockHash *felt.Felt `json:"starting_block_hash"`
+	// StartBlockNum is the number of the first known block of the orphaned chain
+	StartBlockNum uint64 `json:"starting_block_number"`
+	// The last known block of the orphaned chain
+	EndBlockHash *felt.Felt `json:"ending_block_hash"`
+	// Number of the last known block of the orphaned chain
+	EndBlockNum uint64 `json:"ending_block_number"`
+}
+
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
@@ -66,12 +87,15 @@ type Synchronizer struct {
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
+	reorgFeed           *feed.Feed[*ReorgData]
 
 	log      utils.SimpleLogger
 	listener EventListener
 
 	pendingPollInterval time.Duration
 	catchUpMode         bool
+
+	currReorg *ReorgData // If nil, no reorg is happening
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -82,6 +106,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
+		reorgFeed:           feed.New[*ReorgData](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -228,6 +253,11 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
 			}
 
+			if s.currReorg != nil {
+				s.reorgFeed.Send(s.currReorg)
+				s.currReorg = nil // reset the reorg data
+			}
+
 			s.newHeads.Send(block.Header)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
@@ -324,6 +354,19 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
+
+	if s.currReorg == nil { // first block of the reorg
+		s.currReorg = &ReorgData{
+			StartBlockHash: localHead,
+			StartBlockNum:  head.Number,
+			EndBlockHash:   localHead,
+			EndBlockNum:    head.Number,
+		}
+	} else { // not the first block of the reorg, adjust the starting block
+		s.currReorg.StartBlockHash = localHead
+		s.currReorg.StartBlockNum = head.Number
+	}
+
 	s.listener.OnReorg(head.Number)
 }
 
@@ -437,5 +480,11 @@ func (s *Synchronizer) HighestBlockHeader() *core.Header {
 func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{
 		Subscription: s.newHeads.Subscribe(),
+	}
+}
+
+func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
+	return ReorgSubscription{
+		Subscription: s.reorgFeed.Subscribe(),
 	}
 }

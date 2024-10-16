@@ -82,3 +82,17 @@ func (mr *MockSyncReaderMockRecorder) SubscribeNewHeads() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewHeads", reflect.TypeOf((*MockSyncReader)(nil).SubscribeNewHeads))
 }
+
+// SubscribeReorg mocks base method.
+func (m *MockSyncReader) SubscribeReorg() sync.ReorgSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeReorg")
+	ret0, _ := ret[0].(sync.ReorgSubscription)
+	return ret0
+}
+
+// SubscribeReorg indicates an expected call of SubscribeReorg.
+func (mr *MockSyncReaderMockRecorder) SubscribeReorg() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeReorg", reflect.TypeOf((*MockSyncReader)(nil).SubscribeReorg))
+}
