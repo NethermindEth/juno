@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1/contract"
-	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/l1/mocks"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +25,13 @@ type fakeSubscription struct {
 	closed  bool
 }
 
-func newFakeSubscription(errs ...error) *fakeSubscription {
+func newFakeSubscription() *fakeSubscription {
+	return &fakeSubscription{
+		errChan: make(chan error),
+	}
+}
+
+func newFakeSubscriptionGivenErr(errs ...error) *fakeSubscription {
 	errChan := make(chan error, 1)
 	if len(errs) >= 1 {
 		errChan <- errs[0]
@@ -407,7 +413,7 @@ func TestUnreliableSubscription(t *testing.T) {
 		// The subscription returns an error on each block.
 		// Each time, a second subscription succeeds.
 
-		failedUpdateSub := newFakeSubscription(err)
+		failedUpdateSub := newFakeSubscriptionGivenErr(err)
 		failedUpdateCall := subscriber.
 			EXPECT().
 			WatchLogStateUpdate(gomock.Any(), gomock.Any()).
@@ -465,4 +471,53 @@ func TestUnreliableSubscription(t *testing.T) {
 			assert.Equal(t, want, got)
 		}
 	}
+}
+
+func TestSubscribeL1Heads(t *testing.T) {
+	t.Parallel()
+
+	network := &utils.Mainnet
+	ctrl := gomock.NewController(t)
+	nopLog := utils.NewNopZapLogger()
+	chain := blockchain.New(pebble.NewMemTest(t), network)
+
+	subscriber := mocks.NewMockSubscriber(ctrl)
+	subscriber.EXPECT().Close().Times(1)
+	subscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	subscriber.
+		EXPECT().
+		ChainID(gomock.Any()).
+		Return(network.L1ChainID, nil).
+		Times(1)
+	subscriber.
+		EXPECT().
+		WatchLogStateUpdate(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, sink chan<- *contract.StarknetLogStateUpdate) {
+			sink <- &contract.StarknetLogStateUpdate{
+				GlobalRoot:  new(big.Int),
+				BlockNumber: new(big.Int),
+				BlockHash:   new(big.Int),
+				Raw: types.Log{
+					BlockNumber: 0,
+				},
+			}
+		}).
+		Return(newFakeSubscription(), nil)
+
+	client := NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+
+	sub := client.SubscribeL1Heads()
+	t.Cleanup(sub.Unsubscribe)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	require.NoError(t, client.Run(ctx))
+	cancel()
+
+	got, ok := <-sub.Recv()
+	require.True(t, ok)
+	require.Equal(t, &core.L1Head{
+		BlockNumber: 0,
+		BlockHash:   new(felt.Felt),
+		StateRoot:   new(felt.Felt),
+	}, got)
 }
