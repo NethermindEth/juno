@@ -92,7 +92,7 @@ func NopBackoff(d time.Duration) time.Duration {
 }
 
 // NewTestClient returns a client and a function to close a test server.
-func NewTestClient(t *testing.T, network *utils.Network) *Client {
+func NewTestClient(t testing.TB, network *utils.Network) *Client {
 	srv := newTestServer(t, network)
 	t.Cleanup(srv.Close)
 	ua := "Juno/v0.0.1-test Starknet Implementation"
@@ -117,7 +117,7 @@ func NewTestClient(t *testing.T, network *utils.Network) *Client {
 	return c
 }
 
-func newTestServer(t *testing.T, network *utils.Network) *httptest.Server {
+func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
