@@ -14,6 +14,7 @@ import (
 func TestService(t *testing.T) {
 	t.Run("shutdown ok", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		p := mocks.NewMockJunoPlugin(ctrl)
 		p.EXPECT().Shutdown().Return(nil)
@@ -28,6 +29,7 @@ func TestService(t *testing.T) {
 	})
 	t.Run("shutdown with error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		shutdownErr := errors.New("error during shutdown")
 
