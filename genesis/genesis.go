@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
@@ -185,7 +186,7 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 			if coreClass, err = sn2core.AdaptCairo0Class(response.V0); err != nil {
 				return nil, err
 			}
-		} else if compiledClass, cErr := starknet.Compile(response.V1); cErr != nil {
+		} else if compiledClass, cErr := compiler.Compile(response.V1); cErr != nil {
 			return nil, cErr
 		} else if coreClass, err = sn2core.AdaptCairo1Class(response.V1, compiledClass); err != nil {
 			return nil, err

@@ -1,4 +1,4 @@
-package starknet_test
+package compiler_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,7 @@ import (
 
 func TestCompile(t *testing.T) {
 	t.Run("zero sierra", func(t *testing.T) {
-		_, err := starknet.Compile(&starknet.SierraDefinition{})
+		_, err := compiler.Compile(&starknet.SierraDefinition{})
 		require.Error(t, err)
 	})
 
@@ -33,7 +34,7 @@ func TestCompile(t *testing.T) {
 		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)
 		require.NoError(t, err)
 
-		res, err := starknet.Compile(classDef.V1)
+		res, err := compiler.Compile(classDef.V1)
 		require.NoError(t, err)
 
 		gotCompiled, err := sn2core.AdaptCompiledClass(res)
@@ -45,7 +46,7 @@ func TestCompile(t *testing.T) {
 		// tests https://github.com/NethermindEth/juno/issues/1748
 		definition := loadTestData[starknet.SierraDefinition](t, "declare_cairo2_definition.json")
 
-		_, err := starknet.Compile(&definition)
+		_, err := compiler.Compile(&definition)
 		require.NoError(t, err)
 	})
 }
@@ -54,7 +55,7 @@ func TestCompile(t *testing.T) {
 func loadTestData[T any](t *testing.T, filename string) T {
 	t.Helper()
 
-	file := fmt.Sprintf("./testdata/%s", filename)
+	file := fmt.Sprintf("../testdata/%s", filename)
 	buff, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatalf("Failed to read file %s: %v", file, err)

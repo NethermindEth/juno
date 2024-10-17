@@ -3,6 +3,7 @@ package core_test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"reflect"
 	"testing"
 
@@ -23,6 +24,27 @@ var (
 	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
 	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
 )
+
+func TestMain(m *testing.M) {
+	txTypes := []core.Transaction{
+		&core.DeclareTransaction{},
+		&core.DeployTransaction{},
+		&core.InvokeTransaction{},
+		&core.L1HandlerTransaction{},
+		&core.DeployAccountTransaction{},
+	}
+
+	for _, tx := range txTypes {
+		_ = encoder.RegisterType(reflect.TypeOf(tx))
+	}
+
+	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{}))
+	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo1Class{}))
+
+	code := m.Run()
+
+	os.Exit(code)
+}
 
 func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
@@ -365,15 +387,6 @@ func TestClass(t *testing.T) {
 	cairo1Class, err := gw.Class(context.Background(), cairo0Hash)
 	require.NoError(t, err)
 
-	err = encoder.RegisterType(reflect.TypeOf(cairo0Class))
-	if err != nil {
-		require.Contains(t, err.Error(), "already exists in TagSet")
-	}
-	err = encoder.RegisterType(reflect.TypeOf(cairo1Hash))
-	if err != nil {
-		require.Contains(t, err.Error(), "already exists in TagSet")
-	}
-
 	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
@@ -423,7 +436,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		require.NoError(t, state.Update(2, replaceStateUpdate.StateDiff, nil))
-		require.NoError(t, state.Revert(2, replaceStateUpdate.StateDiff))
+		require.NoError(t, state.Revert(2, replaceStateUpdate))
 		classHash, sErr := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
 		assert.Equal(t, su1.StateDiff.DeployedContracts[*new(felt.Felt).Set(&su1FirstDeployedAddress)], classHash)
@@ -441,7 +454,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		require.NoError(t, state.Update(2, nonceStateUpdate.StateDiff, nil))
-		require.NoError(t, state.Revert(2, nonceStateUpdate.StateDiff))
+		require.NoError(t, state.Revert(2, nonceStateUpdate))
 		nonce, sErr := state.ContractNonce(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
 		assert.Equal(t, &felt.Zero, nonce)
@@ -493,7 +506,7 @@ func TestRevert(t *testing.T) {
 		}
 
 		require.NoError(t, state.Update(2, declaredClassesStateUpdate.StateDiff, classesM))
-		require.NoError(t, state.Revert(2, declaredClassesStateUpdate.StateDiff))
+		require.NoError(t, state.Revert(2, declaredClassesStateUpdate))
 
 		var decClass *core.DeclaredClass
 		decClass, err = state.Class(cairo0Addr)
@@ -512,15 +525,15 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("should be able to revert all the state", func(t *testing.T) {
-		require.NoError(t, state.Revert(2, su2.StateDiff))
+		require.NoError(t, state.Revert(2, su2))
 		root, err := state.Root()
 		require.NoError(t, err)
 		require.Equal(t, su2.OldRoot, root)
-		require.NoError(t, state.Revert(1, su1.StateDiff))
+		require.NoError(t, state.Revert(1, su1))
 		root, err = state.Root()
 		require.NoError(t, err)
 		require.Equal(t, su1.OldRoot, root)
-		require.NoError(t, state.Revert(0, su0.StateDiff))
+		require.NoError(t, state.Revert(0, su0))
 		root, err = state.Root()
 		require.NoError(t, err)
 		require.Equal(t, su0.OldRoot, root)
@@ -564,7 +577,7 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 		},
 	}
 	require.NoError(t, state.Update(0, su.StateDiff, nil))
-	require.NoError(t, state.Revert(0, su.StateDiff))
+	require.NoError(t, state.Revert(0, su))
 }
 
 func TestRevertNoClassContracts(t *testing.T) {
@@ -601,7 +614,7 @@ func TestRevertNoClassContracts(t *testing.T) {
 
 	require.NoError(t, state.Update(1, su1.StateDiff, nil))
 
-	require.NoError(t, state.Revert(1, su1.StateDiff))
+	require.NoError(t, state.Revert(1, su1))
 
 	gotRoot, err := state.Root()
 	require.NoError(t, err)
@@ -656,7 +669,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 		assert.Equal(t, uint64(0), sierraClass.At)
 	})
 
-	require.NoError(t, state.Revert(1, declareDiff.StateDiff))
+	require.NoError(t, state.Revert(1, declareDiff))
 
 	t.Run("reverting a re-declaration shouldnt change state commitment or remove class definitions", func(t *testing.T) {
 		declaredClass, err = state.Class(classHash)
@@ -668,7 +681,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	})
 
 	declareDiff.OldRoot = &felt.Zero
-	require.NoError(t, state.Revert(0, declareDiff.StateDiff))
+	require.NoError(t, state.Revert(0, declareDiff))
 	_, err = state.Class(classHash)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	_, err = state.Class(sierraHash)

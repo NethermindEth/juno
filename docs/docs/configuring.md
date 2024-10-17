@@ -109,6 +109,7 @@ Juno provides several subcommands to perform specific tasks or operations. Here 
 - `db`: Perform database-related operations
   - `db info`: Retrieve information about the database.
   - `db size`: Calculate database size information for each data type.
+  - `db revert`: Reverts the database to a specific block number.
 
 To use a subcommand, append it when running Juno:
 

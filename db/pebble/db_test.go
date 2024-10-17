@@ -408,7 +408,7 @@ func TestPanic(t *testing.T) {
 			require.ErrorIs(t, testDB.View(func(txn db.Transaction) error {
 				return txn.Get([]byte{0}, func(b []byte) error { return nil })
 			}), db.ErrKeyNotFound)
-			require.EqualError(t, panicingTxn.Get([]byte{0}, func(b []byte) error { return nil }), "discarded txn")
+			require.EqualError(t, panicingTxn.Get([]byte{0}, func(b []byte) error { return nil }), "discarded transaction")
 		}()
 
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {

@@ -2,6 +2,7 @@ package pebble
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -18,6 +19,10 @@ const (
 	minCacheSizeMB = 8
 )
 
+var (
+	ErrDiscardedTransaction = errors.New("discarded transaction")
+	ErrReadOnlyTransaction  = errors.New("read-only transaction")
+)
 var _ db.DB = (*DB)(nil)
 
 type DB struct {
@@ -83,19 +88,14 @@ func (d *DB) WithListener(listener db.EventListener) db.DB {
 }
 
 // NewTransaction : see db.DB.NewTransaction
+// Batch is used for read-write operations, while snapshot is used for read-only operations
 func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
-	txn := &Transaction{
-		listener: d.listener,
-	}
 	if update {
 		d.wMutex.Lock()
-		txn.lock = d.wMutex
-		txn.batch = d.pebble.NewIndexedBatch()
-	} else {
-		txn.snapshot = d.pebble.NewSnapshot()
+		return NewBatch(d.pebble.NewIndexedBatch(), d.wMutex, d.listener), nil
 	}
 
-	return txn, nil
+	return NewSnapshot(d.pebble.NewSnapshot(), d.listener), nil
 }
 
 // Close : see io.Closer.Close

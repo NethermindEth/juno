@@ -49,6 +49,7 @@ type Service struct {
 	topicsLock sync.RWMutex
 
 	synchroniser *syncService
+	gossipTracer *gossipTracer
 
 	feederNode bool
 	database   db.DB
@@ -244,7 +245,12 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 
-	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host)
+	var options []pubsub.Option
+	if s.gossipTracer != nil {
+		options = append(options, pubsub.WithRawTracer(s.gossipTracer))
+	}
+
+	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, options...)
 	if err != nil {
 		return err
 	}
@@ -399,8 +405,11 @@ func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Strea
 }
 
 func (s *Service) WithListener(l junoSync.EventListener) {
-	runMetrics(s.host.Peerstore())
 	s.synchroniser.WithListener(l)
+}
+
+func (s *Service) WithGossipTracer() {
+	s.gossipTracer = NewGossipTracer(s.host)
 }
 
 // persistPeers stores the given peers in the peers database

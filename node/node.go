@@ -26,6 +26,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
+	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -100,6 +101,7 @@ type Config struct {
 	SeqGenesisFile      string `mapstructure:"seq-genesis-file"`
 	SeqShadowMode       bool   `mapstructure:"seq-shadow-mode"`
 	SeqShadowModeSyncTo uint64 `mapstructure:"seq-shadow-mode-sync-to"`
+	PluginPath          string `mapstructure:"plugin-path"`
 }
 
 type Node struct {
@@ -232,7 +234,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 		rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	}
-
+	if cfg.PluginPath != "" {
+		p, err := plugin.Load(cfg.PluginPath)
+		if err != nil {
+			return nil, err
+		}
+		synchronizer.WithPlugin(p)
+		services = append(services, plugin.NewService(p))
+	}
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)

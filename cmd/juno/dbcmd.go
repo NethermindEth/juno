@@ -15,6 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	dbRevertToBlockF = "to-block"
+)
+
 type DBInfo struct {
 	Network         string     `json:"network"`
 	ChainHeight     uint64     `json:"chain_height"`
@@ -33,7 +37,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
-	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd())
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
 	return dbCmd
 }
 
@@ -55,21 +59,29 @@ func DBSizeCmd() *cobra.Command {
 	}
 }
 
+func DBRevertCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "revert",
+		Short: "Revert current head to given position",
+		Long:  `This subcommand revert all data related to all blocks till given so it becomes new head.`,
+		RunE:  dbRevert,
+	}
+	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
+
+	return cmd
+}
+
 func dbInfo(cmd *cobra.Command, args []string) error {
 	dbPath, err := cmd.Flags().GetString(dbPathF)
 	if err != nil {
 		return err
 	}
 
-	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
-		fmt.Fprintln(cmd.OutOrStdout(), "Database path does not exist")
-		return nil
-	}
-
-	database, err := pebble.New(dbPath)
+	database, err := openDB(dbPath)
 	if err != nil {
-		return fmt.Errorf("open DB: %w", err)
+		return err
 	}
+	defer database.Close()
 
 	chain := blockchain.New(database, nil)
 	info := DBInfo{}
@@ -110,6 +122,50 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func dbRevert(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	revertToBlock, err := cmd.Flags().GetUint64(dbRevertToBlockF)
+	if err != nil {
+		return err
+	}
+
+	if revertToBlock == 0 {
+		return fmt.Errorf("--%v cannot be 0", dbRevertToBlockF)
+	}
+
+	database, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	for {
+		chain := blockchain.New(database, nil)
+		head, err := chain.Head()
+		if err != nil {
+			return fmt.Errorf("failed to get the latest block information: %v", err)
+		}
+
+		if head.Number == revertToBlock {
+			fmt.Fprintf(cmd.OutOrStdout(), "Successfully reverted all blocks to %d\n", revertToBlock)
+			break
+		}
+
+		err = chain.RevertHead()
+		if err != nil {
+			return fmt.Errorf("failed to revert head at block %d: %v", head.Number, err)
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "Reverted head at block %d\n", head.Number)
+	}
+
+	return nil
+}
+
 func dbSize(cmd *cobra.Command, args []string) error {
 	dbPath, err := cmd.Flags().GetString(dbPathF)
 	if err != nil {
@@ -120,15 +176,11 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--%v cannot be empty", dbPathF)
 	}
 
-	if _, err = os.Stat(dbPath); os.IsNotExist(err) {
-		fmt.Fprintln(cmd.OutOrStdout(), "Database path does not exist")
-		return nil
-	}
-
-	pebbleDB, err := pebble.New(dbPath)
+	pebbleDB, err := openDB(dbPath)
 	if err != nil {
 		return err
 	}
+	defer pebbleDB.Close()
 
 	var (
 		totalSize  utils.DataSize
@@ -200,4 +252,18 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	}
 
 	return "unknown"
+}
+
+func openDB(path string) (db.DB, error) {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("database path does not exist")
+	}
+
+	database, err := pebble.New(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db: %w", err)
+	}
+
+	return database, nil
 }

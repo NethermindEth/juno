@@ -88,6 +88,7 @@ const (
 	seqGenesisFileF         = "seq-genesis-file"
 	seqShadowModeF          = "seq-shadow-mode"
 	seqShadowModeSyncToF    = "seq-shadow-mode-sync-to"
+	pluginPathF             = "plugin-path"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -131,6 +132,7 @@ const (
 	defaultSeqGenesisFile           = ""
 	defaultSeqShadowMode            = false
 	defaultSeqShadowModeSyncTo      = 1
+	defaultPluginPath               = ""
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -188,6 +190,7 @@ const (
 	seqGenesisFileUsage         = "Path to the genesis file"
 	seqShadowModeUsage          = "Launches the sequencer in shadow mode (note: network must be set to Sepolia)"
 	seqShadowModeSyncToUsage    = "The Sepolia block that the Sequencer should sync to before Sequencing"
+	pluginPathUsage             = "Path to the plugin .so file"
 )
 
 var Version string
@@ -379,6 +382,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 	junoCmd.Flags().Bool(seqShadowModeF, defaultSeqShadowMode, seqShadowModeUsage)
 	junoCmd.Flags().Uint(seqShadowModeSyncToF, defaultSeqShadowModeSyncTo, seqShadowModeSyncToUsage)
+	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd

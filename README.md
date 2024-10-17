@@ -119,7 +119,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 | ------- | ------------- |
 | **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
 
-## Sepolia-Integration
+#### Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
@@ -228,6 +228,7 @@ After following these steps, Juno should be up and running on your machine, util
 - Starknet state construction and storage using a path-based Merkle Patricia trie.
 - Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
 - Block and Transaction hash verification.
+- Plugins 
 
 ## 🛣 Roadmap
 

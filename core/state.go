@@ -181,6 +181,18 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 	return gTrie, closer, nil
 }
 
+func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
+	currentRoot, err := s.Root()
+	if err != nil {
+		return err
+	}
+
+	if !root.Equal(currentRoot) {
+		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
+	}
+	return nil
+}
+
 // Update applies a StateUpdate to the State object. State is not
 // updated if an error is encountered during the operation.
 func (s *State) Update(blockNumber uint64, diff *StateDiff, declaredClasses map[felt.Felt]Class) error {
@@ -506,15 +518,24 @@ func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64)
 	return deployedAt <= blockNumber, nil
 }
 
-func (s *State) Revert(blockNumber uint64, diff *StateDiff) error {
-	if err := s.removeDeclaredClasses(blockNumber, diff.DeclaredV0Classes, diff.DeclaredV1Classes); err != nil {
+func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
+	err := s.verifyStateUpdateRoot(update.NewRoot)
+	if err != nil {
+		return fmt.Errorf("verify state update root: %v", err)
+	}
+
+	if err = s.removeDeclaredClasses(blockNumber, update.StateDiff.DeclaredV0Classes, update.StateDiff.DeclaredV1Classes); err != nil {
 		return fmt.Errorf("remove declared classes: %v", err)
 	}
 
-	// update contracts
-	reversedDiff, err := s.buildReverseDiff(blockNumber, diff)
+	reversedDiff, err := s.GetReverseStateDiff(blockNumber, update.StateDiff)
 	if err != nil {
-		return fmt.Errorf("build reverse diff: %v", err)
+		return fmt.Errorf("error getting reverse state diff: %v", err)
+	}
+
+	err = s.performStateDeletions(blockNumber, update.StateDiff)
+	if err != nil {
+		return fmt.Errorf("error performing state deletions: %v", err)
 	}
 
 	stateTrie, storageCloser, err := s.storage()
@@ -531,18 +552,23 @@ func (s *State) Revert(blockNumber uint64, diff *StateDiff) error {
 	}
 
 	// purge deployed contracts
-	for addr := range diff.DeployedContracts {
+	for addr := range update.StateDiff.DeployedContracts {
 		if err = s.purgeContract(&addr); err != nil {
 			return fmt.Errorf("purge contract: %v", err)
 		}
 	}
 
-	// purge noClassContracts
-	//
+	if err = s.purgeNoClassContracts(); err != nil {
+		return err
+	}
+
+	return s.verifyStateUpdateRoot(update.OldRoot)
+}
+
+func (s *State) purgeNoClassContracts() error {
 	// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
 	// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
 	// we can use the lack of key's existence as reason for purging noClassContracts.
-
 	for addr := range noClassContracts {
 		noClassC, err := NewContractUpdater(&addr, s.txn)
 		if err != nil {
@@ -563,7 +589,6 @@ func (s *State) Revert(blockNumber uint64, diff *StateDiff) error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -628,7 +653,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 	return storageCloser()
 }
 
-func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
+func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*StateDiff, error) {
 	reversed := *diff
 
 	// storage diffs
@@ -644,10 +669,6 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 				}
 				value = oldValue
 			}
-
-			if err := s.DeleteContractStorageLog(&addr, &key, blockNumber); err != nil {
-				return nil, err
-			}
 			reversedDiffs[key] = value
 		}
 		reversed.StorageDiffs[addr] = reversedDiffs
@@ -657,17 +678,12 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 	reversed.Nonces = make(map[felt.Felt]*felt.Felt, len(diff.Nonces))
 	for addr := range diff.Nonces {
 		oldNonce := &felt.Zero
-
 		if blockNumber > 0 {
 			var err error
 			oldNonce, err = s.ContractNonceAt(&addr, blockNumber-1)
 			if err != nil {
 				return nil, err
 			}
-		}
-
-		if err := s.DeleteContractNonceLog(&addr, blockNumber); err != nil {
-			return nil, err
 		}
 		reversed.Nonces[addr] = oldNonce
 	}
@@ -683,12 +699,35 @@ func (s *State) buildReverseDiff(blockNumber uint64, diff *StateDiff) (*StateDif
 				return nil, err
 			}
 		}
-
-		if err := s.DeleteContractClassHashLog(&addr, blockNumber); err != nil {
-			return nil, err
-		}
 		reversed.ReplacedClasses[addr] = classHash
 	}
 
 	return &reversed, nil
+}
+
+func (s *State) performStateDeletions(blockNumber uint64, diff *StateDiff) error {
+	// storage diffs
+	for addr, storageDiffs := range diff.StorageDiffs {
+		for key := range storageDiffs {
+			if err := s.DeleteContractStorageLog(&addr, &key, blockNumber); err != nil {
+				return err
+			}
+		}
+	}
+
+	// nonces
+	for addr := range diff.Nonces {
+		if err := s.DeleteContractNonceLog(&addr, blockNumber); err != nil {
+			return err
+		}
+	}
+
+	// replaced classes
+	for addr := range diff.ReplacedClasses {
+		if err := s.DeleteContractClassHashLog(&addr, blockNumber); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

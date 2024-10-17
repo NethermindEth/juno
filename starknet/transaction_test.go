@@ -1,6 +1,7 @@
 package starknet_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/starknet"
@@ -10,22 +11,35 @@ import (
 
 func TestUnmarshalExecutionStatus(t *testing.T) {
 	es := new(starknet.ExecutionStatus)
-	require.NoError(t, es.UnmarshalJSON([]byte(`"SUCCEEDED"`)))
-	assert.Equal(t, starknet.Succeeded, *es)
 
-	require.NoError(t, es.UnmarshalJSON([]byte(`"REVERTED"`)))
-	assert.Equal(t, starknet.Reverted, *es)
+	cases := map[string]starknet.ExecutionStatus{
+		"SUCCEEDED": starknet.Succeeded,
+		"REVERTED":  starknet.Reverted,
+		"REJECTED":  starknet.Rejected,
+	}
+	for str, expected := range cases {
+		quotedStr := `"` + str + `"`
+		require.NoError(t, json.Unmarshal([]byte(quotedStr), es))
+		assert.Equal(t, expected, *es)
+	}
 
-	require.ErrorContains(t, es.UnmarshalJSON([]byte("ABC")), "unknown ExecutionStatus")
+	require.ErrorContains(t, json.Unmarshal([]byte(`"ABC"`), es), "unknown ExecutionStatus")
 }
 
 func TestUnmarshalFinalityStatus(t *testing.T) {
 	fs := new(starknet.FinalityStatus)
-	require.NoError(t, fs.UnmarshalJSON([]byte(`"ACCEPTED_ON_L1"`)))
-	assert.Equal(t, starknet.AcceptedOnL1, *fs)
 
-	require.NoError(t, fs.UnmarshalJSON([]byte(`"ACCEPTED_ON_L2"`)))
-	assert.Equal(t, starknet.AcceptedOnL2, *fs)
+	cases := map[string]starknet.FinalityStatus{
+		"ACCEPTED_ON_L2": starknet.AcceptedOnL2,
+		"ACCEPTED_ON_L1": starknet.AcceptedOnL1,
+		"NOT_RECEIVED":   starknet.NotReceived,
+		"RECEIVED":       starknet.Received,
+	}
+	for str, expected := range cases {
+		quotedStr := `"` + str + `"`
+		require.NoError(t, json.Unmarshal([]byte(quotedStr), fs))
+		assert.Equal(t, expected, *fs)
+	}
 
-	require.ErrorContains(t, fs.UnmarshalJSON([]byte("ABC")), "unknown FinalityStatus")
+	require.ErrorContains(t, json.Unmarshal([]byte(`"ABC"`), fs), "unknown FinalityStatus")
 }

@@ -325,7 +325,6 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
     let class_info: ClassInfo = serde_json::from_str(raw_json)
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
-
     let mut sierra_len = class_info.sierra_program_length;
     let mut abi_len = class_info.abi_length;
     let class: ContractClass =
@@ -338,6 +337,5 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         } else {
             return Err("not a valid contract class".to_string());
         };
-
     Ok(BlockifierClassInfo::new(&class, sierra_len, abi_len).unwrap())
 }

@@ -77,9 +77,6 @@ type Transaction interface {
 	// Get fetches the value for the given key, should return ErrKeyNotFound if key is not present
 	// Caller should not assume that the slice would stay valid after the call to cb
 	Get(key []byte, cb func([]byte) error) error
-
-	// Impl returns the underlying transaction object
-	Impl() any
 }
 
 // View : see db.DB.View

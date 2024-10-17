@@ -150,9 +150,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 				dataGasPrice = header.L1DataGasPrice.PriceInWei
 			}
 		}
-		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
 
 		var gasConsumed *felt.Felt
+		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
 		if !v0_6Response {
 			dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
 			gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)

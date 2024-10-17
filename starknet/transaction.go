@@ -16,16 +16,16 @@ const (
 	Rejected
 )
 
-func (es *ExecutionStatus) UnmarshalJSON(data []byte) error {
-	switch string(data) {
-	case `"SUCCEEDED"`:
+func (es *ExecutionStatus) UnmarshalText(data []byte) error {
+	switch str := string(data); str {
+	case "SUCCEEDED":
 		*es = Succeeded
-	case `"REVERTED"`:
+	case "REVERTED":
 		*es = Reverted
-	case `"REJECTED"`:
+	case "REJECTED":
 		*es = Rejected
 	default:
-		return errors.New("unknown ExecutionStatus")
+		return fmt.Errorf("unknown ExecutionStatus %q", str)
 	}
 	return nil
 }
@@ -39,18 +39,18 @@ const (
 	Received
 )
 
-func (fs *FinalityStatus) UnmarshalJSON(data []byte) error {
-	switch string(data) {
-	case `"ACCEPTED_ON_L2"`:
+func (fs *FinalityStatus) UnmarshalText(data []byte) error {
+	switch str := string(data); str {
+	case "ACCEPTED_ON_L2":
 		*fs = AcceptedOnL2
-	case `"ACCEPTED_ON_L1"`:
+	case "ACCEPTED_ON_L1":
 		*fs = AcceptedOnL1
-	case `"NOT_RECEIVED"`:
+	case "NOT_RECEIVED":
 		*fs = NotReceived
-	case `"RECEIVED"`:
+	case "RECEIVED":
 		*fs = Received
 	default:
-		return errors.New("unknown FinalityStatus")
+		return fmt.Errorf("unknown FinalityStatus %q", str)
 	}
 	return nil
 }
@@ -83,24 +83,24 @@ func (t TransactionType) String() string {
 	}
 }
 
-func (t TransactionType) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", t)), nil
+func (t TransactionType) MarshalText() ([]byte, error) {
+	return []byte(t.String()), nil
 }
 
-func (t *TransactionType) UnmarshalJSON(data []byte) error {
-	switch string(data) {
-	case `"DECLARE"`:
+func (t *TransactionType) UnmarshalText(data []byte) error {
+	switch str := string(data); str {
+	case "DECLARE":
 		*t = TxnDeclare
-	case `"DEPLOY"`:
+	case "DEPLOY":
 		*t = TxnDeploy
-	case `"DEPLOY_ACCOUNT"`:
+	case "DEPLOY_ACCOUNT":
 		*t = TxnDeployAccount
-	case `"INVOKE"`, `"INVOKE_FUNCTION"`:
+	case "INVOKE", "INVOKE_FUNCTION":
 		*t = TxnInvoke
-	case `"L1_HANDLER"`:
+	case "L1_HANDLER":
 		*t = TxnL1Handler
 	default:
-		return errors.New("unknown TransactionType")
+		return fmt.Errorf("unknown TransactionType %q", str)
 	}
 	return nil
 }
@@ -137,14 +137,6 @@ func (r Resource) MarshalText() ([]byte, error) {
 	default:
 		return nil, errors.New("unknown resource")
 	}
-}
-
-func (r Resource) MarshalJSON() ([]byte, error) {
-	result, err := r.MarshalText()
-	if err != nil {
-		return nil, err
-	}
-	return []byte(`"` + string(result) + `"`), nil
 }
 
 type DataAvailabilityMode uint32

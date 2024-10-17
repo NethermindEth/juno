@@ -8,8 +8,13 @@ on:
       - .github/workflows/find-smallest-rust.yml
       - core/rust/*
       - vm/rust/*
-      - starknet/rust/*
+      - starknet/compiler/rust/*
   workflow_dispatch:
+
+
+permissions:
+  issues: write # Required for sending comments
+  pull-requests: write # Required for sending comments
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,7 +29,7 @@ jobs:
         id: rust-version
         uses: derrix060/detect-rust-minimum-version@v1
         with:
-          paths: core/rust/,vm/rust/,starknet/rust/
+          paths: core/rust/,vm/rust/,starknet/compiler/rust/
       - name: Send notification on PR
         uses: actions/github-script@v7
         with:
@@ -37,6 +42,14 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: 'Minimum supported Rust version is `' + msrv + '`, previous `' + previous_msrv + '`.  Please update the README file and this workflow.'
+                body: 'Minimum supported Rust version is `' + msrv + '`, previous `' + previous_msrv + '`.  Please update the README file, the Makefile, and this workflow.'
               })
             }
+
+      - name: "Check README and Makefile"
+        run: |
+          set -euxo pipefail
+          echo "Checking if version is set in README"
+          cat README.md | grep "\[Rust\]" | grep "${{ steps.rust-version.outputs.highest-msrv }}"
+          echo "Checking makefile"
+          cat Makefile | grep "MINIMUM_RUST_VERSION = ${{ steps.rust-version.outputs.highest-msrv }}"
