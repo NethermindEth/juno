@@ -1,4 +1,4 @@
-package junoplugin_test
+package plugin_test
 
 import (
 	"context"
