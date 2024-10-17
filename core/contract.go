@@ -20,6 +20,11 @@ var (
 
 type OnValueChanged = func(location, oldValue *felt.Felt) error
 
+// StateContract represents a contract instance.
+// The usage of a `StateContract` is as follows:
+// 1. Create or obtain `StateContract` instance from the database.
+// 2. Update the contract fields
+// 3. Commit the contract to the database
 type StateContract struct {
 	// ClassHash is the hash of the contract's class
 	ClassHash *felt.Felt
@@ -33,6 +38,7 @@ type StateContract struct {
 	dirtyStorage map[felt.Felt]*felt.Felt `cbor:"-"`
 }
 
+// NewStateContract creates a new contract instance.
 func NewStateContract(
 	addr *felt.Felt,
 	classHash *felt.Felt,
@@ -50,6 +56,7 @@ func NewStateContract(
 	return sc
 }
 
+// StorageRoot returns the root of the contract's storage trie.
 func (c *StateContract) StorageRoot(txn db.Transaction) (*felt.Felt, error) {
 	storageTrie, err := storage(c.Address, txn)
 	if err != nil {
@@ -59,6 +66,8 @@ func (c *StateContract) StorageRoot(txn db.Transaction) (*felt.Felt, error) {
 	return storageTrie.Root()
 }
 
+// UpdateStorage updates the storage of a contract.
+// Note that this does not modify the storage trie, which must be committed separately.
 func (c *StateContract) UpdateStorage(key, value *felt.Felt) {
 	if c.dirtyStorage == nil {
 		c.dirtyStorage = make(map[felt.Felt]*felt.Felt)
@@ -67,6 +76,7 @@ func (c *StateContract) UpdateStorage(key, value *felt.Felt) {
 	c.dirtyStorage[*key] = value
 }
 
+// GetStorage retrieves the value of a storage location from the contract's storage
 func (c *StateContract) GetStorage(key *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 	if c.dirtyStorage != nil {
 		if val, ok := c.dirtyStorage[*key]; ok {
@@ -83,25 +93,30 @@ func (c *StateContract) GetStorage(key *felt.Felt, txn db.Transaction) (*felt.Fe
 	return storage.Get(key)
 }
 
+// logOldValue is a helper function to record the history of a contract's value
 func (c *StateContract) logOldValue(key []byte, oldValue *felt.Felt, height uint64, txn db.Transaction) error {
 	return txn.Set(logDBKey(key, height), oldValue.Marshal())
 }
 
+// LogStorage records the history of the contract's storage
 func (c *StateContract) LogStorage(location, oldVal *felt.Felt, height uint64, txn db.Transaction) error {
 	key := storageLogKey(c.Address, location)
 	return c.logOldValue(key, oldVal, height, txn)
 }
 
+// LogNonce records the history of the contract's nonce
 func (c *StateContract) LogNonce(height uint64, txn db.Transaction) error {
 	key := nonceLogKey(c.Address)
 	return c.logOldValue(key, c.Nonce, height, txn)
 }
 
+// LogClassHash records the history of the contract's class hash
 func (c *StateContract) LogClassHash(height uint64, txn db.Transaction) error {
 	key := classHashLogKey(c.Address)
 	return c.logOldValue(key, c.ClassHash, height, txn)
 }
 
+// BufferedCommit creates a buffered transaction and commits the contract to the database
 func (c *StateContract) BufferedCommit(txn db.Transaction, logChanges bool, blockNum uint64) (*db.BufferedTransaction, error) {
 	bufferedTxn := db.NewBufferedTransaction(txn)
 

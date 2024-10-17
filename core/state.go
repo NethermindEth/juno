@@ -383,6 +383,7 @@ var (
 	}
 )
 
+// Commit updates the state by committing the dirty contracts to the database.
 func (s *State) Commit(
 	stateTrie *trie.Trie,
 	contracts map[felt.Felt]*StateContract,
