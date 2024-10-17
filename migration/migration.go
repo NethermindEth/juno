@@ -66,6 +66,7 @@ var defaultMigrations = []Migration{
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
+	MigrationFunc(MigrateContractFields),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -713,4 +714,134 @@ func migrateCairo1CompiledClass(txn db.Transaction, key, value []byte, _ *utils.
 	}
 
 	return txn.Set(key, value)
+}
+
+func MigrateContractFields(txn db.Transaction, _ *utils.Network) error {
+	contracts := make(map[felt.Felt]*core.StateContract)
+
+	it, err := txn.NewIterator()
+	if err != nil {
+		return err
+	}
+
+	if err := collectContractNonces(it, contracts); err != nil {
+		return err
+	}
+
+	if err := collectContractClassHashes(it, contracts); err != nil {
+		return err
+	}
+
+	if err := collectContractDeploymentHeights(it, contracts); err != nil {
+		return err
+	}
+
+	if err := storeUpdatedContracts(txn, contracts); err != nil {
+		return err
+	}
+
+	return it.Close()
+}
+
+func collectContractNonces(it db.Iterator, contracts map[felt.Felt]*core.StateContract) error {
+	noncePrefix := db.ContractNonce.Key()
+	for it.Seek(noncePrefix); it.Valid(); it.Next() {
+		key := it.Key()
+		if !bytes.Equal(key[:len(noncePrefix)], noncePrefix) {
+			break
+		}
+
+		addr := key[len(noncePrefix):]
+		if len(addr) != felt.Bytes {
+			return fmt.Errorf("invalid address length: %d", len(addr))
+		}
+
+		addrFelt := new(felt.Felt).SetBytes(addr)
+
+		value, err := it.Value()
+		if err != nil {
+			return err
+		}
+
+		contract := &core.StateContract{
+			Nonce: new(felt.Felt).SetBytes(value),
+		}
+		contracts[*addrFelt] = contract
+	}
+
+	return nil
+}
+
+func collectContractClassHashes(it db.Iterator, contracts map[felt.Felt]*core.StateContract) error {
+	classHashPrefix := db.ContractClassHash.Key()
+	for it.Seek(classHashPrefix); it.Valid(); it.Next() {
+		key := it.Key()
+		if !bytes.Equal(key[:len(classHashPrefix)], classHashPrefix) {
+			break
+		}
+
+		addr := key[len(classHashPrefix):]
+		if len(addr) != felt.Bytes {
+			return fmt.Errorf("invalid address length: %d", len(addr))
+		}
+		addrFelt := new(felt.Felt).SetBytes(addr)
+
+		// this should never happen because collectContractNonces should have collected all the contracts
+		if _, ok := contracts[*addrFelt]; !ok {
+			return fmt.Errorf("contract not found for address: %s", addrFelt)
+		}
+
+		value, err := it.Value()
+		if err != nil {
+			return err
+		}
+
+		contracts[*addrFelt].ClassHash = new(felt.Felt).SetBytes(value)
+	}
+
+	return nil
+}
+
+func collectContractDeploymentHeights(it db.Iterator, contracts map[felt.Felt]*core.StateContract) error {
+	deployHeightPrefix := db.ContractDeploymentHeight.Key()
+	for it.Seek(deployHeightPrefix); it.Valid(); it.Next() {
+		key := it.Key()
+		if !bytes.Equal(key[:len(deployHeightPrefix)], deployHeightPrefix) {
+			break
+		}
+
+		addr := key[len(deployHeightPrefix):]
+		if len(addr) != felt.Bytes {
+			return fmt.Errorf("invalid address length: %d", len(addr))
+		}
+		addrFelt := new(felt.Felt).SetBytes(addr)
+
+		// this should never happen because collectContractNonces should have collected all the contracts
+		if _, ok := contracts[*addrFelt]; !ok {
+			return fmt.Errorf("contract not found for address: %s", addrFelt)
+		}
+
+		value, err := it.Value()
+		if err != nil {
+			return err
+		}
+
+		contracts[*addrFelt].DeployHeight = binary.BigEndian.Uint64(value)
+	}
+
+	return nil
+}
+
+func storeUpdatedContracts(txn db.Transaction, contracts map[felt.Felt]*core.StateContract) error {
+	for addr, contract := range contracts {
+		contractBytes, err := encoder.Marshal(contract)
+		if err != nil {
+			return err
+		}
+
+		if err := txn.Set(db.Contract.Key(addr.Marshal()), contractBytes); err != nil {
+			return err
+		}
+	}
+	return nil
 }
