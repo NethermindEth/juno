@@ -231,6 +231,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 
 	// check if there is any data left in the db
 	lastBucket := buckets[len(buckets)-1]
+	fmt.Fprintln(cmd.OutOrStdout(), "Calculating remaining data in the db")
 	lastBucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(lastBucket + 1)}, false)
 	if err != nil {
 		return err
