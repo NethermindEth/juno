@@ -41,7 +41,6 @@ const (
 	Temporary                // used temporarily for migrations
 	SchemaIntermediateState  // used for db schema metadata
 	Contract                 // Contract + ContractAddr -> Encoded(Contract)
-	ContractHistory          // ContractHistory + ContractAddr + BlockHeight -> Encoded(Contract)
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

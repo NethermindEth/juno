@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-const _BucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieContractStorageHistoryContractNonceHistoryContractClassHashHistoryContractDeploymentHeightL1HeightSchemaVersionPendingBlockCommitmentsTemporarySchemaIntermediateState"
+const _BucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieContractStorageHistoryContractNonceHistoryContractClassHashHistoryContractDeploymentHeightL1HeightSchemaVersionPendingBlockCommitmentsTemporarySchemaIntermediateStateContract"
 
-var _BucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 277, 297, 321, 345, 353, 366, 373, 389, 398, 421}
+var _BucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 277, 297, 321, 345, 353, 366, 373, 389, 398, 421, 429}
 
-const _BucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriecontractstoragehistorycontractnoncehistorycontractclasshashhistorycontractdeploymentheightl1heightschemaversionpendingblockcommitmentstemporaryschemaintermediatestate"
+const _BucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriecontractstoragehistorycontractnoncehistorycontractclasshashhistorycontractdeploymentheightl1heightschemaversionpendingblockcommitmentstemporaryschemaintermediatestatecontract"
 
 func (i Bucket) String() string {
 	if i >= Bucket(len(_BucketIndex)-1) {
@@ -48,9 +48,10 @@ func _BucketNoOp() {
 	_ = x[BlockCommitments-(21)]
 	_ = x[Temporary-(22)]
 	_ = x[SchemaIntermediateState-(23)]
+	_ = x[Contract-(24)]
 }
 
-var _BucketValues = []Bucket{StateTrie, Peer, ContractClassHash, ContractStorage, Class, ContractNonce, ChainHeight, BlockHeaderNumbersByHash, BlockHeadersByNumber, TransactionBlockNumbersAndIndicesByHash, TransactionsByBlockNumberAndIndex, ReceiptsByBlockNumberAndIndex, StateUpdatesByBlockNumber, ClassesTrie, ContractStorageHistory, ContractNonceHistory, ContractClassHashHistory, ContractDeploymentHeight, L1Height, SchemaVersion, Pending, BlockCommitments, Temporary, SchemaIntermediateState}
+var _BucketValues = []Bucket{StateTrie, Peer, ContractClassHash, ContractStorage, Class, ContractNonce, ChainHeight, BlockHeaderNumbersByHash, BlockHeadersByNumber, TransactionBlockNumbersAndIndicesByHash, TransactionsByBlockNumberAndIndex, ReceiptsByBlockNumberAndIndex, StateUpdatesByBlockNumber, ClassesTrie, ContractStorageHistory, ContractNonceHistory, ContractClassHashHistory, ContractDeploymentHeight, L1Height, SchemaVersion, Pending, BlockCommitments, Temporary, SchemaIntermediateState, Contract}
 
 var _BucketNameToValueMap = map[string]Bucket{
 	_BucketName[0:9]:          StateTrie,
@@ -101,6 +102,8 @@ var _BucketNameToValueMap = map[string]Bucket{
 	_BucketLowerName[389:398]: Temporary,
 	_BucketName[398:421]:      SchemaIntermediateState,
 	_BucketLowerName[398:421]: SchemaIntermediateState,
+	_BucketName[421:429]:      Contract,
+	_BucketLowerName[421:429]: Contract,
 }
 
 var _BucketNames = []string{
@@ -128,6 +131,7 @@ var _BucketNames = []string{
 	_BucketName[373:389],
 	_BucketName[389:398],
 	_BucketName[398:421],
+	_BucketName[421:429],
 }
 
 // BucketString retrieves an enum value from the enum constants string name.

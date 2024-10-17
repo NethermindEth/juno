@@ -724,15 +724,15 @@ func MigrateContractFields(txn db.Transaction, _ *utils.Network) error {
 		return err
 	}
 
-	if err := collectContractNonces(it, contracts); err != nil {
+	if err := collectContractNonces(txn, contracts); err != nil {
 		return err
 	}
 
-	if err := collectContractClassHashes(it, contracts); err != nil {
+	if err := collectContractClassHashes(txn, contracts); err != nil {
 		return err
 	}
 
-	if err := collectContractDeploymentHeights(it, contracts); err != nil {
+	if err := collectContractDeploymentHeights(txn, contracts); err != nil {
 		return err
 	}
 
@@ -743,7 +743,12 @@ func MigrateContractFields(txn db.Transaction, _ *utils.Network) error {
 	return it.Close()
 }
 
-func collectContractNonces(it db.Iterator, contracts map[felt.Felt]*core.StateContract) error {
+func collectContractNonces(txn db.Transaction, contracts map[felt.Felt]*core.StateContract) error {
+	it, err := txn.NewIterator()
+	if err != nil {
+		return err
+	}
+
 	noncePrefix := db.ContractNonce.Key()
 	for it.Seek(noncePrefix); it.Valid(); it.Next() {
 		key := it.Key()
@@ -767,12 +772,21 @@ func collectContractNonces(it db.Iterator, contracts map[felt.Felt]*core.StateCo
 			Nonce: new(felt.Felt).SetBytes(value),
 		}
 		contracts[*addrFelt] = contract
+
+		if err := txn.Delete(key); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return it.Close()
 }
 
-func collectContractClassHashes(it db.Iterator, contracts map[felt.Felt]*core.StateContract) error {
+func collectContractClassHashes(txn db.Transaction, contracts map[felt.Felt]*core.StateContract) error {
+	it, err := txn.NewIterator()
+	if err != nil {
+		return err
+	}
+
 	classHashPrefix := db.ContractClassHash.Key()
 	for it.Seek(classHashPrefix); it.Valid(); it.Next() {
 		key := it.Key()
@@ -797,12 +811,21 @@ func collectContractClassHashes(it db.Iterator, contracts map[felt.Felt]*core.St
 		}
 
 		contracts[*addrFelt].ClassHash = new(felt.Felt).SetBytes(value)
+
+		if err := txn.Delete(key); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return it.Close()
 }
 
-func collectContractDeploymentHeights(it db.Iterator, contracts map[felt.Felt]*core.StateContract) error {
+func collectContractDeploymentHeights(txn db.Transaction, contracts map[felt.Felt]*core.StateContract) error {
+	it, err := txn.NewIterator()
+	if err != nil {
+		return err
+	}
+
 	deployHeightPrefix := db.ContractDeploymentHeight.Key()
 	for it.Seek(deployHeightPrefix); it.Valid(); it.Next() {
 		key := it.Key()
@@ -827,9 +850,13 @@ func collectContractDeploymentHeights(it db.Iterator, contracts map[felt.Felt]*c
 		}
 
 		contracts[*addrFelt].DeployHeight = binary.BigEndian.Uint64(value)
+
+		if err := txn.Delete(key); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return it.Close()
 }
 
 func storeUpdatedContracts(txn db.Transaction, contracts map[felt.Felt]*core.StateContract) error {
