@@ -6,7 +6,7 @@ on:
       ref:
         description: 'The branch, tag or SHA to checkout'
         required: false
-        default: 'v0.7.2'
+        default: '1ede19210c10f1f1f9c3cb49a42f737cd90eda5e'
         type: string
     secrets:
       TEST_RPC_URL:
