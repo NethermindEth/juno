@@ -83,7 +83,7 @@ jobs:
     needs: [validate_dev]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
 
   dev-starknet-js-tests:
     needs: [validate_dev]
@@ -129,7 +129,7 @@ jobs:
     needs: [promote_to_staging]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_7
 
   staging-starknet-js-tests:
     needs: [promote_to_staging]
@@ -179,7 +179,7 @@ jobs:
     needs: [test_in_production]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_6
+      STARKNET_RPC: ${{ secrets.PROD_SEPOLIA_URL }}/v0_7
 
   prod-starknet-js-tests:
     needs: [test_in_production]
