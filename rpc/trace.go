@@ -220,11 +220,27 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 			}
 
 			if !v0_6Response {
+				txDataAvailability := make(map[felt.Felt]vm.DataAvailability, len(block.Receipts))
+				for _, receipt := range block.Receipts {
+					if receipt.ExecutionResources == nil {
+						continue
+					}
+					if receiptDA := receipt.ExecutionResources.DataAvailability; receiptDA != nil {
+						da := vm.DataAvailability{
+							L1Gas:     receiptDA.L1Gas,
+							L1DataGas: receiptDA.L1DataGas,
+						}
+						txDataAvailability[*receipt.TransactionHash] = da
+					}
+				}
+
 				// add execution resources on root level
 				for index, trace := range result {
 					executionResources := trace.TraceRoot.TotalExecutionResources()
 					// fgw doesn't provide this data in traces endpoint
-					executionResources.DataAvailability = &vm.DataAvailability{}
+					// some receipts don't have data availability data in this case we don't
+					da := txDataAvailability[*trace.TransactionHash]
+					executionResources.DataAvailability = &da
 					result[index].TraceRoot.ExecutionResources = executionResources
 				}
 			}
