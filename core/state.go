@@ -181,6 +181,18 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 	return gTrie, closer, nil
 }
 
+func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
+	currentRoot, err := s.Root()
+	if err != nil {
+		return err
+	}
+
+	if !root.Equal(currentRoot) {
+		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
+	}
+	return nil
+}
+
 // Update applies a StateUpdate to the State object. State is not
 // updated if an error is encountered during the operation.
 func (s *State) Update(blockNumber uint64, diff *StateDiff, declaredClasses map[felt.Felt]Class) error {
@@ -551,18 +563,6 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 	}
 
 	return s.verifyStateUpdateRoot(update.OldRoot)
-}
-
-func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
-	currentRoot, err := s.Root()
-	if err != nil {
-		return err
-	}
-
-	if !root.Equal(currentRoot) {
-		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
-	}
-	return nil
 }
 
 func (s *State) purgeNoClassContracts() error {
