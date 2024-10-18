@@ -58,15 +58,16 @@ func (mr *MockVMMockRecorder) Call(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomo
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2 []*felt.Felt, arg3 *vm.BlockInfo, arg4 core.StateReader, arg5 *utils.Network, arg6, arg7, arg8, arg9 bool) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
+func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2 []*felt.Felt, arg3 *vm.BlockInfo, arg4 core.StateReader, arg5 *utils.Network, arg6, arg7, arg8, arg9 bool) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 	ret0, _ := ret[0].([]*felt.Felt)
 	ret1, _ := ret[1].([]core.GasConsumed)
 	ret2, _ := ret[2].([]vm.TransactionTrace)
-	ret3, _ := ret[3].(uint64)
-	ret4, _ := ret[4].(error)
-	return ret0, ret1, ret2, ret3, ret4
+	ret3, _ := ret[3].([]vm.TransactionReceipt)
+	ret4, _ := ret[4].(uint64)
+	ret5, _ := ret[5].(error)
+	return ret0, ret1, ret2, ret3, ret4, ret5
 }
 
 // Execute indicates an expected call of Execute.
