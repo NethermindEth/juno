@@ -377,15 +377,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
-
 	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
 	junoCmd.Flags().String(seqRPCEndpointF, defaultSeqRPCEndpoint, seqRPCEndpointUsage)
 	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
 	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 	junoCmd.Flags().Bool(seqShadowModeF, defaultSeqShadowMode, seqShadowModeUsage)
 	junoCmd.Flags().Uint(seqShadowModeSyncToF, defaultSeqShadowModeSyncTo, seqShadowModeSyncToUsage)
-	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
-
 	return junoCmd
 }
