@@ -384,6 +384,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 	junoCmd.Flags().Bool(seqShadowModeF, defaultSeqShadowMode, seqShadowModeUsage)
 	junoCmd.Flags().Uint(seqShadowModeSyncToF, defaultSeqShadowModeSyncTo, seqShadowModeSyncToUsage)
+	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd

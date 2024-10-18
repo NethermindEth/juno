@@ -243,7 +243,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		synchronizer.WithPlugin(p)
 		services = append(services, plugin.NewService(p))
 	}
-
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
