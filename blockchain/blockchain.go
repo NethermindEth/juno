@@ -1216,6 +1216,15 @@ func (b *Blockchain) validateCommitments(shadowBlock *core.Block, shadowStateUpd
 	if err != nil {
 		return fmt.Errorf("failed to compute the shadow commitments %s", err)
 	}
+	blockVer, err := core.ParseBlockVersion(shadowBlock.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+	if blockVer.LessThan(semver.MustParse("0.13.2")) {
+		// receipt commitment isn't needed for pre 0.13.2 blocks. see post07Hash().
+		shadowCommitments.ReceiptCommitment = nil
+	}
+
 	if !shadowCommitments.TransactionCommitment.Equal(sequenceCommitments.TransactionCommitment) {
 		return fmt.Errorf("transaction commitment mismatch: shadow commitment %v, sequence commitment %v",
 			shadowCommitments.TransactionCommitment, sequenceCommitments.TransactionCommitment)
