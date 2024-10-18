@@ -170,8 +170,17 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
 	starknetData := adaptfeeder.New(client)
+	var junoPlugin plugin.JunoPlugin
 	var rpcHandler *rpc.Handler
 	var synchronizer *sync.Synchronizer
+	var sequencer *builder.Builder
+	if cfg.PluginPath != "" {
+		junoPlugin, err = plugin.Load(cfg.PluginPath)
+		if err != nil {
+			return nil, err
+		}
+		services = append(services, plugin.NewService(junoPlugin))
+	}
 	if cfg.Sequencer {
 		if cfg.SeqShadowMode && chain.Network().L2ChainID != utils.Sepolia.L2ChainID {
 			return nil, fmt.Errorf("the sequencers shadow mode can only be used for %v network. Provided network: %v", utils.Sepolia, cfg.Network)
@@ -182,17 +191,17 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
-			time.Second*time.Duration(cfg.SeqBlockTime), p, log)
+		sequencer = builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
+			time.Second*time.Duration(cfg.SeqBlockTime), p, log).WithPlugin(junoPlugin)
 		if cfg.SeqShadowMode {
 			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll,mnd
-				log, starknetData).WithJunoEndpoint(cfg.SeqRPCEndpoint).WithSyncToBlock(cfg.SeqShadowModeSyncTo)
+				log, starknetData).WithJunoEndpoint(cfg.SeqRPCEndpoint).WithSyncToBlock(cfg.SeqShadowModeSyncTo).WithPlugin(junoPlugin)
 		}
 
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {
-		synchronizer = sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote)
+		synchronizer = sync.New(chain, starknetData, log, cfg.PendingPollInterval, dbIsRemote).WithPlugin(junoPlugin)
 		gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		var p2pService *p2p.Service
@@ -235,14 +244,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 		rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
-	}
-	if cfg.PluginPath != "" {
-		p, err := plugin.Load(cfg.PluginPath)
-		if err != nil {
-			return nil, err
-		}
-		synchronizer.WithPlugin(p)
-		services = append(services, plugin.NewService(p))
 	}
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS

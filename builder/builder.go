@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
@@ -62,6 +63,8 @@ type Builder struct {
 	chanFinalised       chan struct{}
 
 	blockHashToBeRevealed *felt.Felt
+
+	plugin plugin.JunoPlugin
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
@@ -112,6 +115,11 @@ func (b *Builder) WithEventListener(l EventListener) *Builder {
 
 func (b *Builder) WithJunoEndpoint(endpoint string) *Builder {
 	b.junoEndpoint = endpoint
+	return b
+}
+
+func (b *Builder) WithPlugin(plugin plugin.JunoPlugin) *Builder {
+	b.plugin = plugin
 	return b
 }
 
@@ -319,7 +327,12 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	b.log.Infow("Finalised block", "number", b.pendingBlock.Block.Number, "hash",
 		b.pendingBlock.Block.Hash.ShortString(), "state", b.pendingBlock.Block.GlobalStateRoot.ShortString())
 	b.listener.OnBlockFinalised(b.pendingBlock.Block.Header)
-
+	if b.plugin != nil {
+		err := b.plugin.NewBlock(b.pendingBlock.Block, b.pendingBlock.StateUpdate, b.pendingBlock.NewClasses)
+		if err != nil {
+			b.log.Errorw("error sending new block to plugin", err)
+		}
+	}
 	if err := b.ClearPending(); err != nil {
 		return err
 	}
