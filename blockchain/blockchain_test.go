@@ -283,6 +283,13 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
 	})
+
+	t.Run("failing state root check", func(t *testing.T) {
+		wrongRootStateUpdate := stateUpdate0
+		wrongRootStateUpdate.NewRoot = new(felt.Felt).SetUint64(1337)
+		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+		require.ErrorContains(t, chain.Store(block0, &emptyCommitments, wrongRootStateUpdate, nil), "does not match the expected root")
+	})
 }
 
 func TestStoreL1HandlerTxnHash(t *testing.T) {
@@ -423,8 +430,9 @@ func TestState(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	t.Run("head with no blocks", func(t *testing.T) {
-		_, _, err := chain.HeadState()
-		require.Error(t, err)
+		_, closer, err := chain.HeadState()
+		require.NoError(t, err)
+		require.NoError(t, closer())
 	})
 
 	var existingBlockHash *felt.Felt
@@ -654,19 +662,24 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, chain.RevertHead())
 
 	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
-		require.NoError(t, testdb.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator()
-			if err != nil {
-				return err
-			}
-			assert.False(t, it.Next(), it.Key())
-			return it.Close()
-		}))
+		dbIsEmpty(t, testdb)
 	})
 
 	t.Run("cannot revert on empty chain", func(t *testing.T) {
 		require.Error(t, chain.RevertHead())
 	})
+}
+
+func dbIsEmpty(t testing.TB, testDB db.DB) {
+	t.Helper()
+	require.NoError(t, testDB.View(func(txn db.Transaction) error {
+		it, err := txn.NewIterator()
+		if err != nil {
+			return err
+		}
+		require.False(t, it.Next(), it.Key())
+		return it.Close()
+	}))
 }
 
 func TestL1Update(t *testing.T) {
@@ -897,4 +910,176 @@ func TestMakeStateDiffForEmptyBlock(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, blockHash, sd.StorageDiffs[*storageContractAddr][felt.Zero])
 	})
+}
+
+func TestFinalize(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(testDB, &utils.Mainnet)
+
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingBlock := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &felt.Zero,
+			SequencerAddress: utils.HexToFelt(t, "0x1337"),
+			Timestamp:        0,
+			ProtocolVersion:  "0.0.0",
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         utils.HexToFelt(t, "0x1"),
+			GasPriceSTRK:     utils.HexToFelt(t, "0x2"),
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff, err := blockchain.MakeStateDiffForEmptyBlock(chain, 0)
+	require.NoError(t, err)
+
+	pendingGenesis := &blockchain.Pending{
+		Block: pendingBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   &felt.Zero,
+			StateDiff: stateDiff,
+		},
+		NewClasses: make(map[felt.Felt]core.Class, 0),
+	}
+
+	sigs := [][]*felt.Felt{{new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(2)}}
+	sign := func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+		return sigs[0], nil
+	}
+
+	require.NoError(t, chain.Finalise(pendingGenesis, sign, nil, nil))
+	require.Equal(t, pendingGenesis.Block.Signatures, sigs)
+	h, err := chain.Head()
+	require.NoError(t, err)
+	require.Equal(t, pendingGenesis.Block, h)
+
+	pending, err := chain.Pending()
+	require.NoError(t, err)
+	require.NoError(t, chain.Finalise(&pending, sign, nil, nil))
+	require.Equal(t, pendingGenesis.Block.Signatures, sigs)
+	h, err = chain.Head()
+	require.NoError(t, err)
+	require.Equal(t, pending.Block, h)
+}
+
+func TestStoreGenesis(t *testing.T) {
+	class := &core.Cairo1Class{
+		SemanticVersion: "0.0",
+		AbiHash:         new(felt.Felt),
+		ProgramHash:     new(felt.Felt),
+		EntryPoints: struct {
+			Constructor []core.SierraEntryPoint
+			External    []core.SierraEntryPoint
+			L1Handler   []core.SierraEntryPoint
+		}{},
+		Compiled: &core.CompiledClass{
+			Bytecode: []*felt.Felt{},
+		},
+	}
+	classHash, err := class.Hash()
+	require.NoError(t, err)
+	tests := map[string]struct {
+		diff    *core.StateDiff
+		classes map[felt.Felt]core.Class
+	}{
+		"empty": {
+			diff: core.EmptyStateDiff(),
+		},
+		"storage slot is set, one class is declared and deployed": {
+			diff: &core.StateDiff{
+				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+					{}: {{}: new(felt.Felt)},
+				},
+				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+					*classHash: class.Compiled.Hash(),
+				},
+				DeployedContracts: map[felt.Felt]*felt.Felt{
+					{}: classHash,
+				},
+			},
+			classes: map[felt.Felt]core.Class{
+				*classHash: class,
+			},
+		},
+	}
+
+	for description, test := range tests {
+		t.Run(description, func(t *testing.T) {
+			for _, network := range []utils.Network{utils.Mainnet, utils.Integration, utils.Goerli, utils.Goerli2, utils.Sepolia, utils.SepoliaIntegration} {
+				t.Run(network.String(), func(t *testing.T) {
+					testDB := pebble.NewMemTest(t)
+					chain := blockchain.New(testDB, &network)
+
+					require.NoError(t, chain.StoreGenesis(test.diff, test.classes))
+
+					// Block are stored.
+					block, err := chain.Head()
+					require.NoError(t, err)
+					receipts := make([]*core.TransactionReceipt, 0)
+					wantBlock := &core.Block{
+						Header: &core.Header{
+							ParentHash:       new(felt.Felt),
+							SequencerAddress: new(felt.Felt),
+							EventsBloom:      core.EventsBloom(receipts),
+							GasPrice:         new(felt.Felt),
+							Signatures:       make([][]*felt.Felt, 1),
+							GasPriceSTRK:     new(felt.Felt),
+						},
+						Transactions: make([]core.Transaction, 0),
+						Receipts:     receipts,
+					}
+					require.NoError(t, testDB.View(func(txn db.Transaction) error {
+						var rootErr error
+						wantBlock.GlobalStateRoot, rootErr = core.NewState(txn).Root()
+						require.NoError(t, rootErr)
+						return nil
+					}))
+					var wantCommitments *core.BlockCommitments
+					wantBlock.Hash, wantCommitments, err = core.BlockHash(wantBlock, test.diff, &network, &felt.Zero)
+					require.NoError(t, err)
+					require.Equal(t, wantBlock, block)
+
+					// Commitments are stored
+					commitments, err := chain.BlockCommitmentsByNumber(0)
+					require.NoError(t, err)
+					require.Equal(t, wantCommitments, commitments)
+
+					// State update is stored.
+					su, err := chain.StateUpdateByNumber(0)
+					require.NoError(t, err)
+					require.Equal(t, &core.StateUpdate{
+						BlockHash: block.Hash,
+						NewRoot:   block.GlobalStateRoot,
+						OldRoot:   new(felt.Felt),
+						StateDiff: test.diff,
+					}, su)
+
+					// Classes are stored.
+					stateReader, closer, err := chain.HeadState()
+					require.NoError(t, err)
+					defer func() {
+						require.NoError(t, closer())
+					}()
+					for hash, class := range test.classes {
+						var got *core.DeclaredClass
+						got, err = stateReader.Class(&hash)
+						require.NoError(t, err)
+						require.Equal(t, &core.DeclaredClass{
+							At:    0,
+							Class: class,
+						}, got)
+					}
+
+					// Pending is initialised.
+					_, err = chain.Pending()
+					require.NoError(t, err)
+
+					// Reverting Genesis leads to empty db.
+					require.NoError(t, chain.RevertHead())
+					dbIsEmpty(t, testDB)
+				})
+			}
+		})
+	}
 }

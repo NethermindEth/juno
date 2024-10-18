@@ -84,6 +84,12 @@ const (
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
 	pluginPathF             = "plugin-path"
+	seqEnF                  = "seq-enable"
+	seqRPCEndpointF         = "seq-rpc-endpoint"
+	seqBlockTimeF           = "seq-block-time"
+	seqGenesisFileF         = "seq-genesis-file"
+	seqShadowModeF          = "seq-shadow-mode"
+	seqShadowModeSyncToF    = "seq-shadow-mode-sync-to"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -123,6 +129,12 @@ const (
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
+	defaultSeqEn                    = false
+	defaultSeqRPCEndpoint           = ""
+	defaultSeqBlockTime             = 60
+	defaultSeqGenesisFile           = ""
+	defaultSeqShadowMode            = false
+	defaultSeqShadowModeSyncTo      = 1
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -176,6 +188,12 @@ const (
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	pluginPathUsage             = "Path to the plugin .so file"
+	seqEnUsage                  = "Enables sequencer mode of operation"
+	seqRPCEndpointUsage         = "RPC Endpoint that the sequencer uses to retrieve traces for verification"
+	seqBlockTimeUsage           = "Time to build a block, in seconds"
+	seqGenesisFileUsage         = "Path to the genesis file"
+	seqShadowModeUsage          = "Launches the sequencer in shadow mode (note: network must be set to Sepolia)"
+	seqShadowModeSyncToUsage    = "The Sepolia block that the Sequencer should sync to before Sequencing"
 )
 
 var Version string
@@ -365,6 +383,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().String(seqRPCEndpointF, defaultSeqRPCEndpoint, seqRPCEndpointUsage)
+	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
+	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
+	junoCmd.Flags().Bool(seqShadowModeF, defaultSeqShadowMode, seqShadowModeUsage)
+	junoCmd.Flags().Uint(seqShadowModeSyncToF, defaultSeqShadowModeSyncTo, seqShadowModeSyncToUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd
