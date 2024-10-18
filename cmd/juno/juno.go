@@ -378,7 +378,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(logHostF, defaulHost, logHostUsage)
 	junoCmd.Flags().Uint16(logPortF, defaultLogPort, logPortUsage)
 
-	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
+	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath), OfflineSync())
 
 	return junoCmd
 }

@@ -197,7 +197,7 @@ func makeGRPC(host string, port uint16, database db.DB, version string) *grpcSer
 	}
 }
 
-func makePPROF(host string, port uint16) *httpService {
+func MakePPROF(host string, port uint16) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
