@@ -464,7 +464,7 @@ func (s *State) updateContractClasses(
 	contracts map[felt.Felt]*StateContract,
 ) error {
 	for addr, classHash := range replacedClasses {
-		contract, err := s.getOrCreateContract(addr, contracts)
+		contract, err := s.getContract(addr, contracts)
 		if err != nil {
 			return err
 		}
@@ -487,7 +487,7 @@ func (s *State) updateContractNonces(
 	contracts map[felt.Felt]*StateContract,
 ) error {
 	for addr, nonce := range nonces {
-		contract, err := s.getOrCreateContract(addr, contracts)
+		contract, err := s.getContract(addr, contracts)
 		if err != nil {
 			return err
 		}
@@ -509,7 +509,7 @@ func (s *State) updateContractStorages(
 	contracts map[felt.Felt]*StateContract,
 ) error {
 	for addr, diff := range storageDiffs {
-		contract, err := s.getOrCreateContract(addr, contracts)
+		contract, err := s.getContract(addr, contracts)
 		if err != nil {
 			if _, ok := noClassContracts[addr]; ok && errors.Is(err, ErrContractNotDeployed) {
 				contract = NewStateContract(&addr, noClassContractsClassHash, &felt.Zero, blockNumber)
@@ -524,7 +524,7 @@ func (s *State) updateContractStorages(
 	return nil
 }
 
-func (s *State) getOrCreateContract(addr felt.Felt, contracts map[felt.Felt]*StateContract) (*StateContract, error) {
+func (s *State) getContract(addr felt.Felt, contracts map[felt.Felt]*StateContract) (*StateContract, error) {
 	contract, ok := contracts[addr]
 	if !ok {
 		var err error
