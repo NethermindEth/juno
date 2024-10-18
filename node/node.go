@@ -276,7 +276,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
 	}
 	if cfg.Pprof {
-		services = append(services, makePPROF(cfg.PprofHost, cfg.PprofPort))
+		services = append(services, MakePPROF(cfg.PprofHost, cfg.PprofPort))
 	}
 
 	n := &Node{
