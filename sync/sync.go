@@ -172,6 +172,7 @@ func (s *Synchronizer) Run(ctx context.Context) error {
 	return nil
 }
 
+// TODO(weiihann): sync starts here
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
 	resetStreams context.CancelFunc,
 ) stream.Callback {
