@@ -21,8 +21,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-var emptyCommitments = core.BlockCommitments{}
-
 const timeout = time.Second
 
 func TestSyncBlocks(t *testing.T) {
