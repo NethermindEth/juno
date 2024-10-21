@@ -6,10 +6,10 @@ import (
 	"os"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -97,7 +97,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
+	info.Network = node.GetNetwork(headBlock, stateUpdate.StateDiff).Name
 	info.ChainHeight = headBlock.Number
 	info.LatestBlockHash = headBlock.Hash
 	info.LatestStateRoot = headBlock.GlobalStateRoot
@@ -233,25 +233,6 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	tableState.Render()
 
 	return nil
-}
-
-func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
-	networks := []*utils.Network{
-		&utils.Mainnet,
-		&utils.Sepolia,
-		&utils.Goerli,
-		&utils.Goerli2,
-		&utils.Integration,
-		&utils.SepoliaIntegration,
-	}
-
-	for _, network := range networks {
-		if _, err := core.VerifyBlockHash(head, network, stateDiff); err == nil {
-			return network.Name
-		}
-	}
-
-	return "unknown"
 }
 
 func openDB(path string) (db.DB, error) {

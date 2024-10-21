@@ -141,9 +141,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			return nil, err
 		}
 
-		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
-		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff); err != nil {
-			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+		network := GetNetwork(head, stateUpdate.StateDiff)
+		if network != nil {
+			if cfg.Network.Name != network.Name {
+				log.Warnw("Network mismatch between config and database. Overriding config", "config", cfg.Network.Name, "database", network.Name)
+			}
+			cfg.Network = *network
 		}
 	}
 
@@ -381,4 +384,23 @@ func (n *Node) Run(ctx context.Context) {
 
 func (n *Node) Config() Config {
 	return *n.cfg
+}
+
+func GetNetwork(head *core.Block, stateDiff *core.StateDiff) *utils.Network {
+	networks := []*utils.Network{
+		&utils.Mainnet,
+		&utils.Sepolia,
+		&utils.Goerli,
+		&utils.Goerli2,
+		&utils.Integration,
+		&utils.SepoliaIntegration,
+	}
+
+	for _, network := range networks {
+		if _, err := core.VerifyBlockHash(head, network, stateDiff); err == nil {
+			return network
+		}
+	}
+
+	return nil
 }
