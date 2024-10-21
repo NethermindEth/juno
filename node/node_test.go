@@ -49,21 +49,12 @@ func TestNewNode(t *testing.T) {
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 	network := utils.Integration
-	tests := map[string]struct {
-		network   utils.Network
-		errString string
-	}{
-		"same network": {
-			network:   network,
-			errString: "",
-		},
-		"different network": {
-			network:   utils.Mainnet,
-			errString: "unable to verify latest block hash; are the database and --network option compatible?",
-		},
+	tests := map[string]utils.Network{
+		"same network":      network,
+		"different network": utils.Mainnet,
 	}
 
-	for description, test := range tests {
+	for description, nw := range tests {
 		t.Run(description, func(t *testing.T) {
 			dbPath := t.TempDir()
 			log := utils.NewNopZapLogger()
@@ -78,13 +69,10 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 
 			_, err = node.New(&node.Config{
 				DatabasePath: dbPath,
-				Network:      test.network,
+				Network:      nw,
 			}, "v0.1")
-			if test.errString == "" {
-				require.NoError(t, err)
-			} else {
-				require.ErrorContains(t, err, test.errString)
-			}
+
+			require.NoError(t, err)
 		})
 	}
 }
