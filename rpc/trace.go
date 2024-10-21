@@ -285,9 +285,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	useBlobData := true
 	_, daGas, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, useBlobData)
+		&blockInfo, state, network, false, false, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
 
@@ -379,7 +378,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, true)
+	}, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
