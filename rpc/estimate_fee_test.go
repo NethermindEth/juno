@@ -3,100 +3,18 @@ package rpc_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
-
-func TestEstimateMessageFeeV0_6(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	n := utils.Ptr(utils.Mainnet)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(n).AnyTimes()
-	mockVM := mocks.NewMockVM(mockCtrl)
-
-	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
-	msg := rpc.MsgFromL1{
-		From:     common.HexToAddress("0xDEADBEEF"),
-		To:       *new(felt.Felt).SetUint64(1337),
-		Payload:  []felt.Felt{*new(felt.Felt).SetUint64(1), *new(felt.Felt).SetUint64(2)},
-		Selector: *new(felt.Felt).SetUint64(44),
-	}
-
-	t.Run("block not found", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-		_, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
-		require.Equal(t, rpc.ErrBlockNotFound, err)
-		require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
-	})
-
-	latestHeader := &core.Header{
-		Number:    9,
-		Timestamp: 456,
-		GasPrice:  new(felt.Felt).SetUint64(42),
-	}
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
-
-	expectedGasConsumed := new(felt.Felt).SetUint64(37)
-	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), &vm.BlockInfo{
-		Header: latestHeader,
-	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false).DoAndReturn(
-		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
-			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-		) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
-			require.Len(t, txns, 1)
-			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
-
-			assert.Empty(t, declaredClasses)
-			assert.Len(t, paidFeesOnL1, 1)
-
-			actualFee := new(felt.Felt).Mul(expectedGasConsumed, blockInfo.Header.GasPrice)
-			daGas := []core.GasConsumed{{L1Gas: 0, L1DataGas: 0}}
-			return []*felt.Felt{actualFee}, daGas, []vm.TransactionTrace{{
-				StateDiff: &vm.StateDiff{
-					StorageDiffs:              []vm.StorageDiff{},
-					Nonces:                    []vm.Nonce{},
-					DeployedContracts:         []vm.DeployedContract{},
-					DeprecatedDeclaredClasses: []*felt.Felt{},
-					DeclaredClasses:           []vm.DeclaredClass{},
-					ReplacedClasses:           []vm.ReplacedClass{},
-				},
-			}}, uint64(123), nil
-		},
-	)
-
-	estimateFee, httpHeader, err := handler.EstimateMessageFeeV0_6(msg, rpc.BlockID{Latest: true})
-	require.Nil(t, err)
-	expectedJSON := fmt.Sprintf(
-		`{"gas_consumed":%q,"gas_price":%q,"overall_fee":%q,"unit":"WEI"}`,
-		expectedGasConsumed,
-		latestHeader.GasPrice,
-		new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice),
-	)
-
-	// we check json response here because some fields are private and we can't set them and assert.Equal fails
-	// also in 0.6 response some fields should not be presented
-	estimateFeeJSON, jsonErr := json.Marshal(estimateFee)
-	require.NoError(t, jsonErr)
-	require.Equal(t, expectedJSON, string(estimateFeeJSON))
-	require.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
-}
 
 func TestEstimateFee(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

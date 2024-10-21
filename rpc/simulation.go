@@ -53,21 +53,11 @@ type TracedBlockTransaction struct {
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false, false)
-}
-
-// pre 13.1
-func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag,
-) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	// todo double check errOnRevert = false
-	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
+	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
 //nolint:funlen,gocyclo
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, v0_6Response, errOnRevert bool,
-) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, simulationFlags []SimulationFlag, errOnRevert bool) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
@@ -113,7 +103,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
-	useBlobData := !v0_6Response
+	useBlobData := true
 	overallFees, daGas, traces, numSteps, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, useBlobData)
 
@@ -153,12 +143,8 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 		var gasConsumed *felt.Felt
 		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
-		if !v0_6Response {
-			dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
-			gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
-		} else {
-			gasConsumed = overallFee.Clone()
-		}
+		dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
+		gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 		estimate := FeeEstimate{
@@ -168,18 +154,15 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			DataGasPrice:    dataGasPrice,
 			OverallFee:      overallFee,
 			Unit:            utils.Ptr(feeUnit),
-			v0_6Response:    v0_6Response,
 		}
 
-		if !v0_6Response {
-			trace := traces[i]
-			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = &vm.DataAvailability{
-				L1Gas:     daGas[i].L1Gas,
-				L1DataGas: daGas[i].L1DataGas,
-			}
-			traces[i].ExecutionResources = executionResources
+		trace := traces[i]
+		executionResources := trace.TotalExecutionResources()
+		executionResources.DataAvailability = &vm.DataAvailability{
+			L1Gas:     daGas[i].L1Gas,
+			L1DataGas: daGas[i].L1DataGas,
 		}
+		traces[i].ExecutionResources = executionResources
 
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: &traces[i],

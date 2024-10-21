@@ -604,7 +604,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			txsWithReceipt = append(txsWithReceipt, rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL2, nil, 0, false),
+				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL2, nil, 0),
 			})
 		}
 
@@ -648,7 +648,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			transactions = append(transactions, rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL1, nil, 0, false),
+				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL1, nil, 0),
 			})
 		}
 
