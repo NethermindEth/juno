@@ -40,7 +40,7 @@ jobs:
 
       - name: Install Jemalloc (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 -y
+        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'

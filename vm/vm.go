@@ -39,8 +39,8 @@ extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);
 
-#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs
-#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs
+#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -lbz2
+#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lbz2
 */
 import "C"
 
