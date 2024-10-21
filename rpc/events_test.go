@@ -26,6 +26,7 @@ import (
 var emptyCommitments = core.BlockCommitments{}
 
 const (
+	subscribeNewHeads = `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads"}`
 	newHeadsResponse  = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
 	subscribeResponse = `{"jsonrpc":"2.0","result":{"subscription_id":%d},"id":1}`
 )
@@ -253,34 +254,6 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func setupSubscriptionTest(t *testing.T, ctx context.Context) (*rpc.Handler, *fakeSyncer, *jsonrpc.Server) {
-	t.Helper()
-
-	log := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
-	syncer := newFakeSyncer()
-	handler := rpc.New(chain, syncer, nil, "", log)
-
-	go func() {
-		require.NoError(t, handler.Run(ctx))
-	}()
-	time.Sleep(50 * time.Millisecond)
-
-	server := jsonrpc.NewServer(1, log)
-
-	return handler, syncer, server
-}
-
-func sendAndReceiveMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, message string) string {
-	t.Helper()
-
-	require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(message)))
-
-	_, response, err := conn.Read(ctx)
-	require.NoError(t, err)
-	return string(response)
-}
-
 func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
 
@@ -304,8 +277,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
 
-	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads"}`
-	got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
+	got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
 	want := fmt.Sprintf(subscribeResponse, id)
 	require.Equal(t, want, got)
 
@@ -345,20 +317,18 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)
 
-	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads"}`
-
 	firstID := uint64(1)
 	secondID := uint64(2)
 
 	handler.WithIDGen(func() uint64 { return firstID })
 	firstWant := fmt.Sprintf(subscribeResponse, firstID)
-	firstGot := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+	firstGot := sendAndReceiveMessage(t, ctx, conn1, subscribeNewHeads)
 	require.NoError(t, err)
 	require.Equal(t, firstWant, firstGot)
 
 	handler.WithIDGen(func() uint64 { return secondID })
 	secondWant := fmt.Sprintf(subscribeResponse, secondID)
-	secondGot := sendAndReceiveMessage(t, ctx, conn2, subscribeMsg)
+	secondGot := sendAndReceiveMessage(t, ctx, conn2, subscribeNewHeads)
 	require.NoError(t, err)
 	require.Equal(t, secondWant, secondGot)
 
@@ -474,8 +444,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
 
-	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads"}`
-	got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
+	got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
 	want := fmt.Sprintf(subscribeResponse, id)
 	require.Equal(t, want, got)
 
@@ -512,151 +481,122 @@ func TestSubscribePendingTxs(t *testing.T) {
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
-	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-	require.NoError(t, err)
+	t.Run("Basic subscription", func(t *testing.T) {
+		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+		require.NoError(t, err)
 
-	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
-	id := uint64(1)
-	handler.WithIDGen(func() uint64 { return id })
-	got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
-	want := fmt.Sprintf(subscribeResponse, id)
-	require.Equal(t, want, got)
+		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
+		id := uint64(1)
+		handler.WithIDGen(func() uint64 { return id })
+		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		want := fmt.Sprintf(subscribeResponse, id)
+		require.Equal(t, want, got)
 
-	hash1 := new(felt.Felt).SetUint64(1)
-	addr1 := new(felt.Felt).SetUint64(11)
+		hash1 := new(felt.Felt).SetUint64(1)
+		addr1 := new(felt.Felt).SetUint64(11)
 
-	hash2 := new(felt.Felt).SetUint64(2)
-	addr2 := new(felt.Felt).SetUint64(22)
+		hash2 := new(felt.Felt).SetUint64(2)
+		addr2 := new(felt.Felt).SetUint64(22)
 
-	hash3 := new(felt.Felt).SetUint64(3)
-	hash4 := new(felt.Felt).SetUint64(4)
-	hash5 := new(felt.Felt).SetUint64(5)
+		hash3 := new(felt.Felt).SetUint64(3)
+		hash4 := new(felt.Felt).SetUint64(4)
+		hash5 := new(felt.Felt).SetUint64(5)
 
-	syncer.pendingTxs.Send([]core.Transaction{
-		&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-		&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-		&core.DeployTransaction{TransactionHash: hash3},
-		&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-		&core.L1HandlerTransaction{TransactionHash: hash5},
+		syncer.pendingTxs.Send([]core.Transaction{
+			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+			&core.DeployTransaction{TransactionHash: hash3},
+			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+			&core.L1HandlerTransaction{TransactionHash: hash5},
+		})
+
+		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
+		want = fmt.Sprintf(want, id)
+		_, pendingTxsGot, err := conn1.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, want, string(pendingTxsGot))
 	})
 
-	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
-	want = fmt.Sprintf(want, id)
-	_, pendingTxsGot, err := conn1.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, want, string(pendingTxsGot))
-}
+	t.Run("Filtered subscription", func(t *testing.T) {
+		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+		require.NoError(t, err)
 
-func TestSubscribePendingTxsFilter(t *testing.T) {
-	t.Parallel()
+		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
+		id := uint64(1)
+		handler.WithIDGen(func() uint64 { return id })
+		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		want := fmt.Sprintf(subscribeResponse, id)
+		require.Equal(t, want, got)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+		hash1 := new(felt.Felt).SetUint64(1)
+		addr1 := new(felt.Felt).SetUint64(11)
 
-	handler, syncer, server := setupSubscriptionTest(t, ctx)
+		hash2 := new(felt.Felt).SetUint64(2)
+		addr2 := new(felt.Felt).SetUint64(22)
 
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "starknet_subscribePendingTransactions",
-		Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
-		Handler: handler.SubscribePendingTxs,
-	}))
+		hash3 := new(felt.Felt).SetUint64(3)
+		hash4 := new(felt.Felt).SetUint64(4)
+		hash5 := new(felt.Felt).SetUint64(5)
 
-	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
-	httpSrv := httptest.NewServer(ws)
+		hash6 := new(felt.Felt).SetUint64(6)
+		addr6 := new(felt.Felt).SetUint64(66)
 
-	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-	require.NoError(t, err)
+		hash7 := new(felt.Felt).SetUint64(7)
+		addr7 := new(felt.Felt).SetUint64(77)
 
-	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
-	id := uint64(1)
-	handler.WithIDGen(func() uint64 { return id })
-	got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
-	want := fmt.Sprintf(subscribeResponse, id)
-	require.Equal(t, want, got)
+		syncer.pendingTxs.Send([]core.Transaction{
+			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+			&core.DeployTransaction{TransactionHash: hash3},
+			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+			&core.L1HandlerTransaction{TransactionHash: hash5},
+			&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
+			&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+		})
 
-	hash1 := new(felt.Felt).SetUint64(1)
-	addr1 := new(felt.Felt).SetUint64(11)
-
-	hash2 := new(felt.Felt).SetUint64(2)
-	addr2 := new(felt.Felt).SetUint64(22)
-
-	hash3 := new(felt.Felt).SetUint64(3)
-	hash4 := new(felt.Felt).SetUint64(4)
-	hash5 := new(felt.Felt).SetUint64(5)
-
-	hash6 := new(felt.Felt).SetUint64(6)
-	addr6 := new(felt.Felt).SetUint64(66)
-
-	hash7 := new(felt.Felt).SetUint64(7)
-	addr7 := new(felt.Felt).SetUint64(77)
-
-	syncer.pendingTxs.Send([]core.Transaction{
-		&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-		&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-		&core.DeployTransaction{TransactionHash: hash3},
-		&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-		&core.L1HandlerTransaction{TransactionHash: hash5},
-		&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
-		&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
+		want = fmt.Sprintf(want, id)
+		_, pendingTxsGot, err := conn1.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, want, string(pendingTxsGot))
 	})
 
-	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
-	want = fmt.Sprintf(want, id)
-	_, pendingTxsGot, err := conn1.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, want, string(pendingTxsGot))
-}
+	t.Run("Full details subscription", func(t *testing.T) {
+		t.Parallel()
+		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+		require.NoError(t, err)
 
-func TestSubscribePendingTxsFullDetails(t *testing.T) {
-	t.Parallel()
+		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
+		id := uint64(1)
+		handler.WithIDGen(func() uint64 { return id })
+		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		want := fmt.Sprintf(subscribeResponse, id)
+		require.Equal(t, want, got)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+		syncer.pendingTxs.Send([]core.Transaction{
+			&core.InvokeTransaction{
+				TransactionHash:       new(felt.Felt).SetUint64(1),
+				CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
+				TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+				MaxFee:                new(felt.Felt).SetUint64(4),
+				ContractAddress:       new(felt.Felt).SetUint64(5),
+				Version:               new(core.TransactionVersion).SetUint64(3),
+				EntryPointSelector:    new(felt.Felt).SetUint64(6),
+				Nonce:                 new(felt.Felt).SetUint64(7),
+				SenderAddress:         new(felt.Felt).SetUint64(8),
+				ResourceBounds:        map[core.Resource]core.ResourceBounds{},
+				Tip:                   9,
+				PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
+				AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+			},
+		})
 
-	handler, syncer, server := setupSubscriptionTest(t, ctx)
-
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "starknet_subscribePendingTransactions",
-		Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
-		Handler: handler.SubscribePendingTxs,
-	}))
-
-	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
-	httpSrv := httptest.NewServer(ws)
-
-	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-	require.NoError(t, err)
-
-	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
-	id := uint64(1)
-	handler.WithIDGen(func() uint64 { return id })
-	got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
-	want := fmt.Sprintf(subscribeResponse, id)
-	require.Equal(t, want, got)
-
-	syncer.pendingTxs.Send([]core.Transaction{
-		&core.InvokeTransaction{
-			TransactionHash:       new(felt.Felt).SetUint64(1),
-			CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
-			TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-			MaxFee:                new(felt.Felt).SetUint64(4),
-			ContractAddress:       new(felt.Felt).SetUint64(5),
-			Version:               new(core.TransactionVersion).SetUint64(3),
-			EntryPointSelector:    new(felt.Felt).SetUint64(6),
-			Nonce:                 new(felt.Felt).SetUint64(7),
-			SenderAddress:         new(felt.Felt).SetUint64(8),
-			ResourceBounds:        map[core.Resource]core.ResourceBounds{},
-			Tip:                   9,
-			PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-			AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
-		},
+		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
+		want = fmt.Sprintf(want, id)
+		_, pendingTxsGot, err := conn1.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, want, string(pendingTxsGot))
 	})
-
-	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
-	want = fmt.Sprintf(want, id)
-	_, pendingTxsGot, err := conn1.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, want, string(pendingTxsGot))
 }
 
 func testHeader(t *testing.T) *core.Header {
@@ -679,4 +619,32 @@ func testHeader(t *testing.T) *core.Header {
 		ProtocolVersion: "",
 	}
 	return header
+}
+
+func setupSubscriptionTest(t *testing.T, ctx context.Context) (*rpc.Handler, *fakeSyncer, *jsonrpc.Server) {
+	t.Helper()
+
+	log := utils.NewNopZapLogger()
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	syncer := newFakeSyncer()
+	handler := rpc.New(chain, syncer, nil, "", log)
+
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	time.Sleep(50 * time.Millisecond)
+
+	server := jsonrpc.NewServer(1, log)
+
+	return handler, syncer, server
+}
+
+func sendAndReceiveMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, message string) string {
+	t.Helper()
+
+	require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(message)))
+
+	_, response, err := conn.Read(ctx)
+	require.NoError(t, err)
+	return string(response)
 }
