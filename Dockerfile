@@ -5,7 +5,7 @@ ARG VM_DEBUG
 
 
 RUN apt-get -qq update && \
-    apt-get -qq install curl build-essential git golang upx-ucl libjemalloc-dev libjemalloc2 -y
+    apt-get -qq install curl build-essential git golang upx-ucl libjemalloc-dev libjemalloc2 libbz2-dev
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -q -y
 
 WORKDIR /app
