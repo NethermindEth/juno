@@ -42,6 +42,10 @@ type ReorgSubscription struct {
 	*feed.Subscription[*ReorgData]
 }
 
+type PendingTxSubscription struct {
+	*feed.Subscription[[]core.Transaction]
+}
+
 // Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
@@ -50,6 +54,7 @@ type Reader interface {
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
 	SubscribeReorg() ReorgSubscription
+	SubscribePendingTxs() PendingTxSubscription
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -69,6 +74,10 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 
 func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{feed.New[*ReorgData]().Subscribe()}
+}
+
+func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
+	return PendingTxSubscription{feed.New[[]core.Transaction]().Subscribe()}
 }
 
 // ReorgData represents data about reorganised blocks, starting and ending block number and hash
@@ -93,6 +102,7 @@ type Synchronizer struct {
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
 	reorgFeed           *feed.Feed[*ReorgData]
+	pendingTxsFeed      *feed.Feed[[]core.Transaction]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -115,6 +125,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
 		reorgFeed:           feed.New[*ReorgData](),
+		pendingTxsFeed:      feed.New[[]core.Transaction](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -521,6 +532,9 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return err
 	}
 
+	// send the pending transactions to the feed
+	s.pendingTxsFeed.Send(pendingBlock.Transactions)
+
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
 	return s.StorePending(&Pending{
 		Block:       pendingBlock,
@@ -549,5 +563,11 @@ func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
 func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{
 		Subscription: s.reorgFeed.Subscribe(),
+	}
+}
+
+func (s *Synchronizer) SubscribePendingTxs() PendingTxSubscription {
+	return PendingTxSubscription{
+		Subscription: s.pendingTxsFeed.Subscribe(),
 	}
 }
