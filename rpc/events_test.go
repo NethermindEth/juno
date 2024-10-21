@@ -3,10 +3,15 @@ package rpc_test
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/mocks"
+	"go.uber.org/mock/gomock"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -647,4 +652,88 @@ func sendAndReceiveMessage(t *testing.T, ctx context.Context, conn *websocket.Co
 	_, response, err := conn.Read(ctx)
 	require.NoError(t, err)
 	return string(response)
+}
+
+func TestSubscribeTxStatusAndUnsubscribe(t *testing.T) {
+	t.Parallel()
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+
+	syncer := newFakeSyncer()
+	log, _ := utils.NewZapLogger(utils.INFO, false)
+	handler := rpc.New(mockReader, syncer, nil, "", log)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
+	// Sleep for a moment just in case.
+	time.Sleep(50 * time.Millisecond)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	txnHash := utils.HexToFelt(t, "0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
+	txn := &core.DeployTransaction{TransactionHash: txnHash, Version: (*core.TransactionVersion)(&felt.Zero)}
+	receipt := &core.TransactionReceipt{
+		TransactionHash: txnHash,
+		Reverted:        false,
+	}
+
+	mockReader.EXPECT().TransactionByHash(txnHash).Return(txn, nil).Times(1)
+	mockReader.EXPECT().Receipt(txnHash).Return(receipt, nil, uint64(1), nil).Times(1)
+	mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound).AnyTimes()
+
+	// Subscribe without setting the connection on the context.
+	id, rpcErr := handler.SubscribeTxnStatus(ctx, felt.Zero, nil)
+	require.Nil(t, id)
+	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
+
+	// Subscribe correctly but for the unknown transaction
+	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	id, rpcErr = handler.SubscribeTxnStatus(subCtx, felt.Zero, nil)
+	require.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
+	require.Nil(t, id)
+
+	// Subscribe correctly for the known transaction
+	subCtx = context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	id, rpcErr = handler.SubscribeTxnStatus(subCtx, *txnHash, nil)
+	require.Nil(t, rpcErr)
+
+	// Receive a block header.
+	time.Sleep(100 * time.Millisecond)
+	got := make([]byte, 0, 300)
+	_, err := clientConn.Read(got)
+	require.NoError(t, err)
+	require.Equal(t, "", string(got))
+
+	// Unsubscribe without setting the connection on the context.
+	ok, rpcErr := handler.Unsubscribe(ctx, id.ID)
+	require.Equal(t, jsonrpc.MethodNotFound, rpcErr.Code)
+	require.False(t, ok)
+
+	// Unsubscribe on correct connection with the incorrect id.
+	ok, rpcErr = handler.Unsubscribe(subCtx, id.ID+1)
+	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
+	require.False(t, ok)
+
+	// Unsubscribe on incorrect connection with the correct id.
+	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{})
+	ok, rpcErr = handler.Unsubscribe(subCtx, id.ID)
+	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
+	require.False(t, ok)
+
+	// Unsubscribe on correct connection with the correct id.
+	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	ok, rpcErr = handler.Unsubscribe(subCtx, id.ID)
+	require.Nil(t, rpcErr)
+	require.True(t, ok)
 }

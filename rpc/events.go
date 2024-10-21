@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"encoding/json"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -21,6 +20,10 @@ const (
 type EventsArg struct {
 	EventFilter
 	ResultPageRequest
+}
+
+type SubscriptionID struct {
+	ID uint64 `json:"subscription_id"`
 }
 
 type EventFilter struct {
@@ -51,10 +54,6 @@ type EmittedEvent struct {
 type EventsChunk struct {
 	Events            []*EmittedEvent `json:"events"`
 	ContinuationToken string          `json:"continuation_token,omitempty"`
-}
-
-type SubscriptionID struct {
-	ID uint64 `json:"subscription_id"`
 }
 
 /****************************************************
@@ -372,6 +371,84 @@ func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *sync.ReorgData, id uint64) er
 	return err
 }
 
+func (h *Handler) SubscribeTxnStatus(ctx context.Context, txHash felt.Felt, _ *BlockID) (*SubscriptionID, *jsonrpc.Error) {
+	var (
+		lastKnownStatus, lastSendStatus *TransactionStatus
+		wrapResult                      = func(s *TransactionStatus) *NewTransactionStatus {
+			return &NewTransactionStatus{
+				TransactionHash: &txHash,
+				Status:          s,
+			}
+		}
+	)
+
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	id := h.idgen()
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	sub := &subscription{
+		cancel: subscriptionCtxCancel,
+		conn:   w,
+	}
+
+	lastKnownStatus, rpcErr := h.TransactionStatus(subscriptionCtx, txHash)
+	if rpcErr != nil {
+		h.log.Warnw("Failed to get Tx status", "txHash", &txHash, "rpcErr", rpcErr)
+		return nil, rpcErr
+	}
+
+	h.mu.Lock()
+	h.subscriptions[id] = sub
+	h.mu.Unlock()
+
+	statusSub := h.txnStatus.Subscribe()
+	headerSub := h.newHeads.Subscribe()
+	sub.wg.Go(func() {
+		defer func() {
+			h.unsubscribe(sub, id)
+			statusSub.Unsubscribe()
+			headerSub.Unsubscribe()
+		}()
+
+		if err := h.sendTxnStatus(sub.conn, wrapResult(lastKnownStatus), id); err != nil {
+			h.log.Warnw("Error while sending Txn status", "txHash", txHash)
+			return
+		}
+		lastSendStatus = lastKnownStatus
+
+		for {
+			select {
+			case <-subscriptionCtx.Done():
+				return
+			case <-headerSub.Recv():
+				lastKnownStatus, rpcErr = h.TransactionStatus(subscriptionCtx, txHash)
+				if rpcErr != nil {
+					h.log.Warnw("Failed to get Tx status", "txHash", txHash, "rpcErr", rpcErr)
+					return
+				}
+
+				if *lastKnownStatus != *lastSendStatus {
+					if err := h.sendTxnStatus(sub.conn, wrapResult(lastKnownStatus), id); err != nil {
+						h.log.Warnw("Error while sending Txn status", "txHash", txHash)
+						return
+					}
+					lastSendStatus = lastKnownStatus
+				}
+
+				// Stop when final status reached and notified
+				if isFinal(lastSendStatus) {
+					return
+				}
+			}
+		}
+	})
+
+	return &SubscriptionID{ID: id}, nil
+}
+
 func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -488,4 +565,31 @@ func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, 
 		return err
 	}
 	return set(blockchain.EventFilterTo, toID)
+}
+
+type NewTransactionStatus struct {
+	TransactionHash *felt.Felt         `json:"transaction_hash"`
+	Status          *TransactionStatus `json:"status"`
+}
+
+// sendHeader creates a request and sends it to the client
+func (h *Handler) sendTxnStatus(w jsonrpc.Conn, status *NewTransactionStatus, id uint64) error {
+	resp, err := json.Marshal(jsonrpc.Request{
+		Version: "2.0",
+		Method:  "starknet_subscriptionTransactionsStatus",
+		Params: map[string]any{
+			"subscription_id": id,
+			"result":          status,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	h.log.Infow("Sending Txn status", "status", string(resp))
+	_, err = w.Write(resp)
+	return err
+}
+
+func isFinal(status *TransactionStatus) bool {
+	return status.Finality == TxnStatusRejected || status.Finality == TxnStatusAcceptedOnL1
 }
