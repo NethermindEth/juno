@@ -83,6 +83,20 @@ func (mr *MockSyncReaderMockRecorder) SubscribeNewHeads() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewHeads", reflect.TypeOf((*MockSyncReader)(nil).SubscribeNewHeads))
 }
 
+// SubscribePendingTxs mocks base method.
+func (m *MockSyncReader) SubscribePendingTxs() sync.PendingTxSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribePendingTxs")
+	ret0, _ := ret[0].(sync.PendingTxSubscription)
+	return ret0
+}
+
+// SubscribePendingTxs indicates an expected call of SubscribePendingTxs.
+func (mr *MockSyncReaderMockRecorder) SubscribePendingTxs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePendingTxs", reflect.TypeOf((*MockSyncReader)(nil).SubscribePendingTxs))
+}
+
 // SubscribeReorg mocks base method.
 func (m *MockSyncReader) SubscribeReorg() sync.ReorgSubscription {
 	m.ctrl.T.Helper()

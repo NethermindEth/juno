@@ -21,6 +21,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+var emptyCommitments = core.BlockCommitments{}
+
 const timeout = time.Second
 
 func TestSyncBlocks(t *testing.T) {
@@ -228,5 +230,30 @@ func TestSubscribeNewHeads(t *testing.T) {
 	want, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
 	require.Equal(t, want.Header, got)
+	sub.Unsubscribe()
+}
+
+func TestSubscribePendingTxs(t *testing.T) {
+	t.Parallel()
+
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	testDB := pebble.NewMemTest(t)
+	log := utils.NewNopZapLogger()
+	bc := blockchain.New(testDB, &utils.Mainnet)
+	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	sub := synchronizer.SubscribePendingTxs()
+
+	require.NoError(t, synchronizer.Run(ctx))
+	cancel()
+
+	pending, err := bc.Pending()
+	require.NoError(t, err)
+	pendingTxs, ok := <-sub.Recv()
+	require.True(t, ok)
+	require.Equal(t, pending.Block.Transactions, pendingTxs)
 	sub.Unsubscribe()
 }
