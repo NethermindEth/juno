@@ -30,11 +30,11 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpc.New(nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.7.1", version)
+	require.Equal(t, "0.8.0", version)
 
-	legacyVersion, rpcErr := handler.SpecVersionV0_6()
+	legacyVersion, rpcErr := handler.SpecVersionV0_7()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.6.0", legacyVersion)
+	require.Equal(t, "0.7.1", legacyVersion)
 }
 
 func TestThrottledVMError(t *testing.T) {

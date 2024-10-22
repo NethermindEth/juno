@@ -54,7 +54,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, true)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -74,7 +74,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, true)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
 }
@@ -122,7 +122,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, true)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -144,7 +144,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, true)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
 }
@@ -186,7 +186,7 @@ func TestCall_MaxSteps(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, true)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0)
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
@@ -211,7 +211,7 @@ func TestExecute(t *testing.T) {
 				GasPriceSTRK:     &felt.Zero,
 			},
 		}, state,
-			&network, false, false, false, false)
+			&network, false, false, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
@@ -221,7 +221,7 @@ func TestExecute(t *testing.T) {
 				GasPrice:         &felt.Zero,
 				GasPriceSTRK:     &felt.Zero,
 			},
-		}, state, &network, false, false, false, false)
+		}, state, &network, false, false, false)
 		require.NoError(t, err)
 	})
 }

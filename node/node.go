@@ -209,7 +209,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	legacyMethods, legacyPath := rpcHandler.MethodsV0_6()
+	legacyMethods, legacyPath := rpcHandler.MethodsV0_7()
 	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
 		return nil, err
 	}

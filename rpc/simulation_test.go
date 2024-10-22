@@ -16,7 +16,7 @@ import (
 )
 
 //nolint:dupl
-func TestSimulateTransactionsV0_6(t *testing.T) {
+func TestSimulateTransactions(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -38,10 +38,10 @@ func TestSimulateTransactionsV0_6(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, true, false, false, false).
+		}, mockState, n, true, false, false).
 			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, stepsUsed, nil)
 
-		_, httpHeader, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, httpHeader, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
@@ -50,35 +50,19 @@ func TestSimulateTransactionsV0_6(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false, false).
+		}, mockState, n, false, true, false).
 			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, stepsUsed, nil)
 
-		_, httpHeader, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		t.Run("v0_6", func(t *testing.T) { //nolint:dupl
+		t.Run("v0_7, v0_8", func(t *testing.T) { //nolint:dupl
 			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 				Header: headsHeader,
-			}, mockState, n, false, true, false, false).
-				Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
-					Index: 44,
-					Cause: errors.New("oops"),
-				})
-
-			_, httpHeader, err := handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
-			require.Equal(t, rpc.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
-				TransactionIndex: 44,
-				ExecutionError:   "oops",
-			}), err)
-			require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-		})
-		t.Run("v0_7", func(t *testing.T) { //nolint:dupl
-			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
-				Header: headsHeader,
-			}, mockState, n, false, true, false, true).
+			}, mockState, n, false, true, false).
 				Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
 					Index: 44,
 					Cause: errors.New("oops"),
