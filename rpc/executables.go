@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -31,29 +30,67 @@ type CasmCompiledContractClass struct {
 }
 
 func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass, *jsonrpc.Error) {
-	rd, stateCloser, err := h.bcReader.HeadState()
+	state, stateCloser, err := h.bcReader.HeadState()
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 	defer h.callAndLogErr(stateCloser, "failed to close state reader")
 
-	declaredClass, err := rd.Class(classHash)
+	declaredClass, err := state.Class(classHash)
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
 	switch class := declaredClass.Class.(type) {
 	case *core.Cairo0Class:
-		program, err := utils.Gzip64Decode(class.Program)
+		resp, err := adaptCairo0Class(class)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
-		fmt.Println(string(program))
+		return resp, nil
 	case *core.Cairo1Class:
 		return adaptCompiledClass(class.Compiled)
 	}
 
 	return nil, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
+}
+
+func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, error) {
+	program, err := utils.Gzip64Decode(class.Program)
+	if err != nil {
+		return nil, err
+	}
+
+	var cairo0 struct {
+		Prime *felt.Felt
+		Data  []*felt.Felt
+	}
+	err = json.Unmarshal(program, &cairo0)
+	if err != nil {
+		return nil, err
+	}
+
+	adaptEntryPoint := func(ep core.EntryPoint) CasmEntryPoint {
+		return CasmEntryPoint{
+			Offset:   ep.Offset,
+			Selector: ep.Selector,
+			Builtins: nil,
+		}
+	}
+
+	result := &CasmCompiledContractClass{
+		EntryPointsByType: EntryPointsByType{
+			Constructor: utils.Map(class.Constructors, adaptEntryPoint),
+			External:    utils.Map(class.Externals, adaptEntryPoint),
+			L1Handler:   utils.Map(class.L1Handlers, adaptEntryPoint),
+		},
+		Prime:                  cairo0.Prime,
+		Bytecode:               cairo0.Data,
+		CompilerVersion:        "",
+		Hints:                  nil,
+		BytecodeSegmentLengths: nil,
+	}
+	return result, nil
 }
 
 func adaptCompiledClass(class *core.CompiledClass) (*CasmCompiledContractClass, *jsonrpc.Error) {
@@ -75,7 +112,20 @@ func adaptCompiledClass(class *core.CompiledClass) (*CasmCompiledContractClass, 
 		CompilerVersion:        class.CompilerVersion,
 		Bytecode:               class.Bytecode,
 		Hints:                  class.Hints,
-		BytecodeSegmentLengths: nil, // todo fill this
+		BytecodeSegmentLengths: collectSegmentLengths(class.BytecodeSegmentLengths),
 	}
 	return result, nil
+}
+
+func collectSegmentLengths(segmentLengths core.SegmentLengths) []int {
+	if len(segmentLengths.Children) == 0 {
+		return []int{int(segmentLengths.Length)}
+	}
+
+	var result []int
+	for _, child := range segmentLengths.Children {
+		result = append(result, collectSegmentLengths(child)...)
+	}
+
+	return result
 }
