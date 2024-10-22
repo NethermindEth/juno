@@ -501,7 +501,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(coreBlock, nil)
 	mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
-	got, rpcErr := handler.BlockWithTxsV0_6(rpc.BlockID{Number: blockNumber})
+	got, rpcErr := handler.BlockWithTxs(rpc.BlockID{Number: blockNumber})
 	require.Nil(t, rpcErr)
 	got.Transactions = got.Transactions[:1]
 
@@ -512,9 +512,14 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
+			L1DAMode:        utils.Ptr(rpc.Blob),
 			L1GasPrice: &rpc.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 				InWei: utils.HexToFelt(t, "0x3b9aca10"),
+			},
+			L1DataGasPrice: &rpc.ResourcePrice{
+				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
+				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,

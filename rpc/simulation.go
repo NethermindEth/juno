@@ -57,7 +57,9 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 }
 
 //nolint:funlen,gocyclo
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction, simulationFlags []SimulationFlag, errOnRevert bool) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, errOnRevert bool,
+) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 

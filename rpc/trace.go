@@ -188,6 +188,7 @@ func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]Tra
 	return h.traceBlockTransactions(ctx, block)
 }
 
+//nolint:funlen,gocyclo
 func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
