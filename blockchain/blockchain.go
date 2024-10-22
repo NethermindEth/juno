@@ -609,7 +609,7 @@ func storeL1HandlerMsgHashes(dbTxn db.Transaction, block *core.Block) error {
 	for _, txn := range block.Transactions {
 		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
 			l1HandlerTxnHashBytes := txn.Hash().Bytes()
-			err := dbTxn.Set(db.L1HandlerTxnHash.Key(l1Handler.MessageHash()), l1HandlerTxnHashBytes[:])
+			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(l1Handler.MessageHash()), l1HandlerTxnHashBytes[:])
 			if err != nil {
 				return err
 			}
@@ -653,7 +653,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 
 func l1MsgHashes(txn db.Transaction, l1HandlerMsgHash *common.Hash) (*felt.Felt, error) {
 	var raw []byte
-	err := txn.Get(db.L1HandlerTxnHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
+	err := txn.Get(db.L1HandlerTxnHashByMsgHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
 		if len(val) == 0 {
 			return db.ErrKeyNotFound
 		}
@@ -978,7 +978,7 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 			return err
 		}
 		if l1handler, ok := reorgedTxn.(*core.L1HandlerTransaction); ok {
-			if err = txn.Delete(db.L1HandlerTxnHash.Key(l1handler.MessageHash())); err != nil {
+			if err = txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(l1handler.MessageHash())); err != nil {
 				return err
 			}
 		}
