@@ -1,24 +1,22 @@
 pub mod jsonrpc;
 mod juno_state_reader;
-
+use std::any::Any;
+use std::io::{self, Write};
 #[macro_use]
 extern crate lazy_static;
 
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
-use std::{
-    collections::HashMap,
-    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
-    num::NonZeroU128,
-    slice,
-    sync::Arc,
+use crate::juno_state_reader::{
+    class_info_from_json_str, felt_to_byte_array, ptr_to_felt, JunoStateReader,
 };
-
-use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
+use blockifier::abi::abi_utils::selector_from_name;
+use blockifier::abi::constants::{CONSTRUCTOR_ENTRY_POINT_NAME, STORED_BLOCK_HASH_BUFFER};
 use blockifier::blockifier::block::{
     pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
 };
 use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
+use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::State;
 use blockifier::transaction::objects::GasVector;
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
@@ -26,7 +24,6 @@ use blockifier::{
         contract_class::ClassInfo,
         entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     },
-    state::{cached_state::CachedState, state_api::State},
     transaction::{
         errors::TransactionExecutionError::{
             ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
@@ -37,8 +34,17 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
+use std::borrow::Borrow;
+use std::{
+    collections::HashMap,
+    ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    num::NonZeroU128,
+    slice,
+    sync::Arc,
+};
+
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
-use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
+
 use serde::Deserialize;
 use starknet_api::{
     block::BlockHash,
@@ -58,6 +64,7 @@ type StarkFelt = Felt;
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
+    fn JunoAppendReceipt(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar, ptr: *const c_uchar);
@@ -98,11 +105,11 @@ pub extern "C" fn cairoVMCall(
     chain_id: *const c_char,
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
+    is_mutable: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -122,8 +129,15 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
+    let caller_entry_point_type =
+        if entry_point_selector_felt == selector_from_name(CONSTRUCTOR_ENTRY_POINT_NAME).0 {
+            EntryPointType::Constructor
+        } else {
+            EntryPointType::External
+        };
+
     let entry_point = CallEntryPoint {
-        entry_point_type: EntryPointType::External,
+        entry_point_type: caller_entry_point_type,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_addr_felt.try_into().unwrap(),
@@ -134,13 +148,21 @@ pub extern "C" fn cairoVMCall(
         initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
     };
 
+    let mut state: Box<dyn State>;
+
+    let juno_reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    if is_mutable == 1 {
+        state = Box::new(JunoStateReader::new(reader_handle, block_info.block_number));
+    } else {
+        state = Box::new(CachedState::new(juno_reader));
+    }
+
     let concurrency_mode = concurrency_mode == 1;
-    let mut state = CachedState::new(reader);
     let mut resources = ExecutionResources::default();
     let context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
             block_context: build_block_context(
-                &mut state,
+                &mut *state,
                 &block_info,
                 chain_id_str,
                 Some(max_steps),
@@ -154,7 +176,8 @@ pub extern "C" fn cairoVMCall(
         report_error(reader_handle, e.to_string().as_str(), -1);
         return;
     }
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
+
+    match entry_point.execute(&mut *state, &mut resources, &mut context.unwrap()) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -163,7 +186,7 @@ pub extern "C" fn cairoVMCall(
                 };
             }
         }
-    }
+    };
 }
 
 #[derive(Deserialize)]
@@ -187,7 +210,7 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
 ) {
-    let block_info = unsafe { *block_info_ptr };
+    let block_info: BlockInfo = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
@@ -277,23 +300,25 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
+        let mut is_l1_handler_txn = false;
         let mut txn_state = CachedState::create_transactional(&mut state);
         let fee_type;
         let minimal_l1_gas_amount_vector: Option<GasVector>;
         let res = match txn.unwrap() {
             Transaction::AccountTransaction(t) => {
                 fee_type = t.fee_type();
+
                 minimal_l1_gas_amount_vector =
                     Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
             Transaction::L1HandlerTransaction(t) => {
+                is_l1_handler_txn = true;
                 fee_type = t.fee_type();
                 minimal_l1_gas_amount_vector = None;
                 t.execute(&mut txn_state, &block_context, charge_fee, validate)
             }
         };
-
         match res {
             Err(error) => {
                 let err_string = match &error {
@@ -325,7 +350,7 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 // we are estimating fee, override actual fee calculation
-                if t.transaction_receipt.fee.0 == 0 {
+                if t.transaction_receipt.fee.0 == 0 && !is_l1_handler_txn {
                     let minimal_l1_gas_amount_vector =
                         minimal_l1_gas_amount_vector.unwrap_or_default();
                     let gas_consumed = t
@@ -359,6 +384,13 @@ pub extern "C" fn cairoVMExecute(
                     .n_steps
                     .try_into()
                     .unwrap_or(u64::MAX);
+
+                let transaction_receipt = jsonrpc::TransactionReceipt {
+                    gas: t.transaction_receipt.gas,
+                    da_gas: t.transaction_receipt.da_gas,
+                    fee: t.transaction_receipt.fee,
+                };
+                append_receipt(reader_handle, &transaction_receipt, &mut trace_buffer);
 
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
@@ -439,6 +471,21 @@ fn append_trace(
         JunoAppendTrace(reader_handle, ptr as *const c_void, len);
     };
 }
+fn append_receipt(
+    reader_handle: usize,
+    trace: &jsonrpc::TransactionReceipt,
+    trace_buffer: &mut Vec<u8>,
+) {
+    trace_buffer.clear();
+    serde_json::to_writer(&mut *trace_buffer, trace).unwrap();
+
+    let ptr = trace_buffer.as_ptr();
+    let len = trace_buffer.len();
+
+    unsafe {
+        JunoAppendReceipt(reader_handle, ptr as *const c_void, len);
+    };
+}
 
 fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
     let err_msg = CString::new(msg).unwrap();
@@ -459,7 +506,7 @@ fn build_block_context(
     let gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.gas_price_fri);
     let data_gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_wei);
     let data_gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_fri);
-    let default_gas_price = NonZeroU128::new(1).unwrap();
+    let default_gas_price: std::num::NonZero<u128> = NonZeroU128::new(1).unwrap();
 
     let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
     // STORED_BLOCK_HASH_BUFFER const is 10 for now

@@ -59,7 +59,7 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
 			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-		) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
+		) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
 
@@ -77,7 +77,7 @@ func TestEstimateMessageFeeV0_6(t *testing.T) {
 					DeclaredClasses:           []vm.DeclaredClass{},
 					ReplacedClasses:           []vm.ReplacedClass{},
 				},
-			}}, uint64(123), nil
+			}}, []vm.TransactionReceipt{{Gas: vm.GasConsumed{L1Gas: 1, L1DataGas: 2}}}, uint64(123), nil
 		},
 	)
 
@@ -117,7 +117,7 @@ func TestEstimateFee(t *testing.T) {
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, true).
-			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil)
+			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, []vm.TransactionReceipt{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
@@ -126,7 +126,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, true).
-			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil)
+			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, []vm.TransactionReceipt{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
@@ -135,7 +135,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("transaction execution error", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, true).
-			Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
+			Return(nil, nil, nil, nil, uint64(0), vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
 			})

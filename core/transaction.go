@@ -100,11 +100,6 @@ type ExecutionResources struct {
 	TotalGasConsumed       *GasConsumed
 }
 
-type DataAvailability struct {
-	L1Gas     uint64
-	L1DataGas uint64
-}
-
 type BuiltinInstanceCounter struct {
 	Pedersen     uint64
 	RangeCheck   uint64
@@ -118,6 +113,11 @@ type BuiltinInstanceCounter struct {
 	AddMod       uint64
 	MulMod       uint64
 	RangeCheck96 uint64
+}
+
+type DataAvailability struct {
+	L1Gas     uint64
+	L1DataGas uint64
 }
 
 type Transaction interface {
