@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
+	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -88,6 +89,8 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+
+	PluginPath string `mapstructure:"plugin-path"`
 }
 
 type Node struct {
@@ -156,6 +159,15 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
+	if cfg.PluginPath != "" {
+		p, err := plugin.Load(cfg.PluginPath)
+		if err != nil {
+			return nil, err
+		}
+		synchronizer.WithPlugin(p)
+		services = append(services, plugin.NewService(p))
+	}
+
 	var p2pService *p2p.Service
 	if cfg.P2P {
 		if cfg.Network != utils.Sepolia {
@@ -197,7 +209,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	legacyMethods, legacyPath := rpcHandler.MethodsV0_6()
+	legacyMethods, legacyPath := rpcHandler.MethodsV0_7()
 	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
 		return nil, err
 	}

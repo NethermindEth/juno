@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -36,27 +35,6 @@ type FeeEstimate struct {
 	DataGasPrice    *felt.Felt `json:"data_gas_price"`
 	OverallFee      *felt.Felt `json:"overall_fee"`
 	Unit            *FeeUnit   `json:"unit,omitempty"`
-	// pre 13.1 response
-	v0_6Response bool
-}
-
-func (f FeeEstimate) MarshalJSON() ([]byte, error) {
-	if f.v0_6Response {
-		return json.Marshal(struct {
-			GasConsumed *felt.Felt `json:"gas_consumed"`
-			GasPrice    *felt.Felt `json:"gas_price"`
-			OverallFee  *felt.Felt `json:"overall_fee"`
-			Unit        *FeeUnit   `json:"unit,omitempty"`
-		}{
-			GasConsumed: f.GasConsumed,
-			GasPrice:    f.GasPrice,
-			OverallFee:  f.OverallFee,
-			Unit:        f.Unit,
-		})
-	} else {
-		type alias FeeEstimate // avoid infinite recursion
-		return json.Marshal(alias(f))
-	}
 }
 
 /****************************************************
@@ -66,20 +44,7 @@ func (f FeeEstimate) MarshalJSON() ([]byte, error) {
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true)
-	if err != nil {
-		return nil, httpHeader, err
-	}
-
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
-		return tx.FeeEstimation
-	}), httpHeader, nil
-}
-
-func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, id BlockID,
-) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, true)
+	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true)
 	if err != nil {
 		return nil, httpHeader, err
 	}
@@ -91,19 +56,6 @@ func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
 
 func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
 	return h.estimateMessageFee(msg, id, h.EstimateFee)
-}
-
-func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
-	feeEstimate, httpHeader, rpcErr := h.estimateMessageFee(msg, id, h.EstimateFeeV0_6)
-	if rpcErr != nil {
-		return nil, httpHeader, rpcErr
-	}
-
-	feeEstimate.v0_6Response = true
-	feeEstimate.DataGasPrice = nil
-	feeEstimate.DataGasConsumed = nil
-
-	return feeEstimate, httpHeader, nil
 }
 
 type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,

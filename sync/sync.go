@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
@@ -72,6 +73,7 @@ type Synchronizer struct {
 
 	pendingPollInterval time.Duration
 	catchUpMode         bool
+	plugin              junoplugin.JunoPlugin
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
@@ -86,6 +88,12 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
 	}
+	return s
+}
+
+// WithPlugin registers an plugin
+func (s *Synchronizer) WithPlugin(plugin junoplugin.JunoPlugin) *Synchronizer {
+	s.plugin = plugin
 	return s
 }
 
@@ -180,6 +188,49 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 	return newClasses, closer()
 }
 
+func (s *Synchronizer) handlePluginRevertBlock() {
+	fromBlock, err := s.blockchain.Head()
+	if err != nil {
+		s.log.Warnw("Failed to retrieve the reverted blockchain head block for the plugin", "err", err)
+		return
+	}
+	fromSU, err := s.blockchain.StateUpdateByNumber(fromBlock.Number)
+	if err != nil {
+		s.log.Warnw("Failed to retrieve the reverted blockchain head state-update for the plugin", "err", err)
+		return
+	}
+	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
+	if err != nil {
+		s.log.Warnw("Failed to retrieve reverse state diff", "head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)
+		return
+	}
+
+	var toBlockAndStateUpdate *junoplugin.BlockAndStateUpdate
+	if fromBlock.Number != 0 {
+		toBlock, err := s.blockchain.BlockByHash(fromBlock.ParentHash)
+		if err != nil {
+			s.log.Warnw("Failed to retrieve the parent block for the plugin", "err", err)
+			return
+		}
+		toSU, err := s.blockchain.StateUpdateByNumber(toBlock.Number)
+		if err != nil {
+			s.log.Warnw("Failed to retrieve the parents state-update for the plugin", "err", err)
+			return
+		}
+		toBlockAndStateUpdate = &junoplugin.BlockAndStateUpdate{
+			Block:       toBlock,
+			StateUpdate: toSU,
+		}
+	}
+	err = s.plugin.RevertBlock(
+		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
+		toBlockAndStateUpdate,
+		reverseStateDiff)
+	if err != nil {
+		s.log.Errorw("Plugin RevertBlock failure:", "err", err)
+	}
+}
+
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
@@ -205,6 +256,9 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					// revert the head and restart the sync process, hoping that the reorg is not deep
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
 					// blocks
+					if s.plugin != nil {
+						s.handlePluginRevertBlock()
+					}
 					s.revertHead(block)
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,
@@ -229,8 +283,14 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			}
 
 			s.newHeads.Send(block.Header)
-			//s.log.Infow("Stored Block", "number", block.Number, "hash",
-			//	block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			s.log.Infow("Stored Block", "number", block.Number, "hash",
+				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+			if s.plugin != nil {
+				err := s.plugin.NewBlock(block, stateUpdate, newClasses)
+				if err != nil {
+					s.log.Errorw("Plugin NewBlock failure:", err)
+				}
+			}
 		}
 	}
 }
@@ -315,11 +375,8 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	if err == nil {
 		localHead = head.Hash
 	}
-
 	s.log.Infow("Reorg detected", "localHead", localHead, "forkHead", forkBlock.Hash)
-
-	err = s.blockchain.RevertHead()
-	if err != nil {
+	if err := s.blockchain.RevertHead(); err != nil {
 		s.log.Warnw("Failed reverting HEAD", "reverted", localHead, "err", err)
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)

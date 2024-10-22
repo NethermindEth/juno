@@ -41,17 +41,19 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install upx cargo-c jemalloc
+        run: brew install cargo-c jemalloc
 
       - name: Set up Go
-        uses: actions/setup-go@v5.0.2
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           
       - name: Build Juno
         run: |
           make juno
-          upx build/juno
+          if [[ "${{ runner.os }}" != "macOS" ]]; then
+            upx build/juno
+          fi
           mv build/juno ${{ env.ARTIFACT_NAME }}
 
       - name: Generate Checksum

@@ -1,0 +1,3 @@
+# do not copy local database files
+p2p-dbs/
+juno/

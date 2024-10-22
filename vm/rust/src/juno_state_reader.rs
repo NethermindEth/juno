@@ -1,5 +1,5 @@
 use std::{
-    ffi::{c_char, c_uchar, c_void, c_int, CStr},
+    ffi::{c_char, c_int, c_uchar, c_void, CStr},
     slice,
     sync::Mutex,
 };
@@ -75,8 +75,14 @@ impl StateReader for JunoStateReader {
         let addr = felt_to_byte_array(contract_address.0.key());
         let storage_key = felt_to_byte_array(key.0.key());
         let mut buffer: [u8; 32] = [0; 32];
-        let wrote =
-            unsafe { JunoStateGetStorageAt(self.handle, addr.as_ptr(), storage_key.as_ptr(), buffer.as_mut_ptr()) };
+        let wrote = unsafe {
+            JunoStateGetStorageAt(
+                self.handle,
+                addr.as_ptr(),
+                storage_key.as_ptr(),
+                buffer.as_mut_ptr(),
+            )
+        };
         if wrote == 0 {
             Err(StateError::StateReadError(format!(
                 "failed to read location {} at address {}",
@@ -111,7 +117,8 @@ impl StateReader for JunoStateReader {
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let addr = felt_to_byte_array(contract_address.0.key());
         let mut buffer: [u8; 32] = [0; 32];
-        let wrote = unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
+        let wrote =
+            unsafe { JunoStateGetClassHashAt(self.handle, addr.as_ptr(), buffer.as_mut_ptr()) };
         if wrote == 0 {
             Err(StateError::StateReadError(format!(
                 "failed to read class hash of address {}",
@@ -208,19 +215,17 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
     let class_info: ClassInfo = serde_json::from_str(raw_json)
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
     let class_def = class_info.contract_class.to_string();
-
+    let mut sierra_len = class_info.sierra_program_length;
+    let mut abi_len = class_info.abi_length;
     let class: ContractClass =
         if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
+            sierra_len = 0;
+            abi_len = 0;
             class.into()
         } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
             class.into()
         } else {
             return Err("not a valid contract class".to_string());
         };
-    Ok(BlockifierClassInfo::new(
-        &class,
-        class_info.sierra_program_length,
-        class_info.abi_length,
-    )
-    .unwrap())
+    Ok(BlockifierClassInfo::new(&class, sierra_len, abi_len).unwrap())
 }
