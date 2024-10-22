@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"encoding/json"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -49,7 +50,7 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass
 		}
 		return resp, nil
 	case *core.Cairo1Class:
-		return adaptCompiledClass(class.Compiled)
+		return adaptCompiledClass(class.Compiled), nil
 	}
 
 	return nil, jsonrpc.Err(jsonrpc.InternalError, "unsupported class type")
@@ -93,7 +94,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 	return result, nil
 }
 
-func adaptCompiledClass(class *core.CompiledClass) (*CasmCompiledContractClass, *jsonrpc.Error) {
+func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
 	adaptEntryPoint := func(ep core.CompiledEntryPoint) CasmEntryPoint {
 		return CasmEntryPoint{
 			Offset:   new(felt.Felt).SetUint64(ep.Offset),
@@ -114,7 +115,7 @@ func adaptCompiledClass(class *core.CompiledClass) (*CasmCompiledContractClass, 
 		Hints:                  class.Hints,
 		BytecodeSegmentLengths: collectSegmentLengths(class.BytecodeSegmentLengths),
 	}
-	return result, nil
+	return result
 }
 
 func collectSegmentLengths(segmentLengths core.SegmentLengths) []int {
