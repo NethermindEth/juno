@@ -224,8 +224,9 @@ type Transaction struct {
 }
 
 type TransactionStatus struct {
-	Finality  TxnStatus          `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
+	Finality      TxnStatus          `json:"finality_status"`
+	Execution     TxnExecutionStatus `json:"execution_status,omitempty"`
+	FailureReason string             `json:"failure_reason,omitempty"`
 }
 
 type MsgFromL1 struct {
@@ -759,8 +760,10 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
 		status.Execution = TxnFailure
+		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
+		status.FailureReason = txStatus.RevertError
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
