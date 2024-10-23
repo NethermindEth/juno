@@ -186,7 +186,7 @@ func (h *Handler) SpecVersionV0_7() (string, *jsonrpc.Error) {
 	return "0.7.1", nil
 }
 
-func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen, dupl
+func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -355,7 +355,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen, dupl
 	}, "/v0_8"
 }
 
-func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen, dupl
+func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
