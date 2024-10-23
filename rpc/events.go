@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -585,7 +586,7 @@ func (h *Handler) sendTxnStatus(w jsonrpc.Conn, status *NewTransactionStatus, id
 	if err != nil {
 		return err
 	}
-	h.log.Infow("Sending Txn status", "status", string(resp))
+	h.log.Debugw("Sending Txn status", "status", string(resp))
 	_, err = w.Write(resp)
 	return err
 }
