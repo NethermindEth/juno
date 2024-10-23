@@ -875,7 +875,7 @@ func (b *Blockchain) RevertHead() error {
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 	return reverseStateDiff, b.database.View(func(txn db.Transaction) error {
-		blockNumber, err := chainHeight(txn)
+		blockNumber, err := ChainHeight(txn)
 		if err != nil {
 			return err
 		}

@@ -345,7 +345,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getCompiledCasm",
 			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
-			Handler: h.CompiledCasm,
+			Handler: h.CompiledCasm},
+		{
+			Name:    "starknet_getMessagesStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.GetMessageStatus,
 		},
 	}, "/v0_8"
 }
