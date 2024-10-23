@@ -53,7 +53,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	validProposal := t.application.Valid(*p.Value)
 	proposalFromProposer := p.Sender == t.validators.Proposer(p.Height, p.Round)
 	vr := p.ValidRound
-
+	fmt.Println("validProposal", validProposal)
 	if validProposal {
 		// Add the proposal to the message set even if the sender is not the proposer,
 		// this is because of slahsing purposes
@@ -217,7 +217,6 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 				}
 			}
 		}
-
 		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
 			cr := t.state.round
 
