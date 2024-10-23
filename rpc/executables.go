@@ -22,12 +22,13 @@ type EntryPointsByType struct {
 }
 
 type CasmCompiledContractClass struct {
-	EntryPointsByType      EntryPointsByType `json:"entry_points_by_type"`
-	Prime                  *felt.Felt        `json:"prime"`
-	CompilerVersion        string            `json:"compiler_version"`
-	Bytecode               []*felt.Felt      `json:"bytecode"`
-	Hints                  json.RawMessage   `json:"hints"`
-	BytecodeSegmentLengths []int             `json:"bytecode_segment_lengths,omitempty"`
+	EntryPointsByType EntryPointsByType `json:"entry_points_by_type"`
+	// can't use felt.Felt here because prime is larger than felt
+	Prime                  string          `json:"prime"`
+	CompilerVersion        string          `json:"compiler_version"`
+	Bytecode               []*felt.Felt    `json:"bytecode"`
+	Hints                  json.RawMessage `json:"hints"`
+	BytecodeSegmentLengths []int           `json:"bytecode_segment_lengths,omitempty"`
 }
 
 func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass, *jsonrpc.Error) {
@@ -63,8 +64,9 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 	}
 
 	var cairo0 struct {
-		Prime *felt.Felt
-		Data  []*felt.Felt
+		Prime           string       `json:"prime"`
+		CompilerVersion string       `json:"compiler_version,omitempty"`
+		Data            []*felt.Felt `json:"data"`
 	}
 	err = json.Unmarshal(program, &cairo0)
 	if err != nil {
@@ -87,9 +89,9 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		},
 		Prime:                  cairo0.Prime,
 		Bytecode:               cairo0.Data,
-		CompilerVersion:        "",
-		Hints:                  nil,
-		BytecodeSegmentLengths: nil,
+		CompilerVersion:        cairo0.CompilerVersion,
+		Hints:                  nil, // todo fill this field
+		BytecodeSegmentLengths: nil, // Cairo 0 classes don't have this field (it was introduced since Sierra 1.5.0)
 	}
 	return result, nil
 }
@@ -109,7 +111,7 @@ func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
 			External:    utils.Map(class.External, adaptEntryPoint),
 			L1Handler:   utils.Map(class.L1Handler, adaptEntryPoint),
 		},
-		Prime:                  new(felt.Felt).SetBigInt(class.Prime),
+		Prime:                  utils.ToHex(class.Prime),
 		CompilerVersion:        class.CompilerVersion,
 		Bytecode:               class.Bytecode,
 		Hints:                  class.Hints,

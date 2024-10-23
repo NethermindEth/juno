@@ -325,6 +325,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
 		},
+		{
+			Name:    "starknet_getCompiledCasm",
+			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
+			Handler: h.CompiledCasm,
+		},
 	}, "/v0_8"
 }
 
@@ -482,12 +487,6 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
-		},
-		// temporary, todo change it to 0.8 methods
-		{
-			Name:    "starknet_getCompiledCasm",
-			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
-			Handler: h.CompiledCasm,
 		},
 	}, "/v0_7"
 }
