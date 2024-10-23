@@ -1,0 +1,13 @@
+{
+    "revert_error": "This is hand-made transaction used for txStatus endpoint test",
+    "execution_status": "REJECTED",
+    "finality_status": "ACCEPTED_ON_L1",
+    "status": "REVERTED",
+    "block_hash": "0x111100000000111100000000333300000000444400000000111100000000111",
+    "block_number": 304740,
+    "transaction_index": 1,
+    "transaction_hash": "0x111100000000222200000000333300000000444400000000555500000000fff",
+    "l2_to_l1_messages": [],
+    "events": [],
+    "actual_fee": "0x247aff6e224"
+}
