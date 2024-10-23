@@ -342,6 +342,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen, dupl
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
 		},
+		{
+			Name:    "starknet_getMessagesStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.GetMessageStatus,
+		},
 	}, "/v0_8"
 }
 
