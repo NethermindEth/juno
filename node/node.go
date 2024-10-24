@@ -103,6 +103,7 @@ type Config struct {
 	SeqGenesisFile      string `mapstructure:"seq-genesis-file"`
 	SeqShadowMode       bool   `mapstructure:"seq-shadow-mode"`
 	SeqShadowModeSyncTo uint64 `mapstructure:"seq-shadow-mode-sync-to"`
+	SeqDisableFees      bool   `mapstructure:"seq-disable-fees"`
 }
 
 type Node struct {
@@ -192,7 +193,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
 		sequencer = builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
-			time.Second*time.Duration(cfg.SeqBlockTime), p, log).WithPlugin(junoPlugin)
+			time.Second*time.Duration(cfg.SeqBlockTime), p, log, cfg.SeqDisableFees).WithPlugin(junoPlugin)
 		if cfg.SeqShadowMode {
 			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll,mnd
 				log, starknetData).WithJunoEndpoint(cfg.SeqRPCEndpoint).WithSyncToBlock(cfg.SeqShadowModeSyncTo).WithPlugin(junoPlugin)

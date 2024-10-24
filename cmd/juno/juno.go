@@ -90,6 +90,7 @@ const (
 	seqGenesisFileF         = "seq-genesis-file"
 	seqShadowModeF          = "seq-shadow-mode"
 	seqShadowModeSyncToF    = "seq-shadow-mode-sync-to"
+	seqDisableFeesF         = "seq-disable-fees"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -135,6 +136,7 @@ const (
 	defaultSeqGenesisFile           = ""
 	defaultSeqShadowMode            = false
 	defaultSeqShadowModeSyncTo      = 1
+	defaultSeqDisableFees           = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -194,6 +196,7 @@ const (
 	seqGenesisFileUsage         = "Path to the genesis file"
 	seqShadowModeUsage          = "Launches the sequencer in shadow mode (note: network must be set to Sepolia)"
 	seqShadowModeSyncToUsage    = "The Sepolia block that the Sequencer should sync to before Sequencing"
+	seqDisableFeesUsage         = "Skip charge fee for sequencer execution (note: not for shadowing)"
 )
 
 var Version string
@@ -389,5 +392,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(seqShadowModeF, defaultSeqShadowMode, seqShadowModeUsage)
 	junoCmd.Flags().Uint(seqShadowModeSyncToF, defaultSeqShadowModeSyncTo, seqShadowModeSyncToUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
+	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 	return junoCmd
 }
