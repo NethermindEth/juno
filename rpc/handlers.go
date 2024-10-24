@@ -467,7 +467,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen, d
 		},
 		{
 			Name:    "starknet_specVersion",
-			Handler: h.SpecVersion,
+			Handler: h.SpecVersionV0_7,
 		},
 		{
 			Name:    "juno_subscribeNewHeads",
