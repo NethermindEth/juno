@@ -50,6 +50,7 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
+	disableFees       bool
 	shadowMode        bool
 	shadowStateUpdate *core.StateUpdate
 	shadowBlock       *core.Block
@@ -68,7 +69,7 @@ type Builder struct {
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
-	blockTime time.Duration, pool *mempool.Pool, log utils.Logger,
+	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, disableFees bool,
 ) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
@@ -77,10 +78,11 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		log:        log,
 		listener:   &SelectiveListener{},
 
-		bc:       bc,
-		pool:     pool,
-		vm:       builderVM,
-		newHeads: feed.New[*core.Header](),
+		disableFees: disableFees,
+		bc:          bc,
+		pool:        pool,
+		vm:          builderVM,
+		newHeads:    feed.New[*core.Header](),
 	}
 }
 
@@ -475,7 +477,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		},
 		state,
 		b.bc.Network(),
-		false, false, false, true)
+		b.disableFees, false, false, true)
 	if err != nil {
 		return err
 	}
