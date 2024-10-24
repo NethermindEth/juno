@@ -41,6 +41,7 @@ func TestMain(m *testing.M) {
 
 	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{}))
 	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo1Class{}))
+	_ = encoder.RegisterType(reflect.TypeOf(core.StateContract{}))
 
 	code := m.Run()
 
@@ -440,17 +441,22 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, state.Update(1, su1, nil))
 
 	t.Run("revert a replaced class", func(t *testing.T) {
+		replacedVal := utils.HexToFelt(t, "0xDEADBEEF")
 		replaceStateUpdate := &core.StateUpdate{
 			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{
-					su1FirstDeployedAddress: utils.HexToFelt(t, "0xDEADBEEF"),
+					su1FirstDeployedAddress: replacedVal,
 				},
 			},
 		}
 
 		require.NoError(t, state.Update(2, replaceStateUpdate, nil))
+		classHash, err := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
+		require.NoError(t, err)
+		assert.Equal(t, replacedVal, classHash)
+
 		require.NoError(t, state.Revert(2, replaceStateUpdate))
 		classHash, sErr := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
@@ -458,19 +464,24 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("revert a nonce update", func(t *testing.T) {
+		replacedVal := utils.HexToFelt(t, "0xDEADBEEF")
 		nonceStateUpdate := &core.StateUpdate{
 			NewRoot: utils.HexToFelt(t, "0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{
-					su1FirstDeployedAddress: utils.HexToFelt(t, "0xDEADBEEF"),
+					su1FirstDeployedAddress: replacedVal,
 				},
 			},
 		}
 
 		require.NoError(t, state.Update(2, nonceStateUpdate, nil))
-		require.NoError(t, state.Revert(2, nonceStateUpdate))
 		nonce, sErr := state.ContractNonce(new(felt.Felt).Set(&su1FirstDeployedAddress))
+		require.NoError(t, sErr)
+		assert.Equal(t, replacedVal, nonce)
+
+		require.NoError(t, state.Revert(2, nonceStateUpdate))
+		nonce, sErr = state.ContractNonce(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
 		assert.Equal(t, &felt.Zero, nonce)
 	})
@@ -701,4 +712,169 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	_, err = state.Class(sierraHash)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
+}
+
+func TestHistory(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	state := core.NewState(txn)
+	addr := &felt.Zero
+	location := new(felt.Felt).SetUint64(456)
+	value := new(felt.Felt).SetUint64(789)
+
+	t.Run("no history", func(t *testing.T) {
+		_, err := state.ContractNonceAt(new(felt.Felt).SetUint64(1), 1)
+		require.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(new(felt.Felt).SetUint64(1), 1)
+		require.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractStorageAt(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(1), 1)
+		require.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	contract := core.NewStateContract(&felt.Zero, &felt.Zero, &felt.Zero, 0)
+	t.Run("log value changed at height 5 and 10", func(t *testing.T) {
+		assert.NoError(t, contract.LogNonce(5, txn))
+		assert.NoError(t, contract.LogClassHash(5, txn))
+		assert.NoError(t, contract.LogStorage(location, &felt.Zero, 5, txn))
+
+		contract.Nonce = value
+		contract.ClassHash = value
+
+		assert.NoError(t, contract.LogNonce(10, txn))
+		assert.NoError(t, contract.LogClassHash(10, txn))
+		assert.NoError(t, contract.LogStorage(location, value, 10, txn))
+	})
+
+	t.Run("get value before height 5", func(t *testing.T) {
+		oldValue, err := state.ContractStorageAt(addr, location, 1)
+		require.NoError(t, err)
+		assert.Equal(t, &felt.Zero, oldValue)
+
+		oldValue, err = state.ContractNonceAt(addr, 1)
+		require.NoError(t, err)
+		assert.Equal(t, &felt.Zero, oldValue)
+
+		oldValue, err = state.ContractClassHashAt(addr, 1)
+		require.NoError(t, err)
+		assert.Equal(t, &felt.Zero, oldValue)
+	})
+
+	t.Run("get value between height 5-10", func(t *testing.T) {
+		oldValue, err := state.ContractStorageAt(addr, location, 7)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		oldValue, err = state.ContractNonceAt(addr, 7)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		oldValue, err = state.ContractClassHashAt(addr, 7)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+	})
+
+	t.Run("get value on height that change happened", func(t *testing.T) {
+		oldValue, err := state.ContractStorageAt(addr, location, 5)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		_, err = state.ContractStorageAt(addr, location, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		oldValue, err = state.ContractNonceAt(addr, 5)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		_, err = state.ContractNonceAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		oldValue, err = state.ContractClassHashAt(addr, 5)
+		require.NoError(t, err)
+		assert.Equal(t, value, oldValue)
+
+		_, err = state.ContractClassHashAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	t.Run("get value after height 10 ", func(t *testing.T) {
+		_, err = state.ContractStorageAt(addr, location, 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractNonceAt(addr, 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(addr, 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	t.Run("get a random location ", func(t *testing.T) {
+		_, err = state.ContractStorageAt(new(felt.Felt).SetUint64(37), new(felt.Felt).SetUint64(37), 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractNonceAt(new(felt.Felt).SetUint64(37), 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(new(felt.Felt).SetUint64(37), 13)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+
+	t.Run("delete storage and get value after delete", func(t *testing.T) {
+		assert.NoError(t, state.DeleteContractClassHashLog(addr, 10))
+		assert.NoError(t, state.DeleteContractNonceLog(addr, 10))
+		assert.NoError(t, state.DeleteContractStorageLog(addr, location, 10))
+
+		_, err = state.ContractStorageAt(addr, location, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractNonceAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+
+		_, err = state.ContractClassHashAt(addr, 10)
+		assert.ErrorIs(t, err, core.ErrCheckHeadState)
+	})
+}
+
+func BenchmarkStateUpdate(b *testing.B) {
+	client := feeder.NewTestClient(b, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	su0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(b, err)
+
+	su1, err := gw.StateUpdate(context.Background(), 1)
+	require.NoError(b, err)
+
+	su2, err := gw.StateUpdate(context.Background(), 2)
+	require.NoError(b, err)
+
+	stateUpdates := []*core.StateUpdate{su0, su1, su2}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		// Create a new test database for each iteration
+		testDB := pebble.NewMemTest(b)
+		txn, err := testDB.NewTransaction(true)
+		require.NoError(b, err)
+
+		state := core.NewState(txn)
+		b.StartTimer()
+
+		for i, su := range stateUpdates {
+			err = state.Update(uint64(i), su, nil)
+			if err != nil {
+				b.Fatalf("Error updating state: %v", err)
+			}
+		}
+
+		b.StopTimer()
+		require.NoError(b, txn.Discard())
+	}
 }
