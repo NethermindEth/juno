@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"iter"
 	"math/big"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
@@ -13,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/log"
 	"google.golang.org/protobuf/proto"
-	"iter"
 )
 
 type ContractRangeStreamingResult struct {
