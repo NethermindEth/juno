@@ -217,6 +217,7 @@ func TestByzantinePrevoter(t *testing.T) {
 
 	// Todo: update if we decide to store invalid proposals
 	// Todo: we store the bad prevote, but we don't slash them.
+	// Todo [rian]: if *v.ID == *p.ID doesn't work for nils..
 	t.Run("Prevotes on an invalid proposal", func(t *testing.T) {
 		listeners, broadcasters := testListenersAndBroadcasters()
 		app, chain, vals := newApp(), newChain(), newVals()
@@ -278,4 +279,104 @@ func TestByzantinePrevoter(t *testing.T) {
 		assert.Equal(t, uint(0), algo.state.round)
 	})
 
+}
+
+func TestByzantinePreCommitter(t *testing.T) {
+	myNode := new(felt.Felt).SetBytes([]byte("my node address"))
+	node2, node3, node4 := new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3), new(felt.Felt).SetUint64(4)
+	tm := func(r uint) time.Duration { return time.Second }
+
+	t.Run("Multiple equivocation precommits for same height and round but different values", func(t *testing.T) {
+		listeners, broadcasters := testListenersAndBroadcasters()
+		app, chain, vals := newApp(), newChain(), newVals()
+
+		vals.addValidator(*node2)
+		vals.addValidator(*node3)
+		vals.addValidator(*node4)
+		vals.addValidator(*myNode)
+
+		algo := New[value, felt.Felt, felt.Felt](*myNode, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+
+		height, round := uint(0), uint(0)
+		validValue1, validValue2, validValue3 := value(10), value(11), value(12)
+
+		proposal := Proposal[value, felt.Felt, felt.Felt]{
+			Height:     height,
+			Round:      round,
+			ValidRound: nil,
+			Value:      &validValue1,
+			Sender:     *node2,
+		}
+		validPrevoteNode3 := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(validValue1.Hash()),
+				Sender: *node3,
+			},
+		}
+		validPrevoteNode4 := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(validValue1.Hash()),
+				Sender: *node4,
+			},
+		}
+		validPrecommit := Precommit[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(validValue1.Hash()),
+				Sender: *node3,
+			},
+		}
+		equivocationPrecommit := Precommit[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(validValue2.Hash()),
+				Sender: *node3,
+			},
+		}
+		equivocationPrecommit2 := Precommit[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(validValue3.Hash()),
+				Sender: *node3,
+			},
+		}
+
+		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
+			value, felt.Felt, felt.Felt])
+		prevoteListener := listeners.PrevoteListener.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
+			felt.Felt, felt.Felt])
+		precommitListner := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt],
+			value, felt.Felt, felt.Felt])
+
+		proposalListener.send(proposal)
+		algo.Start()
+		time.Sleep(50 * time.Millisecond)
+		prevoteListener.send(validPrevoteNode3)
+		prevoteListener.send(validPrevoteNode4)
+		time.Sleep(50 * time.Millisecond)
+		precommitListner.send(validPrecommit)
+		precommitListner.send(equivocationPrecommit)
+		precommitListner.send(equivocationPrecommit2)
+		time.Sleep(50 * time.Millisecond)
+		algo.Stop()
+		assert.Equal(t, 1, len(algo.messages.proposals[height][round][*node2]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*myNode]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*node3]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*node4]))
+		assert.Equal(t, 3, len(algo.messages.precommits[height][round][*node3]))
+		assert.Equal(t, validPrecommit, algo.messages.precommits[height][round][*node3][0])
+		assert.Equal(t, equivocationPrecommit, algo.messages.precommits[height][round][*node3][1])
+		assert.Equal(t, equivocationPrecommit2, algo.messages.precommits[height][round][*node3][2])
+
+		assert.Equal(t, precommit, algo.state.step)
+		assert.Equal(t, uint(0), algo.state.height)
+		assert.Equal(t, uint(0), algo.state.round)
+	})
 }

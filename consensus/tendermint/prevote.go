@@ -160,7 +160,6 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 					Sender: t.nodeAddr,
 				},
 			}
-
 			t.messages.addPrecommit(vote)
 			t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
 			t.state.step = precommit
@@ -191,7 +190,6 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 		if !t.state.line36Executed && t.state.step >= prevote {
 			var proposal *Proposal[V, H, A]
 			vals = []A{}
-
 			for _, v := range proposalsForHR[t.validators.Proposer(p.Height, p.Round)] {
 				if (*v.Value).Hash() == *p.ID {
 					vCopy := v
@@ -201,7 +199,7 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 
 			for addr, valPrevotes := range prevotesForHR {
 				for _, v := range valPrevotes {
-					if v.ID == p.ID {
+					if *v.ID == *p.ID {
 						vals = append(vals, addr)
 					}
 				}

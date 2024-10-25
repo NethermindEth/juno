@@ -84,7 +84,6 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 				proposal = &propCopy
 			}
 		}
-
 		for addr, valPrecommits := range precommitsForHR {
 			for _, v := range valPrecommits {
 				if *v.ID == *p.ID {
