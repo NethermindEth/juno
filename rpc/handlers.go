@@ -358,6 +358,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SubscribeNewHeads,
 		},
 		{
+			Name:    "starknet_subscribePendingTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
+			Handler: h.SubscribePendingTxs,
+		},
+		{
 			Name:    "juno_unsubscribe",
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
@@ -521,16 +526,10 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_specVersion",
 			Handler: h.SpecVersionV0_7,
 		},
-
 		{
 			Name:    "starknet_subscribeNewHeads",
 			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
-		},
-		{
-			Name:    "starknet_subscribePendingTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
-			Handler: h.SubscribePendingTxs,
 		},
 		{
 			Name:    "juno_unsubscribe",

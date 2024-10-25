@@ -264,12 +264,6 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 	handler, syncer, server := setupSubscriptionTest(t, ctx)
 
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "starknet_subscribeNewHeads",
-		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
-		Handler: handler.SubscribeNewHeads,
-	}))
-
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
@@ -300,16 +294,6 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Cleanup(cancel)
 
 	handler, syncer, server := setupSubscriptionTest(t, ctx)
-
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "starknet_subscribeNewHeads",
-		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
-		Handler: handler.SubscribeNewHeads,
-	}, jsonrpc.Method{
-		Name:    "juno_unsubscribe",
-		Params:  []jsonrpc.Parameter{{Name: "id"}},
-		Handler: handler.Unsubscribe,
-	}))
 
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
@@ -384,12 +368,8 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	server := jsonrpc.NewServer(1, log)
-
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "starknet_subscribeNewHeads",
-		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
-		Handler: handler.SubscribeNewHeads,
-	}))
+	methods, _ := handler.Methods()
+	require.NoError(t, server.RegisterMethods(methods...))
 
 	ws := jsonrpc.NewWebsocket(server, log)
 	httpSrv := httptest.NewServer(ws)
@@ -431,12 +411,6 @@ func TestSubscriptionReorg(t *testing.T) {
 
 	handler, syncer, server := setupSubscriptionTest(t, ctx)
 
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "starknet_subscribeNewHeads",
-		Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
-		Handler: handler.SubscribeNewHeads,
-	}))
-
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
@@ -473,12 +447,6 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Cleanup(cancel)
 
 	handler, syncer, server := setupSubscriptionTest(t, ctx)
-
-	require.NoError(t, server.RegisterMethods(jsonrpc.Method{
-		Name:    "starknet_subscribePendingTransactions",
-		Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
-		Handler: handler.SubscribePendingTxs,
-	}))
 
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
@@ -637,6 +605,8 @@ func setupSubscriptionTest(t *testing.T, ctx context.Context) (*rpc.Handler, *fa
 	time.Sleep(50 * time.Millisecond)
 
 	server := jsonrpc.NewServer(1, log)
+	methods, _ := handler.Methods()
+	require.NoError(t, server.RegisterMethods(methods...))
 
 	return handler, syncer, server
 }
