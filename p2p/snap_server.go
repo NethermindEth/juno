@@ -1,11 +1,7 @@
 package p2p
 
 import (
-	"iter"
 	"math/big"
-
-	"github.com/NethermindEth/juno/utils"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -14,7 +10,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/log"
+	"google.golang.org/protobuf/proto"
+	"iter"
 )
 
 type ContractRangeStreamingResult struct {
@@ -54,10 +53,10 @@ type yieldFunc = func(proto.Message) bool
 
 var _ SnapServerBlockchain = (*blockchain.Blockchain)(nil)
 
-func NewSnapServer(blockchain SnapServerBlockchain, log utils.SimpleLogger) *snapServer {
+func NewSnapServer(bc SnapServerBlockchain, logger utils.SimpleLogger) *snapServer {
 	return &snapServer{
-		log:        log,
-		blockchain: blockchain,
+		log:        logger,
+		blockchain: bc,
 	}
 }
 
@@ -285,7 +284,7 @@ func (b *snapServer) GetStorageRange(request *spec.ContractStorageRequest) (iter
 		var curNodeLimit uint32 = 1000000
 
 		// shouldContinue is a return value from the yield function which specify whether the iteration should continue
-		var shouldContinue bool = true
+		shouldContinue := true
 		for _, query := range request.Query {
 			contractLimit := curNodeLimit
 

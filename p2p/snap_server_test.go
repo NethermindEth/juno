@@ -3,21 +3,21 @@ package p2p
 import (
 	"context"
 	"fmt"
-	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/stretchr/testify/require"
 	"maps"
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassRange(t *testing.T) {
@@ -257,8 +257,8 @@ func TestContractRangeByOneContract(t *testing.T) {
 					storageRoot := p2p2core.AdaptHash(crct.Storage)
 					assert.Equal(t, test.expectedStorageRoot, storageRoot)
 
-					//classHash := p2p2core.AdaptHash(crct.Class)
-					//assert.Equal(t, test.expectedClassHash, classHash, "classHash", classHash)
+					//nolint:nolintlint // classHash := p2p2core.AdaptHash(crct.Class)
+					//nolint:nolintlint // assert.Equal(t, test.expectedClassHash, classHash, "classHash", classHash)
 
 					assert.Equal(t, test.expectedNonce, crct.Nonce)
 
@@ -280,7 +280,7 @@ func TestContractRangeByOneContract(t *testing.T) {
 func TestContractRange_FinMsg_Received(t *testing.T) {
 	// TODO: Fix the test so it demonstrated FinMsg is returned at the iteration end
 	t.Skip("Fix me")
-	var d db.DB = pebble.NewMemTest(t)
+	d := pebble.NewMemTest(t)
 	bc := blockchain.New(d, &utils.Sepolia)
 	defer bc.Close()
 	server := &snapServer{blockchain: bc}
@@ -472,6 +472,7 @@ func TestGetClassesByHash(t *testing.T) {
 	assert.True(t, finMsgReceived)
 }
 
+//nolint:gocyclo
 func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 	var d db.DB
 	t.Skip("DB snapshot is needed for this test")
@@ -496,7 +497,7 @@ func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 	request := &spec.ContractRangeRequest{
 		ChunksPerProof: 100,
 		Start:          core2p2p.AdaptAddress(felt.Zero.Clone()),
-		End:            nil, //core2p2p.AdaptAddress(test.address),
+		End:            nil, // core2p2p.AdaptAddress(test.address),
 		StateRoot:      core2p2p.AdaptHash(stateRoot),
 	}
 
@@ -515,8 +516,8 @@ func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 			for _, contract := range v.Range.State {
 				addr := p2p2core.AdaptAddress(contract.Address)
 				strt := p2p2core.AdaptHash(contract.Storage)
-				//assert.Equal(t, test.address, addr)
-				//assert.Equal(t, test.storageRoot, strt)
+				//nolint:nolintlint // assert.Equal(t, test.address, addr)
+				//nolint:nolintlint // assert.Equal(t, test.storageRoot, strt)
 				if !(strt.IsZero() || addr.IsOne()) {
 					ctso[*addr] = strt
 					contracts++
@@ -575,7 +576,7 @@ func Test__Finding_Storage_Heavy_Contract(t *testing.T) {
 			switch v := resT.GetResponses().(type) {
 			case *spec.ContractStorageResponse_Storage:
 				vl := stoCnt[*addr]
-				//if !ok { stoCnt[*addr] = 0 }
+				//nolint:nolintlint // if !ok { stoCnt[*addr] = 0 }
 				stoCnt[*addr] = vl + len(v.Storage.KeyValue)
 			case *spec.ContractStorageResponse_Fin:
 				// we expect just one fin message at the iteration end

@@ -52,12 +52,17 @@ type Service struct {
 	synchroniser *SyncService
 	gossipTracer *gossipTracer
 
-	feederNode bool
-	database   db.DB
+	database db.DB
 }
 
-func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, syncMode SyncMode, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+func New(
+	addr, publicAddr, version, peers, privKeyStr string,
+	feederNode bool,
+	syncMode SyncMode,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	log utils.SimpleLogger,
+	database db.DB,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -150,7 +155,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, syncMode Sync
 
 	downloader := NewDownloader(feederNode, syncMode, p2phost, snNetwork, bc, log)
 	handler := starknet.NewHandler(bc, log)
-	handler.WithSnapsyncSupport(NewSnapServer(bc, log)) // TODO: initialize the snap server in the starknet handler
+	handler.WithSnapsyncSupport(NewSnapServer(bc, log)) // TODO: initialise the snap server in the starknet handler
 
 	s := &Service{
 		downloader: downloader,

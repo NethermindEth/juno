@@ -19,7 +19,7 @@ var (
 type SyncMode uint32
 
 const (
-	FullSync SyncMode = iota // Synchronize by downloading blocks and applying them to the chain sequentially
+	FullSync SyncMode = iota // Synchronise by downloading blocks and applying them to the chain sequentially
 	SnapSync                 // Download the chain and the state via snap protocol
 )
 

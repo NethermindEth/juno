@@ -2,9 +2,6 @@ package trie_test
 
 import (
 	"fmt"
-	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/require"
 	"math"
 	"testing"
 
@@ -12,7 +9,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const trieHeight = 251

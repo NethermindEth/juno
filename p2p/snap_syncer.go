@@ -219,7 +219,6 @@ func (s *SnapSyncer) runPhase1(ctx context.Context) error {
 
 	storageEg, sctx := errgroup.WithContext(ectx)
 	for i := 0; i < storageJobWorkerCount; i++ {
-		i := i
 		storageEg.Go(func() error {
 			defer func() {
 				if err := recover(); err != nil {
@@ -265,7 +264,6 @@ func (s *SnapSyncer) runPhase1(ctx context.Context) error {
 	})
 
 	for i := 0; i < fetchClassWorkerCount; i++ {
-		i := i
 		eg.Go(func() error {
 			err := s.runFetchClassWorker(ectx, i)
 			if err != nil {
@@ -307,9 +305,7 @@ func (s *SnapSyncer) PhraseVerify(ctx context.Context) error {
 			"global state root", s.currentGlobalStateRoot, "contract root", contractRoot, "class root", classRoot)
 		// all good no need for additional verification
 		return nil
-	}
-
-	if err != nil {
+	} else {
 		s.log.Errorw("global state root verification failure", "err", err)
 	}
 
@@ -408,7 +404,7 @@ func CalculatePercentage(f *felt.Felt) uint64 {
 	return percent.Uint64()
 }
 
-//nolint:gocyclo,nolintlint
+//nolint:gocyclo,funlen
 func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 	totalAdded := 0
 	completed := false
@@ -479,7 +475,6 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 
 			for i, cls := range classes {
 				coreClass := p2p2core.AdaptClass(cls)
-				i := i
 				egrp.Go(func() error {
 					coreClasses[i] = coreClass
 					paths[i] = CalculateClassHash(coreClass)
@@ -522,7 +517,6 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 
 			if !hasNext {
 				s.log.Infow("class range completed", "totalClass", totalAdded)
-				completed = true
 				return nil
 			}
 
@@ -535,7 +529,7 @@ func (s *SnapSyncer) runClassRangeWorker(ctx context.Context) error {
 	return nil
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (s *SnapSyncer) runFetchClassWorker(ctx context.Context, workerIdx int) error {
 	keyBatches := make([]*felt.Felt, 0)
 	s.log.Infow("class fetch worker entering infinite loop", "worker", workerIdx)
@@ -663,7 +657,7 @@ func (s *SnapSyncer) runFetchClassWorker(ctx context.Context, workerIdx int) err
 	}
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (s *SnapSyncer) runContractRangeWorker(ctx context.Context) error {
 	totalAdded := 0
 	startAddr := &felt.Zero
@@ -779,7 +773,6 @@ func (s *SnapSyncer) runContractRangeWorker(ctx context.Context) error {
 
 			if !hasNext {
 				s.log.Infow("[hasNext] contract range completed")
-				completed = true
 				return nil
 			}
 
@@ -825,8 +818,6 @@ func (s *SnapSyncer) runStorageRangeWorker(ctx context.Context, workerIdx int) e
 			}
 		}
 
-		// s.log.Infow("storage range job completes batch", "jobs", len(jobs), "worker", workerIdx, "pending", s.storageRangeJobCount)
-
 		requests := make([]*spec.StorageRangeQuery, 0)
 		for _, job := range jobs {
 			requests = append(requests, &spec.StorageRangeQuery{
@@ -850,7 +841,7 @@ func (s *SnapSyncer) runStorageRangeWorker(ctx context.Context, workerIdx int) e
 		totalPath := 0
 		maxPerStorageSize := 0
 
-		//s.log.Infow("storage range",
+		//nolint:nolintlint // s.log.Infow("storage range",
 		//	"rootDistance", s.lastBlock.Number-s.startingBlock.Number,
 		//	"root", stateRoot.String(),
 		//	"requestcount", len(requests),
@@ -1120,8 +1111,6 @@ func (s *SnapSyncer) runStorageRefreshWorker(ctx context.Context) error {
 			job = nil
 		}
 	}
-	s.log.Infow("storage refresh worker exits infinite loop")
-	return nil
 }
 
 func (s *SnapSyncer) queueClassJob(ctx context.Context, classHash *felt.Felt) error {
@@ -1133,7 +1122,7 @@ func (s *SnapSyncer) queueClassJob(ctx context.Context, classHash *felt.Felt) er
 			queued = true
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(30 * time.Second):
+		case <-time.After(30 * time.Second): //nolint:mnd // TODO: remove this, only use temporarily for snap sync
 			s.log.Infow("class queue stall on class")
 		}
 	}
@@ -1179,7 +1168,7 @@ func (s *SnapSyncer) queueStorageRefreshJob(ctx context.Context, job *storageRan
 			queued = true
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(10 * time.Second):
+		case <-time.After(10 * time.Second): //nolint:mnd // TODO: remove this, only use temporarily for snap sync
 			s.log.Infow("storage refresh queue stall")
 		}
 	}

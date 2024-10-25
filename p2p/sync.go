@@ -54,7 +54,6 @@ func (s *SyncService) Client() *starknet.Client {
 	return s.client
 }
 
-//nolint:funlen
 func (s *SyncService) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

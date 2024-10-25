@@ -132,7 +132,7 @@ func (h *Handler) StateDiffHandler(stream network.Stream) {
 
 func (h *Handler) ClassRangeHandler(stream network.Stream) {
 	if h.snapProvider == nil {
-		h.log.Debugw("SnapProvider not initialized")
+		h.log.Debugw("SnapProvider not initialised")
 		return
 	}
 	streamHandler[*spec.ClassRangeRequest](h.ctx, &h.wg, stream, h.snapProvider.GetClassRange, h.log)
@@ -140,7 +140,7 @@ func (h *Handler) ClassRangeHandler(stream network.Stream) {
 
 func (h *Handler) ContractRangeHandler(stream network.Stream) {
 	if h.snapProvider == nil {
-		h.log.Debugw("SnapProvider not initialized")
+		h.log.Debugw("SnapProvider not initialised")
 		return
 	}
 	streamHandler[*spec.ContractRangeRequest](h.ctx, &h.wg, stream, h.snapProvider.GetContractRange, h.log)
@@ -148,7 +148,7 @@ func (h *Handler) ContractRangeHandler(stream network.Stream) {
 
 func (h *Handler) ContractStorageHandler(stream network.Stream) {
 	if h.snapProvider == nil {
-		h.log.Debugw("SnapProvider not initialized")
+		h.log.Debugw("SnapProvider not initialised")
 		return
 	}
 	streamHandler[*spec.ContractStorageRequest](h.ctx, &h.wg, stream, h.snapProvider.GetStorageRange, h.log)
@@ -156,7 +156,7 @@ func (h *Handler) ContractStorageHandler(stream network.Stream) {
 
 func (h *Handler) ClassHashesHandler(stream network.Stream) {
 	if h.snapProvider == nil {
-		h.log.Debugw("SnapProvider not initialized")
+		h.log.Debugw("SnapProvider not initialised")
 		return
 	}
 	streamHandler[*spec.ClassHashesRequest](h.ctx, &h.wg, stream, h.snapProvider.GetClasses, h.log)

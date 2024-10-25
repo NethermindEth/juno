@@ -9,8 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-type MockStarkData struct {
-}
+type MockStarkData struct{}
 
 var _ starknetdata.StarknetData = (*MockStarkData)(nil)
 
@@ -25,43 +24,43 @@ func (m MockStarkData) BlockLatest(ctx context.Context) (*core.Block, error) {
 
 	return &core.Block{
 		Header: &core.Header{
-			Number:          uint64(66477),
+			Number:          uint64(66477), //nolint:mnd // TODO: remove this, only use temporarily for snap sync
 			GlobalStateRoot: root,
 		},
 	}, nil
 }
 
 func (m MockStarkData) BlockPending(ctx context.Context) (*core.Block, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m MockStarkData) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m MockStarkData) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m MockStarkData) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m MockStarkData) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m MockStarkData) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (m MockStarkData) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }

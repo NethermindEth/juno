@@ -19,7 +19,14 @@ type Downloader struct {
 	log        utils.SimpleLogger
 }
 
-func NewDownloader(isFeeder bool, syncMode SyncMode, p2pHost host.Host, network *utils.Network, bc *blockchain.Blockchain, log utils.SimpleLogger) *Downloader {
+func NewDownloader(
+	isFeeder bool,
+	syncMode SyncMode,
+	p2pHost host.Host,
+	network *utils.Network,
+	bc *blockchain.Blockchain,
+	log utils.SimpleLogger,
+) *Downloader {
 	dl := &Downloader{
 		isFeeder: isFeeder,
 		log:      log,
@@ -40,10 +47,10 @@ func NewDownloader(isFeeder bool, syncMode SyncMode, p2pHost host.Host, network 
 	return dl
 }
 
-func (d *Downloader) Start(ctx context.Context) error {
+func (d *Downloader) Start(ctx context.Context) {
 	// Feeder node doesn't sync using P2P
 	if d.isFeeder {
-		return nil
+		return
 	}
 
 	d.log.Infow("Downloader start", "mode", d.getMode())
@@ -53,16 +60,15 @@ func (d *Downloader) Start(ctx context.Context) error {
 			err := d.snapSyncer.Run(ctx)
 			if err != nil {
 				d.log.Errorw("Snapsyncer failed to start")
-				return err
+				return
 			}
 		} else {
 			d.log.Infow("Syncing is disabled")
-			return nil
+			return
 		}
 	}
 
 	d.baseSyncer.Start(ctx)
-	return nil
 }
 
 func (d *Downloader) getMode() SyncMode {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -165,22 +166,22 @@ func (b *Blockchain) Close() {
 	}
 }
 
-type Blockchain_Closer struct {
+type BlockchainCloser struct {
 	log utils.SimpleLogger
 	bc  *Blockchain
 }
 
-var _ service.Service = (*Blockchain_Closer)(nil)
+var _ service.Service = (*BlockchainCloser)(nil)
 
-func NewBlockchainCloser(bc *Blockchain, log utils.SimpleLogger) *Blockchain_Closer {
-	return &Blockchain_Closer{log, bc}
+func NewBlockchainCloser(bc *Blockchain, log utils.SimpleLogger) *BlockchainCloser {
+	return &BlockchainCloser{log, bc}
 }
 
-func (b *Blockchain_Closer) Run(ctx context.Context) error {
-	b.log.Infow("Blockchain_Closer has started")
+func (b *BlockchainCloser) Run(ctx context.Context) error {
+	b.log.Infow("BlockchainCloser has started")
 
 	<-ctx.Done()
 	b.bc.Close()
-	b.log.Infow("Blockchain_Closer has stopped")
+	b.log.Infow("BlockchainCloser has stopped")
 	return nil
 }
