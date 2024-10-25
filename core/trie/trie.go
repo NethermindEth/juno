@@ -2,6 +2,7 @@
 package trie
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -756,6 +757,14 @@ func (t *Trie) doIterate(startKey, key *Key, consumer func(key, value *felt.Felt
 	if key == nil {
 		return false, nil
 	}
+
+	var buf []byte
+	buffer := bytes.NewBuffer(buf)
+	_, err := t.storage.dbKeyNoPrefix(key, buffer)
+	if err != nil {
+		return false, err
+	}
+	// fmt.Println("key", hex.EncodeToString(buffer.Bytes()))
 
 	node, err := t.storage.Get(key)
 	if err != nil {

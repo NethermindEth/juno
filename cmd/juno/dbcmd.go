@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -11,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
+	pebbleDB "github.com/cockroachdb/pebble"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +39,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
-	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd(), DBIterateTrieCmd(), DBIterateTrieTrie())
 	return dbCmd
 }
 
@@ -67,6 +69,28 @@ func DBRevertCmd() *cobra.Command {
 		RunE:  dbRevert,
 	}
 	cmd.Flags().Uint64(dbRevertToBlockF, 0, "New head (this block won't be reverted)")
+
+	return cmd
+}
+
+func DBIterateTrieCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "iter-trie",
+		Short: "Iterate over the trie",
+		RunE:  dbIterateTrieDB,
+	}
+	cmd.Flags().Uint64("limit", 100, "Limit the number of items to iterate over")
+
+	return cmd
+}
+
+func DBIterateTrieTrie() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "iter-trie-trie",
+		Short: "Iterate over the trie",
+		RunE:  dbIterateTrieTrie,
+	}
+	cmd.Flags().Uint64("limit", 100, "Limit the number of items to iterate over")
 
 	return cmd
 }
@@ -235,6 +259,93 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func dbIterateTrieDB(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	limit, err := cmd.Flags().GetUint64("limit")
+	if err != nil {
+		return err
+	}
+
+	pDB, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer pDB.Close()
+
+	lowerBound := []byte{byte(db.StateTrie), 0xfb}
+	it, err := pDB.Impl().(*pebbleDB.DB).NewIter(&pebbleDB.IterOptions{
+		LowerBound: lowerBound,
+		UpperBound: upperBound([]byte{byte(db.StateTrie)}),
+	})
+
+	count := uint64(0)
+	start := time.Now()
+	for it.First(); it.Valid(); it.Next() {
+		if count >= limit {
+			break
+		}
+
+		key := it.Key()
+
+		key = key[1:] // omit prefix
+
+		fmt.Fprintf(cmd.OutOrStdout(), "key: %x\n", key)
+
+		count++
+	}
+
+	elapsed := time.Since(start)
+	fmt.Fprintf(cmd.OutOrStdout(), "count: %d, elapsed: %s\n", count, elapsed)
+
+	return nil
+}
+
+func dbIterateTrieTrie(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	pDB, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer pDB.Close()
+
+	bc := blockchain.New(pDB, nil)
+	s, _, err := bc.HeadState()
+	if err != nil {
+		return err
+	}
+
+	state := s.(*core.State)
+
+	stateTrie, _, err := state.StorageTrie()
+	if err != nil {
+		return err
+	}
+
+	count := 0
+	start := time.Now()
+	_, err = stateTrie.Iterate(nil, func(key, value *felt.Felt) (bool, error) {
+		count++
+		fmt.Fprintf(cmd.OutOrStdout(), "key: %s\n", key)
+		return true, nil
+	})
+	if err != nil {
+		return err
+	}
+
+	elapsed := time.Since(start)
+	fmt.Fprintf(cmd.OutOrStdout(), "count: %d, elapsed: %s\n", count, elapsed)
+
+	return nil
+}
+
 func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	networks := []*utils.Network{
 		&utils.Mainnet,
@@ -252,6 +363,22 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	}
 
 	return "unknown"
+}
+
+func upperBound(prefix []byte) []byte {
+	var ub []byte
+
+	for i := len(prefix) - 1; i >= 0; i-- {
+		if prefix[i] == byte(0xff) {
+			continue
+		}
+		ub = make([]byte, i+1)
+		copy(ub, prefix)
+		ub[i]++
+		return ub
+	}
+
+	return nil
 }
 
 func openDB(path string) (db.DB, error) {

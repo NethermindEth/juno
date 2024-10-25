@@ -52,6 +52,11 @@ func (t *Storage) dbKey(key *Key, buffer *bytes.Buffer) (int64, error) {
 	return int64(len(t.prefix)) + keyLen, err
 }
 
+func (t *Storage) dbKeyNoPrefix(key *Key, buffer *bytes.Buffer) (int64, error) {
+	keyLen, err := key.WriteTo(buffer)
+	return int64(len(t.prefix)) + keyLen, err
+}
+
 func (t *Storage) Put(key *Key, value *Node) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
