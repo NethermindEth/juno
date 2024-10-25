@@ -379,4 +379,78 @@ func TestByzantinePreCommitter(t *testing.T) {
 		assert.Equal(t, uint(0), algo.state.height)
 		assert.Equal(t, uint(0), algo.state.round)
 	})
+
+	t.Run("invalid precommit", func(t *testing.T) {
+		listeners, broadcasters := testListenersAndBroadcasters()
+		app, chain, vals := newApp(), newChain(), newVals()
+
+		vals.addValidator(*node2)
+		vals.addValidator(*node3)
+		vals.addValidator(*node4)
+		vals.addValidator(*myNode)
+
+		algo := New[value, felt.Felt, felt.Felt](*myNode, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+
+		height, round := uint(0), uint(0)
+		validValue1, invalidValue := value(10), value(111)
+
+		proposal := Proposal[value, felt.Felt, felt.Felt]{
+			Height:     height,
+			Round:      round,
+			ValidRound: nil,
+			Value:      &validValue1,
+			Sender:     *node2,
+		}
+		validPrevoteNode3 := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(validValue1.Hash()),
+				Sender: *node3,
+			},
+		}
+		validPrevoteNode4 := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(validValue1.Hash()),
+				Sender: *node4,
+			},
+		}
+		invalidPrecommit := Precommit[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(invalidValue.Hash()),
+				Sender: *node3,
+			},
+		}
+
+		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
+			value, felt.Felt, felt.Felt])
+		prevoteListener := listeners.PrevoteListener.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
+			felt.Felt, felt.Felt])
+		precommitListner := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt],
+			value, felt.Felt, felt.Felt])
+
+		proposalListener.send(proposal)
+		algo.Start()
+		time.Sleep(50 * time.Millisecond)
+		prevoteListener.send(validPrevoteNode3)
+		prevoteListener.send(validPrevoteNode4)
+		time.Sleep(50 * time.Millisecond)
+		precommitListner.send(invalidPrecommit)
+		time.Sleep(50 * time.Millisecond)
+		algo.Stop()
+		assert.Equal(t, 1, len(algo.messages.proposals[height][round][*node2]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*myNode]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*node3]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*node4]))
+		assert.Equal(t, 1, len(algo.messages.precommits[height][round][*node3]))
+		assert.Equal(t, invalidPrecommit, algo.messages.precommits[height][round][*node3][2])
+
+		assert.Equal(t, precommit, algo.state.step)
+		assert.Equal(t, uint(0), algo.state.height)
+		assert.Equal(t, uint(0), algo.state.round)
+	})
 }
