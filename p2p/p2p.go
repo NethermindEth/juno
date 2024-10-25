@@ -48,11 +48,9 @@ type Service struct {
 	topics     map[string]*pubsub.Topic
 	topicsLock sync.RWMutex
 
-	downloader *Downloader
-	synchroniser *syncService
+	downloader   *Downloader
+	synchroniser *SyncService
 	gossipTracer *gossipTracer
-	snapSyncher  service.Service
-	//snapServer   *snapServer
 
 	feederNode bool
 	database   db.DB

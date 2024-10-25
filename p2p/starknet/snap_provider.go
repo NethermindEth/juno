@@ -1,8 +1,9 @@
 package starknet
 
 import (
+	"iter"
+
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
-	"github.com/NethermindEth/juno/utils/iter"
 	"google.golang.org/protobuf/proto"
 )
 

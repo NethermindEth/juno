@@ -175,25 +175,24 @@ func buildKeys(currentKey Key, currentNode *felt.Felt, proofMap map[felt.Felt]Pr
 		return nil
 	}
 
-	if proofNode.Edge != nil {
-		chKey := currentKey.Append(proofNode.Edge.Path)
-		ch := proofNode.Edge.Child
+	switch node := proofNode.(type) {
+	case *Edge:
+		chKey := currentKey.Append(node.Path)
+		ch := node.Child
 		err := buildKeys(chKey, ch, proofMap, keys, depth+1)
 		if err != nil {
 			return err
 		}
-	} else {
-		binary := proofNode.Binary
-
+	case *Binary:
 		chKey := currentKey.AppendBit(false)
-		ch := binary.LeftHash
+		ch := node.LeftHash
 		err := buildKeys(chKey, ch, proofMap, keys, depth+1)
 		if err != nil {
 			return err
 		}
 
 		chKey = currentKey.AppendBit(true)
-		ch = binary.RightHash
+		ch = node.RightHash
 		err = buildKeys(chKey, ch, proofMap, keys, depth+1)
 		if err != nil {
 			return err

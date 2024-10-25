@@ -87,7 +87,7 @@ func (s *SyncService) Start(ctx context.Context) {
 	}
 }
 
-func (s *syncService) getNextHeight() (int, error) {
+func (s *SyncService) getNextHeight() (int, error) {
 	curHeight, err := s.blockchain.Height()
 	if err == nil {
 		return int(curHeight) + 1, nil
@@ -97,7 +97,7 @@ func (s *syncService) getNextHeight() (int, error) {
 	return 0, err
 }
 
-func (s *syncService) processBlock(ctx context.Context, blockNumber uint64) error {
+func (s *SyncService) processBlock(ctx context.Context, blockNumber uint64) error {
 	headersAndSigsCh, err := s.genHeadersAndSigs(ctx, blockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get block headers parts: %w", err)
@@ -270,7 +270,7 @@ func (s *SyncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-//nolint:gocyclo,funlen
+//nolint:gocyclo
 func (s *SyncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
 	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
@@ -631,7 +631,7 @@ func (s *SyncService) genTransactions(ctx context.Context, blockNumber uint64) (
 	return txsCh, nil
 }
 
-func (s *syncService) randomPeer() peer.ID {
+func (s *SyncService) randomPeer() peer.ID {
 	store := s.host.Peerstore()
 	// todo do not request same block from all peers
 	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {

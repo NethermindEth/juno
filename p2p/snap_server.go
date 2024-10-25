@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"iter"
 	"math/big"
 
 	"github.com/NethermindEth/juno/utils"
@@ -13,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
-	"github.com/NethermindEth/juno/utils/iter"
 	"github.com/ethereum/go-ethereum/log"
 )
 
@@ -426,26 +426,24 @@ func Core2P2pProof(proofs []trie.ProofNode) *spec.PatriciaRangeProof {
 	nodes := make([]*spec.PatriciaNode, len(proofs))
 
 	for i := range proofs {
-		if proofs[i].Binary != nil {
-			binary := proofs[i].Binary
-			nodes[i] = &spec.PatriciaNode{
-				Node: &spec.PatriciaNode_Binary_{
-					Binary: &spec.PatriciaNode_Binary{
-						Left:  core2p2p.AdaptFelt(binary.LeftHash),
-						Right: core2p2p.AdaptFelt(binary.RightHash),
-					},
-				},
-			}
-		}
-		if proofs[i].Edge != nil {
-			edge := proofs[i].Edge
-			pathfeld := edge.Path.Felt()
+		switch node := proofs[i].(type) {
+		case *trie.Edge:
+			pathFelt := node.Path.Felt()
 			nodes[i] = &spec.PatriciaNode{
 				Node: &spec.PatriciaNode_Edge_{
 					Edge: &spec.PatriciaNode_Edge{
-						Length: uint32(edge.Path.Len()),
-						Path:   core2p2p.AdaptFelt(&pathfeld),
-						Value:  core2p2p.AdaptFelt(edge.Child),
+						Length: uint32(node.Path.Len()),
+						Path:   core2p2p.AdaptFelt(&pathFelt),
+						Value:  core2p2p.AdaptFelt(node.Child),
+					},
+				},
+			}
+		case *trie.Binary:
+			nodes[i] = &spec.PatriciaNode{
+				Node: &spec.PatriciaNode_Binary_{
+					Binary: &spec.PatriciaNode_Binary{
+						Left:  core2p2p.AdaptFelt(node.LeftHash),
+						Right: core2p2p.AdaptFelt(node.RightHash),
 					},
 				},
 			}

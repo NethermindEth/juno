@@ -1230,21 +1230,17 @@ func P2pProofToTrieProofs(proof *spec.PatriciaRangeProof) []trie.ProofNode {
 	for i, node := range proof.Nodes {
 		if node.GetBinary() != nil {
 			binary := node.GetBinary()
-			proofs[i] = trie.ProofNode{
-				Binary: &trie.Binary{
-					LeftHash:  p2p2core.AdaptFelt(binary.Left),
-					RightHash: p2p2core.AdaptFelt(binary.Right),
-				},
+			proofs[i] = &trie.Binary{
+				LeftHash:  p2p2core.AdaptFelt(binary.Left),
+				RightHash: p2p2core.AdaptFelt(binary.Right),
 			}
 		} else {
 			edge := node.GetEdge()
 			// TODO. What if edge is nil too?
 			key := trie.NewKey(uint8(edge.Length), edge.Path.Elements)
-			proofs[i] = trie.ProofNode{
-				Edge: &trie.Edge{
-					Child: p2p2core.AdaptFelt(edge.Value),
-					Path:  &key,
-				},
+			proofs[i] = &trie.Edge{
+				Child: p2p2core.AdaptFelt(edge.Value),
+				Path:  &key,
 			}
 		}
 	}

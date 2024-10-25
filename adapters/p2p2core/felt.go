@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/ethereum/go-ethereum/common"
-	"reflect"
 )
 
 func AdaptHash(h *spec.Hash) *felt.Felt {

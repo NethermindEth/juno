@@ -94,7 +94,6 @@ func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
 		d.wMutex.Lock()
 		return NewBatch(d.pebble.NewIndexedBatch(), d.wMutex, d.listener), nil
 	}
-	txn.rwlock = &sync.RWMutex{}
 
 	return NewSnapshot(d.pebble.NewSnapshot(), d.listener), nil
 }
