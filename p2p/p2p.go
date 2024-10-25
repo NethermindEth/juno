@@ -49,7 +49,6 @@ type Service struct {
 	topicsLock sync.RWMutex
 
 	downloader   *Downloader
-	synchroniser *SyncService
 	gossipTracer *gossipTracer
 
 	database db.DB
@@ -414,7 +413,7 @@ func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Strea
 }
 
 func (s *Service) WithListener(l junoSync.EventListener) {
-	s.synchroniser.WithListener(l)
+	s.downloader.WithListener(l)
 }
 
 func (s *Service) WithGossipTracer() {

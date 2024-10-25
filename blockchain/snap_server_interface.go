@@ -178,10 +178,7 @@ func NewBlockchainCloser(bc *Blockchain, log utils.SimpleLogger) *BlockchainClos
 }
 
 func (b *BlockchainCloser) Run(ctx context.Context) error {
-	b.log.Infow("BlockchainCloser has started")
-
 	<-ctx.Done()
 	b.bc.Close()
-	b.log.Infow("BlockchainCloser has stopped")
 	return nil
 }

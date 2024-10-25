@@ -90,10 +90,11 @@ func New(database db.DB, network *utils.Network) *Blockchain {
 	}
 
 	// TODO: Used only for testing though...
-	err := bc.seedSnapshot()
-	if err != nil {
-		fmt.Printf("Error seeding snapshot %s", err)
-	}
+	// TODO: the following is only used for snap sync, uncomment when we need it again
+	// err := bc.seedSnapshot()
+	// if err != nil {
+	// 	fmt.Printf("Error seeding snapshot %s", err)
+	// }
 
 	return bc
 }

@@ -117,7 +117,7 @@ feedernode: juno-cached
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
-	--db-path="/Users/pnowosie/juno/snapshots/juno-sepolia" \
+	--db-path=./p2p-dbs/feedernode \
 	--p2p \
 	--p2p-feeder-node \
 	--p2p-addr=/ip4/0.0.0.0/tcp/7777 \
@@ -136,7 +136,6 @@ node1: juno-cached
 	--metrics-port=9091 \
 	--pprof \
 	--pprof-port=9096 \
-	--p2p-sync-mode="snap"
 
 #	--p2p-peers=/ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
 
