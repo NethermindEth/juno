@@ -387,10 +387,11 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		return err
 	}
 
-	err = b.seedSnapshot()
-	if err != nil {
-		return err
-	}
+	// TODO: the following is only used for snap sync, uncomment when we need it again
+	// err = b.seedSnapshot()
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

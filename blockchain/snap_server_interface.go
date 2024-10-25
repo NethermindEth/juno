@@ -3,7 +3,6 @@ package blockchain
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -14,6 +13,7 @@ import (
 
 const MaxSnapshots = 128
 
+//nolint:unused
 type snapshotRecord struct {
 	stateRoot     *felt.Felt
 	contractsRoot *felt.Felt
@@ -102,62 +102,62 @@ func (b *Blockchain) GetDClasses(felts []*felt.Felt) ([]*core.DeclaredClass, err
 	return classes, nil
 }
 
-func (b *Blockchain) seedSnapshot() error {
-	headheader, err := b.HeadsHeader()
-	if err != nil {
-		return err
-	}
+// func (b *Blockchain) seedSnapshot() error {
+// 	headheader, err := b.HeadsHeader()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	stateR, srCloser, err := b.HeadState()
-	if err != nil {
-		return err
-	}
+// 	stateR, srCloser, err := b.HeadState()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	defer func() { _ = srCloser() }()
+// 	defer func() { _ = srCloser() }()
 
-	state := stateR.(*core.State)
-	contractsRoot, classRoot, err := state.StateAndClassRoot()
-	if err != nil {
-		return err
-	}
+// 	state := stateR.(*core.State)
+// 	contractsRoot, classRoot, err := state.StateAndClassRoot()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	stateRoot, err := state.Root()
-	if err != nil {
-		return err
-	}
+// 	stateRoot, err := state.Root()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	txn, closer, err := b.database.PersistedView()
-	if err != nil {
-		return err
-	}
+// 	txn, closer, err := b.database.PersistedView()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	dbsnap := snapshotRecord{
-		stateRoot:     stateRoot,
-		contractsRoot: contractsRoot,
-		classRoot:     classRoot,
-		blockHash:     headheader.Hash,
-		txn:           txn,
-		closer:        closer,
-	}
+// 	dbsnap := snapshotRecord{
+// 		stateRoot:     stateRoot,
+// 		contractsRoot: contractsRoot,
+// 		classRoot:     classRoot,
+// 		blockHash:     headheader.Hash,
+// 		txn:           txn,
+// 		closer:        closer,
+// 	}
 
-	fmt.Printf("Snapshot %d %s %s\n", headheader.Number, headheader.GlobalStateRoot, stateRoot)
+// 	fmt.Printf("Snapshot %d %s %s\n", headheader.Number, headheader.GlobalStateRoot, stateRoot)
 
-	// TODO: Reorgs
-	b.snapshots = append(b.snapshots, &dbsnap)
-	if len(b.snapshots) > MaxSnapshots {
-		toremove := b.snapshots[0]
-		err = toremove.closer()
-		if err != nil {
-			return err
-		}
+// 	// TODO: Reorgs
+// 	b.snapshots = append(b.snapshots, &dbsnap)
+// 	if len(b.snapshots) > MaxSnapshots {
+// 		toremove := b.snapshots[0]
+// 		err = toremove.closer()
+// 		if err != nil {
+// 			return err
+// 		}
 
-		// TODO: I think internally, it keep the old array.
-		// maybe the append copy it to a new array, who knows...
-		b.snapshots = b.snapshots[1:]
-	}
+// 		// TODO: I think internally, it keep the old array.
+// 		// maybe the append copy it to a new array, who knows...
+// 		b.snapshots = b.snapshots[1:]
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (b *Blockchain) Close() {
 	for _, snapshot := range b.snapshots {
