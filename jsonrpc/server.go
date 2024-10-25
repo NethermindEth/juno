@@ -422,12 +422,8 @@ func isBatch(reader *bufio.Reader) bool {
 	return false
 }
 
-func isNil(i any) bool {
-	return i == nil || reflect.ValueOf(i).IsNil()
-}
-
 func isNilOrEmpty(i any) (bool, error) {
-	if isNil(i) {
+	if utils.IsNil(i) {
 		return true, nil
 	}
 
@@ -484,7 +480,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 		header = (tuple[1].Interface()).(http.Header)
 	}
 
-	if errAny := tuple[errorIndex].Interface(); !isNil(errAny) {
+	if errAny := tuple[errorIndex].Interface(); !utils.IsNil(errAny) {
 		res.Error = errAny.(*Error)
 		if res.Error.Code == InternalError {
 			s.listener.OnRequestFailed(req.Method, res.Error)
