@@ -201,7 +201,7 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 
 			for addr, valPrevotes := range prevotesForHR {
 				for _, v := range valPrevotes {
-					if *v.ID == *p.ID {
+					if v.ID == p.ID {
 						vals = append(vals, addr)
 					}
 				}

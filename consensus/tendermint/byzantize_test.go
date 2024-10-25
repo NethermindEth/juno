@@ -215,4 +215,67 @@ func TestByzantinePrevoter(t *testing.T) {
 		assert.Equal(t, uint(0), algo.state.round)
 	})
 
+	// Todo: update if we decide to store invalid proposals
+	// Todo: we store the bad prevote, but we don't slash them.
+	t.Run("Prevotes on an invalid proposal", func(t *testing.T) {
+		listeners, broadcasters := testListenersAndBroadcasters()
+		app, chain, vals := newApp(), newChain(), newVals()
+
+		vals.addValidator(*node2)
+		vals.addValidator(*node3)
+		vals.addValidator(*node4)
+		vals.addValidator(*myNode)
+
+		algo := New[value, felt.Felt, felt.Felt](*myNode, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+
+		height, round, inValidValue1 := uint(0), uint(0), value(101)
+
+		invalidProposal := Proposal[value, felt.Felt, felt.Felt]{
+			Height:     height,
+			Round:      round,
+			ValidRound: nil,
+			Value:      &inValidValue1,
+			Sender:     *node2,
+		}
+
+		myNilPrevote := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     nil,
+				Sender: *myNode,
+			},
+		}
+
+		invalidPrevote := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: height,
+				Round:  round,
+				ID:     utils.Ptr(inValidValue1.Hash()),
+				Sender: *node3,
+			},
+		}
+		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
+			value, felt.Felt, felt.Felt])
+		proposalListener.send(invalidProposal)
+
+		algo.Start()
+		time.Sleep(10 * time.Millisecond)
+		prevoteListener := listeners.PrevoteListener.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
+			felt.Felt, felt.Felt])
+		prevoteListener.send(invalidPrevote)
+
+		algo.Stop()
+
+		assert.Equal(t, 0, len(algo.messages.proposals[height][round][*node2]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*myNode]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[height][round][*node3]))
+		assert.Equal(t, invalidPrevote, algo.messages.prevotes[height][round][*node3][0])
+		assert.Equal(t, myNilPrevote, algo.messages.prevotes[height][round][*myNode][0])
+
+		assert.Equal(t, prevote, algo.state.step)
+		assert.Equal(t, uint(0), algo.state.height)
+		assert.Equal(t, uint(0), algo.state.round)
+	})
+
 }

@@ -1,6 +1,7 @@
 package tendermint
 
 import (
+	"encoding/hex"
 	"fmt"
 	"maps"
 	"slices"
@@ -28,6 +29,17 @@ type timeoutFn func(round uint) time.Duration
 type Addr interface {
 	// Ethereum Addresses are 20 bytes
 	~[20]byte | felt.Felt
+}
+
+func AddrToString[T Addr](addr T) string {
+	switch v := any(addr).(type) {
+	case [20]byte:
+		return "0x" + hex.EncodeToString(v[:])
+	case felt.Felt:
+		return v.String()
+	default:
+		return "<unknown address type>"
+	}
 }
 
 type Hash interface {
