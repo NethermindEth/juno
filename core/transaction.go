@@ -58,18 +58,18 @@ const (
 type ResourceBounds struct {
 	MaxAmount uint64
 	// MaxPricePerUnit is technically a uint128
-	MaxPricePerUnit *spec.Uint128
+	MaxPricePerUnit *felt.Felt
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
 	maxAmountBytes := make([]byte, 8) //nolint:mnd
 	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
-	maxPriceBytes := MaxPriceToBytes(rb.MaxPricePerUnit)
+	maxPriceBytes := rb.MaxPricePerUnit.Bytes()
 	return slices.Concat(
 		[]byte{0},
 		[]byte(resource.String()),
 		maxAmountBytes,
-		maxPriceBytes, // Last 128 bits.
+		maxPriceBytes[16:], // Last 128 bits.
 	)
 }
 

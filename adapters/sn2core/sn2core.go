@@ -192,9 +192,10 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 	}
 	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
 	for resource, bounds := range *rb {
+		maxPriceBytes := core.MaxPriceToBytes(bounds.MaxPricePerUnit)
 		coreBounds[core.Resource(resource)] = core.ResourceBounds{
 			MaxAmount:       (bounds.MaxAmount).Uint64(),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+			MaxPricePerUnit: new(felt.Felt).SetBytes(maxPriceBytes),
 		}
 	}
 	return coreBounds

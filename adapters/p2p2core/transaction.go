@@ -3,7 +3,6 @@ package p2p2core
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
@@ -299,7 +298,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 func adaptResourceLimits(limits *spec.ResourceLimits) core.ResourceBounds {
 	return core.ResourceBounds{
 		MaxAmount:       AdaptFelt(limits.MaxAmount).Uint64(),
-		MaxPricePerUnit: core2p2p.AdaptUint128(AdaptFelt(limits.MaxPricePerUnit)),
+		MaxPricePerUnit: AdaptFelt(limits.MaxPricePerUnit),
 	}
 }
 

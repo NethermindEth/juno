@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -540,11 +541,11 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
 					rpc.ResourceL1Gas: {
 						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
-						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
+						MaxPricePerUnit: core2p2p.AdaptUint128(tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit),
 					},
 					rpc.ResourceL2Gas: {
 						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
-						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
+						MaxPricePerUnit: core2p2p.AdaptUint128(tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit),
 					},
 				},
 				Tip:                   new(felt.Felt).SetUint64(tx.Tip),

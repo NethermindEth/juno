@@ -153,10 +153,9 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 
 func adaptResourceLimits(bounds core.ResourceBounds) *spec.ResourceLimits {
 	maxAmount := new(felt.Felt).SetUint64(bounds.MaxAmount)
-	maxPriceBytes := core.MaxPriceToBytes(bounds.MaxPricePerUnit)
 	return &spec.ResourceLimits{
 		MaxAmount:       AdaptFelt(maxAmount),
-		MaxPricePerUnit: AdaptFelt(new(felt.Felt).SetBytes(maxPriceBytes)),
+		MaxPricePerUnit: AdaptFelt(bounds.MaxPricePerUnit),
 	}
 }
 

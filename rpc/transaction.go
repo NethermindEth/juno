@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
@@ -364,7 +365,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	for resource, bounds := range rb {
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+			MaxPricePerUnit: core2p2p.AdaptUint128(bounds.MaxPricePerUnit),
 		}
 	}
 	return rpcResourceBounds
