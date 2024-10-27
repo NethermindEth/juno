@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
@@ -393,11 +394,11 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+					MaxPricePerUnit: core2p2p.AdaptUint128(utils.HexToFelt(t, "0x5af3107a4000")),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
-					MaxPricePerUnit: new(felt.Felt),
+					MaxPricePerUnit: core2p2p.AdaptUint128(new(felt.Felt)),
 				},
 			},
 			Tip:           0,
@@ -436,11 +437,11 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
+					MaxPricePerUnit: core2p2p.AdaptUint128(utils.HexToFelt(t, "0x2540be400")),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
-					MaxPricePerUnit: new(felt.Felt),
+					MaxPricePerUnit: core2p2p.AdaptUint128(new(felt.Felt)),
 				},
 			},
 			Tip:                   0,
@@ -468,11 +469,11 @@ func TestTransactionV3(t *testing.T) {
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+					MaxPricePerUnit: core2p2p.AdaptUint128(utils.HexToFelt(t, "0x5af3107a4000")),
 				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
-					MaxPricePerUnit: new(felt.Felt),
+					MaxPricePerUnit: core2p2p.AdaptUint128(new(felt.Felt)),
 				},
 			},
 			TransactionSignature: []*felt.Felt{

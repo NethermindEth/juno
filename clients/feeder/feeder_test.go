@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
@@ -58,12 +59,12 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
-					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
+					MaxAmount:       utils.HexToFelt(t, "0x186a0").Uint64(),
+					MaxPricePerUnit: core2p2p.AdaptUint128(utils.HexToFelt(t, "0x2540be400")),
 				},
 				starknet.ResourceL2Gas: {
-					MaxAmount:       new(felt.Felt),
-					MaxPricePerUnit: new(felt.Felt),
+					MaxAmount:       new(felt.Felt).Uint64(),
+					MaxPricePerUnit: core2p2p.AdaptUint128(new(felt.Felt)),
 				},
 			},
 			Tip:                   new(felt.Felt),
@@ -116,12 +117,12 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
-					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+					MaxAmount:       utils.HexToFelt(t, "0x186a0").Uint64(),
+					MaxPricePerUnit: core2p2p.AdaptUint128(utils.HexToFelt(t, "0x5af3107a4000")),
 				},
 				starknet.ResourceL2Gas: {
-					MaxAmount:       new(felt.Felt),
-					MaxPricePerUnit: new(felt.Felt),
+					MaxAmount:       new(felt.Felt).Uint64(),
+					MaxPricePerUnit: core2p2p.AdaptUint128(new(felt.Felt)),
 				},
 			},
 			Tip:           new(felt.Felt),
@@ -220,12 +221,12 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
-					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+					MaxAmount:       utils.HexToFelt(t, "0x186a0").Uint64(),
+					MaxPricePerUnit: core2p2p.AdaptUint128(utils.HexToFelt(t, "0x5af3107a4000")),
 				},
 				starknet.ResourceL2Gas: {
-					MaxAmount:       new(felt.Felt),
-					MaxPricePerUnit: new(felt.Felt),
+					MaxAmount:       new(felt.Felt).Uint64(),
+					MaxPricePerUnit: core2p2p.AdaptUint128(new(felt.Felt)),
 				},
 			},
 			Tip:                 new(felt.Felt),
