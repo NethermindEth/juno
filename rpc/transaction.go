@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
@@ -363,8 +364,8 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
 	for resource, bounds := range rb {
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       AdaptUint128(new(felt.Felt).SetUint64(bounds.MaxAmount)),
-			MaxPricePerUnit: AdaptUint128(bounds.MaxPricePerUnit),
+			MaxAmount:       core2p2p.AdaptUint128(new(felt.Felt).SetUint64(bounds.MaxAmount)),
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
 	return rpcResourceBounds
@@ -377,8 +378,8 @@ func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.
 	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
 	for resource, bounds := range *rb {
 		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
-			MaxAmount:       AdaptUint128(bounds.MaxAmount),
-			MaxPricePerUnit: AdaptUint128(bounds.MaxPricePerUnit),
+			MaxAmount:       bounds.MaxAmount,
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
 	return &feederResourceBounds

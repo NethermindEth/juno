@@ -64,12 +64,14 @@ type ResourceBounds struct {
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
 	maxAmountBytes := make([]byte, 8) //nolint:mnd
 	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
-	maxPriceBytes := rb.MaxPricePerUnit.Bytes()
+	maxPriceBytes := make([]byte, 16)
+	binary.BigEndian.PutUint64(maxPriceBytes[0:8], rb.MaxPricePerUnit.High)
+	binary.BigEndian.PutUint64(maxPriceBytes[8:16], rb.MaxPricePerUnit.Low)
 	return slices.Concat(
 		[]byte{0},
 		[]byte(resource.String()),
 		maxAmountBytes,
-		maxPriceBytes[16:], // Last 128 bits.
+		maxPriceBytes,
 	)
 }
 
