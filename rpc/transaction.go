@@ -194,7 +194,7 @@ func (r *Resource) UnmarshalText(data []byte) error {
 }
 
 type ResourceBounds struct {
-	MaxAmount       uint64        `json:"max_amount"`
+	MaxAmount       *felt.Felt    `json:"max_amount"`
 	MaxPricePerUnit *spec.Uint128 `json:"max_price_per_unit"`
 }
 
@@ -363,7 +363,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
 	for resource, bounds := range rb {
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       bounds.MaxAmount,
+			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
