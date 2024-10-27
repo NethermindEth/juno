@@ -154,7 +154,7 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 
 func adaptResourceLimits(bounds core.ResourceBounds) *spec.ResourceLimits {
 	maxAmount := new(felt.Felt).SetUint64(bounds.MaxAmount)
-	maxPriceBytes := make([]byte, 16)
+	maxPriceBytes := make([]byte, 16) //nolint:mnd
 	binary.BigEndian.PutUint64(maxPriceBytes[0:8], bounds.MaxPricePerUnit.High)
 	binary.BigEndian.PutUint64(maxPriceBytes[8:16], bounds.MaxPricePerUnit.Low)
 	return &spec.ResourceLimits{
