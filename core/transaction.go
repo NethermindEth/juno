@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -57,7 +58,7 @@ const (
 type ResourceBounds struct {
 	MaxAmount uint64
 	// MaxPricePerUnit is technically a uint128
-	MaxPricePerUnit *felt.Felt
+	MaxPricePerUnit *spec.Uint128
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {

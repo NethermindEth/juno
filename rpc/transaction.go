@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -193,8 +194,8 @@ func (r *Resource) UnmarshalText(data []byte) error {
 }
 
 type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
+	MaxAmount       *spec.Uint128 `json:"max_amount"`
+	MaxPricePerUnit *spec.Uint128 `json:"max_price_per_unit"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
@@ -362,8 +363,8 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
 	for resource, bounds := range rb {
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+			MaxAmount:       AdaptUint128(new(felt.Felt).SetUint64(bounds.MaxAmount)),
+			MaxPricePerUnit: AdaptUint128(bounds.MaxPricePerUnit),
 		}
 	}
 	return rpcResourceBounds
@@ -376,8 +377,8 @@ func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.
 	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
 	for resource, bounds := range *rb {
 		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
-			MaxAmount:       bounds.MaxAmount,
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+			MaxAmount:       AdaptUint128(bounds.MaxAmount),
+			MaxPricePerUnit: AdaptUint128(bounds.MaxPricePerUnit),
 		}
 	}
 	return &feederResourceBounds
