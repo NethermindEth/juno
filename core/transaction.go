@@ -64,15 +64,20 @@ type ResourceBounds struct {
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
 	maxAmountBytes := make([]byte, 8) //nolint:mnd
 	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
-	maxPriceBytes := make([]byte, 16) //nolint:mnd
-	binary.BigEndian.PutUint64(maxPriceBytes[0:8], rb.MaxPricePerUnit.High)
-	binary.BigEndian.PutUint64(maxPriceBytes[8:16], rb.MaxPricePerUnit.Low)
+	maxPriceBytes := MaxPriceToBytes(rb.MaxPricePerUnit)
 	return slices.Concat(
 		[]byte{0},
 		[]byte(resource.String()),
 		maxAmountBytes,
 		maxPriceBytes, // Last 128 bits.
 	)
+}
+
+func MaxPriceToBytes(maxPrice *spec.Uint128) []byte {
+	maxPriceBytes := make([]byte, 16) //nolint:mnd
+	binary.BigEndian.PutUint64(maxPriceBytes[0:8], maxPrice.High)
+	binary.BigEndian.PutUint64(maxPriceBytes[8:16], maxPrice.Low)
+	return maxPriceBytes
 }
 
 type Event struct {
