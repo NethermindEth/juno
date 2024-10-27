@@ -56,14 +56,14 @@ const (
 
 // From the RPC spec: The max amount and max price per unit of gas used in this transaction.
 type ResourceBounds struct {
-	MaxAmount *spec.Uint128
+	MaxAmount uint64
 	// MaxPricePerUnit is technically a uint128
 	MaxPricePerUnit *spec.Uint128
 }
 
 func (rb ResourceBounds) Bytes(resource Resource) []byte {
 	maxAmountBytes := make([]byte, 8) //nolint:mnd
-	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount.Low)
+	binary.BigEndian.PutUint64(maxAmountBytes, rb.MaxAmount)
 	maxPriceBytes := make([]byte, 16)
 	binary.BigEndian.PutUint64(maxPriceBytes[0:8], rb.MaxPricePerUnit.High)
 	binary.BigEndian.PutUint64(maxPriceBytes[8:16], rb.MaxPricePerUnit.Low)

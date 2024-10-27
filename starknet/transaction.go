@@ -148,7 +148,7 @@ const (
 )
 
 type ResourceBounds struct {
-	MaxAmount       *spec.Uint128 `json:"max_amount"`
+	MaxAmount       uint64        `json:"max_amount"`
 	MaxPricePerUnit *spec.Uint128 `json:"max_price_per_unit"`
 }
 

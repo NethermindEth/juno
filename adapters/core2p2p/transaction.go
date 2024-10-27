@@ -1,6 +1,7 @@
 package core2p2p
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
@@ -153,9 +154,12 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 
 func adaptResourceLimits(bounds core.ResourceBounds) *spec.ResourceLimits {
 	maxAmount := new(felt.Felt).SetUint64(bounds.MaxAmount)
+	maxPriceBytes := make([]byte, 16)
+	binary.BigEndian.PutUint64(maxPriceBytes[0:8], bounds.MaxPricePerUnit.High)
+	binary.BigEndian.PutUint64(maxPriceBytes[8:16], bounds.MaxPricePerUnit.Low)
 	return &spec.ResourceLimits{
 		MaxAmount:       AdaptFelt(maxAmount),
-		MaxPricePerUnit: AdaptFelt(bounds.MaxPricePerUnit),
+		MaxPricePerUnit: AdaptFelt(new(felt.Felt).SetBytes(maxPriceBytes)),
 	}
 }
 
