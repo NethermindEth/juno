@@ -39,7 +39,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 	}
 
 	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
-	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd(), DBIterateTrieCmd(), DBIterateTrieTrie())
+	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd(), DBIterateTrieCmd(), DBIterateTrieTrie(), DBIterateTrieExperiment())
 	return dbCmd
 }
 
@@ -91,6 +91,16 @@ func DBIterateTrieTrie() *cobra.Command {
 		RunE:  dbIterateTrieTrie,
 	}
 	cmd.Flags().Uint64("limit", 100, "Limit the number of items to iterate over")
+
+	return cmd
+}
+
+func DBIterateTrieExperiment() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "iter-trie-exp",
+		Short: "Iterate over the trie",
+		RunE:  dbIterateTrieExperiment,
+	}
 
 	return cmd
 }
@@ -338,6 +348,53 @@ func dbIterateTrieTrie(cmd *cobra.Command, args []string) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	elapsed := time.Since(start)
+	fmt.Fprintf(cmd.OutOrStdout(), "count: %d, elapsed: %s\n", count, elapsed)
+
+	return nil
+}
+
+func dbIterateTrieExperiment(cmd *cobra.Command, args []string) error {
+	dbPath, err := cmd.Flags().GetString(dbPathF)
+	if err != nil {
+		return err
+	}
+
+	pDB, err := openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer pDB.Close()
+
+	bc := blockchain.New(pDB, nil)
+	s, _, err := bc.HeadState()
+	if err != nil {
+		return err
+	}
+
+	state := s.(*core.State)
+
+	stateTrie, _, err := state.StorageTrie()
+	if err != nil {
+		return err
+	}
+
+	count := 0
+	start := time.Now()
+	leafIt, err := stateTrie.NewLeafIterator()
+	if err != nil {
+		return err
+	}
+
+	for leafIt.Next() {
+		if !leafIt.Valid() {
+			break
+		}
+
+		count++
+		fmt.Fprintf(cmd.OutOrStdout(), "key: %x\n", leafIt.Key())
 	}
 
 	elapsed := time.Since(start)
