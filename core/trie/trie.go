@@ -793,3 +793,8 @@ func (t *Trie) doIterate(startKey, key *Key, consumer func(key, value *felt.Felt
 
 	return t.doIterate(startKey, node.Right, consumer)
 }
+
+// TODO(weiihann): remove this
+func (t *Trie) NewLeafIterator() (db.Iterator, error) {
+	return t.storage.NewLeafIterator()
+}
