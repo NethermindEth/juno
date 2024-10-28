@@ -60,7 +60,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultPendingPollInterval := 5 * time.Second
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
-	defaultMaxCacheSize := uint(8)
+	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultGwTimeout := 5 * time.Second
@@ -76,7 +76,7 @@ func TestConfigPrecedence(t *testing.T) {
 		"custom network all flags": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "8",
+				"--db-path", "/home/.juno", "--pprof", "--db-cache-size", "1024",
 				"--cn-name", "custom", "--cn-feeder-url", "awesome_feeder_url", "--cn-gateway-url", "awesome_gateway_url",
 				"--cn-l1-chain-id", "0x1", "--cn-l2-chain-id", "SN_AWESOME",
 				"--cn-unverifiable-range", "0,10",
@@ -336,7 +336,7 @@ http-port: 4576
 		"all flags without config file": {
 			inputArgs: []string{
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0",
-				"--db-path", "/home/.juno", "--network", "sepolia-integration", "--pprof", "--db-cache-size", "8",
+				"--db-path", "/home/.juno", "--network", "sepolia-integration", "--pprof", "--db-cache-size", "1024",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:            utils.DEBUG,
@@ -424,7 +424,7 @@ pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
 pending-poll-interval: 5s
-db-cache-size: 8
+db-cache-size: 1024
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
