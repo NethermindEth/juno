@@ -7,6 +7,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+const (
+	TrieHeightHex = 0xfb
+)
+
 // bufferPool caches unused buffer objects for later reuse.
 var bufferPool = sync.Pool{
 	New: func() any {
@@ -134,11 +138,39 @@ func (t *Storage) SyncedStorage() *Storage {
 	}
 }
 
-// TODO(weiihann): implement this
-// func (t *Storage) NewIterator() (db.Iterator, error) {
-// 	return t.txn.NewIterator(opts)
-// }
+// NewLeafIterator returns an iterator over the leaf nodes of the trie.
+// Leaf nodes are prefixed as such:
+//
+// --- prefix + 0xfb ---
+//
+// where 0xfb is the hex representation of the trie height.
+// TODO(weiihann): also add start addr and end eddr support to the iterator
+func (t *Storage) NewLeafIterator() (db.Iterator, error) {
+	return t.txn.NewIterator(db.IterOptions{
+		LowerBound: append(t.prefix, TrieHeightHex),
+		UpperBound: upperBound(t.prefix),
+	})
+}
 
 func newMemStorage() *Storage {
 	return NewStorage(db.NewMemTransaction(), nil)
+}
+
+// TODO(weiihann): move this to db package
+//
+//nolint:mnd
+func upperBound(prefix []byte) []byte {
+	var ub []byte
+
+	for i := len(prefix) - 1; i >= 0; i-- {
+		if prefix[i] == byte(0xff) {
+			continue
+		}
+		ub = make([]byte, i+1)
+		copy(ub, prefix)
+		ub[i]++
+		return ub
+	}
+
+	return nil
 }
