@@ -169,7 +169,7 @@ sequencer:
 	--network sequencer \
 	--rpc-call-max-steps=4123000
 
-sequencer-plugin:
+sequencer-plugin-w-accounts:
 	./build/juno \
 	--http \
 	--http-port=6060 \
@@ -180,6 +180,7 @@ sequencer-plugin:
 	--seq-block-time=1 \
 	--network sequencer \
 	--plugin-path="myplugin.so" \
+	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
 	--rpc-call-max-steps=4123000
 
 sequencer-with-accounts:

@@ -15,3 +15,5 @@ seq-db/
 # README and/or run `./build/juno` command.
 juno/
 p2p-dbs
+
+myplugin.so
