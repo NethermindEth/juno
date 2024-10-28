@@ -556,7 +556,7 @@ func TestRevert(t *testing.T) {
 
 	t.Run("empty state should mean empty db", func(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator()
+			it, err := txn.NewIterator(db.IterOptions{})
 			if err != nil {
 				return err
 			}

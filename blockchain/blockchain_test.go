@@ -636,7 +636,7 @@ func TestRevert(t *testing.T) {
 
 	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
 		require.NoError(t, testdb.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator()
+			it, err := txn.NewIterator(db.IterOptions{})
 			if err != nil {
 				return err
 			}

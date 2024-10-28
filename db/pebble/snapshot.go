@@ -58,7 +58,7 @@ func (s *snapshot) Get(key []byte, cb func([]byte) error) error {
 }
 
 // NewIterator : see db.Transaction.NewIterator
-func (s *snapshot) NewIterator() (db.Iterator, error) {
+func (s *snapshot) NewIterator(opts db.IterOptions) (db.Iterator, error) {
 	var iter *pebble.Iterator
 	var err error
 
@@ -66,7 +66,10 @@ func (s *snapshot) NewIterator() (db.Iterator, error) {
 		return nil, ErrDiscardedTransaction
 	}
 
-	iter, err = s.snapshot.NewIter(nil)
+	iter, err = s.snapshot.NewIter(&pebble.IterOptions{
+		LowerBound: opts.LowerBound,
+		UpperBound: opts.UpperBound,
+	})
 	if err != nil {
 		return nil, err
 	}

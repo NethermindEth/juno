@@ -16,7 +16,7 @@ type transaction struct {
 	log    utils.SimpleLogger
 }
 
-func (t *transaction) NewIterator() (db.Iterator, error) {
+func (t *transaction) NewIterator(db.IterOptions) (db.Iterator, error) {
 	err := t.client.Send(&gen.Cursor{
 		Op: gen.Op_OPEN,
 	})

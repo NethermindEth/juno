@@ -79,6 +79,6 @@ func (t *BufferedTransaction) Impl() any {
 }
 
 // NewIterator : see db.Transaction.NewIterator
-func (t *BufferedTransaction) NewIterator() (Iterator, error) {
+func (t *BufferedTransaction) NewIterator(IterOptions) (Iterator, error) {
 	return nil, errors.New("buffered transactions dont support iterators")
 }

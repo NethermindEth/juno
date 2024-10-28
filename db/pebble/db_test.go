@@ -261,7 +261,7 @@ func TestSeek(t *testing.T) {
 	require.NoError(t, txn.Set([]byte{3}, []byte{3}))
 
 	t.Run("seeks to the next key in lexicographical order", func(t *testing.T) {
-		iter, err := txn.NewIterator()
+		iter, err := txn.NewIterator(db.IterOptions{})
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			require.NoError(t, iter.Close())
@@ -275,7 +275,7 @@ func TestSeek(t *testing.T) {
 	})
 
 	t.Run("key returns nil when seeking nonexistent data", func(t *testing.T) {
-		iter, err := txn.NewIterator()
+		iter, err := txn.NewIterator(db.IterOptions{})
 		require.NoError(t, err)
 
 		t.Cleanup(func() {
@@ -314,7 +314,7 @@ func TestPrefixSearch(t *testing.T) {
 	}))
 
 	require.NoError(t, testDB.View(func(txn db.Transaction) error {
-		iter, err := txn.NewIterator()
+		iter, err := txn.NewIterator(db.IterOptions{})
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			require.NoError(t, iter.Close())
@@ -359,7 +359,7 @@ func TestNext(t *testing.T) {
 	require.NoError(t, txn.Set([]byte{2}, []byte{2}))
 
 	t.Run("Next() on new iterator", func(t *testing.T) {
-		it, err := txn.NewIterator()
+		it, err := txn.NewIterator(db.IterOptions{})
 		require.NoError(t, err)
 
 		t.Run("new iterator should be invalid", func(t *testing.T) {
@@ -374,7 +374,7 @@ func TestNext(t *testing.T) {
 	})
 
 	t.Run("Next() should work as expected after a Seek()", func(t *testing.T) {
-		it, err := txn.NewIterator()
+		it, err := txn.NewIterator(db.IterOptions{})
 		require.NoError(t, err)
 
 		require.True(t, it.Seek([]byte{0}))

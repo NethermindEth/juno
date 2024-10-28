@@ -134,6 +134,11 @@ func (t *Storage) SyncedStorage() *Storage {
 	}
 }
 
+// TODO(weiihann): implement this
+// func (t *Storage) NewIterator() (db.Iterator, error) {
+// 	return t.txn.NewIterator(opts)
+// }
+
 func newMemStorage() *Storage {
 	return NewStorage(db.NewMemTransaction(), nil)
 }

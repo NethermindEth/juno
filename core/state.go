@@ -486,7 +486,7 @@ func StartsWith(a, b []byte) bool {
 func (s *State) PrintIt() (*DeclaredClass, error) {
 	classKey := db.Class.Key(nil)
 
-	it, err := s.txn.NewIterator()
+	it, err := s.txn.NewIterator(db.IterOptions{})
 	if err != nil {
 		return nil, err
 	}

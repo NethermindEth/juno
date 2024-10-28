@@ -565,7 +565,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 }
 
 func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
-	iterator, err := txn.NewIterator()
+	iterator, err := txn.NewIterator(db.IterOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -600,7 +600,7 @@ func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 }
 
 func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.TransactionReceipt, error) {
-	iterator, err := txn.NewIterator()
+	iterator, err := txn.NewIterator(db.IterOptions{})
 	if err != nil {
 		return nil, err
 	}

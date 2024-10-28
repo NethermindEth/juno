@@ -458,7 +458,7 @@ func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 	var peers []peer.AddrInfo
 
 	err := database.View(func(txn db.Transaction) error {
-		it, err := txn.NewIterator()
+		it, err := txn.NewIterator(db.IterOptions{})
 		if err != nil {
 			return fmt.Errorf("create iterator: %w", err)
 		}

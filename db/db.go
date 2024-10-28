@@ -60,12 +60,17 @@ type Iterator interface {
 	Seek(key []byte) bool
 }
 
+type IterOptions struct {
+	LowerBound []byte
+	UpperBound []byte
+}
+
 // Transaction provides an interface to access the database's state at the point the transaction was created
 // Updates done to the database with a transaction should be only visible to other newly created transaction after
 // the transaction is committed.
 type Transaction interface {
 	// NewIterator returns an iterator over the database's key/value pairs.
-	NewIterator() (Iterator, error)
+	NewIterator(opts IterOptions) (Iterator, error)
 	// Discard discards all the changes done to the database with this transaction
 	Discard() error
 	// Commit flushes all the changes pending on this transaction to the database, making the changes visible to other
