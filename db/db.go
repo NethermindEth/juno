@@ -44,6 +44,9 @@ type Iterator interface {
 	// Valid returns true if the iterator is positioned at a valid key/value pair.
 	Valid() bool
 
+	// First moves the iterator to the first key/value pair.
+	First() bool
+
 	// Next moves the iterator to the next key/value pair. It returns whether the
 	// iterator is valid after the call. Once invalid, the iterator remains
 	// invalid.

@@ -35,6 +35,10 @@ func (i *iterator) doOpAndUpdate(op gen.Op, k []byte) error {
 	return nil
 }
 
+func (i *iterator) First() bool {
+	return i.doOpAndUpdate(gen.Op_FIRST, nil) == nil
+}
+
 func (i *iterator) Valid() bool {
 	if len(i.currentK) == 0 && len(i.currentV) == 0 {
 		if err := i.doOpAndUpdate(gen.Op_CURRENT, nil); err != nil {

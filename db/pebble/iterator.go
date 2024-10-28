@@ -14,6 +14,10 @@ type iterator struct {
 	positioned bool
 }
 
+func (i *iterator) First() bool {
+	return i.iter.First()
+}
+
 // Valid : see db.Transaction.Iterator.Valid
 func (i *iterator) Valid() bool {
 	return i.iter.Valid()
