@@ -42,10 +42,10 @@ func TestCompiledCasm(t *testing.T) {
 
 		resp, err := handler.CompiledCasm(classHash)
 		assert.Nil(t, resp)
-		assert.Equal(t, jsonrpc.InternalError, err.Code)
+		assert.Equal(t, rpc.ErrClassHashNotFound, err)
 	})
 	t.Run("cairo0", func(t *testing.T) {
-		classHash := utils.HexToFelt(t, "0x7db5c2c2676c2a5bfc892ee4f596b49514e3056a0eee8ad125870b4fb1dd909")
+		classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
 
 		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
 		fd := feeder.New(cl)
@@ -79,6 +79,7 @@ func TestCompiledCasm(t *testing.T) {
 				External:    utils.Map(cairo0.Externals, adaptEntryPoint),
 				L1Handler:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
 			},
+			Hints:    json.RawMessage(`[[2,[{"Dst":0}]]]`),
 			Bytecode: cairo0Definition.Data,
 		}, resp)
 	})
