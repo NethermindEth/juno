@@ -3,6 +3,8 @@ package rpc
 import (
 	"encoding/json"
 
+	hintRunnerZero "github.com/NethermindEth/cairo-vm-go/pkg/hintrunner/zero"
+	"github.com/NethermindEth/cairo-vm-go/pkg/parsers/zero"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -63,12 +65,27 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		return nil, err
 	}
 
-	var cairo0 struct {
-		Prime           string       `json:"prime"`
-		CompilerVersion string       `json:"compiler_version,omitempty"`
-		Data            []*felt.Felt `json:"data"`
-	}
+	var cairo0 zero.ZeroProgram
 	err = json.Unmarshal(program, &cairo0)
+	if err != nil {
+		return nil, err
+	}
+
+	var bytecode []*felt.Felt
+	for _, str := range cairo0.Data {
+		f, err := new(felt.Felt).SetString(str)
+		if err != nil {
+			return nil, err
+		}
+		bytecode = append(bytecode, f)
+	}
+
+	hints, err := hintRunnerZero.GetZeroHints(&cairo0)
+	if err != nil {
+		return nil, err
+	}
+
+	rawHints, err := json.Marshal(hints)
 	if err != nil {
 		return nil, err
 	}
@@ -88,9 +105,9 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 			L1Handler:   utils.Map(class.L1Handlers, adaptEntryPoint),
 		},
 		Prime:                  cairo0.Prime,
-		Bytecode:               cairo0.Data,
+		Bytecode:               bytecode,
 		CompilerVersion:        cairo0.CompilerVersion,
-		Hints:                  nil, // todo fill this field
+		Hints:                  json.RawMessage(rawHints),
 		BytecodeSegmentLengths: nil, // Cairo 0 classes don't have this field (it was introduced since Sierra 1.5.0)
 	}
 	return result, nil
