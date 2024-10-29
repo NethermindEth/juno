@@ -2,11 +2,13 @@ package rpc
 
 import (
 	"encoding/json"
+	"errors"
 
 	hintRunnerZero "github.com/NethermindEth/cairo-vm-go/pkg/hintrunner/zero"
 	"github.com/NethermindEth/cairo-vm-go/pkg/parsers/zero"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -23,6 +25,8 @@ type EntryPointsByType struct {
 	L1Handler   []CasmEntryPoint `json:"L1_HANDLER"`
 }
 
+// CasmCompiledContractClass follows this specification:
+// https://github.com/starkware-libs/starknet-specs/blob/v0.8.0-rc0/api/starknet_executables.json#L45
 type CasmCompiledContractClass struct {
 	EntryPointsByType EntryPointsByType `json:"entry_points_by_type"`
 	// can't use felt.Felt here because prime is larger than felt
@@ -42,6 +46,9 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass
 
 	declaredClass, err := state.Class(classHash)
 	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, ErrClassHashNotFound
+		}
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 
@@ -86,7 +93,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 	}
 
 	var hints [][2]any // slice of 2-element tuples where first value is pc, and second value is slice of hints
-	for pc, hintItems := range utils.OrderMap(classHints) {
+	for pc, hintItems := range utils.SortedMap(classHints) {
 		hints = append(hints, [2]any{pc, hintItems})
 	}
 	rawHints, err := json.Marshal(hints)
