@@ -15,7 +15,7 @@ import (
 
 const (
 	MaxBlocksBack        = 1024
-	MaxAddressesInFilter = 1000 // TODO(weiihann): not finalised yet
+	MaxAddressesInFilter = 1024 // An arbitrary number, to be revisited when we have more contexts
 )
 
 type EventsArg struct {
