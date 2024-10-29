@@ -80,11 +80,15 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		bytecode = append(bytecode, f)
 	}
 
-	hints, err := hintRunnerZero.GetZeroHints(&cairo0)
+	classHints, err := hintRunnerZero.GetZeroHints(&cairo0)
 	if err != nil {
 		return nil, err
 	}
 
+	var hints [][2]any // slice of 2-element tuples where first value is pc, and second value is slice of hints
+	for pc, hintItems := range utils.OrderMap(classHints) {
+		hints = append(hints, [2]any{pc, hintItems})
+	}
 	rawHints, err := json.Marshal(hints)
 	if err != nil {
 		return nil, err
