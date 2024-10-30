@@ -2,7 +2,6 @@ package core2sn
 
 import (
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -20,7 +19,7 @@ func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.Compiled
 	feederCompiledClass.PythonicHints = coreCompiledClass.PythonicHints
 	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
 	feederCompiledClass.Hints = coreCompiledClass.Hints
-	feederCompiledClass.Prime = "0x" + coreCompiledClass.Prime.Text(felt.Base16)
+	feederCompiledClass.Prime = utils.ToHex(coreCompiledClass.Prime)
 	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCompiledClass.BytecodeSegmentLengths)
 
 	adapt := func(ep core.CompiledEntryPoint) starknet.CompiledEntryPoint {

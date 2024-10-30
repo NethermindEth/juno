@@ -5,6 +5,7 @@ go 1.23.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.0
+	github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4
 	github.com/bits-and-blooms/bitset v1.14.3
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/cockroachdb/pebble v1.1.2
@@ -41,6 +42,7 @@ require (
 require (
 	github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/alecthomas/participle/v2 v2.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
