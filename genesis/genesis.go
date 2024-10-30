@@ -196,16 +196,18 @@ func GenesisStateDiff(
 		default:
 			panic("transaction type not supported")
 		}
-		_, _, trace, _, _, err := v.Execute([]core.Transaction{coreTxn}, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)}, &blockInfo, genesisState, network, false, false, false, false)
+		_, _, trace, _, _, err := v.Execute([]core.Transaction{coreTxn}, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)}, &blockInfo, genesisState, network, true, false, true, false)
 		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 		traceSD := vm2core.StateDiff(&trace[0])
+		for k, v := range traceSD.DeployedContracts {
+			fmt.Println(k.String(), v.String())
+		}
 		genesisSD, _ := genesisState.StateDiffAndClasses()
 		mergedSD := builder.MergeStateDiffs(genesisSD, traceSD)
 		genesisState.SetStateDiff(mergedSD)
 	}
-
 	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
 	return genesisStateDiff, genesisClasses, nil
 }
