@@ -174,12 +174,13 @@ sequencer-plugin-w-accounts:
 	--http \
 	--http-port=6060 \
 	--http-host=0.0.0.0 \
-	--db-path=./seq-db \
+	--db-path=../seq-db \
 	--log-level=debug \
 	--seq-enable \
 	--seq-block-time=1 \
 	--network sequencer \
 	--plugin-path="myplugin.so" \
+	--seq-disable-fees \
 	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
 	--rpc-call-max-steps=4123000
 

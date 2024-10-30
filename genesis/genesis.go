@@ -6,10 +6,13 @@ import (
 	"os"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
@@ -22,6 +25,7 @@ type GenesisConfig struct {
 	Contracts         map[felt.Felt]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
 	FunctionCalls     []FunctionCall                    `json:"function_calls"`     // list of functionCalls to Call()
 	BootstrapAccounts []Account                         `json:"bootstrap_accounts"` // accounts to prefund with strk token
+	Txns              []rpc.Transaction                 `json:"transactions"`       // Declare NOT supported
 }
 
 type Account struct {
@@ -48,6 +52,7 @@ func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
 		Contracts         map[string]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
 		FunctionCalls     []FunctionCall                 `json:"function_calls"`     // list of functionCalls to Call()
 		BootstrapAccounts []Account                      `json:"bootstrap_accounts"` // accounts to prefund with strk token
+		Txns              []rpc.Transaction              `json:"transactions"`       // declare NOT supported
 	}
 	var aux auxConfig
 	if err := json.Unmarshal(data, &aux); err != nil {
@@ -65,6 +70,7 @@ func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
 		}
 		g.Contracts[*key] = v
 	}
+	g.Txns = aux.Txns
 	return nil
 }
 
@@ -95,7 +101,12 @@ func GenesisStateDiff(
 	if err != nil {
 		return nil, nil, err
 	}
-
+	blockInfo := vm.BlockInfo{
+		Header: &core.Header{
+			Number:    0,
+			Timestamp: 0,
+		},
+	}
 	genesisState := blockchain.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
 		core.NewState(db.NewMemTransaction()))
 
@@ -110,6 +121,7 @@ func GenesisStateDiff(
 				return nil, nil, fmt.Errorf("set compiled class hash: %v", err)
 			}
 		}
+		fmt.Println("classHash", classHash.String())
 	}
 
 	constructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
@@ -127,12 +139,6 @@ func GenesisStateDiff(
 				ClassHash:       &classHash,
 				Selector:        constructorSelector,
 				Calldata:        contractData.ConstructorArgs,
-			}
-			blockInfo := vm.BlockInfo{
-				Header: &core.Header{
-					Number:    0,
-					Timestamp: 0,
-				},
 			}
 			// Call the constructors
 			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
@@ -153,15 +159,51 @@ func GenesisStateDiff(
 			Selector:        &entryPointSelector,
 			Calldata:        fnCall.Calldata,
 		}
-		blockInfo := vm.BlockInfo{
-			Header: &core.Header{
-				Number:    0,
-				Timestamp: 0,
-			},
-		}
 		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, false); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
+	}
+
+	for _, txn := range config.Txns {
+		var coreTxn core.Transaction
+		switch txn.Type {
+		case rpc.TxnInvoke:
+			coreTxn = &core.InvokeTransaction{
+				TransactionHash:      txn.Hash,
+				CallData:             *txn.CallData,
+				TransactionSignature: *txn.Signature,
+				MaxFee:               txn.MaxFee,
+				ContractAddress:      txn.ContractAddress,
+				Version:              (*core.TransactionVersion)(txn.Version),
+				EntryPointSelector:   txn.EntryPointSelector,
+				Nonce:                txn.Nonce,
+				SenderAddress:        txn.SenderAddress,
+			}
+		case rpc.TxnDeployAccount:
+			coreTxn = &core.DeployAccountTransaction{
+				DeployTransaction: core.DeployTransaction{
+					TransactionHash:     txn.Hash,
+					ContractAddressSalt: txn.ContractAddressSalt,
+					ContractAddress:     txn.SenderAddress,
+					ClassHash:           txn.ClassHash,
+					ConstructorCallData: *txn.ConstructorCallData,
+					Version:             (*core.TransactionVersion)(txn.Version),
+				},
+				MaxFee:               txn.MaxFee,
+				TransactionSignature: *txn.Signature,
+				Nonce:                txn.Nonce,
+			}
+		default:
+			panic("transaction type not supported")
+		}
+		_, _, trace, _, _, err := v.Execute([]core.Transaction{coreTxn}, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)}, &blockInfo, genesisState, network, false, false, false, false)
+		if err != nil {
+			return nil, nil, fmt.Errorf("execute function call: %v", err)
+		}
+		traceSD := vm2core.StateDiff(&trace[0])
+		genesisSD, _ := genesisState.StateDiffAndClasses()
+		mergedSD := builder.MergeStateDiffs(genesisSD, traceSD)
+		genesisState.SetStateDiff(mergedSD)
 	}
 
 	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
