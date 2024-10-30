@@ -526,11 +526,11 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
 	b.pendingBlock.Block.TransactionCount += 1
 	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
-	b.pendingBlock.StateUpdate.StateDiff = mergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, vm2core.StateDiff(&trace[0]))
+	b.pendingBlock.StateUpdate.StateDiff = MergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, vm2core.StateDiff(&trace[0]))
 	return nil
 }
 
-func mergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff {
+func MergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff {
 	mergeMaps := func(oldMap, newMap map[felt.Felt]*felt.Felt) {
 		for key, value := range newMap {
 			oldMap[key] = value

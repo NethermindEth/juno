@@ -140,3 +140,7 @@ func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *
 func (p *PendingStateWriter) StateDiffAndClasses() (*core.StateDiff, map[felt.Felt]core.Class) {
 	return p.stateDiff, p.newClasses
 }
+
+func (p *PendingStateWriter) SetStateDiff(stateDiff *core.StateDiff) {
+	p.stateDiff = stateDiff
+}

@@ -1,7 +1,9 @@
 {
 	"classes": [
 		"./genesis/classes/strk.json",
-		"./genesis/classes/account.json"
+		"./genesis/classes/account.json",
+		"./genesis/classes/universaldeployer.json",
+		"./genesis/classes/udacnt.json"
 	],
 	"contracts": {
 		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": {
@@ -70,6 +72,16 @@
 				"0x0"
 			],
 			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
+				"0x123456789123",
+				"0x0"
+			],
+			"caller_address": "0x0"
 		}
 	],
 	"bootstrap_accounts": [
@@ -87,6 +99,34 @@
 			"address": "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
 			"publicKey": "0x441973b4517116d46800d35eca3bbcd455e034045c39852e46a74376d6881f",
 			"privateKey": "0x3a4791edf67fa0b32b812e41bc8bc4e9b79915412b1331f7669cbe23e97e15a"
+		}
+	],
+	"transactions": [
+		{
+			"transaction_hash": "0x199f9d79d02cb7900556eb1a77f411abf807bbbe6ad2841bd72b72e3d290a8c",
+			"max_fee": "0x69c71f05154",
+			"version": "0x1",
+			"signature": [],
+			"nonce": "0x0",
+			"type": "DEPLOY_ACCOUNT",
+			"class_hash": "0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
+			"contract_address_salt": "0x0",
+			"constructor_calldata": []
+		},
+		{
+			"transaction_hash": "0xc7ce47912f2d0931fb693882d3f5dfca884e196d71b7771c53121c3f717f3",
+			"max_fee": "0x5af3107a4000",
+			"version": "0x1",
+			"signature": [
+				"0x3d961ed4d414e60aba73519bae95b45c50a24b07e17bf7d3b1a0f22a4cce42a",
+				"0x4ae418b5d51355c3b8bfc58b0ceab6421ca047884b4d9e1e5703e753a9d76ba"
+			],
+			"nonce": "0x1",
+			"type": "INVOKE",
+			"sender_address": "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
+			"calldata": [
+				"0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69"
+			]
 		}
 	]
 }
