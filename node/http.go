@@ -143,6 +143,16 @@ func makeMetrics(host string, port uint16) *httpService {
 		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
+// Create a new service that updates the log level setting.
+func makeLogService(host string, port uint16, logLevel *utils.LogLevel) *httpService {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
+		utils.HTTPLogSettings(w, r, logLevel)
+	})
+	var handler http.Handler = mux
+	return makeHTTPService(host, port, handler)
+}
+
 type grpcService struct {
 	srv  *grpc.Server
 	host string
