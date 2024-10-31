@@ -11,7 +11,10 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-var ErrL1ClientNotFound = jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("L1 client not found, cannot serve starknet_getMessage"))
+var (
+	ErrL1ClientNotFound = jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("L1 client not found, cannot serve starknet_getMessage"))
+	logMsgToL2SigHash   = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
+)
 
 type LogMessageToL2 struct {
 	FromAddress *common.Address
@@ -47,9 +50,9 @@ func (l *LogMessageToL2) HashMessage() *common.Hash {
 }
 
 type MsgStatus struct {
-	L1HandlerHash  *felt.Felt
-	FinalityStatus TxnStatus
-	FailureReason  string
+	L1HandlerHash  *felt.Felt `json:"transaction_hash"`
+	FinalityStatus TxnStatus  `json:"finality_status"`
+	FailureReason  string     `json:"failure_reason,omitempty"`
 }
 
 func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) ([]MsgStatus, *jsonrpc.Error) {
@@ -87,7 +90,6 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
-	logMsgToL2SigHash := common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
 
 	var messageHashes []*common.Hash
 	for _, vLog := range receipt.Logs {

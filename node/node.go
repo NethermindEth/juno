@@ -200,7 +200,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
 	if cfg.EthNode == "" {
-		log.Warnw(rpc.ErrL1ClientNotFound.Message)
+		log.Warnw("L1 client not found, cannot serve starknet_getMessage")
 	} else {
 		ethClient, err := l1.NewETHClient(cfg.EthNode)
 		if err != nil {
