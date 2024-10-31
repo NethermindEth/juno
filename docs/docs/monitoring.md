@@ -85,3 +85,31 @@ To have Juno write logs to a file, use the command:
 ![Grafana dashboard](/img/grafana-1.png)
 
 ![Grafana dashboard](/img/grafana-2.png)
+
+## Change log level in runtime
+
+In case you want to change the log level in runtime without the need to restart the juno process, you can do it via HTTP calls.
+
+To enable this feature, use the following configuration options:
+
+- `log-host`: The interface to listen for requests. Defaults to `localhost`.
+- `log-port`: The port to listen for requests.  REQUIRED
+
+Examples:
+
+```console
+# Start juno specifying the log port
+juno --log-port=6789 --log-level=error ...
+
+# Get current level
+curl -X GET 'localhost:6789/log/level'
+error
+
+# Set level
+curl -X PUT 'localhost:6789/log/level?level=trace'
+Replaced log level with 'trace' successfully
+
+# Get new level
+curl -X GET 'localhost:6789/log/level'
+trace
+```
