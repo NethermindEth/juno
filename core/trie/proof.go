@@ -60,6 +60,36 @@ func (e *Edge) PrettyPrint() {
 	fmt.Printf("    Path: %v\n", e.Path)
 }
 
+func (t *Trie) Prove(key *Key, proofSet *ProofSet) error {
+	nodesFromRoot, err := t.nodesFromRoot(key)
+	if err != nil {
+		return err
+	}
+
+	var parentKey *Key
+
+	for i, sNode := range nodesFromRoot {
+		sNodeEdge, sNodeBinary, err := transformNode(t, parentKey, sNode)
+		if err != nil {
+			return err
+		}
+		isLeaf := sNode.key.len == t.height
+
+		if sNodeEdge != nil && !isLeaf { // Internal Edge
+			proofSet.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
+			proofSet.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
+		} else if sNodeEdge == nil && !isLeaf { // Internal Binary
+			proofSet.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
+		} else if sNodeEdge != nil && isLeaf { // Leaf Edge
+			proofSet.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
+		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
+			break
+		}
+		parentKey = nodesFromRoot[i].key
+	}
+	return nil
+}
+
 func GetBoundaryProofs(leftBoundary, rightBoundary *Key, tri *Trie) ([2][]ProofNode, error) {
 	proofs := [2][]ProofNode{}
 	leftProof, err := GetProof(leftBoundary, tri)

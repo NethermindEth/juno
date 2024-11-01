@@ -293,6 +293,111 @@ func newBinaryProofNode() *trie.Binary {
 	}
 }
 
+// TODO(weiihann): test with verify proof
+func TestProve(t *testing.T) {
+	t.Run("P Simple Trie - simple binary", func(t *testing.T) {
+		tempTrie := buildSimpleTrie(t)
+
+		zero := trie.NewKey(250, []byte{0})
+		expectedProofNodes := []trie.ProofNode{
+			&trie.Edge{
+				Path:  &zero,
+				Child: utils.HexToFelt(t, "0x05774FA77B3D843AE9167ABD61CF80365A9B2B02218FC2F628494B5BDC9B33B8"),
+			},
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+				RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+			},
+		}
+
+		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofSet := trie.NewProofSet()
+		err := tempTrie.Prove(&leafKey, proofSet)
+		require.NoError(t, err)
+
+		// Check that all expected nodes are in proof set
+		require.Equal(t, len(expectedProofNodes), proofSet.Size())
+		for _, node := range expectedProofNodes {
+			nodeHash := node.Hash(crypto.Pedersen)
+			proofNode, ok := proofSet.Get(*nodeHash)
+			require.True(t, ok)
+			require.Equal(t, node.Hash(crypto.Pedersen), proofNode.Hash(crypto.Pedersen))
+		}
+	})
+
+	t.Run("P Simple Trie - simple double binary", func(t *testing.T) {
+		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
+
+		expectedProofNodes[2] = &trie.Binary{
+			LeftHash:  utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+			RightHash: utils.HexToFelt(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+		}
+
+		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofSet := trie.NewProofSet()
+		err := tempTrie.Prove(&leafKey, proofSet)
+		require.NoError(t, err)
+
+		// Check that all expected nodes are in proof set
+		require.Equal(t, len(expectedProofNodes), proofSet.Size())
+		for _, node := range expectedProofNodes {
+			nodeHash := node.Hash(crypto.Pedersen)
+			proofNode, ok := proofSet.Get(*nodeHash)
+			require.True(t, ok)
+			require.Equal(t, node.Hash(crypto.Pedersen), proofNode.Hash(crypto.Pedersen))
+		}
+	})
+
+	t.Run("P Simple Trie - simple double binary edge", func(t *testing.T) {
+		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
+		leafFelt := new(felt.Felt).SetUint64(3).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofSet := trie.NewProofSet()
+		err := tempTrie.Prove(&leafKey, proofSet)
+		require.NoError(t, err)
+
+		require.Equal(t, len(expectedProofNodes), proofSet.Size())
+		for _, node := range expectedProofNodes {
+			nodeHash := node.Hash(crypto.Pedersen)
+			proofNode, ok := proofSet.Get(*nodeHash)
+			require.True(t, ok)
+			require.Equal(t, node.Hash(crypto.Pedersen), proofNode.Hash(crypto.Pedersen))
+		}
+	})
+
+	t.Run("P Simple Trie - simple binary root", func(t *testing.T) {
+		tempTrie := buildSimpleBinaryRootTrie(t)
+
+		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
+		path1 := trie.NewKey(250, key1Bytes[:])
+		expectedProofNodes := []trie.ProofNode{
+			&trie.Binary{
+				LeftHash:  utils.HexToFelt(t, "0x06E08BF82793229338CE60B65D1845F836C8E2FBFE2BC59FF24AEDBD8BA219C4"),
+				RightHash: utils.HexToFelt(t, "0x04F9B8E66212FB528C0C1BD02F43309C53B895AA7D9DC91180001BDD28A588FA"),
+			},
+			&trie.Edge{
+				Path:  &path1,
+				Child: utils.HexToFelt(t, "0xcc"),
+			},
+		}
+		leafFelt := new(felt.Felt).SetUint64(0).Bytes()
+		leafKey := trie.NewKey(251, leafFelt[:])
+		proofSet := trie.NewProofSet()
+		err := tempTrie.Prove(&leafKey, proofSet)
+		require.NoError(t, err)
+
+		require.Equal(t, len(expectedProofNodes), proofSet.Size())
+		for _, node := range expectedProofNodes {
+			nodeHash := node.Hash(crypto.Pedersen)
+			proofNode, ok := proofSet.Get(*nodeHash)
+			require.True(t, ok)
+			require.Equal(t, node.Hash(crypto.Pedersen), proofNode.Hash(crypto.Pedersen))
+		}
+	})
+}
+
 func TestGetProof(t *testing.T) {
 	t.Run("GP Simple Trie - simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
