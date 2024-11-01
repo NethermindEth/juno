@@ -2,6 +2,7 @@ package trie_test
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -226,4 +227,40 @@ func TestMostSignificantBits(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestKeyErrorHandling(t *testing.T) {
+	t.Run("passed too long key bytes panics", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			require.Contains(t, r.(string), "bytes does not fit in bitset")
+		}()
+		tooLongKeyB := make([]byte, 33)
+		trie.NewKey(8, tooLongKeyB)
+	})
+	t.Run("MostSignificantBits n greater than key length", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		_, err := key.MostSignificantBits(9)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot get more bits than the key length")
+	})
+	t.Run("MostSignificantBits equals key length return copy of key", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		kCopy, err := key.MostSignificantBits(8)
+		require.NoError(t, err)
+		require.Equal(t, key, *kCopy)
+	})
+	t.Run("WriteTo returns error", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		wrote, err := key.WriteTo(&errorBuffer{})
+		require.Error(t, err)
+		require.Equal(t, int64(0), wrote)
+	})
+}
+
+type errorBuffer struct{}
+
+func (*errorBuffer) Write([]byte) (int, error) {
+	return 0, errors.New("expected to fail")
 }
