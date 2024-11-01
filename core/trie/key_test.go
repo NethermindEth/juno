@@ -71,11 +71,74 @@ func BenchmarkKeyEncoding(b *testing.B) {
 func TestKeyTest(t *testing.T) {
 	key := trie.NewKey(44, []byte{0x10, 0x02})
 	for i := 0; i < int(key.Len()); i++ {
-		assert.Equal(t, i == 1 || i == 12, key.Test(uint8(i)), i)
+		assert.Equal(t, i == 1 || i == 12, key.IsBitSet(uint8(i)), i)
 	}
 }
 
-func TestDeleteLSB(t *testing.T) {
+func TestIsBitSet(t *testing.T) {
+	tests := map[string]struct {
+		key      trie.Key
+		position uint8
+		expected bool
+	}{
+		"single byte, LSB set": {
+			key:      trie.NewKey(8, []byte{0x01}),
+			position: 0,
+			expected: true,
+		},
+		"single byte, MSB set": {
+			key:      trie.NewKey(8, []byte{0x80}),
+			position: 7,
+			expected: true,
+		},
+		"single byte, middle bit set": {
+			key:      trie.NewKey(8, []byte{0x10}),
+			position: 4,
+			expected: true,
+		},
+		"single byte, bit not set": {
+			key:      trie.NewKey(8, []byte{0xFE}),
+			position: 0,
+			expected: false,
+		},
+		"multiple bytes, LSB set": {
+			key:      trie.NewKey(16, []byte{0x00, 0x02}),
+			position: 1,
+			expected: true,
+		},
+		"multiple bytes, MSB set": {
+			key:      trie.NewKey(16, []byte{0x01, 0x00}),
+			position: 8,
+			expected: true,
+		},
+		"multiple bytes, no bits set": {
+			key:      trie.NewKey(16, []byte{0x00, 0x00}),
+			position: 7,
+			expected: false,
+		},
+		"check all bits in pattern": {
+			key:      trie.NewKey(8, []byte{0xA5}), // 10100101
+			position: 0,
+			expected: true,
+		},
+	}
+
+	// Additional test for 0xA5 pattern
+	key := trie.NewKey(8, []byte{0xA5}) // 10100101
+	expectedBits := []bool{true, false, true, false, false, true, false, true}
+	for i, expected := range expectedBits {
+		assert.Equal(t, expected, key.IsBitSet(uint8(i)), "bit %d in 0xA5", i)
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := tc.key.IsBitSet(tc.position)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestShiftRight(t *testing.T) {
 	key := trie.NewKey(16, []byte{0xF3, 0x04})
 
 	tests := map[string]struct {
@@ -98,57 +161,16 @@ func TestDeleteLSB(t *testing.T) {
 			shiftAmount: 9,
 			expectedKey: trie.NewKey(7, []byte{0x79}),
 		},
+		"delete all bits": {
+			shiftAmount: 16,
+			expectedKey: trie.NewKey(0, []byte{}),
+		},
 	}
 
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
 			copyKey := key
-			copyKey.DeleteLSB(test.shiftAmount)
-			assert.Equal(t, test.expectedKey, copyKey)
-		})
-	}
-}
-
-func TestTruncate(t *testing.T) {
-	tests := map[string]struct {
-		key         trie.Key
-		newLen      uint8
-		expectedKey trie.Key
-	}{
-		"truncate to 12 bits": {
-			key:         trie.NewKey(16, []byte{0xF3, 0x14}),
-			newLen:      12,
-			expectedKey: trie.NewKey(12, []byte{0x03, 0x14}),
-		},
-		"truncate to 9 bits": {
-			key:         trie.NewKey(16, []byte{0xF3, 0x14}),
-			newLen:      9,
-			expectedKey: trie.NewKey(9, []byte{0x01, 0x14}),
-		},
-		"truncate to 3 bits": {
-			key:         trie.NewKey(16, []byte{0xF3, 0x14}),
-			newLen:      3,
-			expectedKey: trie.NewKey(3, []byte{0x04}),
-		},
-		"truncate to multiple of 8": {
-			key: trie.NewKey(251, []uint8{
-				0x7, 0x40, 0x33, 0x8c, 0xbc, 0x9, 0xeb, 0xf, 0xb7, 0xab,
-				0xc5, 0x20, 0x35, 0xc6, 0x4d, 0x4e, 0xa5, 0x78, 0x18, 0x9e, 0xd6, 0x37, 0x47, 0x91, 0xd0,
-				0x6e, 0x44, 0x1e, 0xf7, 0x7f, 0xf, 0x5f,
-			}),
-			newLen: 248,
-			expectedKey: trie.NewKey(248, []uint8{
-				0x0, 0x40, 0x33, 0x8c, 0xbc, 0x9, 0xeb, 0xf, 0xb7, 0xab,
-				0xc5, 0x20, 0x35, 0xc6, 0x4d, 0x4e, 0xa5, 0x78, 0x18, 0x9e, 0xd6, 0x37, 0x47, 0x91, 0xd0,
-				0x6e, 0x44, 0x1e, 0xf7, 0x7f, 0xf, 0x5f,
-			}),
-		},
-	}
-
-	for desc, test := range tests {
-		t.Run(desc, func(t *testing.T) {
-			copyKey := test.key
-			copyKey.Truncate(test.newLen)
+			copyKey.ShiftRight(test.shiftAmount)
 			assert.Equal(t, test.expectedKey, copyKey)
 		})
 	}
