@@ -95,7 +95,7 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 
 // feltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) feltToKey(k *felt.Felt) Key {
+func (t *Trie) FeltToKey(k *felt.Felt) Key {
 	kBytes := k.Bytes()
 	return NewKey(t.height, kBytes[:])
 }
@@ -111,7 +111,7 @@ func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 func findDivergentBit(longerKey, shorterKey *Key) uint8 {
 	divergentBit := uint8(0)
 	for divergentBit <= shorterKey.Len() &&
-		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
+		longerKey.IsBitSet(longerKey.Len()-divergentBit) == shorterKey.IsBitSet(shorterKey.Len()-divergentBit) {
 		divergentBit++
 	}
 	return divergentBit
@@ -180,7 +180,7 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 			return nodes, nil
 		}
 
-		if key.Test(key.Len() - cur.Len() - 1) {
+		if key.IsBitSet(key.Len() - cur.Len() - 1) {
 			cur = node.Right
 		} else {
 			cur = node.Left
@@ -192,7 +192,7 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
-	storageKey := t.feltToKey(key)
+	storageKey := t.FeltToKey(key)
 	value, err := t.storage.Get(&storageKey)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -274,7 +274,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		if err != nil {
 			return err
 		}
-		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+		if nodeKey.IsBitSet(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Right = nodeKey
 			newParent.RightHash = node.Hash(nodeKey, t.hash)
 		} else {
@@ -286,7 +286,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		}
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 	} else {
-		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+		if nodeKey.IsBitSet(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Left, newParent.Right = sibling.key, nodeKey
 			leftChild, rightChild = sibling.node, node
 		} else {
@@ -328,7 +328,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	}
 
 	old := felt.Zero
-	nodeKey := t.feltToKey(key)
+	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
 	}
@@ -379,7 +379,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 	}
 
 	old := felt.Zero
-	nodeKey := t.feltToKey(key)
+	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
 	}
