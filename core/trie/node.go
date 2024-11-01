@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -136,5 +137,58 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	n.LeftHash.SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
 	n.RightHash.SetBytes(data[:felt.Bytes])
+	return nil
+}
+
+func (n *Node) String() string {
+	return fmt.Sprintf("Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}", n.Value, n.Left, n.Right, n.LeftHash, n.RightHash)
+}
+
+func (n *Node) Merge(other *Node) error {
+	// Compare Value if both exist
+	if n.Value != nil && other.Value != nil {
+		if !n.Value.Equal(other.Value) {
+			return fmt.Errorf("conflicting Values: %v != %v", n.Value, other.Value)
+		}
+	} else if other.Value != nil {
+		n.Value = other.Value
+	}
+
+	// Compare Left if both exist
+	if n.Left != nil && other.Left != nil {
+		if !n.Left.Equal(other.Left) {
+			return fmt.Errorf("conflicting Left keys: %v != %v", n.Left, other.Left)
+		}
+	} else if other.Left != nil {
+		n.Left = other.Left
+	}
+
+	// Compare Right if both exist
+	if n.Right != nil && other.Right != nil {
+		if !n.Right.Equal(other.Right) {
+			return fmt.Errorf("conflicting Right keys: %v != %v", n.Right, other.Right)
+		}
+	} else if other.Right != nil {
+		n.Right = other.Right
+	}
+
+	// Compare LeftHash if both exist
+	if n.LeftHash != nil && other.LeftHash != nil {
+		if !n.LeftHash.Equal(other.LeftHash) {
+			return fmt.Errorf("conflicting LeftHash: %v != %v", n.LeftHash, other.LeftHash)
+		}
+	} else if other.LeftHash != nil {
+		n.LeftHash = other.LeftHash
+	}
+
+	// Compare RightHash if both exist
+	if n.RightHash != nil && other.RightHash != nil {
+		if !n.RightHash.Equal(other.RightHash) {
+			return fmt.Errorf("conflicting RightHash: %v != %v", n.RightHash, other.RightHash)
+		}
+	} else if other.RightHash != nil {
+		n.RightHash = other.RightHash
+	}
+
 	return nil
 }
