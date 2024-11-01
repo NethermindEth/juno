@@ -1,6 +1,10 @@
 package utils
 
-import "slices"
+import (
+	"fmt"
+	"reflect"
+	"slices"
+)
 
 func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
 	if slice == nil {
@@ -38,4 +42,31 @@ func AnyOf[T comparable](e T, values ...T) bool {
 		}
 	}
 	return false
+}
+
+// Unique returns a new slice with duplicates removed
+func Unique[T comparable](slice []T) []T {
+	// check if not used with a pointer type
+	if len(slice) > 0 {
+		elt := slice[0]
+		if reflect.TypeOf(elt).Kind() == reflect.Ptr {
+			panic(fmt.Sprintf("Unique() cannot be used with a slice of pointers (%T). Use `UniqueFunc()` instead.", elt))
+		}
+	}
+
+	return UniqueFunc(slice, func(t T) T { return t })
+}
+
+// UniqueFunc returns a new slice with duplicates removed, using a key function
+func UniqueFunc[T, K comparable](slice []T, key func(T) K) []T {
+	var result []T
+	seen := make(map[K]struct{})
+	for _, e := range slice {
+		k := key(e)
+		if _, ok := seen[k]; !ok {
+			result = append(result, e)
+			seen[k] = struct{}{}
+		}
+	}
+	return result
 }

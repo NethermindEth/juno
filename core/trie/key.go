@@ -1,10 +1,10 @@
 package trie
 
 import (
-	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -39,8 +39,8 @@ func (k *Key) unusedBytes() []byte {
 	return k.bitset[:len(k.bitset)-int(k.bytesNeeded())]
 }
 
-func (k *Key) WriteTo(buf *bytes.Buffer) (int64, error) {
-	if err := buf.WriteByte(k.len); err != nil {
+func (k *Key) WriteTo(buf io.Writer) (int64, error) {
+	if _, err := buf.Write([]byte{k.len}); err != nil {
 		return 0, err
 	}
 

@@ -16,7 +16,7 @@ func NewProofNodeSet() *ProofNodeSet {
 }
 
 type ProofNode interface {
-	Hash(hash hashFunc) *felt.Felt
+	Hash(hash HashFunc) *felt.Felt
 	Len() uint8
 	String() string
 }
@@ -26,7 +26,7 @@ type Binary struct {
 	RightHash *felt.Felt
 }
 
-func (b *Binary) Hash(hash hashFunc) *felt.Felt {
+func (b *Binary) Hash(hash HashFunc) *felt.Felt {
 	return hash(b.LeftHash, b.RightHash)
 }
 
@@ -43,7 +43,7 @@ type Edge struct {
 	Path  *Key       // path from parent to child
 }
 
-func (e *Edge) Hash(hash hashFunc) *felt.Felt {
+func (e *Edge) Hash(hash HashFunc) *felt.Felt {
 	length := make([]byte, len(e.Path.bitset))
 	length[len(e.Path.bitset)-1] = e.Path.len
 	pathFelt := e.Path.Felt()
@@ -137,7 +137,7 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 //   - Any node's computed hash doesn't match its expected hash
 //   - The path bits don't match the key bits
 //   - The proof ends before processing all key bits
-func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash hashFunc) (*felt.Felt, error) {
+func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash HashFunc) (*felt.Felt, error) {
 	key := FeltToKey(globalTrieHeight, keyFelt)
 	expectedHash := root
 	keyLen := key.Len()
