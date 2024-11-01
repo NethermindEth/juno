@@ -71,7 +71,7 @@ func BenchmarkKeyEncoding(b *testing.B) {
 func TestKeyTest(t *testing.T) {
 	key := trie.NewKey(44, []byte{0x10, 0x02})
 	for i := 0; i < int(key.Len()); i++ {
-		assert.Equal(t, i == 1 || i == 12, key.Test(uint8(i)), i)
+		assert.Equal(t, i == 1 || i == 12, key.IsBitSet(uint8(i)), i)
 	}
 }
 
