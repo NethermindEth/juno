@@ -60,8 +60,10 @@ func (e *Edge) PrettyPrint() {
 	fmt.Printf("    Path: %v\n", e.Path)
 }
 
-func (t *Trie) Prove(key *Key, proofSet *ProofSet) error {
-	nodesFromRoot, err := t.nodesFromRoot(key)
+func (t *Trie) Prove(key *felt.Felt, proofSet *ProofSet) error {
+	k := t.FeltToKey(key)
+
+	nodesFromRoot, err := t.nodesFromRoot(&k)
 	if err != nil {
 		return err
 	}
@@ -344,46 +346,79 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 	return proofNodes, nil
 }
 
-// VerifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
-// https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
-func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
+// VerifyProof verifies that a proof path is valid for a given key in a binary trie.
+// It walks through the proof nodes, verifying each step matches the expected path to reach the key.
+//
+// The verification process:
+// 1. Starts at the root hash and retrieves the corresponding proof node
+// 2. For each proof node:
+//   - Verifies the node's computed hash matches the expected hash
+//   - For Binary nodes:
+//     -- Uses the next unprocessed bit in the key to choose left/right path
+//     -- If key bit is 0, takes left path; if 1, takes right path
+//   - For Edge nodes:
+//     -- Verifies the compressed path matches the corresponding bits in the key
+//     -- Moves to the child node if paths match
+//
+// 3. Continues until all bits in the key are processed
+//
+// The proof is considered invalid if:
+//   - Any proof node is missing from the proofSet
+//   - Any node's computed hash doesn't match its expected hash
+//   - The path bits don't match the key bits
+//   - The proof ends before processing all key bits
+func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (*felt.Felt, bool) {
 	expectedHash := root
-	remainingPath := NewKey(key.len, key.bitset[:])
-	for i, proofNode := range proofs {
-		if !proofNode.Hash(hash).Equal(expectedHash) {
-			return false
+	keyLen := key.Len()
+	var processedBits uint8
+
+	for {
+		proofNode, ok := proofSet.Get(*expectedHash)
+		if !ok {
+			return nil, false
 		}
 
-		switch proofNode := proofNode.(type) {
-		case *Binary:
-			if remainingPath.Test(remainingPath.Len() - 1) {
-				expectedHash = proofNode.RightHash
-			} else {
-				expectedHash = proofNode.LeftHash
+		// Verify the hash matches
+		if !proofNode.Hash(hash).Equal(expectedHash) {
+			return nil, false
+		}
+
+		switch node := proofNode.(type) {
+		case *Binary: // Binary nodes represent left/right choices
+			if key.Len() <= processedBits {
+				return nil, false
 			}
-			remainingPath.RemoveLastBit()
-		case *Edge:
-			subKey, err := remainingPath.SubKey(proofNode.Path.Len())
-			if err != nil {
-				return false
+			// Check the bit at parent's position
+			expectedHash = node.LeftHash
+			if key.IsBitSet(keyLen - processedBits - 1) {
+				expectedHash = node.RightHash
+			}
+			processedBits++
+		case *Edge: // Edge nodes represent paths between binary nodes
+			nodeLen := node.Path.Len()
+
+			if key.Len() < processedBits+nodeLen {
+				return nil, false
 			}
 
-			// Todo:
-			// If we are verifying the key doesn't exist, then we should
-			// update subKey to point in the other direction
-			if value == nil && i == len(proofs)-1 {
-				return true
+			// Ensure the bits between segment of the key and the node path match
+			start := keyLen - processedBits - nodeLen
+			end := keyLen - processedBits
+			for i := start; i < end; i++ { // check if the bits match
+				if key.IsBitSet(i) != node.Path.IsBitSet(i-start) {
+					return nil, false
+				}
 			}
 
-			if !proofNode.Path.Equal(subKey) {
-				return false
-			}
-			expectedHash = proofNode.Child
-			remainingPath.Truncate(251 - proofNode.Path.Len()) //nolint:mnd
+			processedBits += nodeLen
+			expectedHash = node.Child
+		}
+
+		// We've consumed all bits in our path
+		if processedBits >= keyLen {
+			return expectedHash, true
 		}
 	}
-
-	return expectedHash.Equal(value)
 }
 
 // VerifyRangeProof verifies the range proof for the given range of keys.
@@ -417,9 +452,11 @@ func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*
 	var err error
 	for i := 0; i < 2; i++ {
 		if proofs[i] != nil {
-			if !VerifyProof(root, proofKeys[i], proofValues[i], proofs[i], hash) {
-				return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
-			}
+
+			// if !VerifyProof(root, proofKeys[i], proofValues[i], proofs[i], hash) {
+			// 	return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
+			// }
+			// TODO(weiihann): Verify proof
 
 			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], hash)
 			if err != nil {
@@ -511,7 +548,7 @@ func assignChild(i, compressedParent int, parentNode *Node,
 	if err != nil {
 		return nil, err
 	}
-	if leafKey.Test(leafKey.len - parentKey.len - 1) {
+	if leafKey.IsBitSet(leafKey.len - parentKey.len - 1) {
 		parentNode.Right = childKey
 		parentNode.Left = nilKey
 	} else {
@@ -630,9 +667,9 @@ func getParentKey(idx int, compressedParentOffset uint8, leafKey *Key,
 	}
 
 	if _, ok := pNode.(*Binary); ok {
-		crntKey, err = leafKey.SubKey(height)
+		crntKey, err = leafKey.MostSignificantBits(height)
 	} else {
-		crntKey, err = leafKey.SubKey(height + compressedParentOffset)
+		crntKey, err = leafKey.MostSignificantBits(height + compressedParentOffset)
 	}
 	return crntKey, err
 }
@@ -651,7 +688,7 @@ func getChildKey(childIdx int, crntKey, leafKey, nilKey *Key, proofNodes []Proof
 		return nilKey, nil
 	}
 
-	return leafKey.SubKey(crntKey.len + uint8(compressChild) + compressChildOffset)
+	return leafKey.MostSignificantBits(crntKey.len + uint8(compressChild) + compressChildOffset)
 }
 
 // BuildTrie builds a trie using the proof paths (including inner nodes), and then sets all the keys-values (leaves)

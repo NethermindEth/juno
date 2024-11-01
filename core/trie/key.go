@@ -24,6 +24,41 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
+// MostSignificantBits returns a new Key containing the first n most significant bits of the original key
+func (k *Key) MostSignificantBits(n uint8) (*Key, error) {
+	if n > k.len {
+		return nil, fmt.Errorf("cannot take %d bits from key of length %d", n, k.len)
+	}
+
+	if n == k.len {
+		return k.Copy(), nil
+	}
+
+	newKey := &Key{len: n}
+
+	// Calculate how many bytes we need to copy
+	bytesToCopy := (n + 7) / 8
+	if bytesToCopy > 0 {
+		// Copy the required bytes from the original key
+		startPos := len(k.bitset) - int((k.len+7)/8)
+		copy(newKey.bitset[len(newKey.bitset)-int(bytesToCopy):], k.bitset[startPos:])
+	}
+
+	// Clear any extra bits in the last byte if necessary
+	if n%8 != 0 && bytesToCopy > 0 {
+		lastBytePos := len(newKey.bitset) - int(bytesToCopy)
+		mask := byte(0xFF >> (8 - (n % 8)))
+		newKey.bitset[lastBytePos] &= mask
+	}
+
+	// Clear any remaining bytes
+	for i := 0; i < len(newKey.bitset)-int(bytesToCopy); i++ {
+		newKey.bitset[i] = 0
+	}
+
+	return newKey, nil
+}
+
 func (k *Key) SubKey(n uint8) (*Key, error) {
 	if n > k.len {
 		return nil, errors.New(fmt.Sprint("cannot subtract key of length %i from key of length %i", n, k.len))
@@ -96,11 +131,13 @@ func (k *Key) Equal(other *Key) bool {
 	return k.len == other.len && k.bitset == other.bitset
 }
 
-func (k *Key) Test(bit uint8) bool {
+// IsBitSet returns whether the bit at the given position is 1.
+// Position 0 represents the least significant (rightmost) bit.
+func (k *Key) IsBitSet(position uint8) bool {
 	const LSB = uint8(0x1)
-	byteIdx := bit / 8
+	byteIdx := position / 8
 	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]
-	bitIdx := bit % 8
+	bitIdx := position % 8
 	return ((byteAtIdx >> bitIdx) & LSB) != 0
 }
 
@@ -136,20 +173,14 @@ func (k *Key) Truncate(length uint8) {
 	}
 }
 
-func (k *Key) RemoveLastBit() {
+func (k *Key) RemoveMostSignificantBit() {
 	if k.len == 0 {
 		return
 	}
 
-	k.len--
+	k.Truncate(k.len - 1)
+}
 
-	unusedBytes := k.unusedBytes()
-	clear(unusedBytes)
-
-	// clear upper bits on the last used byte
-	inUseBytes := k.inUseBytes()
-	unusedBitsCount := 8 - (k.len % 8)
-	if unusedBitsCount != 8 && len(inUseBytes) > 0 {
-		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
-	}
+func (k *Key) Copy() *Key {
+	return &Key{len: k.len, bitset: k.bitset}
 }
