@@ -3,12 +3,13 @@ package trie
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
+
+var NilKey = &Key{len: 0, bitset: [32]byte{}}
 
 type Key struct {
 	len    uint8
@@ -25,23 +26,7 @@ func NewKey(length uint8, keyBytes []byte) Key {
 }
 
 func (k *Key) SubKey(n uint8) (*Key, error) {
-	if n > k.len {
-		return nil, errors.New(fmt.Sprint("cannot subtract key of length %i from key of length %i", n, k.len))
-	}
-
-	newKey := &Key{len: n}
-	copy(newKey.bitset[:], k.bitset[len(k.bitset)-int((k.len+7)/8):]) //nolint:mnd
-
-	// Shift right by the number of bits that are not needed
-	shift := k.len - n
-	for i := len(newKey.bitset) - 1; i >= 0; i-- {
-		newKey.bitset[i] >>= shift
-		if i > 0 {
-			newKey.bitset[i] |= newKey.bitset[i-1] << (8 - shift)
-		}
-	}
-
-	return newKey, nil
+	panic("TODO(weiihann): not used")
 }
 
 func (k *Key) bytesNeeded() uint {
@@ -96,22 +81,28 @@ func (k *Key) Equal(other *Key) bool {
 	return k.len == other.len && k.bitset == other.bitset
 }
 
-func (k *Key) Test(bit uint8) bool {
+// IsBitSet returns whether the bit at the given position is 1.
+// Position 0 represents the least significant (rightmost) bit.
+func (k *Key) IsBitSet(position uint8) bool {
 	const LSB = uint8(0x1)
-	byteIdx := bit / 8
+	byteIdx := position / 8
 	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]
-	bitIdx := bit % 8
+	bitIdx := position % 8
 	return ((byteAtIdx >> bitIdx) & LSB) != 0
 }
 
-func (k *Key) String() string {
-	return fmt.Sprintf("(%d) %s", k.len, hex.EncodeToString(k.bitset[:]))
-}
-
-// DeleteLSB right shifts and shortens the key
-func (k *Key) DeleteLSB(n uint8) {
+// ShiftRight removes n least significant bits from the key by performing a right shift
+// operation and reducing the key length. For example, if the key contains bits
+// "1111 0000" (length=8) and n=4, the result will be "1111" (length=4).
+//
+// The operation is destructive - it modifies the key in place.
+func (k *Key) ShiftRight(n uint8) {
 	if k.len < n {
 		panic("deleting more bits than there are")
+	}
+
+	if n == 0 {
+		return
 	}
 
 	var bigInt big.Int
@@ -119,6 +110,16 @@ func (k *Key) DeleteLSB(n uint8) {
 	bigInt.Rsh(&bigInt, uint(n))
 	bigInt.FillBytes(k.bitset[:])
 	k.len -= n
+}
+
+func (k *Key) MostSignificantBits(n uint8) (*Key, error) {
+	if n > k.len {
+		return nil, fmt.Errorf("cannot get more bits than the key length")
+	}
+
+	keyCopy := k.Copy()
+	keyCopy.ShiftRight(k.len - n)
+	return &keyCopy, nil
 }
 
 // Truncate truncates key to `length` bits by clearing the remaining upper bits
@@ -136,20 +137,35 @@ func (k *Key) Truncate(length uint8) {
 	}
 }
 
-func (k *Key) RemoveLastBit() {
-	if k.len == 0 {
-		return
+func (k *Key) String() string {
+	return fmt.Sprintf("(%d) %s", k.len, hex.EncodeToString(k.bitset[:]))
+}
+
+// Copy returns a deep copy of the key
+func (k *Key) Copy() Key {
+	newKey := Key{len: k.len}
+	copy(newKey.bitset[:], k.bitset[:])
+	return newKey
+}
+
+// findCommonKey finds the set of common MSB bits in two key bitsets.
+func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
+	divergentBit := findDivergentBit(longerKey, shorterKey)
+	commonKey := *shorterKey
+	commonKey.ShiftRight(shorterKey.Len() - divergentBit + 1)
+	return commonKey, divergentBit == shorterKey.Len()+1
+}
+
+func findDivergentBit(longerKey, shorterKey *Key) uint8 {
+	divergentBit := uint8(0)
+	for divergentBit <= shorterKey.Len() &&
+		longerKey.IsBitSet(longerKey.Len()-divergentBit) == shorterKey.IsBitSet(shorterKey.Len()-divergentBit) {
+		divergentBit++
 	}
+	return divergentBit
+}
 
-	k.len--
-
-	unusedBytes := k.unusedBytes()
-	clear(unusedBytes)
-
-	// clear upper bits on the last used byte
-	inUseBytes := k.inUseBytes()
-	unusedBitsCount := 8 - (k.len % 8)
-	if unusedBitsCount != 8 && len(inUseBytes) > 0 {
-		inUseBytes[0] = (inUseBytes[0] << unusedBitsCount) >> unusedBitsCount
-	}
+func isSubset(longerKey, shorterKey *Key) bool {
+	divergentBit := findDivergentBit(longerKey, shorterKey)
+	return divergentBit == shorterKey.Len()+1
 }
