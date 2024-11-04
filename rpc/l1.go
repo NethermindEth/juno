@@ -18,33 +18,34 @@ var (
 
 type LogMessageToL2 struct {
 	FromAddress *common.Address
-	ToAddress   *common.Address
+	ToAddress   *big.Int
 	Nonce       *big.Int
 	Selector    *big.Int
 	Payload     []*big.Int
 	Fee         *big.Int
 }
 
-// HashMessage calculates the message hash following the Keccak256 hash method
 func (l *LogMessageToL2) HashMessage() *common.Hash {
 	hash := sha3.NewLegacyKeccak256()
 
-	// Padding for Ethereum address to 32 bytes
+	writeUint256 := func(value *big.Int) {
+		bytes := make([]byte, 32) //nolint:mnd
+		value.FillBytes(bytes)
+		hash.Write(bytes)
+	}
+
+	// Pad FromAddress to 32 bytes
 	hash.Write(make([]byte, 12)) //nolint:mnd
 	hash.Write(l.FromAddress.Bytes())
-	hash.Write(l.ToAddress.Bytes())
-	hash.Write(l.Nonce.Bytes())
-	hash.Write(l.Selector.Bytes())
-
-	// Padding for payload length (u64)
-	hash.Write(make([]byte, 24))     //nolint:mnd
-	payloadLength := make([]byte, 8) //nolint:mnd
-	big.NewInt(int64(len(l.Payload))).FillBytes(payloadLength)
-	hash.Write(payloadLength)
+	writeUint256(l.ToAddress)
+	writeUint256(l.Nonce)
+	writeUint256(l.Selector)
+	writeUint256(big.NewInt(int64(len(l.Payload))))
 
 	for _, elem := range l.Payload {
-		hash.Write(elem.Bytes())
+		writeUint256(elem)
 	}
+
 	tmp := common.BytesToHash(hash.Sum(nil))
 	return &tmp
 }
@@ -103,10 +104,9 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		}
 		// Extract indexed fields from topics
 		fromAddress := common.HexToAddress(vLog.Topics[1].Hex())
-		toAddress := common.HexToAddress(vLog.Topics[2].Hex())
+		event.ToAddress = new(big.Int).SetBytes(vLog.Topics[2].Bytes())
 		selector := new(big.Int).SetBytes(vLog.Topics[3].Bytes())
 		event.FromAddress = &fromAddress
-		event.ToAddress = &toAddress
 		event.Selector = selector
 		messageHashes = append(messageHashes, event.HashMessage())
 	}

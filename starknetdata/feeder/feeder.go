@@ -77,7 +77,6 @@ func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (c
 	if err != nil {
 		return nil, err
 	}
-
 	tx, err := sn2core.AdaptTransaction(response.Transaction)
 	if err != nil {
 		return nil, err
