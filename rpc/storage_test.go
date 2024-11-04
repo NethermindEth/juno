@@ -343,6 +343,106 @@ func TestStorageProof(t *testing.T) {
 	})
 }
 
+func TestStorageProofErrorHandling(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockTrie := mocks.NewMockTrieReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+	nopCloser := func() error { return nil }
+
+	key := new(felt.Felt).SetUint64(1)
+	blockLatest := rpc.BlockID{Latest: true}
+	expectedErr := errors.New("expected error")
+
+	t.Run("error handling  HeadState", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(nil, nil, expectedErr).Times(1)
+
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, nil, nil)
+		require.Nil(t, proof)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, "Internal error", rpcErr.Message)
+		require.Equal(t, expectedErr, rpcErr.Data.(error))
+	})
+	t.Run("error handling  Head()", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(1)
+		mockReader.EXPECT().Head().Return(nil, expectedErr).Times(1)
+
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, nil, nil)
+		require.Nil(t, proof)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, "Internal error", rpcErr.Message)
+		require.Equal(t, expectedErr, rpcErr.Data.(error))
+	})
+	t.Run("error handling  HeadTrie", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(1)
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: new(felt.Felt), Number: 0}}, nil).Times(1)
+		mockReader.EXPECT().HeadTrie().Return(nil, nil, expectedErr).Times(1)
+
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, nil, nil)
+		require.Nil(t, proof)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, "Internal error", rpcErr.Message)
+		require.Equal(t, expectedErr, rpcErr.Data.(error))
+	})
+	t.Run("error handling  StateAndClassRoot", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(1)
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: new(felt.Felt), Number: 0}}, nil).Times(1)
+		mockReader.EXPECT().HeadTrie().Return(mockTrie, nopCloser, nil).Times(1)
+		mockTrie.EXPECT().StateAndClassRoot().Return(nil, nil, expectedErr).Times(1)
+
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, nil, nil)
+		require.Nil(t, proof)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, "Internal error", rpcErr.Message)
+		require.Equal(t, expectedErr, rpcErr.Data.(error))
+	})
+	t.Run("error handling  getClassesProof", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(1)
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: new(felt.Felt), Number: 0}}, nil).Times(1)
+		mockReader.EXPECT().HeadTrie().Return(mockTrie, nopCloser, nil).Times(1)
+		mockTrie.EXPECT().StateAndClassRoot().Return(new(felt.Felt), new(felt.Felt), nil).Times(1)
+		mockTrie.EXPECT().ClassTrie().Return(nil, nil, expectedErr).Times(1)
+
+		proof, rpcErr := handler.StorageProof(blockLatest, []felt.Felt{*key}, nil, nil)
+		require.Nil(t, proof)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, "Internal error", rpcErr.Message)
+		require.Equal(t, expectedErr, rpcErr.Data.(error))
+	})
+	t.Run("error handling  getContractsProof", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(1)
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: new(felt.Felt), Number: 0}}, nil).Times(1)
+		mockReader.EXPECT().HeadTrie().Return(mockTrie, nopCloser, nil).Times(1)
+		mockTrie.EXPECT().StateAndClassRoot().Return(new(felt.Felt), new(felt.Felt), nil).Times(1)
+		mockTrie.EXPECT().ClassTrie().Return(new(trie.Trie), nopCloser, nil).Times(1)
+		mockTrie.EXPECT().StorageTrie().Return(nil, nil, expectedErr).Times(1)
+
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, []felt.Felt{*key}, nil)
+		require.Nil(t, proof)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, "Internal error", rpcErr.Message)
+		require.Equal(t, expectedErr, rpcErr.Data.(error))
+	})
+	t.Run("error handling  getContractsStorageProofs", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).Times(1)
+		mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: new(felt.Felt), Number: 0}}, nil).Times(1)
+		mockReader.EXPECT().HeadTrie().Return(mockTrie, nopCloser, nil).Times(1)
+		mockTrie.EXPECT().StateAndClassRoot().Return(new(felt.Felt), new(felt.Felt), nil).Times(1)
+		mockTrie.EXPECT().ClassTrie().Return(new(trie.Trie), nopCloser, nil).Times(1)
+		mockTrie.EXPECT().StorageTrie().Return(new(trie.Trie), nopCloser, nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(key).Return(nil, expectedErr).Times(1)
+
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{{Contract: *key, Keys: []felt.Felt{*key}}})
+		require.Nil(t, proof)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, "Internal error", rpcErr.Message)
+		require.Equal(t, expectedErr, rpcErr.Data.(error))
+	})
+}
+
 func TestStorageRoots(t *testing.T) {
 	t.Parallel()
 
