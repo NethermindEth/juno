@@ -60,6 +60,7 @@ type Config struct {
 	DatabasePath           string         `mapstructure:"db-path"`
 	Network                utils.Network  `mapstructure:"network"`
 	EthNode                string         `mapstructure:"eth-node"`
+	NoEthNode              bool           `mapstructure:"no-eth-node"`
 	Pprof                  bool           `mapstructure:"pprof"`
 	PprofHost              string         `mapstructure:"pprof-host"`
 	PprofPort              uint16         `mapstructure:"pprof-port"`
@@ -273,10 +274,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
+		if n.cfg.NoEthNode {
+			n.log.Warnw("Ethereum node address not found; will not verify against L1")
+		} else {
+			return nil, fmt.Errorf("--eth-node flag is required, you can use --no-eth-node to disable L1 verification")
+		}
 	} else {
 		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg, n.blockchain, n.log)
+		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.log)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
@@ -293,26 +298,26 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
-	ethNodeURL, err := url.Parse(cfg.EthNode)
+func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
 	}
 
 	network := chain.Network()
 
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
+	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
 	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
-	if cfg.Metrics {
+	if includeMetrics {
 		l1Client.WithEventListener(makeL1Metrics())
 	}
 	return l1Client, nil

@@ -47,6 +47,7 @@ const (
 	dbPathF                 = "db-path"
 	networkF                = "network"
 	ethNodeF                = "eth-node"
+	noEthNodeF              = "no-eth-node"
 	pprofF                  = "pprof"
 	pprofHostF              = "pprof-host"
 	pprofPortF              = "pprof-port"
@@ -91,6 +92,7 @@ const (
 	defaultWS                       = false
 	defaultWSPort                   = 6061
 	defaultEthNode                  = ""
+	defaultNoEthNode                = false
 	defaultPprof                    = false
 	defaultPprofPort                = 6062
 	defaultColour                   = true
@@ -145,6 +147,7 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
+	noEthNodeUsage           = "Disables the connection to the Ethereum node."
 	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
 	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
 	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
@@ -327,6 +330,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
 	junoCmd.Flags().IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
+	junoCmd.Flags().Bool(noEthNodeF, defaultNoEthNode, noEthNodeUsage)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
