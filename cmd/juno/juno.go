@@ -47,6 +47,7 @@ const (
 	dbPathF                 = "db-path"
 	networkF                = "network"
 	ethNodeF                = "eth-node"
+	disableL1VerificationF  = "disable-l1-verification"
 	pprofF                  = "pprof"
 	pprofHostF              = "pprof-host"
 	pprofPortF              = "pprof-port"
@@ -91,6 +92,7 @@ const (
 	defaultWS                       = false
 	defaultWSPort                   = 6061
 	defaultEthNode                  = ""
+	defaultDisableL1Verification    = false
 	defaultPprof                    = false
 	defaultPprofPort                = 6062
 	defaultColour                   = true
@@ -145,11 +147,12 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	pendingPollIntervalUsage = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
-	p2pUsage                 = "EXPERIMENTAL: Enables p2p server."
-	p2pAddrUsage             = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
-	p2pPublicAddrUsage       = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
-	p2pPeersUsage            = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
+	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
+	pendingPollIntervalUsage   = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
+	p2pUsage                   = "EXPERIMENTAL: Enables p2p server."
+	p2pAddrUsage               = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
+	p2pPublicAddrUsage         = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
+	p2pPeersUsage              = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
@@ -327,6 +330,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
 	junoCmd.Flags().IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
 	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
+	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
+	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
 	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
