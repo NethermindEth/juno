@@ -60,7 +60,7 @@ type Config struct {
 	DatabasePath           string         `mapstructure:"db-path"`
 	Network                utils.Network  `mapstructure:"network"`
 	EthNode                string         `mapstructure:"eth-node"`
-	NoEthNode              bool           `mapstructure:"no-eth-node"`
+	DisableL1Verification  bool           `mapstructure:"disable-l1-verification"`
 	Pprof                  bool           `mapstructure:"pprof"`
 	PprofHost              string         `mapstructure:"pprof-host"`
 	PprofPort              uint16         `mapstructure:"pprof-port"`
@@ -273,13 +273,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		metricsService: metricsService,
 	}
 
-	if n.cfg.EthNode == "" {
-		if n.cfg.NoEthNode {
-			n.log.Warnw("Ethereum node address not found; will not verify against L1")
-		} else {
-			return nil, fmt.Errorf("--eth-node flag is required, you can use --no-eth-node to disable L1 verification")
+	if !n.cfg.DisableL1Verification {
+		// Due to mutually exclusive flag we can do the following.
+		if n.cfg.EthNode == "" {
+			//nolint:lll
+			return nil, fmt.Errorf("ethereum node address not found; will not verify against L1. Use --Let rename it disable-l1-verification flag if L1 verification is not required")
 		}
-	} else {
+
 		var l1Client *l1.Client
 		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.log)
 		if err != nil {
