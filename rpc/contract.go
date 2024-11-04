@@ -39,6 +39,13 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
+	// This checks if the contract exists because if a key doesn't exist in contract storage,
+	// the returned value is always zero and error is nil.
+	_, err := stateReader.ContractNonce(&address)
+	if err != nil {
+		return nil, ErrContractNotFound
+	}
+
 	value, err := stateReader.ContractStorage(&address, &key)
 	if err != nil {
 		return nil, ErrContractNotFound
