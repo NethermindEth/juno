@@ -295,6 +295,8 @@ func newBinaryProofNode() *trie.Binary {
 }
 
 func TestProve(t *testing.T) {
+	t.Parallel()
+
 	t.Run("simple binary", func(t *testing.T) {
 		tempTrie := buildSimpleTrie(t)
 
@@ -521,6 +523,8 @@ func TestProve(t *testing.T) {
 }
 
 func TestProveNKeys(t *testing.T) {
+	t.Parallel()
+
 	n := 10000
 	tempTrie := buildTrieWithNKeys(t, n)
 
@@ -540,6 +544,31 @@ func TestProveNKeys(t *testing.T) {
 			t.Fatalf("failed for key %s", key.String())
 		}
 		require.Equal(t, val, keyFelt)
+	}
+}
+
+func TestProveNKeysWithNonExistentKeys(t *testing.T) {
+	t.Parallel()
+
+	n := 10000
+	tempTrie := buildTrieWithNKeys(t, n)
+
+	for i := 1; i < n+1; i++ {
+		keyFelt := new(felt.Felt).SetUint64(uint64(i + n))
+		key := tempTrie.FeltToKey(keyFelt)
+
+		proofSet := trie.NewProofSet()
+		err := tempTrie.Prove(keyFelt, proofSet)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		val, err := trie.VerifyProof(root, &key, proofSet, crypto.Pedersen)
+		if err != nil {
+			t.Fatalf("failed for key %s", key.String())
+		}
+		require.Equal(t, &felt.Zero, val)
 	}
 }
 
