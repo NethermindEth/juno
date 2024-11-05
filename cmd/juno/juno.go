@@ -35,148 +35,89 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 
 `
 
-const (
-	configF                 = "config"
-	logLevelF               = "log-level"
-	httpF                   = "http"
-	httpHostF               = "http-host"
-	httpPortF               = "http-port"
-	wsF                     = "ws"
-	wsHostF                 = "ws-host"
-	wsPortF                 = "ws-port"
-	dbPathF                 = "db-path"
-	networkF                = "network"
-	ethNodeF                = "eth-node"
-	disableL1VerificationF  = "disable-l1-verification"
-	pprofF                  = "pprof"
-	pprofHostF              = "pprof-host"
-	pprofPortF              = "pprof-port"
-	colourF                 = "colour"
-	pendingPollIntervalF    = "pending-poll-interval"
-	p2pF                    = "p2p"
-	p2pAddrF                = "p2p-addr"
-	p2pPublicAddrF          = "p2p-public-addr"
-	p2pPeersF               = "p2p-peers"
-	p2pFeederNodeF          = "p2p-feeder-node"
-	p2pPrivateKey           = "p2p-private-key"
-	metricsF                = "metrics"
-	metricsHostF            = "metrics-host"
-	metricsPortF            = "metrics-port"
-	grpcF                   = "grpc"
-	grpcHostF               = "grpc-host"
-	grpcPortF               = "grpc-port"
-	maxVMsF                 = "max-vms"
-	maxVMQueueF             = "max-vm-queue"
-	remoteDBF               = "remote-db"
-	rpcMaxBlockScanF        = "rpc-max-block-scan"
-	dbCacheSizeF            = "db-cache-size"
-	dbMaxHandlesF           = "db-max-handles"
-	gwAPIKeyF               = "gw-api-key" //nolint: gosec
-	gwTimeoutF              = "gw-timeout" //nolint: gosec
-	cnNameF                 = "cn-name"
-	cnFeederURLF            = "cn-feeder-url"
-	cnGatewayURLF           = "cn-gateway-url"
-	cnL1ChainIDF            = "cn-l1-chain-id"
-	cnL2ChainIDF            = "cn-l2-chain-id"
-	cnCoreContractAddressF  = "cn-core-contract-address"
-	cnUnverifiableRangeF    = "cn-unverifiable-range"
-	callMaxStepsF           = "rpc-call-max-steps"
-	corsEnableF             = "rpc-cors-enable"
-	versionedConstantsFileF = "versioned-constants-file"
-	pluginPathF             = "plugin-path"
+type Flag struct {
+	name         string
+	usage        string
+	defaultValue any
+}
 
-	defaultConfig                   = ""
-	defaulHost                      = "localhost"
-	defaultHTTP                     = false
-	defaultHTTPPort                 = 6060
-	defaultWS                       = false
-	defaultWSPort                   = 6061
-	defaultEthNode                  = ""
-	defaultDisableL1Verification    = false
-	defaultPprof                    = false
-	defaultPprofPort                = 6062
-	defaultColour                   = true
-	defaultPendingPollInterval      = 5 * time.Second
-	defaultP2p                      = false
-	defaultP2pAddr                  = ""
-	defaultP2pPublicAddr            = ""
-	defaultP2pPeers                 = ""
-	defaultP2pFeederNode            = false
-	defaultP2pPrivateKey            = ""
-	defaultMetrics                  = false
-	defaultMetricsPort              = 9090
-	defaultGRPC                     = false
-	defaultGRPCPort                 = 6064
-	defaultRemoteDB                 = ""
-	defaultRPCMaxBlockScan          = math.MaxUint
-	defaultCacheSizeMb              = 1024
-	defaultMaxHandles               = 1024
-	defaultGwAPIKey                 = ""
-	defaultCNName                   = ""
-	defaultCNFeederURL              = ""
-	defaultCNGatewayURL             = ""
-	defaultCNL1ChainID              = ""
-	defaultCNL2ChainID              = ""
-	defaultCNCoreContractAddressStr = ""
-	defaultCallMaxSteps             = 4_000_000
-	defaultGwTimeout                = 5 * time.Second
-	defaultCorsEnable               = false
-	defaultVersionedConstantsFile   = ""
-	defaultPluginPath               = ""
+var dbPath = Flag{name: "db-path", usage: "Location of the database files.", defaultValue: ""}
 
-	configFlagUsage                       = "The YAML configuration file."
-	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
-	httpUsage                             = "Enables the HTTP RPC server on the default port and interface."
-	httpHostUsage                         = "The interface on which the HTTP RPC server will listen for requests."
-	httpPortUsage                         = "The port on which the HTTP server will listen for requests."
-	wsUsage                               = "Enables the WebSocket RPC server on the default port."
-	wsHostUsage                           = "The interface on which the WebSocket RPC server will listen for requests."
-	wsPortUsage                           = "The port on which the WebSocket server will listen for requests."
-	dbPathUsage                           = "Location of the database files."
-	networkUsage                          = "Options: mainnet, sepolia, sepolia-integration."
-	networkCustomName                     = "Custom network name."
-	networkCustomFeederUsage              = "Custom network feeder URL."
-	networkCustomGatewayUsage             = "Custom network gateway URL."
-	networkCustomL1ChainIDUsage           = "Custom network L1 chain id."
-	networkCustomL2ChainIDUsage           = "Custom network L2 chain id."
-	networkCustomCoreContractAddressUsage = "Custom network core contract address."
-	networkCustomUnverifiableRange        = "Custom network range of blocks to skip hash verifications (e.g. `0,100`)."
-	pprofUsage                            = "Enables the pprof endpoint on the default port."
-	pprofHostUsage                        = "The interface on which the pprof HTTP server will listen for requests."
-	pprofPortUsage                        = "The port on which the pprof HTTP server will listen for requests."
-	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
-	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
-		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
-	pendingPollIntervalUsage   = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
-	p2pUsage                   = "EXPERIMENTAL: Enables p2p server."
-	p2pAddrUsage               = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
-	p2pPublicAddrUsage         = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
-	p2pPeersUsage              = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
-		"These peers can be either Feeder or regular nodes."
-	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
-		" blocks to the network."
-	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
-	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
-	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
-	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
-	grpcUsage            = "Enable the HTTP gRPC server on the default port."
-	grpcHostUsage        = "The interface on which the gRPC server will listen for requests."
-	grpcPortUsage        = "The port on which the gRPC server will listen for requests."
-	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
-	remoteDBUsage        = "gRPC URL of a remote Juno node"
-	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
-	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
-	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
-		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
-	corsEnableUsage             = "Enable CORS on RPC endpoints"
-	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
-	pluginPathUsage             = "Path to the plugin .so file"
+//nolint:lll
+var ethFlag = Flag{name: "eth-node", usage: "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, Juno must connect to an Ethereum node and parse events in the Starknet contract.", defaultValue: ""}
+
+//nolint:lll
+var disableL1Verification = Flag{name: "disable-l1-verification", usage: "Disables L1 verification since an Ethereum node is not provided.", defaultValue: false}
+var network = Flag{name: "network", usage: "Options: mainnet, sepolia, sepolia-integration.", defaultValue: utils.Mainnet}
+
+//nolint:lll
+var (
+	p2pFeederNode = Flag{name: "p2p-feeder-node", usage: "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new blocks to the network.", defaultValue: false}
+	p2pPeers      = Flag{name: "p2p-peers", usage: "EXPERIMENTAL: Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes.", defaultValue: ""}
 )
+
+//nolint:lll
+var (
+	cnName                = Flag{name: "cn-name", usage: "Custom network name.", defaultValue: ""}
+	cnFeederURL           = Flag{name: "cn-feeder-url", usage: "Custom network feeder URL.", defaultValue: ""}
+	cnGatewayURL          = Flag{name: "cn-gateway-url", usage: "Custom network gateway URL.", defaultValue: ""}
+	cnL1ChainID           = Flag{name: "cn-l1-chain-id", usage: "Custom network L1 chain id.", defaultValue: ""}
+	cnL2ChainID           = Flag{name: "cn-l2-chain-id", usage: "Custom network L2 chain id.", defaultValue: ""}
+	cnCoreContractAddress = Flag{name: "cn-core-contract-address", usage: "Custom network core contract address.", defaultValue: ""}
+	cnUnverifiableRange   = Flag{name: "cn-unverifiable-range", usage: "Custom network range of blocks to skip hash verifications (e.g. `0,100`).", defaultValue: []int{}}
+)
+
+//nolint:lll,mnd
+var flags = []Flag{
+	dbPath,
+	ethFlag,
+	disableL1Verification,
+	network,
+	// p2p flags
+	p2pFeederNode,
+	p2pPeers,
+	// network flags
+	cnName,
+	cnFeederURL,
+	cnGatewayURL,
+	cnL1ChainID,
+	cnL2ChainID,
+	{name: "config", usage: "The YAML configuration file.", defaultValue: ""},
+	{name: "log-level", usage: "Options: trace, debug, info, warn, error.", defaultValue: utils.INFO},
+	{name: "http", usage: "Enables the HTTP RPC server on the default port and interface.", defaultValue: false},
+	{name: "http-host", usage: "The interface on which the HTTP RPC server will listen for requests.", defaultValue: "localhost"},
+	{name: "http-port", usage: "The port on which the HTTP server will listen for requests.", defaultValue: uint16(6060)},
+	{name: "ws", usage: "Enables the WebSocket RPC server on the default port.", defaultValue: false},
+	{name: "ws-host", usage: "The interface on which the WebSocket RPC server will listen for requests.", defaultValue: "localhost"},
+	{name: "ws-port", usage: "The port on which the WebSocket server will listen for requests.", defaultValue: uint16(6061)},
+	{name: "pprof", usage: "Enables the pprof endpoint on the default port.", defaultValue: false},
+	{name: "pprof-host", usage: "The interface on which the pprof HTTP server will listen for requests.", defaultValue: "localhost"},
+	{name: "pprof-port", usage: "The port on which the pprof HTTP server will listen for requests.", defaultValue: uint16(6062)},
+	{name: "colour", usage: "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes).", defaultValue: true},
+	{name: "pending-poll-interval", usage: "Sets how frequently pending block will be updated (0s will disable fetching of pending block).", defaultValue: 5 * time.Second},
+	{name: "p2p", usage: "EXPERIMENTAL: Enables p2p server.", defaultValue: false},
+	{name: "p2p-addr", usage: "EXPERIMENTAL: Specify p2p listening source address as multiaddr. Example: /ip4/0.0.0.0/tcp/7777", defaultValue: ""},
+	{name: "p2p-public-addr", usage: "EXPERIMENTAL: Specify p2p public address as multiaddr. Example: /ip4/35.243.XXX.XXX/tcp/7777", defaultValue: ""},
+	{name: "p2p-private-key", usage: "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve.", defaultValue: ""},
+	{name: "metrics", usage: "Enables the Prometheus metrics endpoint on the default port.", defaultValue: false},
+	{name: "metrics-host", usage: "The interface on which the Prometheus endpoint will listen for requests.", defaultValue: "localhost"},
+	{name: "metrics-port", usage: "The port on which the Prometheus endpoint will listen for requests.", defaultValue: uint16(9090)},
+	{name: "grpc", usage: "Enable the HTTP gRPC server on the default port.", defaultValue: false},
+	{name: "grpc-host", usage: "The interface on which the gRPC server will listen for requests.", defaultValue: "localhost"},
+	{name: "grpc-port", usage: "The port on which the gRPC server will listen for requests.", defaultValue: uint16(6064)},
+	{name: "max-vms", usage: "Maximum number for VM instances to be used for RPC calls concurrently", defaultValue: uint(3 * runtime.GOMAXPROCS(0))},
+	{name: "max-vm-queue", usage: "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests", defaultValue: uint(50)},
+	{name: "remote-db", usage: "gRPC URL of a remote Juno node", defaultValue: ""},
+	{name: "rpc-max-block-scan", usage: "Maximum number of blocks scanned in single starknet_getEvents call", defaultValue: uint(math.MaxUint)},
+	{name: "db-cache-size", usage: "Determines the amount of memory (in megabytes) allocated for caching data in the database.", defaultValue: uint(1024)},
+	{name: "db-max-handles", usage: "A soft limit on the number of open files that can be used by the DB", defaultValue: int(1024)},
+	{name: "gw-api-key", usage: "API key for gateway endpoints to avoid throttling", defaultValue: ""},
+	{name: "gw-timeout", usage: "Timeout for requests made to the gateway", defaultValue: 5 * time.Second},
+	{name: "rpc-call-max-steps", usage: "Maximum number of steps to be executed in starknet_call requests. The upper limit is 4 million steps, and any higher value will still be capped at 4 million.", defaultValue: uint(4000000)},
+	{name: "rpc-cors-enable", usage: "Enable CORS on RPC endpoints", defaultValue: false},
+	{name: "versioned-constants-file", usage: "Use custom versioned constants from provided file", defaultValue: ""},
+	{name: "plugin-path", usage: "Path to the plugin .so file", defaultValue: ""},
+}
 
 var Version string
 
@@ -269,23 +210,23 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		}
 
 		// Set custom network
-		if v.IsSet(cnNameF) {
-			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainIDF), 0)
+		if v.IsSet(cnName.name) {
+			l1ChainID, ok := new(big.Int).SetString(v.GetString(cnL1ChainID.name), 0)
 			if !ok {
-				return fmt.Errorf("invalid %s id %s", cnL1ChainIDF, v.GetString(cnL1ChainIDF))
+				return fmt.Errorf("invalid %s id %s", cnL1ChainID.name, v.GetString(cnL1ChainID.name))
 			}
-			unverifRange := v.GetIntSlice(cnUnverifiableRangeF)
+			unverifRange := v.GetIntSlice(cnUnverifiableRange.name)
 			if len(unverifRange) != 2 || unverifRange[0] < 0 || unverifRange[1] < 0 {
-				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRangeF, unverifRange)
+				return fmt.Errorf("invalid %s:%v, must be uint array of length 2 (e.g. `0,100`)", cnUnverifiableRange.name, unverifRange)
 			}
 
 			config.Network = utils.Network{
-				Name:                v.GetString(cnNameF),
-				FeederURL:           v.GetString(cnFeederURLF),
-				GatewayURL:          v.GetString(cnGatewayURLF),
+				Name:                v.GetString(cnName.name),
+				FeederURL:           v.GetString(cnFeederURL.name),
+				GatewayURL:          v.GetString(cnGatewayURL.name),
 				L1ChainID:           l1ChainID,
-				L2ChainID:           v.GetString(cnL2ChainIDF),
-				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddressF)),
+				L2ChainID:           v.GetString(cnL2ChainID.name),
+				CoreContractAddress: common.HexToAddress(v.GetString(cnCoreContractAddress.name)),
 				BlockHashMetaInfo: &utils.BlockHashMetaInfo{
 					First07Block:      0,
 					UnverifiableRange: []uint64{uint64(unverifRange[0]), uint64(unverifRange[1])},
@@ -308,62 +249,38 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
 	defaultLogLevel := utils.INFO
-	defaultNetwork := utils.Mainnet
-	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
-	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
+	_ = defaultLogLevel // todo recheck
 
-	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
-	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
-	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
-	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
-	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
-	junoCmd.Flags().String(wsHostF, defaulHost, wsHostUsage)
-	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
-	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
-	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
-	junoCmd.Flags().String(cnNameF, defaultCNName, networkCustomName)
-	junoCmd.Flags().String(cnFeederURLF, defaultCNFeederURL, networkCustomFeederUsage)
-	junoCmd.Flags().String(cnGatewayURLF, defaultCNGatewayURL, networkCustomGatewayUsage)
-	junoCmd.Flags().String(cnL1ChainIDF, defaultCNL1ChainID, networkCustomL1ChainIDUsage)
-	junoCmd.Flags().String(cnL2ChainIDF, defaultCNL2ChainID, networkCustomL2ChainIDUsage)
-	junoCmd.Flags().String(cnCoreContractAddressF, defaultCNCoreContractAddressStr, networkCustomCoreContractAddressUsage)
-	junoCmd.Flags().IntSlice(cnUnverifiableRangeF, defaultCNUnverifiableRange, networkCustomUnverifiableRange)
-	junoCmd.Flags().String(ethNodeF, defaultEthNode, ethNodeUsage)
-	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
-	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
-	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
-	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
-	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
-	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
-	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
-	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
-	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
-	junoCmd.Flags().String(p2pPublicAddrF, defaultP2pPublicAddr, p2pPublicAddrUsage)
-	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
-	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
-	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
-	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
-	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
-	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
-	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
-	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
-	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
-	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
-	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
-	junoCmd.Flags().String(remoteDBF, defaultRemoteDB, remoteDBUsage)
-	junoCmd.Flags().Uint(rpcMaxBlockScanF, defaultRPCMaxBlockScan, rpcMaxBlockScanUsage)
-	junoCmd.Flags().Uint(dbCacheSizeF, defaultCacheSizeMb, dbCacheSizeUsage)
-	junoCmd.Flags().String(gwAPIKeyF, defaultGwAPIKey, gwAPIKeyUsage)
-	junoCmd.Flags().Int(dbMaxHandlesF, defaultMaxHandles, dbMaxHandlesUsage)
-	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
-	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
-	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
-	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
-	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
-	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
-	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
-	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
+	cmdFlags := junoCmd.Flags()
+	for _, flag := range flags {
+		switch defaultValue := flag.defaultValue.(type) {
+		case string:
+			cmdFlags.String(flag.name, defaultValue, flag.usage)
+		case bool:
+			cmdFlags.Bool(flag.name, defaultValue, flag.usage)
+		case time.Duration:
+			cmdFlags.Duration(flag.name, defaultValue, flag.usage)
+		case uint16:
+			cmdFlags.Uint16(flag.name, defaultValue, flag.usage)
+		case uint:
+			cmdFlags.Uint(flag.name, defaultValue, flag.usage)
+		case int:
+			cmdFlags.Int(flag.name, defaultValue, flag.usage)
+		case []int:
+			junoCmd.Flags().IntSlice(flag.name, defaultValue, flag.usage)
+		}
+	}
+	junoCmd.MarkFlagsMutuallyExclusive(ethFlag.name, disableL1Verification.name)
+	junoCmd.MarkFlagsMutuallyExclusive(network.name, cnName.name)
+	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNode.name, p2pPeers.name)
+	junoCmd.MarkFlagsRequiredTogether(cnName.name, cnFeederURL.name, cnGatewayURL.name, cnL1ChainID.name, cnL2ChainID.name, cnCoreContractAddress.name, cnUnverifiableRange.name) //nolint:lll
+
+	/*
+		todo fix it
+		junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
+		junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
+		junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
+	*/
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 

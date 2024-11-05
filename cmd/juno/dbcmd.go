@@ -36,7 +36,7 @@ func DBCmd(defaultDBPath string) *cobra.Command {
 		Long:  `This command allows you to perform database operations.`,
 	}
 
-	dbCmd.PersistentFlags().String(dbPathF, defaultDBPath, dbPathUsage)
+	dbCmd.PersistentFlags().String(dbPath.name, defaultDBPath, dbPath.usage)
 	dbCmd.AddCommand(DBInfoCmd(), DBSizeCmd(), DBRevertCmd())
 	return dbCmd
 }
@@ -72,7 +72,7 @@ func DBRevertCmd() *cobra.Command {
 }
 
 func dbInfo(cmd *cobra.Command, args []string) error {
-	dbPath, err := cmd.Flags().GetString(dbPathF)
+	dbPath, err := cmd.Flags().GetString(dbPath.name)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 }
 
 func dbRevert(cmd *cobra.Command, args []string) error {
-	dbPath, err := cmd.Flags().GetString(dbPathF)
+	dbPath, err := cmd.Flags().GetString(dbPath.name)
 	if err != nil {
 		return err
 	}
@@ -166,17 +166,18 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+//nolint:gocyclo
 func dbSize(cmd *cobra.Command, args []string) error {
-	dbPath, err := cmd.Flags().GetString(dbPathF)
+	dbPathValue, err := cmd.Flags().GetString(dbPath.name)
 	if err != nil {
 		return err
 	}
 
-	if dbPath == "" {
-		return fmt.Errorf("--%v cannot be empty", dbPathF)
+	if dbPathValue == "" {
+		return fmt.Errorf("--%v cannot be empty", dbPath.name)
 	}
 
-	pebbleDB, err := openDB(dbPath)
+	pebbleDB, err := openDB(dbPathValue)
 	if err != nil {
 		return err
 	}
