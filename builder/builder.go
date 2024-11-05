@@ -335,7 +335,7 @@ func (b *Builder) InitPendingBlock() error {
 		return err
 	}
 	b.pendingBlock.Block.SequencerAddress = &b.ownAddress
-
+	b.pendingBlock.Block.L1DataGasPrice = &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero}
 	b.headState, b.headCloser, err = b.bc.HeadState()
 	return err
 }
