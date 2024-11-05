@@ -96,7 +96,7 @@ func (k *Key) Equal(other *Key) bool {
 	return k.len == other.len && k.bitset == other.bitset
 }
 
-func (k *Key) Test(bit uint8) bool {
+func (k *Key) IsBitSet(bit uint8) bool {
 	const LSB = uint8(0x1)
 	byteIdx := bit / 8
 	byteAtIdx := k.bitset[len(k.bitset)-int(byteIdx)-1]

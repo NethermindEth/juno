@@ -314,43 +314,54 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 	return proofNodes, nil
 }
 
-// verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
+// VerifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
 	expectedHash := root
-	remainingPath := NewKey(key.len, key.bitset[:])
-	for i, proofNode := range proofs {
+	keyLen := key.Len()
+	var processedBits uint8
+
+	for _, proofNode := range proofs {
+		// Verify the hash matches
 		if !proofNode.Hash(hash).Equal(expectedHash) {
 			return false
 		}
 
-		switch proofNode := proofNode.(type) {
-		case *Binary:
-			if remainingPath.Test(remainingPath.Len() - 1) {
-				expectedHash = proofNode.RightHash
-			} else {
-				expectedHash = proofNode.LeftHash
+		switch node := proofNode.(type) {
+		case *Binary: // Binary nodes represent left/right choices
+			if key.Len() <= processedBits {
+				return false
 			}
-			remainingPath.RemoveLastBit()
-		case *Edge:
-			subKey, err := remainingPath.SubKey(proofNode.Path.Len())
-			if err != nil {
+			// Check the bit at parent's position
+			expectedHash = node.LeftHash
+			if key.IsBitSet(keyLen - processedBits - 1) {
+				expectedHash = node.RightHash
+			}
+			processedBits++
+		case *Edge: // Edge nodes represent paths between binary nodes
+			nodeLen := node.Path.Len()
+
+			if keyLen < processedBits+nodeLen {
 				return false
 			}
 
-			// Todo:
-			// If we are verifying the key doesn't exist, then we should
-			// update subKey to point in the other direction
-			if value == nil && i == len(proofs)-1 {
-				return true
+			// Ensure the bits between segment of the key and the node path match
+			start := keyLen - processedBits - nodeLen
+			end := keyLen - processedBits
+			for i := start; i < end; i++ { // check if the bits match
+				if key.IsBitSet(i) != node.Path.IsBitSet(i-start) {
+					return false
+				}
 			}
 
-			if !proofNode.Path.Equal(subKey) {
-				return false
-			}
-			expectedHash = proofNode.Child
-			remainingPath.Truncate(251 - proofNode.Path.Len()) //nolint:mnd
+			processedBits += nodeLen
+			expectedHash = node.Child
 		}
+	}
+
+	// At this point, we should have processed all bits in the key
+	if processedBits < keyLen {
+		return false
 	}
 
 	return expectedHash.Equal(value)
@@ -481,7 +492,7 @@ func assignChild(i, compressedParent int, parentNode *Node,
 	if err != nil {
 		return nil, err
 	}
-	if leafKey.Test(leafKey.len - parentKey.len - 1) {
+	if leafKey.IsBitSet(leafKey.len - parentKey.len - 1) {
 		parentNode.Right = childKey
 		parentNode.Left = nilKey
 	} else {
