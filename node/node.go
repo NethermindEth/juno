@@ -102,6 +102,7 @@ type Config struct {
 	SeqGenesisFile      string `mapstructure:"seq-genesis-file"`
 	SeqShadowMode       bool   `mapstructure:"seq-shadow-mode"`
 	SeqShadowModeSyncTo uint64 `mapstructure:"seq-shadow-mode-sync-to"`
+	SeqDisableFees      bool   `mapstructure:"seq-disable-fees"`
 }
 
 type Node struct {
@@ -191,12 +192,34 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		poolDB, _ := pebble.NewMem()
 		p := mempool.New(poolDB)
 		sequencer = builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
-			time.Second*time.Duration(cfg.SeqBlockTime), p, log).WithPlugin(junoPlugin)
+			time.Second*time.Duration(cfg.SeqBlockTime), p, log, cfg.SeqDisableFees, cfg.SeqGenesisFile).WithPlugin(junoPlugin)
 		if cfg.SeqShadowMode {
 			sequencer = builder.NewShadow(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, time.Second*time.Duration(cfg.SeqBlockTime), p, //nolint: gomnd,lll,mnd
 				log, starknetData).WithJunoEndpoint(cfg.SeqRPCEndpoint).WithSyncToBlock(cfg.SeqShadowModeSyncTo).WithPlugin(junoPlugin)
 		}
 
+		// Todo: don't just copy-pasta
+		var p2pService *p2p.Service
+		if cfg.P2P {
+			if cfg.Network != utils.Sepolia {
+				return nil, fmt.Errorf("P2P can only be used for %v network. Provided network: %v", utils.Sepolia, cfg.Network)
+			}
+			log.Warnw("P2P features enabled with Sequencing. Please note these features are still at an experimental stage")
+			p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, true,
+				chain, &cfg.Network, log, database)
+			if err != nil {
+				return nil, fmt.Errorf("set up p2p service: %w", err)
+			}
+			services = append(services, p2pService)
+		}
+		if cfg.Metrics {
+			client.WithListener(makeFeederMetrics())
+			if p2pService != nil {
+				// regular p2p node
+				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
+				p2pService.WithGossipTracer()
+			}
+		}
 		rpcHandler = rpc.New(chain, sequencer, throttledVM, version, log).WithMempool(p).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, sequencer)
 	} else {
@@ -395,11 +418,6 @@ func (n *Node) Run(ctx context.Context) {
 			return
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
-		return
-	}
-	if err = buildGenesis(n.cfg.SeqGenesisFile, n.cfg.Sequencer, n.cfg.SeqShadowMode, n.blockchain,
-		vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
-		n.log.Errorw("Error building genesis state", "err", err)
 		return
 	}
 

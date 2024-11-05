@@ -1303,17 +1303,20 @@ func (b *Blockchain) validateHeader(shadowHeader, sequenceHeader *core.Header) e
 	return nil
 }
 
-func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+func (b *Blockchain) StoreGenesis(signFunc BlockSignFunc, diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingGenesis := Pending{
 		Block: &core.Block{
 			Header: &core.Header{
 				ParentHash:       &felt.Zero,
 				Number:           0,
+				Timestamp:        uint64(time.Now().Unix()),
 				SequencerAddress: &felt.Zero,
 				EventsBloom:      core.EventsBloom(receipts),
 				GasPrice:         &felt.Zero,
 				GasPriceSTRK:     &felt.Zero,
+				L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+				L1DAMode:         core.Calldata,
 			},
 			Transactions: make([]core.Transaction, 0),
 			Receipts:     receipts,
@@ -1324,7 +1327,11 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 		},
 		NewClasses: classes,
 	}
-	return b.Finalise(&pendingGenesis, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
-		return nil, nil
-	}, nil, nil)
+
+	if signFunc == nil {
+		signFunc = func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+			return nil, nil
+		}
+	}
+	return b.Finalise(&pendingGenesis, signFunc, nil, nil)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
@@ -49,7 +50,9 @@ type Builder struct {
 	pendingBlock blockchain.Pending
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
+	genesisFile  string
 
+	disableFees       bool
 	shadowMode        bool
 	shadowStateUpdate *core.StateUpdate
 	shadowBlock       *core.Block
@@ -68,7 +71,7 @@ type Builder struct {
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
-	blockTime time.Duration, pool *mempool.Pool, log utils.Logger,
+	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, disableFees bool, genesisFile string,
 ) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
@@ -77,10 +80,13 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		log:        log,
 		listener:   &SelectiveListener{},
 
-		bc:       bc,
-		pool:     pool,
-		vm:       builderVM,
-		newHeads: feed.New[*core.Header](),
+		genesisFile: genesisFile,
+
+		disableFees: disableFees,
+		bc:          bc,
+		pool:        pool,
+		vm:          builderVM,
+		newHeads:    feed.New[*core.Header](),
 	}
 }
 
@@ -137,7 +143,37 @@ func (b *Builder) Run(ctx context.Context) error {
 	}
 }
 
+func (b *Builder) buildGenesis(genesisPath string, sequencerMode bool, maxSteps uint64) error {
+	if _, err := b.bc.Height(); !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	}
+	var diff *core.StateDiff
+	var classes map[felt.Felt]core.Class
+	switch {
+	case genesisPath != "":
+		genesisConfig, err := genesis.Read(genesisPath)
+		if err != nil {
+			return err
+		}
+
+		diff, classes, err = genesis.GenesisStateDiff(genesisConfig, b.vm, b.bc.Network(), maxSteps)
+		if err != nil {
+			return err
+		}
+	case sequencerMode:
+		diff = core.EmptyStateDiff()
+	default:
+		return nil
+	}
+	return b.bc.StoreGenesis(b.Sign, diff, classes)
+}
+
 func (b *Builder) runSequencer(ctx context.Context) error {
+	err := b.buildGenesis(b.genesisFile, true, uint64(10000000)) // todo
+	if err != nil {
+		b.log.Errorw("Error building genesis state", "err", err)
+		return err
+	}
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
@@ -299,7 +335,7 @@ func (b *Builder) InitPendingBlock() error {
 		return err
 	}
 	b.pendingBlock.Block.SequencerAddress = &b.ownAddress
-
+	b.pendingBlock.Block.L1DataGasPrice = &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero}
 	b.headState, b.headCloser, err = b.bc.HeadState()
 	return err
 }
@@ -475,7 +511,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		},
 		state,
 		b.bc.Network(),
-		false, false, false, true)
+		b.disableFees, false, false, true)
 	if err != nil {
 		return err
 	}

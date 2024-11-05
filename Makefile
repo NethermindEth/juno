@@ -195,6 +195,23 @@ sequencer-with-accounts:
 	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
     --rpc-call-max-steps=4123000
 
+sequencer-p2p:
+	./build/juno \
+    --http \
+    --http-port=6060 \
+    --http-host=0.0.0.0 \
+    --db-path=../seq-db \
+    --log-level=debug \
+    --seq-enable \
+    --seq-block-time=1 \
+	--network sepolia \
+	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
+	--p2p \
+	--p2p-feeder-node \
+	--p2p-addr=/ip4/0.0.0.0/tcp/7777 \
+	--p2p-private-key="5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089" \
+    --rpc-call-max-steps=4123000
+
 
 sequencer-shadow-sepolia:
 	./build/juno \

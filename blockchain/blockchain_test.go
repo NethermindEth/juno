@@ -977,7 +977,7 @@ func TestStoreGenesis(t *testing.T) {
 					testDB := pebble.NewMemTest(t)
 					chain := blockchain.New(testDB, &network)
 
-					require.NoError(t, chain.StoreGenesis(test.diff, test.classes))
+					require.NoError(t, chain.StoreGenesis(nil, test.diff, test.classes))
 
 					// Block are stored.
 					block, err := chain.Head()
@@ -991,6 +991,9 @@ func TestStoreGenesis(t *testing.T) {
 							GasPrice:         new(felt.Felt),
 							Signatures:       make([][]*felt.Felt, 1),
 							GasPriceSTRK:     new(felt.Felt),
+							L1DataGasPrice:   &core.GasPrice{PriceInWei: &felt.Zero, PriceInFri: &felt.Zero},
+							L1DAMode:         core.Calldata,
+							Timestamp:        block.Timestamp,
 						},
 						Transactions: make([]core.Transaction, 0),
 						Receipts:     receipts,
