@@ -92,19 +92,18 @@ func (t *Trie) Prove(key *felt.Felt, proofSet *ProofSet) error {
 	return nil
 }
 
-func GetBoundaryProofs(leftBoundary, rightBoundary *Key, tri *Trie) ([2][]ProofNode, error) {
-	proofs := [2][]ProofNode{}
-	leftProof, err := GetProof(leftBoundary, tri)
+func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofSet) error {
+	err := t.Prove(leftKey, proofSet)
 	if err != nil {
-		return proofs, err
+		return err
 	}
-	rightProof, err := GetProof(rightBoundary, tri)
+
+	err = t.Prove(rightKey, proofSet)
 	if err != nil {
-		return proofs, err
+		return err
 	}
-	proofs[0] = leftProof
-	proofs[1] = rightProof
-	return proofs, nil
+
+	return nil
 }
 
 func isEdge(parentKey *Key, sNode StorageNode) bool {
@@ -227,92 +226,6 @@ func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Fe
 	}
 }
 
-// MergeProofPaths removes duplicates and merges proof paths into a single path
-// merges paths in the specified order [commonNodes..., leftNodes..., rightNodes...]
-// ordering of the merged path is not important
-// since SplitProofPath can discover the left and right paths using the merged path and the rootHash
-func MergeProofPaths(leftPath, rightPath []ProofNode, hash hashFunc) ([]ProofNode, *felt.Felt, error) {
-	merged := []ProofNode{}
-	minLen := min(len(leftPath), len(rightPath))
-
-	if len(leftPath) == 0 || len(rightPath) == 0 {
-		return merged, nil, errors.New("empty proof paths")
-	}
-
-	if !leftPath[0].Hash(hash).Equal(rightPath[0].Hash(hash)) {
-		return merged, nil, errors.New("roots of the proof paths are different")
-	}
-
-	rootHash := leftPath[0].Hash(hash)
-
-	// Get duplicates and insert by one
-	i := 0
-	for i = 0; i < minLen; i++ {
-		leftNode := leftPath[i]
-		rightNode := rightPath[i]
-
-		if leftNode.Hash(hash).Equal(rightNode.Hash(hash)) {
-			merged = append(merged, leftNode)
-		} else {
-			break
-		}
-	}
-
-	// Add rest of the nodes
-	merged = append(merged, leftPath[i:]...)
-	merged = append(merged, rightPath[i:]...)
-
-	return merged, rootHash, nil
-}
-
-// SplitProofPath splits the merged proof path into two paths (left and right), which were merged before
-// it first validates that the merged path is not circular, the split happens at most once and rootHash exists
-// then calls traverseNodes to split the path to left and right paths
-func SplitProofPath(mergedPath []ProofNode, rootHash *felt.Felt, hash hashFunc) ([]ProofNode, []ProofNode, error) {
-	commonPath := []ProofNode{}
-	leftPath := []ProofNode{}
-	rightPath := []ProofNode{}
-	nodeHashes := make(map[felt.Felt]ProofNode)
-
-	for _, node := range mergedPath {
-		nodeHash := node.Hash(hash)
-		_, nodeExists := nodeHashes[*nodeHash]
-
-		if nodeExists {
-			return leftPath, rightPath, errors.New("duplicate node in the merged path")
-		}
-		nodeHashes[*nodeHash] = node
-	}
-
-	if len(mergedPath) == 0 {
-		return leftPath, rightPath, nil
-	}
-
-	currNode, err := rootNodeExistsCheck(rootHash, nodeHashes)
-	if err != nil {
-		return leftPath, rightPath, err
-	}
-
-	if err := pathSplitOccurredCheck(mergedPath, nodeHashes); err != nil {
-		return leftPath, rightPath, err
-	}
-
-	traverseNodes(currNode, &commonPath, nodeHashes)
-
-	leftPath = append(leftPath, commonPath...)
-	rightPath = append(rightPath, commonPath...)
-
-	currNode = commonPath[len(commonPath)-1]
-
-	leftNode := nodeHashes[*currNode.(*Binary).LeftHash]
-	rightNode := nodeHashes[*currNode.(*Binary).RightHash]
-
-	traverseNodes(leftNode, &leftPath, nodeHashes)
-	traverseNodes(rightNode, &rightPath, nodeHashes)
-
-	return leftPath, rightPath, nil
-}
-
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
 // GetProof generates a set of proof nodes from the root to the leaf.
 // The proof never contains the leaf node if it is set, as we already know it's hash.
@@ -425,85 +338,86 @@ func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (
 // This is achieved by constructing a trie from the boundary proofs, and the supplied key-values.
 // If the root of the reconstructed trie matches the supplied root, then the verification passes.
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
-// and therefore it's hash won't match the expected root.
+// and therefore its hash won't match the expected root.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func VerifyRangeProof(root *felt.Felt, keys, values []*felt.Felt, proofKeys [2]*Key, proofValues [2]*felt.Felt,
-	proofs [2][]ProofNode, hash hashFunc,
-) (bool, error) {
-	// Step 0: checks
+func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt.Felt, proofSet *ProofSet, hash hashFunc) (bool, error) {
+	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, number of keys: %d, number of values: %d", len(keys), len(values))
 	}
 
 	// Ensure all keys are monotonic increasing
-	if err := ensureMonotonicIncreasing(proofKeys, keys); err != nil {
-		return false, err
+	for i := 0; i < len(keys)-1; i++ {
+		if keys[i].Cmp(keys[i+1]) >= 0 {
+			return false, errors.New("keys are not monotonic increasing")
+		}
 	}
 
-	// Ensure the inner values contain no deletions
+	// Ensure the range contains no deletions
 	for _, value := range values {
 		if value.Equal(&felt.Zero) {
 			return false, errors.New("range contains deletion")
 		}
 	}
 
-	// Step 1: Verify proofs, and get proof paths
-	var proofPaths [2][]StorageNode
-	var err error
-	for i := 0; i < 2; i++ {
-		if proofs[i] != nil {
+	// Special case: no edge proof at all, given range is the whole leaf set in the trie
+	if proofSet == nil {
+		tr, err := NewTriePedersen(newMemStorage(), 251) //nolint:mnd
+		if err != nil {
+			return false, err
+		}
 
-			// if !VerifyProof(root, proofKeys[i], proofValues[i], proofs[i], hash) {
-			// 	return false, fmt.Errorf("invalid proof for key %x", proofKeys[i].String())
-			// }
-			// TODO(weiihann): Verify proof
-
-			proofPaths[i], err = ProofToPath(proofs[i], proofKeys[i], hash)
+		for index, key := range keys {
+			_, err = tr.Put(key, values[index])
 			if err != nil {
 				return false, err
 			}
 		}
+
+		recomputedRoot, err := tr.Root()
+		if err != nil {
+			return false, err
+		}
+
+		if !recomputedRoot.Equal(root) {
+			return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", root.String(), recomputedRoot.String())
+		}
+
+		return true, nil
 	}
 
-	// Step 2: Build trie from proofPaths and keys
-	tmpTrie, err := BuildTrie(proofPaths[0], proofPaths[1], keys, values)
+	proofList := proofSet.List()
+	lastKey := keys[len(keys)-1]
+
+	// Construct the left proof path
+	leftProofPath, err := ProofToPath(proofList, &Key{len: 251, bitset: firstKey.Bytes()}, hash)
+	if err != nil {
+		return false, err
+	}
+
+	// Construct the right proof path
+	rightProofPath, err := ProofToPath(proofList, &Key{len: 251, bitset: lastKey.Bytes()}, hash)
+	if err != nil {
+		return false, err
+	}
+
+	// Build the trie from the proof paths and the key-value pairs
+	tr, err := BuildTrie(leftProofPath, rightProofPath, keys, values)
 	if err != nil {
 		return false, err
 	}
 
 	// Verify that the recomputed root hash matches the provided root hash
-	recomputedRoot, err := tmpTrie.Root()
+	recomputedRoot, err := tr.Root()
 	if err != nil {
 		return false, err
 	}
+
 	if !recomputedRoot.Equal(root) {
-		return false, errors.New("root hash mismatch")
+		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", root.String(), recomputedRoot.String())
 	}
 
 	return true, nil
-}
-
-func ensureMonotonicIncreasing(proofKeys [2]*Key, keys []*felt.Felt) error {
-	if proofKeys[0] != nil {
-		leftProofFelt := proofKeys[0].Felt()
-		if leftProofFelt.Cmp(keys[0]) >= 0 {
-			return errors.New("range is not monotonically increasing")
-		}
-	}
-	if proofKeys[1] != nil {
-		rightProofFelt := proofKeys[1].Felt()
-		if keys[len(keys)-1].Cmp(&rightProofFelt) >= 0 {
-			return errors.New("range is not monotonically increasing")
-		}
-	}
-	if len(keys) >= 2 {
-		for i := 0; i < len(keys)-1; i++ {
-			if keys[i].Cmp(keys[i+1]) >= 0 {
-				return errors.New("range is not monotonically increasing")
-			}
-		}
-	}
-	return nil
 }
 
 // compressNode determines if the node needs compressed, and if so, the len needed to arrive at the next key
@@ -667,9 +581,9 @@ func getParentKey(idx int, compressedParentOffset uint8, leafKey *Key,
 	}
 
 	if _, ok := pNode.(*Binary); ok {
-		crntKey, err = leafKey.MostSignificantBits(height)
+		crntKey, err = leafKey.SubKey(height)
 	} else {
-		crntKey, err = leafKey.MostSignificantBits(height + compressedParentOffset)
+		crntKey, err = leafKey.SubKey(height + compressedParentOffset)
 	}
 	return crntKey, err
 }
