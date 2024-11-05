@@ -410,7 +410,7 @@ func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg prot
 			// pass it to handler function (some might be interested in header, others in entire block)
 			msg, err := getMsg(it)
 			if err != nil {
-				h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+				h.log.Debugw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
 				break
 			}
 
@@ -447,7 +447,7 @@ func (h *Handler) processIterationRequestMulti(iteration *spec.Iteration, finMsg
 			// pass it to handler function (some might be interested in header, others in entire block)
 			messages, err := getMsg(it)
 			if err != nil {
-				h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+				h.log.Debugw("Failed to generate data", "ssblockNumber", it.BlockNumber(), "err", err)
 				break
 			}
 

@@ -201,7 +201,7 @@ sequencer-p2p:
     --http-port=6060 \
     --http-host=0.0.0.0 \
     --db-path=../seq-db \
-    --log-level=debug \
+    --log-level=info \
     --seq-enable \
     --seq-block-time=1 \
 	--network sepolia \
