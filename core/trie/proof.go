@@ -280,7 +280,7 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 //   - Any node's computed hash doesn't match its expected hash
 //   - The path bits don't match the key bits
 //   - The proof ends before processing all key bits
-func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (*felt.Felt, bool) {
+func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (*felt.Felt, error) {
 	expectedHash := root
 	keyLen := key.Len()
 	var processedBits uint8
@@ -288,18 +288,18 @@ func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (
 	for {
 		proofNode, ok := proofSet.Get(*expectedHash)
 		if !ok {
-			return nil, false
+			return nil, fmt.Errorf("proof node not found, expected hash: %s", expectedHash.String())
 		}
 
 		// Verify the hash matches
 		if !proofNode.Hash(hash).Equal(expectedHash) {
-			return nil, false
+			return nil, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expectedHash.String(), proofNode.Hash(hash).String())
 		}
 
 		switch node := proofNode.(type) {
 		case *Binary: // Binary nodes represent left/right choices
 			if key.Len() <= processedBits {
-				return nil, false
+				return nil, fmt.Errorf("key length less than processed bits, key length: %d, processed bits: %d", key.Len(), processedBits)
 			}
 			// Check the bit at parent's position
 			expectedHash = node.LeftHash
@@ -311,7 +311,8 @@ func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (
 			nodeLen := node.Path.Len()
 
 			if key.Len() < processedBits+nodeLen {
-				return nil, false
+				// Key is shorter than the path - this proves non-membership
+				return &felt.Zero, nil
 			}
 
 			// Ensure the bits between segment of the key and the node path match
@@ -319,7 +320,7 @@ func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (
 			end := keyLen - processedBits
 			for i := start; i < end; i++ { // check if the bits match
 				if key.IsBitSet(i) != node.Path.IsBitSet(i-start) {
-					return nil, false
+					return &felt.Zero, nil // paths diverge - this proves non-membership
 				}
 			}
 
@@ -329,7 +330,7 @@ func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash hashFunc) (
 
 		// We've consumed all bits in our path
 		if processedBits >= keyLen {
-			return expectedHash, true
+			return expectedHash, nil
 		}
 	}
 }
