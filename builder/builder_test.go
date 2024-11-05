@@ -71,7 +71,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	bc := blockchain.New(testDB, &utils.Integration)
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	p := mempool.New(pebble.NewMemTest(t))
-	testBuilder := builder.New(nil, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(nil, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, "")
 
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
@@ -161,7 +161,7 @@ func TestSign(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, "")
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
@@ -303,13 +303,13 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, &utils.Integration)
-	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), nil))
+	require.NoError(t, bc.StoreGenesis(nil, core.EmptyStateDiff(), nil))
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
 	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, "")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -334,7 +334,7 @@ func TestBuildBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 
 	bc := blockchain.New(pebble.NewMemTest(t), &utils.Integration)
-	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), map[felt.Felt]core.Class{}))
+	require.NoError(t, bc.StoreGenesis(nil, core.EmptyStateDiff(), map[felt.Felt]core.Class{}))
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
@@ -342,7 +342,7 @@ func TestBuildBlocks(t *testing.T) {
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
 	blockTime := time.Millisecond
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, blockTime, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, blockTime, p, utils.NewNopZapLogger(), false, "")
 
 	txnHashes := []*felt.Felt{}
 	for i := uint64(0); i < 100; i++ {
@@ -447,9 +447,9 @@ func TestPrefundedAccounts(t *testing.T) {
 	genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
-	require.NoError(t, bc.StoreGenesis(diff, classes))
+	require.NoError(t, bc.StoreGenesis(nil, diff, classes))
 
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, "")
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(context.Background(), txn)

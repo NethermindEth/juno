@@ -977,7 +977,7 @@ func TestStoreGenesis(t *testing.T) {
 					testDB := pebble.NewMemTest(t)
 					chain := blockchain.New(testDB, &network)
 
-					require.NoError(t, chain.StoreGenesis(test.diff, test.classes))
+					require.NoError(t, chain.StoreGenesis(nil, test.diff, test.classes))
 
 					// Block are stored.
 					block, err := chain.Head()
