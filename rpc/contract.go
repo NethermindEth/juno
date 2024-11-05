@@ -44,7 +44,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 
 	// This checks if the contract exists because if a key doesn't exist in contract storage,
 	// the returned value is always zero and error is nil.
-	_, err := stateReader.ContractNonce(&address)
+	_, err := stateReader.ContractClassHash(&address)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, ErrContractNotFound
