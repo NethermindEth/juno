@@ -276,8 +276,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if !n.cfg.DisableL1Verification {
 		// Due to mutually exclusive flag we can do the following.
 		if n.cfg.EthNode == "" {
-			//nolint:lll
-			return nil, fmt.Errorf("ethereum node address not found; will not verify against L1. Use --Let rename it disable-l1-verification flag if L1 verification is not required")
+			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
 		var l1Client *l1.Client
