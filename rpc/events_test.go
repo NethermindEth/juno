@@ -229,6 +229,50 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 	return fc.w == fc2.w
 }
 
+func TestSubscribeEventsAndUnsubscribe(t *testing.T) {
+	t.Parallel()
+	log := utils.NewNopZapLogger()
+	n := utils.Ptr(utils.Mainnet)
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	chain := blockchain.New(pebble.NewMemTest(t), n)
+	syncer := sync.New(chain, gw, log, 0, false)
+	handler := rpc.New(chain, syncer, nil, "", log)
+
+	go func() {
+		require.NoError(t, handler.Run(ctx))
+	}()
+	// Technically, there's a race between goroutine above and the SubscribeNewHeads call down below.
+	// Sleep for a moment just in case.
+	time.Sleep(50 * time.Millisecond)
+
+	serverConn, clientConn := net.Pipe()
+	t.Cleanup(func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+	})
+
+	t.Run("Too many keys in filter", func(t *testing.T) {
+		keys := make([][]felt.Felt, 1024+1)
+		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		id, rpcErr := handler.SubscribeEvents(ctx, fromAddr, keys, nil)
+		assert.Zero(t, id)
+		assert.Equal(t, rpc.ErrTooManyKeysInFilter, rpcErr)
+	})
+
+	// Todo: use mocks to fix the tests
+	t.Run("Too many blocks back", func(t *testing.T) {
+		keys := make([][]felt.Felt, 1)
+		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		blockID := &rpc.BlockID{Number: 0}
+		id, rpcErr := handler.SubscribeEvents(ctx, fromAddr, keys, blockID)
+		assert.Zero(t, id)
+		assert.Equal(t, rpc.ErrTooManyBlocksBack, rpcErr)
+	})
+}
+
 func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	t.Parallel()
 	log := utils.NewNopZapLogger()
