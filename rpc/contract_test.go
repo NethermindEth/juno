@@ -123,7 +123,7 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, errors.New("non-existent contract"))
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
@@ -132,7 +132,8 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("non-existent key", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(&felt.Zero, errors.New("non-existent key"))
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
@@ -143,6 +144,7 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
@@ -152,6 +154,7 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Hash: &felt.Zero})
@@ -161,6 +164,7 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Number: 0})
