@@ -286,8 +286,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		}
 		n.services = append(n.services, l1Client)
 		rpcHandler.WithL1Client(l1Client.L1())
-	} else {
-		n.log.Warnw("L1 client not found, cannot serve starknet_getMessage RPC endpoint")
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
