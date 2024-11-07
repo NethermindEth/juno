@@ -199,15 +199,6 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
-	if cfg.EthNode == "" {
-		log.Warnw("L1 client not found, cannot serve starknet_getMessage")
-	} else {
-		ethClient, err := l1.NewETHClient(cfg.EthNode)
-		if err != nil {
-			return nil, err
-		}
-		rpcHandler.WithETHClient(ethClient)
-	}
 
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
@@ -284,13 +275,20 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
+		log.Warnw("L1 client not found, cannot serve starknet_getMessage")
 	} else {
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg, n.blockchain, n.log)
+		var l1ClientService *l1.Client
+		l1ClientService, err = newL1Client(cfg, n.blockchain, n.log)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
-		n.services = append(n.services, l1Client)
+		n.services = append(n.services, l1ClientService)
+
+		ethClient, err := l1.NewETHClient(cfg.EthNode)
+		if err != nil {
+			return nil, err
+		}
+		rpcHandler.WithETHClient(ethClient)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
