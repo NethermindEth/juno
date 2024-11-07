@@ -16,7 +16,7 @@ var (
 	logMsgToL2SigHash   = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
 )
 
-type LogMessageToL2 struct {
+type logMessageToL2 struct {
 	FromAddress *common.Address
 	ToAddress   *big.Int
 	Nonce       *big.Int
@@ -25,7 +25,7 @@ type LogMessageToL2 struct {
 	Fee         *big.Int
 }
 
-func (l *LogMessageToL2) hashMessage() *common.Hash {
+func (l *logMessageToL2) hashMessage() *common.Hash {
 	hash := sha3.NewLegacyKeccak256()
 
 	writeUint256 := func(value *big.Int) {
@@ -97,7 +97,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		if common.HexToHash(vLog.Topics[0].Hex()).Cmp(logMsgToL2SigHash) != 0 {
 			continue
 		}
-		var event LogMessageToL2
+		var event logMessageToL2
 		err = h.coreContractABI.UnpackIntoInterface(&event, "LogMessageToL2", vLog.Data)
 		if err != nil {
 			return nil, jsonrpc.Err(ErrInternal.Code, fmt.Errorf("failed to unpack log %v", err))
