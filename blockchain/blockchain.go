@@ -26,6 +26,8 @@ type Reader interface {
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
+	BlockP2PHashByNumber(number uint64) (hash *felt.Felt, err error)
+
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
@@ -391,20 +393,28 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
+		fmt.Println("block.ProtocolVersion", block.ProtocolVersion)
+
 		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
 		if err != nil {
 			return err
 		}
 
+		fmt.Println("blockVer", blockVer)
+
 		if blockVer.LessThan(core.Ver0_13_2) {
 			// temporary hack
+			fmt.Println("block.SequencerAddress", block.SequencerAddress)
 			if block.SequencerAddress == nil {
 				block.SequencerAddress = &felt.Zero
 			}
+			fmt.Println("ComputeAndStoreP2PHash")
 			if err := ComputeAndStoreP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
 				return err
 			}
 		}
+
+		fmt.Println("blockCommitments", blockCommitments)
 
 		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
@@ -930,7 +940,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 		if err != nil {
 			return err
 		}
-		stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
+		stateUpdate, err := StateUpdateByNumber(txn, blockNumber)
 		if err != nil {
 			return err
 		}
