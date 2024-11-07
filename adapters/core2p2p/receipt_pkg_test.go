@@ -30,7 +30,7 @@ func TestReceiptCommon(t *testing.T) {
 
 		for _, receipt := range receipts {
 			r := receiptCommon(receipt)
-			assert.Equal(t, receipt.Reverted, r)
+			assert.Equal(t, &receipt.RevertReason, r.RevertReason)
 		}
 	})
 }
