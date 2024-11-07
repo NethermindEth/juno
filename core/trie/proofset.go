@@ -47,14 +47,3 @@ func (ps *ProofSet) Size() int {
 
 	return ps.size
 }
-
-// List returns a shallow copy of the proof set's node list.
-func (ps *ProofSet) List() []ProofNode {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-
-	nodes := make([]ProofNode, len(ps.nodeList))
-	copy(nodes, ps.nodeList)
-
-	return nodes
-}

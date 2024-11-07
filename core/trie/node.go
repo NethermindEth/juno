@@ -1,8 +1,8 @@
 package trie
 
 import (
-	"bytes"
 	"errors"
+	"io"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -38,7 +38,7 @@ func (n *Node) HashFromParent(parentKey, nodeKey *Key, hashFunc HashFunc) *felt.
 	return n.Hash(&path, hashFunc)
 }
 
-func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
+func (n *Node) WriteTo(buf io.Writer) (int64, error) {
 	if n.Value == nil {
 		return 0, errors.New("cannot marshal node with nil value")
 	}

@@ -2,6 +2,7 @@ package trie_test
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -152,4 +153,61 @@ func TestTruncate(t *testing.T) {
 			assert.Equal(t, test.expectedKey, copyKey)
 		})
 	}
+}
+
+func TestKeyErrorHandling(t *testing.T) {
+	t.Run("passed too long key bytes panics", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			require.Contains(t, r.(string), "bytes does not fit in bitset")
+		}()
+		tooLongKeyB := make([]byte, 33)
+		trie.NewKey(8, tooLongKeyB)
+	})
+	t.Run("MostSignificantBits n greater than key length", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		_, err := key.MostSignificantBits(9)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot take 9 bits from key of length 8")
+	})
+	t.Run("MostSignificantBits equals key length return copy of key", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		kCopy, err := key.MostSignificantBits(8)
+		require.NoError(t, err)
+		require.Equal(t, key, *kCopy)
+	})
+	t.Run("SubKey n greater than key length", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		_, err := key.SubKey(9)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot subtract key of length 9 from key of length 8")
+	})
+	t.Run("SubKey n equals k length returns empty key", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		kCopy, err := key.SubKey(8)
+		require.NoError(t, err)
+		require.Equal(t, trie.Key{}, *kCopy)
+	})
+	t.Run("delete more bits than key length panics", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			require.Contains(t, r.(string), "deleting more bits than there are")
+		}()
+		key := trie.NewKey(8, []byte{0x01})
+		key.DeleteLSB(9)
+	})
+	t.Run("WriteTo returns error", func(t *testing.T) {
+		key := trie.NewKey(8, []byte{0x01})
+		wrote, err := key.WriteTo(&errorBuffer{})
+		require.Error(t, err)
+		require.Equal(t, int64(0), wrote)
+	})
+}
+
+type errorBuffer struct{}
+
+func (*errorBuffer) Write([]byte) (int, error) {
+	return 0, errors.New("expected to fail")
 }
