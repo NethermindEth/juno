@@ -223,3 +223,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 
 	return nil
 }
+
+func (c *Client) L1() Subscriber {
+	return c.l1
+}
