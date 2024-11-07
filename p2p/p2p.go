@@ -3,9 +3,12 @@ package p2p
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -73,6 +76,37 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		timeout := 5 * time.Second
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://ip-api.com/json/", http.NoBody)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		var ip struct {
+			Query string
+		}
+		err = json.Unmarshal(body, &ip)
+		if err != nil {
+			return nil, err
+		}
+		guessedPublicAddr := ip.Query
+		addrPort := addr[strings.LastIndex(addr, "/")+1:]
+		guessedPublicAddr = fmt.Sprintf("/ip4/%s/tcp/%s", guessedPublicAddr, addrPort)
+		publicMultiAddr, err = multiaddr.NewMultiaddr(guessedPublicAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	prvKey, err := privateKey(privKeyStr)
@@ -109,6 +143,16 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	)
 	if err != nil {
 		return nil, err
+	}
+	// Update public address port to match the listen address.
+	if publicAddr == "" {
+		// Update the port of publicMultiAddr to match the port of p2pHost.Addrs()[0]
+		port := p2pHost.Addrs()[0].String()
+		port = port[strings.LastIndex(port, "/")+1:]
+		publicMultiAddr, err = multiaddr.NewMultiaddr(fmt.Sprintf("%s/tcp/%s", publicMultiAddr.String(), port))
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
