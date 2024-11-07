@@ -40,14 +40,14 @@ func (k *Key) MostSignificantBits(n uint8) (*Key, error) {
 	bytesToCopy := (n + 7) / 8
 	if bytesToCopy > 0 {
 		// Copy the required bytes from the original key
-		startPos := len(k.bitset) - int((k.len+7)/8)
+		startPos := len(k.bitset) - int((k.len+7)/8) //nolint:mnd
 		copy(newKey.bitset[len(newKey.bitset)-int(bytesToCopy):], k.bitset[startPos:])
 	}
 
 	// Clear any extra bits in the last byte if necessary
 	if n%8 != 0 && bytesToCopy > 0 {
 		lastBytePos := len(newKey.bitset) - int(bytesToCopy)
-		mask := byte(0xFF >> (8 - (n % 8)))
+		mask := byte(0xFF >> (8 - (n % 8))) //nolint:mnd
 		newKey.bitset[lastBytePos] &= mask
 	}
 
