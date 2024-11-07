@@ -302,7 +302,7 @@ func TestStorageProof(t *testing.T) {
 		t.Parallel()
 
 		contract := utils.HexToFelt(t, "0xabcd")
-		mockTrie.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
+		mockTrie.EXPECT().StorageTrieForAddr(contract).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*noSuchKey}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
@@ -317,8 +317,8 @@ func TestStorageProof(t *testing.T) {
 	t.Run("contract storage trie address/key exists in a trie", func(t *testing.T) {
 		t.Parallel()
 
-		contract := utils.HexToFelt(t, "0xabcd")
-		mockTrie.EXPECT().StorageTrieForAddr(gomock.Any()).Return(tempTrie, nil).Times(1)
+		contract := utils.HexToFelt(t, "0xadd0")
+		mockTrie.EXPECT().StorageTrieForAddr(contract).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)

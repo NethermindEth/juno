@@ -1,10 +1,9 @@
 package trie
 
 import (
-	"bytes"
 	"encoding/hex"
-	"errors"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -61,7 +60,7 @@ func (k *Key) MostSignificantBits(n uint8) (*Key, error) {
 
 func (k *Key) SubKey(n uint8) (*Key, error) {
 	if n > k.len {
-		return nil, errors.New(fmt.Sprint("cannot subtract key of length %i from key of length %i", n, k.len))
+		return nil, fmt.Errorf("cannot subtract key of length %d from key of length %d", n, k.len)
 	}
 	if n == k.len {
 		return &Key{}, nil
@@ -95,8 +94,8 @@ func (k *Key) unusedBytes() []byte {
 	return k.bitset[:len(k.bitset)-int(k.bytesNeeded())]
 }
 
-func (k *Key) WriteTo(buf *bytes.Buffer) (int64, error) {
-	if err := buf.WriteByte(k.len); err != nil {
+func (k *Key) WriteTo(buf io.Writer) (int64, error) {
+	if _, err := buf.Write([]byte{k.len}); err != nil {
 		return 0, err
 	}
 
