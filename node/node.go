@@ -275,7 +275,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 
 	if n.cfg.EthNode == "" {
 		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-		log.Warnw("L1 client not found, cannot serve starknet_getMessage")
+		n.log.Warnw("L1 client not found, cannot serve starknet_getMessage")
 	} else {
 		var l1ClientService *l1.Client
 		l1ClientService, err = newL1Client(cfg, n.blockchain, n.log)
