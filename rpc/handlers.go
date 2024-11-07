@@ -83,7 +83,7 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
-	ethClient     l1.EthClient
+	ethSubscriber *l1.Subscriber
 
 	version  string
 	newHeads *feed.Feed[*core.Header]
@@ -139,8 +139,8 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	return h
 }
 
-func (h *Handler) WithETHClient(ethClient l1.EthClient) *Handler {
-	h.ethClient = ethClient
+func (h *Handler) WithETHClient(ethSubscriber l1.Subscriber) *Handler {
+	h.ethSubscriber = &ethSubscriber
 	return h
 }
 

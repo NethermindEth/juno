@@ -278,17 +278,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		n.log.Warnw("L1 client not found, cannot serve starknet_getMessage")
 	} else {
 		var l1ClientService *l1.Client
-		l1ClientService, err = newL1Client(cfg, n.blockchain, n.log)
+		var l1EthSubscriber l1.Subscriber
+		l1ClientService, l1EthSubscriber, err = newL1Client(cfg, n.blockchain, n.log)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 		n.services = append(n.services, l1ClientService)
-
-		ethClient, err := l1.NewETHClient(cfg.EthNode)
-		if err != nil {
-			return nil, err
-		}
-		rpcHandler.WithETHClient(ethClient)
+		rpcHandler.WithETHClient(l1EthSubscriber)
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
@@ -301,13 +297,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, l1.Subscriber, error) {
 	ethNodeURL, err := url.Parse(cfg.EthNode)
 	if err != nil {
-		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
+		return nil, nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		return nil, nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
 	}
 
 	network := chain.Network()
@@ -315,7 +311,7 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 	var ethSubscriber *l1.EthSubscriber
 	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
 	if err != nil {
-		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
+		return nil, nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
 	l1Client := l1.NewClient(ethSubscriber, chain, log)
@@ -323,7 +319,7 @@ func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogg
 	if cfg.Metrics {
 		l1Client.WithEventListener(makeL1Metrics())
 	}
-	return l1Client, nil
+	return l1Client, ethSubscriber, nil
 }
 
 // Run starts Juno node by opening the DB, initialising services.
