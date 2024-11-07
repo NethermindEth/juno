@@ -16,19 +16,24 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/sourcegraph/conc"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
+}
+
+type l1Client interface {
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 var (
@@ -83,7 +88,6 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
-	ethSubscriber *l1.Subscriber
 
 	version  string
 	newHeads *feed.Feed[*core.Header]
@@ -94,8 +98,10 @@ type Handler struct {
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
-	filterLimit     uint
-	callMaxSteps    uint64
+	filterLimit  uint
+	callMaxSteps uint64
+
+	l1Client        l1Client
 	coreContractABI abi.ABI
 }
 
@@ -139,8 +145,8 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	return h
 }
 
-func (h *Handler) WithETHClient(ethSubscriber l1.Subscriber) *Handler {
-	h.ethSubscriber = &ethSubscriber
+func (h *Handler) WithL1Client(l1Client l1Client) *Handler {
+	h.l1Client = l1Client
 	return h
 }
 

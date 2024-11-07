@@ -83,11 +83,11 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 }
 
 func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*common.Hash, *jsonrpc.Error) {
-	if h.ethSubscriber == nil {
+	if h.l1Client == nil {
 		return nil, ErrL1ClientNotFound
 	}
 
-	receipt, err := (*h.ethSubscriber).TransactionReceipt(ctx, *txHash)
+	receipt, err := h.l1Client.TransactionReceipt(ctx, *txHash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
