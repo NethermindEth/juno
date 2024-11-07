@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -127,6 +126,19 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 	return nil, errors.New("can not verify hash in block header")
 }
 
+// BlockHash assumes block.SequencerAddress is not nil as this is called with post v0.12.0
+// and by then issues with unverifiable block hash were resolved.
+// In future, this may no longer be required.
+// Todo: Pass stateDiff so that p2p layer can calculate post 0.13.2 Block Hash
+func BlockHash(b *Block) (*felt.Felt, error) {
+	if b.SequencerAddress == nil {
+		return nil, errors.New("block.SequencerAddress is nil")
+	}
+
+	h, _, err := post07Hash(b, nil)
+	return h, err
+}
+
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
 	*BlockCommitments, error,
@@ -137,7 +149,6 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	if err != nil {
 		return nil, nil, err
 	}
-	v0_13_2 := semver.MustParse("0.13.2")
 
 	if blockVer.LessThan(Ver0_13_2) {
 		if b.Number < metaInfo.First07Block {
