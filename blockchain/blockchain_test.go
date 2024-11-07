@@ -271,23 +271,21 @@ func TestStore(t *testing.T) {
 }
 
 func TestStoreL1HandlerTxnHash(t *testing.T) {
-	t.Run("add block with L1 Handler Txn", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Sepolia)
-		gw := adaptfeeder.New(client)
-		chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
-		var stateUpdate *core.StateUpdate
-		for i := range uint64(7) {
-			block, err := gw.BlockByNumber(context.Background(), i)
-			require.NoError(t, err)
-			stateUpdate, err = gw.StateUpdate(context.Background(), i)
-			require.NoError(t, err)
-			require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
-		}
-		l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
-		l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+	var stateUpdate *core.StateUpdate
+	for i := range uint64(7) {
+		block, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
-	})
+		stateUpdate, err = gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+	}
+	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
+	require.NoError(t, err)
+	require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
 }
 
 func TestBlockCommitments(t *testing.T) {

@@ -651,7 +651,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 }
 
 func l1HandlerTxnHashByMsgHash(txn db.Transaction, l1HandlerMsgHash *common.Hash) (*felt.Felt, error) {
-	l1HandlerTxnHash := new(felt.Felt).SetUint64(0)
+	l1HandlerTxnHash := new(felt.Felt)
 	return l1HandlerTxnHash, txn.Get(db.L1HandlerTxnHashByMsgHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
 		l1HandlerTxnHash.Unmarshal(val)
 		return nil
