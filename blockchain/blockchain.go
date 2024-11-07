@@ -651,18 +651,11 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 }
 
 func l1HandlerTxnHashByMsgHash(txn db.Transaction, l1HandlerMsgHash *common.Hash) (*felt.Felt, error) {
-	l1HandlerTxnHash := new(felt.Felt)
-	err := txn.Get(db.L1HandlerTxnHashByMsgHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
-		if len(val) == 0 {
-			return db.ErrKeyNotFound
-		}
+	l1HandlerTxnHash := new(felt.Felt).SetUint64(0)
+	return l1HandlerTxnHash, txn.Get(db.L1HandlerTxnHashByMsgHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
 		l1HandlerTxnHash.Unmarshal(val)
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	return l1HandlerTxnHash, nil
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update

@@ -302,7 +302,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, l1.Subscriber, error) {
+func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain,
+	log utils.SimpleLogger,
+) (*l1.Client, l1.Subscriber, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse Ethereum node URL: %w", err)
