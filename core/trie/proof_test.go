@@ -184,120 +184,12 @@ func build3KeyTrie(t *testing.T) *trie.Trie {
 	return tempTrie
 }
 
-func build4KeyTrie(t *testing.T) *trie.Trie {
-	//			Juno
-	//			248
-	// 			/  \
-	// 		249		\
-	//		/ \		 \
-	//	 250   \	  \
-	//   / \   /\	  /\
-	//  0   1 2	     4
-
-	//			Juno - should be able to reconstruct this from proofs
-	//			248
-	// 			/  \
-	// 		249			// Note we cant derive the right key, but need to store it's hash
-	//		/ \
-	//	 250   \
-	//   / \   / (Left hash set, no key)
-	//  0
-
-	//			Pathfinder (???)
-	//			  0	 Edge
-	// 			  |
-	// 			 248	Binary
-	//			 / \
-	//		   249	\		Binary Edge		??
-	//	   	   / \	 \
-	//		250  250  250		Binary Edge		??
-	//	    / \   /    /
-	// 	   0   1  2   4
-
-	// Build trie
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
-
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
-	require.NoError(t, err)
-
-	// Update trie
-	key1 := new(felt.Felt).SetUint64(0)
-	key2 := new(felt.Felt).SetUint64(1)
-	key3 := new(felt.Felt).SetUint64(2)
-	key5 := new(felt.Felt).SetUint64(4)
-	value1 := new(felt.Felt).SetUint64(4)
-	value2 := new(felt.Felt).SetUint64(5)
-	value3 := new(felt.Felt).SetUint64(6)
-	value5 := new(felt.Felt).SetUint64(7)
-
-	_, err = tempTrie.Put(key1, value1)
-	require.NoError(t, err)
-
-	_, err = tempTrie.Put(key3, value3)
-	require.NoError(t, err)
-	_, err = tempTrie.Put(key2, value2)
-	require.NoError(t, err)
-	_, err = tempTrie.Put(key5, value5)
-	require.NoError(t, err)
-
-	require.NoError(t, tempTrie.Commit())
-
-	return tempTrie
-}
-
-func noDuplicates(proofNodes []trie.ProofNode) bool {
-	seen := make(map[felt.Felt]bool)
-	for _, pNode := range proofNodes {
-		if _, ok := seen[*pNode.Hash(crypto.Pedersen)]; ok {
-			return false
-		}
-		seen[*pNode.Hash(crypto.Pedersen)] = true
-	}
-	return true
-}
-
-// containsAll checks that subsetProofNodes is a subset of proofNodes
-func containsAll(proofNodes, subsetProofNodes []trie.ProofNode) bool {
-	for _, pNode := range subsetProofNodes {
-		found := false
-		for _, p := range proofNodes {
-			if p.Hash(crypto.Pedersen).Equal(pNode.Hash(crypto.Pedersen)) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
-}
-
-func isSameProofPath(proofNodes, expectedProofNodes []trie.ProofNode) bool {
-	if len(proofNodes) != len(expectedProofNodes) {
-		return false
-	}
-	for i := range proofNodes {
-		if !proofNodes[i].Hash(crypto.Pedersen).Equal(expectedProofNodes[i].Hash(crypto.Pedersen)) {
-			return false
-		}
-	}
-	return true
-}
-
-func newBinaryProofNode() *trie.Binary {
-	return &trie.Binary{
-		LeftHash:  new(felt.Felt).SetUint64(1),
-		RightHash: new(felt.Felt).SetUint64(2),
-	}
-}
-
 func TestProve(t *testing.T) {
 	t.Parallel()
 
 	t.Run("simple binary", func(t *testing.T) {
+		t.Parallel()
+
 		tempTrie := buildSimpleTrie(t)
 
 		zero := trie.NewKey(250, []byte{0})
@@ -330,6 +222,8 @@ func TestProve(t *testing.T) {
 	})
 
 	t.Run("simple double binary", func(t *testing.T) {
+		t.Parallel()
+
 		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
 
 		expectedProofNodes[2] = &trie.Binary{
@@ -355,6 +249,8 @@ func TestProve(t *testing.T) {
 	})
 
 	t.Run("simple double binary edge", func(t *testing.T) {
+		t.Parallel()
+
 		tempTrie, expectedProofNodes := buildSimpleDoubleBinaryTrie(t)
 		leafFelt := new(felt.Felt).SetUint64(3)
 		leafKey := tempTrie.FeltToKey(leafFelt)
@@ -373,6 +269,8 @@ func TestProve(t *testing.T) {
 	})
 
 	t.Run("simple binary root", func(t *testing.T) {
+		t.Parallel()
+
 		tempTrie := buildSimpleBinaryRootTrie(t)
 
 		key1Bytes := new(felt.Felt).SetUint64(0).Bytes()
@@ -405,6 +303,8 @@ func TestProve(t *testing.T) {
 	})
 
 	t.Run("left-right edge", func(t *testing.T) {
+		t.Parallel()
+
 		//  (251,0xff,0xaa)
 		//     /
 		//     \
@@ -449,6 +349,8 @@ func TestProve(t *testing.T) {
 	})
 
 	t.Run("three key trie", func(t *testing.T) {
+		t.Parallel()
+
 		tempTrie := build3KeyTrie(t)
 		zero := trie.NewKey(249, []byte{0})
 		felt2 := new(felt.Felt).SetUint64(0).Bytes()
@@ -487,6 +389,8 @@ func TestProve(t *testing.T) {
 	})
 
 	t.Run("non existent key - less than root edge", func(t *testing.T) {
+		t.Parallel()
+
 		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
 
 		nonExistentFelt := new(felt.Felt).SetUint64(123)
@@ -504,6 +408,8 @@ func TestProve(t *testing.T) {
 	})
 
 	t.Run("non existent leaf key", func(t *testing.T) {
+		t.Parallel()
+
 		tempTrie, _ := buildSimpleDoubleBinaryTrie(t)
 
 		nonExistentFelt := new(felt.Felt).SetUint64(2)

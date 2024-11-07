@@ -247,12 +247,8 @@ func TestStorageProof(t *testing.T) {
 		require.Len(t, rootNodes, 1)
 
 		// verify we can still prove any of the keys in query
-		// Hack: by a trie construction, we know that the first two nodes are common for both keys
-		// and the last two nodes are edges corresponding to both values
-		commonNodes := proof.ClassesProof[:2]
-
-		verifyIf(t, trieRoot, key, value, append(commonNodes, proof.ClassesProof[2]), tempTrie.HashFunc())
-		verifyIf(t, trieRoot, key2, value2, append(commonNodes, proof.ClassesProof[3]), tempTrie.HashFunc())
+		verifyIf(t, trieRoot, key, value, proof.ClassesProof, tempTrie.HashFunc())
+		verifyIf(t, trieRoot, key2, value2, proof.ClassesProof, tempTrie.HashFunc())
 	})
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
 		t.Parallel()
