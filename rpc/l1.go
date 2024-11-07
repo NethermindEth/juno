@@ -25,7 +25,7 @@ type LogMessageToL2 struct {
 	Fee         *big.Int
 }
 
-func (l *LogMessageToL2) HashMessage() *common.Hash {
+func (l *LogMessageToL2) hashMessage() *common.Hash {
 	hash := sha3.NewLegacyKeccak256()
 
 	writeUint256 := func(value *big.Int) {
@@ -108,7 +108,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		selector := new(big.Int).SetBytes(vLog.Topics[3].Bytes())
 		event.FromAddress = &fromAddress
 		event.Selector = selector
-		messageHashes = append(messageHashes, event.HashMessage())
+		messageHashes = append(messageHashes, event.hashMessage())
 	}
 	return messageHashes, nil
 }

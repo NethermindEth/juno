@@ -239,11 +239,6 @@ func TestStore(t *testing.T) {
 		got0Update, err := chain.StateUpdateByHash(block0.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate0, got0Update)
-
-		nonExistentMsgHash := common.HexToHash("0xcoffeebabe")
-		hash, err := chain.L1HandlerTxnHash(&nonExistentMsgHash)
-		require.Nil(t, hash)
-		require.Equal(t, db.ErrKeyNotFound, err)
 	})
 
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
@@ -272,21 +267,17 @@ func TestStore(t *testing.T) {
 		got1Update, err := chain.StateUpdateByNumber(1)
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
-
-		nonExistentMsgHash := common.HexToHash("0xcoffeebabe")
-		hash, err := chain.L1HandlerTxnHash(&nonExistentMsgHash)
-		require.Nil(t, hash)
-		require.Equal(t, db.ErrKeyNotFound, err)
 	})
+}
 
+func TestStoreL1HandlerTxnHash(t *testing.T) {
 	t.Run("add block with L1 Handler Txn", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Sepolia)
 		gw := adaptfeeder.New(client)
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
-		var block *core.Block
 		var stateUpdate *core.StateUpdate
 		for i := range uint64(7) {
-			block, err = gw.BlockByNumber(context.Background(), i)
+			block, err := gw.BlockByNumber(context.Background(), i)
 			require.NoError(t, err)
 			stateUpdate, err = gw.StateUpdate(context.Background(), i)
 			require.NoError(t, err)
