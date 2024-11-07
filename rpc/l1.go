@@ -11,10 +11,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-var (
-	ErrL1ClientNotFound = jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("11 client not found, cannot serve starknet_getMessage"))
-	logMsgToL2SigHash   = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
-)
+var logMsgToL2SigHash = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
 
 type logMessageToL2 struct {
 	FromAddress *common.Address
@@ -84,7 +81,7 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 
 func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*common.Hash, *jsonrpc.Error) {
 	if h.l1Client == nil {
-		return nil, ErrL1ClientNotFound
+		return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("11 client not found, cannot serve starknet_getMessage"))
 	}
 
 	receipt, err := h.l1Client.TransactionReceipt(ctx, *txHash)
