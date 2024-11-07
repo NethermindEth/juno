@@ -60,6 +60,7 @@ type Config struct {
 	DatabasePath           string         `mapstructure:"db-path"`
 	Network                utils.Network  `mapstructure:"network"`
 	EthNode                string         `mapstructure:"eth-node"`
+	DisableL1Verification  bool           `mapstructure:"disable-l1-verification"`
 	Pprof                  bool           `mapstructure:"pprof"`
 	PprofHost              string         `mapstructure:"pprof-host"`
 	PprofPort              uint16         `mapstructure:"pprof-port"`
@@ -273,18 +274,22 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		metricsService: metricsService,
 	}
 
-	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-		n.log.Warnw("L1 client not found, cannot serve starknet_getMessage")
-	} else {
-		var l1ClientService *l1.Client
-		var l1EthSubscriber l1.Subscriber
-		l1ClientService, l1EthSubscriber, err = newL1Client(cfg, n.blockchain, n.log)
+	if !n.cfg.DisableL1Verification {
+		// Due to mutually exclusive flag we can do the following.
+		if n.cfg.EthNode == "" {
+			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
+		}
+
+		var l1Client *l1.Client
+		var l1Subscriber l1.Subscriber
+		l1Client, l1Subscriber, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.log)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
-		n.services = append(n.services, l1ClientService)
-		rpcHandler.WithETHClient(l1EthSubscriber)
+		n.services = append(n.services, l1Client)
+		rpcHandler.WithETHClient(l1Subscriber)
+	} else {
+		n.log.Warnw("L1 client not found, cannot serve starknet_getMessage RPC endpoint")
 	}
 
 	if semversion, err := semver.NewVersion(version); err == nil {
@@ -297,26 +302,26 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, l1.Subscriber, error) {
-	ethNodeURL, err := url.Parse(cfg.EthNode)
+func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, l1.Subscriber, error) {
+	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		return nil, nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
 	}
 
 	network := chain.Network()
 
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
+	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
 	if err != nil {
 		return nil, nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
 	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
-	if cfg.Metrics {
+	if includeMetrics {
 		l1Client.WithEventListener(makeL1Metrics())
 	}
 	return l1Client, ethSubscriber, nil
