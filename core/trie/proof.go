@@ -165,67 +165,6 @@ func transformNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary
 	return edge, binary, nil
 }
 
-// pathSplitOccurredCheck checks if there happens at most one split in the merged path
-// loops through the merged paths if left and right hashes of a node exist in the nodeHashes
-// then a split happened in case of multiple splits it returns an error
-func pathSplitOccurredCheck(mergedPath []ProofNode, nodeHashes map[felt.Felt]ProofNode) error {
-	splitHappened := false
-	for _, node := range mergedPath {
-		switch node := node.(type) {
-		case *Edge:
-			continue
-		case *Binary:
-			_, leftExists := nodeHashes[*node.LeftHash]
-			_, rightExists := nodeHashes[*node.RightHash]
-			if leftExists && rightExists {
-				if splitHappened {
-					return errors.New("split happened more than once")
-				}
-				splitHappened = true
-			}
-		default:
-			return fmt.Errorf("%w: %T", ErrUnknownProofNode, node)
-		}
-	}
-	return nil
-}
-
-func rootNodeExistsCheck(rootHash *felt.Felt, nodeHashes map[felt.Felt]ProofNode) (ProofNode, error) {
-	currNode, rootExists := nodeHashes[*rootHash]
-	if !rootExists {
-		return currNode, errors.New("root hash not found in the merged path")
-	}
-
-	return currNode, nil
-}
-
-// traverseNodes traverses the merged proof path starting at `currNode`
-// and adds nodes to `path` slice. It stops when the split node is added
-// or the path is exhausted, and `currNode` children are not included
-// in the path (nodeHashes)
-func traverseNodes(currNode ProofNode, path *[]ProofNode, nodeHashes map[felt.Felt]ProofNode) {
-	*path = append(*path, currNode)
-
-	switch currNode := currNode.(type) {
-	case *Binary:
-		nodeLeft, leftExist := nodeHashes[*currNode.LeftHash]
-		nodeRight, rightExist := nodeHashes[*currNode.RightHash]
-
-		if leftExist && rightExist {
-			return
-		} else if leftExist {
-			traverseNodes(nodeLeft, path, nodeHashes)
-		} else if rightExist {
-			traverseNodes(nodeRight, path, nodeHashes)
-		}
-	case *Edge:
-		edgeNode, exist := nodeHashes[*currNode.Child]
-		if exist {
-			traverseNodes(edgeNode, path, nodeHashes)
-		}
-	}
-}
-
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L514
 // GetProof generates a set of proof nodes from the root to the leaf.
 // The proof never contains the leaf node if it is set, as we already know it's hash.
@@ -341,7 +280,9 @@ func VerifyProof(root *felt.Felt, key *Key, proofSet *ProofSet, hash HashFunc) (
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
 // and therefore its hash won't match the expected root.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt.Felt, proofSet *ProofSet, hash HashFunc) (bool, error) {
+//
+//nolint:gocyclo
+func VerifyRangeProof(root, firstKey *felt.Felt, keys, values []*felt.Felt, proofSet *ProofSet, hash HashFunc) (bool, error) {
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, number of keys: %d, number of values: %d", len(keys), len(values))
