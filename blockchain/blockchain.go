@@ -393,28 +393,20 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		fmt.Println("block.ProtocolVersion", block.ProtocolVersion)
-
 		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("blockVer", blockVer)
-
 		if blockVer.LessThan(core.Ver0_13_2) {
 			// temporary hack
-			fmt.Println("block.SequencerAddress", block.SequencerAddress)
 			if block.SequencerAddress == nil {
 				block.SequencerAddress = &felt.Zero
 			}
-			fmt.Println("ComputeAndStoreP2PHash")
 			if err := ComputeAndStoreP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
 				return err
 			}
 		}
-
-		fmt.Println("blockCommitments", blockCommitments)
 
 		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
