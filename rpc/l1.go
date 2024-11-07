@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrL1ClientNotFound = jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("L1 client not found, cannot serve starknet_getMessage"))
+	ErrL1ClientNotFound = jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("11 client not found, cannot serve starknet_getMessage"))
 	logMsgToL2SigHash   = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
 )
 
