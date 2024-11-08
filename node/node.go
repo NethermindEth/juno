@@ -368,6 +368,8 @@ func (n *Node) Run(ctx context.Context) {
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
 	}
+	fmt.Println("Migration completed")
+	return
 
 	for _, s := range n.services {
 		wg.Go(func() {

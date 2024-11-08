@@ -375,7 +375,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := StoreL1HandlerMsgHashes(txn, block.Transactions); err != nil {
+		if err := storeL1HandlerMsgHashes(txn, block.Transactions); err != nil {
 			return err
 		}
 
@@ -605,16 +605,20 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	})
 }
 
-func StoreL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
+func storeL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
 	for _, txn := range blockTxns {
 		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
-			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(l1Handler.MessageHash()), txn.Hash().Marshal())
+			err := StoreL1(dbTxn, txn.Hash(), l1Handler.MessageHash())
 			if err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func StoreL1(dbTxn db.Transaction, txHash *felt.Felt, messageHash []byte) error {
+	return dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(messageHash), txHash.Marshal())
 }
 
 func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.StateUpdate) error {

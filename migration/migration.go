@@ -491,19 +491,81 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 	return processBlocks(txn, processBlockFunc)
 }
 
-func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
-	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
-		txnLock.Lock()
-		txns, err := blockchain.TransactionsByBlockNumber(txn, blockNumber)
-		txnLock.Unlock()
-		if err != nil {
-			return err
+func calculateL1MsgHashes(dbTx db.Transaction, n *utils.Network) error {
+	numOfWorkers := runtime.GOMAXPROCS(0)
+	// add one more worker to the pool to handle writes to db
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers + 1)
+
+	chainHeight, err := blockchain.ChainHeight(dbTx)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil
 		}
-		txnLock.Lock()
-		defer txnLock.Unlock()
-		return blockchain.StoreL1HandlerMsgHashes(txn, txns)
+		return err
 	}
-	return processBlocks(txn, processBlockFunc)
+
+	blockNumbers := make(chan uint64, 1024) //nolint:mnd
+	go func() {
+		for bNumber := range chainHeight + 1 {
+			blockNumbers <- bNumber
+		}
+		close(blockNumbers)
+	}()
+
+	var dbMx sync.Mutex
+
+	type hashPair struct {
+		txHash      *felt.Felt
+		messageHash []byte
+	}
+	computedPairs := make(chan hashPair, 1024)
+	workerPool.Go(func() error {
+		for pair := range computedPairs {
+			dbMx.Lock()
+			if err := blockchain.StoreL1(dbTx, pair.txHash, pair.messageHash); err != nil {
+				return err
+			}
+			dbMx.Unlock()
+		}
+
+		return nil
+	})
+
+	var wg sync.WaitGroup
+	wg.Add(numOfWorkers)
+	fmt.Println("Num of workers")
+	for range numOfWorkers {
+		fmt.Println("setup worker")
+		workerPool.Go(func() error {
+			defer wg.Done()
+			for bNumber := range blockNumbers {
+				fmt.Println("Processing block", bNumber)
+				dbMx.Lock()
+				txns, err := blockchain.TransactionsByBlockNumber(dbTx, bNumber)
+				if err != nil {
+					return err
+				}
+				dbMx.Unlock()
+
+				for _, txn := range txns {
+					if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
+						computedPairs <- hashPair{
+							txHash:      txn.Hash(),
+							messageHash: l1Handler.MessageHash(),
+						}
+					}
+				}
+
+			}
+			return nil
+		})
+	}
+	go func() {
+		wg.Wait()
+		close(computedPairs)
+	}()
+
+	return workerPool.Wait()
 }
 
 func bitset2Key(bs *bitset.BitSet) *trie.Key {
