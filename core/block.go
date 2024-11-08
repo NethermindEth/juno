@@ -216,21 +216,42 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
+	// temporary hack
+	seqAddr := &felt.Zero
+	gasPriceStrk := &felt.Zero
+	l1DataGasPricrInWei := &felt.Zero
+	l1DataGasPriceInFri := &felt.Zero
+
+	if b.SequencerAddress != nil {
+		seqAddr = b.SequencerAddress
+	}
+	if b.GasPriceSTRK != nil {
+		gasPriceStrk = b.GasPriceSTRK
+	}
+	if b.L1DataGasPrice != nil {
+		if b.L1DataGasPrice.PriceInWei != nil {
+			l1DataGasPricrInWei = b.L1DataGasPrice.PriceInWei
+		}
+		if b.L1DataGasPrice.PriceInFri != nil {
+			l1DataGasPriceInFri = b.L1DataGasPrice.PriceInFri
+		}
+	}
+
 	return crypto.PoseidonArray(
 			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
-			b.SequencerAddress,                    // sequencer address
+			seqAddr,                               // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			concatCounts,
 			sdCommitment,
-			txCommitment,   // transaction commitment
-			eCommitment,    // event commitment
-			rCommitment,    // receipt commitment
-			b.GasPrice,     // gas price in wei
-			b.GasPriceSTRK, // gas price in fri
-			b.L1DataGasPrice.PriceInWei,
-			b.L1DataGasPrice.PriceInFri,
+			txCommitment, // transaction commitment
+			eCommitment,  // event commitment
+			rCommitment,  // receipt commitment
+			b.GasPrice,   // gas price in wei
+			gasPriceStrk, // gas price in fri
+			l1DataGasPricrInWei,
+			l1DataGasPriceInFri,
 			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
