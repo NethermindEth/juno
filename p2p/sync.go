@@ -262,7 +262,7 @@ func (s *syncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
 	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
