@@ -533,13 +533,10 @@ func calculateL1MsgHashes(dbTx db.Transaction, n *utils.Network) error {
 
 	var wg sync.WaitGroup
 	wg.Add(numOfWorkers)
-	fmt.Println("Num of workers")
 	for range numOfWorkers {
-		fmt.Println("setup worker")
 		workerPool.Go(func() error {
 			defer wg.Done()
 			for bNumber := range blockNumbers {
-				fmt.Println("Processing block", bNumber)
 				dbMx.Lock()
 				txns, err := blockchain.TransactionsByBlockNumber(dbTx, bNumber)
 				if err != nil {
