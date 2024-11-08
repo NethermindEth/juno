@@ -157,6 +157,16 @@ node3:
 	--p2p-private-key="54a695e2a5d5717d5ba8730efcafe6f17251a1955733cffc55a4085fbf7f5d2c1b4009314092069ef7ca9b364ce3eb3072531c64dfb2799c6bad76720a5bdff0" \
 	--metrics-port=9093
 
+nodep2p1: juno-cached
+	./build/juno \
+	--network=sepolia \
+	--disable-l1-verification \
+	--log-level=info \
+	--db-path=./p2p-dbs/nodep2p1 \
+	--p2p \
+	--p2p-peers=/ip4/35.231.95.227/tcp/7777/p2p/12D3KooWNKz9BJmyWVFUnod6SQYLG4dYZNhs3GrMpiot63Y1DLYS \
+	--p2p-private-key=5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089
+
 pathfinder: juno-cached
 	./build/juno \
     	--network=sepolia \

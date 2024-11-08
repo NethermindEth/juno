@@ -66,6 +66,7 @@ func (s *syncService) start(ctx context.Context) {
 			continue
 		}
 
+		s.sleep(3 * time.Second)
 		s.log.Infow("Start Pipeline", "Current height", nextHeight-1, "Start", nextHeight)
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
@@ -125,6 +126,8 @@ func (s *syncService) processBlock(ctx context.Context, blockNumber uint64) erro
 	)))
 
 	for b := range blocksCh {
+		continue
+
 		if b.err != nil {
 			return fmt.Errorf("failed to process block: %w", b.err)
 		}
@@ -636,8 +639,9 @@ func (s *syncService) randomPeer() peer.ID {
 
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
-	s.log.Debugw("Number of peers", "len", len(peers))
-	s.log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
+	s.log.Infow("Number of peers", "len", len(peers))
+	s.log.Infow("Peers", "peers", peers)
+	s.log.Infow("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
 
 	return p
 }

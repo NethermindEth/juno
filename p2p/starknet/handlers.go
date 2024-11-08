@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"iter"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/adapters/p2p2core"
@@ -442,6 +443,8 @@ func (h *Handler) processIterationRequestMulti(iteration *spec.Iteration, finMsg
 
 	type yieldFunc = func(proto.Message) bool
 	return func(yield yieldFunc) {
+		time.Sleep(3 * time.Second)
+		return
 		// while iterator is valid
 		for it.Valid() {
 			// pass it to handler function (some might be interested in header, others in entire block)

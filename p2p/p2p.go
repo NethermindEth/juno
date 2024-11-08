@@ -29,6 +29,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
 	"github.com/multiformats/go-multiaddr"
 	"google.golang.org/protobuf/proto"
 )
@@ -126,6 +127,22 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		return addrs
 	}
 
+	var peersAddrInfoS []peer.AddrInfo
+	peersAddrInfoS, err = loadPeers(database)
+	if err != nil {
+		log.Warnw("Failed to load peers", "err", err)
+	}
+	splitted := strings.Split(peers, ",")
+	for _, peerStr := range splitted {
+		var peerAddr *peer.AddrInfo
+		peerAddr, err = peer.AddrInfoFromString(peerStr)
+		if err != nil {
+			return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
+		}
+
+		peersAddrInfoS = append(peersAddrInfoS, *peerAddr)
+	}
+
 	p2pHost, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),
@@ -133,8 +150,11 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		// Use address factory to add the public address to the list of
 		// addresses that the node will advertise.
 		libp2p.AddrsFactory(addressFactory),
-		// If we know the public ip, enable the relay service.
-		libp2p.EnableRelayService(),
+		// Automatically advertise the relay'ed address when it detects that
+		// the node is running behind a NAT.
+		libp2p.EnableAutoRelayWithStaticRelays(peersAddrInfoS),
+		// // If we know the public ip, enable the relay service.
+		// libp2p.EnableRelayService(),
 		// When listening behind NAT, enable peers to try to poke thought the
 		// NAT in order to reach the node.
 		libp2p.EnableHolePunching(),
@@ -149,43 +169,28 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		// Update the port of publicMultiAddr to match the port of p2pHost.Addrs()[0]
 		port := p2pHost.Addrs()[0].String()
 		port = port[strings.LastIndex(port, "/")+1:]
-		publicMultiAddr, err = multiaddr.NewMultiaddr(fmt.Sprintf("%s/tcp/%s", publicMultiAddr.String(), port))
+		publicMultiAddr, err = multiaddr.NewMultiaddr(strings.ReplaceAll(publicMultiAddr.String(), "/tcp/0", "/tcp/" + port))
 		if err != nil {
 			return nil, err
 		}
 	}
+	
+	// Force all nodes to be able to act as a relay node
+	_, err = relay.New(p2pHost)
+	if err != nil {
+		log.Warnw("Failed to instantiate the relay: %v", err)
+	}
+	
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(p2pHost, peersAddrInfoS, feederNode, bc, snNetwork, log, database)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func NewWithHost(p2phost host.Host, peersAddrInfoS []peer.AddrInfo, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
-	var (
-		peersAddrInfoS []peer.AddrInfo
-		err            error
-	)
-
-	peersAddrInfoS, err = loadPeers(database)
-	if err != nil {
-		log.Warnw("Failed to load peers", "err", err)
-	}
-
-	if peers != "" {
-		splitted := strings.Split(peers, ",")
-		for _, peerStr := range splitted {
-			var peerAddr *peer.AddrInfo
-			peerAddr, err = peer.AddrInfoFromString(peerStr)
-			if err != nil {
-				return nil, fmt.Errorf("addr info from %q: %w", peerStr, err)
-			}
-
-			peersAddrInfoS = append(peersAddrInfoS, *peerAddr)
-		}
-	}
-
+	var err error
 	p2pdht, err := makeDHT(p2phost, peersAddrInfoS)
 	if err != nil {
 		return nil, err
