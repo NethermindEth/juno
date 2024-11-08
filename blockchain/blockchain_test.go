@@ -604,7 +604,9 @@ func TestRevert(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	for i := uint64(0); i < 3; i++ {
+	numBlocks := uint64(3)
+
+	for i := uint64(0); i < numBlocks; i++ {
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 
@@ -653,11 +655,14 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, chain.RevertHead())
 	require.NoError(t, chain.RevertHead())
 
-	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
+	t.Run("empty blockchain should mean db with p2p hash only", func(t *testing.T) {
 		require.NoError(t, testdb.View(func(txn db.Transaction) error {
 			it, err := txn.NewIterator()
 			if err != nil {
 				return err
+			}
+			for range numBlocks {
+				assert.True(t, it.Next(), it.Key())
 			}
 			assert.False(t, it.Next(), it.Key())
 			return it.Close()
