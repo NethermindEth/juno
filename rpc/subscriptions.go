@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -37,7 +38,8 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	if blockID == nil {
 		requestedHeader = headHeader
 	} else {
-		requestedHeader, rpcErr := h.blockHeaderByID(blockID)
+		var rpcErr *jsonrpc.Error
+		requestedHeader, rpcErr = h.blockHeaderByID(blockID)
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
@@ -67,17 +69,26 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 
 		// The specification doesn't enforce ordering of events therefore events from new blocks can be sent before
 		// old blocks.
-		sub.wg.Go(func() {
+		// Todo: see if sub's wg can be used?
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
 			for {
 				select {
 				case <-subscriptionCtx.Done():
 					return
 				case header := <-headerSub.Recv():
-					h.processEvents(subscriptionCtx, w, id, header.Number, headHeader.Number, fromAddr, keys)
+					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys)
 				}
 			}
-		})
+		}()
+
 		h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys)
+
+		wg.Wait()
 	})
 
 	return &SubscriptionID{ID: id}, nil
