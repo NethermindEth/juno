@@ -39,8 +39,8 @@ extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);
 
-#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs
-#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs
+#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -lbz2
+#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lbz2
 */
 import "C"
 
@@ -62,10 +62,10 @@ import (
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, useBlobData bool) ([]*felt.Felt, error)
+		maxSteps uint64) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-	) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error)
+		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
+	) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error)
 }
 
 type vm struct {
@@ -92,10 +92,10 @@ type callContext struct {
 	// response from the executed Cairo function
 	response []*felt.Felt
 	// fee amount taken per transaction during VM execution
-	actualFees      []*felt.Felt
-	traces          []json.RawMessage
-	dataGasConsumed []*felt.Felt
-	executionSteps  uint64
+	actualFees     []*felt.Felt
+	traces         []json.RawMessage
+	daGas          []core.GasConsumed
+	executionSteps uint64
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -133,10 +133,13 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
 }
 
-//export JunoAppendDataGasConsumed
-func JunoAppendDataGasConsumed(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
+//export JunoAppendGasConsumed
+func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.dataGasConsumed = append(context.dataGasConsumed, makeFeltFromPtr(ptr))
+	context.daGas = append(context.daGas, core.GasConsumed{
+		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
+		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+	})
 }
 
 //export JunoAddExecutionSteps
@@ -197,7 +200,7 @@ func makeCCallInfo(callInfo *CallInfo) (C.CallInfo, runtime.Pinner) {
 	return cCallInfo, pinner
 }
 
-func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
+func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	var cBlockInfo C.BlockInfo
 
 	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
@@ -210,17 +213,13 @@ func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
 	if blockInfo.Header.L1DAMode == core.Blob {
 		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.data_gas_price_wei[0])
 		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInFri, &cBlockInfo.data_gas_price_fri[0])
-		if useBlobData {
-			cBlockInfo.use_blob_data = 1
-		} else {
-			cBlockInfo.use_blob_data = 0
-		}
+		cBlockInfo.use_blob_data = 1
 	}
 	return cBlockInfo
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, useBlobData bool,
+	network *utils.Network, maxSteps uint64,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -237,7 +236,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	C.setVersionedConstants(C.CString("my_json"))
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
-	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
+	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMCall(
 		&cCallInfo,
@@ -260,8 +259,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
-) ([]*felt.Felt, []*felt.Felt, []TransactionTrace, uint64, error) {
+	skipChargeFee, skipValidate, errOnRevert bool,
+) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
@@ -303,7 +302,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		concurrencyModeByte = 1
 	}
 
-	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
+	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
@@ -339,8 +338,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 			return nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
-
-	return context.actualFees, context.dataGasConsumed, traces, context.executionSteps, nil
+	return context.actualFees, context.daGas, traces, context.executionSteps, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll

@@ -241,14 +241,19 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 	}
 
 	wg := conc.NewWaitGroup()
-	var txCommitment, eCommitment *felt.Felt
-	var tErr, eErr error
+	var txCommitment, eCommitment, rCommitment *felt.Felt
+	var tErr, eErr, rErr error
 
 	wg.Go(func() {
 		txCommitment, tErr = transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion)
 	})
 	wg.Go(func() {
 		eCommitment, eErr = eventCommitmentPedersen(b.Receipts)
+	})
+	wg.Go(func() {
+		// even though rCommitment is not required for pre 0.13.2 hash
+		// we need to calculate it for BlockCommitments that will be stored in db
+		rCommitment, rErr = receiptCommitment(b.Receipts)
 	})
 	wg.Wait()
 
@@ -257,6 +262,9 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 	}
 	if eErr != nil {
 		return nil, nil, eErr
+	}
+	if rErr != nil {
+		return nil, nil, rErr
 	}
 
 	// Unlike the pre07Hash computation, we exclude the chain
@@ -277,7 +285,7 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 		&felt.Zero,                                   // reserved: protocol version
 		&felt.Zero,                                   // reserved: extra data
 		b.ParentHash,                                 // parent block hash
-	), &BlockCommitments{TransactionCommitment: txCommitment, EventCommitment: eCommitment}, nil
+	), &BlockCommitments{TransactionCommitment: txCommitment, EventCommitment: eCommitment, ReceiptCommitment: rCommitment}, nil
 }
 
 func MarshalBlockNumber(blockNumber uint64) []byte {

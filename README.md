@@ -49,20 +49,21 @@
   the official Golang [download](https://go.dev/doc/install) page.
 - [Rust](https://www.rust-lang.org/tools/install) 1.80.1 or higher.
 - A C compiler: `gcc` or `clang`.
-- Install `jemalloc` and `pkg-config` on your system:
+- Install some dependencies on your system:
   
   - macOS
 
     ```bash
     brew install jemalloc
     brew install pkg-config
+    make install-deps
     ```
 
   - Ubuntu
 
     ```bash
-    sudo apt-get install -y libjemalloc-dev
-    sudo apt-get install -y pkg-config
+    sudo apt-get install -y libjemalloc-dev libjemalloc2 pkg-config libbz2-dev
+    make install-deps
     ```
 
 - To ensure a successful build, you either need to synchronize the tags from the upstream repository or create a new tag.
@@ -119,7 +120,7 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 | ------- | ------------- |
 | **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
 
-## Sepolia-Integration
+#### Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
@@ -228,6 +229,7 @@ After following these steps, Juno should be up and running on your machine, util
 - Starknet state construction and storage using a path-based Merkle Patricia trie.
 - Feeder gateway synchronisation of Blocks, Transactions, Receipts, State Updates and Classes.
 - Block and Transaction hash verification.
+- Plugins 
 
 ## 🛣 Roadmap
 

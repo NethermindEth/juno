@@ -68,8 +68,7 @@ const (
 )
 
 type traceCacheKey struct {
-	blockHash    felt.Felt
-	v0_6Response bool
+	blockHash felt.Felt
 }
 
 type Handler struct {
@@ -164,11 +163,11 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.7.1", nil
+	return "0.8.0", nil
 }
 
-func (h *Handler) SpecVersionV0_6() (string, *jsonrpc.Error) {
-	return "0.6.0", nil
+func (h *Handler) SpecVersionV0_7() (string, *jsonrpc.Error) {
+	return "0.7.1", nil
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
@@ -326,10 +325,15 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
 		},
-	}, "/v0_7"
+		{
+			Name:    "starknet_getCompiledCasm",
+			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
+			Handler: h.CompiledCasm,
+		},
+	}, "/v0_8"
 }
 
-func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
+func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -346,12 +350,12 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxHashesV0_6,
+			Handler: h.BlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxsV0_6,
+			Handler: h.BlockWithTxs,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
@@ -361,7 +365,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionReceiptByHashV0_6,
+			Handler: h.TransactionReceiptByHash,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -439,36 +443,36 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_call",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.CallV0_6,
+			Handler: h.Call,
 		},
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
-			Handler: h.EstimateFeeV0_6,
+			Handler: h.EstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.EstimateMessageFeeV0_6,
+			Handler: h.EstimateMessageFee,
 		},
 		{
 			Name:    "starknet_traceTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TraceTransactionV0_6,
+			Handler: h.TraceTransaction,
 		},
 		{
 			Name:    "starknet_simulateTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.SimulateTransactionsV0_6,
+			Handler: h.SimulateTransactions,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.TraceBlockTransactionsV0_6,
+			Handler: h.TraceBlockTransactions,
 		},
 		{
 			Name:    "starknet_specVersion",
-			Handler: h.SpecVersionV0_6,
+			Handler: h.SpecVersionV0_7,
 		},
 		{
 			Name:    "juno_subscribeNewHeads",
@@ -479,5 +483,10 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
 		},
-	}, "/v0_6"
+		{
+			Name:    "starknet_getBlockWithReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithReceipts,
+		},
+	}, "/v0_7"
 }

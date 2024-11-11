@@ -8,5 +8,5 @@ config/
 .envrc
 # Default path for Juno DB files.  It will get created if you follow the
 # README and/or run `./build/juno` command.
-juno/
+/juno/
 p2p-dbs

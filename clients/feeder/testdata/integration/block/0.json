@@ -79,7 +79,11 @@
                     "ecdsa_builtin": 0,
                     "ec_op_builtin": 0
                 },
-                "n_memory_holes": 0
+                "n_memory_holes": 0,
+                "data_availability": {
+                    "l1_gas": 1,
+                    "l1_data_gas": 2
+                }
             },
             "actual_fee": "0x0"
         },
@@ -99,7 +103,11 @@
                     "ecdsa_builtin": 0,
                     "ec_op_builtin": 0
                 },
-                "n_memory_holes": 0
+                "n_memory_holes": 0,
+                "data_availability": {
+                    "l1_gas": 2,
+                    "l1_data_gas": 3
+                }
             },
             "actual_fee": "0x0"
         },
@@ -119,7 +127,11 @@
                     "ecdsa_builtin": 0,
                     "ec_op_builtin": 0
                 },
-                "n_memory_holes": 22
+                "n_memory_holes": 22,
+                "data_availability": {
+                    "l1_gas": 3,
+                    "l1_data_gas": 4
+                }
             },
             "actual_fee": "0x0"
         },
@@ -139,7 +151,11 @@
                     "ecdsa_builtin": 0,
                     "ec_op_builtin": 0
                 },
-                "n_memory_holes": 22
+                "n_memory_holes": 22,
+                "data_availability": {
+                    "l1_gas": 4,
+                    "l1_data_gas": 5
+                }
             },
             "actual_fee": "0x0"
         }

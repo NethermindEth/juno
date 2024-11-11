@@ -1,0 +1,36 @@
+name: starknet-go tests
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'The branch, tag or SHA to checkout'
+        required: false
+        default: '1ede19210c10f1f1f9c3cb49a42f737cd90eda5e'
+        type: string
+    secrets:
+      TEST_RPC_URL:
+        required: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          repository: NethermindEth/starknet.go
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Test RPC on testnet
+        run: cd rpc && go test -timeout 1200s -v -env testnet .
+        env:
+          INTEGRATION_BASE: ${{ secrets.TEST_RPC_URL }}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -168,7 +167,6 @@ func TestClassEncoding(t *testing.T) {
 
 func checkClassSymmetry(t *testing.T, input core.Class) {
 	t.Helper()
-	require.NoError(t, encoder.RegisterType(reflect.TypeOf(input)))
 
 	data, err := encoder.Marshal(input)
 	require.NoError(t, err)

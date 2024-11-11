@@ -1,7 +1,10 @@
 package rpc
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 )
 
@@ -38,6 +41,17 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 		return nil, rpcErr
 	}
 	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
+
+	// This checks if the contract exists because if a key doesn't exist in contract storage,
+	// the returned value is always zero and error is nil.
+	_, err := stateReader.ContractClassHash(&address)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil, ErrContractNotFound
+		}
+		h.log.Errorw("Failed to get contract nonce", "err", err)
+		return nil, ErrInternal
+	}
 
 	value, err := stateReader.ContractStorage(&address, &key)
 	if err != nil {

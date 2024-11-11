@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
+	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -60,6 +61,7 @@ type Config struct {
 	DatabasePath           string            `mapstructure:"db-path"`
 	Network                utils.Network     `mapstructure:"network"`
 	EthNode                string            `mapstructure:"eth-node"`
+	DisableL1Verification  bool              `mapstructure:"disable-l1-verification"`
 	Pprof                  bool              `mapstructure:"pprof"`
 	PprofHost              string            `mapstructure:"pprof-host"`
 	PprofPort              uint16            `mapstructure:"pprof-port"`
@@ -89,6 +91,8 @@ type Config struct {
 
 	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+
+	PluginPath string `mapstructure:"plugin-path"`
 }
 
 type Node struct {
@@ -157,10 +161,19 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
+	if cfg.PluginPath != "" {
+		p, err := plugin.Load(cfg.PluginPath)
+		if err != nil {
+			return nil, err
+		}
+		synchronizer.WithPlugin(p)
+		services = append(services, plugin.NewService(p))
+	}
+
 	var p2pService *p2p.Service
 	if cfg.P2P {
-		if cfg.Network != utils.Sepolia {
-			return nil, fmt.Errorf("P2P can only be used for %v network. Provided network: %v", utils.Sepolia, cfg.Network)
+		if cfg.Network == utils.Mainnet {
+			return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
 		}
 		log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
 
@@ -198,7 +211,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	legacyMethods, legacyPath := rpcHandler.MethodsV0_6()
+	legacyMethods, legacyPath := rpcHandler.MethodsV0_7()
 	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
 		return nil, err
 	}
@@ -241,6 +254,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		} else if p2pService != nil {
 			// regular p2p node
 			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
+			p2pService.WithGossipTracer()
 		}
 	}
 	if cfg.GRPC {
@@ -260,11 +274,14 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		metricsService: metricsService,
 	}
 
-	if n.cfg.EthNode == "" {
-		n.log.Warnw("Ethereum node address not found; will not verify against L1")
-	} else {
+	if !n.cfg.DisableL1Verification {
+		// Due to mutually exclusive flag we can do the following.
+		if n.cfg.EthNode == "" {
+			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
+		}
+
 		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg, n.blockchain, n.log)
+		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.log)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
@@ -281,26 +298,26 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(cfg *Config, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
-	ethNodeURL, err := url.Parse(cfg.EthNode)
+func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + cfg.EthNode)
+		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
 	}
 
 	network := chain.Network()
 
 	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(cfg.EthNode, network.CoreContractAddress)
+	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
 	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
-	if cfg.Metrics {
+	if includeMetrics {
 		l1Client.WithEventListener(makeL1Metrics())
 	}
 	return l1Client, nil
