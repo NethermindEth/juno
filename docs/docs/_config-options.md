@@ -11,9 +11,10 @@
 | `cn-unverifiable-range` | `[]` | Custom network range of blocks to skip hash verifications (e.g. `0,100`) |
 | `colour` | `true` | Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes) |
 | `config` |  | The YAML configuration file |
-| `db-cache-size` | `8` | Determines the amount of memory (in megabytes) allocated for caching data in the database |
+| `db-cache-size` | `1024` | Determines the amount of memory (in megabytes) allocated for caching data in the database |
 | `db-max-handles` | `1024` | A soft limit on the number of open files that can be used by the DB |
 | `db-path` | `juno` | Location of the database files |
+| `disable-l1-verification` | `false` | Disables L1 verification since an Ethereum node is not provided |
 | `eth-node` |  | WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, Juno must connect to an Ethereum node and parse events in the Starknet contract |
 | `grpc` | `false` | Enable the HTTP gRPC server on the default port |
 | `grpc-host` | `localhost` | The interface on which the gRPC server will listen for requests |
@@ -37,6 +38,7 @@
 | `p2p-private-key` |  | EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve |
 | `p2p-public-addr` |  | EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777 |
 | `pending-poll-interval` | `5` | Sets how frequently pending block will be updated (0s will disable fetching of pending block) |
+| `plugin-path` |  | Path to the plugin .so file |
 | `pprof` | `false` | Enables the pprof endpoint on the default port |
 | `pprof-host` | `localhost` | The interface on which the pprof HTTP server will listen for requests |
 | `pprof-port` | `6062` | The port on which the pprof HTTP server will listen for requests |
