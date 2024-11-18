@@ -224,8 +224,9 @@ type Transaction struct {
 }
 
 type TransactionStatus struct {
-	Finality  TxnStatus          `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
+	Finality      TxnStatus          `json:"finality_status"`
+	Execution     TxnExecutionStatus `json:"execution_status,omitempty"`
+	FailureReason string             `json:"failure_reason,omitempty"`
 }
 
 type MsgFromL1 struct {
@@ -569,8 +570,9 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	switch txErr {
 	case nil:
 		return &TransactionStatus{
-			Finality:  TxnStatus(receipt.FinalityStatus),
-			Execution: receipt.ExecutionStatus,
+			Finality:      TxnStatus(receipt.FinalityStatus),
+			Execution:     receipt.ExecutionStatus,
+			FailureReason: receipt.RevertReason,
 		}, nil
 	case ErrTxnHashNotFound:
 		if h.feederClient == nil {

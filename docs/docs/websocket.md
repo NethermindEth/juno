@@ -96,7 +96,7 @@ Get the most recent accepted block hash and number with the `starknet_blockHashA
 
 ## Subscribe to newly created blocks
 
-The WebSocket server provides a `juno_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain:
+The WebSocket server provides a `starknet_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain:
 
 <Tabs>
 <TabItem value="request" label="Request">
@@ -104,8 +104,7 @@ The WebSocket server provides a `juno_subscribeNewHeads` method that emits an ev
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "juno_subscribeNewHeads",
-  "params": [],
+  "method": "starknet_subscribeNewHeads",
   "id": 1
 }
 ```
@@ -129,7 +128,7 @@ When a new block is added, you will receive a message like this:
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "juno_subscribeNewHeads",
+  "method": "starknet_subscriptionNewHeads",
   "params": {
     "result": {
       "block_hash": "0x840660a07a17ae6a55d39fb6d366698ecda11e02280ca3e9ca4b4f1bad741c",
@@ -149,12 +148,65 @@ When a new block is added, you will receive a message like this:
       "l1_da_mode": "BLOB",
       "starknet_version": "0.13.1.1"
     },
-    "subscription": 16570962336122680234
+    "subscription_id": 16570962336122680234
   }
 }
 ```
 
-## Unsubscribe from newly created blocks
+## Subscribe to transaction status changes
+
+The WebSocket server provides a `starknet_subscribeTransactionStatus` method that emits an event when a transaction status changes:
+
+<Tabs>
+<TabItem value="request" label="Request">
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribeTransactionStatus",
+  "params": [
+    {
+      "transaction_hash": "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df"
+    }
+  ],
+  "id": 1
+}
+```
+
+</TabItem>
+<TabItem value="response" label="Response">
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": 16570962336122680234,
+  "id": 1
+}
+```
+
+</TabItem>
+</Tabs>
+
+When a transaction get a new status, you will receive a message like this:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "starknet_subscriptionTransactionsStatus",
+  "params": {
+    "result": {
+      "transaction_hash": "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
+      "status": {
+        "finality_status": "ACCEPTED_ON_L2",
+        "execution_status": "SUCCEEDED"
+      }
+    },
+    "subscription_id": 16570962336122680234
+  }
+}
+```
+
+## Unsubscribe from previous subscription
 
 Use the `juno_unsubscribe` method with the `result` value from the subscription response or the `subscription` field from any new block event to stop receiving updates for new blocks:
 
