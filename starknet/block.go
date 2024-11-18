@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -26,30 +27,17 @@ type Block struct {
 	L1GasPrice            *GasPrice             `json:"l1_gas_price"`
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
-
-	// TODO we can remove the GasPrice method and the GasPriceLegacy field
-	// once v0.13 lands on mainnet. In the meantime, we include both to support
-	// pre-v0.13 jsons, where `eth_l1_gas_price` was called `gas_price`.
-	GasPriceLegacy *felt.Felt `json:"gas_price"`
-	// TODO these fields were replaced by `l1_gas_price` in v0.13.1
-	GasPriceWEI *felt.Felt `json:"eth_l1_gas_price"`
-	GasPriceFRI *felt.Felt `json:"strk_l1_gas_price"`
 }
 
 func (b *Block) GasPriceETH() *felt.Felt {
-	if b.L1GasPrice != nil {
-		return b.L1GasPrice.PriceInWei
-	} else if b.GasPriceWEI != nil {
-		return b.GasPriceWEI
+	if b.L1GasPrice == nil {
+		fmt.Println("Block is ", b.Number)
 	}
-	return b.GasPriceLegacy
+	return b.L1GasPrice.PriceInWei
 }
 
 func (b *Block) GasPriceSTRK() *felt.Felt {
-	if b.L1GasPrice != nil {
-		return b.L1GasPrice.PriceInFri
-	}
-	return b.GasPriceFRI
+	return b.L1GasPrice.PriceInFri
 }
 
 type L1DAMode uint

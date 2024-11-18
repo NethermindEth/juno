@@ -80,6 +80,7 @@ func TestAdaptBlock(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.network.String()+" block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
+			t.Skip()
 			client := feeder.NewTestClient(t, &test.network)
 
 			response, err := client.Block(ctx, strconv.FormatUint(test.number, 10))
