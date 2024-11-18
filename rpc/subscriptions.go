@@ -170,7 +170,9 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 			}
 
 			_, err = w.Write(resp)
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
