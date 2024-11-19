@@ -126,19 +126,6 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 	return nil, errors.New("can not verify hash in block header")
 }
 
-// BlockHash assumes block.SequencerAddress is not nil as this is called with post v0.12.0
-// and by then issues with unverifiable block hash were resolved.
-// In future, this may no longer be required.
-// Todo: Pass stateDiff so that p2p layer can calculate post 0.13.2 Block Hash
-func BlockHash(b *Block) (*felt.Felt, error) {
-	if b.SequencerAddress == nil {
-		return nil, errors.New("block.SequencerAddress is nil")
-	}
-
-	h, _, err := post07Hash(b, nil)
-	return h, err
-}
-
 // blockHash computes the block hash, with option to override sequence address
 func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
 	*BlockCommitments, error,
@@ -150,14 +137,45 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 		return nil, nil, err
 	}
 
-	if blockVer.LessThan(Ver0_13_2) {
-		if b.Number < metaInfo.First07Block {
-			return pre07Hash(b, network.L2ChainIDFelt())
-		}
-		return post07Hash(b, overrideSeqAddr)
+	pre0132 := blockVer.LessThan(Ver0_13_2)
+	stateDiffIsNil := stateDiff == nil
+
+	if !pre0132 && stateDiffIsNil {
+		return nil, nil, errors.New("state diff is required for post 0.13.2 blocks")
 	}
 
-	return Post0132Hash(b, stateDiff)
+	var (
+		hash        *felt.Felt
+		commitments *BlockCommitments
+	)
+
+	if !stateDiffIsNil {
+		// Calculate commitments for pre 0.13.2 blocks if state diff is provided
+		// State diff is required for post 0.13.2 blocks, so just calculate the hash and commitments
+		hash, commitments, err = Post0132Hash(b, stateDiff)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if pre0132 {
+		// Update hash if block is pre 0.13.2
+		var pre0132commitments *BlockCommitments
+		if b.Number < metaInfo.First07Block {
+			hash, pre0132commitments, err = pre07Hash(b, network.L2ChainIDFelt())
+		} else {
+			hash, pre0132commitments, err = post07Hash(b, overrideSeqAddr)
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		if stateDiffIsNil {
+			// Update commitments if state diff is not provided
+			commitments = pre0132commitments
+		}
+	}
+
+	return hash, commitments, nil
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
