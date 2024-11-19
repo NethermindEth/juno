@@ -148,19 +148,6 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 			return nil, err
 		}
 
-		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
-		if err != nil {
-			return nil, err
-		}
-
-		if blockVer.LessThan(core.Ver0_13_2) {
-			p2pHash, err := h.bcReader.BlockP2PHashByNumber(block.Number)
-			if err != nil {
-				return nil, err
-			}
-			block.Hash = p2pHash
-		}
-
 		return &spec.BlockHeadersResponse{
 			HeaderMessage: &spec.BlockHeadersResponse_Header{
 				Header: core2p2p.AdaptHeader(block.Header, commitments, stateUpdate.StateDiff.Commitment(),
