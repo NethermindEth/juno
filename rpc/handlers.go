@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
+	"log"
 	"math"
+	"strings"
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -14,16 +16,24 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/sourcegraph/conc"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
+}
+
+type l1Client interface {
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 var (
@@ -90,6 +100,9 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
+
+	l1Client        l1Client
+	coreContractABI abi.ABI
 }
 
 type subscription struct {
@@ -101,6 +114,10 @@ type subscription struct {
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger,
 ) *Handler {
+	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
+	if err != nil {
+		log.Fatalf("Failed to parse ABI: %v", err)
+	}
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
@@ -118,12 +135,18 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
+		coreContractABI: contractABI,
 	}
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	h.filterLimit = limit
+	return h
+}
+
+func (h *Handler) WithL1Client(l1Client l1Client) *Handler {
+	h.l1Client = l1Client
 	return h
 }
 
@@ -329,6 +352,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getCompiledCasm",
 			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
 			Handler: h.CompiledCasm,
+		},
+		{
+			Name:    "starknet_getMessagesStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.GetMessageStatus,
 		},
 	}, "/v0_8"
 }

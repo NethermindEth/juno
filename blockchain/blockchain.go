@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
@@ -34,6 +35,7 @@ type Reader interface {
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
+	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash *felt.Felt, err error)
 
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
@@ -115,12 +117,12 @@ func (b *Blockchain) Height() (uint64, error) {
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
-		height, err = chainHeight(txn)
+		height, err = ChainHeight(txn)
 		return err
 	})
 }
 
-func chainHeight(txn db.Transaction) (uint64, error) {
+func ChainHeight(txn db.Transaction) (uint64, error) {
 	var height uint64
 	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
@@ -150,7 +152,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 }
 
 func head(txn db.Transaction) (*core.Block, error) {
-	height, err := chainHeight(txn)
+	height, err := ChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +160,7 @@ func head(txn db.Transaction) (*core.Block, error) {
 }
 
 func headsHeader(txn db.Transaction) (*core.Header, error) {
-	height, err := chainHeight(txn)
+	height, err := ChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -222,6 +224,16 @@ func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, erro
 	return update, b.database.View(func(txn db.Transaction) error {
 		var err error
 		update, err = stateUpdateByHash(txn, hash)
+		return err
+	})
+}
+
+func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
+	b.listener.OnRead("L1HandlerTxnHash")
+	var l1HandlerTxnHash *felt.Felt
+	return l1HandlerTxnHash, b.database.View(func(txn db.Transaction) error {
+		var err error
+		l1HandlerTxnHash, err = l1HandlerTxnHashByMsgHash(txn, msgHash)
 		return err
 	})
 }
@@ -363,6 +375,10 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
+		if err := StoreL1HandlerMsgHashes(txn, block.Transactions); err != nil {
+			return err
+		}
+
 		if err := b.storeEmptyPending(txn, block.Header); err != nil {
 			return err
 		}
@@ -497,7 +513,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 
 	block := new(core.Block)
 	block.Header = header
-	block.Transactions, err = transactionsByBlockNumber(txn, number)
+	block.Transactions, err = TransactionsByBlockNumber(txn, number)
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +525,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	return block, nil
 }
 
-func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
+func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
 	iterator, err := txn.NewIterator()
 	if err != nil {
 		return nil, err
@@ -589,6 +605,18 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	})
 }
 
+func StoreL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
+	for _, txn := range blockTxns {
+		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
+			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(l1Handler.MessageHash()), txn.Hash().Marshal())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.StateUpdate) error {
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
@@ -619,6 +647,14 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 		var err error
 		update, err = stateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
+	})
+}
+
+func l1HandlerTxnHashByMsgHash(txn db.Transaction, l1HandlerMsgHash *common.Hash) (*felt.Felt, error) {
+	l1HandlerTxnHash := new(felt.Felt)
+	return l1HandlerTxnHash, txn.Get(db.L1HandlerTxnHashByMsgHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
+		l1HandlerTxnHash.Unmarshal(val)
+		return nil
 	})
 }
 
@@ -761,7 +797,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	_, err = chainHeight(txn)
+	_, err = ChainHeight(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
@@ -815,7 +851,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (*EventFil
 		return nil, err
 	}
 
-	latest, err := chainHeight(txn)
+	latest, err := ChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -831,7 +867,7 @@ func (b *Blockchain) RevertHead() error {
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 	return reverseStateDiff, b.database.View(func(txn db.Transaction) error {
-		blockNumber, err := chainHeight(txn)
+		blockNumber, err := ChainHeight(txn)
 		if err != nil {
 			return err
 		}
@@ -846,7 +882,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 }
 
 func (b *Blockchain) revertHead(txn db.Transaction) error {
-	blockNumber, err := chainHeight(txn)
+	blockNumber, err := ChainHeight(txn)
 	if err != nil {
 		return err
 	}
@@ -932,6 +968,11 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 		}
 		if err = txn.Delete(db.TransactionBlockNumbersAndIndicesByHash.Key(reorgedTxn.Hash().Marshal())); err != nil {
 			return err
+		}
+		if l1handler, ok := reorgedTxn.(*core.L1HandlerTransaction); ok {
+			if err = txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(l1handler.MessageHash())); err != nil {
+				return err
+			}
 		}
 	}
 
