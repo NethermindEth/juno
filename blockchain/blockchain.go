@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -49,23 +48,7 @@ type Reader interface {
 	Network() *utils.Network
 }
 
-var (
-	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	supportedStarknetVersion  = semver.MustParse("0.13.3")
-)
-
-func checkBlockVersion(protocolVersion string) error {
-	blockVer, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return err
-	}
-
-	if blockVer.GreaterThan(supportedStarknetVersion) {
-		return errors.New("unsupported block version")
-	}
-
-	return nil
-}
+var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
 
 var _ Reader = (*Blockchain)(nil)
 
@@ -382,7 +365,7 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 }
 
 func verifyBlock(txn db.Transaction, block *core.Block) error {
-	if err := checkBlockVersion(block.ProtocolVersion); err != nil {
+	if _, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
 
