@@ -45,7 +45,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		}
 
 		// Todo: should the pending block be included in the head count?
-		if requestedHeader.Number >= maxBlocksBack && requestedHeader.Number <= headHeader.Number-maxBlocksBack {
+		if headHeader.Number >= maxBlocksBack && requestedHeader.Number <= headHeader.Number-maxBlocksBack {
 			return nil, ErrTooManyBlocksBack
 		}
 	}
