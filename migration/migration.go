@@ -771,7 +771,7 @@ const first0132SepoliaBlock = 86311
 
 func updatePre0132Blocks(txn db.Transaction, network *utils.Network) error {
 	// TODO: remove when possible
-	if network != &utils.Sepolia {
+	if network.Name != utils.Sepolia.Name {
 		return nil
 	}
 
