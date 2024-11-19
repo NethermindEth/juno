@@ -358,23 +358,21 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			}
 
 			if blockVer.LessThan(core.Ver0_13_2) {
+				p2pHash, err := s.blockchain.BlockP2PHashByNumber(coreBlock.Number)
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("failed to get p2p hash: %w", err)}
+					return
+				}
+
 				expectedHash, _, err := core.Post0132Hash(coreBlock, stateDiff)
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
 					return
 				}
 
-				if !coreBlock.Hash.Equal(expectedHash) {
+				if !p2pHash.Equal(expectedHash) {
 					err = fmt.Errorf("received p2p hash %v doesn't match expected %v", coreBlock.Hash, expectedHash)
 					bodyCh <- blockBody{err: err}
-					return
-				}
-
-				// once we verified p2p hash with received one above
-				// we need to overwrite it with old scheme hash
-				coreBlock.Hash, err = core.BlockHash(coreBlock)
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("failed to generate block hash: %w", err)}
 					return
 				}
 			}
