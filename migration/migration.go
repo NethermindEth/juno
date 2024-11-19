@@ -3,6 +3,7 @@ package migration
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,10 @@ import (
 	"maps"
 	"runtime"
 	"sync"
+<<<<<<< HEAD
+=======
+	"time"
+>>>>>>> 5e202c24 (Add migration for sepolia)
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -764,4 +769,83 @@ func migrateCairo1CompiledClass(txn db.Transaction, key, value []byte, _ *utils.
 	}
 
 	return txn.Set(key, value)
+}
+
+//go:embed sepolia_block_hashes.bin
+var sepoliaBlockHashes []byte
+
+const first0132SepoliaBlock = 86311
+
+func updatePre0132Blocks(txn db.Transaction, network *utils.Network) error {
+	// TODO: remove when possible
+	if network != &utils.Sepolia {
+		return nil
+	}
+
+	timeToSetBytes := time.Duration(0)
+	timeToStoreP2PHash := time.Duration(0)
+
+	p2pHash := new(felt.Felt)
+	var start time.Time
+	for blockNumber := uint64(0); blockNumber < first0132SepoliaBlock; blockNumber++ {
+		offset := blockNumber * 32
+		start = time.Now()
+		p2pHash.SetBytes(sepoliaBlockHashes[offset : offset+32])
+		timeToSetBytes += time.Since(start)
+		start = time.Now()
+		if err := blockchain.StoreP2PHash(txn, blockNumber, p2pHash); err != nil {
+			return err
+		}
+		timeToStoreP2PHash += time.Since(start)
+	}
+
+	fmt.Printf("Time to set bytes: %v\n", timeToSetBytes)
+	fmt.Printf("Time to store p2p hash: %v\n", timeToStoreP2PHash)
+
+	timeToGetBlock := time.Duration(0)
+	timeToGetStateUpdate := time.Duration(0)
+	timeToPost0132Hash := time.Duration(0)
+	timeToStoreBlockCommitments := time.Duration(0)
+
+	for blockNumber := uint64(0); blockNumber < first0132SepoliaBlock; blockNumber++ {
+		start = time.Now()
+		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				break
+			}
+			return err
+		}
+		timeToGetBlock += time.Since(start)
+
+		start = time.Now()
+		stateUpdate, err := blockchain.StateUpdateByNumber(txn, blockNumber)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				break
+			}
+			return err
+		}
+		timeToGetStateUpdate += time.Since(start)
+
+		start = time.Now()
+		_, commitments, err := core.Post0132Hash(block, stateUpdate.StateDiff)
+		if err != nil {
+			return err
+		}
+		timeToPost0132Hash += time.Since(start)
+
+		start = time.Now()
+		if err := blockchain.StoreBlockCommitments(txn, blockNumber, commitments); err != nil {
+			return err
+		}
+		timeToStoreBlockCommitments += time.Since(start)
+	}
+
+	fmt.Printf("Time to get block: %v\n", timeToGetBlock)
+	fmt.Printf("Time to get state update: %v\n", timeToGetStateUpdate)
+	fmt.Printf("Time to post 0132 hash: %v\n", timeToPost0132Hash)
+	fmt.Printf("Time to store block commitments: %v\n", timeToStoreBlockCommitments)
+
+	return nil
 }
