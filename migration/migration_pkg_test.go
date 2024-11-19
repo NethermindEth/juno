@@ -714,6 +714,67 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	}))
 }
 
+func TestUpdatePre0132BlocksMainnet(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+
+	// TODO: Add test for mainnet when possible
+	require.NoError(t, updatePre0132Blocks(txn, &utils.Mainnet))
+	require.ErrorIs(t, txn.Get(db.P2PHash.Key(core.MarshalBlockNumber(0)), func(val []byte) error {
+		return nil
+	}), db.ErrKeyNotFound)
+}
+
+func TestUpdatePre0132BlocksSepoliaEmptyDB(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+
+	require.NoError(t, updatePre0132Blocks(txn, &utils.Sepolia))
+	for blockNumber := uint64(0); blockNumber < first0132SepoliaBlock; blockNumber++ {
+		offset := 32 * blockNumber
+		require.NoError(t, txn.Get(db.P2PHash.Key(core.MarshalBlockNumber(blockNumber)), func(val []byte) error {
+			require.Equal(t, val, sepoliaBlockHashes[offset:offset+32])
+			return nil
+		}))
+	}
+}
+
+func TestUpdatePre0132BlocksSepoliaNonEmptyDB(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(testDB, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+
+	for blockNumber := uint64(0); blockNumber < 3; blockNumber++ {
+		b, err := gw.BlockByNumber(context.Background(), blockNumber)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(context.Background(), blockNumber)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+	}
+
+	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+		return updatePre0132Blocks(txn, &utils.Sepolia)
+	}))
+
+	for blockNumber := uint64(0); blockNumber < 3; blockNumber++ {
+		b, err := chain.BlockByNumber(blockNumber)
+		require.NoError(t, err)
+		stateUpdate, err := chain.StateUpdateByNumber(blockNumber)
+		require.NoError(t, err)
+		blockCommiments, err := chain.BlockCommitmentsByNumber(blockNumber)
+		require.NoError(t, err)
+		hash, post0132commiments, err := core.Post0132Hash(b, stateUpdate.StateDiff)
+		require.NoError(t, err)
+		require.Equal(t, post0132commiments, blockCommiments)
+		p2phash, err := chain.BlockP2PHashByNumber(blockNumber)
+		require.NoError(t, err)
+		require.Equal(t, hash, p2phash)
+	}
+}
+
 func randSlice(t *testing.T) []*felt.Felt {
 	n := rand.Intn(10)
 	sl := make([]*felt.Felt, n)
