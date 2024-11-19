@@ -604,9 +604,7 @@ func TestRevert(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	numBlocks := uint64(3)
-
-	for i := uint64(0); i < numBlocks; i++ {
+	for i := uint64(0); i < 3; i++ {
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 
@@ -660,9 +658,6 @@ func TestRevert(t *testing.T) {
 			it, err := txn.NewIterator()
 			if err != nil {
 				return err
-			}
-			for range numBlocks {
-				assert.True(t, it.Next(), it.Key())
 			}
 			assert.False(t, it.Next(), it.Key())
 			return it.Close()
