@@ -393,17 +393,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
-		if err != nil {
-			return err
-		}
-
-		if blockVer.LessThan(core.Ver0_13_2) {
-			if err := computeAndStoreP2PHash(txn, block, stateUpdate.StateDiff); err != nil {
-				return err
-			}
-		}
-
 		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
 		}
@@ -428,15 +417,6 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return b.database.View(func(txn db.Transaction) error {
 		return verifyBlock(txn, block)
 	})
-}
-
-func computeAndStoreP2PHash(txn db.Transaction, block *core.Block, stateDiff *core.StateDiff) error {
-	hash, _, err := core.Post0132Hash(block, stateDiff)
-	if err != nil {
-		return err
-	}
-
-	return StoreP2PHash(txn, block.Number, hash)
 }
 
 func StoreP2PHash(txn db.Transaction, blockNumber uint64, p2pHash *felt.Felt) error {
