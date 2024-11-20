@@ -15,6 +15,7 @@ import (
 
 var errChunkSizeReached = errors.New("chunk size reached")
 
+//go:generate mockgen -destination=../mocks/mock_event_filterer.go -package=mocks github.com/NethermindEth/juno/blockchain EventFilterer
 type EventFilterer interface {
 	io.Closer
 
