@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/NethermindEth/juno/core"
@@ -13,6 +14,15 @@ import (
 )
 
 var errChunkSizeReached = errors.New("chunk size reached")
+
+type EventFilterer interface {
+	io.Closer
+
+	Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error)
+	SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error
+	SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error
+	WithLimit(limit uint) *EventFilter
+}
 
 type EventFilter struct {
 	txn             db.Transaction
