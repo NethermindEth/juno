@@ -137,6 +137,7 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 		return nil, nil, err
 	}
 
+	// Save boolean value to not calculate them multiple times
 	pre0132 := blockVer.LessThan(Ver0_13_2)
 	stateDiffIsNil := stateDiff == nil
 
@@ -145,13 +146,20 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	}
 
 	var (
-		hash        *felt.Felt
+		// hash mathes the version of the block
+		hash *felt.Felt
+		// commitments are required for all blocks
+		// if state diff is provided, all commitments are post 0.13.2
+		// if state diff is not provided, commitments match the block version
+		// stateDiff is required for post 0.13.2 blocks
+		// stateDiff is not provided for some blocks from Goerli, Goerli2, and Integration networks
 		commitments *BlockCommitments
 	)
 
 	if !stateDiffIsNil {
 		// Calculate commitments for pre 0.13.2 blocks if state diff is provided
-		// State diff is required for post 0.13.2 blocks, so just calculate the hash and commitments
+		// State diff is required for post 0.13.2 blocks,
+		// so `!stateDiffIsNil` will always be true for post 0.13.2 blocks
 		hash, commitments, err = Post0132Hash(b, stateDiff)
 		if err != nil {
 			return nil, nil, err
@@ -159,7 +167,7 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	}
 
 	if pre0132 {
-		// Update hash if block is pre 0.13.2
+		// Update hash variable if block is pre 0.13.2
 		var pre0132commitments *BlockCommitments
 		if b.Number < metaInfo.First07Block {
 			hash, pre0132commitments, err = pre07Hash(b, network.L2ChainIDFelt())
@@ -170,7 +178,7 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 			return nil, nil, err
 		}
 		if stateDiffIsNil {
-			// Update commitments if state diff is not provided
+			// Update commitments variable if state diff is not provided
 			commitments = pre0132commitments
 		}
 	}
