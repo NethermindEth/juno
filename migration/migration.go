@@ -807,28 +807,38 @@ func fetchBlockAndStateUpdate(txn db.Transaction, blockNumber uint64) (commitmen
 
 // Migration to store p2p hashes and update commitments for pre-0132 blocks
 func updatePre0132Blocks(txn db.Transaction, network *utils.Network) error {
+	// Remove when possible
 	if network.Name != utils.Sepolia.Name {
 		return nil
 	}
 
+	// Extract `storeP2PHashes` to a separate function because it reduces
+	// the complexity of the function and makes the linter happy
 	if err := storeP2PHashes(txn); err != nil {
 		return err
 	}
 
 	workers := runtime.GOMAXPROCS(0)
-	cp := make(chan commitmentsParams, workers)
-	cr := make(chan commitmentsResult, workers)
-	errCh := make(chan error, 1)
-	defer close(errCh)
+	// `core.Post0132Hash` is a relatively long operation,
+	// so buffer size of `workers` is enough to keep the workers busy
+	paramsCh := make(chan commitmentsParams, workers)
+	resultCh := make(chan commitmentsResult, workers)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	errCh := make(chan error, 1)
+	defer close(errCh)
+
 	go func() {
-		defer close(cp)
+		defer close(paramsCh)
 		for blockNumber := uint64(0); blockNumber < first0132SepoliaBlock; blockNumber++ {
 			if ctx.Err() != nil {
 				return
 			}
+
+			// Extract `fetchBlockAndStateUpdate` to a separate function because it reduces
+			// the complexity of the function and makes the linter happy
 			params, err := fetchBlockAndStateUpdate(txn, blockNumber)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
@@ -837,7 +847,7 @@ func updatePre0132Blocks(txn db.Transaction, network *utils.Network) error {
 				}
 				return
 			}
-			cp <- params
+			paramsCh <- params
 		}
 	}()
 
@@ -846,7 +856,7 @@ func updatePre0132Blocks(txn db.Transaction, network *utils.Network) error {
 	for range workers {
 		go func() {
 			defer wg.Done()
-			for params := range cp {
+			for params := range paramsCh {
 				if ctx.Err() != nil {
 					return
 				}
@@ -856,17 +866,17 @@ func updatePre0132Blocks(txn db.Transaction, network *utils.Network) error {
 					cancel()
 					return
 				}
-				cr <- commitmentsResult{params.blockNumber, commitments}
+				resultCh <- commitmentsResult{params.blockNumber, commitments}
 			}
 		}()
 	}
 
 	go func() {
 		wg.Wait()
-		close(cr)
+		close(resultCh)
 	}()
 
-	for result := range cr {
+	for result := range resultCh {
 		if err := blockchain.StoreBlockCommitments(txn, result.blockNumber, result.commitments); err != nil {
 			return err
 		}
