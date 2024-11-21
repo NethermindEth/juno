@@ -18,7 +18,6 @@ import (
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -263,149 +262,184 @@ func (s *syncService) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-//nolint:gocyclo,funlen
-func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec.SignedBlockHeader, contractDiffs []*spec.ContractDiff,
-	classes []*spec.Class, txs []*spec.Transaction, receipts []*spec.Receipt, events []*spec.Event, prevBlockRoot *felt.Felt,
+func (s *syncService) adaptAndSanityCheckBlock(
+	ctx context.Context,
+	header *spec.SignedBlockHeader,
+	contractDiffs []*spec.ContractDiff,
+	classes []*spec.Class,
+	txs []*spec.Transaction,
+	receipts []*spec.Receipt,
+	events []*spec.Event,
+	prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
+
 	go func() {
 		defer close(bodyCh)
+
 		select {
 		case <-ctx.Done():
 			bodyCh <- blockBody{err: ctx.Err()}
+			return
 		default:
-			coreBlock := new(core.Block)
+		}
 
-			var coreTxs []core.Transaction
-			for _, tx := range txs {
-				coreTxs = append(coreTxs, p2p2core.AdaptTransaction(tx, s.network))
-			}
-			coreBlock.Transactions = coreTxs
+		coreBlock, err := s.createCoreBlock(txs, receipts, events, header)
+		if err != nil {
+			bodyCh <- blockBody{err: err}
+			return
+		}
 
-			txHashEventsM := make(map[felt.Felt][]*core.Event)
-			for _, event := range events {
-				txH := p2p2core.AdaptHash(event.TransactionHash)
-				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
-			}
+		newClasses, err := s.processClasses(classes, bodyCh)
+		if err != nil {
+			return
+		}
 
-			var coreReceipts []*core.TransactionReceipt
-			for i, r := range receipts {
-				txHash := coreTxs[i].Hash()
-				if txHash == nil {
-					spew.Dump(coreTxs[i])
-					panic(fmt.Errorf("TX hash %d is nil", i))
-				}
+		stateUpdate, err := s.buildStateUpdate(coreBlock, prevBlockRoot, contractDiffs, classes)
+		if err != nil {
+			bodyCh <- blockBody{err: err}
+			return
+		}
 
-				coreReceipt := p2p2core.AdaptReceipt(r, txHash)
-				coreReceipt.Events = txHashEventsM[*coreReceipt.TransactionHash]
+		commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
+		if err != nil {
+			bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
+			return
+		}
 
-				coreReceipts = append(coreReceipts, coreReceipt)
-			}
-			coreBlock.Receipts = coreReceipts
-
-			eventsBloom := core.EventsBloom(coreBlock.Receipts)
-			coreBlock.Header = p2p2core.AdaptBlockHeader(header, eventsBloom)
-
-			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
-				s.log.Errorw(
-					"Number of transactions != count",
-					"transactionCount",
-					coreBlock.TransactionCount,
-					"len(transactions)",
-					len(coreBlock.Transactions),
-				)
-				return
-			}
-			if int(coreBlock.EventCount) != len(events) {
-				s.log.Errorw(
-					"Number of events != count",
-					"eventCount",
-					coreBlock.EventCount,
-					"len(events)",
-					len(events),
-				)
-				return
-			}
-
-			newClasses := make(map[felt.Felt]core.Class)
-			for _, cls := range classes {
-				coreC := p2p2core.AdaptClass(cls)
-				h, err := coreC.Hash()
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
-					return
-				}
-				newClasses[*h] = coreC
-			}
-
-			// Build State update
-			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
-			// Update but there is no such message in P2P.
-
-			stateReader, stateCloser, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
-			if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-				// todo(kirill) change to shutdown
-				panic(err)
-			}
-			defer func() {
-				if stateCloser == nil {
-					return
-				}
-
-				if closeErr := stateCloser(); closeErr != nil {
-					s.log.Errorw("Failed to close state reader", "err", closeErr)
-				}
-			}()
-
-			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
-
-			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
-			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("failed to parse block version: %w", err)}
-				return
-			}
-
-			if blockVer.LessThan(core.Ver0_13_2) {
-				p2pHash, err := s.blockchain.BlockP2PHashByNumber(coreBlock.Number)
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("failed to get p2p hash: %w", err)}
-					return
-				}
-
-				expectedHash, _, err := core.Post0132Hash(coreBlock, stateDiff)
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
-					return
-				}
-
-				if !p2pHash.Equal(expectedHash) {
-					err = fmt.Errorf("received p2p hash %v doesn't match expected %v", coreBlock.Hash, expectedHash)
-					bodyCh <- blockBody{err: err}
-					return
-				}
-			}
-
-			stateUpdate := &core.StateUpdate{
-				BlockHash: coreBlock.Hash,
-				NewRoot:   coreBlock.GlobalStateRoot,
-				OldRoot:   prevBlockRoot,
-				StateDiff: stateDiff,
-			}
-
-			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
-			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
-				return
-			}
-
-			select {
-			case <-ctx.Done():
-			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
-			}
+		select {
+		case <-ctx.Done():
+		case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
 		}
 	}()
 
 	return bodyCh
+}
+
+func (s *syncService) createCoreBlock(
+	txs []*spec.Transaction,
+	receipts []*spec.Receipt,
+	events []*spec.Event,
+	header *spec.SignedBlockHeader,
+) (*core.Block, error) {
+	coreBlock := new(core.Block)
+
+	coreTxs := s.adaptTransactions(txs)
+	coreBlock.Transactions = coreTxs
+
+	txHashEventsM := s.mapEventsToTransactions(events)
+
+	coreReceipts, err := s.adaptReceipts(receipts, coreTxs, txHashEventsM)
+	if err != nil {
+		return nil, err
+	}
+	coreBlock.Receipts = coreReceipts
+
+	eventsBloom := core.EventsBloom(coreBlock.Receipts)
+	coreBlock.Header = p2p2core.AdaptBlockHeader(header, eventsBloom)
+
+	if err := s.validateCoreBlockLengths(coreBlock, len(txs), len(events)); err != nil {
+		return nil, err
+	}
+
+	return coreBlock, nil
+}
+
+func (s *syncService) adaptTransactions(txs []*spec.Transaction) []core.Transaction {
+	var coreTxs []core.Transaction
+	for _, tx := range txs {
+		coreTxs = append(coreTxs, p2p2core.AdaptTransaction(tx, s.network))
+	}
+	return coreTxs
+}
+
+func (s *syncService) mapEventsToTransactions(events []*spec.Event) map[felt.Felt][]*core.Event {
+	txHashEventsM := make(map[felt.Felt][]*core.Event)
+	for _, event := range events {
+		txH := p2p2core.AdaptHash(event.TransactionHash)
+		txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
+	}
+	return txHashEventsM
+}
+
+func (s *syncService) adaptReceipts(
+	receipts []*spec.Receipt,
+	coreTxs []core.Transaction,
+	txHashEventsM map[felt.Felt][]*core.Event,
+) ([]*core.TransactionReceipt, error) {
+	var coreReceipts []*core.TransactionReceipt
+	for i, r := range receipts {
+		txHash := coreTxs[i].Hash()
+		if txHash == nil {
+			return nil, fmt.Errorf("TX hash %d is nil", i)
+		}
+
+		coreReceipt := p2p2core.AdaptReceipt(r, txHash)
+		coreReceipt.Events = txHashEventsM[*coreReceipt.TransactionHash]
+
+		coreReceipts = append(coreReceipts, coreReceipt)
+	}
+	return coreReceipts, nil
+}
+
+func (s *syncService) validateCoreBlockLengths(
+	coreBlock *core.Block,
+	txCount int,
+	eventCount int,
+) error {
+	if int(coreBlock.TransactionCount) != txCount {
+		s.log.Errorw("Number of transactions != count", "transactionCount", coreBlock.TransactionCount, "len(transactions)", txCount)
+		return fmt.Errorf("transaction count mismatch")
+	}
+
+	if int(coreBlock.EventCount) != eventCount {
+		s.log.Errorw("Number of events != count", "eventCount", coreBlock.EventCount, "len(events)", eventCount)
+		return fmt.Errorf("event count mismatch")
+	}
+
+	return nil
+}
+
+func (s *syncService) processClasses(classes []*spec.Class, bodyCh chan blockBody) (map[felt.Felt]core.Class, error) {
+	newClasses := make(map[felt.Felt]core.Class)
+	for _, cls := range classes {
+		coreC := p2p2core.AdaptClass(cls)
+		h, err := coreC.Hash()
+		if err != nil {
+			bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
+			return nil, err
+		}
+		newClasses[*h] = coreC
+	}
+	return newClasses, nil
+}
+
+func (s *syncService) buildStateUpdate(
+	coreBlock *core.Block,
+	prevBlockRoot *felt.Felt,
+	contractDiffs []*spec.ContractDiff,
+	classes []*spec.Class,
+) (*core.StateUpdate, error) {
+	stateReader, stateCloser, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
+	}
+	defer func() {
+		if stateCloser != nil {
+			if closeErr := stateCloser(); closeErr != nil {
+				s.log.Errorw("Failed to close state reader", "err", closeErr)
+			}
+		}
+	}()
+
+	stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+
+	return &core.StateUpdate{
+		BlockHash: coreBlock.Hash,
+		NewRoot:   coreBlock.GlobalStateRoot,
+		OldRoot:   prevBlockRoot,
+		StateDiff: stateDiff,
+	}, nil
 }
 
 type specBlockParts interface {
