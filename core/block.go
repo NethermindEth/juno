@@ -242,7 +242,8 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
-	// temporary hack
+	// These values are nil for some pre 0.13.2 blocks
+	// `crypto.PoseidonArray` panics if any of the values are nil
 	seqAddr := &felt.Zero
 	gasPriceStrk := &felt.Zero
 	l1DataGasPricrInWei := &felt.Zero
