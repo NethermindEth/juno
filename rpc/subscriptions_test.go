@@ -327,7 +327,7 @@ func TestSubscribeEvents(t *testing.T) {
 }
 
 func marshalSubscriptionResponse(e *EmittedEvent, id uint64) ([]byte, error) {
-	return json.Marshal(jsonrpc.Request{
+	return json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionEvents",
 		Params: map[string]any{
