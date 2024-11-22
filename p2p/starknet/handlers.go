@@ -131,26 +131,26 @@ func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[prot
 	}
 
 	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
-		block, err := it.Block()
+		header, err := it.Header()
 		if err != nil {
 			return nil, err
 		}
 
-		h.log.Debugw("Created Header Iterator", "blockNumber", block.Number)
+		h.log.Debugw("Created Header Iterator", "blockNumber", header.Number)
 
-		commitments, err := h.bcReader.BlockCommitmentsByNumber(block.Number)
+		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
 		if err != nil {
 			return nil, err
 		}
 
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(block.Number)
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(header.Number)
 		if err != nil {
 			return nil, err
 		}
 
 		return &spec.BlockHeadersResponse{
 			HeaderMessage: &spec.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(block.Header, commitments, stateUpdate.StateDiff.Commitment(),
+				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Hash(),
 					stateUpdate.StateDiff.Length()),
 			},
 		}, nil
