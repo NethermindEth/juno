@@ -78,7 +78,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 			case <-subscriptionCtx.Done():
 				return
 			case header := <-headerSub.Recv():
-				resp, err := json.Marshal(jsonrpc.Request{
+				resp, err := json.Marshal(SubscriptionResponse{
 					Version: "2.0",
 					Method:  "juno_subscribeNewHeads",
 					Params: map[string]any{
