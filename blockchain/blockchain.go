@@ -63,12 +63,20 @@ func checkBlockVersion(protocolVersion string) error {
 	}
 
 	// We ignore changes in patch part of the version
-	blockVerMM, suportedVerMM := blockVer.IncMinor(), SupportedStarknetVersion.IncMinor()
-	if blockVerMM.GreaterThan(&suportedVerMM) {
+	blockVerMM, supportedVerMM := copyWithoutPatch(blockVer), copyWithoutPatch(SupportedStarknetVersion)
+	if blockVerMM.GreaterThan(supportedVerMM) {
 		return errors.New("unsupported block version")
 	}
 
 	return nil
+}
+
+func copyWithoutPatch(v *semver.Version) *semver.Version {
+	if v == nil {
+		return nil
+	}
+
+	return semver.New(v.Major(), v.Minor(), 0, v.Prerelease(), v.Metadata())
 }
 
 var _ Reader = (*Blockchain)(nil)
