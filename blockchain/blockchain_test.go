@@ -155,21 +155,22 @@ func TestVerifyBlock(t *testing.T) {
 		require.EqualError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil), "unsupported block version")
 	})
 
-	t.Run("only difference in major protocol version is checked", func(t *testing.T) {
+	t.Run("mismatch at patch version is ignored", func(t *testing.T) {
 		ver := blockchain.SupportedStarknetVersion
-		majorBumped, minorBUmped, patchBumped := ver.IncMajor(), ver.IncMinor(), ver.IncPatch()
+		mainnetBlock0.ProtocolVersion = ver.IncPatch().String()
+		assert.NoError(t, chain.VerifyBlock(mainnetBlock0))
+	})
 
-		// mismatch at patch is ignored
-		mainnetBlock0.ProtocolVersion = patchBumped.String()
-		require.NoError(t, chain.VerifyBlock(mainnetBlock0))
+	t.Run("error if mismatch at minor version", func(t *testing.T) {
+		ver := blockchain.SupportedStarknetVersion
+		mainnetBlock0.ProtocolVersion = ver.IncMinor().String()
+		assert.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
+	})
 
-		// mismatch at minor cause an error
-		mainnetBlock0.ProtocolVersion = minorBUmped.String()
-		require.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
-
-		// mismatch at major cause an error
-		mainnetBlock0.ProtocolVersion = majorBumped.String()
-		require.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
+	t.Run("error if mismatch at minor version", func(t *testing.T) {
+		ver := blockchain.SupportedStarknetVersion
+		mainnetBlock0.ProtocolVersion = ver.IncMajor().String()
+		assert.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
 	})
 
 	t.Run("no error with no version string", func(t *testing.T) {
