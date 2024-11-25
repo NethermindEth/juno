@@ -156,20 +156,17 @@ func TestVerifyBlock(t *testing.T) {
 	})
 
 	t.Run("mismatch at patch version is ignored", func(t *testing.T) {
-		ver := blockchain.SupportedStarknetVersion
-		mainnetBlock0.ProtocolVersion = ver.IncPatch().String()
+		mainnetBlock0.ProtocolVersion = blockchain.SupportedStarknetVersion.IncPatch().String()
 		assert.NoError(t, chain.VerifyBlock(mainnetBlock0))
 	})
 
 	t.Run("error if mismatch at minor version", func(t *testing.T) {
-		ver := blockchain.SupportedStarknetVersion
-		mainnetBlock0.ProtocolVersion = ver.IncMinor().String()
+		mainnetBlock0.ProtocolVersion = blockchain.SupportedStarknetVersion.IncMinor().String()
 		assert.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
 	})
 
 	t.Run("error if mismatch at minor version", func(t *testing.T) {
-		ver := blockchain.SupportedStarknetVersion
-		mainnetBlock0.ProtocolVersion = ver.IncMajor().String()
+		mainnetBlock0.ProtocolVersion = blockchain.SupportedStarknetVersion.IncMajor().String()
 		assert.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
 	})
 
