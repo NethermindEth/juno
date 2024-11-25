@@ -53,7 +53,7 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	supportedStarknetVersion  = semver.MustParse("0.13.3")
+	SupportedStarknetVersion  = semver.MustParse("0.13.3")
 )
 
 func checkBlockVersion(protocolVersion string) error {
@@ -62,11 +62,21 @@ func checkBlockVersion(protocolVersion string) error {
 		return err
 	}
 
-	if blockVer.GreaterThan(supportedStarknetVersion) {
+	// We ignore changes in patch part of the version
+	blockVerMM, supportedVerMM := copyWithoutPatch(blockVer), copyWithoutPatch(SupportedStarknetVersion)
+	if blockVerMM.GreaterThan(supportedVerMM) {
 		return errors.New("unsupported block version")
 	}
 
 	return nil
+}
+
+func copyWithoutPatch(v *semver.Version) *semver.Version {
+	if v == nil {
+		return nil
+	}
+
+	return semver.New(v.Major(), v.Minor(), 0, v.Prerelease(), v.Metadata())
 }
 
 var _ Reader = (*Blockchain)(nil)
