@@ -33,8 +33,8 @@ func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) HashFromParent(parnetKey, nodeKey *Key, hashFunc hashFunc) *felt.Felt {
-	path := path(nodeKey, parnetKey)
+func (n *Node) HashFromParent(parentKey, nodeKey *Key, hashFunc hashFunc) *felt.Felt {
+	path := path(nodeKey, parentKey)
 	return n.Hash(&path, hashFunc)
 }
 
