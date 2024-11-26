@@ -58,7 +58,6 @@ func getBuffer() *bytes.Buffer {
 func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
 ) {
-	fmt.Println("streamHandler")
 	wg.Add(1)
 	defer wg.Done()
 
