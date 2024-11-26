@@ -28,6 +28,7 @@ func TestNew(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+		defer chain.Close()
 		assert.Equal(t, &utils.Mainnet, chain.Network())
 		b, err := chain.Head()
 		assert.Nil(t, b)
@@ -43,8 +44,10 @@ func TestNew(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
 		chain := blockchain.New(testDB, &utils.Mainnet)
 		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+		chain.Close()
 
 		chain = blockchain.New(testDB, &utils.Mainnet)
+		defer chain.Close()
 		b, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, block0, b)
@@ -56,6 +59,7 @@ func TestHeight(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+		defer chain.Close()
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
@@ -69,16 +73,19 @@ func TestHeight(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
 		chain := blockchain.New(testDB, &utils.Mainnet)
 		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
+		chain.Close()
 
 		chain = blockchain.New(testDB, &utils.Mainnet)
 		height, err := chain.Height()
 		require.NoError(t, err)
 		assert.Equal(t, block0.Number, height)
+		chain.Close()
 	})
 }
 
 func TestBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+	defer chain.Close()
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Mainnet)
 		gw := adaptfeeder.New(client)
@@ -115,6 +122,7 @@ func TestVerifyBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	defer chain.Close()
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{Number: 10}}
@@ -192,6 +200,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	require.NoError(t, err)
 
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	defer chain.Close()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 
@@ -237,6 +246,7 @@ func TestStore(t *testing.T) {
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+		defer chain.Close()
 		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
 		headBlock, err := chain.Head()
@@ -264,6 +274,7 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+		defer chain.Close()
 		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 		require.NoError(t, chain.Store(block1, &emptyCommitments, stateUpdate1, nil))
 
@@ -305,6 +316,7 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 
 func TestBlockCommitments(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	defer chain.Close()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -330,6 +342,7 @@ func TestBlockCommitments(t *testing.T) {
 
 func TestTransactionAndReceipt(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	defer chain.Close()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -418,6 +431,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 func TestState(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	chain := blockchain.New(testDB, &utils.Mainnet)
+	defer chain.Close()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -481,6 +495,7 @@ func TestState(t *testing.T) {
 func TestEvents(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	chain := blockchain.New(testDB, &utils.Goerli2)
+	defer chain.Close()
 
 	client := feeder.NewTestClient(t, &utils.Goerli2)
 	gw := adaptfeeder.New(client)
@@ -600,6 +615,7 @@ func TestEvents(t *testing.T) {
 func TestRevert(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
 	chain := blockchain.New(testdb, &utils.Mainnet)
+	defer chain.Close()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -688,6 +704,7 @@ func TestL1Update(t *testing.T) {
 			got, err := chain.L1Head()
 			require.NoError(t, err)
 			assert.Equal(t, head, got)
+			chain.Close()
 		})
 	}
 }
@@ -695,6 +712,7 @@ func TestL1Update(t *testing.T) {
 func TestPending(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	chain := blockchain.New(testDB, &utils.Mainnet)
+	defer chain.Close()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -836,6 +854,7 @@ func TestPending(t *testing.T) {
 func TestStorePendingIncludesNumber(t *testing.T) {
 	network := utils.Mainnet
 	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	defer chain.Close()
 
 	// Store pending genesis.
 	require.NoError(t, chain.StorePending(&blockchain.Pending{

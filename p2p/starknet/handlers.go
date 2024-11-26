@@ -1,4 +1,5 @@
-//go:generate protoc --go_out=./ --proto_path=./ --go_opt=Mp2p/proto/transaction.proto=./spec --go_opt=Mp2p/proto/state.proto=./spec --go_opt=Mp2p/proto/snapshot.proto=./spec --go_opt=Mp2p/proto/receipt.proto=./spec --go_opt=Mp2p/proto/mempool.proto=./spec --go_opt=Mp2p/proto/event.proto=./spec --go_opt=Mp2p/proto/block.proto=./spec --go_opt=Mp2p/proto/common.proto=./spec p2p/proto/transaction.proto p2p/proto/state.proto p2p/proto/snapshot.proto p2p/proto/common.proto p2p/proto/block.proto p2p/proto/event.proto p2p/proto/receipt.proto
+//go:generate protoc --go_out=./ --proto_path=./ --go_opt=Mp2p/proto/common.proto=./spec --go_opt=Mp2p/proto/header.proto=./spec  --go_opt=Mp2p/proto/event.proto=./spec --go_opt=Mp2p/proto/receipt.proto=./spec --go_opt=Mp2p/proto/state.proto=./spec --go_opt=Mp2p/proto/transaction.proto=./spec --go_opt=Mp2p/proto/class.proto=./spec --go_opt=Mp2p/proto/snapshot.proto=./spec p2p/proto/common.proto p2p/proto/event.proto p2p/proto/header.proto p2p/proto/receipt.proto p2p/proto/state.proto p2p/proto/transaction.proto p2p/proto/class.proto p2p/proto/snapshot.proto
+
 package starknet
 
 import (
@@ -21,8 +22,9 @@ import (
 )
 
 type Handler struct {
-	bcReader blockchain.Reader
-	log      utils.SimpleLogger
+	bcReader     blockchain.Reader
+	snapProvider SnapProvider
+	log          utils.SimpleLogger
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -38,6 +40,11 @@ func NewHandler(bcReader blockchain.Reader, log utils.SimpleLogger) *Handler {
 		cancel:   cancel,
 		wg:       sync.WaitGroup{},
 	}
+}
+
+func (h *Handler) WithSnapsyncSupport(provider SnapProvider) {
+	// TODO: should it be here?
+	h.snapProvider = provider
 }
 
 // bufferPool caches unused buffer objects for later reuse.
@@ -121,6 +128,38 @@ func (h *Handler) ClassesHandler(stream network.Stream) {
 
 func (h *Handler) StateDiffHandler(stream network.Stream) {
 	streamHandler[*spec.StateDiffsRequest](h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
+}
+
+func (h *Handler) ClassRangeHandler(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialised")
+		return
+	}
+	streamHandler[*spec.ClassRangeRequest](h.ctx, &h.wg, stream, h.snapProvider.GetClassRange, h.log)
+}
+
+func (h *Handler) ContractRangeHandler(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialised")
+		return
+	}
+	streamHandler[*spec.ContractRangeRequest](h.ctx, &h.wg, stream, h.snapProvider.GetContractRange, h.log)
+}
+
+func (h *Handler) ContractStorageHandler(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialised")
+		return
+	}
+	streamHandler[*spec.ContractStorageRequest](h.ctx, &h.wg, stream, h.snapProvider.GetStorageRange, h.log)
+}
+
+func (h *Handler) ClassHashesHandler(stream network.Stream) {
+	if h.snapProvider == nil {
+		h.log.Debugw("SnapProvider not initialised")
+		return
+	}
+	streamHandler[*spec.ClassHashesRequest](h.ctx, &h.wg, stream, h.snapProvider.GetClasses, h.log)
 }
 
 func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {

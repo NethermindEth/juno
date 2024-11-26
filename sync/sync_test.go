@@ -49,6 +49,7 @@ func TestSyncBlocks(t *testing.T) {
 				assert.Equal(t, b, block)
 				height--
 			}
+			bc.Close()
 			return nil
 		}())
 	}
@@ -147,6 +148,7 @@ func TestReorg(t *testing.T) {
 
 	// sync to integration for 2 blocks
 	bc := blockchain.New(testDB, &utils.Integration)
+	defer bc.Close()
 	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -155,6 +157,7 @@ func TestReorg(t *testing.T) {
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
 		bc := blockchain.New(testDB, &utils.Mainnet)
+		defer bc.Close()
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()
@@ -182,6 +185,7 @@ func TestPending(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	log := utils.NewNopZapLogger()
 	bc := blockchain.New(testDB, &utils.Mainnet)
+	defer bc.Close()
 	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
@@ -201,6 +205,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	integration := utils.Integration
 	chain := blockchain.New(testDB, &integration)
+	defer chain.Close()
 	integrationClient := feeder.NewTestClient(t, &integration)
 	gw := adaptfeeder.New(integrationClient)
 	syncer := sync.New(chain, gw, log, 0, false)

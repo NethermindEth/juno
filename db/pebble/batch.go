@@ -14,14 +14,15 @@ var _ db.Transaction = (*batch)(nil)
 
 type batch struct {
 	batch    *pebble.Batch
-	lock     *sync.Mutex
+	dbLock   *sync.Mutex
+	rwlock   sync.RWMutex
 	listener db.EventListener
 }
 
-func NewBatch(dbBatch *pebble.Batch, lock *sync.Mutex, listener db.EventListener) *batch {
+func NewBatch(dbBatch *pebble.Batch, dbLock *sync.Mutex, listener db.EventListener) *batch {
 	return &batch{
 		batch:    dbBatch,
-		lock:     lock,
+		dbLock:   dbLock,
 		listener: listener,
 	}
 }
@@ -34,8 +35,8 @@ func (b *batch) Discard() error {
 
 	err := b.batch.Close()
 	b.batch = nil
-	b.lock.Unlock()
-	b.lock = nil
+	b.dbLock.Unlock()
+	b.dbLock = nil
 
 	return err
 }
@@ -53,6 +54,9 @@ func (b *batch) Commit() error {
 
 // Set : see db.Transaction.Set
 func (b *batch) Set(key, val []byte) error {
+	b.rwlock.Lock()
+	defer b.rwlock.Unlock()
+
 	start := time.Now()
 	if len(key) == 0 {
 		return errors.New("empty key")
@@ -69,6 +73,9 @@ func (b *batch) Set(key, val []byte) error {
 
 // Delete : see db.Transaction.Delete
 func (b *batch) Delete(key []byte) error {
+	b.rwlock.Lock()
+	defer b.rwlock.Unlock()
+
 	if b.batch == nil {
 		return ErrDiscardedTransaction
 	}
@@ -81,6 +88,9 @@ func (b *batch) Delete(key []byte) error {
 
 // Get : see db.Transaction.Get
 func (b *batch) Get(key []byte, cb func([]byte) error) error {
+	b.rwlock.RLock()
+	defer b.rwlock.RUnlock()
+
 	if b.batch == nil {
 		return ErrDiscardedTransaction
 	}
