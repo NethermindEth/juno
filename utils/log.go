@@ -186,12 +186,12 @@ func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}
 }
 
-func NewZapLogger(logLevel LogLevel, colour bool, encoding LogEncoding) (*ZapLogger, error) {
+func NewZapLogger(logLevel LogLevel, colour bool, logEncoding LogEncoding) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Sampling = nil
-	config.Encoding = encoding.String()
+	config.Encoding = logEncoding.String()
 	config.EncoderConfig.EncodeLevel = capitalColorLevelEncoder
-	if encoding == JSON || !colour {
+	if logEncoding == JSON || !colour {
 		config.EncoderConfig.EncodeLevel = capitalLevelEncoder
 	}
 	config.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
