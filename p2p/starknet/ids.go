@@ -25,3 +25,7 @@ func ClassesPID() protocol.ID {
 func StateDiffPID() protocol.ID {
 	return Prefix + "/state_diffs/0.1.0-rc.0"
 }
+
+func ChainPID(chainID string) protocol.ID {
+	return protocol.ID("/" + chainID)
+}
