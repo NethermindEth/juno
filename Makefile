@@ -95,7 +95,7 @@ install-golangci-lint:
 lint: install-golangci-lint ## Run linter
 	golangci-lint run
 
-tidy: ## Tidy Go modules
+tidy: ## Add missing and remove unused modules
 	go mod tidy
 
 format: ## Format Go and Rust code
@@ -104,7 +104,7 @@ format: ## Format Go and Rust code
 	$(MAKE) -C starknet/compiler/rust format
 	gofumpt -l -w .
 
-clean: ## Clean builds
+clean: ## Clean project builds
 	$(MAKE) -C vm/rust clean
 	$(MAKE) -C core/rust clean
 	$(MAKE) -C starknet/compiler/rust clean
@@ -171,5 +171,5 @@ pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode
 	--metrics-port=9094 \
 	--disable-l1-verification
 
-test-fuzz: ## run fuzzing script
+test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
