@@ -79,7 +79,7 @@ docker run -d \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
-  --db-path /snapshots/juno_mainnet
+  --db-path /snapshots/juno_mainnet \
   --eth-node <YOUR ETH NODE>
 ```
 
