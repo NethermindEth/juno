@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPedersen(t *testing.T) {
@@ -126,24 +127,14 @@ var benchHashR *felt.Felt
 // go test -bench=. -run=^# -cpu=1,2,4,8,16
 func BenchmarkPedersenArray(b *testing.B) {
 	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
-	createRandomFelts := func(n int) []*felt.Felt {
-		var felts []*felt.Felt
-		for i := 0; i < n; i++ {
-			f, err := new(felt.Felt).SetRandom()
-			if err != nil {
-				b.Fatalf("error while generating random felt: %x", err)
-			}
-			felts = append(felts, f)
-		}
-		return felts
-	}
 
 	for _, i := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
+			randomFeltSls := genRandomFeltSls(b, i)
 			var f *felt.Felt
-			randomFelts := createRandomFelts(i)
+			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				f = crypto.PedersenArray(randomFelts...)
+				f = crypto.PedersenArray(randomFeltSls[n]...)
 			}
 			benchHashR = f
 		})
@@ -151,19 +142,43 @@ func BenchmarkPedersenArray(b *testing.B) {
 }
 
 func BenchmarkPedersen(b *testing.B) {
-	e0, err := new(felt.Felt).SetString("0x3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb")
-	if err != nil {
-		b.Errorf("Error occurred %s", err)
-	}
-
-	e1, err := new(felt.Felt).SetString("0x208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a")
-	if err != nil {
-		b.Errorf("Error occurred %s", err)
-	}
-
+	randFelts := genRandomFeltPairs(b)
 	var f *felt.Felt
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		f = crypto.Pedersen(e0, e1)
+		f = crypto.Pedersen(randFelts[n][0], randFelts[n][1])
 	}
 	benchHashR = f
+}
+
+func genRandomFeltSls(b *testing.B, n int) [][]*felt.Felt {
+	var randomFeltSls [][]*felt.Felt
+	for j := 0; j < b.N; j++ {
+		randomFeltSls = append(randomFeltSls, genRandomFelts(b, n))
+	}
+	return randomFeltSls
+}
+
+func genRandomFelts(b *testing.B, n int) []*felt.Felt {
+	b.Helper()
+	var felts []*felt.Felt
+	for i := 0; i < n; i++ {
+		f, err := new(felt.Felt).SetRandom()
+		require.NoError(b, err)
+		felts = append(felts, f)
+	}
+	return felts
+}
+
+func genRandomFeltPairs(b *testing.B) [][2]*felt.Felt {
+	b.Helper()
+	var err error
+	randFelts := make([][2]*felt.Felt, b.N)
+	for i := 0; i < b.N; i++ {
+		randFelts[i][0], err = new(felt.Felt).SetRandom()
+		require.NoError(b, err)
+		randFelts[i][1], err = new(felt.Felt).SetRandom()
+		require.NoError(b, err)
+	}
+	return randFelts
 }
