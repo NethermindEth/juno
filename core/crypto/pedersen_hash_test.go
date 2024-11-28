@@ -119,7 +119,9 @@ func TestPedersenArray(t *testing.T) {
 	}
 }
 
-var feltBench *felt.Felt
+// By having a package and local level variable compiler optimisations can be eliminated for more accurate results.
+// See here: https://dave.cheney.net/2013/06/30/how-to-write-benchmarks-in-go
+var benchHashR *felt.Felt
 
 // go test -bench=. -run=^# -cpu=1,2,4,8,16
 func BenchmarkPedersenArray(b *testing.B) {
@@ -143,7 +145,7 @@ func BenchmarkPedersenArray(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				f = crypto.PedersenArray(randomFelts...)
 			}
-			feltBench = f
+			benchHashR = f
 		})
 	}
 }
@@ -163,5 +165,5 @@ func BenchmarkPedersen(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		f = crypto.Pedersen(e0, e1)
 	}
-	feltBench = f
+	benchHashR = f
 }

@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var f *felt.Felt
-
 func TestPoseidon(t *testing.T) {
 	left := new(felt.Felt).SetUint64(1)
 	right := new(felt.Felt).SetUint64(2)
@@ -73,11 +71,12 @@ func BenchmarkPoseidonArray(b *testing.B) {
 
 	for _, i := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
+			var f *felt.Felt
 			randomFelts := createRandomFelts(i)
 			for n := 0; n < b.N; n++ {
 				f = crypto.PoseidonArray(randomFelts...)
 			}
-			feltBench = f
+			benchHashR = f
 		})
 	}
 }
@@ -93,8 +92,9 @@ func BenchmarkPoseidon(b *testing.B) {
 		b.Fatalf("Error occurred %s", err)
 	}
 
+	var f *felt.Felt
 	for n := 0; n < b.N; n++ {
 		f = crypto.Poseidon(e0, e1)
 	}
-	feltBench = f
+	benchHashR = f
 }
