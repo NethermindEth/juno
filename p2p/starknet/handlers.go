@@ -4,6 +4,7 @@ package starknet
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"sync"
@@ -411,7 +412,7 @@ func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg prot
 			// pass it to handler function (some might be interested in header, others in entire block)
 			msg, err := getMsg(it)
 			if err != nil {
-				if err != db.ErrKeyNotFound {
+				if !errors.Is(err, db.ErrKeyNotFound) {
 					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
 				}
 				break
@@ -450,7 +451,7 @@ func (h *Handler) processIterationRequestMulti(iteration *spec.Iteration, finMsg
 			// pass it to handler function (some might be interested in header, others in entire block)
 			messages, err := getMsg(it)
 			if err != nil {
-				if err != db.ErrKeyNotFound {
+				if !errors.Is(err, db.ErrKeyNotFound) {
 					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
 				}
 				break
