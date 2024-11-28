@@ -113,7 +113,7 @@ clean: ## Clean project builds
 help: ## Show help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-feedernode: juno-cached ## Run a feedernode
+feedernode: juno-cached ## Run a feedernode. P2P usage only
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
@@ -123,7 +123,7 @@ feedernode: juno-cached ## Run a feedernode
 	--p2p-addr=/ip4/0.0.0.0/tcp/7777 \
 	--p2p-private-key="5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089" \
 
-node1: juno-cached ## Run a node №1
+node1: juno-cached ## Run a node №1. P2P usage only
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
@@ -138,7 +138,7 @@ node1: juno-cached ## Run a node №1
 
 #	--p2p-peers=/ip4/127.0.0.1/tcp/7778/p2p/12D3KooWDQVMmK6cQrfFcWUoFF8Ch5vYegfwiP5Do2SFC2NAXeBk \
 
-node2: juno-cached ## Run a node №2
+node2: juno-cached ## Run a node №2. P2P usage only
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
@@ -149,7 +149,7 @@ node2: juno-cached ## Run a node №2
 	--metrics-port=9092 \
 	--disable-l1-verification
 
-node3: juno-cached ## Run a node №3
+node3: juno-cached ## Run a node №3. P2P usage only
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
@@ -160,7 +160,7 @@ node3: juno-cached ## Run a node №3
 	--metrics-port=9093 \
 	--disable-l1-verification
 
-pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode
+pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P usage only
 	./build/juno \
 	--network=sepolia \
 	--log-level=debug \
