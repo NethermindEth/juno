@@ -2,10 +2,10 @@ package p2p2core
 
 import (
 	"encoding/binary"
-	"reflect"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -28,7 +28,7 @@ func AdaptFelt(f *spec.Felt252) *felt.Felt {
 func adapt(v interface{ GetElements() []byte }) *felt.Felt {
 	// when passing a nil pointer `v` is boxed to an interface and is not nil
 	// see: https://blog.devtrovert.com/p/go-secret-interface-nil-is-not-nil
-	if v == nil || reflect.ValueOf(v).IsNil() {
+	if utils.IsNil(v) {
 		return nil
 	}
 
