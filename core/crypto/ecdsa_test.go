@@ -57,6 +57,8 @@ func TestVerify(t *testing.T) {
 	}
 }
 
+var benchVerifyR bool
+
 func BenchmarkVerify(b *testing.B) {
 	signature := crypto.Signature{
 		R: *utils.HexToFelt(b, "0x0411494b501a98abd8262b0da1351e17899a0c4ef23dd2f96fec5ba847310b20"),
@@ -65,9 +67,12 @@ func BenchmarkVerify(b *testing.B) {
 	msg := utils.HexToFelt(b, "0x0000000000000000000000000000000000000000000000000000000000000002")
 	publicKey := crypto.NewPublicKey(utils.HexToFelt(b, "0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca"))
 
+	var verified bool
+	var err error
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := publicKey.Verify(&signature, msg)
+		verified, err = publicKey.Verify(&signature, msg)
 		require.NoError(b, err)
 	}
+	benchVerifyR = verified
 }
