@@ -355,6 +355,8 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+var benchTriePutR *felt.Felt
+
 func BenchmarkTriePut(b *testing.B) {
 	keys := make([]*felt.Felt, 0, b.N)
 	for i := 0; i < b.N; i++ {
@@ -365,13 +367,16 @@ func BenchmarkTriePut(b *testing.B) {
 
 	one := new(felt.Felt).SetUint64(1)
 	require.NoError(b, trie.RunOnTempTriePedersen(251, func(t *trie.Trie) error {
+		var f *felt.Felt
+		var err error
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, err := t.Put(keys[i], one)
+			f, err = t.Put(keys[i], one)
 			if err != nil {
 				return err
 			}
 		}
+		benchTriePutR = f
 		return t.Commit()
 	}))
 }
