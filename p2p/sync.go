@@ -593,6 +593,14 @@ func (s *syncService) genTransactions(ctx context.Context, blockNumber uint64) (
 			switch v := res.TransactionMessage.(type) {
 			case *spec.TransactionsResponse_TransactionWithReceipt:
 				txWithReceipt := v.TransactionWithReceipt
+				if txWithReceipt.Transaction == nil {
+					s.log.Warnw("Received nil transaction", "blockNumber", blockNumber)
+					break loop
+				}
+				if txWithReceipt.Transaction.TransactionHash == nil {
+					s.log.Warnw("Received transaction with nil hash", "blockNumber", blockNumber)
+					break loop
+				}
 				transactions = append(transactions, txWithReceipt.Transaction)
 				receipts = append(receipts, txWithReceipt.Receipt)
 			case *spec.TransactionsResponse_Fin:
