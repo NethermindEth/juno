@@ -288,14 +288,9 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
 			}
 
-			var coreReceipts []*core.TransactionReceipt
+			coreReceipts := make([]*core.TransactionReceipt, 0, len(receipts))
 			for i, r := range receipts {
-				txHash := coreTxs[i].Hash()
-				if txHash == nil {
-					s.log.Errorw("Transaction hash is nil", "index", i)
-					return
-				}
-				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, txHash))
+				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, coreTxs[i].Hash()))
 			}
 			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
 				r.Events = txHashEventsM[*r.TransactionHash]
