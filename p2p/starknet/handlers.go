@@ -4,6 +4,7 @@ package starknet
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"iter"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -410,7 +412,9 @@ func (h *Handler) processIterationRequest(iteration *spec.Iteration, finMsg prot
 			// pass it to handler function (some might be interested in header, others in entire block)
 			msg, err := getMsg(it)
 			if err != nil {
-				h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+				if !errors.Is(err, db.ErrKeyNotFound) {
+					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+				}
 				break
 			}
 
@@ -447,7 +451,9 @@ func (h *Handler) processIterationRequestMulti(iteration *spec.Iteration, finMsg
 			// pass it to handler function (some might be interested in header, others in entire block)
 			messages, err := getMsg(it)
 			if err != nil {
-				h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+				if !errors.Is(err, db.ErrKeyNotFound) {
+					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+				}
 				break
 			}
 
