@@ -18,7 +18,6 @@ import (
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -293,8 +292,8 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			for i, r := range receipts {
 				txHash := coreTxs[i].Hash()
 				if txHash == nil {
-					spew.Dump(coreTxs[i])
-					panic(fmt.Errorf("TX hash %d is nil", i))
+					s.log.Errorw("Transaction hash is nil", "index", i)
+					return
 				}
 				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, txHash))
 			}
