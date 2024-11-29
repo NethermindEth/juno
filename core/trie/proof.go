@@ -297,7 +297,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 
 	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
 	if len(keys) == 0 {
-		rootKey, val, err := ProofToPath(root, &firstKey, proof, nodes)
+		rootKey, val, _, err := ProofToPath(root, &firstKey, proof, nodes)
 		if err != nil {
 			return false, err
 		}
@@ -314,7 +314,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 
 	// Special case: there is only one element and two edge keys are the same
 	if len(keys) == 1 && firstKey.Equal(&lastKey) {
-		rootKey, val, err := ProofToPath(root, &firstKey, proof, nodes)
+		rootKey, val, _, err := ProofToPath(root, &firstKey, proof, nodes)
 		if err != nil {
 			return false, err
 		}
@@ -337,14 +337,35 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 		return false, errors.New("last key is less than first key")
 	}
 
-	rootKey, _, err := ProofToPath(root, &firstKey, proof, nodes)
+	rootKey, _, firstBl, err := ProofToPath(root, &firstKey, proof, nodes)
 	if err != nil {
 		return false, err
 	}
 
-	lastRootKey, _, err := ProofToPath(root, &lastKey, proof, nodes)
+	// Gapped range proof succeeds if we have binary leafs.
+	// Given a binary leaf, we store both the left and right child hashes, where they could be the leafs.
+	// So if a key is gapped but is present in the proof as a binary leaf, the proof would still be valid.
+	// So we need to check if a binary leaf exists, and check if the next/previous key exists.
+	if firstBl == left && keys[0].Equal(first) {
+		if len(keys) == 1 {
+			return false, nil
+		}
+
+		if !keys[1].Equal(new(felt.Felt).Add(first, new(felt.Felt).SetUint64(1))) {
+			return false, errors.New("gapped range proof with first key ")
+		}
+	}
+
+	lastRootKey, _, lastBl, err := ProofToPath(root, &lastKey, proof, nodes)
 	if err != nil {
 		return false, err
+	}
+
+	// if the last key is a binary leaf and an existing key, check if the previous key exists
+	if lastBl == right {
+		if !keys[len(keys)-2].Equal(new(felt.Felt).Sub(last, new(felt.Felt).SetUint64(1))) {
+			return false, errors.New("gapped range proof with last key")
+		}
 	}
 
 	if !rootKey.Equal(lastRootKey) {
@@ -370,10 +391,19 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	return hasRightElement(rootKey, &lastKey, nodes), nil
 }
 
-func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) (*Key, *felt.Felt, error) {
-	rootKey, val, err := buildPath(root, key, 0, nil, proof, nodes)
+// BinaryLeaf represents the direction of a node in the trie (left or right)
+type binaryLeaf uint8
+
+const (
+	none binaryLeaf = iota
+	left
+	right
+)
+
+func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) (*Key, *felt.Felt, binaryLeaf, error) {
+	rootKey, val, bl, err := buildPath(root, key, 0, nil, proof, nodes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, none, err
 	}
 
 	// Special case: non-existent key at the root
@@ -384,12 +414,12 @@ func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 	if nodes.Size() == 0 {
 		proofNode, ok := proof.Get(*root)
 		if !ok {
-			return nil, nil, fmt.Errorf("proof node (hash: %s) not found", root.String())
+			return nil, nil, none, fmt.Errorf("proof node (hash: %s) not found", root.String())
 		}
 
 		edge, ok := proofNode.(*Edge)
 		if !ok {
-			return nil, nil, fmt.Errorf("proof node (hash: %s) is not an edge", root.String())
+			return nil, nil, none, fmt.Errorf("proof node (hash: %s) is not an edge", root.String())
 		}
 
 		if edge.Path.Len() == key.Len() {
@@ -403,19 +433,19 @@ func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 					RightHash: nil,
 				},
 			}); err != nil {
-				return nil, nil, err
+				return nil, nil, none, err
 			}
-			return edge.Path, nil, nil
+			return edge.Path, nil, none, nil
 		}
 
 		child, ok := proof.Get(*edge.Child)
 		if !ok {
-			return nil, nil, fmt.Errorf("proof node (hash: %s) not found", edge.Child.String())
+			return nil, nil, none, fmt.Errorf("proof node (hash: %s) not found", edge.Child.String())
 		}
 
 		binary, ok := child.(*Binary)
 		if !ok {
-			return nil, nil, fmt.Errorf("proof node's child (hash: %s) is not a binary", edge.Child.String())
+			return nil, nil, none, fmt.Errorf("proof node's child (hash: %s) is not a binary", edge.Child.String())
 		}
 
 		if err := nodes.Put(*edge.Path, &StorageNode{
@@ -428,12 +458,18 @@ func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 				RightHash: binary.RightHash,
 			},
 		}); err != nil {
-			return nil, nil, err
+			return nil, nil, none, err
 		}
 		rootKey = edge.Path
+
+		if key.IsBitSet(0) {
+			bl = right
+		} else {
+			bl = left
+		}
 	}
 
-	return rootKey, val, nil
+	return rootKey, val, bl, nil
 }
 
 func buildPath(
@@ -443,7 +479,7 @@ func buildPath(
 	curNode *StorageNode,
 	proof *ProofNodeSet,
 	nodes *StorageNodeSet,
-) (*Key, *felt.Felt, error) {
+) (*Key, *felt.Felt, binaryLeaf, error) {
 	// We reached the leaf
 	if curPos == key.Len() {
 		leafKey := key.Copy()
@@ -458,14 +494,14 @@ func buildPath(
 			},
 		}
 		if err := nodes.Put(leafKey, leafNode); err != nil {
-			return nil, nil, err
+			return nil, nil, none, err
 		}
-		return &leafKey, nodeHash, nil
+		return &leafKey, nodeHash, none, nil
 	}
 
 	proofNode, ok := proof.Get(*nodeHash)
 	if !ok { // non-existent proof node
-		return NilKey, nil, nil
+		return NilKey, nil, none, nil
 	}
 
 	switch pn := proofNode.(type) {
@@ -473,7 +509,7 @@ func buildPath(
 		if curNode == nil {
 			nodeKey, err := key.MostSignificantBits(curPos)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, none, err
 			}
 			curNode = &StorageNode{
 				key:  nodeKey,
@@ -495,9 +531,17 @@ func buildPath(
 		}
 
 		// Recursively build the child path
-		childKey, val, err := buildPath(nextHash, key, nextPos, nil, proof, nodes)
+		childKey, val, bl, err := buildPath(nextHash, key, nextPos, nil, proof, nodes)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, none, err
+		}
+
+		if nextPos == key.Len() {
+			if isRightPath {
+				bl = right
+			} else {
+				bl = left
+			}
 		}
 
 		// Set child reference and store node
@@ -509,9 +553,9 @@ func buildPath(
 
 		// Store the node and return its key
 		if err := nodes.Put(*curNode.key, curNode); err != nil {
-			return nil, nil, err
+			return nil, nil, none, err
 		}
-		return curNode.Key(), val, nil
+		return curNode.Key(), val, bl, nil
 
 	case *Edge:
 		if curNode == nil {
@@ -521,7 +565,7 @@ func buildPath(
 
 		nextPos := curPos + pn.Path.Len()
 		if key.Len() < nextPos {
-			return NilKey, nil, nil
+			return NilKey, nil, none, nil
 		}
 
 		// Ensure the bits between segment of the key and the node path match
@@ -529,7 +573,7 @@ func buildPath(
 		end := key.Len() - curPos
 		for i := start; i < end; i++ {
 			if key.IsBitSet(i) != pn.Path.IsBitSet(i-start) {
-				return NilKey, nil, nil
+				return NilKey, nil, none, nil
 			}
 		}
 
@@ -538,28 +582,28 @@ func buildPath(
 			leafKey := key.Copy()
 			curNode.key = &leafKey
 			if err := nodes.Put(leafKey, curNode); err != nil {
-				return nil, nil, err
+				return nil, nil, none, err
 			}
-			return &leafKey, pn.Child, nil
+			return &leafKey, pn.Child, none, nil
 		}
 
 		// Set the current node's key
 		nodeKey, err := key.MostSignificantBits(nextPos)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, none, err
 		}
 		curNode.key = nodeKey
 
 		// Recursively build the child path
-		_, val, err := buildPath(pn.Child, key, nextPos, curNode, proof, nodes)
+		_, val, bl, err := buildPath(pn.Child, key, nextPos, curNode, proof, nodes)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, none, err
 		}
 
-		return curNode.key, val, nil
+		return curNode.key, val, bl, nil
 	}
 
-	return nil, nil, nil
+	return nil, nil, none, nil
 }
 
 func BuildTrie(height uint8, rootKey *Key, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
