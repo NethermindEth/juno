@@ -433,15 +433,14 @@ func TestSingleSideRangeProof(t *testing.T) {
 	}
 }
 
-// TODO(weiihann): gapped range proof sometime succeeds, as the way we handle
 func TestGappedRangeProof(t *testing.T) {
 	t.Parallel()
 
-	tr, records := nonRandomTrie(t, 10)
+	tr, records := nonRandomTrie(t, 5)
 	root, err := tr.Root()
 	require.NoError(t, err)
 
-	first, last := 2, 8
+	first, last := 1, 4
 	proof := trie.NewProofNodeSet()
 	err = tr.GetRangeProof(records[first].key, records[last].key, proof)
 	require.NoError(t, err)
@@ -485,7 +484,7 @@ func TestBadRangeProof(t *testing.T) {
 		}
 
 		first := keys[0]
-		testCase := rand.Intn(5)
+		testCase := rand.Intn(6)
 
 		index := rand.Intn(end - start)
 		switch testCase {
@@ -504,13 +503,12 @@ func TestBadRangeProof(t *testing.T) {
 			keys[index] = &felt.Zero
 		case 4: // set random value to empty
 			values[index] = &felt.Zero
-			// TODO(weiihann): gapped kvs sometime succeed, need to investigate further
-			// case 5: // gapped
-			// 	if end-start < 100 || index == 0 || index == end-start-1 {
-			// 		continue
-			// 	}
-			// 	keys = append(keys[:index], keys[index+1:]...)
-			// 	values = append(values[:index], values[index+1:]...)
+		case 5: // gapped
+			if end-start < 100 || index == 0 || index == end-start-1 {
+				continue
+			}
+			keys = append(keys[:index], keys[index+1:]...)
+			values = append(values[:index], values[index+1:]...)
 		}
 		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
 		if err == nil {
@@ -926,7 +924,7 @@ func TestProofToPath(t *testing.T) {
 					root, err := tr.Root()
 					require.NoError(t, err)
 					keyFelt := tr.FeltToKey(tc.key)
-					rootKey, _, err := trie.ProofToPath(root, &keyFelt, proofSet, nodes)
+					rootKey, _, _, err := trie.ProofToPath(root, &keyFelt, proofSet, nodes)
 					require.NoError(t, err)
 
 					tr2, err := trie.BuildTrie(scenario.height, rootKey, nodes.List(), nil, nil)
@@ -963,7 +961,7 @@ func TestProofToPathNKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		nodes := trie.NewStorageNodeSet()
-		rootKey, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
+		rootKey, _, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
 		require.NoError(t, err)
 
 		tr2, err := trie.BuildTrie(251, rootKey, nodes.List(), nil, nil)
@@ -997,7 +995,7 @@ func TestProofToPathNKeysWithNonExistentKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		nodes := trie.NewStorageNodeSet()
-		rootKey, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
+		rootKey, _, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
 		require.NoError(t, err)
 
 		tr2, err := trie.BuildTrie(251, rootKey, nodes.List(), nil, nil)
@@ -1026,7 +1024,7 @@ func TestProofToPathRandomTrie(t *testing.T) {
 		require.NoError(t, err)
 
 		nodes := trie.NewStorageNodeSet()
-		rootKey, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
+		rootKey, _, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
 		require.NoError(t, err)
 
 		tr2, err := trie.BuildTrie(251, rootKey, nodes.List(), nil, nil)
