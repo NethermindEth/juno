@@ -540,7 +540,7 @@ func buildPath(
 			if err := nodes.Put(leafKey, curNode); err != nil {
 				return nil, nil, err
 			}
-			return curNode.key, pn.Child, nil
+			return &leafKey, pn.Child, nil
 		}
 
 		// Set the current node's key

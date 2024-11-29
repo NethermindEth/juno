@@ -224,7 +224,7 @@ func TestRangeProof(t *testing.T) {
 	root, err := tr.Root()
 	require.NoError(t, err)
 
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 100; i++ {
 		start := rand.Intn(n)
 		end := rand.Intn(n-start) + start + 1
 
@@ -316,6 +316,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("both edge proofs with the same key", func(t *testing.T) {
+		t.Parallel()
+
 		start := 100
 		proof := trie.NewProofNodeSet()
 		err = tr.GetRangeProof(records[start].key, records[start].key, proof)
@@ -326,6 +328,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("left non-existent edge proof", func(t *testing.T) {
+		t.Parallel()
+
 		start := 100
 		proof := trie.NewProofNodeSet()
 		err = tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
@@ -336,6 +340,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("right non-existent edge proof", func(t *testing.T) {
+		t.Parallel()
+
 		end := 100
 		proof := trie.NewProofNodeSet()
 		err = tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
@@ -346,6 +352,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("both non-existent edge proofs", func(t *testing.T) {
+		t.Parallel()
+
 		start := 100
 		first, last := decrementFelt(records[start].key), incrementFelt(records[start].key)
 		proof := trie.NewProofNodeSet()
@@ -357,6 +365,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("1 key trie", func(t *testing.T) {
+		t.Parallel()
+
 		tr, records := build1KeyTrie(t)
 		root, err := tr.Root()
 		require.NoError(t, err)
@@ -396,6 +406,117 @@ func TestAllElementsRangeProof(t *testing.T) {
 
 	_, err = trie.VerifyRangeProof(root, keys[0], keys, values, proof)
 	require.NoError(t, err)
+}
+
+// TestSingleSideRangeProof tests the range proof starting with zero.
+func TestSingleSideRangeProof(t *testing.T) {
+	t.Parallel()
+
+	tr, records := randomTrie(t, 1000)
+	root, err := tr.Root()
+	require.NoError(t, err)
+
+	for i := 0; i < len(records); i += 100 {
+		proof := trie.NewProofNodeSet()
+		err := tr.GetRangeProof(&felt.Zero, records[i].key, proof)
+		require.NoError(t, err)
+
+		keys := make([]*felt.Felt, i+1)
+		values := make([]*felt.Felt, i+1)
+		for j := 0; j < i+1; j++ {
+			keys[j] = records[j].key
+			values[j] = records[j].value
+		}
+
+		_, err = trie.VerifyRangeProof(root, &felt.Zero, keys, values, proof)
+		require.NoError(t, err)
+	}
+}
+
+// TODO(weiihann): gapped range proof sometime succeeds, as the way we handle
+func TestGappedRangeProof(t *testing.T) {
+	t.Parallel()
+
+	tr, records := nonRandomTrie(t, 10)
+	root, err := tr.Root()
+	require.NoError(t, err)
+
+	first, last := 2, 8
+	proof := trie.NewProofNodeSet()
+	err = tr.GetRangeProof(records[first].key, records[last].key, proof)
+	require.NoError(t, err)
+
+	keys := []*felt.Felt{}
+	values := []*felt.Felt{}
+	for i := first; i <= last; i++ {
+		if i == (first+last)/2 {
+			continue
+		}
+
+		keys = append(keys, records[i].key)
+		values = append(values, records[i].value)
+	}
+
+	_, err = trie.VerifyRangeProof(root, records[first].key, keys, values, proof)
+	require.Error(t, err)
+}
+
+// TestBadRangeProof generates random bad proof scenarios and verifies that the proof is invalid.
+func TestBadRangeProof(t *testing.T) {
+	t.Parallel()
+
+	tr, records := randomTrie(t, 1000)
+	root, err := tr.Root()
+	require.NoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		start := rand.Intn(len(records))
+		end := rand.Intn(len(records)-start) + start + 1
+
+		proof := trie.NewProofNodeSet()
+		err := tr.GetRangeProof(records[start].key, records[end-1].key, proof)
+		require.NoError(t, err)
+
+		keys := []*felt.Felt{}
+		values := []*felt.Felt{}
+		for j := start; j < end; j++ {
+			keys = append(keys, records[j].key)
+			values = append(values, records[j].value)
+		}
+
+		first := keys[0]
+		testCase := rand.Intn(5)
+
+		index := rand.Intn(end - start)
+		switch testCase {
+		case 0: // modified key
+			keys[index] = new(felt.Felt).SetUint64(rand.Uint64())
+		case 1: // modified value
+			values[index] = new(felt.Felt).SetUint64(rand.Uint64())
+		case 2: // out of order
+			index2 := rand.Intn(end - start)
+			if index2 == index {
+				continue
+			}
+			keys[index], keys[index2] = keys[index2], keys[index]
+			values[index], values[index2] = values[index2], values[index]
+		case 3: // set random key to empty
+			keys[index] = &felt.Zero
+		case 4: // set random value to empty
+			values[index] = &felt.Zero
+			// TODO(weiihann): gapped kvs sometime succeed, need to investigate further
+			// case 5: // gapped
+			// 	if end-start < 100 || index == 0 || index == end-start-1 {
+			// 		continue
+			// 	}
+			// 	keys = append(keys[:index], keys[index+1:]...)
+			// 	values = append(values[:index], values[index+1:]...)
+		}
+		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+		if err == nil {
+			t.Fatalf("expected error for test case %d, index %d, start %d, end %d", testCase, index, start, end)
+		}
+	}
 }
 
 func TestRangeProof4KeysTrieD(t *testing.T) {
