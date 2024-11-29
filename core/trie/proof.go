@@ -19,7 +19,7 @@ type ProofNodeSet = utils.OrderedSet[felt.Felt, ProofNode]
 type ProofNode interface {
 	Hash(hash hashFunc) *felt.Felt
 	Len() uint8
-	PrettyPrint()
+	String() string
 }
 
 func NewProofNodeSet() *ProofNodeSet {
@@ -39,10 +39,8 @@ func (b *Binary) Len() uint8 {
 	return 1
 }
 
-func (b *Binary) PrettyPrint() {
-	fmt.Printf("  Binary: %v:\n", b.Hash(crypto.Pedersen))
-	fmt.Printf("    LeftHash: %v\n", b.LeftHash)
-	fmt.Printf("    RightHash: %v\n", b.RightHash)
+func (b *Binary) String() string {
+	return fmt.Sprintf("Binary: %v:\n\tLeftHash: %v\n\tRightHash: %v\n", b.Hash(crypto.Pedersen), b.LeftHash, b.RightHash)
 }
 
 type Edge struct {
@@ -62,13 +60,11 @@ func (e *Edge) Len() uint8 {
 	return e.Path.Len()
 }
 
-func (e *Edge) PrettyPrint() {
-	fmt.Printf("  Edge: %v:\n", e.Hash(crypto.Pedersen))
-	fmt.Printf("    Child: %v\n", e.Child)
-	fmt.Printf("    Path: %v\n", e.Path)
+func (e *Edge) String() string {
+	return fmt.Sprintf("Edge: %v:\n\tChild: %v\n\tPath: %v\n", e.Hash(crypto.Pedersen), e.Child, e.Path)
 }
 
-func (t *Trie) Prove(key *felt.Felt, proofSet *ProofNodeSet) error {
+func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	k := t.FeltToKey(key)
 
 	nodesFromRoot, err := t.nodesFromRoot(&k)
@@ -86,12 +82,12 @@ func (t *Trie) Prove(key *felt.Felt, proofSet *ProofNodeSet) error {
 		isLeaf := sNode.key.len == t.height
 
 		if sNodeEdge != nil && !isLeaf { // Internal Edge
-			proofSet.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
-			proofSet.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
+			proof.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
+			proof.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
 		} else if sNodeEdge == nil && !isLeaf { // Internal Binary
-			proofSet.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
+			proof.Put(*sNodeBinary.Hash(t.hash), sNodeBinary)
 		} else if sNodeEdge != nil && isLeaf { // Leaf Edge
-			proofSet.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
+			proof.Put(*sNodeEdge.Hash(t.hash), sNodeEdge)
 		} else if sNodeEdge == nil && sNodeBinary == nil { // sNode is a binary leaf
 			break
 		}
@@ -104,6 +100,11 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 	err := t.Prove(leftKey, proofSet)
 	if err != nil {
 		return err
+	}
+
+	// If they are the same key, don't need to generate the proof again
+	if leftKey.Equal(rightKey) {
+		return nil
 	}
 
 	err = t.Prove(rightKey, proofSet)
@@ -255,38 +256,28 @@ func VerifyProof(root *felt.Felt, key *Key, proof *ProofNodeSet, hash hashFunc) 
 // If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
 // and therefore its hash won't match the expected root.
 // ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet, hash hashFunc) (bool, error) {
+func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) {
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
 		return false, fmt.Errorf("inconsistent proof data, number of keys: %d, number of values: %d", len(keys), len(values))
 	}
 
-	// Ensure all keys are monotonic increasing
-	for i := 0; i < len(keys)-1; i++ {
-		if keys[i].Cmp(keys[i+1]) >= 0 {
+	// Ensure all keys are monotonic increasing and values contain no deletions
+	for i := 0; i < len(keys); i++ {
+		if i < len(keys)-1 && keys[i].Cmp(keys[i+1]) > 0 {
 			return false, errors.New("keys are not monotonic increasing")
 		}
-	}
 
-	// Ensure the range contains no deletions
-	for _, value := range values {
-		if value.Equal(&felt.Zero) {
+		if values[i].Equal(&felt.Zero) {
 			return false, errors.New("range contains deletion")
 		}
 	}
 
 	// Special case: no edge proof at all, given range is the whole leaf set in the trie
 	if proof == nil {
-		tr, err := NewTriePedersen(newMemStorage(), 251) //nolint:mnd
+		tr, err := BuildTrie(251, nil, nil, keys, values)
 		if err != nil {
 			return false, err
-		}
-
-		for index, key := range keys {
-			_, err = tr.Put(key, values[index])
-			if err != nil {
-				return false, err
-			}
 		}
 
 		recomputedRoot, err := tr.Root()
@@ -298,23 +289,70 @@ func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt
 			return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", root.String(), recomputedRoot.String())
 		}
 
-		return true, nil
+		return false, nil // no more elements available
 	}
 
 	nodes := NewStorageNodeSet()
-	err := ProofToPath(root, &Key{len: 251, bitset: firstKey.Bytes()}, proof, nodes)
+	firstKey := FeltToKey(251, first)
+
+	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
+	if len(keys) == 0 {
+		rootKey, val, err := ProofToPath(root, &firstKey, proof, nodes)
+		if err != nil {
+			return false, err
+		}
+
+		if val != nil || hasRightElement(rootKey, &firstKey, nodes) {
+			return false, errors.New("more entries available")
+		}
+
+		return false, nil
+	}
+
+	last := keys[len(keys)-1]
+	lastKey := FeltToKey(251, last)
+
+	// Special case: there is only one element and two edge keys are the same
+	if len(keys) == 1 && firstKey.Equal(&lastKey) {
+		rootKey, val, err := ProofToPath(root, &firstKey, proof, nodes)
+		if err != nil {
+			return false, err
+		}
+
+		elementKey := FeltToKey(251, keys[0])
+		if !firstKey.Equal(&elementKey) {
+			return false, errors.New("correct proof but invalid key")
+		}
+
+		if val == nil || !values[0].Equal(val) {
+			return false, errors.New("correct proof but invalid value")
+		}
+
+		return hasRightElement(rootKey, &firstKey, nodes), nil
+	}
+
+	// In all other cases, we require two edge paths available.
+	// First, ensure that the last key is greater than the first key
+	if last.Cmp(first) <= 0 {
+		return false, errors.New("last key is less than first key")
+	}
+
+	rootKey, _, err := ProofToPath(root, &firstKey, proof, nodes)
 	if err != nil {
 		return false, err
 	}
 
-	lastKey := keys[len(keys)-1]
-	err = ProofToPath(root, &Key{len: 251, bitset: lastKey.Bytes()}, proof, nodes)
+	lastRootKey, _, err := ProofToPath(root, &lastKey, proof, nodes)
 	if err != nil {
 		return false, err
+	}
+
+	if !rootKey.Equal(lastRootKey) {
+		return false, errors.New("first and last root keys do not match")
 	}
 
 	// Build the trie from the proof paths
-	tr, err := BuildTrie(251, nodes.List()) // TODO(weiihann): use constant height
+	tr, err := BuildTrie(251, rootKey, nodes.List(), keys, values)
 	if err != nil {
 		return false, err
 	}
@@ -329,13 +367,13 @@ func VerifyRangeProof(root *felt.Felt, firstKey *felt.Felt, keys, values []*felt
 		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", root.String(), recomputedRoot.String())
 	}
 
-	return true, nil
+	return hasRightElement(rootKey, &lastKey, nodes), nil
 }
 
-func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) error {
-	_, err := buildPath(root, key, 0, nil, proof, nodes)
+func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) (*Key, *felt.Felt, error) {
+	rootKey, val, err := buildPath(root, key, 0, nil, proof, nodes)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// Special case: non-existent key at the root
@@ -346,12 +384,12 @@ func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 	if nodes.Size() == 0 {
 		proofNode, ok := proof.Get(*root)
 		if !ok {
-			return fmt.Errorf("proof node (hash: %s) not found", root.String())
+			return nil, nil, fmt.Errorf("proof node (hash: %s) not found", root.String())
 		}
 
 		edge, ok := proofNode.(*Edge)
 		if !ok {
-			return fmt.Errorf("proof node (hash: %s) is not an edge", root.String())
+			return nil, nil, fmt.Errorf("proof node (hash: %s) is not an edge", root.String())
 		}
 
 		if edge.Path.Len() == key.Len() {
@@ -365,19 +403,19 @@ func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 					RightHash: nil,
 				},
 			}); err != nil {
-				return err
+				return nil, nil, err
 			}
-			return nil
+			return edge.Path, nil, nil
 		}
 
 		child, ok := proof.Get(*edge.Child)
 		if !ok {
-			return fmt.Errorf("proof node (hash: %s) not found", edge.Child.String())
+			return nil, nil, fmt.Errorf("proof node (hash: %s) not found", edge.Child.String())
 		}
 
 		binary, ok := child.(*Binary)
 		if !ok {
-			return fmt.Errorf("proof node's child (hash: %s) is not a binary", edge.Child.String())
+			return nil, nil, fmt.Errorf("proof node's child (hash: %s) is not a binary", edge.Child.String())
 		}
 
 		if err := nodes.Put(*edge.Path, &StorageNode{
@@ -390,11 +428,12 @@ func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 				RightHash: binary.RightHash,
 			},
 		}); err != nil {
-			return err
+			return nil, nil, err
 		}
+		rootKey = edge.Path
 	}
 
-	return nil
+	return rootKey, val, nil
 }
 
 func buildPath(
@@ -404,7 +443,7 @@ func buildPath(
 	curNode *StorageNode,
 	proof *ProofNodeSet,
 	nodes *StorageNodeSet,
-) (*Key, error) {
+) (*Key, *felt.Felt, error) {
 	// We reached the leaf
 	if curPos == key.Len() {
 		leafKey := key.Copy()
@@ -419,14 +458,14 @@ func buildPath(
 			},
 		}
 		if err := nodes.Put(leafKey, leafNode); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return &leafKey, nil
+		return &leafKey, nodeHash, nil
 	}
 
 	proofNode, ok := proof.Get(*nodeHash)
 	if !ok { // non-existent proof node
-		return NilKey, nil
+		return NilKey, nil, nil
 	}
 
 	switch pn := proofNode.(type) {
@@ -434,7 +473,7 @@ func buildPath(
 		if curNode == nil {
 			nodeKey, err := key.MostSignificantBits(curPos)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			curNode = &StorageNode{
 				key:  nodeKey,
@@ -456,9 +495,9 @@ func buildPath(
 		}
 
 		// Recursively build the child path
-		childKey, err := buildPath(nextHash, key, nextPos, nil, proof, nodes)
+		childKey, val, err := buildPath(nextHash, key, nextPos, nil, proof, nodes)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// Set child reference and store node
@@ -470,9 +509,9 @@ func buildPath(
 
 		// Store the node and return its key
 		if err := nodes.Put(*curNode.key, curNode); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return curNode.Key(), nil
+		return curNode.Key(), val, nil
 
 	case *Edge:
 		if curNode == nil {
@@ -482,7 +521,7 @@ func buildPath(
 
 		nextPos := curPos + pn.Path.Len()
 		if key.Len() < nextPos {
-			return NilKey, nil
+			return NilKey, nil, nil
 		}
 
 		// Ensure the bits between segment of the key and the node path match
@@ -490,7 +529,7 @@ func buildPath(
 		end := key.Len() - curPos
 		for i := start; i < end; i++ {
 			if key.IsBitSet(i) != pn.Path.IsBitSet(i-start) {
-				return NilKey, nil
+				return NilKey, nil, nil
 			}
 		}
 
@@ -499,44 +538,83 @@ func buildPath(
 			leafKey := key.Copy()
 			curNode.key = &leafKey
 			if err := nodes.Put(leafKey, curNode); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			return curNode.key, nil
+			return curNode.key, pn.Child, nil
 		}
 
 		// Set the current node's key
 		nodeKey, err := key.MostSignificantBits(nextPos)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		curNode.key = nodeKey
 
 		// Recursively build the child path
-		_, err = buildPath(pn.Child, key, nextPos, curNode, proof, nodes)
+		_, val, err := buildPath(pn.Child, key, nextPos, curNode, proof, nodes)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		return curNode.key, nil
+		return curNode.key, val, nil
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
-func BuildTrie(height uint8, nodes []*StorageNode) (*Trie, error) {
-	tempTrie, err := NewTriePedersen(newMemStorage(), height)
+func BuildTrie(height uint8, rootKey *Key, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
+	tr, err := NewTriePedersen(newMemStorage(), height)
 	if err != nil {
 		return nil, err
 	}
 
+	tr.setRootKey(rootKey)
+
 	// Nodes are inserted in reverse order because the leaf nodes are placed at the front of the list.
 	// We would want to insert root node first so the root key is set first.
 	for i := len(nodes) - 1; i >= 0; i-- {
-		_, err := tempTrie.PutInner(nodes[i].key, nodes[i].node)
+		if err := tr.PutInner(nodes[i].key, nodes[i].node); err != nil {
+			return nil, err
+		}
+	}
+
+	for index, key := range keys {
+		_, err = tr.PutWithProof(key, values[index], nodes)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return tempTrie, nil
+	return tr, nil
+}
+
+func hasRightElement(rootKey, key *Key, nodes *StorageNodeSet) bool {
+	cur := rootKey
+	for cur != nil && !cur.Equal(NilKey) {
+		sn, ok := nodes.Get(*cur)
+		if !ok {
+			return false
+		}
+
+		// We resolved the entire path, no more elements
+		if key.Equal(cur) {
+			return false
+		}
+
+		// If we're taking a left path and there's a right sibling,
+		// then there are elements with larger values
+		bitPos := key.Len() - cur.Len() - 1
+		isLeft := !key.IsBitSet(bitPos)
+		if isLeft && sn.node.RightHash != nil {
+			return true
+		}
+
+		// Move to next node based on the path
+		cur = sn.node.Right
+		if isLeft {
+			cur = sn.node.Left
+		}
+	}
+
+	return false
 }

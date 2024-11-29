@@ -148,6 +148,12 @@ func (k *Key) Copy() Key {
 	return newKey
 }
 
+func (k *Key) Bytes() [32]byte {
+	var result [32]byte
+	copy(result[:], k.bitset[:])
+	return result
+}
+
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
@@ -169,3 +175,28 @@ func isSubset(longerKey, shorterKey *Key) bool {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
 	return divergentBit == shorterKey.Len()+1
 }
+
+func FeltToKey(length uint8, key *felt.Felt) Key {
+	keyBytes := key.Bytes()
+	return NewKey(length, keyBytes[:])
+}
+
+// Increment increases the key by 1 bit, handling overflow
+// func (k *Key) Increment() bool {
+// 	var bigInt big.Int
+// 	bigInt.SetBytes(k.bitset[:])
+// 	bigInt.Add(&bigInt, big.NewInt(1))
+// 	k.len += 1
+// 	bigInt.FillBytes(k.bitset[:])
+// 	return true
+// }
+
+// // Decrement decreases the key by 1 bit, handling underflow
+// func Decrement(k *Key) bool {
+// 	var bigInt big.Int
+// 	bigInt.SetBytes(k.bitset[:])
+// 	bigInt.Sub(&bigInt, big.NewInt(1))
+// 	k.len -= 1
+// 	bigInt.FillBytes(k.bitset[:])
+// 	return true
+// }

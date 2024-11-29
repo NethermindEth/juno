@@ -38,7 +38,7 @@ func (ps *OrderedSet[K, V]) Put(key K, value V) {
 
 	// Insert new entry
 	ps.nodeSet[key] = value
-	ps.nodePos[key] = len(ps.nodeList) - 1
+	ps.nodePos[key] = len(ps.nodeList)
 	ps.nodeList = append(ps.nodeList, value)
 	ps.size++
 }
