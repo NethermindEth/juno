@@ -518,7 +518,7 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 
 	var leftIsProof, rightIsProof bool
 	var leftHash, rightHash *felt.Felt
-	if node.Left.Equal(NilKey) {
+	if node.Left.Equal(NilKey) { // key could be nil but hash cannot be
 		leftIsProof = true
 		leftHash = node.LeftHash
 	}
