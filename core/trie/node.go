@@ -155,20 +155,20 @@ func (n *Node) Merge(other *Node) error {
 	}
 
 	// Compare Left if both exist
-	if n.Left != nil && other.Left != nil {
+	if n.Left != nil && other.Left != nil && !n.Left.Equal(NilKey) && !other.Left.Equal(NilKey) {
 		if !n.Left.Equal(other.Left) {
 			return fmt.Errorf("conflicting Left keys: %v != %v", n.Left, other.Left)
 		}
-	} else if other.Left != nil {
+	} else if other.Left != nil && !other.Left.Equal(NilKey) {
 		n.Left = other.Left
 	}
 
 	// Compare Right if both exist
-	if n.Right != nil && other.Right != nil {
+	if n.Right != nil && other.Right != nil && !n.Right.Equal(NilKey) && !other.Right.Equal(NilKey) {
 		if !n.Right.Equal(other.Right) {
 			return fmt.Errorf("conflicting Right keys: %v != %v", n.Right, other.Right)
 		}
-	} else if other.Right != nil {
+	} else if other.Right != nil && !other.Right.Equal(NilKey) {
 		n.Right = other.Right
 	}
 

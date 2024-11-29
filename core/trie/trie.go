@@ -97,8 +97,7 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 // feltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) FeltToKey(k *felt.Felt) Key {
-	kBytes := k.Bytes()
-	return NewKey(t.height, kBytes[:])
+	return FeltToKey(t.height, k)
 }
 
 // path returns the path as mentioned in the [specification] for commitment calculations.
@@ -156,6 +155,10 @@ func NewStorageNodeSet() *StorageNodeSet {
 	return &StorageNodeSet{
 		set: utils.NewOrderedSet[Key, *StorageNode](),
 	}
+}
+
+func (s *StorageNodeSet) Get(key Key) (*StorageNode, bool) {
+	return s.set.Get(key)
 }
 
 // Put adds a new StorageNode or updates an existing one.
@@ -294,6 +297,7 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent S
 	}
 }
 
+// TODO(weiihann): not a good idea to couple proof verification logic with trie logic
 func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsParentProof bool) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
@@ -406,7 +410,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 }
 
 // Put updates the corresponding `value` for a `key`
-func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []StorageNode) (*felt.Felt, error) {
+func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.Felt, error) {
 	if key.Cmp(t.maxKey) > 0 {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
@@ -439,7 +443,8 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 	} else {
 		// Since we short-circuit in leaf updates, we will only end up here for deletions
 		// Delete if key already exist
-		sibling := nodes[len(nodes)-1]
+		last := nodes[len(nodes)-1]
+		sibling := last
 		oldValue, err = t.deleteExistingKey(sibling, nodeKey, nodes)
 		// xor operation, because we don't want to return if the error is nil and the old value is nil
 		if (err != nil) != (oldValue != nil) {
@@ -450,22 +455,12 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 		}
 
 		// override the sibling to be the parent if it's a proof
-		parentIsProof, found := false, false
-		for _, proof := range lProofPath {
+		parentIsProof := false
+		for _, proof := range proof {
 			if proof.key.Equal(sibling.key) {
-				sibling = proof
+				sibling = *proof
 				parentIsProof = true
-				found = true
 				break
-			}
-		}
-		if !found {
-			for _, proof := range rProofPath {
-				if proof.key.Equal(sibling.key) {
-					sibling = proof
-					parentIsProof = true
-					break
-				}
 			}
 		}
 
@@ -478,14 +473,11 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 }
 
 // Put updates the corresponding `value` for a `key`
-func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
+func (t *Trie) PutInner(key *Key, node *Node) error {
 	if err := t.storage.Put(key, node); err != nil {
-		return nil, err
+		return err
 	}
-	if t.rootKey == nil {
-		t.setRootKey(key)
-	}
-	return &felt.Zero, nil
+	return nil
 }
 
 func (t *Trie) setRootKey(newRootKey *Key) {
