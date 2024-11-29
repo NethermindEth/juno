@@ -33,8 +33,8 @@ const (
 	BlockCommitments
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
-	P2PHash
 	L1HandlerTxnHashByMsgHash // maps l1 handler msg hash to l1 handler txn hash
+	P2PHash
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
