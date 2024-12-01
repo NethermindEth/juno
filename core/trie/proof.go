@@ -275,7 +275,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 
 	// Special case: no edge proof at all, given range is the whole leaf set in the trie
 	if proof == nil {
-		tr, err := BuildTrie(251, nil, nil, keys, values)
+		tr, err := BuildTrie(globalTrieHeight, nil, nil, keys, values)
 		if err != nil {
 			return false, err
 		}
@@ -293,7 +293,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	}
 
 	nodes := NewStorageNodeSet()
-	firstKey := FeltToKey(251, first)
+	firstKey := FeltToKey(globalTrieHeight, first)
 
 	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
 	if len(keys) == 0 {
@@ -310,7 +310,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	}
 
 	last := keys[len(keys)-1]
-	lastKey := FeltToKey(251, last)
+	lastKey := FeltToKey(globalTrieHeight, last)
 
 	// Special case: there is only one element and two edge keys are the same
 	if len(keys) == 1 && firstKey.Equal(&lastKey) {
@@ -319,7 +319,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 			return false, err
 		}
 
-		elementKey := FeltToKey(251, keys[0])
+		elementKey := FeltToKey(globalTrieHeight, keys[0])
 		if !firstKey.Equal(&elementKey) {
 			return false, errors.New("correct proof but invalid key")
 		}
@@ -373,7 +373,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	}
 
 	// Build the trie from the proof paths
-	tr, err := BuildTrie(251, rootKey, nodes.List(), keys, values)
+	tr, err := BuildTrie(globalTrieHeight, rootKey, nodes.List(), keys, values)
 	if err != nil {
 		return false, err
 	}
