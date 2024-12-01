@@ -280,14 +280,14 @@ func TestReplaceLeastSignificantBits(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.key.ReplaceLeastSignificantBits(&tt.other)
+			keyCopy, err := tt.key.WithLeastSignificantBitsFrom(&tt.other)
 			if tt.wantErrMsg != "" {
 				require.EqualError(t, err, tt.wantErrMsg)
 				return
 			}
 			require.NoError(t, err)
-			require.True(t, tt.key.Equal(&tt.want),
-				"got %s, want %s", tt.key.String(), tt.want.String())
+			require.True(t, keyCopy.Equal(&tt.want),
+				"got %s, want %s", keyCopy.String(), tt.want.String())
 		})
 	}
 }

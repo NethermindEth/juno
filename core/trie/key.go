@@ -154,16 +154,19 @@ func (k *Key) Bytes() [32]byte {
 	return result
 }
 
-func (k *Key) ReplaceLeastSignificantBits(other *Key) error {
+// WithLeastSignificantBitsFrom returns a copy of the key with the least significant bits replaced by the other key.
+func (k *Key) WithLeastSignificantBitsFrom(other *Key) (*Key, error) {
 	if k.len < other.len {
-		return fmt.Errorf("other key is longer than the current key")
+		return nil, fmt.Errorf("other key is longer than the current key")
 	}
+
+	keyCopy := k.Copy()
 
 	for i := uint8(0); i < other.len; i++ {
-		k.ReplaceBit(i, other.IsBitSet(i))
+		keyCopy.ReplaceBit(i, other.IsBitSet(i))
 	}
 
-	return nil
+	return &keyCopy, nil
 }
 
 // ReplaceBit sets the bit at the given position to either 0 or 1
