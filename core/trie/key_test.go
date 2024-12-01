@@ -175,3 +175,119 @@ func TestShiftRight(t *testing.T) {
 		})
 	}
 }
+
+func TestReplaceBit(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  []byte
+		length   uint8
+		position uint8
+		value    bool
+		want     trie.Key
+	}{
+		{
+			name:     "set bit to 1",
+			initial:  []byte{0x00},
+			length:   8,
+			position: 0,
+			value:    true,
+			want:     trie.NewKey(8, []byte{0x01}),
+		},
+		{
+			name:     "set bit to 0",
+			initial:  []byte{0xFF},
+			length:   8,
+			position: 0,
+			value:    false,
+			want:     trie.NewKey(8, []byte{0xFE}),
+		},
+		{
+			name:     "set MSB to 1",
+			initial:  []byte{0x00},
+			length:   8,
+			position: 7,
+			value:    true,
+			want:     trie.NewKey(8, []byte{0x80}),
+		},
+		{
+			name:     "set MSB to 0",
+			initial:  []byte{0xFF},
+			length:   8,
+			position: 7,
+			value:    false,
+			want:     trie.NewKey(8, []byte{0x7F}),
+		},
+		{
+			name:     "set bit in second byte to 1",
+			initial:  []byte{0x00, 0x00},
+			length:   16,
+			position: 8,
+			value:    true,
+			want:     trie.NewKey(16, []byte{0x01, 0x00}),
+		},
+		{
+			name:     "set bit in second byte to 0",
+			initial:  []byte{0xFF, 0xFF},
+			length:   16,
+			position: 8,
+			value:    false,
+			want:     trie.NewKey(16, []byte{0xFE, 0xFF}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := trie.NewKey(tt.length, tt.initial)
+			k.ReplaceBit(tt.position, tt.value)
+			assert.Equal(t, tt.want, k)
+		})
+	}
+}
+
+func TestReplaceLeastSignificantBits(t *testing.T) {
+	tests := []struct {
+		name       string
+		key        trie.Key
+		other      trie.Key
+		want       trie.Key
+		wantErrMsg string
+	}{
+		{
+			name:  "replace 4 LSBs in 8-bit key",
+			key:   trie.NewKey(8, []byte{0b11110000}),
+			other: trie.NewKey(4, []byte{0b1010}),
+			want:  trie.NewKey(8, []byte{0b11111010}),
+		},
+		{
+			name:  "replace all bits",
+			key:   trie.NewKey(4, []byte{0b1111}),
+			other: trie.NewKey(4, []byte{0b0000}),
+			want:  trie.NewKey(4, []byte{0b0000}),
+		},
+		{
+			name:  "replace no bits (other key empty)",
+			key:   trie.NewKey(8, []byte{0b11110000}),
+			other: trie.NewKey(0, []byte{}),
+			want:  trie.NewKey(8, []byte{0b11110000}),
+		},
+		{
+			name:       "error: other key longer than current",
+			key:        trie.NewKey(4, []byte{0b1111}),
+			other:      trie.NewKey(8, []byte{0b11110000}),
+			wantErrMsg: "other key is longer than the current key",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.key.ReplaceLeastSignificantBits(&tt.other)
+			if tt.wantErrMsg != "" {
+				require.EqualError(t, err, tt.wantErrMsg)
+				return
+			}
+			require.NoError(t, err)
+			require.True(t, tt.key.Equal(&tt.want),
+				"got %s, want %s", tt.key.String(), tt.want.String())
+		})
+	}
+}
