@@ -1,6 +1,7 @@
 package trie_test
 
 import (
+	"fmt"
 	"math/rand"
 	"sort"
 	"testing"
@@ -13,21 +14,76 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testKey struct {
-	name     string
-	key      *felt.Felt
-	expected *felt.Felt
-}
-
-type testTrie struct {
-	name     string
-	buildFn  func(*testing.T) (*trie.Trie, []*keyValue)
-	height   uint8
-	testKeys []testKey
-}
-
-// TODO(weiihann): tidy this up
 func TestProve(t *testing.T) {
+	t.Parallel()
+
+	n := 1000
+	tempTrie, records := nonRandomTrie(t, n)
+
+	for _, record := range records {
+		key := tempTrie.FeltToKey(record.key)
+
+		proofSet := trie.NewProofNodeSet()
+		err := tempTrie.Prove(record.key, proofSet)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		val, err := trie.VerifyProof(root, &key, proofSet, crypto.Pedersen)
+		if err != nil {
+			t.Fatalf("failed for key %s", key.String())
+		}
+		require.Equal(t, record.value, val)
+	}
+}
+
+func TestProveNonExistent(t *testing.T) {
+	t.Parallel()
+
+	n := 1000
+	tempTrie, _ := nonRandomTrie(t, n)
+
+	for i := 1; i < n+1; i++ {
+		keyFelt := new(felt.Felt).SetUint64(uint64(i + n))
+		key := tempTrie.FeltToKey(keyFelt)
+
+		proofSet := trie.NewProofNodeSet()
+		err := tempTrie.Prove(keyFelt, proofSet)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		val, err := trie.VerifyProof(root, &key, proofSet, crypto.Pedersen)
+		if err != nil {
+			t.Fatalf("failed for key %s", key.String())
+		}
+		require.Equal(t, &felt.Zero, val)
+	}
+}
+
+func TestProveRandom(t *testing.T) {
+	t.Parallel()
+	tempTrie, records := randomTrie(t, 1000)
+
+	for _, record := range records {
+		key := tempTrie.FeltToKey(record.key)
+
+		proofSet := trie.NewProofNodeSet()
+		err := tempTrie.Prove(record.key, proofSet)
+		require.NoError(t, err)
+
+		root, err := tempTrie.Root()
+		require.NoError(t, err)
+
+		val, err := trie.VerifyProof(root, &key, proofSet, crypto.Pedersen)
+		require.NoError(t, err)
+		require.Equal(t, record.value, val)
+	}
+}
+
+func TestProveCustom(t *testing.T) {
 	t.Parallel()
 
 	tests := []testTrie{
@@ -119,10 +175,58 @@ func TestProve(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:    "starknet docs trie",
+			buildFn: buildStarknetDocsTrie,
+			testKeys: []testKey{
+				{
+					name:     "prove non-existent key 0",
+					key:      new(felt.Felt).SetUint64(0),
+					expected: new(felt.Felt).SetUint64(0),
+				},
+				{
+					name:     "prove non-existent key 1",
+					key:      new(felt.Felt).SetUint64(1),
+					expected: new(felt.Felt).SetUint64(0),
+				},
+				{
+					name:     "prove existing key 2",
+					key:      new(felt.Felt).SetUint64(2),
+					expected: new(felt.Felt).SetUint64(1),
+				},
+				{
+					name:     "prove non-existent key 3",
+					key:      new(felt.Felt).SetUint64(3),
+					expected: new(felt.Felt).SetUint64(0),
+				},
+				{
+					name:     "prove non-existent key 4",
+					key:      new(felt.Felt).SetUint64(4),
+					expected: new(felt.Felt).SetUint64(0),
+				},
+				{
+					name:     "prove existing key 5",
+					key:      new(felt.Felt).SetUint64(5),
+					expected: new(felt.Felt).SetUint64(1),
+				},
+				{
+					name:     "prove non-existent key 6",
+					key:      new(felt.Felt).SetUint64(6),
+					expected: new(felt.Felt).SetUint64(0),
+				},
+				{
+					name:     "prove non-existent key 7",
+					key:      new(felt.Felt).SetUint64(7),
+					expected: new(felt.Felt).SetUint64(0),
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			tr, _ := test.buildFn(t)
 
 			for _, tc := range test.testKeys {
@@ -141,77 +245,6 @@ func TestProve(t *testing.T) {
 				})
 			}
 		})
-	}
-}
-
-func TestProveNKeys(t *testing.T) {
-	t.Parallel()
-
-	n := 1000
-	tempTrie, records := nonRandomTrie(t, n)
-
-	for _, record := range records {
-		key := tempTrie.FeltToKey(record.key)
-
-		proofSet := trie.NewProofNodeSet()
-		err := tempTrie.Prove(record.key, proofSet)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		val, err := trie.VerifyProof(root, &key, proofSet, crypto.Pedersen)
-		if err != nil {
-			t.Fatalf("failed for key %s", key.String())
-		}
-		require.Equal(t, record.value, val)
-	}
-}
-
-func TestProveNKeyshNonExistent(t *testing.T) {
-	t.Parallel()
-
-	n := 1000
-	tempTrie, _ := nonRandomTrie(t, n)
-
-	for i := 1; i < n+1; i++ {
-		keyFelt := new(felt.Felt).SetUint64(uint64(i + n))
-		key := tempTrie.FeltToKey(keyFelt)
-
-		proofSet := trie.NewProofNodeSet()
-		err := tempTrie.Prove(keyFelt, proofSet)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		val, err := trie.VerifyProof(root, &key, proofSet, crypto.Pedersen)
-		if err != nil {
-			t.Fatalf("failed for key %s", key.String())
-		}
-		require.Equal(t, &felt.Zero, val)
-	}
-}
-
-func TestProveRandomTrie(t *testing.T) {
-	t.Parallel()
-	tempTrie, records := randomTrie(t, 1000)
-
-	for _, record := range records {
-		key := tempTrie.FeltToKey(record.key)
-
-		proofSet := trie.NewProofNodeSet()
-		err := tempTrie.Prove(record.key, proofSet)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		val, err := trie.VerifyProof(root, &key, proofSet, crypto.Pedersen)
-		if err != nil {
-			t.Fatalf("failed for key %s", record.key.String())
-		}
-		require.Equal(t, record.value, val)
 	}
 }
 
@@ -460,6 +493,177 @@ func TestGappedRangeProof(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestSpecificLeftGappedRangeProofCase(t *testing.T) {
+	t.Parallel()
+
+	// Create trie with 10 elements to match the failing case
+	tr, records := randomTrie(t, 5)
+	root, err := tr.Root()
+	require.NoError(t, err)
+
+	for _, record := range records {
+		fmt.Println(record.key.String(), record.value.String())
+	}
+
+	// Test specific case where start=5, end=8
+	start, end := 1, 4
+	first := records[start].key
+
+	proof := trie.NewProofNodeSet()
+	err = tr.GetRangeProof(first, records[end-2].key, proof)
+	require.NoError(t, err)
+
+	proof = trie.NewProofNodeSet()
+	err = tr.GetRangeProof(first, records[end-2].key, proof)
+	require.NoError(t, err)
+
+	fmt.Println("--------------------------------")
+
+	// Create gapped keys/values by skipping index start+1
+	keys := []*felt.Felt{}
+	values := []*felt.Felt{}
+	for i := start; i < end; i++ {
+		if i == start+1 {
+			continue // Create gap by skipping this element
+		}
+		keys = append(keys, records[i].key)
+		values = append(values, records[i].value)
+	}
+
+	for _, key := range keys {
+		fmt.Println(key.String())
+	}
+
+	// Verify proof - should fail due to gap
+	_, err = trie.VerifyRangeProof(root, records[start].key, keys, values, proof)
+	require.Error(t, err, "range proof verification should fail with gapped sequence")
+}
+
+func TestLeftGappedRangeProofWithNonExistentProof(t *testing.T) {
+	t.Parallel()
+
+	n := 5
+	tr, records := randomTrie(t, n)
+	root, err := tr.Root()
+	require.NoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		start := rand.Intn(n)
+		end := rand.Intn(n-start) + start + 1
+
+		first := records[start].key
+		if start == end-1 || start == end-2 {
+			continue
+		}
+
+		if start != 0 && first.Equal(records[start-1].key) {
+			continue
+		}
+
+		proof := trie.NewProofNodeSet()
+		err := tr.GetRangeProof(first, records[end-1].key, proof)
+		require.NoError(t, err)
+
+		keys := []*felt.Felt{}
+		values := []*felt.Felt{}
+		for j := start; j < end; j++ {
+			if j == start+1 {
+				continue
+			}
+
+			keys = append(keys, records[j].key)
+			values = append(values, records[j].value)
+		}
+
+		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+		if err == nil {
+			t.Fatalf("expected error for start %d, end %d", start, end)
+		}
+	}
+}
+
+func TestEmptyRangeProof(t *testing.T) {
+	t.Parallel()
+
+	tr, records := randomTrie(t, 1000)
+	root, err := tr.Root()
+	require.NoError(t, err)
+
+	cases := []struct {
+		pos int
+		err bool
+	}{
+		{len(records) - 1, false},
+		{500, true},
+	}
+
+	for _, c := range cases {
+		proof := trie.NewProofNodeSet()
+		first := incrementFelt(records[c.pos].key)
+		err = tr.GetRangeProof(first, first, proof)
+		require.NoError(t, err)
+
+		_, err := trie.VerifyRangeProof(root, first, nil, nil, proof)
+		if c.err {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
+	}
+}
+
+func TestHasRightElement(t *testing.T) {
+	t.Parallel()
+
+	tr, records := randomTrie(t, 500)
+	root, err := tr.Root()
+	require.NoError(t, err)
+
+	cases := []struct {
+		start   int
+		end     int
+		hasMore bool
+	}{
+		{-1, 1, true},                           // single element with non-existent left proof
+		{0, 1, true},                            // single element with existent left proof
+		{0, 100, true},                          // start to middle
+		{50, 100, true},                         // middle only
+		{50, len(records), false},               // middle to end
+		{len(records) - 1, len(records), false}, // Single last element with two existent proofs(point to same key)
+		{0, len(records), false},                // The whole set with existent left proof
+		{-1, len(records), false},               // The whole set with non-existent left proof
+	}
+
+	for _, c := range cases {
+		var (
+			first *felt.Felt
+			start = c.start
+			end   = c.end
+			proof = trie.NewProofNodeSet()
+		)
+		if start == -1 {
+			first = &felt.Zero
+			start = 0
+		} else {
+			first = records[start].key
+		}
+
+		err := tr.GetRangeProof(first, records[end-1].key, proof)
+		require.NoError(t, err)
+
+		keys := []*felt.Felt{}
+		values := []*felt.Felt{}
+		for i := start; i < end; i++ {
+			keys = append(keys, records[i].key)
+			values = append(values, records[i].value)
+		}
+
+		hasMore, err := trie.VerifyRangeProof(root, first, keys, values, proof)
+		require.NoError(t, err)
+		require.Equal(t, c.hasMore, hasMore)
+	}
+}
+
 // TestBadRangeProof generates random bad proof scenarios and verifies that the proof is invalid.
 func TestBadRangeProof(t *testing.T) {
 	t.Parallel()
@@ -514,525 +718,6 @@ func TestBadRangeProof(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected error for test case %d, index %d, start %d, end %d", testCase, index, start, end)
 		}
-	}
-}
-
-func TestRangeProof4KeysTrieD(t *testing.T) {
-	tr, records := build4KeysTrieD(t)
-	root, err := tr.Root()
-	require.NoError(t, err)
-	t.Run("start key from zero", func(t *testing.T) {
-		for i := 0; i < len(records); i++ {
-			proof := trie.NewProofNodeSet()
-			err := tr.GetRangeProof(&felt.Zero, records[i].key, proof)
-			require.NoError(t, err)
-
-			keys := make([]*felt.Felt, i+1)
-			values := make([]*felt.Felt, i+1)
-			for j := 0; j < i+1; j++ {
-				keys[j] = records[j].key
-				values[j] = records[j].value
-			}
-
-			hasMore, err := trie.VerifyRangeProof(root, &felt.Zero, keys, values, proof)
-			require.NoError(t, err)
-			if i == len(records)-1 {
-				require.False(t, hasMore)
-			} else {
-				require.True(t, hasMore)
-			}
-		}
-	})
-
-	t.Run("one existent element proof", func(t *testing.T) {
-		for i, record := range records {
-			proof := trie.NewProofNodeSet()
-			err := tr.GetRangeProof(record.key, record.key, proof)
-			require.NoError(t, err)
-
-			keys := make([]*felt.Felt, 1)
-			values := make([]*felt.Felt, 1)
-			keys[0] = record.key
-			values[0] = record.value
-
-			hasMore, err := trie.VerifyRangeProof(root, record.key, keys, values, proof)
-			require.NoError(t, err)
-			if i == len(records)-1 {
-				require.False(t, hasMore)
-			} else {
-				require.True(t, hasMore)
-			}
-		}
-	})
-
-	t.Run("all existent elements proof", func(t *testing.T) {
-		proof := trie.NewProofNodeSet()
-		err := tr.GetRangeProof(records[0].key, records[len(records)-1].key, proof)
-		require.NoError(t, err)
-
-		root, err := tr.Root()
-		require.NoError(t, err)
-
-		keys := []*felt.Felt{}
-		values := []*felt.Felt{}
-		for _, record := range records {
-			keys = append(keys, record.key)
-			values = append(values, record.value)
-		}
-
-		hasMore, err := trie.VerifyRangeProof(root, records[0].key, keys, values, proof)
-		require.NoError(t, err)
-		require.False(t, hasMore)
-	})
-}
-
-func TestProofToPath(t *testing.T) {
-	testScenarios := []testTrie{
-		{
-			name:    "one key trie",
-			buildFn: build1KeyTrie,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove non-existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(1),
-				},
-				{
-					name:     "prove non-existing key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existing key 0xff...ff",
-					key:      utils.HexToFelt(t, "0xffffffffffffffffffffffffffffffff"),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-			},
-		},
-		{
-			name:    "simple trie",
-			buildFn: buildSimpleTrie,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove existing key 1",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(2),
-				},
-				{
-					name:     "prove existing key 2",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(3),
-				},
-			},
-		},
-		{
-			name:    "simple binary root trie",
-			buildFn: buildSimpleBinaryRootTrie,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: utils.HexToFelt(t, "0xcc"),
-				},
-				{
-					name:     "prove existing key 0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-					key:      utils.HexToFelt(t, "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
-					expected: utils.HexToFelt(t, "0xdd"),
-				},
-			},
-		},
-		{
-			name:    "simple double binary trie",
-			buildFn: buildSimpleDoubleBinaryTrie,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(2),
-				},
-				{
-					name:     "prove existing key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(3),
-				},
-				{
-					name:     "prove existing key 3",
-					key:      new(felt.Felt).SetUint64(3),
-					expected: new(felt.Felt).SetUint64(5),
-				},
-			},
-		},
-		{
-			name:    "Starknet docs example trie",
-			buildFn: buildStarknetDocsTrie,
-			height:  3,
-			testKeys: []testKey{
-				{
-					name:     "prove non-existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existing key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(1),
-				},
-				{
-					name:     "prove non-existing key 3",
-					key:      new(felt.Felt).SetUint64(3),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existing key 4",
-					key:      new(felt.Felt).SetUint64(4),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 5",
-					key:      new(felt.Felt).SetUint64(5),
-					expected: new(felt.Felt).SetUint64(1),
-				},
-				{
-					name:     "prove non-existing key 6",
-					key:      new(felt.Felt).SetUint64(6),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existing key 7",
-					key:      new(felt.Felt).SetUint64(7),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-			},
-		},
-		{
-			name:    "3 keys trie",
-			buildFn: build3KeyTrie,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(4),
-				},
-				{
-					name:     "prove existing key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(5),
-				},
-				{
-					name:     "prove existing key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(6),
-				},
-			},
-		},
-		{
-			name:    "4 keys trie A",
-			buildFn: build4KeysTrieA,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(4),
-				},
-				{
-					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(5),
-				},
-				{
-					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(6),
-				},
-				{
-					name:     "prove existing key 0",
-					key:      new(felt.Felt).SetUint64(4),
-					expected: new(felt.Felt).SetUint64(7),
-				},
-			},
-		},
-		{
-			name:    "4 keys trie B",
-			buildFn: build4KeysTrieB,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove non-existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(4),
-				},
-				{
-					name:     "prove existing key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(5),
-				},
-				{
-					name:     "prove existing key 3",
-					key:      new(felt.Felt).SetUint64(3),
-					expected: new(felt.Felt).SetUint64(6),
-				},
-				{
-					name:     "prove existing key 4",
-					key:      new(felt.Felt).SetUint64(4),
-					expected: new(felt.Felt).SetUint64(7),
-				},
-				{
-					name:     "prove non-existing key 5",
-					key:      new(felt.Felt).SetUint64(5),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existing key 6",
-					key:      new(felt.Felt).SetUint64(6),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existing key 7",
-					key:      new(felt.Felt).SetUint64(7),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-			},
-		},
-		{
-			name:    "4 keys trie C",
-			buildFn: build4KeysTrieC,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove non-existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(4),
-				},
-				{
-					name:     "prove non-existing key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 3",
-					key:      new(felt.Felt).SetUint64(4),
-					expected: new(felt.Felt).SetUint64(5),
-				},
-				{
-					name:     "prove non-existing key 4",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 5",
-					key:      new(felt.Felt).SetUint64(5),
-					expected: new(felt.Felt).SetUint64(6),
-				},
-				{
-					name:     "prove non-existing key 6",
-					key:      new(felt.Felt).SetUint64(6),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 7",
-					key:      new(felt.Felt).SetUint64(7),
-					expected: new(felt.Felt).SetUint64(7),
-				},
-			},
-		},
-		{
-			name:    "4 keys trie D",
-			buildFn: build4KeysTrieD,
-			height:  251,
-			testKeys: []testKey{
-				{
-					name:     "prove non-existing key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(4),
-				},
-				{
-					name:     "prove non-existing key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existing key 3",
-					key:      new(felt.Felt).SetUint64(3),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 4",
-					key:      new(felt.Felt).SetUint64(4),
-					expected: new(felt.Felt).SetUint64(5),
-				},
-				{
-					name:     "prove non-existing key 5",
-					key:      new(felt.Felt).SetUint64(5),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 6",
-					key:      new(felt.Felt).SetUint64(6),
-					expected: new(felt.Felt).SetUint64(6),
-				},
-				{
-					name:     "prove existing key 7",
-					key:      new(felt.Felt).SetUint64(7),
-					expected: new(felt.Felt).SetUint64(7),
-				},
-			},
-		},
-	}
-
-	for _, scenario := range testScenarios {
-		t.Run(scenario.name, func(t *testing.T) {
-			tr, _ := scenario.buildFn(t)
-
-			for _, tc := range scenario.testKeys {
-				t.Run(tc.name, func(t *testing.T) {
-					proofSet := trie.NewProofNodeSet()
-					err := tr.Prove(tc.key, proofSet)
-					require.NoError(t, err)
-
-					nodes := trie.NewStorageNodeSet()
-					root, err := tr.Root()
-					require.NoError(t, err)
-					keyFelt := tr.FeltToKey(tc.key)
-					rootKey, _, _, err := trie.ProofToPath(root, &keyFelt, proofSet, nodes)
-					require.NoError(t, err)
-
-					tr2, err := trie.BuildTrie(scenario.height, rootKey, nodes.List(), nil, nil)
-					require.NoError(t, err)
-
-					root2, err := tr2.Root()
-					require.NoError(t, err)
-					require.Equal(t, root, root2)
-
-					// Verify value
-					value, err := tr2.Get(tc.key)
-					require.NoError(t, err)
-					require.Equal(t, tc.expected, value)
-				})
-			}
-		})
-	}
-}
-
-func TestProofToPathNKeys(t *testing.T) {
-	t.Parallel()
-
-	n := 1000
-	tempTrie, records := nonRandomTrie(t, n)
-
-	for _, record := range records {
-		key := tempTrie.FeltToKey(record.key)
-
-		proofSet := trie.NewProofNodeSet()
-		err := tempTrie.Prove(record.key, proofSet)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		nodes := trie.NewStorageNodeSet()
-		rootKey, _, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
-		require.NoError(t, err)
-
-		tr2, err := trie.BuildTrie(251, rootKey, nodes.List(), nil, nil)
-		require.NoError(t, err)
-
-		root2, err := tr2.Root()
-		require.NoError(t, err)
-		require.Equal(t, root, root2)
-
-		// Verify value
-		value, err := tr2.Get(record.key)
-		require.NoError(t, err)
-		require.Equal(t, record.value, value)
-	}
-}
-
-func TestProofToPathNKeysWithNonExistentKeys(t *testing.T) {
-	t.Parallel()
-
-	n := 1000
-	tempTrie, records := nonRandomTrie(t, n)
-
-	for _, record := range records {
-		key := tempTrie.FeltToKey(record.key)
-
-		proofSet := trie.NewProofNodeSet()
-		err := tempTrie.Prove(record.key, proofSet)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		nodes := trie.NewStorageNodeSet()
-		rootKey, _, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
-		require.NoError(t, err)
-
-		tr2, err := trie.BuildTrie(251, rootKey, nodes.List(), nil, nil)
-		require.NoError(t, err)
-
-		root2, err := tr2.Root()
-		require.NoError(t, err)
-		require.Equal(t, root, root2)
-	}
-}
-
-func TestProofToPathRandomTrie(t *testing.T) {
-	t.Parallel()
-
-	n := 1000
-	tempTrie, records := randomTrie(t, n)
-
-	for _, record := range records {
-		key := tempTrie.FeltToKey(record.key)
-
-		proofSet := trie.NewProofNodeSet()
-		err := tempTrie.Prove(record.key, proofSet)
-		require.NoError(t, err)
-
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		nodes := trie.NewStorageNodeSet()
-		rootKey, _, _, err := trie.ProofToPath(root, &key, proofSet, nodes)
-		require.NoError(t, err)
-
-		tr2, err := trie.BuildTrie(251, rootKey, nodes.List(), nil, nil)
-		require.NoError(t, err)
-
-		root2, err := tr2.Root()
-		require.NoError(t, err)
-		require.Equal(t, root, root2)
 	}
 }
 
@@ -1095,6 +780,7 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	return buildTrie(t, 251, records), records
 }
 
+//nolint:dupl
 func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	//           (249,0,x3)         // Edge
 	//               |
@@ -1111,6 +797,7 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	return buildTrie(t, 251, records), records
 }
 
+//nolint:dupl
 func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	// 			Starknet
 	//			--------
@@ -1146,74 +833,6 @@ func buildStarknetDocsTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 		{key: new(felt.Felt).SetUint64(5), value: new(felt.Felt).SetUint64(1)},
 	}
 	return buildTrie(t, 3, records), records
-}
-
-func build4KeysTrieA(t *testing.T) (*trie.Trie, []*keyValue) {
-	//			Juno
-	//			248
-	// 			/  \
-	// 		249		\
-	//		/ \		 \
-	//	 250   \	  \
-	//   / \   /\	  /\
-	//  0   1 2	     4
-
-	//			Juno - should be able to reconstruct this from proofs
-	//			248
-	// 			/  \
-	// 		249			// Note we cant derive the right key, but need to store it's hash
-	//		/ \
-	//	 250   \
-	//   / \   / (Left hash set, no key)
-	//  0
-
-	//			Pathfinder (???)
-	//			  0	 Edge
-	// 			  |
-	// 			 248	Binary
-	//			 / \
-	//		   249	\		Binary Edge		??
-	//	   	   / \	 \
-	//		250  250  250		Binary Edge		??
-	//	    / \   /    /
-	// 	   0   1  2   4
-	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(0), value: new(felt.Felt).SetUint64(4)},
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(5)},
-		{key: new(felt.Felt).SetUint64(2), value: new(felt.Felt).SetUint64(6)},
-		{key: new(felt.Felt).SetUint64(4), value: new(felt.Felt).SetUint64(7)},
-	}
-	return buildTrie(t, 251, records), records
-}
-
-func build4KeysTrieB(t *testing.T) (*trie.Trie, []*keyValue) {
-	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(4)},
-		{key: new(felt.Felt).SetUint64(2), value: new(felt.Felt).SetUint64(5)},
-		{key: new(felt.Felt).SetUint64(3), value: new(felt.Felt).SetUint64(6)},
-		{key: new(felt.Felt).SetUint64(4), value: new(felt.Felt).SetUint64(7)},
-	}
-	return buildTrie(t, 251, records), records
-}
-
-func build4KeysTrieC(t *testing.T) (*trie.Trie, []*keyValue) {
-	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(4)},
-		{key: new(felt.Felt).SetUint64(4), value: new(felt.Felt).SetUint64(5)},
-		{key: new(felt.Felt).SetUint64(5), value: new(felt.Felt).SetUint64(6)},
-		{key: new(felt.Felt).SetUint64(7), value: new(felt.Felt).SetUint64(7)},
-	}
-	return buildTrie(t, 251, records), records
-}
-
-func build4KeysTrieD(t *testing.T) (*trie.Trie, []*keyValue) {
-	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(4)},
-		{key: new(felt.Felt).SetUint64(4), value: new(felt.Felt).SetUint64(5)},
-		{key: new(felt.Felt).SetUint64(6), value: new(felt.Felt).SetUint64(6)},
-		{key: new(felt.Felt).SetUint64(7), value: new(felt.Felt).SetUint64(7)},
-	}
-	return buildTrie(t, 251, records), records
 }
 
 func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
@@ -1269,32 +888,24 @@ func randomTrie(t *testing.T, n int) (*trie.Trie, []*keyValue) {
 	return tempTrie, records
 }
 
-// func incrementKey(k *trie.Key) trie.Key {
-// 	var bigInt big.Int
-
-// 	keyBytes := k.Bytes()
-// 	bigInt.SetBytes(keyBytes[:])
-// 	bigInt.Add(&bigInt, big.NewInt(1))
-// 	bigInt.FillBytes(keyBytes[:])
-// 	return trie.NewKey(k.Len()+1, keyBytes[:])
-// }
-
-// func decrementKey(k *trie.Key) trie.Key {
-// 	var bigInt big.Int
-
-// 	keyBytes := k.Bytes()
-// 	bigInt.SetBytes(keyBytes[:])
-// 	bigInt.Sub(&bigInt, big.NewInt(1))
-// 	bigInt.FillBytes(keyBytes[:])
-// 	return trie.NewKey(k.Len()-1, keyBytes[:])
-// }
-
 func decrementFelt(f *felt.Felt) *felt.Felt {
 	return new(felt.Felt).Sub(f, new(felt.Felt).SetUint64(1))
 }
 
 func incrementFelt(f *felt.Felt) *felt.Felt {
 	return new(felt.Felt).Add(f, new(felt.Felt).SetUint64(1))
+}
+
+type testKey struct {
+	name     string
+	key      *felt.Felt
+	expected *felt.Felt
+}
+
+type testTrie struct {
+	name     string
+	buildFn  func(*testing.T) (*trie.Trie, []*keyValue)
+	testKeys []testKey
 }
 
 type keyValue struct {

@@ -144,6 +144,7 @@ func (n *Node) String() string {
 	return fmt.Sprintf("Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}", n.Value, n.Left, n.Right, n.LeftHash, n.RightHash)
 }
 
+//nolint:gocyclo
 func (n *Node) Merge(other *Node) error {
 	// Compare Value if both exist
 	if n.Value != nil && other.Value != nil {
