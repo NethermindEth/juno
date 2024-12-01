@@ -297,7 +297,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 
 	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
 	if len(keys) == 0 {
-		rootKey, val, err := ProofToPath(root, &firstKey, proof, nodes)
+		rootKey, val, err := proofToPath(root, &firstKey, proof, nodes)
 		if err != nil {
 			return false, err
 		}
@@ -314,7 +314,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 
 	// Special case: there is only one element and two edge keys are the same
 	if len(keys) == 1 && firstKey.Equal(&lastKey) {
-		rootKey, val, err := ProofToPath(root, &firstKey, proof, nodes)
+		rootKey, val, err := proofToPath(root, &firstKey, proof, nodes)
 		if err != nil {
 			return false, err
 		}
@@ -337,7 +337,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 		return false, errors.New("last key is less than first key")
 	}
 
-	rootKey, _, err := ProofToPath(root, &firstKey, proof, nodes)
+	rootKey, _, err := proofToPath(root, &firstKey, proof, nodes)
 	if err != nil {
 		return false, err
 	}
@@ -348,7 +348,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	// So if a key is gapped but is present in the proof as a binary leaf, the proof would still be valid.
 	// So we need to check if a binary leaf exists, and check if the next/previous key exists.
 
-	lastRootKey, _, err := ProofToPath(root, &lastKey, proof, nodes)
+	lastRootKey, _, err := proofToPath(root, &lastKey, proof, nodes)
 	if err != nil {
 		return false, err
 	}
@@ -376,7 +376,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	return hasRightElement(rootKey, &lastKey, nodes), nil
 }
 
-func ProofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) (*Key, *felt.Felt, error) {
+func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) (*Key, *felt.Felt, error) {
 	rootKey, val, err := buildPath(root, key, 0, nil, proof, nodes)
 	if err != nil {
 		return nil, nil, err
