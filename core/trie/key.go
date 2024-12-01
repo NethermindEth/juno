@@ -154,6 +154,31 @@ func (k *Key) Bytes() [32]byte {
 	return result
 }
 
+func (k *Key) ReplaceLeastSignificantBits(other *Key) error {
+	if k.len < other.len {
+		return fmt.Errorf("other key is longer than the current key")
+	}
+
+	for i := uint8(0); i < other.len; i++ {
+		k.ReplaceBit(i, other.IsBitSet(i))
+	}
+
+	return nil
+}
+
+// ReplaceBit sets the bit at the given position to either 0 or 1
+func (k *Key) ReplaceBit(position uint8, value bool) {
+	byteIdx := len(k.bitset) - int(position/8) - 1
+	bitIdx := position % 8
+	if value {
+		// Set bit to 1
+		k.bitset[byteIdx] |= 1 << bitIdx
+	} else {
+		// Set bit to 0
+		k.bitset[byteIdx] &^= 1 << bitIdx
+	}
+}
+
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
@@ -180,23 +205,3 @@ func FeltToKey(length uint8, key *felt.Felt) Key {
 	keyBytes := key.Bytes()
 	return NewKey(length, keyBytes[:])
 }
-
-// Increment increases the key by 1 bit, handling overflow
-// func (k *Key) Increment() bool {
-// 	var bigInt big.Int
-// 	bigInt.SetBytes(k.bitset[:])
-// 	bigInt.Add(&bigInt, big.NewInt(1))
-// 	k.len += 1
-// 	bigInt.FillBytes(k.bitset[:])
-// 	return true
-// }
-
-// // Decrement decreases the key by 1 bit, handling underflow
-// func Decrement(k *Key) bool {
-// 	var bigInt big.Int
-// 	bigInt.SetBytes(k.bitset[:])
-// 	bigInt.Sub(&bigInt, big.NewInt(1))
-// 	k.len -= 1
-// 	bigInt.FillBytes(k.bitset[:])
-// 	return true
-// }
