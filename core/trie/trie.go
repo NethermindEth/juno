@@ -125,8 +125,8 @@ func (sn *StorageNode) Key() *Key {
 	return sn.key
 }
 
-func (sn *StorageNode) Node() *Node {
-	return sn.node
+func (sn *StorageNode) Value() *felt.Felt {
+	return sn.node.Value
 }
 
 func (sn *StorageNode) String() string {
@@ -146,6 +146,17 @@ func (sn *StorageNode) Merge(other *StorageNode) error {
 
 func NewStorageNode(key *Key, node *Node) *StorageNode {
 	return &StorageNode{key: key, node: node}
+}
+
+func NewPartialStorageNode(key *Key, value *felt.Felt) *StorageNode {
+	return &StorageNode{
+		key: key,
+		node: &Node{
+			Value: value,
+			Left:  NilKey,
+			Right: NilKey,
+		},
+	}
 }
 
 // StorageNodeSet wraps OrderedSet to provide specific functionality for StorageNodes
