@@ -58,7 +58,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
 		for _, v := range strkTokenDiffs {
-			if v.Equal(utils.HexToFelt(t, "0x123456789123")) { // see genesis_prefunded_accounts.json
+			if v.Equal(utils.HexToFelt(t, "0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
 				numFundedAccounts++
 			}
 		}
