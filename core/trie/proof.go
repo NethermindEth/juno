@@ -9,21 +9,16 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-var (
-	ErrUnknownProofNode  = errors.New("unknown proof node")
-	ErrChildHashNotFound = errors.New("can't determine the child hash from the parent and child")
-)
-
 type ProofNodeSet = utils.OrderedSet[felt.Felt, ProofNode]
+
+func NewProofNodeSet() *ProofNodeSet {
+	return utils.NewOrderedSet[felt.Felt, ProofNode]()
+}
 
 type ProofNode interface {
 	Hash(hash hashFunc) *felt.Felt
 	Len() uint8
 	String() string
-}
-
-func NewProofNodeSet() *ProofNodeSet {
-	return utils.NewOrderedSet[felt.Felt, ProofNode]()
 }
 
 type Binary struct {
@@ -64,6 +59,10 @@ func (e *Edge) String() string {
 	return fmt.Sprintf("Edge: %v:\n\tChild: %v\n\tPath: %v\n", e.Hash(crypto.Pedersen), e.Child, e.Path)
 }
 
+// Prove generates a Merkle proof for a given key in the trie.
+// The result contains the proof nodes on the path from the root to the leaf.
+// The value is included in the proof if the key is present in the trie.
+// If the key is not present, the proof will contain the nodes on the path to the closest ancestor.
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	k := t.FeltToKey(key)
 
@@ -96,6 +95,8 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	return nil
 }
 
+// GetRangeProof generates a range proof for the given range of keys.
+// The proof contains the proof nodes on the path from the root to the closest ancestor of the left and right keys.
 func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSet) error {
 	err := t.Prove(leftKey, proofSet)
 	if err != nil {
@@ -113,65 +114,6 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 	}
 
 	return nil
-}
-
-func isEdge(parentKey *Key, sNode StorageNode) bool {
-	sNodeLen := sNode.key.len
-	if parentKey == nil { // Root
-		return sNodeLen != 0
-	}
-	return sNodeLen-parentKey.len > 1
-}
-
-// Note: we need to account for the fact that Junos Trie has nodes that are Binary AND Edge,
-// whereas the protocol requires nodes that are Binary XOR Edge
-func storageNodeToProofNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary, error) {
-	isEdgeBool := isEdge(parentKey, sNode)
-
-	var edge *Edge
-	if isEdgeBool {
-		edgePath := path(sNode.key, parentKey)
-		edge = &Edge{
-			Path:  &edgePath,
-			Child: sNode.node.Value,
-		}
-	}
-	if sNode.key.len == tri.height { // Leaf
-		return edge, nil, nil
-	}
-	lNode, err := tri.GetNodeFromKey(sNode.node.Left)
-	if err != nil {
-		return nil, nil, err
-	}
-	rNode, err := tri.GetNodeFromKey(sNode.node.Right)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rightHash := rNode.Value
-	if isEdge(sNode.key, StorageNode{node: rNode, key: sNode.node.Right}) {
-		edgePath := path(sNode.node.Right, sNode.key)
-		rEdge := &Edge{
-			Path:  &edgePath,
-			Child: rNode.Value,
-		}
-		rightHash = rEdge.Hash(tri.hash)
-	}
-	leftHash := lNode.Value
-	if isEdge(sNode.key, StorageNode{node: lNode, key: sNode.node.Left}) {
-		edgePath := path(sNode.node.Left, sNode.key)
-		lEdge := &Edge{
-			Path:  &edgePath,
-			Child: lNode.Value,
-		}
-		leftHash = lEdge.Hash(tri.hash)
-	}
-	binary := &Binary{
-		LeftHash:  leftHash,
-		RightHash: rightHash,
-	}
-
-	return edge, binary, nil
 }
 
 // VerifyProof verifies that a proof path is valid for a given key in a binary trie.
@@ -198,8 +140,8 @@ func storageNodeToProofNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge
 func VerifyProof(root *felt.Felt, key *Key, proof *ProofNodeSet, hash hashFunc) (*felt.Felt, error) {
 	expectedHash := root
 	keyLen := key.Len()
-	var curPos uint8
 
+	var curPos uint8
 	for {
 		proofNode, ok := proof.Get(*expectedHash)
 		if !ok {
@@ -216,7 +158,7 @@ func VerifyProof(root *felt.Felt, key *Key, proof *ProofNodeSet, hash hashFunc) 
 			if key.Len() <= curPos {
 				return nil, fmt.Errorf("key length less than current position, key length: %d, current position: %d", key.Len(), curPos)
 			}
-			// Check the bit at parent's position
+			// Determine the next node to traverse based on the next bit position
 			expectedHash = node.LeftHash
 			if key.IsBitSet(keyLen - curPos - 1) {
 				expectedHash = node.RightHash
@@ -227,6 +169,7 @@ func VerifyProof(root *felt.Felt, key *Key, proof *ProofNodeSet, hash hashFunc) 
 				return &felt.Zero, nil
 			}
 
+			// Move to the immediate child node
 			curPos += node.Path.Len()
 			expectedHash = node.Child
 		}
@@ -238,16 +181,27 @@ func VerifyProof(root *felt.Felt, key *Key, proof *ProofNodeSet, hash hashFunc) 
 	}
 }
 
-// VerifyRangeProof verifies the range proof for the given range of keys.
-// This is achieved by constructing a trie from the boundary proofs, and the supplied key-values.
-// If the root of the reconstructed trie matches the supplied root, then the verification passes.
-// If the trie is constructed incorrectly then the root will have an incorrect key(len,path), and value,
-// and therefore its hash won't match the expected root.
-// ref: https://github.com/ethereum/go-ethereum/blob/v1.14.3/trie/proof.go#L484
-func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) {
+// VerifyRangeProof checks whether the given key-value pairs and range proof are valid for the given root hash.
+// The range of key-value pairs should be consecutive (no gap inside) and monotonic increasing.
+// The given range proof contains 2 edge proofs. One is for the first key and the other is for the last key.
+// Both of them can be existent or non-existent.
+// This function also handles the following special cases:
+//
+//   - All elements proof: In this case the proof can be nil, but the range should be all the leaves in the trie.
+//   - One element proof: In this case, both left and right edge proofs are the same and the range should contain only one element.
+//   - Zero element proof: In this case a single edge proof is enough to verify. If there are still more elements, the proof is invalid.
+//
+// If the range proof is invalid, this function returns false and an error.
+// Otherwise, it will return a flag to indicate if there are more elements.
+//
+// TODO(weiihann): Given a binary leaf and a left-sibling first key, if the right sibling is removed, the proof would still be valid.
+// Conversely, given a binary leaf and a right-sibling last key, if the left sibling is removed, the proof would still be valid.
+// Range proof should not be valid for both of these cases, but currently is, which is an attack vector.
+// The problem probably lies in how we do root hash calculation.
+func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) { //nolint:funlen,gocyclo
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
-		return false, fmt.Errorf("inconsistent proof data, number of keys: %d, number of values: %d", len(keys), len(values))
+		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
 	}
 
 	// Ensure all keys are monotonic increasing and values contain no deletions
@@ -256,14 +210,14 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 			return false, errors.New("keys are not monotonic increasing")
 		}
 
-		if values[i].Equal(&felt.Zero) {
+		if values[i] == nil || values[i].Equal(&felt.Zero) {
 			return false, errors.New("range contains deletion")
 		}
 	}
 
 	// Special case: no edge proof at all, given range is the whole leaf set in the trie
 	if proof == nil {
-		tr, err := BuildTrie(globalTrieHeight, nil, nil, keys, values)
+		tr, err := buildTrie(globalTrieHeight, nil, nil, keys, values)
 		if err != nil {
 			return false, err
 		}
@@ -330,12 +284,6 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 		return false, err
 	}
 
-	// TODO(weiihann): handle comments
-	// Gapped range proof succeeds if we have binary leafs.
-	// Given a binary leaf, we store both the left and right child hashes, where they could be the leafs.
-	// So if a key is gapped but is present in the proof as a binary leaf, the proof would still be valid.
-	// So we need to check if a binary leaf exists, and check if the next/previous key exists.
-
 	lastRootKey, _, err := proofToPath(root, &lastKey, proof, nodes)
 	if err != nil {
 		return false, err
@@ -346,7 +294,7 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	}
 
 	// Build the trie from the proof paths
-	tr, err := BuildTrie(globalTrieHeight, rootKey, nodes.List(), keys, values)
+	tr, err := buildTrie(globalTrieHeight, rootKey, nodes.List(), keys, values)
 	if err != nil {
 		return false, err
 	}
@@ -364,6 +312,69 @@ func VerifyRangeProof(root *felt.Felt, first *felt.Felt, keys, values []*felt.Fe
 	return hasRightElement(rootKey, &lastKey, nodes), nil
 }
 
+// isEdge checks if the storage node is an edge node.
+func isEdge(parentKey *Key, sNode StorageNode) bool {
+	sNodeLen := sNode.key.len
+	if parentKey == nil { // Root
+		return sNodeLen != 0
+	}
+	return sNodeLen-parentKey.len > 1
+}
+
+// storageNodeToProofNode converts a StorageNode to the ProofNode(s).
+// Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
+// We need to convert the former to the latter for proof generation.
+func storageNodeToProofNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary, error) {
+	isEdgeBool := isEdge(parentKey, sNode)
+
+	var edge *Edge
+	if isEdgeBool {
+		edgePath := path(sNode.key, parentKey)
+		edge = &Edge{
+			Path:  &edgePath,
+			Child: sNode.node.Value,
+		}
+	}
+	if sNode.key.len == tri.height { // Leaf
+		return edge, nil, nil
+	}
+	lNode, err := tri.GetNodeFromKey(sNode.node.Left)
+	if err != nil {
+		return nil, nil, err
+	}
+	rNode, err := tri.GetNodeFromKey(sNode.node.Right)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rightHash := rNode.Value
+	if isEdge(sNode.key, StorageNode{node: rNode, key: sNode.node.Right}) {
+		edgePath := path(sNode.node.Right, sNode.key)
+		rEdge := &Edge{
+			Path:  &edgePath,
+			Child: rNode.Value,
+		}
+		rightHash = rEdge.Hash(tri.hash)
+	}
+	leftHash := lNode.Value
+	if isEdge(sNode.key, StorageNode{node: lNode, key: sNode.node.Left}) {
+		edgePath := path(sNode.node.Left, sNode.key)
+		lEdge := &Edge{
+			Path:  &edgePath,
+			Child: lNode.Value,
+		}
+		leftHash = lEdge.Hash(tri.hash)
+	}
+	binary := &Binary{
+		LeftHash:  leftHash,
+		RightHash: rightHash,
+	}
+
+	return edge, binary, nil
+}
+
+// proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
+// as hashes. The given edge proof can be existent or non-existent.
 func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) (*Key, *felt.Felt, error) {
 	rootKey, val, err := buildPath(root, key, 0, nil, proof, nodes)
 	if err != nil {
@@ -371,11 +382,10 @@ func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 	}
 
 	// Special case: non-existent key at the root
-	// We still need to include the root node in the node set.
-	// It's guaranteed that we will only get the following two cases:
+	// We must include the root node in the node set.
+	// We will only get the following two cases:
 	// 1. The root node is an edge node only where path.len == key.len (single key trie)
-	// 2. The root node is an edge node + binary node
-	// Handle empty nodes case
+	// 2. The root node is an edge node + binary node (double key trie)
 	if nodes.Size() == 0 {
 		proofNode, ok := proof.Get(*root)
 		if !ok {
@@ -387,23 +397,14 @@ func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 			return nil, nil, fmt.Errorf("expected edge node at root, got: %T", proofNode)
 		}
 
-		sn := &StorageNode{
-			key: edge.Path,
-			node: &Node{
-				Value:     edge.Child,
-				Left:      NilKey,
-				Right:     NilKey,
-				LeftHash:  nil,
-				RightHash: nil,
-			},
-		}
+		sn := NewPartialStorageNode(edge.Path, edge.Child)
 
 		// Handle leaf edge case (single key trie)
 		if edge.Path.Len() == key.Len() {
-			if err := nodes.Put(*edge.Path, sn); err != nil {
+			if err := nodes.Put(*sn.key, sn); err != nil {
 				return nil, nil, fmt.Errorf("failed to store leaf edge: %w", err)
 			}
-			return edge.Path, nil, nil
+			return sn.Key(), sn.Value(), nil
 		}
 
 		// Handle edge + binary case (double key trie)
@@ -416,18 +417,20 @@ func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 		if !ok {
 			return nil, nil, fmt.Errorf("expected binary node as child, got: %T", child)
 		}
-
 		sn.node.LeftHash = binary.LeftHash
 		sn.node.RightHash = binary.RightHash
-		if err := nodes.Put(*edge.Path, sn); err != nil {
+
+		if err := nodes.Put(*sn.key, sn); err != nil {
 			return nil, nil, fmt.Errorf("failed to store edge+binary: %w", err)
 		}
-		rootKey = edge.Path
+		rootKey = sn.Key()
 	}
 
 	return rootKey, val, nil
 }
 
+// buildPath recursively builds the path for a given node hash, key, and current position.
+// It returns the current node's key and any leaf value found along this path.
 func buildPath(
 	nodeHash *felt.Felt,
 	key *Key,
@@ -455,12 +458,15 @@ func buildPath(
 	case *Binary:
 		return handleBinaryNode(pn, nodeHash, key, curPos, curNode, proof, nodes)
 	case *Edge:
-		return handleEdgeNode(pn, key, curPos, curNode, proof, nodes)
+		return handleEdgeNode(pn, key, curPos, proof, nodes)
 	}
 
 	return nil, nil, nil
 }
 
+// handleBinaryNode processes a binary node in the proof path by creating/updating a storage node,
+// setting its left/right hashes, and recursively building the path for the appropriate child direction.
+// It returns the current node's key and any leaf value found along this path.
 func handleBinaryNode(
 	binary *Binary,
 	nodeHash *felt.Felt,
@@ -470,10 +476,15 @@ func handleBinaryNode(
 	proof *ProofNodeSet,
 	nodes *StorageNodeSet,
 ) (*Key, *felt.Felt, error) {
+	// If curNode is nil, it means that this current binary node is the root node.
+	// Or, it's an internal binary node and the parent is also a binary node.
+	// A standalone binary proof node always corresponds to a single storage node.
+	// If curNode is not nil, it means that the parent node is an edge node.
+	// In this case, the key of the storage node is based on the parent edge node.
 	if curNode == nil {
 		nodeKey, err := key.MostSignificantBits(curPos)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get MSB: %w", err)
+			return nil, nil, err
 		}
 		curNode = NewPartialStorageNode(nodeKey, nodeHash)
 	}
@@ -482,9 +493,7 @@ func handleBinaryNode(
 
 	// Calculate next position and determine to take left or right path
 	nextPos := curPos + 1
-	nextBitIndex := key.Len() - nextPos
-	isRightPath := key.IsBitSet(nextBitIndex)
-
+	isRightPath := key.IsBitSet(key.Len() - nextPos)
 	nextHash := binary.LeftHash
 	if isRightPath {
 		nextHash = binary.RightHash
@@ -495,7 +504,7 @@ func handleBinaryNode(
 		return nil, nil, err
 	}
 
-	// Set child reference and store node
+	// Set child reference
 	if isRightPath {
 		curNode.node.Right = childKey
 	} else {
@@ -505,22 +514,20 @@ func handleBinaryNode(
 	if err := nodes.Put(*curNode.key, curNode); err != nil {
 		return nil, nil, fmt.Errorf("failed to store binary node: %w", err)
 	}
+
 	return curNode.Key(), val, nil
 }
 
+// handleEdgeNode processes an edge node in the proof path by verifying the edge path matches
+// the key path and either creating a leaf node or continuing to traverse the trie. It returns
+// the current node's key and any leaf value found along this path.
 func handleEdgeNode(
 	edge *Edge,
 	key *Key,
 	curPos uint8,
-	curNode *StorageNode,
 	proof *ProofNodeSet,
 	nodes *StorageNodeSet,
 ) (*Key, *felt.Felt, error) {
-	if curNode == nil {
-		curNode = NewPartialStorageNode(nil, nil)
-	}
-	curNode.node.Value = edge.Child
-
 	// Verify the edge path matches the key path
 	if !verifyEdgePath(key, edge.Path, curPos) {
 		return NilKey, nil, nil
@@ -528,6 +535,11 @@ func handleEdgeNode(
 
 	// The next node position is the end of the edge path
 	nextPos := curPos + edge.Path.Len()
+	nodeKey, err := key.MostSignificantBits(nextPos)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get MSB for internal edge: %w", err)
+	}
+	curNode := NewPartialStorageNode(nodeKey, edge.Child)
 
 	// This is an edge leaf, stop traversing the trie
 	if nextPos == key.Len() {
@@ -538,13 +550,6 @@ func handleEdgeNode(
 		}
 		return curNode.Key(), curNode.Value(), nil
 	}
-
-	// This is an internal edge, set the node key and continue traversing the trie
-	nodeKey, err := key.MostSignificantBits(nextPos)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get MSB for internal edge: %w", err)
-	}
-	curNode.key = nodeKey
 
 	_, val, err := buildPath(edge.Child, key, nextPos, curNode, proof, nodes)
 	if err != nil {
@@ -558,6 +563,7 @@ func handleEdgeNode(
 	return curNode.Key(), val, nil
 }
 
+// verifyEdgePath checks if the edge path matches the key path at the current position.
 func verifyEdgePath(key, edgePath *Key, curPos uint8) bool {
 	if key.Len() < curPos+edgePath.Len() {
 		return false
@@ -574,7 +580,8 @@ func verifyEdgePath(key, edgePath *Key, curPos uint8) bool {
 	return true
 }
 
-func BuildTrie(height uint8, rootKey *Key, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
+// buildTrie builds a trie from a list of storage nodes and a list of keys and values.
+func buildTrie(height uint8, rootKey *Key, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
 	tr, err := NewTriePedersen(newMemStorage(), height)
 	if err != nil {
 		return nil, err
@@ -600,6 +607,8 @@ func BuildTrie(height uint8, rootKey *Key, nodes []*StorageNode, keys, values []
 	return tr, nil
 }
 
+// hasRightElement checks if there is a right sibling for the given key in the trie.
+// This function assumes that the entire path has been resolved.
 func hasRightElement(rootKey, key *Key, nodes *StorageNodeSet) bool {
 	cur := rootKey
 	for cur != nil && !cur.Equal(NilKey) {
