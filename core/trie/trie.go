@@ -134,7 +134,7 @@ func (sn *StorageNode) String() string {
 }
 
 func (sn *StorageNode) Merge(other *StorageNode) error {
-	if (sn.key != nil && other.key != nil) && !sn.key.Equal(NilKey) && !other.key.Equal(NilKey) {
+	if sn.key != nil && other.key != nil && !sn.key.Equal(NilKey) && !other.key.Equal(NilKey) {
 		if !sn.key.Equal(other.key) {
 			return fmt.Errorf("keys do not match: %s != %s", sn.key, other.key)
 		}
@@ -148,6 +148,8 @@ func NewStorageNode(key *Key, node *Node) *StorageNode {
 	return &StorageNode{key: key, node: node}
 }
 
+// NewPartialStorageNode creates a new StorageNode with a given key and value,
+// where the right and left children are nil.
 func NewPartialStorageNode(key *Key, value *felt.Felt) *StorageNode {
 	return &StorageNode{
 		key: key,
