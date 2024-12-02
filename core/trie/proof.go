@@ -544,9 +544,7 @@ func handleEdgeNode(
 
 	// This is an edge leaf, stop traversing the trie
 	if nextPos == key.Len() {
-		leafKey := key.Copy()
-		curNode.key = &leafKey
-		if err := nodes.Put(leafKey, curNode); err != nil {
+		if err := nodes.Put(*curNode.key, curNode); err != nil {
 			return nil, nil, fmt.Errorf("failed to store edge leaf: %w", err)
 		}
 		return curNode.Key(), curNode.Value(), nil
