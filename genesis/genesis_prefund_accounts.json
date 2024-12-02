@@ -48,7 +48,7 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x101",
-				"0x123456789123",
+				"0x56bc75e2d63100000", // 100 * 10^18
 				"0x0"
 			],
 			"caller_address": "0x0"
@@ -58,7 +58,7 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x102",
-				"0x123456789123",
+				"0x56bc75e2d63100000", // 100 * 10^18
 				"0x0"
 			],
 			"caller_address": "0x0"
@@ -68,7 +68,7 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
-				"0x123456789123",
+				"0x56bc75e2d63100000", // 100 * 10^18
 				"0x0"
 			],
 			"caller_address": "0x0"
@@ -78,7 +78,7 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
-				"0x123456789123",
+				"0x56bc75e2d63100000", // 100 * 10^18
 				"0x0"
 			],
 			"caller_address": "0x0"
