@@ -60,7 +60,7 @@ func NewMem() (db.DB, error) {
 }
 
 // NewMemTest opens a new in-memory database, panics on error
-func NewMemTest(t *testing.T) db.DB {
+func NewMemTest(t testing.TB) db.DB {
 	memDB, err := NewMem()
 	if err != nil {
 		t.Fatalf("create in-memory db: %v", err)

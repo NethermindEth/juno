@@ -137,7 +137,8 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 //   - Any node's computed hash doesn't match its expected hash
 //   - The path bits don't match the key bits
 //   - The proof ends before processing all key bits
-func VerifyProof(root *felt.Felt, key *Key, proof *ProofNodeSet, hash hashFunc) (*felt.Felt, error) {
+func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash hashFunc) (*felt.Felt, error) {
+	key := FeltToKey(globalTrieHeight, keyFelt)
 	expectedHash := root
 	keyLen := key.Len()
 
@@ -165,7 +166,7 @@ func VerifyProof(root *felt.Felt, key *Key, proof *ProofNodeSet, hash hashFunc) 
 			}
 			curPos++
 		case *Edge: // Edge nodes represent paths between binary nodes
-			if !verifyEdgePath(key, node.Path, curPos) {
+			if !verifyEdgePath(&key, node.Path, curPos) {
 				return &felt.Zero, nil
 			}
 
