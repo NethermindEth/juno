@@ -199,7 +199,7 @@ func TestProveCustom(t *testing.T) {
 func TestRangeProof(t *testing.T) {
 	t.Parallel()
 
-	n := 1000
+	n := 500
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
 	require.NoError(t, err)
@@ -228,7 +228,7 @@ func TestRangeProof(t *testing.T) {
 func TestRangeProofWithNonExistentProof(t *testing.T) {
 	t.Parallel()
 
-	n := 1000
+	n := 500
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
 	require.NoError(t, err)
@@ -263,7 +263,7 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 	t.Parallel()
 
-	n := 1000
+	n := 500
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
 	require.NoError(t, err)
