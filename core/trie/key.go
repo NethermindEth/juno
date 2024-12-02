@@ -25,10 +25,6 @@ func NewKey(length uint8, keyBytes []byte) Key {
 	return k
 }
 
-func (k *Key) SubKey(n uint8) (*Key, error) {
-	panic("TODO(weiihann): not used")
-}
-
 func (k *Key) bytesNeeded() uint {
 	const byteBits = 8
 	return (uint(k.len) + (byteBits - 1)) / byteBits
@@ -112,6 +108,7 @@ func (k *Key) ShiftRight(n uint8) {
 	k.len -= n
 }
 
+// MostSignificantBits returns a new key with the most significant n bits of the current key.
 func (k *Key) MostSignificantBits(n uint8) (*Key, error) {
 	if n > k.len {
 		return nil, fmt.Errorf("cannot get more bits than the key length")
@@ -171,7 +168,7 @@ func (k *Key) WithLeastSignificantBitsFrom(other *Key) (*Key, error) {
 
 // ReplaceBit sets the bit at the given position to either 0 or 1
 func (k *Key) ReplaceBit(position uint8, value bool) {
-	byteIdx := len(k.bitset) - int(position/8) - 1
+	byteIdx := len(k.bitset) - int(position/8) - 1 //nolint:mnd
 	bitIdx := position % 8
 	if value {
 		// Set bit to 1
