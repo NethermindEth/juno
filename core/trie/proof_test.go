@@ -169,52 +169,6 @@ func TestProveCustom(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:    "starknet docs trie",
-			buildFn: buildStarknetDocsTrie,
-			testKeys: []testKey{
-				{
-					name:     "prove non-existent key 0",
-					key:      new(felt.Felt).SetUint64(0),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existent key 1",
-					key:      new(felt.Felt).SetUint64(1),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 2",
-					key:      new(felt.Felt).SetUint64(2),
-					expected: new(felt.Felt).SetUint64(1),
-				},
-				{
-					name:     "prove non-existent key 3",
-					key:      new(felt.Felt).SetUint64(3),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existent key 4",
-					key:      new(felt.Felt).SetUint64(4),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove existing key 5",
-					key:      new(felt.Felt).SetUint64(5),
-					expected: new(felt.Felt).SetUint64(1),
-				},
-				{
-					name:     "prove non-existent key 6",
-					key:      new(felt.Felt).SetUint64(6),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-				{
-					name:     "prove non-existent key 7",
-					key:      new(felt.Felt).SetUint64(7),
-					expected: new(felt.Felt).SetUint64(0),
-				},
-			},
-		},
 	}
 
 	for _, test := range tests {
@@ -688,7 +642,7 @@ func BenchmarkVerifyRangeProof(b *testing.B) {
 	}
 }
 
-func buildTrie(t *testing.T, height uint8, records []*keyValue) *trie.Trie {
+func buildTrie(t *testing.T, records []*keyValue) *trie.Trie {
 	if len(records) == 0 {
 		t.Fatal("records must have at least one element")
 	}
@@ -697,7 +651,7 @@ func buildTrie(t *testing.T, height uint8, records []*keyValue) *trie.Trie {
 	txn, err := memdb.NewTransaction(true)
 	require.NoError(t, err)
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), height)
+	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)
 
 	for _, record := range records {
@@ -725,7 +679,7 @@ func buildSimpleTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(3)},
 	}
 
-	return buildTrie(t, 251, records), records
+	return buildTrie(t, records), records
 }
 
 func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
@@ -744,7 +698,7 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 		{key: new(felt.Felt).SetUint64(0), value: utils.HexToFelt(t, "0xcc")},
 		{key: utils.HexToFelt(t, "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), value: utils.HexToFelt(t, "0xdd")},
 	}
-	return buildTrie(t, 251, records), records
+	return buildTrie(t, records), records
 }
 
 //nolint:dupl
@@ -761,7 +715,7 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 		{key: new(felt.Felt).SetUint64(1), value: new(felt.Felt).SetUint64(3)},
 		{key: new(felt.Felt).SetUint64(3), value: new(felt.Felt).SetUint64(5)},
 	}
-	return buildTrie(t, 251, records), records
+	return buildTrie(t, records), records
 }
 
 //nolint:dupl
@@ -791,15 +745,7 @@ func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 		{key: new(felt.Felt).SetUint64(2), value: new(felt.Felt).SetUint64(6)},
 	}
 
-	return buildTrie(t, 251, records), records
-}
-
-func buildStarknetDocsTrie(t *testing.T) (*trie.Trie, []*keyValue) {
-	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(2), value: new(felt.Felt).SetUint64(1)},
-		{key: new(felt.Felt).SetUint64(5), value: new(felt.Felt).SetUint64(1)},
-	}
-	return buildTrie(t, 3, records), records
+	return buildTrie(t, records), records
 }
 
 func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
