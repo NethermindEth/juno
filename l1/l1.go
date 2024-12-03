@@ -1,3 +1,4 @@
+//go:generate abigen --abi abi/ip_address_registry.json --pkg contract --type IPAddressRegistry --out contract/ip_address_registry.go
 package l1
 
 import (
