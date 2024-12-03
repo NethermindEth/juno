@@ -22,6 +22,7 @@ type Network struct {
 	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
 	L2ChainID           string             `json:"l2_chain_id" validate:"required"`
 	CoreContractAddress common.Address     `json:"core_contract_address" validate:"required"`
+	IPAddressRegistry   *common.Address    `json:"ip_address_registry"`
 	BlockHashMetaInfo   *BlockHashMetaInfo `json:"block_hash_meta_info"`
 }
 
