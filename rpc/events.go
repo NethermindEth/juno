@@ -44,6 +44,10 @@ type EventsChunk struct {
 	ContinuationToken string          `json:"continuation_token,omitempty"`
 }
 
+type SubscriptionID struct {
+	ID uint64 `json:"subscription_id"`
+}
+
 /****************************************************
 		Events Handlers
 *****************************************************/

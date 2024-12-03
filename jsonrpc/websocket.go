@@ -18,14 +18,17 @@ type Websocket struct {
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
 	listener   NewRequestListener
+
+	shutdown <-chan struct{}
 }
 
-func NewWebsocket(rpc *Server, log utils.SimpleLogger) *Websocket {
+func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger) *Websocket {
 	ws := &Websocket{
 		rpc:        rpc,
 		log:        log,
 		connParams: DefaultWebsocketConnParams(),
 		listener:   &SelectiveListener{},
+		shutdown:   shutdown,
 	}
 
 	return ws
@@ -54,7 +57,19 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO include connection information, such as the remote address, in the logs.
 
-	wsc := newWebsocketConn(r.Context(), conn, ws.connParams)
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	go func() {
+		select {
+		case <-ws.shutdown:
+			cancel()
+		case <-ctx.Done():
+			// in case websocket connection is closed and server is not in shutdown mode
+			// we need to release this goroutine from waiting
+		}
+	}()
+
+	wsc := newWebsocketConn(ctx, conn, ws.connParams)
 
 	for {
 		_, wsc.r, err = wsc.conn.Reader(wsc.ctx)
