@@ -314,7 +314,7 @@ func GetProof(key *Key, tri *Trie) ([]ProofNode, error) {
 	return proofNodes, nil
 }
 
-// verifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
+// VerifyProof checks if `leafPath` leads from `root` to `leafHash` along the `proofNodes`
 // https://github.com/eqlabs/pathfinder/blob/main/crates/merkle-tree/src/tree.rs#L2006
 func VerifyProof(root *felt.Felt, key *Key, value *felt.Felt, proofs []ProofNode, hash hashFunc) bool {
 	expectedHash := root
