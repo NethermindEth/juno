@@ -588,6 +588,9 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			h.log.Errorw("Failed to adapt transaction status", "err", err)
 			return nil, ErrTxnHashNotFound
 		}
+		if status == nil {
+			return nil, ErrTxnHashNotFound
+		}
 
 		return status, nil
 	}
@@ -751,6 +754,8 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
+	case starknet.NotReceived:
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
