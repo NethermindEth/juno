@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -360,9 +361,13 @@ func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 		defer it.Close()
 
 		prefix := db.Peer.Key()
+		var peerIDBytes []byte
 		for it.Seek(prefix); it.Valid(); it.Next() {
-			peerIDBytes := it.Key()[len(prefix):]
-			peerID, err := peer.IDFromBytes(peerIDBytes)
+			peerIDBytes = it.Key()
+			if !bytes.HasPrefix(peerIDBytes, prefix) {
+				break
+			}
+			peerID, err := peer.IDFromBytes(peerIDBytes[len(prefix):])
 			if err != nil {
 				return fmt.Errorf("decode peer ID: %w", err)
 			}
