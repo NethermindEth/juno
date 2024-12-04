@@ -35,6 +35,18 @@ const (
 	clientName                = "juno"
 )
 
+type IPAddressEvent uint8
+
+const (
+	Add IPAddressEvent = iota
+	Remove
+)
+
+type IPAddressRegistryEvent struct {
+	EventType IPAddressEvent
+	IP        string
+}
+
 type Service struct {
 	host host.Host
 
@@ -50,6 +62,8 @@ type Service struct {
 
 	feederNode bool
 	database   db.DB
+
+	l1events <-chan IPAddressRegistryEvent
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
@@ -208,6 +222,8 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 
+	go s.listenForL1Events(ctx)
+
 	err := s.dht.Bootstrap(ctx)
 	if err != nil {
 		return err
@@ -247,6 +263,25 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
 	return nil
+}
+
+func (s *Service) listenForL1Events(ctx context.Context) {
+	for event := range s.l1events {
+		switch event.EventType {
+		case Add:
+			if err := s.host.Connect(ctx, peer.AddrInfo{ID: peer.ID(event.IP)}); err != nil {
+				s.log.Warnw("Failed to connect to peer", "peer", event.IP, "err", err)
+			} else {
+				s.log.Infow("Connected to peer", "peer", event.IP)
+			}
+		case Remove:
+			if err := s.host.Network().ClosePeer(peer.ID(event.IP)); err != nil {
+				s.log.Warnw("Failed to disconnect from peer", "peer", event.IP, "err", err)
+			} else {
+				s.log.Infow("Disconnected from peer", "peer", event.IP)
+			}
+		}
+	}
 }
 
 func (s *Service) setProtocolHandlers() {
