@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,15 +18,17 @@ import (
 )
 
 type EthSubscriber struct {
-	ethClient *ethclient.Client
-	client    *rpc.Client
-	filterer  *contract.StarknetFilterer
-	listener  EventListener
+	ethClient                 *ethclient.Client
+	client                    *rpc.Client
+	filterer                  *contract.StarknetFilterer
+	listener                  EventListener
+	ipAddressRegistry         *contract.IPAddressRegistry
+	ipAddressRegistryFilterer *contract.IPAddressRegistryFilterer
 }
 
 var _ Subscriber = (*EthSubscriber)(nil)
 
-func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Address) (*EthSubscriber, error) {
+func NewEthSubscriber(ethClientAddress string, network *utils.Network) (*EthSubscriber, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -34,20 +37,50 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 		return nil, err
 	}
 	ethClient := ethclient.NewClient(client)
-	filterer, err := contract.NewStarknetFilterer(coreContractAddress, ethClient)
+	filterer, err := contract.NewStarknetFilterer(network.CoreContractAddress, ethClient)
 	if err != nil {
 		return nil, err
 	}
+
+	var (
+		ipAddressRegistry         *contract.IPAddressRegistry
+		ipAddressRegistryFilterer *contract.IPAddressRegistryFilterer
+	)
+	if network.IPAddressRegistry != nil {
+		ipAddressRegistry, err = contract.NewIPAddressRegistry(*network.IPAddressRegistry, ethClient)
+		if err != nil {
+			return nil, err
+		}
+		ipAddressRegistryFilterer, err = contract.NewIPAddressRegistryFilterer(*network.IPAddressRegistry, ethClient)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &EthSubscriber{
-		ethClient: ethClient,
-		client:    client,
-		filterer:  filterer,
-		listener:  SelectiveListener{},
+		ethClient:                 ethClient,
+		client:                    client,
+		filterer:                  filterer,
+		listener:                  SelectiveListener{},
+		ipAddressRegistry:         ipAddressRegistry,
+		ipAddressRegistryFilterer: ipAddressRegistryFilterer,
 	}, nil
 }
 
 func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {
 	return s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, sink)
+}
+
+func (s *EthSubscriber) WatchIPAdded(ctx context.Context, sink chan<- *contract.IPAddressRegistryIPAdded) (event.Subscription, error) {
+	return s.ipAddressRegistryFilterer.WatchIPAdded(&bind.WatchOpts{Context: ctx}, sink)
+}
+
+func (s *EthSubscriber) WatchIPRemoved(ctx context.Context, sink chan<- *contract.IPAddressRegistryIPRemoved) (event.Subscription, error) {
+	return s.ipAddressRegistryFilterer.WatchIPRemoved(&bind.WatchOpts{Context: ctx}, sink)
+}
+
+func (s *EthSubscriber) GetIPAddresses(ctx context.Context, ip common.Address) ([]string, error) {
+	return s.ipAddressRegistry.GetIPAddresses(&bind.CallOpts{Context: ctx})
 }
 
 func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
