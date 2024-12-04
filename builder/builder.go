@@ -436,11 +436,11 @@ func (b *Builder) depletePool(ctx context.Context) error {
 		}
 		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
 		if err = b.runTxn(&userTxn); err != nil {
+			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
 				return err
 			}
-			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 		}
 
 		if b.shadowMode {
