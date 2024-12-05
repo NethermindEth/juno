@@ -61,7 +61,7 @@ func (mr *MockReaderMockRecorder) BlockByHash(arg0 any) *gomock.Call {
 // BlockByNumber mocks base method.
 func (m *MockReader) BlockByNumber(arg0 uint64) (*core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockByNumber", arg0)
+	ret := m.ctrl.Call(m, "blockByNumber", arg0)
 	ret0, _ := ret[0].(*core.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -70,7 +70,7 @@ func (m *MockReader) BlockByNumber(arg0 uint64) (*core.Block, error) {
 // BlockByNumber indicates an expected call of BlockByNumber.
 func (mr *MockReaderMockRecorder) BlockByNumber(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockReader)(nil).BlockByNumber), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "blockByNumber", reflect.TypeOf((*MockReader)(nil).BlockByNumber), arg0)
 }
 
 // BlockCommitmentsByNumber mocks base method.
