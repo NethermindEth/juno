@@ -181,7 +181,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 
-	l1ToP2P := make(chan p2p.IPAddressEvent, 128)
+	l1ToP2P := make(chan p2p.IPAddressRegistryEvent, 128) //nolin:gomnd
 
 	if !cfg.DisableL1Verification {
 		// Due to mutually exclusive flag we can do the following.
@@ -301,7 +301,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger, l1ToP2P chan p2p.IPAddressEvent) (*l1.Client, error) {
+func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger, l1ToP2P chan p2p.IPAddressRegistryEvent) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
