@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -465,5 +466,78 @@ func TestUnreliableSubscription(t *testing.T) {
 			}
 			assert.Equal(t, want, got)
 		}
+	}
+}
+
+func TestMakeSubscribtionsToIPAddresses(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	nopLog := utils.NewNopZapLogger()
+	network := utils.Mainnet
+	address := common.HexToAddress("0x1234")
+	network.IPAddressRegistry = &address
+	eventsChan := make(chan p2p.IPAddressRegistryEvent, 10)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	client := NewClient(nil, chain, nopLog, eventsChan).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	storedAddresses := []string{"0x1", "0x2", "0x3"}
+	addressesToAdd := []string{"0x4", "0x5", "0x6"}
+	addressToRemove := []string{"0x2", "0x5"}
+
+	subscriber := mocks.NewMockSubscriber(ctrl)
+	client.l1 = subscriber
+
+	subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(addressesToAdd[:2], nil).Times(1)
+	subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, sink chan<- *contract.IPAddressRegistryIPAdded) (*fakeSubscription, error) {
+			go func() {
+				for _, addr := range addressesToAdd {
+					sink <- &contract.IPAddressRegistryIPAdded{IpAddress: addr}
+				}
+			}()
+			return newFakeSubscription(), nil
+		}).
+		Times(1)
+
+	subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, sink chan<- *contract.IPAddressRegistryIPRemoved) (*fakeSubscription, error) {
+			go func() {
+				for _, addr := range addressToRemove {
+					sink <- &contract.IPAddressRegistryIPRemoved{IpAddress: addr}
+				}
+			}()
+			return newFakeSubscription(), nil
+		}).
+		Times(1)
+
+	require.NoError(t, client.makeSubscribtionsToIPAddresses(ctx, 1))
+
+	expectedAddressesToAdd := make(map[string]struct{}, len(addressesToAdd)+len(storedAddresses))
+	for _, addr := range addressesToAdd {
+		expectedAddressesToAdd[addr] = struct{}{}
+	}
+	for _, addr := range storedAddresses {
+		expectedAddressesToAdd[addr] = struct{}{}
+	}
+	expectedAddressesToRemove := make(map[string]struct{}, len(addressToRemove))
+	for _, addr := range addressToRemove {
+		expectedAddressesToRemove[addr] = struct{}{}
+	}
+	select {
+	case event := <-eventsChan:
+		switch event.EventType {
+		case p2p.Add:
+			assert.Contains(t, expectedAddressesToAdd, event.IP)
+			delete(expectedAddressesToAdd, event.IP)
+		case p2p.Remove:
+			assert.Contains(t, expectedAddressesToRemove, event.IP)
+			delete(expectedAddressesToRemove, event.IP)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Expected IP address addition event")
 	}
 }
