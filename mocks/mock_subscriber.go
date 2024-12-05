@@ -87,6 +87,21 @@ func (mr *MockSubscriberMockRecorder) FinalisedHeight(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalisedHeight", reflect.TypeOf((*MockSubscriber)(nil).FinalisedHeight), ctx)
 }
 
+// GetIPAddresses mocks base method.
+func (m *MockSubscriber) GetIPAddresses(ctx context.Context, ip common.Address) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIPAddresses", ctx, ip)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetIPAddresses indicates an expected call of GetIPAddresses.
+func (mr *MockSubscriberMockRecorder) GetIPAddresses(ctx, ip any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPAddresses", reflect.TypeOf((*MockSubscriber)(nil).GetIPAddresses), ctx, ip)
+}
+
 // TransactionReceipt mocks base method.
 func (m *MockSubscriber) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
 	m.ctrl.T.Helper()
@@ -100,6 +115,36 @@ func (m *MockSubscriber) TransactionReceipt(ctx context.Context, txHash common.H
 func (mr *MockSubscriberMockRecorder) TransactionReceipt(ctx, txHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionReceipt", reflect.TypeOf((*MockSubscriber)(nil).TransactionReceipt), ctx, txHash)
+}
+
+// WatchIPAdded mocks base method.
+func (m *MockSubscriber) WatchIPAdded(ctx context.Context, sink chan<- *contract.IPAddressRegistryIPAdded) (event.Subscription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchIPAdded", ctx, sink)
+	ret0, _ := ret[0].(event.Subscription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchIPAdded indicates an expected call of WatchIPAdded.
+func (mr *MockSubscriberMockRecorder) WatchIPAdded(ctx, sink any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchIPAdded", reflect.TypeOf((*MockSubscriber)(nil).WatchIPAdded), ctx, sink)
+}
+
+// WatchIPRemoved mocks base method.
+func (m *MockSubscriber) WatchIPRemoved(ctx context.Context, sink chan<- *contract.IPAddressRegistryIPRemoved) (event.Subscription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchIPRemoved", ctx, sink)
+	ret0, _ := ret[0].(event.Subscription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchIPRemoved indicates an expected call of WatchIPRemoved.
+func (mr *MockSubscriberMockRecorder) WatchIPRemoved(ctx, sink any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchIPRemoved", reflect.TypeOf((*MockSubscriber)(nil).WatchIPRemoved), ctx, sink)
 }
 
 // WatchLogStateUpdate mocks base method.
