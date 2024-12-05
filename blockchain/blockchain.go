@@ -546,7 +546,7 @@ func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
 	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
-		if !bytes.Equal(iterator.Key()[:len(prefix)], prefix) {
+		if !bytes.HasPrefix(iterator.Key(), prefix) {
 			break
 		}
 
@@ -581,7 +581,7 @@ func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.Transacti
 
 	prefix := db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
 	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
-		if !bytes.Equal(iterator.Key()[:len(prefix)], prefix) {
+		if !bytes.HasPrefix(iterator.Key(), prefix) {
 			break
 		}
 
