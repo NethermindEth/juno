@@ -144,6 +144,10 @@ func (n *Node) String() string {
 	return fmt.Sprintf("Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}", n.Value, n.Left, n.Right, n.LeftHash, n.RightHash)
 }
 
+// Merge combines the fields of two nodes if they are not nil.
+// If a field is nil in the current node, it is updated with the corresponding field from the other node.
+// If a field is not nil in both nodes, the fields must be equal, otherwise an error is returned.
+//
 //nolint:gocyclo
 func (n *Node) Merge(other *Node) error {
 	// Compare Value if both exist
