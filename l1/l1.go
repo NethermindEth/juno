@@ -148,21 +148,22 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 
 	buffer := 128
-	ticker := time.NewTicker(c.pollFinalisedInterval)
-	defer ticker.Stop()
+
 	errs, ctx := errgroup.WithContext(ctx)
 	errs.Go(func() error {
-		return c.makeSubscriptionToStateUpdates(ctx, ticker, buffer)
+		return c.makeSubscriptionToStateUpdates(ctx, buffer)
 	})
 	if c.network.IPAddressRegistry != nil {
 		errs.Go(func() error {
-			return c.makeSubscribtionsToIPAddresses(ctx, ticker, buffer)
+			return c.makeSubscribtionsToIPAddresses(ctx, buffer)
 		})
 	}
 	return errs.Wait()
 }
 
-func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, ticker *time.Ticker, buffer int) error {
+func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int) error {
+	ticker := time.NewTicker(c.pollFinalisedInterval)
+	defer ticker.Stop()
 	c.log.Infow("Subscribing to L1 updates...")
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
 	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
@@ -219,12 +220,13 @@ func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, ticker *tim
 	}
 }
 
-func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, ticker *time.Ticker, buffer int) error {
+func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int) error {
 	addresses, err := c.l1.GetIPAddresses(ctx, *c.network.IPAddressRegistry)
 	if err != nil {
 		return err
 	}
 	for _, address := range addresses {
+		fmt.Println("added", address)
 		c.eventsToP2P <- p2p.IPAddressRegistryEvent{
 			EventType: p2p.Add,
 			IP:        address,
@@ -251,39 +253,38 @@ func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, ticker *tim
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-ticker.C:
-			select {
-			case err := <-addedSub.Err():
-				fmt.Println("err", err)
-				c.log.Debugw("IP address addition subscription failed, resubscribing", "error", err)
-				addedSub.Unsubscribe()
+		case err := <-addedSub.Err():
+			fmt.Println("err", err)
+			c.log.Debugw("IP address addition subscription failed, resubscribing", "error", err)
+			addedSub.Unsubscribe()
 
-				addedSub, err = c.subscribeToIPAddressAddition(ctx, addedChan)
-				if err != nil {
-					return err
-				}
-				defer addedSub.Unsubscribe() //nolint:gocritic
-			case err := <-removedSub.Err():
-				c.log.Debugw("IP address removal subscription failed, resubscribing", "error", err)
-				removedSub.Unsubscribe()
+			addedSub, err = c.subscribeToIPAddressAddition(ctx, addedChan)
+			if err != nil {
+				return err
+			}
+			defer addedSub.Unsubscribe() //nolint:gocritic
+		case err := <-removedSub.Err():
+			c.log.Debugw("IP address removal subscription failed, resubscribing", "error", err)
+			removedSub.Unsubscribe()
 
-				removedSub, err = c.subscribeToIPAddressRemoval(ctx, removedChan)
-				if err != nil {
-					return err
-				}
-				defer removedSub.Unsubscribe() //nolint:gocritic
-			case added := <-addedChan:
-				c.log.Debugw("Received L1 IP address addition", "ip", added.IpAddress)
-				c.eventsToP2P <- p2p.IPAddressRegistryEvent{
-					EventType: p2p.Add,
-					IP:        added.IpAddress,
-				}
-			case removed := <-removedChan:
-				c.log.Debugw("Received L1 IP address removal", "ip", removed.IpAddress)
-				c.eventsToP2P <- p2p.IPAddressRegistryEvent{
-					EventType: p2p.Remove,
-					IP:        removed.IpAddress,
-				}
+			removedSub, err = c.subscribeToIPAddressRemoval(ctx, removedChan)
+			if err != nil {
+				return err
+			}
+			defer removedSub.Unsubscribe() //nolint:gocritic
+		case added := <-addedChan:
+			c.log.Debugw("Received L1 IP address addition", "ip", added.IpAddress)
+			fmt.Println("added", added.IpAddress)
+			c.eventsToP2P <- p2p.IPAddressRegistryEvent{
+				EventType: p2p.Add,
+				IP:        added.IpAddress,
+			}
+		case removed := <-removedChan:
+			fmt.Println("removed", removed.IpAddress)
+			c.log.Debugw("Received L1 IP address removal", "ip", removed.IpAddress)
+			c.eventsToP2P <- p2p.IPAddressRegistryEvent{
+				EventType: p2p.Remove,
+				IP:        removed.IpAddress,
 			}
 		}
 	}
