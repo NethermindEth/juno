@@ -211,7 +211,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 		}
 
 		if values[i] == nil || values[i].Equal(&felt.Zero) {
-			return false, errors.New("range contains deletion")
+			return false, errors.New("range contains empty leaf")
 		}
 	}
 
