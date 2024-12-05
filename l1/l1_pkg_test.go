@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -338,7 +339,7 @@ func TestClient(t *testing.T) {
 			network := utils.Mainnet
 			chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
 
-			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+			client := NewClient(nil, chain, nopLog, make(chan<- p2p.IPAddressRegistryEvent)).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 			// We loop over each block and check that the state agrees with our expectations.
 			for _, block := range tt.blocks {
@@ -398,7 +399,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
-	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := NewClient(nil, chain, nopLog, make(chan<- p2p.IPAddressRegistryEvent)).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	err := errors.New("test err")
 	for _, block := range longSequenceOfBlocks {
