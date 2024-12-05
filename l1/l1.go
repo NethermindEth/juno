@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"golang.org/x/sync/errgroup"
 )
 
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
@@ -46,7 +47,7 @@ type Client struct {
 
 var _ service.Service = (*Client)(nil)
 
-func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogger, eventsToP2P chan<- p2p.IPAddressEvent) *Client {
+func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogger, eventsToP2P chan<- p2p.IPAddressRegistryEvent) *Client {
 	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,
@@ -146,19 +147,22 @@ func (c *Client) Run(ctx context.Context) error {
 		return err
 	}
 
-	addresses, err := c.l1.GetIPAddresses(ctx, *c.network.IPAddressRegistry)
-	if err != nil {
-		return err
-	}
-	for _, address := range addresses {
-		c.eventsToP2P <- p2p.IPAddressRegistryEvent{
-			EventType: p2p.Add,
-			IP:        address,
-		}
-	}
-
 	buffer := 128
+	ticker := time.NewTicker(c.pollFinalisedInterval)
+	defer ticker.Stop()
+	errs, ctx := errgroup.WithContext(ctx)
+	errs.Go(func() error {
+		return c.makeSubscriptionToStateUpdates(ctx, ticker, buffer)
+	})
+	if c.network.IPAddressRegistry != nil {
+		errs.Go(func() error {
+			return c.makeSubscribtionsToIPAddresses(ctx, ticker, buffer)
+		})
+	}
+	return errs.Wait()
+}
 
+func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, ticker *time.Ticker, buffer int) error {
 	c.log.Infow("Subscribing to L1 updates...")
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
 	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
@@ -167,27 +171,6 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 	defer updateSub.Unsubscribe()
 	c.log.Infow("Subscribed to L1 updates")
-
-	c.log.Debugw("Subscribing to L1 IP address additions...")
-	addedChan := make(chan *contract.IPAddressRegistryIPAdded, buffer)
-	addedSub, err := c.subscribeToIPAddressAddition(ctx, addedChan)
-	if err != nil {
-		return err
-	}
-	defer addedSub.Unsubscribe()
-	c.log.Debugw("Subscribed to L1 IP address additions")
-
-	c.log.Debugw("Subscribing to L1 IP address removals...")
-	removedChan := make(chan *contract.IPAddressRegistryIPRemoved, buffer)
-	removedSub, err := c.subscribeToIPAddressRemoval(ctx, removedChan)
-	if err != nil {
-		return err
-	}
-	defer removedSub.Unsubscribe()
-	c.log.Debugw("Subscribed to L1 IP address removals")
-
-	ticker := time.NewTicker(c.pollFinalisedInterval)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -224,37 +207,6 @@ func (c *Client) Run(ctx context.Context) error {
 					} else {
 						c.nonFinalisedLogs[logStateUpdate.Raw.BlockNumber] = logStateUpdate
 					}
-				case err := <-addedSub.Err():
-					c.log.Debugw("IP address addition subscription failed, resubscribing", "error", err)
-					addedSub.Unsubscribe()
-
-					addedSub, err = c.subscribeToIPAddressAddition(ctx, addedChan)
-					if err != nil {
-						return err
-					}
-					defer addedSub.Unsubscribe() //nolint:gocritic
-				case err := <-removedSub.Err():
-					c.log.Debugw("IP address removal subscription failed, resubscribing", "error", err)
-					removedSub.Unsubscribe()
-
-					removedSub, err = c.subscribeToIPAddressRemoval(ctx, removedChan)
-					if err != nil {
-						return err
-					}
-					defer removedSub.Unsubscribe() //nolint:gocritic
-				case added := <-addedChan:
-					c.log.Debugw("Received L1 IP address addition", "ip", added.IpAddress)
-					c.eventsToP2P <- p2p.IPAddressRegistryEvent{
-						EventType: p2p.Add,
-						IP:        added.IpAddress,
-					}
-				case removed := <-removedChan:
-					c.log.Debugw("Received L1 IP address removal", "ip", removed.IpAddress)
-					c.eventsToP2P <- p2p.IPAddressRegistryEvent{
-						EventType: p2p.Remove,
-						IP:        removed.IpAddress,
-					}
-
 				default:
 					break Outer
 				}
@@ -262,6 +214,76 @@ func (c *Client) Run(ctx context.Context) error {
 
 			if err := c.setL1Head(ctx); err != nil {
 				return err
+			}
+		}
+	}
+}
+
+func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, ticker *time.Ticker, buffer int) error {
+	addresses, err := c.l1.GetIPAddresses(ctx, *c.network.IPAddressRegistry)
+	if err != nil {
+		return err
+	}
+	for _, address := range addresses {
+		c.eventsToP2P <- p2p.IPAddressRegistryEvent{
+			EventType: p2p.Add,
+			IP:        address,
+		}
+	}
+	c.log.Debugw("Subscribing to L1 IP address additions...")
+	addedChan := make(chan *contract.IPAddressRegistryIPAdded, buffer)
+	addedSub, err := c.subscribeToIPAddressAddition(ctx, addedChan)
+	if err != nil {
+		return err
+	}
+	defer addedSub.Unsubscribe()
+	c.log.Debugw("Subscribed to L1 IP address additions")
+
+	c.log.Debugw("Subscribing to L1 IP address removals...")
+	removedChan := make(chan *contract.IPAddressRegistryIPRemoved, buffer)
+	removedSub, err := c.subscribeToIPAddressRemoval(ctx, removedChan)
+	if err != nil {
+		return err
+	}
+	defer removedSub.Unsubscribe()
+	c.log.Debugw("Subscribed to L1 IP address removals")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			select {
+			case err := <-addedSub.Err():
+				fmt.Println("err", err)
+				c.log.Debugw("IP address addition subscription failed, resubscribing", "error", err)
+				addedSub.Unsubscribe()
+
+				addedSub, err = c.subscribeToIPAddressAddition(ctx, addedChan)
+				if err != nil {
+					return err
+				}
+				defer addedSub.Unsubscribe() //nolint:gocritic
+			case err := <-removedSub.Err():
+				c.log.Debugw("IP address removal subscription failed, resubscribing", "error", err)
+				removedSub.Unsubscribe()
+
+				removedSub, err = c.subscribeToIPAddressRemoval(ctx, removedChan)
+				if err != nil {
+					return err
+				}
+				defer removedSub.Unsubscribe() //nolint:gocritic
+			case added := <-addedChan:
+				c.log.Debugw("Received L1 IP address addition", "ip", added.IpAddress)
+				c.eventsToP2P <- p2p.IPAddressRegistryEvent{
+					EventType: p2p.Add,
+					IP:        added.IpAddress,
+				}
+			case removed := <-removedChan:
+				c.log.Debugw("Received L1 IP address removal", "ip", removed.IpAddress)
+				c.eventsToP2P <- p2p.IPAddressRegistryEvent{
+					EventType: p2p.Remove,
+					IP:        removed.IpAddress,
+				}
 			}
 		}
 	}
