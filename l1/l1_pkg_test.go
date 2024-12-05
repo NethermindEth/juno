@@ -541,3 +541,96 @@ func TestMakeSubscribtionsToIPAddresses(t *testing.T) {
 		t.Fatal("Expected IP address addition event")
 	}
 }
+
+func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
+	t.Parallel()
+	address := common.HexToAddress("0x1234")
+	network := utils.Mainnet
+	network.IPAddressRegistry = &address
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	nopLog := utils.NewNopZapLogger()
+	err := errors.New("test err")
+
+	testCases := []struct {
+		name        string
+		setupMock   func(subscriber *mocks.MockSubscriber)
+		expectedErr error
+	}{
+		{
+			name: "GetIPAddresses error",
+			setupMock: func(subscriber *mocks.MockSubscriber) {
+				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(nil, err).Times(1)
+			},
+			expectedErr: err,
+		},
+		{
+			name: "WatchIPAdded error",
+			setupMock: func(subscriber *mocks.MockSubscriber) {
+				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(nil, nil).Times(1)
+				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(nil, err).Times(1)
+				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "WatchIPRemoved error",
+			setupMock: func(subscriber *mocks.MockSubscriber) {
+				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(nil, nil).Times(1)
+				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(nil, err).Times(1)
+				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "Addition subscription error",
+			setupMock: func(subscriber *mocks.MockSubscriber) {
+				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(nil, nil).Times(1)
+				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(newFakeSubscription(err), nil).Times(1)
+				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "Removal subscription error",
+			setupMock: func(subscriber *mocks.MockSubscriber) {
+				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(nil, nil).Times(1)
+				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(err), nil).Times(1)
+				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
+			},
+			expectedErr: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			eventsChan := make(chan p2p.IPAddressRegistryEvent, 10)
+			client := Client{
+				l1:               nil,
+				l2Chain:          chain,
+				log:              nopLog,
+				network:          chain.Network(),
+				resubscribeDelay: 0,
+				nonFinalisedLogs: make(map[uint64]*contract.StarknetLogStateUpdate, 0),
+				listener:         SelectiveListener{},
+				eventsToP2P:      eventsChan,
+			}
+
+			subscriber := mocks.NewMockSubscriber(ctrl)
+			client.l1 = subscriber
+			tc.setupMock(subscriber)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
+			err := client.makeSubscribtionsToIPAddresses(ctx, 1)
+			require.ErrorIs(t, err, tc.expectedErr)
+		})
+	}
+}
