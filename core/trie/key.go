@@ -12,8 +12,8 @@ import (
 var NilKey = &Key{len: 0, bitset: [32]byte{}}
 
 type Key struct {
-	len       uint8
-	bitset    [32]byte
+	len    uint8
+	bitset [32]byte
 }
 
 func NewKey(length uint8, keyBytes []byte) Key {
@@ -87,12 +87,12 @@ func (k *Key) IsBitSet(position uint8) bool {
 	return ((byteAtIdx >> bitIdx) & LSB) != 0
 }
 
-// ShiftRight removes n least significant bits from the key by performing a right shift
+// shiftRight removes n least significant bits from the key by performing a right shift
 // operation and reducing the key length. For example, if the key contains bits
 // "1111 0000" (length=8) and n=4, the result will be "1111" (length=4).
 //
 // The operation is destructive - it modifies the key in place.
-func (k *Key) ShiftRight(n uint8) {
+func (k *Key) shiftRight(n uint8) {
 	if k.len < n {
 		panic("deleting more bits than there are")
 	}
@@ -115,7 +115,7 @@ func (k *Key) MostSignificantBits(n uint8) (*Key, error) {
 	}
 
 	keyCopy := k.Copy()
-	keyCopy.ShiftRight(k.len - n)
+	keyCopy.shiftRight(k.len - n)
 	return &keyCopy, nil
 }
 
@@ -155,7 +155,7 @@ func (k *Key) Bytes() [32]byte {
 func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
 	commonKey := *shorterKey
-	commonKey.ShiftRight(shorterKey.Len() - divergentBit + 1)
+	commonKey.shiftRight(shorterKey.Len() - divergentBit + 1)
 	return commonKey, divergentBit == shorterKey.Len()+1
 }
 
