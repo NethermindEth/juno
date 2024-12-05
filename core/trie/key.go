@@ -12,8 +12,8 @@ import (
 var NilKey = &Key{len: 0, bitset: [32]byte{}}
 
 type Key struct {
-	len    uint8
-	bitset [32]byte
+	len       uint8
+	bitset    [32]byte
 }
 
 func NewKey(length uint8, keyBytes []byte) Key {
@@ -149,34 +149,6 @@ func (k *Key) Bytes() [32]byte {
 	var result [32]byte
 	copy(result[:], k.bitset[:])
 	return result
-}
-
-// WithLeastSignificantBitsFrom returns a copy of the key with the least significant bits replaced by the other key.
-func (k *Key) WithLeastSignificantBitsFrom(other *Key) (*Key, error) {
-	if k.len < other.len {
-		return nil, fmt.Errorf("other key is longer than the current key")
-	}
-
-	keyCopy := k.Copy()
-
-	for i := uint8(0); i < other.len; i++ {
-		keyCopy.ReplaceBit(i, other.IsBitSet(i))
-	}
-
-	return &keyCopy, nil
-}
-
-// ReplaceBit sets the bit at the given position to either 0 or 1
-func (k *Key) ReplaceBit(position uint8, value bool) {
-	byteIdx := len(k.bitset) - int(position/8) - 1 //nolint:mnd
-	bitIdx := position % 8
-	if value {
-		// Set bit to 1
-		k.bitset[byteIdx] |= 1 << bitIdx
-	} else {
-		// Set bit to 0
-		k.bitset[byteIdx] &^= 1 << bitIdx
-	}
 }
 
 // findCommonKey finds the set of common MSB bits in two key bitsets.
