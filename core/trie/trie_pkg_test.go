@@ -26,7 +26,7 @@ func TestTrieKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, val, value, "key-val not match")
-		assert.Equal(t, tempTrie.feltToKey(key), *tempTrie.rootKey, "root key not match single node's key")
+		assert.Equal(t, tempTrie.FeltToKey(key), *tempTrie.rootKey, "root key not match single node's key")
 	})
 
 	t.Run("put a left then a right node", func(t *testing.T) {
@@ -53,8 +53,8 @@ func TestTrieKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check parent and its left right children
-		l := tempTrie.feltToKey(leftKey)
-		r := tempTrie.feltToKey(rightKey)
+		l := tempTrie.FeltToKey(leftKey)
+		r := tempTrie.FeltToKey(rightKey)
 		commonKey, isSame := findCommonKey(&l, &r)
 		require.False(t, isSame)
 
@@ -69,8 +69,8 @@ func TestTrieKeys(t *testing.T) {
 		parentNode, err := tempTrie.storage.Get(&commonKey)
 		require.NoError(t, err)
 
-		assert.Equal(t, tempTrie.feltToKey(leftKey), *parentNode.Left)
-		assert.Equal(t, tempTrie.feltToKey(rightKey), *parentNode.Right)
+		assert.Equal(t, tempTrie.FeltToKey(leftKey), *parentNode.Left)
+		assert.Equal(t, tempTrie.FeltToKey(rightKey), *parentNode.Right)
 	})
 
 	t.Run("put a right node then a left node", func(t *testing.T) {
@@ -96,8 +96,8 @@ func TestTrieKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check parent and its left right children
-		l := tempTrie.feltToKey(leftKey)
-		r := tempTrie.feltToKey(rightKey)
+		l := tempTrie.FeltToKey(leftKey)
+		r := tempTrie.FeltToKey(rightKey)
 		commonKey, isSame := findCommonKey(&l, &r)
 		require.False(t, isSame)
 
@@ -108,8 +108,8 @@ func TestTrieKeys(t *testing.T) {
 		parentNode, err := tempTrie.storage.Get(&commonKey)
 		require.NoError(t, err)
 
-		assert.Equal(t, tempTrie.feltToKey(leftKey), *parentNode.Left)
-		assert.Equal(t, tempTrie.feltToKey(rightKey), *parentNode.Right)
+		assert.Equal(t, tempTrie.FeltToKey(leftKey), *parentNode.Left)
+		assert.Equal(t, tempTrie.FeltToKey(rightKey), *parentNode.Right)
 	})
 
 	t.Run("Add new key to different branches", func(t *testing.T) {
@@ -142,8 +142,8 @@ func TestTrieKeys(t *testing.T) {
 			commonKey := NewKey(250, []byte{0x2})
 			parentNode, pErr := tempTrie.storage.Get(&commonKey)
 			require.NoError(t, pErr)
-			assert.Equal(t, tempTrie.feltToKey(leftKey), *parentNode.Left)
-			assert.Equal(t, tempTrie.feltToKey(newKey), *parentNode.Right)
+			assert.Equal(t, tempTrie.FeltToKey(leftKey), *parentNode.Left)
+			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Right)
 		})
 		//nolint: dupl
 		t.Run("Add to right branch", func(t *testing.T) {
@@ -153,8 +153,8 @@ func TestTrieKeys(t *testing.T) {
 			commonKey := NewKey(250, []byte{0x3})
 			parentNode, pErr := tempTrie.storage.Get(&commonKey)
 			require.NoError(t, pErr)
-			assert.Equal(t, tempTrie.feltToKey(newKey), *parentNode.Left)
-			assert.Equal(t, tempTrie.feltToKey(rightKey), *parentNode.Right)
+			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Left)
+			assert.Equal(t, tempTrie.FeltToKey(rightKey), *parentNode.Right)
 		})
 		t.Run("Add new node as parent sibling", func(t *testing.T) {
 			newKeyNum, err := strconv.ParseUint("000", 2, 64)
@@ -170,7 +170,7 @@ func TestTrieKeys(t *testing.T) {
 			parentNode, err := tempTrie.storage.Get(&commonKey)
 			require.NoError(t, err)
 
-			assert.Equal(t, tempTrie.feltToKey(newKey), *parentNode.Left)
+			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Left)
 
 			expectRightKey := NewKey(249, []byte{0x1})
 
@@ -246,8 +246,8 @@ func TestTrieKeysAfterDeleteSubtree(t *testing.T) {
 			rootNode, err := tempTrie.storage.Get(&newRootKey)
 			require.NoError(t, err)
 
-			assert.Equal(t, tempTrie.feltToKey(rightKey), *rootNode.Right)
-			assert.Equal(t, tempTrie.feltToKey(test.expectLeft), *rootNode.Left)
+			assert.Equal(t, tempTrie.FeltToKey(rightKey), *rootNode.Right)
+			assert.Equal(t, tempTrie.FeltToKey(test.expectLeft), *rootNode.Left)
 		})
 	}
 }

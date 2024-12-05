@@ -68,6 +68,11 @@ var (
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
+
+	ErrStorageProofNotSupported = &jsonrpc.Error{
+		Code:    42,
+		Message: "the node doesn't support storage proofs for blocks that are too far in the past. Use 'latest' as block id",
+	}
 )
 
 const (
@@ -255,6 +260,13 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.StorageAt,
+		},
+		{
+			Name: "starknet_getStorageProof",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"}, {Name: "classes", Optional: true}, {Name: "contracts", Optional: true}, {Name: "storage_keys", Optional: true},
+			},
+			Handler: h.StorageProof,
 		},
 		{
 			Name:    "starknet_getClassHashAt",
