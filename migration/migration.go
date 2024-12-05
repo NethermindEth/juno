@@ -217,7 +217,7 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error
 	var value []byte
 	for it.Seek(oldPrefix); it.Valid(); it.Next() {
 		// Stop iterating once we're out of the old bucket.
-		if !bytes.Equal(it.Key()[:len(oldPrefix)], oldPrefix) {
+		if !bytes.HasPrefix(it.Key(), oldPrefix) {
 			break
 		}
 
