@@ -565,6 +565,8 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	}, nil
 }
 
+var errTransactionNotFound = fmt.Errorf("transaction not found")
+
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
@@ -585,7 +587,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 
 		status, err := adaptTransactionStatus(txStatus)
 		if err != nil {
-			if !errors.Is(err, fmt.Errorf("%s", ErrTxnHashNotFound.Message)) {
+			if !errors.Is(err, errTransactionNotFound) {
 				h.log.Errorw("Failed to adapt transaction status", "err", err)
 			}
 			return nil, ErrTxnHashNotFound
@@ -753,7 +755,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
 	case starknet.NotReceived:
-		return nil, fmt.Errorf("%s", ErrTxnHashNotFound.Message)
+		return nil, errTransactionNotFound
 	default:
 		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
