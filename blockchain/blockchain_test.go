@@ -633,7 +633,7 @@ func TestRevert(t *testing.T) {
 	})
 
 	revertedHeight := uint64(2)
-	t.Run("blockByNumber should fail with reverted height", func(t *testing.T) {
+	t.Run("BlockByNumber should fail with reverted height", func(t *testing.T) {
 		_, err := chain.BlockByNumber(revertedHeight)
 		require.Error(t, err)
 	})

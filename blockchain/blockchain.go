@@ -179,7 +179,7 @@ func headsHeader(txn db.Transaction) (*core.Header, error) {
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
-	b.listener.OnRead("blockByNumber")
+	b.listener.OnRead("BlockByNumber")
 	var block *core.Block
 	return block, b.database.View(func(txn db.Transaction) error {
 		var err error
