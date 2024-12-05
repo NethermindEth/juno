@@ -182,18 +182,17 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash hashFunc) (
 	}
 }
 
-// VerifyRangeProof checks whether the given key-value pairs and range proof are valid for the given root hash.
-// The range of key-value pairs should be consecutive (no gap inside) and monotonic increasing.
-// The given range proof contains 2 edge proofs. One is for the first key and the other is for the last key.
-// Both of them can be existent or non-existent.
-// This function also handles the following special cases:
+// VerifyRangeProof checks the validity of given key-value pairs and range proof against a provided root hash.
+// The key-value pairs should be consecutive (no gaps) and monotonically increasing.
+// The range proof contains two edge proofs: one for the first key and another for the last key.
+// Both edge proofs can be for existent or non-existent keys.
+// This function handles the following special cases:
 //
-//   - All elements proof: In this case the proof can be nil, but the range should be all the leaves in the trie.
-//   - One element proof: In this case, both left and right edge proofs are the same and the range should contain only one element.
-//   - Zero element proof: In this case a single edge proof is enough to verify. If there are still more elements, the proof is invalid.
+//   - All elements proof: The proof can be nil if the range includes all leaves in the trie.
+//   - Single element proof: Both left and right edge proofs are identical, and the range contains only one element.
+//   - Zero element proof: A single edge proof suffices for verification. The proof is invalid if there are additional elements.
 //
-// If the range proof is invalid, this function returns false and an error.
-// Otherwise, it will return a flag to indicate if there are more elements.
+// The function returns a boolean indicating if there are more elements and an error if the range proof is invalid.
 //
 // TODO(weiihann): Given a binary leaf and a left-sibling first key, if the right sibling is removed, the proof would still be valid.
 // Conversely, given a binary leaf and a right-sibling last key, if the left sibling is removed, the proof would still be valid.
