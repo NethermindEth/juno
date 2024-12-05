@@ -201,7 +201,7 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash hashFunc) (
 func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) { //nolint:funlen,gocyclo
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
-		return false, fmt.Errorf("inconsistent proof data, keys: %d, values: %d", len(keys), len(values))
+		return false, fmt.Errorf("inconsistent length of proof data, keys: %d, values: %d", len(keys), len(values))
 	}
 
 	// Ensure all keys are monotonically increasing and values contain no deletions
