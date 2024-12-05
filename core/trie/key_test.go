@@ -138,40 +138,47 @@ func TestIsBitSet(t *testing.T) {
 	}
 }
 
-func TestShiftRight(t *testing.T) {
-	key := trie.NewKey(16, []byte{0xF3, 0x04})
-
-	tests := map[string]struct {
-		shiftAmount uint8
-		expectedKey trie.Key
+func TestMostSignificantBits(t *testing.T) {
+	tests := []struct {
+		name      string
+		key       trie.Key
+		n         uint8
+		want      trie.Key
+		expectErr bool
 	}{
-		"delete 0 bits": {
-			shiftAmount: 0,
-			expectedKey: key,
+		{
+			name:      "Valid case",
+			key:       trie.NewKey(8, []byte{0b11110000}),
+			n:         4,
+			want:      trie.NewKey(4, []byte{0b00001111}),
+			expectErr: false,
 		},
-		"delete 4 bits": {
-			shiftAmount: 4,
-			expectedKey: trie.NewKey(12, []byte{0x0F, 0x30}),
+		{
+			name:      "Request more bits than available",
+			key:       trie.NewKey(8, []byte{0b11110000}),
+			n:         10,
+			want:      trie.Key{},
+			expectErr: true,
 		},
-		"delete 8 bits": {
-			shiftAmount: 8,
-			expectedKey: trie.NewKey(8, []byte{0xF3}),
-		},
-		"delete 9 bits": {
-			shiftAmount: 9,
-			expectedKey: trie.NewKey(7, []byte{0x79}),
-		},
-		"delete all bits": {
-			shiftAmount: 16,
-			expectedKey: trie.NewKey(0, []byte{}),
+		{
+			name:      "Zero bits requested",
+			key:       trie.NewKey(8, []byte{0b11110000}),
+			n:         0,
+			want:      trie.NewKey(0, []byte{}),
+			expectErr: false,
 		},
 	}
 
-	for desc, test := range tests {
-		t.Run(desc, func(t *testing.T) {
-			copyKey := key
-			copyKey.ShiftRight(test.shiftAmount)
-			assert.Equal(t, test.expectedKey, copyKey)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.key.MostSignificantBits(tt.n)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("MostSignificantBits() error = %v, expectErr %v", err, tt.expectErr)
+				return
+			}
+			if !tt.expectErr && !got.Equal(&tt.want) {
+				t.Errorf("MostSignificantBits() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
