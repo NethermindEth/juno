@@ -226,7 +226,6 @@ func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int)
 		return err
 	}
 	for _, address := range addresses {
-		fmt.Println("added", address)
 		c.eventsToP2P <- p2p.IPAddressRegistryEvent{
 			EventType: p2p.Add,
 			IP:        address,
@@ -254,7 +253,6 @@ func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int)
 		case <-ctx.Done():
 			return nil
 		case err := <-addedSub.Err():
-			fmt.Println("err", err)
 			c.log.Debugw("IP address addition subscription failed, resubscribing", "error", err)
 			addedSub.Unsubscribe()
 
@@ -274,13 +272,11 @@ func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int)
 			defer removedSub.Unsubscribe() //nolint:gocritic
 		case added := <-addedChan:
 			c.log.Debugw("Received L1 IP address addition", "ip", added.IpAddress)
-			fmt.Println("added", added.IpAddress)
 			c.eventsToP2P <- p2p.IPAddressRegistryEvent{
 				EventType: p2p.Add,
 				IP:        added.IpAddress,
 			}
 		case removed := <-removedChan:
-			fmt.Println("removed", removed.IpAddress)
 			c.log.Debugw("Received L1 IP address removal", "ip", removed.IpAddress)
 			c.eventsToP2P <- p2p.IPAddressRegistryEvent{
 				EventType: p2p.Remove,
