@@ -215,7 +215,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 		}
 	}
 
-	// Special case: no edge proof at all, given range is the whole leaf set in the trie
+	// Special case: no edge proof provided; the given range contains all leaves in the trie
 	if proof == nil {
 		tr, err := buildTrie(globalTrieHeight, nil, nil, keys, values)
 		if err != nil {
