@@ -93,7 +93,9 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 	}
 }
 
-func (c *Client) subscribeToIPAddressAddition(ctx context.Context, updateChan chan *contract.IPAddressRegistryIPAdded) (event.Subscription, error) {
+func (c *Client) subscribeToIPAddressAddition(
+	ctx context.Context, updateChan chan *contract.IPAddressRegistryIPAdded,
+) (event.Subscription, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -109,7 +111,9 @@ func (c *Client) subscribeToIPAddressAddition(ctx context.Context, updateChan ch
 	}
 }
 
-func (c *Client) subscribeToIPAddressRemoval(ctx context.Context, updateChan chan *contract.IPAddressRegistryIPRemoved) (event.Subscription, error) {
+func (c *Client) subscribeToIPAddressRemoval(
+	ctx context.Context, updateChan chan *contract.IPAddressRegistryIPRemoved,
+) (event.Subscription, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -228,7 +232,7 @@ func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int)
 	for _, address := range addresses {
 		c.eventsToP2P <- p2p.IPAddressRegistryEvent{
 			EventType: p2p.Add,
-			IP:        address,
+			Address:   address,
 		}
 	}
 	c.log.Debugw("Subscribing to L1 IP address additions...")
@@ -274,13 +278,13 @@ func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int)
 			c.log.Debugw("Received L1 IP address addition", "ip", added.IpAddress)
 			c.eventsToP2P <- p2p.IPAddressRegistryEvent{
 				EventType: p2p.Add,
-				IP:        added.IpAddress,
+				Address:   added.IpAddress,
 			}
 		case removed := <-removedChan:
 			c.log.Debugw("Received L1 IP address removal", "ip", removed.IpAddress)
 			c.eventsToP2P <- p2p.IPAddressRegistryEvent{
 				EventType: p2p.Remove,
-				IP:        removed.IpAddress,
+				Address:   removed.IpAddress,
 			}
 		}
 	}
