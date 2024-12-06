@@ -38,6 +38,7 @@ func TestService(t *testing.T) {
 		&utils.Integration,
 		utils.NewNopZapLogger(),
 		nil,
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -59,6 +60,7 @@ func TestService(t *testing.T) {
 		nil,
 		&utils.Integration,
 		utils.NewNopZapLogger(),
+		nil,
 		nil,
 	)
 	require.NoError(t, err)
@@ -148,6 +150,7 @@ func TestInvalidKey(t *testing.T) {
 		&utils.Integration,
 		utils.NewNopZapLogger(),
 		nil,
+		nil,
 	)
 
 	require.Error(t, err)
@@ -165,6 +168,7 @@ func TestValidKey(t *testing.T) {
 		nil,
 		&utils.Integration,
 		utils.NewNopZapLogger(),
+		nil,
 		nil,
 	)
 
@@ -203,6 +207,7 @@ func TestLoadAndPersistPeers(t *testing.T) {
 		&utils.Integration,
 		utils.NewNopZapLogger(),
 		testDB,
+		nil,
 	)
 	require.NoError(t, err)
 }
