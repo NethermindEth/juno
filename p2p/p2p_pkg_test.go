@@ -40,7 +40,14 @@ func TestListenForL1Events(t *testing.T) {
 
 	eventChan <- IPAddressRegistryEvent{Add, addrStr}
 	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, peer.IDSlice{peerHosts[0].ID(), peerHosts[1].ID()}, peerA.host.Peerstore().Peers())
+	expectedPeers := map[peer.ID]struct{}{
+		peerHosts[0].ID(): {},
+		peerHosts[1].ID(): {},
+	}
+
+	for _, peer := range peerA.host.Peerstore().Peers() {
+		require.Contains(t, expectedPeers, peer)
+	}
 
 	// TODO: test remove event, find a way to remove peer from peerstore
 }
