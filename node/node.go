@@ -39,9 +39,10 @@ import (
 )
 
 const (
-	upgraderDelay    = 5 * time.Minute
-	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	upgraderDelay        = 5 * time.Minute
+	githubAPIUrl         = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL     = "https://github.com/NethermindEth/juno/releases/latest"
+	l1ToP2PChannelBuffer = 128
 )
 
 // Config is the top-level juno configuration.
@@ -181,7 +182,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 
-	l1ToP2P := make(chan p2p.IPAddressRegistryEvent, 128) //nolin:gomnd
+	l1ToP2P := make(chan p2p.IPAddressRegistryEvent, l1ToP2PChannelBuffer) //nolin:mnd
 
 	if !cfg.DisableL1Verification {
 		// Due to mutually exclusive flag we can do the following.
@@ -210,7 +211,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			synchronizer = nil
 		}
 		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-			chain, &cfg.Network, log, database)
+			chain, &cfg.Network, log, database, l1ToP2P)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
@@ -301,7 +302,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger, l1ToP2P chan p2p.IPAddressRegistryEvent) (*l1.Client, error) {
+func newL1Client(
+	ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger, l1ToP2P chan p2p.IPAddressRegistryEvent,
+) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)

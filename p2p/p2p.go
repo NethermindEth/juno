@@ -44,7 +44,7 @@ const (
 
 type IPAddressRegistryEvent struct {
 	EventType IPAddressEvent
-	IP        string
+	Address   string
 }
 
 type Service struct {
@@ -276,23 +276,23 @@ func (s *Service) listenForL1Events(ctx context.Context) {
 				s.log.Debugw("L1 events channel closed")
 				return
 			}
-			peerInfo, err := peer.AddrInfoFromP2pAddr(multiaddr.StringCast(registryEvent.IP))
+			peerInfo, err := peer.AddrInfoFromP2pAddr(multiaddr.StringCast(registryEvent.Address))
 			if err != nil {
-				s.log.Warnw("Failed to parse peer address", "peer", registryEvent.IP, "err", err)
+				s.log.Warnw("Failed to parse peer address", "peer", registryEvent.Address, "err", err)
 				continue
 			}
 			switch registryEvent.EventType {
 			case Add:
 				if err := s.host.Connect(ctx, *peerInfo); err != nil {
-					s.log.Warnw("Failed to connect to peer", "peer", registryEvent.IP, "err", err)
+					s.log.Warnw("Failed to connect to peer", "peer", registryEvent.Address, "err", err)
 				} else {
-					s.log.Debugw("Connected to peer", "peer", registryEvent.IP)
+					s.log.Debugw("Connected to peer", "peer", registryEvent.Address)
 				}
 			case Remove:
 				if err := s.host.Network().ClosePeer(peerInfo.ID); err != nil {
-					s.log.Warnw("Failed to disconnect from peer", "peer", registryEvent.IP, "err", err)
+					s.log.Warnw("Failed to disconnect from peer", "peer", registryEvent.Address, "err", err)
 				} else {
-					s.log.Debugw("Disconnected from peer", "peer", registryEvent.IP)
+					s.log.Debugw("Disconnected from peer", "peer", registryEvent.Address)
 				}
 				s.host.Peerstore().RemovePeer(peerInfo.ID)
 				s.log.Debugw("Removed peer from peerstore", "peer", peerInfo.ID)
