@@ -67,7 +67,7 @@ type Service struct {
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.DB, l1events <-chan IPAddressRegistryEvent,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -124,11 +124,11 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database, l1events)
 }
 
 func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.DB, l1events <-chan IPAddressRegistryEvent,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
@@ -170,6 +170,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		feederNode:   feederNode,
 		handler:      starknet.NewHandler(bc, log),
 		database:     database,
+		l1events:     l1events,
 	}
 	return s, nil
 }
@@ -266,19 +267,37 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) listenForL1Events(ctx context.Context) {
-	for event := range s.l1events {
-		switch event.EventType {
-		case Add:
-			if err := s.host.Connect(ctx, peer.AddrInfo{ID: peer.ID(event.IP)}); err != nil {
-				s.log.Warnw("Failed to connect to peer", "peer", event.IP, "err", err)
-			} else {
-				s.log.Infow("Connected to peer", "peer", event.IP)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case registryEvent, ok := <-s.l1events:
+			if !ok {
+				s.log.Debugw("L1 events channel closed")
+				return
 			}
-		case Remove:
-			if err := s.host.Network().ClosePeer(peer.ID(event.IP)); err != nil {
-				s.log.Warnw("Failed to disconnect from peer", "peer", event.IP, "err", err)
-			} else {
-				s.log.Infow("Disconnected from peer", "peer", event.IP)
+			peerInfo, err := peer.AddrInfoFromP2pAddr(multiaddr.StringCast(registryEvent.IP))
+			if err != nil {
+				s.log.Warnw("Failed to parse peer address", "peer", registryEvent.IP, "err", err)
+				continue
+			}
+			switch registryEvent.EventType {
+			case Add:
+				if err := s.host.Connect(ctx, *peerInfo); err != nil {
+					s.log.Warnw("Failed to connect to peer", "peer", registryEvent.IP, "err", err)
+				} else {
+					s.log.Debugw("Connected to peer", "peer", registryEvent.IP)
+				}
+			case Remove:
+				if err := s.host.Network().ClosePeer(peerInfo.ID); err != nil {
+					s.log.Warnw("Failed to disconnect from peer", "peer", registryEvent.IP, "err", err)
+				} else {
+					s.log.Debugw("Disconnected from peer", "peer", registryEvent.IP)
+				}
+				s.host.Peerstore().RemovePeer(peerInfo.ID)
+				s.log.Debugw("Removed peer from peerstore", "peer", peerInfo.ID)
+				s.dht.RoutingTable().RemovePeer(peerInfo.ID)
+				s.log.Debugw("Removed peer from routing table", "peer", peerInfo.ID)
 			}
 		}
 	}
