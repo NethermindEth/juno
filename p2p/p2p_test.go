@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInvalidKey(t *testing.T) {
 	_, err := p2p.New(
 		"/ip4/127.0.0.1/tcp/30301",
 		"",
@@ -23,6 +22,7 @@ func TestInvalidKey(t *testing.T) {
 		nil,
 		&utils.Integration,
 		utils.NewNopZapLogger(),
+		nil,
 		nil,
 	)
 
@@ -61,6 +61,7 @@ func TestLoadAndPersistPeers(t *testing.T) {
 		&utils.Integration,
 		utils.NewNopZapLogger(),
 		testDB,
+		nil,
 	)
 	require.NoError(t, err)
 }
