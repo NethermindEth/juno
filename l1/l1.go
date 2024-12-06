@@ -166,8 +166,6 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int) error {
-	ticker := time.NewTicker(c.pollFinalisedInterval)
-	defer ticker.Stop()
 	c.log.Infow("Subscribing to L1 updates...")
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
 	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
@@ -175,7 +173,12 @@ func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int)
 		return err
 	}
 	defer updateSub.Unsubscribe()
+
 	c.log.Infow("Subscribed to L1 updates")
+
+	ticker := time.NewTicker(c.pollFinalisedInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
