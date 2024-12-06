@@ -531,11 +531,11 @@ func TestMakeSubscribtionsToIPAddresses(t *testing.T) {
 	case event := <-eventsChan:
 		switch event.EventType {
 		case p2p.Add:
-			assert.Contains(t, expectedAddressesToAdd, event.IP)
-			delete(expectedAddressesToAdd, event.IP)
+			assert.Contains(t, expectedAddressesToAdd, event.Address)
+			delete(expectedAddressesToAdd, event.Address)
 		case p2p.Remove:
-			assert.Contains(t, expectedAddressesToRemove, event.IP)
-			delete(expectedAddressesToRemove, event.IP)
+			assert.Contains(t, expectedAddressesToRemove, event.Address)
+			delete(expectedAddressesToRemove, event.Address)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Expected IP address addition event")
