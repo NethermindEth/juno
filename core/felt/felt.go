@@ -26,7 +26,6 @@ const (
 )
 
 const (
-	Limbs = fp.Limbs // number of 64 bits words needed to represent a Element
 	Bits  = fp.Bits  // number of bits needed to represent a Element
 	Bytes = fp.Bytes // number of bytes needed to represent a Element
 )
