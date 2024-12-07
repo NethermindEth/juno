@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
+	"github.com/NethermindEth/juno/migration"
 )
 
 const (
@@ -21,6 +22,7 @@ const (
 
 type DBInfo struct {
 	Network         string     `json:"network"`
+	SchemaVersion   uint64     `json:"schema_version"`
 	ChainHeight     uint64     `json:"chain_height"`
 	LatestBlockHash *felt.Felt `json:"latest_block_hash"`
 	LatestStateRoot *felt.Felt `json:"latest_state_root"`
@@ -84,7 +86,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	chain := blockchain.New(database, nil)
-	info := DBInfo{}
+	var info DBInfo
 
 	// Get the latest block information
 	headBlock, err := chain.Head()
@@ -96,6 +98,12 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
+
+	schemaMeta, err := migration.SchemaMetadata(database)
+	if err != nil {
+		return fmt.Errorf("failed to get schema metadata: %v", err)
+	}
+	info.SchemaVersion = schemaMeta.Version
 
 	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
 	info.ChainHeight = headBlock.Number
