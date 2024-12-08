@@ -26,6 +26,8 @@ type Reader interface {
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
+	BlockP2PHashByNumber(number uint64) (hash *felt.Felt, err error)
+
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
@@ -218,12 +220,22 @@ func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 	})
 }
 
+func (b *Blockchain) BlockP2PHashByNumber(number uint64) (*felt.Felt, error) {
+	b.listener.OnRead("BlockP2PHashByNumber")
+	var hash *felt.Felt
+	return hash, b.database.View(func(txn db.Transaction) error {
+		var err error
+		hash, err = p2pHashByNumber(txn, number)
+		return err
+	})
+}
+
 func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
 	b.listener.OnRead("StateUpdateByNumber")
 	var update *core.StateUpdate
 	return update, b.database.View(func(txn db.Transaction) error {
 		var err error
-		update, err = stateUpdateByNumber(txn, number)
+		update, err = StateUpdateByNumber(txn, number)
 		return err
 	})
 }
@@ -404,6 +416,21 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return b.database.View(func(txn db.Transaction) error {
 		return verifyBlock(txn, block)
+	})
+}
+
+func StoreP2PHash(txn db.Transaction, blockNumber uint64, p2pHash *felt.Felt) error {
+	hashBytes := p2pHash.Bytes()
+	numBytes := core.MarshalBlockNumber(blockNumber)
+	return txn.Set(db.P2PHash.Key(numBytes), hashBytes[:])
+}
+
+func p2pHashByNumber(txn db.Transaction, blockNumber uint64) (*felt.Felt, error) {
+	var blockHash *felt.Felt
+	numBytes := core.MarshalBlockNumber(blockNumber)
+	return blockHash, txn.Get(db.P2PHash.Key(numBytes), func(bytes []byte) error {
+		blockHash = new(felt.Felt).SetBytes(bytes)
+		return nil
 	})
 }
 
@@ -638,7 +665,7 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 	return txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes)
 }
 
-func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
+func StateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	var update *core.StateUpdate
@@ -655,7 +682,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 	var update *core.StateUpdate
 	return update, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
 		var err error
-		update, err = stateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
+		update, err = StateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
@@ -881,7 +908,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 		if err != nil {
 			return err
 		}
-		stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
+		stateUpdate, err := StateUpdateByNumber(txn, blockNumber)
 		if err != nil {
 			return err
 		}
@@ -898,7 +925,7 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	}
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
-	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
+	stateUpdate, err := StateUpdateByNumber(txn, blockNumber)
 	if err != nil {
 		return err
 	}
