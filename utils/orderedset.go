@@ -10,17 +10,15 @@ import (
 // - Uses a slice to maintain insertion order and enable ordered iteration
 // The data structure is safe for concurrent access through the use of a read-write mutex.
 type OrderedSet[K comparable, V any] struct {
-	nodeSet  map[K]V
-	nodePos  map[K]int // position of the node in the list
-	nodeList []V
-	size     int
-	lock     sync.RWMutex
+	itemPos map[K]int // position of the node in the list
+	items   []V
+	size    int
+	lock    sync.RWMutex
 }
 
 func NewOrderedSet[K comparable, V any]() *OrderedSet[K, V] {
 	return &OrderedSet[K, V]{
-		nodeSet: make(map[K]V),
-		nodePos: make(map[K]int),
+		itemPos: make(map[K]int),
 	}
 }
 
@@ -29,17 +27,14 @@ func (ps *OrderedSet[K, V]) Put(key K, value V) {
 	defer ps.lock.Unlock()
 
 	// Update existing entry
-	if _, exists := ps.nodeSet[key]; exists {
-		ps.nodeSet[key] = value
-		pos := ps.nodePos[key]
-		ps.nodeList[pos] = value
+	if pos, exists := ps.itemPos[key]; exists {
+		ps.items[pos] = value
 		return
 	}
 
 	// Insert new entry
-	ps.nodeSet[key] = value
-	ps.nodePos[key] = len(ps.nodeList)
-	ps.nodeList = append(ps.nodeList, value)
+	ps.itemPos[key] = len(ps.items)
+	ps.items = append(ps.items, value)
 	ps.size++
 }
 
@@ -47,8 +42,11 @@ func (ps *OrderedSet[K, V]) Get(key K) (V, bool) {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
-	value, ok := ps.nodeSet[key]
-	return value, ok
+	if pos, ok := ps.itemPos[key]; ok {
+		return ps.items[pos], true
+	}
+	var zero V
+	return zero, false
 }
 
 func (ps *OrderedSet[K, V]) Size() int {
@@ -63,7 +61,7 @@ func (ps *OrderedSet[K, V]) List() []V {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
-	values := make([]V, len(ps.nodeList))
-	copy(values, ps.nodeList)
+	values := make([]V, len(ps.items))
+	copy(values, ps.items)
 	return values
 }
