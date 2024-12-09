@@ -66,6 +66,7 @@ var (
 	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
+	ErrTooManyAddressesInFilter        = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
 	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
 	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
 
@@ -93,8 +94,11 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version  string
-	newHeads *feed.Feed[*core.Header]
+	version    string
+	newHeads   *feed.Feed[*core.Header]
+	reorgs     *feed.Feed[*sync.ReorgData]
+	pendingTxs *feed.Feed[[]core.Transaction]
+	txnStatus  *feed.Feed[*NewTransactionStatus]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -135,6 +139,9 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		},
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
+		reorgs:        feed.New[*sync.ReorgData](),
+		pendingTxs:    feed.New[[]core.Transaction](),
+		txnStatus:     feed.New[*NewTransactionStatus](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -176,8 +183,15 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
+	reorgsSub := h.syncReader.SubscribeReorg().Subscription
+	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	defer reorgsSub.Unsubscribe()
+	defer pendingTxsSub.Unsubscribe()
+	feed.Tee(newHeadsSub, h.newHeads)
+	feed.Tee(reorgsSub, h.reorgs)
+	feed.Tee(pendingTxsSub, h.pendingTxs)
+
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -344,8 +358,19 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SubscribeEvents,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
+		},
+		{
+			Name:    "starknet_subscribePendingTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
+			Handler: h.SubscribePendingTxs,
+		},
+		{
+			Name:    "starknet_subscribeTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block", Optional: true}},
+			Handler: h.SubscribeTxnStatus,
 		},
 		{
 			Name:    "juno_unsubscribe",
@@ -512,7 +537,8 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersionV0_7,
 		},
 		{
-			Name:    "juno_subscribeNewHeads",
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{
