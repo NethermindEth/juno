@@ -328,7 +328,7 @@ func storageNodeToProofNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge
 	isEdgeBool := isEdge(parentKey, sNode)
 
 	var edge *Edge
-	if isEdgeBool {
+	if isEdge(parentKey, sNode) {
 		edgePath := path(sNode.key, parentKey)
 		edge = &Edge{
 			Path:  &edgePath,
