@@ -10,10 +10,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
-	"github.com/NethermindEth/juno/migration"
 )
 
 const (
