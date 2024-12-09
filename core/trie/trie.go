@@ -133,7 +133,7 @@ func (sn *StorageNode) String() string {
 	return fmt.Sprintf("StorageNode{key: %s, node: %s}", sn.key, sn.node)
 }
 
-func (sn *StorageNode) Merge(other *StorageNode) error {
+func (sn *StorageNode) Update(other *StorageNode) error {
 	if sn.key != nil && other.key != nil && !sn.key.Equal(NilKey) && !other.key.Equal(NilKey) {
 		if !sn.key.Equal(other.key) {
 			return fmt.Errorf("keys do not match: %s != %s", sn.key, other.key)
@@ -141,7 +141,7 @@ func (sn *StorageNode) Merge(other *StorageNode) error {
 	} else if other.key != nil && !other.key.Equal(NilKey) {
 		sn.key = other.key
 	}
-	return sn.node.Merge(other.node)
+	return sn.node.Update(other.node)
 }
 
 func NewStorageNode(key *Key, node *Node) *StorageNode {
@@ -182,10 +182,10 @@ func (s *StorageNodeSet) Put(key Key, node *StorageNode) error {
 		return fmt.Errorf("cannot put nil node")
 	}
 
-	// If key exists, merge the nodes
+	// If key exists, update the node
 	if existingNode, exists := s.set.Get(key); exists {
-		if err := existingNode.Merge(node); err != nil {
-			return fmt.Errorf("failed to merge nodes for key %v: %w", key, err)
+		if err := existingNode.Update(node); err != nil {
+			return fmt.Errorf("failed to update node for key %v: %w", key, err)
 		}
 		return nil
 	}
