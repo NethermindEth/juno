@@ -1281,6 +1281,17 @@ func TestTransactionStatus(t *testing.T) {
 				require.NotNil(t, err)
 				require.Equal(t, err, rpc.ErrTxnHashNotFound)
 			})
+
+			t.Run("not received", func(t *testing.T) {
+				mockReader := mocks.NewMockReader(mockCtrl)
+				notReceivedHash := test.notFoundTxHash
+
+				mockReader.EXPECT().TransactionByHash(notReceivedHash).Return(nil, db.ErrKeyNotFound)
+
+				handler := rpc.New(mockReader, nil, nil, "", log).WithFeeder(client)
+				_, err := handler.TransactionStatus(ctx, *notReceivedHash)
+				require.Equal(t, rpc.ErrTxnHashNotFound, err)
+			})
 		})
 	}
 }
