@@ -144,12 +144,13 @@ func (n *Node) String() string {
 	return fmt.Sprintf("Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}", n.Value, n.Left, n.Right, n.LeftHash, n.RightHash)
 }
 
-// Merge combines the fields of two nodes if they are not nil.
-// If a field is nil in the current node, it is updated with the corresponding field from the other node.
-// If a field is not nil in both nodes, the fields must be equal, otherwise an error is returned.
+// Update the receiver with non-nil fields from the `other` Node.
+// If a field is non-nil in both Nodes, they must be equal, or an error is returned.
+//
+// This method modifies the receiver in-place and returns an error if any field conflicts are detected.
 //
 //nolint:gocyclo
-func (n *Node) Merge(other *Node) error {
+func (n *Node) Update(other *Node) error {
 	// Compare Value if both exist
 	if n.Value != nil && other.Value != nil {
 		if !n.Value.Equal(other.Value) {
