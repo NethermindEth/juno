@@ -325,8 +325,6 @@ func isEdge(parentKey *Key, sNode StorageNode) bool {
 // Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
 // We need to convert the former to the latter for proof generation.
 func storageNodeToProofNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary, error) {
-	isEdgeBool := isEdge(parentKey, sNode)
-
 	var edge *Edge
 	if isEdge(parentKey, sNode) {
 		edgePath := path(sNode.key, parentKey)
