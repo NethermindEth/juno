@@ -377,10 +377,9 @@ func StoreP2PHash(txn db.Transaction, blockNumber uint64, p2pHash *felt.Felt) er
 }
 
 func p2pHashByNumber(txn db.Transaction, blockNumber uint64) (*felt.Felt, error) {
-	var blockHash *felt.Felt
-	numBytes := core.MarshalBlockNumber(blockNumber)
-	return blockHash, txn.Get(db.P2PHash.Key(numBytes), func(bytes []byte) error {
-		blockHash = new(felt.Felt).SetBytes(bytes)
+	blockHash := new(felt.Felt)
+	return blockHash, txn.Get(db.P2PHash.Key(core.MarshalBlockNumber(blockNumber)), func(val []byte) error {
+		blockHash.Unmarshal(val)
 		return nil
 	})
 }
