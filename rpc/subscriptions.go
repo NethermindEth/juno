@@ -21,6 +21,7 @@ type SubscriptionResponse struct {
 	Params  any    `json:"params"`
 }
 
+// SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
 func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt,
 	blockID *BlockID,
 ) (*SubscriptionID, *jsonrpc.Error) {
@@ -187,13 +188,14 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 	return nil
 }
 
+// SubscribeNewHeads creates a WebSocket stream which will fire events when a new block header is added.
 func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	startHeader, latestHeader, rpcErr := h.getStartAndLatestHeaders(blockID)
+	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -240,6 +242,9 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 	return &SubscriptionID{ID: id}, nil
 }
 
+// SubscribePendingTxs creates a WebSocket stream which will fire events when a new pending transaction is added.
+// The getDetails flag controls if the response will contain the transaction details or just the transaction hashes.
+// The senderAddr flag is used to filter the transactions by sender address.
 func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, senderAddr []felt.Felt) (*SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -295,6 +300,9 @@ func (h *Handler) processPendingTxs(
 	}
 }
 
+// filterTxs filters the transactions based on the getDetails flag.
+// If getDetails is true, response will contain the transaction details.
+// If getDetails is false, response will only contain the transaction hashes.
 func (h *Handler) filterTxs(pendingTxs []core.Transaction, getDetails bool, senderAddr []felt.Felt) interface{} {
 	if getDetails {
 		return h.filterTxDetails(pendingTxs, senderAddr)
@@ -305,7 +313,7 @@ func (h *Handler) filterTxs(pendingTxs []core.Transaction, getDetails bool, send
 func (h *Handler) filterTxDetails(pendingTxs []core.Transaction, senderAddr []felt.Felt) []*Transaction {
 	filteredTxs := make([]*Transaction, 0, len(pendingTxs))
 	for _, txn := range pendingTxs {
-		if h.shouldIncludeTx(txn, senderAddr) {
+		if h.filterTxBySender(txn, senderAddr) {
 			filteredTxs = append(filteredTxs, AdaptTransaction(txn))
 		}
 	}
@@ -315,14 +323,18 @@ func (h *Handler) filterTxDetails(pendingTxs []core.Transaction, senderAddr []fe
 func (h *Handler) filterTxHashes(pendingTxs []core.Transaction, senderAddr []felt.Felt) []felt.Felt {
 	filteredTxHashes := make([]felt.Felt, 0, len(pendingTxs))
 	for _, txn := range pendingTxs {
-		if h.shouldIncludeTx(txn, senderAddr) {
+		if h.filterTxBySender(txn, senderAddr) {
 			filteredTxHashes = append(filteredTxHashes, *txn.Hash())
 		}
 	}
 	return filteredTxHashes
 }
 
-func (h *Handler) shouldIncludeTx(txn core.Transaction, senderAddr []felt.Felt) bool {
+// filterTxBySender checks if the transaction is included in the sender address list.
+// If the sender address list is empty, it will return true by default.
+// If the sender address list is not empty, it will check if the transaction is an Invoke or Declare transaction
+// and if the sender address is in the list. For other transaction types, it will by default return false.
+func (h *Handler) filterTxBySender(txn core.Transaction, senderAddr []felt.Felt) bool {
 	if len(senderAddr) == 0 {
 		return true
 	}
@@ -362,9 +374,9 @@ func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result interface{}, id uint64) 
 	return err
 }
 
-// getStartAndLatestHeaders returns the start and latest headers based on the blockID.
+// resolveBlockRange returns the start and latest headers based on the blockID.
 // It will also do some sanity checks and return errors if the blockID is invalid.
-func (h *Handler) getStartAndLatestHeaders(blockID *BlockID) (*core.Header, *core.Header, *jsonrpc.Error) {
+func (h *Handler) resolveBlockRange(blockID *BlockID) (*core.Header, *core.Header, *jsonrpc.Error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, nil, ErrInternal.CloneWithData(err.Error())
