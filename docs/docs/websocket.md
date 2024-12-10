@@ -96,7 +96,7 @@ Get the most recent accepted block hash and number with the `starknet_blockHashA
 
 ## Subscribe to newly created blocks
 
-The WebSocket server provides a `juno_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain:
+The WebSocket server provides a `starknet_subscribeNewHeads` method that emits an event when new blocks are added to the blockchain:
 
 <Tabs>
 <TabItem value="request" label="Request">
@@ -104,8 +104,7 @@ The WebSocket server provides a `juno_subscribeNewHeads` method that emits an ev
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "juno_subscribeNewHeads",
-  "params": [],
+  "method": "starknet_subscribeNewHeads",
   "id": 1
 }
 ```
@@ -129,7 +128,7 @@ When a new block is added, you will receive a message like this:
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "juno_subscribeNewHeads",
+  "method": "starknet_subscriptionNewHeads",
   "params": {
     "result": {
       "block_hash": "0x840660a07a17ae6a55d39fb6d366698ecda11e02280ca3e9ca4b4f1bad741c",
@@ -149,7 +148,7 @@ When a new block is added, you will receive a message like this:
       "l1_da_mode": "BLOB",
       "starknet_version": "0.13.1.1"
     },
-    "subscription": 16570962336122680234
+    "subscription_id": 16570962336122680234
   }
 }
 ```
