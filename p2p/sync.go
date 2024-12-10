@@ -359,15 +359,15 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			}
 
 			if blockVer.LessThan(core.Ver0_13_2) {
-				p2pHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
-				expectedHash, _, err := core.Post0132Hash(coreBlock, stateDiff)
+				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
+				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff)
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
 					return
 				}
 
-				if !p2pHash.Equal(expectedHash) {
-					err = fmt.Errorf("received p2p hash %v doesn't match expected %v", coreBlock.Hash, expectedHash)
+				if !expectedHash.Equal(post0132Hash) {
+					err = fmt.Errorf("block hash mismatch: expected %s, got %s", expectedHash, post0132Hash)
 					bodyCh <- blockBody{err: err}
 					return
 				}
