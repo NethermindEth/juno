@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var f *felt.Felt
-
 func TestPoseidon(t *testing.T) {
 	left := new(felt.Felt).SetUint64(1)
 	right := new(felt.Felt).SetUint64(2)
@@ -59,42 +57,27 @@ func TestPoseidonArray(t *testing.T) {
 // go test -bench=. -run=^# -cpu=1,2,4,8,16
 func BenchmarkPoseidonArray(b *testing.B) {
 	numOfElems := []int{3, 5, 10, 15, 20, 25, 30, 35, 40}
-	createRandomFelts := func(n int) []*felt.Felt {
-		var felts []*felt.Felt
-		for i := 0; i < n; i++ {
-			randF, err := new(felt.Felt).SetRandom()
-			if err != nil {
-				b.Fatalf("error while generating random felt: %x", err)
-			}
-			felts = append(felts, randF)
-		}
-		return felts
-	}
 
 	for _, i := range numOfElems {
 		b.Run(fmt.Sprintf("Number of felts: %d", i), func(b *testing.B) {
-			randomFelts := createRandomFelts(i)
+			randomFeltSls := genRandomFeltSls(b, i)
+			var f *felt.Felt
+			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				f = crypto.PoseidonArray(randomFelts...)
+				f = crypto.PoseidonArray(randomFeltSls[n]...)
 			}
-			feltBench = f
+			benchHashR = f
 		})
 	}
 }
 
 func BenchmarkPoseidon(b *testing.B) {
-	e0, err := new(felt.Felt).SetString("0x3d937c035c878245caf64531a5756109c53068da139362728feb561405371cb")
-	if err != nil {
-		b.Fatalf("Error occurred %s", err)
-	}
+	randFelts := genRandomFeltPairs(b)
 
-	e1, err := new(felt.Felt).SetString("0x208a0a10250e382e1e4bbe2880906c2791bf6275695e02fbbc6aeff9cd8b31a")
-	if err != nil {
-		b.Fatalf("Error occurred %s", err)
-	}
-
+	var f *felt.Felt
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		f = crypto.Poseidon(e0, e1)
+		f = crypto.Poseidon(randFelts[n][0], randFelts[n][1])
 	}
-	feltBench = f
+	benchHashR = f
 }

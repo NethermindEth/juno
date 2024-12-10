@@ -36,6 +36,7 @@ const sidebars = {
         },
       ],
     },
+    "staking-validator",
     "monitoring",
     "snapshots",
     "faq",

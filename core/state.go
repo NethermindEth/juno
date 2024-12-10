@@ -367,7 +367,7 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 	return bufferedTxn, nil
 }
 
-// updateContractStorage applies the diff set to the Trie of the
+// updateContractStorages applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
 func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
 	blockNumber uint64, logChanges bool,

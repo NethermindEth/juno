@@ -16,6 +16,7 @@ import (
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
 	utils "github.com/NethermindEth/juno/utils"
+	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -118,10 +119,10 @@ func (mr *MockReaderMockRecorder) BlockHeaderByNumber(arg0 any) *gomock.Call {
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 [][]felt.Felt) (*blockchain.EventFilter, error) {
+func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 [][]felt.Felt) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventFilter", arg0, arg1)
-	ret0, _ := ret[0].(*blockchain.EventFilter)
+	ret0, _ := ret[0].(blockchain.EventFilterer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -191,6 +192,21 @@ func (m *MockReader) Height() (uint64, error) {
 func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockReader)(nil).Height))
+}
+
+// L1HandlerTxnHash mocks base method.
+func (m *MockReader) L1HandlerTxnHash(arg0 *common.Hash) (*felt.Felt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "L1HandlerTxnHash", arg0)
+	ret0, _ := ret[0].(*felt.Felt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// L1HandlerTxnHash indicates an expected call of L1HandlerTxnHash.
+func (mr *MockReaderMockRecorder) L1HandlerTxnHash(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1HandlerTxnHash", reflect.TypeOf((*MockReader)(nil).L1HandlerTxnHash), arg0)
 }
 
 // L1Head mocks base method.

@@ -56,8 +56,14 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 		}
 		return sn2core.AdaptCairo1Class(feederClass.V1, compiledClass)
 	case feederClass.V0 != nil:
+		program := feederClass.V0.Program
+
 		// strip the quotes
-		base64Program := string(feederClass.V0.Program[1 : len(feederClass.V0.Program)-1])
+		if len(program) < 2 {
+			return nil, errors.New("invalid program")
+		}
+		base64Program := string(program[1 : len(program)-1])
+
 		feederClass.V0.Program, err = utils.Gzip64Decode(base64Program)
 		if err != nil {
 			return nil, err

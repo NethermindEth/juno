@@ -28,8 +28,7 @@ var _ Subscriber = (*EthSubscriber)(nil)
 func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Address) (*EthSubscriber, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	// TODO replace with our own client once we have one.
-	// Geth pulls in a lot of dependencies that we don't use.
+
 	client, err := rpc.DialContext(ctx, ethClientAddress)
 	if err != nil {
 		return nil, err
@@ -86,4 +85,15 @@ func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
 
 func (s *EthSubscriber) Close() {
 	s.ethClient.Close()
+}
+
+func (s *EthSubscriber) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	reqTimer := time.Now()
+	receipt, err := s.ethClient.TransactionReceipt(ctx, txHash)
+	if err != nil {
+		return nil, fmt.Errorf("get eth Transaction Receipt: %w", err)
+	}
+	s.listener.OnL1Call("eth_getTransactionReceipt", time.Since(reqTimer))
+
+	return receipt, nil
 }

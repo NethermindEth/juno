@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -516,6 +517,8 @@ func assertBatchResponse(t *testing.T, expectedStr, actualStr string) {
 	assert.ElementsMatch(t, expected, actual)
 }
 
+var benchHandleR http.Header
+
 func BenchmarkHandle(b *testing.B) {
 	listener := CountingEventListener{}
 	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
@@ -525,11 +528,15 @@ func BenchmarkHandle(b *testing.B) {
 	}))
 
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
+	var header http.Header
+	var err error
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, header, err := server.HandleReader(context.Background(), strings.NewReader(request))
+		_, header, err = server.HandleReader(context.Background(), strings.NewReader(request))
 		require.NoError(b, err)
 		require.NotNil(b, header)
 	}
+	benchHandleR = header
 }
 
 func TestCannotWriteToConnInHandler(t *testing.T) {

@@ -144,6 +144,11 @@ func (z *Felt) Marshal() []byte {
 	return z.val.Marshal()
 }
 
+// Unmarshal forwards the call to underlying field element implementation
+func (z *Felt) Unmarshal(e []byte) {
+	z.val.Unmarshal(e)
+}
+
 // Bytes forwards the call to underlying field element implementation
 func (z *Felt) Bytes() [32]byte {
 	return z.val.Bytes()

@@ -15,6 +15,8 @@ import (
 	reflect "reflect"
 
 	contract "github.com/NethermindEth/juno/l1/contract"
+	common "github.com/ethereum/go-ethereum/common"
+	types "github.com/ethereum/go-ethereum/core/types"
 	event "github.com/ethereum/go-ethereum/event"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -23,6 +25,7 @@ import (
 type MockSubscriber struct {
 	ctrl     *gomock.Controller
 	recorder *MockSubscriberMockRecorder
+	isgomock struct{}
 }
 
 // MockSubscriberMockRecorder is the mock recorder for MockSubscriber.
@@ -43,18 +46,18 @@ func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 }
 
 // ChainID mocks base method.
-func (m *MockSubscriber) ChainID(arg0 context.Context) (*big.Int, error) {
+func (m *MockSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChainID", arg0)
+	ret := m.ctrl.Call(m, "ChainID", ctx)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ChainID indicates an expected call of ChainID.
-func (mr *MockSubscriberMockRecorder) ChainID(arg0 any) *gomock.Call {
+func (mr *MockSubscriberMockRecorder) ChainID(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockSubscriber)(nil).ChainID), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockSubscriber)(nil).ChainID), ctx)
 }
 
 // Close mocks base method.
@@ -70,31 +73,46 @@ func (mr *MockSubscriberMockRecorder) Close() *gomock.Call {
 }
 
 // FinalisedHeight mocks base method.
-func (m *MockSubscriber) FinalisedHeight(arg0 context.Context) (uint64, error) {
+func (m *MockSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FinalisedHeight", arg0)
+	ret := m.ctrl.Call(m, "FinalisedHeight", ctx)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FinalisedHeight indicates an expected call of FinalisedHeight.
-func (mr *MockSubscriberMockRecorder) FinalisedHeight(arg0 any) *gomock.Call {
+func (mr *MockSubscriberMockRecorder) FinalisedHeight(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalisedHeight", reflect.TypeOf((*MockSubscriber)(nil).FinalisedHeight), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalisedHeight", reflect.TypeOf((*MockSubscriber)(nil).FinalisedHeight), ctx)
+}
+
+// TransactionReceipt mocks base method.
+func (m *MockSubscriber) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionReceipt", ctx, txHash)
+	ret0, _ := ret[0].(*types.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TransactionReceipt indicates an expected call of TransactionReceipt.
+func (mr *MockSubscriberMockRecorder) TransactionReceipt(ctx, txHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionReceipt", reflect.TypeOf((*MockSubscriber)(nil).TransactionReceipt), ctx, txHash)
 }
 
 // WatchLogStateUpdate mocks base method.
-func (m *MockSubscriber) WatchLogStateUpdate(arg0 context.Context, arg1 chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {
+func (m *MockSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchLogStateUpdate", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchLogStateUpdate", ctx, sink)
 	ret0, _ := ret[0].(event.Subscription)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchLogStateUpdate indicates an expected call of WatchLogStateUpdate.
-func (mr *MockSubscriberMockRecorder) WatchLogStateUpdate(arg0, arg1 any) *gomock.Call {
+func (mr *MockSubscriberMockRecorder) WatchLogStateUpdate(ctx, sink any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLogStateUpdate", reflect.TypeOf((*MockSubscriber)(nil).WatchLogStateUpdate), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLogStateUpdate", reflect.TypeOf((*MockSubscriber)(nil).WatchLogStateUpdate), ctx, sink)
 }

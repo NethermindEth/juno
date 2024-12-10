@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/NethermindEth/juno/core"
@@ -13,6 +14,16 @@ import (
 )
 
 var errChunkSizeReached = errors.New("chunk size reached")
+
+//go:generate mockgen -destination=../mocks/mock_event_filterer.go -package=mocks github.com/NethermindEth/juno/blockchain EventFilterer
+type EventFilterer interface {
+	io.Closer
+
+	Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error)
+	SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error
+	SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error
+	WithLimit(limit uint) *EventFilter
+}
 
 type EventFilter struct {
 	txn             db.Transaction
@@ -97,7 +108,7 @@ type FilteredEvent struct {
 //nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
-	latest, err := chainHeight(e.txn)
+	latest, err := ChainHeight(e.txn)
 	if err != nil {
 		return nil, nil, err
 	}

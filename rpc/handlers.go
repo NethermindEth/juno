@@ -5,7 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
+	"log"
 	"math"
+	"strings"
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -14,16 +17,24 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/lru"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/sourcegraph/conc"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
+}
+
+type l1Client interface {
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 var (
@@ -57,13 +68,15 @@ var (
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
 
 	ErrTooManyAddressesInFilter = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
-	ErrTooManyBlocksBack        = &jsonrpc.Error{Code: 68, Message: "Cannot go back more than 1024 blocks"}
+	ErrTooManyBlocksBack        = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
+	ErrCallOnPending            = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
 
 	// These errors can be only be returned by Juno-specific methods.
 	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
 )
 
 const (
+	maxBlocksBack      = 1024
 	maxEventChunkSize  = 10240
 	maxEventFilterKeys = 1024
 	traceCacheSize     = 128
@@ -95,6 +108,9 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
+
+	l1Client        l1Client
+	coreContractABI abi.ABI
 }
 
 type subscription struct {
@@ -106,6 +122,10 @@ type subscription struct {
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger,
 ) *Handler {
+	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
+	if err != nil {
+		log.Fatalf("Failed to parse ABI: %v", err)
+	}
 	return &Handler{
 		bcReader:   bcReader,
 		syncReader: syncReader,
@@ -125,12 +145,18 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
+		coreContractABI: contractABI,
 	}
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	h.filterLimit = limit
+	return h
+}
+
+func (h *Handler) WithL1Client(l1Client l1Client) *Handler {
+	h.l1Client = l1Client
 	return h
 }
 
@@ -326,6 +352,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersion,
 		},
 		{
+			Name:    "starknet_subscribeEvents",
+			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block", Optional: true}},
+			Handler: h.SubscribeEvents,
+		},
+		{
 			Name:    "starknet_subscribeNewHeads",
 			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
@@ -344,6 +375,16 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
+		},
+		{
+			Name:    "starknet_getCompiledCasm",
+			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
+			Handler: h.CompiledCasm,
+		},
+		{
+			Name:    "starknet_getMessagesStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.GetMessageStatus,
 		},
 	}, "/v0_8"
 }

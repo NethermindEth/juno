@@ -65,3 +65,14 @@ func TestShortString(t *testing.T) {
 		assert.Equal(t, "0x1234...6789", f.ShortString())
 	})
 }
+
+func TestFeltMarshalAndUnmarshal(t *testing.T) {
+	f := new(felt.Felt).SetBytes([]byte("somebytes"))
+
+	fBytes := f.Marshal()
+
+	f2 := new(felt.Felt)
+	f2.Unmarshal(fBytes)
+
+	assert.True(t, f2.Equal(f))
+}

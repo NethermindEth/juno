@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -154,6 +155,21 @@ func TestVerifyBlock(t *testing.T) {
 		require.EqualError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil), "unsupported block version")
 	})
 
+	t.Run("mismatch at patch version is ignored", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = blockchain.SupportedStarknetVersion.IncPatch().String()
+		assert.NoError(t, chain.VerifyBlock(mainnetBlock0))
+	})
+
+	t.Run("error if mismatch at minor version", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = blockchain.SupportedStarknetVersion.IncMinor().String()
+		assert.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
+	})
+
+	t.Run("error if mismatch at minor version", func(t *testing.T) {
+		mainnetBlock0.ProtocolVersion = blockchain.SupportedStarknetVersion.IncMajor().String()
+		assert.EqualError(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
+	})
+
 	t.Run("no error with no version string", func(t *testing.T) {
 		mainnetBlock0.ProtocolVersion = ""
 		require.NoError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil))
@@ -239,6 +255,7 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate0, got0Update)
 	})
+
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
 		block1, err := gw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
@@ -266,6 +283,24 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
 	})
+}
+
+func TestStoreL1HandlerTxnHash(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+	var stateUpdate *core.StateUpdate
+	for i := range uint64(7) {
+		block, err := gw.BlockByNumber(context.Background(), i)
+		require.NoError(t, err)
+		stateUpdate, err = gw.StateUpdate(context.Background(), i)
+		require.NoError(t, err)
+		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
+	}
+	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
+	require.NoError(t, err)
+	require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
 }
 
 func TestBlockCommitments(t *testing.T) {

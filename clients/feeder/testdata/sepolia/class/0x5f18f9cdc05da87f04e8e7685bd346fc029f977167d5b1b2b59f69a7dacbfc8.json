@@ -1,0 +1,1063 @@
+{
+  "entry_points_by_type": {
+    "CONSTRUCTOR": [],
+    "EXTERNAL": [
+      {
+        "selector": "0x35a8bb8492337e79bdc674d6f31ac448f8017e26cc7bfe3144fb5d886fe5369",
+        "offset": 11
+      }
+    ],
+    "L1_HANDLER": []
+  },
+  "program": {
+    "prime": "0x800000000000011000000000000000000000000000000000000000000000001",
+    "data": [
+      "0x482a7ffd7ffc8000",
+      "0x208b7fff7fff7ffe",
+      "0x40780017fff7fff",
+      "0x1",
+      "0x4003800080007ffc",
+      "0x4826800180008000",
+      "0x1",
+      "0x480a7ffd7fff8000",
+      "0x4828800080007ffe",
+      "0x480a80007fff8000",
+      "0x208b7fff7fff7ffe",
+      "0x482680017ffd8000",
+      "0x2",
+      "0x402a7ffd7ffc7fff",
+      "0x480280007ffd8000",
+      "0x480280017ffd8000",
+      "0x1104800180018000",
+      "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff1",
+      "0x480280017ffb8000",
+      "0x1104800180018000",
+      "0x800000000000010fffffffffffffffffffffffffffffffffffffffffffffff0",
+      "0x480280007ffb8000",
+      "0x48127ffc7fff8000",
+      "0x48127ffc7fff8000",
+      "0x48127ffc7fff8000",
+      "0x208b7fff7fff7ffe"
+    ],
+    "builtins": [
+      "range_check"
+    ],
+    "hints": {
+      "2": [
+        {
+          "code": "memory[ap] = segments.add()",
+          "accessible_scopes": [
+            "__main__",
+            "__main__",
+            "__wrappers__",
+            "__wrappers__.add_encode_return"
+          ],
+          "flow_tracking_data": {
+            "ap_tracking": {
+              "group": 1,
+              "offset": 0
+            },
+            "reference_ids": {}
+          }
+        }
+      ]
+    },
+    "compiler_version": "0.10.3",
+    "main_scope": "__main__",
+    "identifiers": {
+      "starkware.cairo.common.ec_point.EcPoint": {
+        "full_name": "starkware.cairo.common.ec_point.EcPoint",
+        "members": {
+          "x": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "y": {
+            "offset": 1,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.cairo.common.keccak_state.KeccakBuiltinState": {
+        "full_name": "starkware.cairo.common.keccak_state.KeccakBuiltinState",
+        "members": {
+          "s0": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "s1": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "s2": {
+            "offset": 2,
+            "cairo_type": "felt"
+          },
+          "s3": {
+            "offset": 3,
+            "cairo_type": "felt"
+          },
+          "s4": {
+            "offset": 4,
+            "cairo_type": "felt"
+          },
+          "s5": {
+            "offset": 5,
+            "cairo_type": "felt"
+          },
+          "s6": {
+            "offset": 6,
+            "cairo_type": "felt"
+          },
+          "s7": {
+            "offset": 7,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 8,
+        "type": "struct"
+      },
+      "starkware.cairo.common.cairo_builtins.EcPoint": {
+        "destination": "starkware.cairo.common.ec_point.EcPoint",
+        "type": "alias"
+      },
+      "starkware.cairo.common.cairo_builtins.KeccakBuiltinState": {
+        "destination": "starkware.cairo.common.keccak_state.KeccakBuiltinState",
+        "type": "alias"
+      },
+      "starkware.cairo.common.cairo_builtins.HashBuiltin": {
+        "full_name": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+        "members": {
+          "x": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "y": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "result": {
+            "offset": 2,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 3,
+        "type": "struct"
+      },
+      "starkware.cairo.common.cairo_builtins.SignatureBuiltin": {
+        "full_name": "starkware.cairo.common.cairo_builtins.SignatureBuiltin",
+        "members": {
+          "pub_key": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "message": {
+            "offset": 1,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.cairo.common.cairo_builtins.BitwiseBuiltin": {
+        "full_name": "starkware.cairo.common.cairo_builtins.BitwiseBuiltin",
+        "members": {
+          "x": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "y": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "x_and_y": {
+            "offset": 2,
+            "cairo_type": "felt"
+          },
+          "x_xor_y": {
+            "offset": 3,
+            "cairo_type": "felt"
+          },
+          "x_or_y": {
+            "offset": 4,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 5,
+        "type": "struct"
+      },
+      "starkware.cairo.common.cairo_builtins.EcOpBuiltin": {
+        "full_name": "starkware.cairo.common.cairo_builtins.EcOpBuiltin",
+        "members": {
+          "p": {
+            "offset": 0,
+            "cairo_type": "starkware.cairo.common.ec_point.EcPoint"
+          },
+          "q": {
+            "offset": 2,
+            "cairo_type": "starkware.cairo.common.ec_point.EcPoint"
+          },
+          "m": {
+            "offset": 4,
+            "cairo_type": "felt"
+          },
+          "r": {
+            "offset": 5,
+            "cairo_type": "starkware.cairo.common.ec_point.EcPoint"
+          }
+        },
+        "size": 7,
+        "type": "struct"
+      },
+      "starkware.cairo.common.cairo_builtins.KeccakBuiltin": {
+        "full_name": "starkware.cairo.common.cairo_builtins.KeccakBuiltin",
+        "members": {
+          "input": {
+            "offset": 0,
+            "cairo_type": "starkware.cairo.common.keccak_state.KeccakBuiltinState"
+          },
+          "output": {
+            "offset": 8,
+            "cairo_type": "starkware.cairo.common.keccak_state.KeccakBuiltinState"
+          }
+        },
+        "size": 16,
+        "type": "struct"
+      },
+      "starkware.cairo.common.hash.HashBuiltin": {
+        "destination": "starkware.cairo.common.cairo_builtins.HashBuiltin",
+        "type": "alias"
+      },
+      "starkware.cairo.common.bool.FALSE": {
+        "value": 0,
+        "type": "const"
+      },
+      "starkware.cairo.common.bool.TRUE": {
+        "value": 1,
+        "type": "const"
+      },
+      "starkware.cairo.common.math.FALSE": {
+        "destination": "starkware.cairo.common.bool.FALSE",
+        "type": "alias"
+      },
+      "starkware.cairo.common.math.TRUE": {
+        "destination": "starkware.cairo.common.bool.TRUE",
+        "type": "alias"
+      },
+      "starkware.starknet.common.storage.assert_250_bit": {
+        "destination": "starkware.cairo.common.math.assert_250_bit",
+        "type": "alias"
+      },
+      "starkware.starknet.common.storage.MAX_STORAGE_ITEM_SIZE": {
+        "value": 256,
+        "type": "const"
+      },
+      "starkware.starknet.common.storage.ADDR_BOUND": {
+        "value": -1.0671072950157357e+59,
+        "type": "const"
+      },
+      "starkware.cairo.common.dict_access.DictAccess": {
+        "full_name": "starkware.cairo.common.dict_access.DictAccess",
+        "members": {
+          "key": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "prev_value": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "new_value": {
+            "offset": 2,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 3,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.DictAccess": {
+        "destination": "starkware.cairo.common.dict_access.DictAccess",
+        "type": "alias"
+      },
+      "starkware.starknet.common.syscalls.SEND_MESSAGE_TO_L1_SELECTOR": {
+        "value": 4.3301790876830345e+35,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.SendMessageToL1SysCall": {
+        "full_name": "starkware.starknet.common.syscalls.SendMessageToL1SysCall",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "to_address": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "payload_size": {
+            "offset": 2,
+            "cairo_type": "felt"
+          },
+          "payload_ptr": {
+            "offset": 3,
+            "cairo_type": "felt*"
+          }
+        },
+        "size": 4,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.CALL_CONTRACT_SELECTOR": {
+        "value": 2.0853273475220474e+28,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.DELEGATE_CALL_SELECTOR": {
+        "value": 2.1167594061783206e+28,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.DELEGATE_L1_HANDLER_SELECTOR": {
+        "value": 2.3274015802972845e+40,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.CallContractRequest": {
+        "full_name": "starkware.starknet.common.syscalls.CallContractRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "contract_address": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "function_selector": {
+            "offset": 2,
+            "cairo_type": "felt"
+          },
+          "calldata_size": {
+            "offset": 3,
+            "cairo_type": "felt"
+          },
+          "calldata": {
+            "offset": 4,
+            "cairo_type": "felt*"
+          }
+        },
+        "size": 5,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.CallContractResponse": {
+        "full_name": "starkware.starknet.common.syscalls.CallContractResponse",
+        "members": {
+          "retdata_size": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "retdata": {
+            "offset": 1,
+            "cairo_type": "felt*"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.CallContract": {
+        "full_name": "starkware.starknet.common.syscalls.CallContract",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.CallContractRequest"
+          },
+          "response": {
+            "offset": 5,
+            "cairo_type": "starkware.starknet.common.syscalls.CallContractResponse"
+          }
+        },
+        "size": 7,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.LIBRARY_CALL_SELECTOR": {
+        "value": 9.2376026794327e+25,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.LIBRARY_CALL_L1_HANDLER_SELECTOR": {
+        "value": 4.362334527541981e+47,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.LibraryCallRequest": {
+        "full_name": "starkware.starknet.common.syscalls.LibraryCallRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "class_hash": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "function_selector": {
+            "offset": 2,
+            "cairo_type": "felt"
+          },
+          "calldata_size": {
+            "offset": 3,
+            "cairo_type": "felt"
+          },
+          "calldata": {
+            "offset": 4,
+            "cairo_type": "felt*"
+          }
+        },
+        "size": 5,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.LibraryCall": {
+        "full_name": "starkware.starknet.common.syscalls.LibraryCall",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.LibraryCallRequest"
+          },
+          "response": {
+            "offset": 5,
+            "cairo_type": "starkware.starknet.common.syscalls.CallContractResponse"
+          }
+        },
+        "size": 7,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.DEPLOY_SELECTOR": {
+        "value": 75202468540281,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.DeployRequest": {
+        "full_name": "starkware.starknet.common.syscalls.DeployRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "class_hash": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "contract_address_salt": {
+            "offset": 2,
+            "cairo_type": "felt"
+          },
+          "constructor_calldata_size": {
+            "offset": 3,
+            "cairo_type": "felt"
+          },
+          "constructor_calldata": {
+            "offset": 4,
+            "cairo_type": "felt*"
+          },
+          "deploy_from_zero": {
+            "offset": 5,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 6,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.DeployResponse": {
+        "full_name": "starkware.starknet.common.syscalls.DeployResponse",
+        "members": {
+          "contract_address": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "constructor_retdata_size": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "constructor_retdata": {
+            "offset": 2,
+            "cairo_type": "felt*"
+          }
+        },
+        "size": 3,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.Deploy": {
+        "full_name": "starkware.starknet.common.syscalls.Deploy",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.DeployRequest"
+          },
+          "response": {
+            "offset": 6,
+            "cairo_type": "starkware.starknet.common.syscalls.DeployResponse"
+          }
+        },
+        "size": 9,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GET_CALLER_ADDRESS_SELECTOR": {
+        "value": 9.490196778139308e+37,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.GetCallerAddressRequest": {
+        "full_name": "starkware.starknet.common.syscalls.GetCallerAddressRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetCallerAddressResponse": {
+        "full_name": "starkware.starknet.common.syscalls.GetCallerAddressResponse",
+        "members": {
+          "caller_address": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetCallerAddress": {
+        "full_name": "starkware.starknet.common.syscalls.GetCallerAddress",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.GetCallerAddressRequest"
+          },
+          "response": {
+            "offset": 1,
+            "cairo_type": "starkware.starknet.common.syscalls.GetCallerAddressResponse"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GET_SEQUENCER_ADDRESS_SELECTOR": {
+        "value": 1.5921908335819916e+45,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.GetSequencerAddressRequest": {
+        "full_name": "starkware.starknet.common.syscalls.GetSequencerAddressRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetSequencerAddressResponse": {
+        "full_name": "starkware.starknet.common.syscalls.GetSequencerAddressResponse",
+        "members": {
+          "sequencer_address": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetSequencerAddress": {
+        "full_name": "starkware.starknet.common.syscalls.GetSequencerAddress",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.GetSequencerAddressRequest"
+          },
+          "response": {
+            "offset": 1,
+            "cairo_type": "starkware.starknet.common.syscalls.GetSequencerAddressResponse"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GET_BLOCK_NUMBER_SELECTOR": {
+        "value": 1.448089106835523e+33,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.GetBlockNumberRequest": {
+        "full_name": "starkware.starknet.common.syscalls.GetBlockNumberRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetBlockNumberResponse": {
+        "full_name": "starkware.starknet.common.syscalls.GetBlockNumberResponse",
+        "members": {
+          "block_number": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetBlockNumber": {
+        "full_name": "starkware.starknet.common.syscalls.GetBlockNumber",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.GetBlockNumberRequest"
+          },
+          "response": {
+            "offset": 1,
+            "cairo_type": "starkware.starknet.common.syscalls.GetBlockNumberResponse"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GET_CONTRACT_ADDRESS_SELECTOR": {
+        "value": 6.219495360805491e+42,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.GetContractAddressRequest": {
+        "full_name": "starkware.starknet.common.syscalls.GetContractAddressRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetContractAddressResponse": {
+        "full_name": "starkware.starknet.common.syscalls.GetContractAddressResponse",
+        "members": {
+          "contract_address": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetContractAddress": {
+        "full_name": "starkware.starknet.common.syscalls.GetContractAddress",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.GetContractAddressRequest"
+          },
+          "response": {
+            "offset": 1,
+            "cairo_type": "starkware.starknet.common.syscalls.GetContractAddressResponse"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GET_BLOCK_TIMESTAMP_SELECTOR": {
+        "value": 2.4294903732626647e+40,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.GetBlockTimestampRequest": {
+        "full_name": "starkware.starknet.common.syscalls.GetBlockTimestampRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetBlockTimestampResponse": {
+        "full_name": "starkware.starknet.common.syscalls.GetBlockTimestampResponse",
+        "members": {
+          "block_timestamp": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetBlockTimestamp": {
+        "full_name": "starkware.starknet.common.syscalls.GetBlockTimestamp",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.GetBlockTimestampRequest"
+          },
+          "response": {
+            "offset": 1,
+            "cairo_type": "starkware.starknet.common.syscalls.GetBlockTimestampResponse"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GET_TX_SIGNATURE_SELECTOR": {
+        "value": 1.44808912865234e+33,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.GetTxSignatureRequest": {
+        "full_name": "starkware.starknet.common.syscalls.GetTxSignatureRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetTxSignatureResponse": {
+        "full_name": "starkware.starknet.common.syscalls.GetTxSignatureResponse",
+        "members": {
+          "signature_len": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "signature": {
+            "offset": 1,
+            "cairo_type": "felt*"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetTxSignature": {
+        "full_name": "starkware.starknet.common.syscalls.GetTxSignature",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.GetTxSignatureRequest"
+          },
+          "response": {
+            "offset": 1,
+            "cairo_type": "starkware.starknet.common.syscalls.GetTxSignatureResponse"
+          }
+        },
+        "size": 3,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.STORAGE_READ_SELECTOR": {
+        "value": 1.0089069337060175e+26,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.StorageReadRequest": {
+        "full_name": "starkware.starknet.common.syscalls.StorageReadRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "address": {
+            "offset": 1,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.StorageReadResponse": {
+        "full_name": "starkware.starknet.common.syscalls.StorageReadResponse",
+        "members": {
+          "value": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.StorageRead": {
+        "full_name": "starkware.starknet.common.syscalls.StorageRead",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.StorageReadRequest"
+          },
+          "response": {
+            "offset": 2,
+            "cairo_type": "starkware.starknet.common.syscalls.StorageReadResponse"
+          }
+        },
+        "size": 3,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.STORAGE_WRITE_SELECTOR": {
+        "value": 2.582801750287405e+28,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.StorageWrite": {
+        "full_name": "starkware.starknet.common.syscalls.StorageWrite",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "address": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "value": {
+            "offset": 2,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 3,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.EMIT_EVENT_SELECTOR": {
+        "value": 1.2807093015503357e+21,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.EmitEvent": {
+        "full_name": "starkware.starknet.common.syscalls.EmitEvent",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "keys_len": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "keys": {
+            "offset": 2,
+            "cairo_type": "felt*"
+          },
+          "data_len": {
+            "offset": 3,
+            "cairo_type": "felt"
+          },
+          "data": {
+            "offset": 4,
+            "cairo_type": "felt*"
+          }
+        },
+        "size": 5,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.TxInfo": {
+        "full_name": "starkware.starknet.common.syscalls.TxInfo",
+        "members": {
+          "version": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "account_contract_address": {
+            "offset": 1,
+            "cairo_type": "felt"
+          },
+          "max_fee": {
+            "offset": 2,
+            "cairo_type": "felt"
+          },
+          "signature_len": {
+            "offset": 3,
+            "cairo_type": "felt"
+          },
+          "signature": {
+            "offset": 4,
+            "cairo_type": "felt*"
+          },
+          "transaction_hash": {
+            "offset": 5,
+            "cairo_type": "felt"
+          },
+          "chain_id": {
+            "offset": 6,
+            "cairo_type": "felt"
+          },
+          "nonce": {
+            "offset": 7,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 8,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GET_TX_INFO_SELECTOR": {
+        "value": 1.3170293902041122e+21,
+        "type": "const"
+      },
+      "starkware.starknet.common.syscalls.GetTxInfoRequest": {
+        "full_name": "starkware.starknet.common.syscalls.GetTxInfoRequest",
+        "members": {
+          "selector": {
+            "offset": 0,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetTxInfoResponse": {
+        "full_name": "starkware.starknet.common.syscalls.GetTxInfoResponse",
+        "members": {
+          "tx_info": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.TxInfo*"
+          }
+        },
+        "size": 1,
+        "type": "struct"
+      },
+      "starkware.starknet.common.syscalls.GetTxInfo": {
+        "full_name": "starkware.starknet.common.syscalls.GetTxInfo",
+        "members": {
+          "request": {
+            "offset": 0,
+            "cairo_type": "starkware.starknet.common.syscalls.GetTxInfoRequest"
+          },
+          "response": {
+            "offset": 1,
+            "cairo_type": "starkware.starknet.common.syscalls.GetTxInfoResponse"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "__main__.add": {
+        "pc": 0,
+        "decorators": [
+          "view"
+        ],
+        "type": "function"
+      },
+      "__main__.add.Args": {
+        "full_name": "__main__.add.Args",
+        "members": {
+          "x": {
+            "offset": 0,
+            "cairo_type": "felt"
+          },
+          "y": {
+            "offset": 1,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "__main__.add.ImplicitArgs": {
+        "full_name": "__main__.add.ImplicitArgs",
+        "members": {},
+        "size": 0,
+        "type": "struct"
+      },
+      "__main__.add.Return": {
+        "cairo_type": "(res: felt)",
+        "type": "type_definition"
+      },
+      "__main__.add.SIZEOF_LOCALS": {
+        "value": 0,
+        "type": "const"
+      },
+      "__wrappers__.add.__wrapped_func": {
+        "destination": "__main__.add",
+        "type": "alias"
+      },
+      "__wrappers__.add_encode_return.memcpy": {
+        "destination": "starkware.cairo.common.memcpy.memcpy",
+        "type": "alias"
+      },
+      "__wrappers__.add_encode_return": {
+        "pc": 2,
+        "decorators": [],
+        "type": "function"
+      },
+      "__wrappers__.add_encode_return.Args": {
+        "full_name": "__wrappers__.add_encode_return.Args",
+        "members": {
+          "ret_value": {
+            "offset": 0,
+            "cairo_type": "(res: felt)"
+          },
+          "range_check_ptr": {
+            "offset": 1,
+            "cairo_type": "felt"
+          }
+        },
+        "size": 2,
+        "type": "struct"
+      },
+      "__wrappers__.add_encode_return.ImplicitArgs": {
+        "full_name": "__wrappers__.add_encode_return.ImplicitArgs",
+        "members": {},
+        "size": 0,
+        "type": "struct"
+      },
+      "__wrappers__.add_encode_return.Return": {
+        "cairo_type": "(range_check_ptr: felt, data_len: felt, data: felt*)",
+        "type": "type_definition"
+      },
+      "__wrappers__.add_encode_return.SIZEOF_LOCALS": {
+        "value": 1,
+        "type": "const"
+      },
+      "__wrappers__.add": {
+        "pc": 11,
+        "decorators": [
+          "view"
+        ],
+        "type": "function"
+      },
+      "__wrappers__.add.Args": {
+        "full_name": "__wrappers__.add.Args",
+        "members": {},
+        "size": 0,
+        "type": "struct"
+      },
+      "__wrappers__.add.ImplicitArgs": {
+        "full_name": "__wrappers__.add.ImplicitArgs",
+        "members": {},
+        "size": 0,
+        "type": "struct"
+      },
+      "__wrappers__.add.Return": {
+        "cairo_type": "(syscall_ptr: felt, range_check_ptr: felt, size: felt, retdata: felt*)",
+        "type": "type_definition"
+      },
+      "__wrappers__.add.SIZEOF_LOCALS": {
+        "value": 0,
+        "type": "const"
+      }
+    },
+    "reference_manager": {
+      "references": []
+    },
+    "attributes": [],
+    "debug_info": null
+  },
+  "abi": [
+    {
+      "inputs": [
+        {
+          "name": "x",
+          "type": "felt"
+        },
+        {
+          "name": "y",
+          "type": "felt"
+        }
+      ],
+      "name": "add",
+      "outputs": [
+        {
+          "name": "res",
+          "type": "felt"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]
+}
