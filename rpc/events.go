@@ -93,18 +93,15 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 
 		var wg conc.WaitGroup
 
-		newHeadersChan := make(chan *core.Header, MaxBlocksBack)
 		wg.Go(func() {
-			h.bufferNewHeaders(subscriptionCtx, headerSub, newHeadersChan)
+			if err := h.sendHistoricalHeaders(subscriptionCtx, startHeader, latestHeader, w, id); err != nil {
+				h.log.Errorw("Error sending old headers", "err", err)
+				return
+			}
 		})
 
-		if err := h.sendHistoricalHeaders(subscriptionCtx, startHeader, latestHeader, w, id); err != nil {
-			h.log.Errorw("Error sending old headers", "err", err)
-			return
-		}
-
 		wg.Go(func() {
-			h.processNewHeaders(subscriptionCtx, newHeadersChan, w, id)
+			h.processNewHeaders(subscriptionCtx, headerSub, w, id)
 		})
 
 		wg.Go(func() {
@@ -224,19 +221,18 @@ func (h *Handler) shouldIncludeTx(txn core.Transaction, senderAddr []felt.Felt) 
 }
 
 func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result interface{}, id uint64) error {
-	req := jsonrpc.Request{
+	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionPendingTransactions",
 		Params: map[string]interface{}{
 			"subscription_id": id,
 			"result":          result,
 		},
-	}
-
-	resp, err := json.Marshal(req)
+	})
 	if err != nil {
 		return err
 	}
+
 	_, err = w.Write(resp)
 	return err
 }
@@ -316,12 +312,12 @@ func (h *Handler) bufferNewHeaders(ctx context.Context, headerSub *feed.Subscrip
 	}
 }
 
-func (h *Handler) processNewHeaders(ctx context.Context, newHeadersChan <-chan *core.Header, w jsonrpc.Conn, id uint64) {
+func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscription[*core.Header], w jsonrpc.Conn, id uint64) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case header := <-newHeadersChan:
+		case header := <-headerSub.Recv():
 			if err := h.sendHeader(w, header, id); err != nil {
 				h.log.Warnw("Error sending header", "err", err)
 				return
@@ -332,7 +328,7 @@ func (h *Handler) processNewHeaders(ctx context.Context, newHeadersChan <-chan *
 
 // sendHeader creates a request and sends it to the client
 func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
-	resp, err := json.Marshal(jsonrpc.Request{
+	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionNewHeads",
 		Params: map[string]any{
