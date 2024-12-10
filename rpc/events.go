@@ -13,11 +13,6 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
-const (
-	MaxBlocksBack        = 1024
-	MaxAddressesInFilter = 1024 // An arbitrary number, to be revisited when we have more contexts
-)
-
 type EventsArg struct {
 	EventFilter
 	ResultPageRequest
@@ -120,7 +115,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	if len(senderAddr) > MaxAddressesInFilter {
+	if len(senderAddr) > maxEventFilterKeys {
 		return nil, ErrTooManyAddressesInFilter
 	}
 
@@ -258,7 +253,7 @@ func (h *Handler) getStartAndLatestHeaders(blockID *BlockID) (*core.Header, *cor
 	}
 
 	// TODO(weiihann): also, reuse this function in other places
-	if latestHeader.Number >= MaxBlocksBack && startHeader.Number <= latestHeader.Number-MaxBlocksBack {
+	if latestHeader.Number >= maxBlocksBack && startHeader.Number <= latestHeader.Number-maxBlocksBack {
 		return nil, nil, ErrTooManyBlocksBack
 	}
 
