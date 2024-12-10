@@ -602,14 +602,17 @@ type oldStorageDiff struct {
 	Key   *felt.Felt
 	Value *felt.Felt
 }
+
 type oldAddressClassHashPair struct {
 	Address   *felt.Felt
 	ClassHash *felt.Felt
 }
+
 type oldDeclaredV1Class struct {
 	ClassHash         *felt.Felt
 	CompiledClassHash *felt.Felt
 }
+
 type oldStateDiff struct {
 	StorageDiffs      map[felt.Felt][]oldStorageDiff
 	Nonces            map[felt.Felt]*felt.Felt
@@ -618,6 +621,7 @@ type oldStateDiff struct {
 	DeclaredV1Classes []oldDeclaredV1Class
 	ReplacedClasses   []oldAddressClassHashPair
 }
+
 type oldStateUpdate struct {
 	BlockHash *felt.Felt
 	NewRoot   *felt.Felt
