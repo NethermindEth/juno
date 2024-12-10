@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/p2p/hashstorage"
 	"github.com/NethermindEth/juno/p2p/starknet"
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	junoSync "github.com/NethermindEth/juno/sync"
@@ -358,12 +359,7 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 			}
 
 			if blockVer.LessThan(core.Ver0_13_2) {
-				p2pHash, err := s.blockchain.BlockP2PHashByNumber(coreBlock.Number)
-				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("failed to get p2p hash: %w", err)}
-					return
-				}
-
+				p2pHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
 				expectedHash, _, err := core.Post0132Hash(coreBlock, stateDiff)
 				if err != nil {
 					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
