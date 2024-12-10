@@ -312,7 +312,6 @@ func TestSubscribeEvents(t *testing.T) {
 		require.Nil(t, rpcErr)
 
 		resp, err := marshalSubscriptionResponse(emittedEvents[0], id.ID)
-		t.Log(string(resp))
 		require.NoError(t, err)
 
 		got := make([]byte, len(resp))
@@ -385,6 +384,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+
 		serverConn, clientConn := net.Pipe()
 		t.Cleanup(func() {
 			require.NoError(t, serverConn.Close())
@@ -436,10 +437,16 @@ func TestSubscribeNewHeads(t *testing.T) {
 	})
 
 	t.Run("new block is received", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
 		ctx, cancel := context.WithCancel(context.Background())
 		t.Cleanup(cancel)
 
-		handler, syncer, server := setupSubscriptionTest(t, ctx)
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		syncer := newFakeSyncer()
+		handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
 
 		ws := jsonrpc.NewWebsocket(server, log)
 		httpSrv := httptest.NewServer(ws)
@@ -466,8 +473,6 @@ func TestSubscribeNewHeads(t *testing.T) {
 }
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
-	t.Parallel()
-
 	log := utils.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -484,19 +489,11 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 
 	chain = blockchain.New(testDB, &utils.Mainnet)
 	syncer := newFakeSyncer()
-	handler := New(chain, syncer, nil, "", utils.NewNopZapLogger())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	go func() {
-		require.NoError(t, handler.Run(ctx))
-	}()
-	time.Sleep(50 * time.Millisecond)
-
-	server := jsonrpc.NewServer(1, log)
-	methods, _ := handler.Methods()
-	require.NoError(t, server.RegisterMethods(methods...))
+	handler, server := setupSubscriptionTest(t, ctx, chain, syncer)
 
 	ws := jsonrpc.NewWebsocket(server, log)
 	httpSrv := httptest.NewServer(ws)
@@ -531,12 +528,17 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
-	t.Parallel()
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	handler, syncer, server := setupSubscriptionTest(t, ctx)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	syncer := newFakeSyncer()
+	handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
+
+	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
 
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
@@ -582,12 +584,17 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 }
 
 func TestSubscriptionReorg(t *testing.T) {
-	t.Parallel()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	handler, syncer, server := setupSubscriptionTest(t, ctx)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockChain := mocks.NewMockReader(mockCtrl)
+	syncer := newFakeSyncer()
+	handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
+
+	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
@@ -619,12 +626,15 @@ func TestSubscriptionReorg(t *testing.T) {
 }
 
 func TestSubscribePendingTxs(t *testing.T) {
-	t.Parallel()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	handler, syncer, server := setupSubscriptionTest(t, ctx)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockChain := mocks.NewMockReader(mockCtrl)
+	syncer := newFakeSyncer()
+	handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
 
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
@@ -710,7 +720,6 @@ func TestSubscribePendingTxs(t *testing.T) {
 	})
 
 	t.Run("Full details subscription", func(t *testing.T) {
-		t.Parallel()
 		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 		require.NoError(t, err)
 
@@ -747,15 +756,11 @@ func TestSubscribePendingTxs(t *testing.T) {
 	})
 
 	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
 		addresses := make([]felt.Felt, 1024+1)
 
-		serverConn, clientConn := net.Pipe()
+		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
 			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
 		})
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
@@ -788,12 +793,10 @@ func testHeader(t *testing.T) *core.Header {
 	return header
 }
 
-func setupSubscriptionTest(t *testing.T, ctx context.Context) (*Handler, *fakeSyncer, *jsonrpc.Server) {
+func setupSubscriptionTest(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader) (*Handler, *jsonrpc.Server) {
 	t.Helper()
 
 	log := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
-	syncer := newFakeSyncer()
 	handler := New(chain, syncer, nil, "", log)
 
 	go func() {
@@ -805,13 +808,14 @@ func setupSubscriptionTest(t *testing.T, ctx context.Context) (*Handler, *fakeSy
 	methods, _ := handler.Methods()
 	require.NoError(t, server.RegisterMethods(methods...))
 
-	return handler, syncer, server
+	return handler, server
 }
 
 func sendAndReceiveMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, message string) string {
 	t.Helper()
 
-	require.NoError(t, conn.Write(ctx, websocket.MessageText, []byte(message)))
+	err := conn.Write(ctx, websocket.MessageText, []byte(message))
+	require.NoError(t, err)
 
 	_, response, err := conn.Read(ctx)
 	require.NoError(t, err)
