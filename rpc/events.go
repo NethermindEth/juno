@@ -247,6 +247,10 @@ func (h *Handler) getStartAndLatestHeaders(blockID *BlockID) (*core.Header, *cor
 		return nil, nil, nil
 	}
 
+	if blockID.Pending {
+		return nil, nil, ErrCallOnPending
+	}
+
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, nil, ErrInternal
@@ -257,7 +261,8 @@ func (h *Handler) getStartAndLatestHeaders(blockID *BlockID) (*core.Header, *cor
 		return nil, nil, rpcErr
 	}
 
-	if latestHeader.Number > MaxBlocksBack && startHeader.Number < latestHeader.Number-MaxBlocksBack {
+	// TODO(weiihann): also, reuse this function in other places
+	if latestHeader.Number >= MaxBlocksBack && startHeader.Number <= latestHeader.Number-MaxBlocksBack {
 		return nil, nil, ErrTooManyBlocksBack
 	}
 
