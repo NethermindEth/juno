@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/bloom"
 	"github.com/cockroachdb/pebble/vfs"
 )
 
@@ -46,9 +48,21 @@ func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLog
 	}
 
 	return newPebble(path, &pebble.Options{
-		Logger:       dbLog,
-		Cache:        pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
-		MaxOpenFiles: maxOpenFiles,
+		Logger:                      dbLog,
+		Cache:                       pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
+		MaxOpenFiles:                maxOpenFiles,
+		MemTableSize:                uint64(cacheSizeMB * utils.Megabyte / 2),
+		MemTableStopWritesThreshold: 2,
+		MaxConcurrentCompactions:    runtime.NumCPU,
+		Levels: []pebble.LevelOptions{
+			{TargetFileSize: 2 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 4 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 8 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 16 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 32 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 64 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+			{TargetFileSize: 128 * 1024 * 1024, FilterPolicy: bloom.FilterPolicy(10)},
+		},
 	})
 }
 
