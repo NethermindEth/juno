@@ -11,14 +11,14 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.9.2**  | **182 GB** | **640855** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar) |
+| **>=v0.9.2**  | **182 GB** | **640855** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/mainnet/juno_mainnet_v0.11.7_640855.tar) |
 
 
 ## Sepolia
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.9.2** | **5 GB** | **66477** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/sepolia/juno_sepolia_v0.11.7_66477.tar) |
+| **>=v0.9.2** | **5 GB** | **66477** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/sepolia/juno_sepolia_v0.11.7_66477.tar) |
 
 ## Run Juno Using Snapshot
 
@@ -27,7 +27,7 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
    Fetch a snapshot from one of the provided URLs:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.11.7_640855.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.io/mainnet/juno_mainnet_v0.11.7_640855.tar
    ```
 
 2. **Prepare Directory**
