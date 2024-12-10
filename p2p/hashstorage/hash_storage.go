@@ -15,8 +15,9 @@ var SepoliaBlockHashesMap = make(map[uint64]*felt.Felt, first0132SepoliaBlock)
 
 //nolint:gochecknoinits
 func init() {
+	var offset uint64
 	for i := uint64(0); i < first0132SepoliaBlock; i++ {
-		offset := i * 32
+		offset = i * 32
 		SepoliaBlockHashesMap[i] = new(felt.Felt).SetBytes(sepoliaBlockHashes[offset : offset+32])
 	}
 }
