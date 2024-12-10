@@ -3,7 +3,6 @@ package migration
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
