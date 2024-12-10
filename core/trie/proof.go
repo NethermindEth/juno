@@ -238,6 +238,8 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	firstKey := FeltToKey(globalTrieHeight, first)
 
 	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
+	// Empty range proof with more elements on the right is not accepted in this function.
+	// This is due to snap sync specification detail, where the responder must send an existing key (if any) if the requested range is empty.
 	if len(keys) == 0 {
 		rootKey, val, err := proofToPath(root, &firstKey, proof, nodes)
 		if err != nil {
