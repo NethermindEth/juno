@@ -154,11 +154,18 @@ func (k *Key) Bytes() [32]byte {
 // findCommonKey finds the set of common MSB bits in two key bitsets.
 func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
 	divergentBit := findDivergentBit(longerKey, shorterKey)
+
+	if divergentBit == 0 {
+		return *NilKey, false
+	}
+
 	commonKey := *shorterKey
 	commonKey.shiftRight(shorterKey.Len() - divergentBit + 1)
 	return commonKey, divergentBit == shorterKey.Len()+1
 }
 
+// findDivergentBit finds the first bit that is different between two keys,
+// starting from the most significant bit of both keys.
 func findDivergentBit(longerKey, shorterKey *Key) uint8 {
 	divergentBit := uint8(0)
 	for divergentBit <= shorterKey.Len() &&
