@@ -102,7 +102,6 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		libp2p.EnableHolePunching(),
 		// Try to open a port in the NAT router to accept incoming connections.
 		libp2p.NATPortMap(),
-		libp2p.Ping(true),
 	)
 	if err != nil {
 		return nil, err
