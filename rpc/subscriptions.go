@@ -38,28 +38,9 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		return nil, ErrTooManyKeysInFilter
 	}
 
-	var requestedHeader *core.Header
-	headHeader, err := h.bcReader.HeadsHeader()
-	if err != nil {
-		return nil, ErrInternal.CloneWithData(err.Error())
-	}
-
-	if blockID == nil {
-		requestedHeader = headHeader
-	} else {
-		if blockID.Pending {
-			return nil, ErrCallOnPending
-		}
-
-		var rpcErr *jsonrpc.Error
-		requestedHeader, rpcErr = h.blockHeaderByID(blockID)
-		if rpcErr != nil {
-			return nil, rpcErr
-		}
-
-		if headHeader.Number >= maxBlocksBack && requestedHeader.Number <= headHeader.Number-maxBlocksBack {
-			return nil, ErrTooManyBlocksBack
-		}
+	requestedHeader, headHeader, rpcErr := h.resolveBlockRange(blockID)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	id := h.idgen()
