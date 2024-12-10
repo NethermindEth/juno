@@ -137,53 +137,14 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 		return nil, nil, err
 	}
 
-	// Save boolean value to not calculate them multiple times
-	pre0132 := blockVer.LessThan(Ver0_13_2)
-	stateDiffIsNil := stateDiff == nil
-
-	if !pre0132 && stateDiffIsNil {
-		return nil, nil, errors.New("state diff is required for post 0.13.2 blocks")
-	}
-
-	var (
-		// hash mathes the version of the block
-		hash *felt.Felt
-		// commitments are required for all blocks
-		// if state diff is provided, all commitments are post 0.13.2
-		// if state diff is not provided, commitments match the block version
-		// stateDiff is required for post 0.13.2 blocks
-		// stateDiff is not provided for some blocks from Goerli, Goerli2, and Integration networks
-		commitments *BlockCommitments
-	)
-
-	if !stateDiffIsNil {
-		// Calculate commitments for pre 0.13.2 blocks if state diff is provided
-		// State diff is required for post 0.13.2 blocks,
-		// so `!stateDiffIsNil` will always be true for post 0.13.2 blocks
-		hash, commitments, err = Post0132Hash(b, stateDiff)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if pre0132 {
-		// Update hash variable if block is pre 0.13.2
-		var pre0132commitments *BlockCommitments
+	if blockVer.LessThan(Ver0_13_2) {
 		if b.Number < metaInfo.First07Block {
-			hash, pre0132commitments, err = pre07Hash(b, network.L2ChainIDFelt())
-		} else {
-			hash, pre0132commitments, err = post07Hash(b, overrideSeqAddr)
+			return pre07Hash(b, network.L2ChainIDFelt())
 		}
-		if err != nil {
-			return nil, nil, err
-		}
-		if stateDiffIsNil {
-			// Update commitments variable if state diff is not provided
-			commitments = pre0132commitments
-		}
+		return post07Hash(b, overrideSeqAddr)
 	}
 
-	return hash, commitments, nil
+	return Post0132Hash(b, stateDiff)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
