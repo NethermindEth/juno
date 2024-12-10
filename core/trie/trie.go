@@ -134,14 +134,26 @@ func (sn *StorageNode) String() string {
 }
 
 func (sn *StorageNode) Update(other *StorageNode) error {
+	// First validate all fields for conflicts
 	if sn.key != nil && other.key != nil && !sn.key.Equal(NilKey) && !other.key.Equal(NilKey) {
 		if !sn.key.Equal(other.key) {
 			return fmt.Errorf("keys do not match: %s != %s", sn.key, other.key)
 		}
-	} else if other.key != nil && !other.key.Equal(NilKey) {
+	}
+
+	// Validate node updates
+	if sn.node != nil && other.node != nil {
+		if err := sn.node.Update(other.node); err != nil {
+			return err
+		}
+	}
+
+	// After validation, perform update
+	if other.key != nil && !other.key.Equal(NilKey) {
 		sn.key = other.key
 	}
-	return sn.node.Update(other.node)
+
+	return nil
 }
 
 func NewStorageNode(key *Key, node *Node) *StorageNode {
