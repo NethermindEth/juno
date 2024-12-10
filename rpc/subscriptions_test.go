@@ -68,10 +68,9 @@ func TestSubscribeEvents(t *testing.T) {
 		keys := make([][]felt.Felt, 1024+1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
 
-		serverConn, clientConn := net.Pipe()
+		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
 			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
 		})
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
@@ -93,10 +92,9 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
 		blockID := &BlockID{Pending: true}
 
-		serverConn, clientConn := net.Pipe()
+		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
 			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
 		})
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
@@ -120,10 +118,9 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
 		blockID := &BlockID{Number: 0}
 
-		serverConn, clientConn := net.Pipe()
+		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
 			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
 		})
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
@@ -386,10 +383,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
-		serverConn, clientConn := net.Pipe()
+		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
 			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
 		})
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
@@ -409,10 +405,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		blockID := &BlockID{Number: 0}
 
-		serverConn, clientConn := net.Pipe()
+		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
 			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
 		})
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
@@ -589,35 +584,37 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	mockChain := mocks.NewMockReader(mockCtrl)
-	syncer := newFakeSyncer()
-	handler, server := setupRPC(t, ctx, mockChain, syncer)
+	t.Run("reorg event in starknet_subscribeNewHeads", func(t *testing.T) {
+		mockChain := mocks.NewMockReader(mockCtrl)
+		syncer := newFakeSyncer()
+		handler, server := setupRPC(t, ctx, mockChain, syncer)
 
-	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
-	conn := createWsConn(t, ctx, server)
+		conn := createWsConn(t, ctx, server)
 
-	id := uint64(1)
-	handler.WithIDGen(func() uint64 { return id })
+		id := uint64(1)
+		handler.WithIDGen(func() uint64 { return id })
 
-	got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
-	want := fmt.Sprintf(subscribeResponse, id)
-	require.Equal(t, want, got)
+		got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
+		want := fmt.Sprintf(subscribeResponse, id)
+		require.Equal(t, want, got)
 
-	// Simulate a reorg
-	syncer.reorgs.Send(&sync.ReorgData{
-		StartBlockHash: utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
-		StartBlockNum:  0,
-		EndBlockHash:   utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"),
-		EndBlockNum:    2,
+		// Simulate a reorg
+		syncer.reorgs.Send(&sync.ReorgData{
+			StartBlockHash: utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+			StartBlockNum:  0,
+			EndBlockHash:   utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"),
+			EndBlockNum:    2,
+		})
+
+		// Receive reorg event
+		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":%d}}`
+		want = fmt.Sprintf(want, id)
+		_, reorgGot, err := conn.Read(ctx)
+		require.NoError(t, err)
+		require.Equal(t, want, string(reorgGot))
 	})
-
-	// Receive reorg event
-	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":%d}}`
-	want = fmt.Sprintf(want, id)
-	_, reorgGot, err := conn.Read(ctx)
-	require.NoError(t, err)
-	require.Equal(t, want, string(reorgGot))
 }
 
 func TestSubscribePendingTxs(t *testing.T) {
