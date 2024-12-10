@@ -185,10 +185,12 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	wg.Go(func() {
 		rCommitment, rErr = receiptCommitment(b.Receipts)
 	})
+
 	wg.Go(func() {
 		sdLength = stateDiff.Length()
 		sdCommitment = stateDiff.Hash()
 	})
+
 	wg.Wait()
 
 	if tErr != nil {
