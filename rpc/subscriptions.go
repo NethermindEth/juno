@@ -398,10 +398,6 @@ func (h *Handler) sendHistoricalHeaders(
 	w jsonrpc.Conn,
 	id uint64,
 ) error {
-	if startHeader == latestHeader {
-		return nil
-	}
-
 	var (
 		err       error
 		curHeader = startHeader

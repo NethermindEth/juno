@@ -446,6 +446,10 @@ func TestSubscribeNewHeads(t *testing.T) {
 		got := sendWsMessage(t, ctx, conn, subMsg("starknet_subscribeNewHeads"))
 		require.Equal(t, subResp(id), got)
 
+		// Ignore the first mock header
+		_, _, err := conn.Read(ctx)
+		require.NoError(t, err)
+
 		// Simulate a new block
 		syncer.newHeads.Send(testHeader(t))
 
@@ -544,6 +548,12 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, subResp(secondID), secondGot)
 
+	// Ignore the first mock header
+	_, _, err = conn1.Read(ctx)
+	require.NoError(t, err)
+	_, _, err = conn2.Read(ctx)
+	require.NoError(t, err)
+
 	// Simulate a new block
 	syncer.newHeads.Send(testHeader(t))
 
@@ -576,14 +586,17 @@ func TestSubscriptionReorg(t *testing.T) {
 	testCases := []struct {
 		name            string
 		subscribeMethod string
+		ignoreFirst     bool
 	}{
 		{
 			name:            "reorg event in starknet_subscribeNewHeads",
 			subscribeMethod: "starknet_subscribeNewHeads",
+			ignoreFirst:     true,
 		},
 		{
 			name:            "reorg event in starknet_subscribeEvents",
 			subscribeMethod: "starknet_subscribeEvents",
+			ignoreFirst:     false,
 		},
 		// TODO: test reorg event in TransactionStatus
 	}
@@ -599,6 +612,11 @@ func TestSubscriptionReorg(t *testing.T) {
 
 			got := sendWsMessage(t, ctx, conn, subMsg(tc.subscribeMethod))
 			require.Equal(t, subResp(id), got)
+
+			if tc.ignoreFirst {
+				_, _, err := conn.Read(ctx)
+				require.NoError(t, err)
+			}
 
 			// Simulate a reorg
 			syncer.reorgs.Send(&sync.ReorgData{
