@@ -745,6 +745,25 @@ func TestSubscribePendingTxs(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, want, string(pendingTxsGot))
 	})
+
+	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		addresses := make([]felt.Felt, 1024+1)
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		id, rpcErr := handler.SubscribePendingTxs(subCtx, nil, addresses)
+		assert.Zero(t, id)
+		assert.Equal(t, ErrTooManyAddressesInFilter, rpcErr)
+	})
 }
 
 func testHeader(t *testing.T) *core.Header {
