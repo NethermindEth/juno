@@ -26,8 +26,6 @@ type Reader interface {
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
-	BlockP2PHashByNumber(number uint64) (hash *felt.Felt, err error)
-
 	HeadsHeader() (header *core.Header, err error)
 	BlockHeaderByNumber(number uint64) (header *core.Header, err error)
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
@@ -220,16 +218,6 @@ func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 	})
 }
 
-func (b *Blockchain) BlockP2PHashByNumber(number uint64) (*felt.Felt, error) {
-	b.listener.OnRead("BlockP2PHashByNumber")
-	var hash *felt.Felt
-	return hash, b.database.View(func(txn db.Transaction) error {
-		var err error
-		hash, err = p2pHashByNumber(txn, number)
-		return err
-	})
-}
-
 func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
 	b.listener.OnRead("StateUpdateByNumber")
 	var update *core.StateUpdate
@@ -416,14 +404,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	return b.database.View(func(txn db.Transaction) error {
 		return verifyBlock(txn, block)
-	})
-}
-
-func p2pHashByNumber(txn db.Transaction, blockNumber uint64) (*felt.Felt, error) {
-	blockHash := new(felt.Felt)
-	return blockHash, txn.Get(db.P2PHash.Key(core.MarshalBlockNumber(blockNumber)), func(val []byte) error {
-		blockHash.Unmarshal(val)
-		return nil
 	})
 }
 
