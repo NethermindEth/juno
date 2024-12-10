@@ -444,15 +444,12 @@ func TestSubscribeNewHeads(t *testing.T) {
 		t.Cleanup(cancel)
 
 		mockChain := mocks.NewMockReader(mockCtrl)
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 		syncer := newFakeSyncer()
-		handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
+		handler, server := setupRPC(t, ctx, mockChain, syncer)
 
-		ws := jsonrpc.NewWebsocket(server, log)
-		httpSrv := httptest.NewServer(ws)
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
-		conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-		require.NoError(t, err)
+		conn := createWsConn(t, ctx, server)
 
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
@@ -473,7 +470,6 @@ func TestSubscribeNewHeads(t *testing.T) {
 }
 
 func TestSubscribeNewHeadsHistorical(t *testing.T) {
-	log := utils.NewNopZapLogger()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -493,13 +489,9 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	handler, server := setupSubscriptionTest(t, ctx, chain, syncer)
+	handler, server := setupRPC(t, ctx, chain, syncer)
 
-	ws := jsonrpc.NewWebsocket(server, log)
-	httpSrv := httptest.NewServer(ws)
-
-	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-	require.NoError(t, err)
+	conn := createWsConn(t, ctx, server)
 
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
@@ -536,17 +528,24 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	syncer := newFakeSyncer()
-	handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
+	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
 
 	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
-	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose
 	require.NoError(t, err)
-	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
+	t.Cleanup(func() {
+		require.NoError(t, conn1.Close(websocket.StatusNormalClosure, ""))
+	})
+
+	conn2, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, conn2.Close(websocket.StatusNormalClosure, ""))
+	})
 
 	firstID := uint64(1)
 	secondID := uint64(2)
@@ -592,15 +591,11 @@ func TestSubscriptionReorg(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	syncer := newFakeSyncer()
-	handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
+	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
-	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
-	httpSrv := httptest.NewServer(ws)
-
-	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-	require.NoError(t, err)
+	conn := createWsConn(t, ctx, server)
 
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
@@ -634,19 +629,15 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	syncer := newFakeSyncer()
-	handler, server := setupSubscriptionTest(t, ctx, mockChain, syncer)
-
-	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
-	httpSrv := httptest.NewServer(ws)
+	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
 	t.Run("Basic subscription", func(t *testing.T) {
-		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-		require.NoError(t, err)
+		conn := createWsConn(t, ctx, server)
 
 		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
-		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
 		want := fmt.Sprintf(subscribeResponse, id)
 		require.Equal(t, want, got)
 
@@ -670,19 +661,18 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn1.Read(ctx)
+		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
 		require.Equal(t, want, string(pendingTxsGot))
 	})
 
 	t.Run("Filtered subscription", func(t *testing.T) {
-		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-		require.NoError(t, err)
+		conn := createWsConn(t, ctx, server)
 
 		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
-		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
 		want := fmt.Sprintf(subscribeResponse, id)
 		require.Equal(t, want, got)
 
@@ -714,19 +704,18 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn1.Read(ctx)
+		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
 		require.Equal(t, want, string(pendingTxsGot))
 	})
 
 	t.Run("Full details subscription", func(t *testing.T) {
-		conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
-		require.NoError(t, err)
+		conn := createWsConn(t, ctx, server)
 
 		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
-		got := sendAndReceiveMessage(t, ctx, conn1, subscribeMsg)
+		got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
 		want := fmt.Sprintf(subscribeResponse, id)
 		require.Equal(t, want, got)
 
@@ -750,7 +739,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn1.Read(ctx)
+		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
 		require.Equal(t, want, string(pendingTxsGot))
 	})
@@ -769,6 +758,20 @@ func TestSubscribePendingTxs(t *testing.T) {
 		assert.Zero(t, id)
 		assert.Equal(t, ErrTooManyAddressesInFilter, rpcErr)
 	})
+}
+
+func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *websocket.Conn {
+	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
+	httpSrv := httptest.NewServer(ws)
+
+	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+	})
+
+	return conn
 }
 
 func testHeader(t *testing.T) *core.Header {
@@ -793,7 +796,8 @@ func testHeader(t *testing.T) *core.Header {
 	return header
 }
 
-func setupSubscriptionTest(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader) (*Handler, *jsonrpc.Server) {
+// setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
+func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader) (*Handler, *jsonrpc.Server) {
 	t.Helper()
 
 	log := utils.NewNopZapLogger()
