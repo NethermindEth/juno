@@ -29,12 +29,6 @@ import (
 
 var emptyCommitments = core.BlockCommitments{}
 
-const (
-	subscribeNewHeads = `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads"}`
-	newHeadsResponse  = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
-	subscribeResponse = `{"jsonrpc":"2.0","result":{"subscription_id":%d},"id":1}`
-)
-
 // Due to the difference in how some test files in rpc use "package rpc" vs "package rpc_test" it was easiest to copy
 // the fakeConn here.
 // Todo: move all the subscription related test here
@@ -216,7 +210,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		var marshalledResponses [][]byte
 		for _, e := range emittedEvents {
-			resp, err := marshalSubscriptionResponse(e, id.ID)
+			resp, err := marshalSubEventsResp(e, id.ID)
 			require.NoError(t, err)
 			marshalledResponses = append(marshalledResponses, resp)
 		}
@@ -264,7 +258,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		var marshalledResponses [][]byte
 		for _, e := range emittedEvents {
-			resp, err := marshalSubscriptionResponse(e, id.ID)
+			resp, err := marshalSubEventsResp(e, id.ID)
 			require.NoError(t, err)
 			marshalledResponses = append(marshalledResponses, resp)
 		}
@@ -308,7 +302,7 @@ func TestSubscribeEvents(t *testing.T) {
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
 		require.Nil(t, rpcErr)
 
-		resp, err := marshalSubscriptionResponse(emittedEvents[0], id.ID)
+		resp, err := marshalSubEventsResp(emittedEvents[0], id.ID)
 		require.NoError(t, err)
 
 		got := make([]byte, len(resp))
@@ -323,7 +317,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		headerFeed.Send(&core.Header{Number: b1.Number + 1})
 
-		resp, err = marshalSubscriptionResponse(emittedEvents[1], id.ID)
+		resp, err = marshalSubEventsResp(emittedEvents[1], id.ID)
 		require.NoError(t, err)
 
 		got = make([]byte, len(resp))
@@ -449,18 +443,16 @@ func TestSubscribeNewHeads(t *testing.T) {
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
 
-		got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
-		want := fmt.Sprintf(subscribeResponse, id)
-		require.Equal(t, want, got)
+		got := sendWsMessage(t, ctx, conn, subMsg("starknet_subscribeNewHeads"))
+		require.Equal(t, subResp(id), got)
 
 		// Simulate a new block
 		syncer.newHeads.Send(testHeader(t))
 
 		// Receive a block header.
-		want = fmt.Sprintf(newHeadsResponse, id)
 		_, headerGot, err := conn.Read(ctx)
 		require.NoError(t, err)
-		require.Equal(t, want, string(headerGot))
+		require.Equal(t, newHeadsResponse(id), string(headerGot))
 	})
 }
 
@@ -491,14 +483,12 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
 
-	subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block":{"block_number":0}}}`
-	got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
-	want := fmt.Sprintf(subscribeResponse, id)
-	require.NoError(t, err)
-	require.Equal(t, want, got)
+	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block":{"block_number":0}}}`
+	got := sendWsMessage(t, ctx, conn, subMsg)
+	require.Equal(t, subResp(id), got)
 
 	// Check block 0 content
-	want = `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
 	want = fmt.Sprintf(want, id)
 	_, block0Got, err := conn.Read(ctx)
 	require.NoError(t, err)
@@ -508,10 +498,9 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	syncer.newHeads.Send(testHeader(t))
 
 	// Check new block content
-	want = fmt.Sprintf(newHeadsResponse, id)
 	_, newBlockGot, err := conn.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, want, string(newBlockGot))
+	require.Equal(t, newHeadsResponse(id), string(newBlockGot))
 }
 
 func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
@@ -546,30 +535,26 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	secondID := uint64(2)
 
 	handler.WithIDGen(func() uint64 { return firstID })
-	firstWant := fmt.Sprintf(subscribeResponse, firstID)
-	firstGot := sendAndReceiveMessage(t, ctx, conn1, subscribeNewHeads)
+	firstGot := sendWsMessage(t, ctx, conn1, subMsg("starknet_subscribeNewHeads"))
 	require.NoError(t, err)
-	require.Equal(t, firstWant, firstGot)
+	require.Equal(t, subResp(firstID), firstGot)
 
 	handler.WithIDGen(func() uint64 { return secondID })
-	secondWant := fmt.Sprintf(subscribeResponse, secondID)
-	secondGot := sendAndReceiveMessage(t, ctx, conn2, subscribeNewHeads)
+	secondGot := sendWsMessage(t, ctx, conn2, subMsg("starknet_subscribeNewHeads"))
 	require.NoError(t, err)
-	require.Equal(t, secondWant, secondGot)
+	require.Equal(t, subResp(secondID), secondGot)
 
 	// Simulate a new block
 	syncer.newHeads.Send(testHeader(t))
 
 	// Receive a block header.
-	firstHeaderWant := fmt.Sprintf(newHeadsResponse, firstID)
 	_, firstHeaderGot, err := conn1.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, firstHeaderWant, string(firstHeaderGot))
+	require.Equal(t, newHeadsResponse(firstID), string(firstHeaderGot))
 
-	secondHeaderWant := fmt.Sprintf(newHeadsResponse, secondID)
 	_, secondHeaderGot, err := conn2.Read(ctx)
 	require.NoError(t, err)
-	require.Equal(t, secondHeaderWant, string(secondHeaderGot))
+	require.Equal(t, newHeadsResponse(secondID), string(secondHeaderGot))
 
 	// Unsubscribe
 	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"juno_unsubscribe","params":[%d]}`
@@ -584,37 +569,53 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	t.Run("reorg event in starknet_subscribeNewHeads", func(t *testing.T) {
-		mockChain := mocks.NewMockReader(mockCtrl)
-		syncer := newFakeSyncer()
-		handler, server := setupRPC(t, ctx, mockChain, syncer)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	syncer := newFakeSyncer()
+	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+	testCases := []struct {
+		name            string
+		subscribeMethod string
+	}{
+		{
+			name:            "reorg event in starknet_subscribeNewHeads",
+			subscribeMethod: "starknet_subscribeNewHeads",
+		},
+		{
+			name:            "reorg event in starknet_subscribeEvents",
+			subscribeMethod: "starknet_subscribeEvents",
+		},
+		// TODO: test reorg event in TransactionStatus
+	}
 
-		conn := createWsConn(t, ctx, server)
+	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
 
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			conn := createWsConn(t, ctx, server)
 
-		got := sendAndReceiveMessage(t, ctx, conn, subscribeNewHeads)
-		want := fmt.Sprintf(subscribeResponse, id)
-		require.Equal(t, want, got)
+			id := uint64(1)
+			handler.WithIDGen(func() uint64 { return id })
 
-		// Simulate a reorg
-		syncer.reorgs.Send(&sync.ReorgData{
-			StartBlockHash: utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
-			StartBlockNum:  0,
-			EndBlockHash:   utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"),
-			EndBlockNum:    2,
+			got := sendWsMessage(t, ctx, conn, subMsg(tc.subscribeMethod))
+			require.Equal(t, subResp(id), got)
+
+			// Simulate a reorg
+			syncer.reorgs.Send(&sync.ReorgData{
+				StartBlockHash: utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+				StartBlockNum:  0,
+				EndBlockHash:   utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"),
+				EndBlockNum:    2,
+			})
+
+			// Receive reorg event
+			expectedRes := `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":%d}}`
+			want := fmt.Sprintf(expectedRes, id)
+			_, reorgGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want, string(reorgGot))
 		})
-
-		// Receive reorg event
-		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, reorgGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(reorgGot))
-	})
+	}
 }
 
 func TestSubscribePendingTxs(t *testing.T) {
@@ -631,12 +632,11 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Run("Basic subscription", func(t *testing.T) {
 		conn := createWsConn(t, ctx, server)
 
-		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
+		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
-		got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
-		want := fmt.Sprintf(subscribeResponse, id)
-		require.Equal(t, want, got)
+		got := sendWsMessage(t, ctx, conn, subMsg)
+		require.Equal(t, subResp(id), got)
 
 		hash1 := new(felt.Felt).SetUint64(1)
 		addr1 := new(felt.Felt).SetUint64(11)
@@ -656,7 +656,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			&core.L1HandlerTransaction{TransactionHash: hash5},
 		})
 
-		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
@@ -666,12 +666,11 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Run("Filtered subscription", func(t *testing.T) {
 		conn := createWsConn(t, ctx, server)
 
-		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
+		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
-		got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
-		want := fmt.Sprintf(subscribeResponse, id)
-		require.Equal(t, want, got)
+		got := sendWsMessage(t, ctx, conn, subMsg)
+		require.Equal(t, subResp(id), got)
 
 		hash1 := new(felt.Felt).SetUint64(1)
 		addr1 := new(felt.Felt).SetUint64(11)
@@ -699,7 +698,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
 		})
 
-		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
@@ -709,12 +708,11 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Run("Full details subscription", func(t *testing.T) {
 		conn := createWsConn(t, ctx, server)
 
-		subscribeMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
+		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
 		id := uint64(1)
 		handler.WithIDGen(func() uint64 { return id })
-		got := sendAndReceiveMessage(t, ctx, conn, subscribeMsg)
-		want := fmt.Sprintf(subscribeResponse, id)
-		require.Equal(t, want, got)
+		got := sendWsMessage(t, ctx, conn, subMsg)
+		require.Equal(t, subResp(id), got)
 
 		syncer.pendingTxs.Send([]core.Transaction{
 			&core.InvokeTransaction{
@@ -734,7 +732,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want = `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
@@ -771,6 +769,14 @@ func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *we
 	return conn
 }
 
+func subResp(id uint64) string {
+	return fmt.Sprintf(`{"jsonrpc":"2.0","result":{"subscription_id":%d},"id":1}`, id)
+}
+
+func subMsg(method string) string {
+	return fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q}`, method)
+}
+
 func testHeader(t *testing.T) *core.Header {
 	t.Helper()
 
@@ -793,6 +799,10 @@ func testHeader(t *testing.T) *core.Header {
 	return header
 }
 
+func newHeadsResponse(id uint64) string {
+	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`, id)
+}
+
 // setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
 func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader) (*Handler, *jsonrpc.Server) {
 	t.Helper()
@@ -812,7 +822,8 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	return handler, server
 }
 
-func sendAndReceiveMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, message string) string {
+// sendWsMessage sends a message to a websocket connection and returns the response
+func sendWsMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, message string) string {
 	t.Helper()
 
 	err := conn.Write(ctx, websocket.MessageText, []byte(message))
@@ -823,7 +834,7 @@ func sendAndReceiveMessage(t *testing.T, ctx context.Context, conn *websocket.Co
 	return string(response)
 }
 
-func marshalSubscriptionResponse(e *EmittedEvent, id uint64) ([]byte, error) {
+func marshalSubEventsResp(e *EmittedEvent, id uint64) ([]byte, error) {
 	return json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionEvents",
