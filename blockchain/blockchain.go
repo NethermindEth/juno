@@ -372,10 +372,6 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 	})
 }
 
-func StoreP2PHash(txn db.Transaction, blockNumber uint64, p2pHash *felt.Felt) error {
-	return txn.Set(db.P2PHash.Key(core.MarshalBlockNumber(blockNumber)), p2pHash.Marshal())
-}
-
 func p2pHashByNumber(txn db.Transaction, blockNumber uint64) (*felt.Felt, error) {
 	blockHash := new(felt.Felt)
 	return blockHash, txn.Get(db.P2PHash.Key(core.MarshalBlockNumber(blockNumber)), func(val []byte) error {
