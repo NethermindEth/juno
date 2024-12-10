@@ -301,7 +301,14 @@ func (b *Builder) InitPendingBlock() error {
 		return err
 	}
 	b.pendingBlock.Block.SequencerAddress = &b.ownAddress
-	b.pendingBlock.Block.GasPrice = new(felt.Felt).SetUint64(1) // Todo: should *really* create a config file for this
+
+	// Todo: should *really* create a config file for this
+	b.pendingBlock.Block.L1DAMode = core.Calldata
+	b.pendingBlock.Block.L1DataGasPrice = &core.GasPrice{
+		PriceInWei: new(felt.Felt).SetUint64(1),
+		PriceInFri: new(felt.Felt).SetUint64(1),
+	}
+	b.pendingBlock.Block.GasPrice = new(felt.Felt).SetUint64(1)
 	b.pendingBlock.Block.GasPriceSTRK = new(felt.Felt).SetUint64(1)
 
 	b.headState, b.headCloser, err = b.bc.HeadState()
