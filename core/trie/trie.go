@@ -470,8 +470,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.
 	} else {
 		// Since we short-circuit in leaf updates, we will only end up here for deletions
 		// Delete if key already exist
-		last := nodes[len(nodes)-1]
-		sibling := last
+		sibling := nodes[len(nodes)-1]
 		oldValue, err = t.deleteExistingKey(sibling, nodeKey, nodes)
 		// xor operation, because we don't want to return if the error is nil and the old value is nil
 		if (err != nil) != (oldValue != nil) {
@@ -483,9 +482,9 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.
 
 		// override the sibling to be the parent if it's a proof
 		parentIsProof := false
-		for _, proof := range proof {
-			if proof.key.Equal(sibling.key) {
-				sibling = *proof
+		for _, proofNode := range proof {
+			if proofNode.key.Equal(sibling.key) {
+				sibling = *proofNode
 				parentIsProof = true
 				break
 			}
