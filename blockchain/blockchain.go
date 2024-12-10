@@ -218,7 +218,7 @@ func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, erro
 	var update *core.StateUpdate
 	return update, b.database.View(func(txn db.Transaction) error {
 		var err error
-		update, err = StateUpdateByNumber(txn, number)
+		update, err = stateUpdateByNumber(txn, number)
 		return err
 	})
 }
@@ -591,7 +591,7 @@ func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.State
 	return txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes)
 }
 
-func StateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
+func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	var update *core.StateUpdate
@@ -608,7 +608,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 	var update *core.StateUpdate
 	return update, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
 		var err error
-		update, err = StateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
+		update, err = stateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
@@ -834,7 +834,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 		if err != nil {
 			return err
 		}
-		stateUpdate, err := StateUpdateByNumber(txn, blockNumber)
+		stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
 		if err != nil {
 			return err
 		}
@@ -851,7 +851,7 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	}
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
-	stateUpdate, err := StateUpdateByNumber(txn, blockNumber)
+	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
 	if err != nil {
 		return err
 	}
