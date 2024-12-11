@@ -11,13 +11,13 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0**  | **121 GB** | **449406** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.7.5_449406.tar) |
+| **>=v0.6.0**  | **121 GB** | **449406** | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/mainnet/juno_mainnet_v0.7.5_449406.tar) |
 
 ## Goerli
 
 | Version | Size | Block | Download Link |
 | ------- | ---- | ----- | ------------- |
-| **>=v0.6.0** | **41.4 GB** | **911580** | [**juno_goerli.tar**](https://juno-snapshots.nethermind.dev/goerli/juno_goerli_v0.7.5_911580.tar) |
+| **>=v0.6.0** | **41.4 GB** | **911580** | [**juno_goerli.tar**](https://juno-snapshots.nethermind.io/goerli/juno_goerli_v0.7.5_911580.tar) |
 
 ## Run Juno Using Snapshot
 
@@ -26,7 +26,7 @@ After downloading a snapshot and starting a Juno node, only recent blocks must b
    Fetch a snapshot from one of the provided URLs:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/mainnet/juno_mainnet_v0.7.5_449406.tar
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.io/mainnet/juno_mainnet_v0.7.5_449406.tar
    ```
 
 2. **Prepare Directory**
