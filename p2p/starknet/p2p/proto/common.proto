@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "buf/validate/validate.proto";
 
 option go_package = "github.com/NethermindEth/juno/p2p/starknet/spec";
 
@@ -8,7 +9,7 @@ message Felt252 {
 
 // A hash value representable as a Felt252
 message Hash {
-    bytes elements = 1;
+    bytes elements = 1 [(buf.validate.field).required = true];
 }
 
 // A 256 bit hash value (like Keccak256)

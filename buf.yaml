@@ -1,0 +1,13 @@
+version: v2
+
+modules:
+  - path: p2p/starknet/
+deps:
+  - buf.build/bufbuild/protovalidate
+lint:
+  use:
+    - DEFAULT
+breaking:
+  use:
+    - FILE
+
