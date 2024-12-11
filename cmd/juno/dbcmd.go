@@ -103,8 +103,8 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
-	info.SchemaVersion = schemaMeta.Version
 
+	info.SchemaVersion = schemaMeta.Version
 	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
 	info.ChainHeight = headBlock.Number
 	info.LatestBlockHash = headBlock.Hash
