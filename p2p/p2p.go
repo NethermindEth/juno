@@ -142,7 +142,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		}
 	}
 
-	p2pdht, err := makeDHT(p2phost, peersAddrInfoS)
+	p2pdht, err := MakeDHT(p2phost, peersAddrInfoS, snNetwork.L2ChainID)
 	if err != nil {
 		return nil, err
 	}
@@ -164,9 +164,10 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	return s, nil
 }
 
-func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
+func MakeDHT(p2phost host.Host, addrInfos []peer.AddrInfo, chainID string) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(starknet.Prefix),
+		dht.ProtocolExtension(starknet.ChainPID(chainID)),
 		dht.BootstrapPeers(addrInfos...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),

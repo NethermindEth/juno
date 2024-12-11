@@ -17,6 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -205,4 +206,37 @@ func TestLoadAndPersistPeers(t *testing.T) {
 		testDB,
 	)
 	require.NoError(t, err)
+}
+
+func TestMakeDHTProtocolName(t *testing.T) {
+	net, err := mocknet.FullMeshLinked(1)
+	require.NoError(t, err)
+	testHost := net.Hosts()[0]
+
+	testCases := []struct {
+		name     string
+		network  *utils.Network
+		expected string
+	}{
+		{
+			name:     "sepolia network",
+			network:  &utils.Sepolia,
+			expected: "/starknet/SN_SEPOLIA/kad/1.0.0",
+		},
+		{
+			name:     "mainnet network",
+			network:  &utils.Mainnet,
+			expected: "/starknet/SN_MAIN/kad/1.0.0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dht, err := p2p.MakeDHT(testHost, nil, tc.network.L2ChainID)
+			require.NoError(t, err)
+
+			protocols := dht.Host().Mux().Protocols()
+			assert.Contains(t, protocols, protocol.ID(tc.expected), "protocol list: %v", protocols)
+		})
+	}
 }
