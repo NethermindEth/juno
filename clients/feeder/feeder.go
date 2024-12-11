@@ -365,6 +365,7 @@ func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Fe
 		return nil, err
 	}
 
+	// todo before merge check that this is not used
 	if deprecated, _ := starknet.IsDeprecatedCompiledClassDefinition(definition); deprecated {
 		return nil, ErrDeprecatedCompiledClass
 	}
