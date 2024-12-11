@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -21,7 +20,6 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/crypto/pb"
-	"github.com/libp2p/go-libp2p/core/event"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -43,10 +41,8 @@ type Service struct {
 	handler *starknet.Handler
 	log     utils.SimpleLogger
 
-	dht        *dht.IpfsDHT
-	pubsub     *pubsub.PubSub
-	topics     map[string]*pubsub.Topic
-	topicsLock sync.RWMutex
+	dht    *dht.IpfsDHT
+	pubsub *pubsub.PubSub
 
 	synchroniser *syncService
 	gossipTracer *gossipTracer
@@ -157,7 +153,6 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		network:      snNetwork,
 		dht:          p2pdht,
 		feederNode:   feederNode,
-		topics:       make(map[string]*pubsub.Topic),
 		handler:      starknet.NewHandler(bc, log),
 		database:     database,
 	}
@@ -202,34 +197,6 @@ func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 	}
 
 	return prvKey, nil
-}
-
-func (s *Service) SubscribePeerConnectednessChanged(ctx context.Context) (<-chan event.EvtPeerConnectednessChanged, error) {
-	ch := make(chan event.EvtPeerConnectednessChanged)
-	sub, err := s.host.EventBus().Subscribe(&event.EvtPeerConnectednessChanged{})
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				if err = sub.Close(); err != nil {
-					s.log.Warnw("Failed to close subscription", "err", err)
-				}
-				close(ch)
-				return
-			case evnt := <-sub.Out():
-				typedEvnt := evnt.(event.EvtPeerConnectednessChanged)
-				if typedEvnt.Connectedness == network.Connected {
-					ch <- typedEvnt
-				}
-			}
-		}
-	}()
-
-	return ch, nil
 }
 
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
@@ -334,70 +301,6 @@ func (s *Service) NewStream(ctx context.Context, pids ...protocol.ID) (network.S
 			return nil, fmt.Errorf("no reachable peers supporting %s", protocol.ConvertToStrings(pids))
 		}
 	}
-}
-
-func (s *Service) joinTopic(topic string) (*pubsub.Topic, error) {
-	existingTopic := func() *pubsub.Topic {
-		s.topicsLock.RLock()
-		defer s.topicsLock.RUnlock()
-		if t, found := s.topics[topic]; found {
-			return t
-		}
-		return nil
-	}()
-
-	if existingTopic != nil {
-		return existingTopic, nil
-	}
-
-	newTopic, err := s.pubsub.Join(topic)
-	if err != nil {
-		return nil, err
-	}
-
-	s.topicsLock.Lock()
-	defer s.topicsLock.Unlock()
-	s.topics[topic] = newTopic
-	return newTopic, nil
-}
-
-func (s *Service) SubscribeToTopic(topic string) (chan []byte, func(), error) {
-	t, joinErr := s.joinTopic(topic)
-	if joinErr != nil {
-		return nil, nil, joinErr
-	}
-
-	sub, subErr := t.Subscribe()
-	if subErr != nil {
-		return nil, nil, subErr
-	}
-
-	const bufferSize = 16
-	ch := make(chan []byte, bufferSize)
-	// go func() {
-	//	for {
-	//		msg, err := sub.Next(s.runCtx)
-	//		if err != nil {
-	//			close(ch)
-	//			return
-	//		}
-	//		only forward messages delivered by others
-	//		if msg.ReceivedFrom == s.host.ID() {
-	//			continue
-	//		}
-	//
-	//		select {
-	//		case ch <- msg.GetData():
-	//		case <-s.runCtx.Done():
-	//		}
-	//	}
-	// }()
-	return ch, sub.Cancel, nil
-}
-
-func (s *Service) PublishOnTopic(topic string) error {
-	_, err := s.joinTopic(topic)
-	return err
 }
 
 func (s *Service) SetProtocolHandler(pid protocol.ID, handler func(network.Stream)) {

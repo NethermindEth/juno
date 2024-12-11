@@ -106,23 +106,23 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 }
 
 func (h *Handler) HeadersHandler(stream network.Stream) {
-	streamHandler[*spec.BlockHeadersRequest](h.ctx, &h.wg, stream, h.onHeadersRequest, h.log)
+	streamHandler(h.ctx, &h.wg, stream, h.onHeadersRequest, h.log)
 }
 
 func (h *Handler) EventsHandler(stream network.Stream) {
-	streamHandler[*spec.EventsRequest](h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
+	streamHandler(h.ctx, &h.wg, stream, h.onEventsRequest, h.log)
 }
 
 func (h *Handler) TransactionsHandler(stream network.Stream) {
-	streamHandler[*spec.TransactionsRequest](h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
+	streamHandler(h.ctx, &h.wg, stream, h.onTransactionsRequest, h.log)
 }
 
 func (h *Handler) ClassesHandler(stream network.Stream) {
-	streamHandler[*spec.ClassesRequest](h.ctx, &h.wg, stream, h.onClassesRequest, h.log)
+	streamHandler(h.ctx, &h.wg, stream, h.onClassesRequest, h.log)
 }
 
 func (h *Handler) StateDiffHandler(stream network.Stream) {
-	streamHandler[*spec.StateDiffsRequest](h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
+	streamHandler(h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
 }
 
 func (h *Handler) onHeadersRequest(req *spec.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
