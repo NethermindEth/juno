@@ -670,9 +670,3 @@ func (s *syncService) createIteratorForBlock(blockNumber uint64) *spec.Iteration
 func (s *syncService) WithListener(l junoSync.EventListener) {
 	s.listener = l
 }
-
-//nolint:unused
-func (s *syncService) sleep(d time.Duration) {
-	s.log.Debugw("Sleeping...", "for", d)
-	time.Sleep(d)
-}
