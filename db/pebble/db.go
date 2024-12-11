@@ -17,6 +17,7 @@ const (
 	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
 	// This is also pebble's default value.
 	minCacheSizeMB = 8
+	byteLimit      = 0xff
 )
 
 var (
@@ -128,7 +129,7 @@ func (i *Item) add(size utils.DataSize) {
 	i.Size += size
 }
 
-func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (*Item, error) {
+func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperBound bool) (*Item, error) {
 	var (
 		err error
 		v   []byte
@@ -136,9 +137,13 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (*Item, er
 		item = &Item{}
 	)
 
-	const upperBoundofPrefix = 0xff
 	pebbleDB := pDB.Impl().(*pebble.DB)
-	it, err := pebbleDB.NewIter(&pebble.IterOptions{LowerBound: prefix, UpperBound: append(prefix, upperBoundofPrefix)})
+	iterOpt := &pebble.IterOptions{LowerBound: prefix}
+	if withUpperBound {
+		iterOpt.UpperBound = upperBound(prefix)
+	}
+
+	it, err := pebbleDB.NewIter(iterOpt)
 	if err != nil {
 		// No need to call utils.RunAndWrapOnError() since iterator couldn't be created
 		return nil, err
@@ -157,4 +162,20 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (*Item, er
 	}
 
 	return item, utils.RunAndWrapOnError(it.Close, err)
+}
+
+func upperBound(prefix []byte) []byte {
+	var ub []byte
+
+	for i := len(prefix) - 1; i >= 0; i-- {
+		if prefix[i] == byteLimit {
+			continue
+		}
+		ub = make([]byte, i+1)
+		copy(ub, prefix)
+		ub[i]++
+		return ub
+	}
+
+	return nil
 }
