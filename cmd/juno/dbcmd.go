@@ -86,7 +86,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil, nil)
+	chain := blockchain.New(database, nil)
 	var info DBInfo
 
 	// Get the latest block information
