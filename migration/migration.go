@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/fxamacker/cbor/v2"
@@ -209,7 +210,7 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 		}
 		txnLock.Lock()
 		defer txnLock.Unlock()
-		return blockchain.StoreL1HandlerMsgHashes(txn, txns)
+		return storeL1HandlerMsgHashes(txn, txns)
 	}
 	return processBlocks(txn, processBlockFunc)
 }
@@ -222,4 +223,18 @@ func chainHeight(txn db.Transaction) (uint64, error) {
 		height = binary.BigEndian.Uint64(val)
 		return nil
 	})
+}
+
+// storeL1HandlerMsgHashes has been copied from the blockchain package since functions which take db.Transaction as an
+// argument are intended to be private and as migrations are temporary, the duplication of code is acceptable.
+func storeL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
+	for _, txn := range blockTxns {
+		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
+			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(l1Handler.MessageHash()), txn.Hash().Marshal())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
