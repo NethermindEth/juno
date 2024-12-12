@@ -171,7 +171,7 @@ func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) er
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
-	chainHeight, err := blockchain.ChainHeight(txn)
+	chainHeight, err := chainHeight(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil
@@ -212,4 +212,14 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 		return blockchain.StoreL1HandlerMsgHashes(txn, txns)
 	}
 	return processBlocks(txn, processBlockFunc)
+}
+
+// chainHeight has been copied from the blockchain package since functions which take db.Transaction as an argument are
+// intended to be private and as migrations are temporary, the duplication of code is acceptable.
+func chainHeight(txn db.Transaction) (uint64, error) {
+	var height uint64
+	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
+		height = binary.BigEndian.Uint64(val)
+		return nil
+	})
 }

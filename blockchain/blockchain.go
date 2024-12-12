@@ -122,12 +122,12 @@ func (b *Blockchain) Height() (uint64, error) {
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
-		height, err = ChainHeight(txn)
+		height, err = chainHeight(txn)
 		return err
 	})
 }
 
-func ChainHeight(txn db.Transaction) (uint64, error) {
+func chainHeight(txn db.Transaction) (uint64, error) {
 	var height uint64
 	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
@@ -157,7 +157,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 }
 
 func head(txn db.Transaction) (*core.Block, error) {
-	height, err := ChainHeight(txn)
+	height, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func head(txn db.Transaction) (*core.Block, error) {
 }
 
 func headsHeader(txn db.Transaction) (*core.Header, error) {
-	height, err := ChainHeight(txn)
+	height, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +347,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		}
 
 		// Head of the blockchain is maintained as follows:
-		// [db.ChainHeight]() -> (BlockNumber)
+		// [db.chainHeight]() -> (BlockNumber)
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
@@ -760,7 +760,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	_, err = ChainHeight(txn)
+	_, err = chainHeight(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
@@ -814,7 +814,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	latest, err := ChainHeight(txn)
+	latest, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -830,7 +830,7 @@ func (b *Blockchain) RevertHead() error {
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 	return reverseStateDiff, b.database.View(func(txn db.Transaction) error {
-		blockNumber, err := ChainHeight(txn)
+		blockNumber, err := chainHeight(txn)
 		if err != nil {
 			return err
 		}
@@ -845,7 +845,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 }
 
 func (b *Blockchain) revertHead(txn db.Transaction) error {
-	blockNumber, err := ChainHeight(txn)
+	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
 	}
