@@ -476,7 +476,7 @@ func blockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 
 	block := new(core.Block)
 	block.Header = header
-	block.Transactions, err = TransactionsByBlockNumber(txn, number)
+	block.Transactions, err = transactionsByBlockNumber(txn, number)
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +488,7 @@ func blockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	return block, nil
 }
 
-func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
+func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
 	iterator, err := txn.NewIterator()
 	if err != nil {
 		return nil, err

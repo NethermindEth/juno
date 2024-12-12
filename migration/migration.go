@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -8,9 +9,9 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/sourcegraph/conc/pool"
@@ -203,7 +204,7 @@ func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) er
 func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		txns, err := blockchain.TransactionsByBlockNumber(txn, blockNumber)
+		txns, err := transactionsByBlockNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
@@ -237,4 +238,41 @@ func storeL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction)
 		}
 	}
 	return nil
+}
+
+// transactionsByBlockNumber has been copied from the blockchain package since functions which take db.Transaction as an
+// argument are intended to be private and as migrations are temporary, the duplication of code is acceptable.
+func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
+	iterator, err := txn.NewIterator()
+	if err != nil {
+		return nil, err
+	}
+
+	var txs []core.Transaction
+	numBytes := core.MarshalBlockNumber(number)
+
+	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
+	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
+		if !bytes.HasPrefix(iterator.Key(), prefix) {
+			break
+		}
+
+		val, vErr := iterator.Value()
+		if vErr != nil {
+			return nil, utils.RunAndWrapOnError(iterator.Close, vErr)
+		}
+
+		var tx core.Transaction
+		if err = encoder.Unmarshal(val, &tx); err != nil {
+			return nil, utils.RunAndWrapOnError(iterator.Close, err)
+		}
+
+		txs = append(txs, tx)
+	}
+
+	if err = iterator.Close(); err != nil {
+		return nil, err
+	}
+
+	return txs, nil
 }
