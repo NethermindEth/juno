@@ -10,7 +10,7 @@ import (
 // - Uses a slice to maintain insertion order and enable ordered iteration
 // The data structure is safe for concurrent access through the use of a read-write mutex.
 type OrderedSet[K comparable, V any] struct {
-	itemPos map[K]int // position of the node in the list
+	itemPos map[K]int // position of the item in the list
 	items   []V
 	lock    sync.RWMutex
 }
