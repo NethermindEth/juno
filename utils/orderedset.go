@@ -12,7 +12,6 @@ import (
 type OrderedSet[K comparable, V any] struct {
 	itemPos map[K]int // position of the node in the list
 	items   []V
-	size    int
 	lock    sync.RWMutex
 }
 
@@ -35,7 +34,6 @@ func (ps *OrderedSet[K, V]) Put(key K, value V) {
 	// Insert new entry
 	ps.itemPos[key] = len(ps.items)
 	ps.items = append(ps.items, value)
-	ps.size++
 }
 
 func (ps *OrderedSet[K, V]) Get(key K) (V, bool) {
@@ -53,7 +51,7 @@ func (ps *OrderedSet[K, V]) Size() int {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
-	return ps.size
+	return len(ps.items)
 }
 
 // List returns a shallow copy of the proof set's value list.
