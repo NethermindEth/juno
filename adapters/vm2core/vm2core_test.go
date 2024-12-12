@@ -68,35 +68,3 @@ func TestAdaptOrderedMessagesToL1(t *testing.T) {
 		vm2core.AdaptOrderedMessageToL1(messages[0]),
 	}, vm2core.AdaptOrderedMessagesToL1(messages))
 }
-
-func TestAdaptExecutionResources(t *testing.T) {
-	require.Equal(t, &core.ExecutionResources{
-		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
-			Pedersen:     1,
-			RangeCheck:   2,
-			Bitwise:      3,
-			Ecsda:        4,
-			EcOp:         5,
-			Keccak:       6,
-			Poseidon:     7,
-			SegmentArena: 8,
-			Output:       11,
-		},
-		MemoryHoles: 9,
-		Steps:       10,
-	}, vm2core.AdaptExecutionResources(&vm.ExecutionResources{
-		ComputationResources: vm.ComputationResources{
-			Pedersen:     1,
-			RangeCheck:   2,
-			Bitwise:      3,
-			Ecdsa:        4,
-			EcOp:         5,
-			Keccak:       6,
-			Poseidon:     7,
-			SegmentArena: 8,
-			MemoryHoles:  9,
-			Steps:        10,
-			Output:       11,
-		},
-	}))
-}
