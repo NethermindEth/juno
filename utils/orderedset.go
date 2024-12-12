@@ -21,45 +21,45 @@ func NewOrderedSet[K comparable, V any]() *OrderedSet[K, V] {
 	}
 }
 
-func (ps *OrderedSet[K, V]) Put(key K, value V) {
-	ps.lock.Lock()
-	defer ps.lock.Unlock()
+func (o *OrderedSet[K, V]) Put(key K, value V) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
 
 	// Update existing entry
-	if pos, exists := ps.itemPos[key]; exists {
-		ps.items[pos] = value
+	if pos, exists := o.itemPos[key]; exists {
+		o.items[pos] = value
 		return
 	}
 
 	// Insert new entry
-	ps.itemPos[key] = len(ps.items)
-	ps.items = append(ps.items, value)
+	o.itemPos[key] = len(o.items)
+	o.items = append(o.items, value)
 }
 
-func (ps *OrderedSet[K, V]) Get(key K) (V, bool) {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+func (o *OrderedSet[K, V]) Get(key K) (V, bool) {
+	o.lock.RLock()
+	defer o.lock.RUnlock()
 
-	if pos, ok := ps.itemPos[key]; ok {
-		return ps.items[pos], true
+	if pos, ok := o.itemPos[key]; ok {
+		return o.items[pos], true
 	}
 	var zero V
 	return zero, false
 }
 
-func (ps *OrderedSet[K, V]) Size() int {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+func (o *OrderedSet[K, V]) Size() int {
+	o.lock.RLock()
+	defer o.lock.RUnlock()
 
-	return len(ps.items)
+	return len(o.items)
 }
 
 // List returns a shallow copy of the proof set's value list.
-func (ps *OrderedSet[K, V]) List() []V {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+func (o *OrderedSet[K, V]) List() []V {
+	o.lock.RLock()
+	defer o.lock.RUnlock()
 
-	values := make([]V, len(ps.items))
-	copy(values, ps.items)
+	values := make([]V, len(o.items))
+	copy(values, o.items)
 	return values
 }
