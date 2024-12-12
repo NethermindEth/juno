@@ -359,7 +359,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
 	return b.database.Update(func(txn db.Transaction) error {
-		if err := b.storeBlock(txn, block, blockCommitments); err != nil {
+		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
 
@@ -367,8 +367,26 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := state.Update(block.Number, stateUpdate.StateDiff, newClasses); err != nil {
 			return err
 		}
+		stateRoot, err := state.Root()
+		if err != nil {
+			return err
+		}
 
-		if err := b.verifyStateUpdateRoot(state, stateUpdate.NewRoot); err != nil {
+		if !stateRoot.Equal(stateUpdate.NewRoot) {
+			return fmt.Errorf("new state root does not match expected root")
+		}
+		if err := StoreBlockHeader(txn, block.Header); err != nil {
+			return err
+		}
+
+		for i, tx := range block.Transactions {
+			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
+				block.Receipts[i]); err != nil {
+				return err
+			}
+		}
+
+		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
 			return err
 		}
 
@@ -389,36 +407,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
-}
-
-func (b *Blockchain) storeBlock(txn db.Transaction, block *core.Block, blockCommitments *core.BlockCommitments) error {
-	if err := verifyBlock(txn, block); err != nil {
-		return err
-	}
-
-	if err := StoreBlockHeader(txn, block.Header); err != nil {
-		return err
-	}
-
-	for i, tx := range block.Transactions {
-		if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
-			block.Receipts[i]); err != nil {
-			return err
-		}
-	}
-
-	if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
-		return err
-	}
-
-	if err := b.storeEmptyPending(txn, block.Header); err != nil {
-		return err
-	}
-
-	// Head of the blockchain is maintained as follows:
-	// [db.ChainHeight]() -> (BlockNumber)
-	heightBin := core.MarshalBlockNumber(block.Number)
-	return txn.Set(db.ChainHeight.Key(), heightBin)
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -1243,11 +1231,11 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpda
 			pending.Block.Signatures = [][]*felt.Felt{sig}
 		}
 
-		if err = b.storeBlock(txn, pending.Block, commitments); err != nil {
+		if err = b.Store(pending.Block, commitments, pending.StateUpdate, pending.NewClasses); err != nil {
 			return err
 		}
 
-		return storeStateUpdate(txn, pending.Block.Number, pending.StateUpdate)
+		return nil
 	})
 }
 

@@ -288,7 +288,8 @@ func TestStore(t *testing.T) {
 		wrongRootStateUpdate := stateUpdate0
 		wrongRootStateUpdate.NewRoot = new(felt.Felt).SetUint64(1337)
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
-		require.ErrorContains(t, chain.Store(block0, &emptyCommitments, wrongRootStateUpdate, nil), "does not match the expected root")
+		require.ErrorContains(t, chain.Store(block0, &emptyCommitments, wrongRootStateUpdate, nil),
+			"new state root does not match expected root")
 	})
 }
 
@@ -430,9 +431,8 @@ func TestState(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	t.Run("head with no blocks", func(t *testing.T) {
-		_, closer, err := chain.HeadState()
-		require.NoError(t, err)
-		require.NoError(t, closer())
+		_, _, err := chain.HeadState()
+		require.Error(t, err)
 	})
 
 	var existingBlockHash *felt.Felt

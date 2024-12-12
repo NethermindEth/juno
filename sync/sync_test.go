@@ -169,7 +169,7 @@ func TestReorg(t *testing.T) {
 		// After syncing (and reorging) the current head should be at mainnet
 		head, err = bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
+		require.Equal(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6", head.Hash.String())
 	})
 }
 

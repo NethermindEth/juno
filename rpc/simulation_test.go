@@ -63,7 +63,7 @@ func TestSimulateTransactions(t *testing.T) {
 			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 				Header: headsHeader,
 			}, mockState, n, false, true, false).
-				Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
+				Return(nil, nil, nil, []vm.TransactionTrace{}, uint64(0), vm.TransactionExecutionError{
 					Index: 44,
 					Cause: errors.New("oops"),
 				})
