@@ -2,8 +2,6 @@ package starknet
 
 import (
 	"errors"
-	"fmt"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -23,10 +21,10 @@ type iterator struct {
 
 func newIteratorByNumber(bcReader blockchain.Reader, blockNumber, limit, step uint64, forward bool) (*iterator, error) {
 	if step == 0 {
-		return nil, fmt.Errorf("step is zero")
+		return nil, errors.New("step is zero")
 	}
 	if limit == 0 {
-		return nil, fmt.Errorf("limit is zero")
+		return nil, errors.New("limit is zero")
 	}
 
 	return &iterator{
@@ -41,7 +39,7 @@ func newIteratorByNumber(bcReader blockchain.Reader, blockNumber, limit, step ui
 
 func newIteratorByHash(bcReader blockchain.Reader, blockHash *felt.Felt, limit, step uint64, forward bool) (*iterator, error) {
 	if blockHash == nil {
-		return nil, fmt.Errorf("block hash is nil")
+		return nil, errors.New("block hash is nil")
 	}
 
 	block, err := bcReader.BlockByHash(blockHash)

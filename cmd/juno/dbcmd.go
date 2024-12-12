@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -265,7 +266,7 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 func openDB(path string) (db.DB, error) {
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("database path does not exist")
+		return nil, errors.New("database path does not exist")
 	}
 
 	database, err := pebble.New(path)
