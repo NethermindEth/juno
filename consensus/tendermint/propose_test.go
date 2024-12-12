@@ -27,13 +27,12 @@ func TestPropose(t *testing.T) {
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := uint(0)
-		rPrime := uint(4)
-		round4Value := value(10)
+		rPrime, rPrimeVal := uint(4), value(10)
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
 			Height:     expectedHeight,
 			Round:      rPrime,
 			ValidRound: nil,
-			Value:      &round4Value,
+			Value:      &rPrimeVal,
 			Sender:     *val2,
 		}
 
@@ -41,19 +40,21 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: expectedHeight,
 				Round:  rPrime,
-				ID:     utils.Ptr(round4Value.Hash()),
+				ID:     utils.Ptr(rPrimeVal.Hash()),
 				Sender: *val3,
 			},
 		}
 
-		algo.messages.addPrevote(val3Prevote)
+		algo.futureMessages.addPrevote(val3Prevote)
 		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
 			value, felt.Felt, felt.Felt])
 		proposalListener.send(val2Proposal)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 		algo.Stop()
+
+		// Ensure future message have been moved from futureMessages set to current messages set.
 
 		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
 		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
@@ -76,13 +77,12 @@ func TestPropose(t *testing.T) {
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := uint(0)
-		rPrime := uint(4)
-		round4Value := value(10)
+		rPrime, rPrimeVal := uint(4), value(10)
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
 			Height:     expectedHeight,
 			Round:      rPrime,
 			ValidRound: nil,
-			Value:      &round4Value,
+			Value:      &rPrimeVal,
 			Sender:     *val2,
 		}
 
@@ -90,7 +90,7 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: expectedHeight,
 				Round:  rPrime,
-				ID:     utils.Ptr(round4Value.Hash()),
+				ID:     utils.Ptr(rPrimeVal.Hash()),
 				Sender: *val3,
 			},
 		}
