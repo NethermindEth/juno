@@ -274,7 +274,6 @@ func TestThresholds(t *testing.T) {
 	for _, test := range tests {
 		assert.Equal(t, test.q, q(test.n))
 		assert.Equal(t, test.f, f(test.n))
-
 	}
 }
 
