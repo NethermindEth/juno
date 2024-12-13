@@ -1191,18 +1191,20 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpda
 	return b.database.Update(func(txn db.Transaction) error {
 		var err error
 		state := core.NewState(txn)
-		pending.StateUpdate.OldRoot, err = state.Root()
+		oldStateRoot, err := state.Root()
 		if err != nil {
 			return err
 		}
+		pending.StateUpdate.OldRoot = oldStateRoot
 
 		if err = state.Update(pending.Block.Number, pending.StateUpdate.StateDiff, pending.NewClasses); err != nil {
 			return err
 		}
-		pending.Block.GlobalStateRoot, err = state.Root()
+		newStateRoot, err := state.Root()
 		if err != nil {
 			return err
 		}
+		pending.Block.GlobalStateRoot = newStateRoot
 		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
 
 		var commitments *core.BlockCommitments
@@ -1231,11 +1233,41 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpda
 			pending.Block.Signatures = [][]*felt.Felt{sig}
 		}
 
-		if err = b.Store(pending.Block, commitments, pending.StateUpdate, pending.NewClasses); err != nil {
+		if !newStateRoot.Equal(pending.Block.GlobalStateRoot) {
+			return fmt.Errorf("new pe root does not match expected root")
+		}
+
+		if err := StoreBlockHeader(txn, pending.Block.Header); err != nil {
 			return err
 		}
 
-		return nil
+		for i, tx := range pending.Block.Transactions {
+			if err := storeTransactionAndReceipt(txn, pending.Block.Number, uint64(i), tx,
+				pending.Block.Receipts[i]); err != nil {
+				return err
+			}
+		}
+
+		if err := storeStateUpdate(txn, pending.Block.Number, pending.StateUpdate); err != nil {
+			return err
+		}
+
+		if err := StoreBlockCommitments(txn, pending.Block.Number, commitments); err != nil {
+			return err
+		}
+
+		if err := StoreL1HandlerMsgHashes(txn, pending.Block.Transactions); err != nil {
+			return err
+		}
+
+		if err := b.storeEmptyPending(txn, pending.Block.Header); err != nil {
+			return err
+		}
+
+		// Head of the blockchain is maintained as follows:
+		// [db.ChainHeight]() -> (BlockNumber)
+		heightBin := core.MarshalBlockNumber(pending.Block.Number)
+		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
 }
 

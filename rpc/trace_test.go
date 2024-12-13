@@ -432,7 +432,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsedStr := "123"
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
 			gomock.Any(), n, false, false, false).
-			Return(nil, nil, []vm.TransactionTrace{vmTrace}, []vm.TransactionReceipt{}, stepsUsed, nil)
+			Return(nil, []core.GasConsumed{{L1Gas: 0, L1DataGas: 0}}, []vm.TransactionTrace{vmTrace}, []vm.TransactionReceipt{}, stepsUsed, nil)
 
 		expectedResult := []rpc.TracedBlockTransaction{
 			{

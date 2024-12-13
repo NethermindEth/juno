@@ -107,7 +107,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	mockVM.EXPECT().Execute([]core.Transaction{userTxn.Transaction},
 		[]core.Class{userTxn.DeclaredClass}, []*felt.Felt{}, gomock.Any(),
 		gomock.Any(), &utils.Integration, false, false, false).DoAndReturn(
-		func(txns []core.Transaction, classes []core.Class, felts []*felt.Felt, info *vm.BlockInfo, any interface{}, integration *utils.Network, b1, b2, b3, b4 bool) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
+		func(txns []core.Transaction, classes []core.Class, felts []*felt.Felt, info *vm.BlockInfo, any interface{}, integration *utils.Network, b1, b2, b3 bool) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
 			// Check all fields of info except for Timestamp
 			if info.Header.Number != blockInfo.Header.Number {
 				return nil, nil, nil, nil, 0, fmt.Errorf("unexpected BlockInfo: Number. Expected %v, got %v", blockInfo.Header.Number, info.Header.Number)
@@ -133,7 +133,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	mockVM.EXPECT().Execute([]core.Transaction{userTxn.Transaction},
 		[]core.Class{userTxn.DeclaredClass}, []*felt.Felt{}, gomock.Any(),
 		gomock.Any(), &utils.Integration, false, false, false).DoAndReturn(
-		func(txns []core.Transaction, classes []core.Class, felts []*felt.Felt, info *vm.BlockInfo, any interface{}, integration *utils.Network, b1, b2, b3, b4 bool) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
+		func(txns []core.Transaction, classes []core.Class, felts []*felt.Felt, info *vm.BlockInfo, any interface{}, integration *utils.Network, b1, b2, b3 bool) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, []vm.TransactionReceipt, uint64, error) {
 			if info.Header.Number != blockInfo.Header.Number {
 				return nil, nil, nil, nil, 0, fmt.Errorf("unexpected BlockInfo: Number. Expected %v, got %v", blockInfo.Header.Number, info.Header.Number)
 			}
@@ -444,11 +444,13 @@ func TestPrefundedAccounts(t *testing.T) {
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
-	genesisConfig.Classes = []string{"../genesis/classes/strk.json", "../genesis/classes/account.json"}
+	genesisConfig.Classes = []string{
+		"../genesis/classes/strk.json", "../genesis/classes/account.json",
+		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
+	}
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(diff, classes))
-
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
@@ -469,7 +471,7 @@ func TestPrefundedAccounts(t *testing.T) {
 		}
 	}
 
-	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x123456789123"), utils.HexToFelt(t, "0x12345678"))
+	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x56bc75e2d63100000"), utils.HexToFelt(t, "0x12345678"))
 	foundExpectedBalance := false
 	numExpectedBalance := 0
 	for i := uint64(0); i < height; i++ {

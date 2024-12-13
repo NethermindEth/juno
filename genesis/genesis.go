@@ -121,7 +121,6 @@ func GenesisStateDiff(
 				return nil, nil, fmt.Errorf("set compiled class hash: %v", err)
 			}
 		}
-		fmt.Println("classHash", classHash.String())
 	}
 
 	constructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
@@ -169,7 +168,6 @@ func GenesisStateDiff(
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
-
 	for _, txn := range config.Txns {
 		var coreTxn core.Transaction
 		switch txn.Type {
