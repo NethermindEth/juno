@@ -9,6 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/p2p/starknet/spec"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/bufbuild/protovalidate-go"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"google.golang.org/protobuf/encoding/protodelim"
@@ -74,6 +75,14 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 		return nil, err
 	}
 
+	validator, err := protovalidate.New(
+		protovalidate.WithDisableLazy(true),
+		protovalidate.WithMessages(&spec.Hash{}),
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return func(yield func(ResT) bool) {
 		defer func() {
 			closeErr := stream.Close()
@@ -90,6 +99,11 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 					log.Debugw("Error while reading from stream", "err", err)
 				}
 
+				break
+			}
+
+			if err := validator.Validate(res); err != nil {
+				log.Errorw("Error while validating response", "err", err)
 				break
 			}
 
