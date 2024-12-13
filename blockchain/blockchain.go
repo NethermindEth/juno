@@ -990,13 +990,14 @@ func (b *Blockchain) Finalise(
 ) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		var err error
+		fmt.Println("------=")
 		state := core.NewState(txn)
 		oldStateRoot, err := state.Root()
 		if err != nil {
 			return err
 		}
 		stateUpdate.OldRoot = oldStateRoot
-
+		fmt.Println("------=ss", block.Number, stateUpdate.StateDiff, newClasses)
 		if err = state.Update(block.Number, stateUpdate.StateDiff, newClasses); err != nil {
 			return err
 		}
@@ -1017,7 +1018,7 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 		stateUpdate.BlockHash = block.Hash
-
+		fmt.Println("------=ssss")
 		if refStateUpdate != nil && refBlock != nil {
 			err := b.verifyAgainstReference(block, stateUpdate, commitments, refStateUpdate, refBlock)
 			if err != nil {
@@ -1040,7 +1041,7 @@ func (b *Blockchain) Finalise(
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
-
+		fmt.Println("------=ssddddddd")
 		for i, tx := range block.Transactions {
 			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
 				block.Receipts[i]); err != nil {
@@ -1062,6 +1063,7 @@ func (b *Blockchain) Finalise(
 
 		// Head of the blockchain is maintained as follows:
 		// [db.ChainHeight]() -> (BlockNumber)
+		fmt.Println("------=heightBinheightBin")
 		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
