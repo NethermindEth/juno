@@ -94,3 +94,40 @@ func TestBytes(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkBitArrayBytes(b *testing.B) {
+	testCases := []struct {
+		name string
+		ba   bitArray
+	}{
+		{
+			name: "empty",
+			ba:   bitArray{pos: 0, words: maxBitArray},
+		},
+		{
+			name: "pos_38",
+			ba:   bitArray{pos: 38, words: maxBitArray},
+		},
+		{
+			name: "pos_100",
+			ba:   bitArray{pos: 100, words: maxBitArray},
+		},
+		{
+			name: "pos_201",
+			ba:   bitArray{pos: 201, words: maxBitArray},
+		},
+		{
+			name: "pos_255",
+			ba:   bitArray{pos: 255, words: maxBitArray},
+		},
+	}
+
+	for _, tc := range testCases {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_ = tc.ba.Bytes()
+			}
+		})
+	}
+}
