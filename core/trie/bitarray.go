@@ -10,8 +10,10 @@ const (
 	mask64 = uint64(1 << 63)
 )
 
+var maxBitArray = [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF}
+
 type bitArray struct {
-	pos   uint8     // position of the most significant bit
+	pos   uint8     // position of the current most significant bit (0-255)
 	words [4]uint64 // little endian (i.e. words[0] is the least significant)
 }
 
@@ -27,26 +29,32 @@ func (b *bitArray) Bytes() [32]byte {
 		binary.BigEndian.PutUint64(res[16:24], b.words[1])
 		binary.BigEndian.PutUint64(res[24:32], b.words[0])
 	case b.pos >= 192:
-		rem := 255 - uint(b.pos)
-		mask := ^mask64 >> (rem - 1)
+		// For positions >= 192, we need to mask the most significant word (words[3])
+		// to zero out bits beyond the current position.
+		// Example: if pos = 201, then rem = 255 - 201 = 54
+		// mask = ^mask64 >> (54 - 1) = ^(1<<63) >> 53
+		// This creates a mask like: 0000000000000000000000000000000000000000000000000000001111111111
+		// When applied to words[3], it preserves only the 10 least significant bits
+		shift := 255 - b.pos
+		mask := ^mask64 >> (shift - 1)
 		binary.BigEndian.PutUint64(res[0:8], b.words[3]&mask)
 		binary.BigEndian.PutUint64(res[8:16], b.words[2])
 		binary.BigEndian.PutUint64(res[16:24], b.words[1])
 		binary.BigEndian.PutUint64(res[24:32], b.words[0])
 	case b.pos >= 128:
-		rem := 191 - b.pos
-		mask := ^mask64 >> (rem - 1)
+		shift := 191 - b.pos
+		mask := ^mask64 >> (shift - 1)
 		binary.BigEndian.PutUint64(res[8:16], b.words[2]&mask)
 		binary.BigEndian.PutUint64(res[16:24], b.words[1])
 		binary.BigEndian.PutUint64(res[24:32], b.words[0])
 	case b.pos >= 64:
-		rem := 127 - b.pos
-		mask := ^mask64 >> (rem - 1)
+		shift := 127 - b.pos
+		mask := ^mask64 >> (shift - 1)
 		binary.BigEndian.PutUint64(res[16:24], b.words[1]&mask)
 		binary.BigEndian.PutUint64(res[24:32], b.words[0])
 	default:
-		rem := 63 - b.pos
-		mask := ^mask64 >> (rem - 1)
+		shift := 63 - b.pos
+		mask := ^mask64 >> (shift - 1)
 		binary.BigEndian.PutUint64(res[24:32], b.words[0]&mask)
 	}
 
