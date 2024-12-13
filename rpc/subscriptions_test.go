@@ -364,6 +364,10 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
+func (fs *fakeSyncer) Pending() (*sync.Pending, error)                       { return nil, nil }
+func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
+func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
+
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
@@ -471,10 +475,10 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.NoError(t, err)
 
 	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, &utils.Mainnet)
+	chain := blockchain.New(testDB, &utils.Mainnet, nil)
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-	chain = blockchain.New(testDB, &utils.Mainnet)
+	chain = blockchain.New(testDB, &utils.Mainnet, nil)
 	syncer := newFakeSyncer()
 
 	ctx, cancel := context.WithCancel(context.Background())
