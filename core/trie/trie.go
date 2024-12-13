@@ -11,7 +11,10 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 )
+
+const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
 
 type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
@@ -95,31 +98,8 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 
 // feltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) feltToKey(k *felt.Felt) Key {
-	kBytes := k.Bytes()
-	return NewKey(t.height, kBytes[:])
-}
-
-// findCommonKey finds the set of common MSB bits in two key bitsets.
-func findCommonKey(longerKey, shorterKey *Key) (Key, bool) {
-	divergentBit := findDivergentBit(longerKey, shorterKey)
-	commonKey := *shorterKey
-	commonKey.DeleteLSB(shorterKey.Len() - divergentBit + 1)
-	return commonKey, divergentBit == shorterKey.Len()+1
-}
-
-func findDivergentBit(longerKey, shorterKey *Key) uint8 {
-	divergentBit := uint8(0)
-	for divergentBit <= shorterKey.Len() &&
-		longerKey.Test(longerKey.Len()-divergentBit) == shorterKey.Test(shorterKey.Len()-divergentBit) {
-		divergentBit++
-	}
-	return divergentBit
-}
-
-func isSubset(longerKey, shorterKey *Key) bool {
-	divergentBit := findDivergentBit(longerKey, shorterKey)
-	return divergentBit == shorterKey.Len()+1
+func (t *Trie) FeltToKey(k *felt.Felt) Key {
+	return FeltToKey(t.height, k)
 }
 
 // path returns the path as mentioned in the [specification] for commitment calculations.
@@ -145,12 +125,95 @@ func (sn *StorageNode) Key() *Key {
 	return sn.key
 }
 
-func (sn *StorageNode) Node() *Node {
-	return sn.node
+func (sn *StorageNode) Value() *felt.Felt {
+	return sn.node.Value
+}
+
+func (sn *StorageNode) String() string {
+	return fmt.Sprintf("StorageNode{key: %s, node: %s}", sn.key, sn.node)
+}
+
+func (sn *StorageNode) Update(other *StorageNode) error {
+	// First validate all fields for conflicts
+	if sn.key != nil && other.key != nil && !sn.key.Equal(NilKey) && !other.key.Equal(NilKey) {
+		if !sn.key.Equal(other.key) {
+			return fmt.Errorf("keys do not match: %s != %s", sn.key, other.key)
+		}
+	}
+
+	// Validate node updates
+	if sn.node != nil && other.node != nil {
+		if err := sn.node.Update(other.node); err != nil {
+			return err
+		}
+	}
+
+	// After validation, perform update
+	if other.key != nil && !other.key.Equal(NilKey) {
+		sn.key = other.key
+	}
+
+	return nil
 }
 
 func NewStorageNode(key *Key, node *Node) *StorageNode {
 	return &StorageNode{key: key, node: node}
+}
+
+// NewPartialStorageNode creates a new StorageNode with a given key and value,
+// where the right and left children are nil.
+func NewPartialStorageNode(key *Key, value *felt.Felt) *StorageNode {
+	return &StorageNode{
+		key: key,
+		node: &Node{
+			Value: value,
+			Left:  NilKey,
+			Right: NilKey,
+		},
+	}
+}
+
+// StorageNodeSet wraps OrderedSet to provide specific functionality for StorageNodes
+type StorageNodeSet struct {
+	set *utils.OrderedSet[Key, *StorageNode]
+}
+
+func NewStorageNodeSet() *StorageNodeSet {
+	return &StorageNodeSet{
+		set: utils.NewOrderedSet[Key, *StorageNode](),
+	}
+}
+
+func (s *StorageNodeSet) Get(key Key) (*StorageNode, bool) {
+	return s.set.Get(key)
+}
+
+// Put adds a new StorageNode or updates an existing one.
+func (s *StorageNodeSet) Put(key Key, node *StorageNode) error {
+	if node == nil {
+		return fmt.Errorf("cannot put nil node")
+	}
+
+	// If key exists, update the node
+	if existingNode, exists := s.set.Get(key); exists {
+		if err := existingNode.Update(node); err != nil {
+			return fmt.Errorf("failed to update node for key %v: %w", key, err)
+		}
+		return nil
+	}
+
+	// Add new node if key doesn't exist
+	s.set.Put(key, node)
+	return nil
+}
+
+// List returns the list of StorageNodes in the set.
+func (s *StorageNodeSet) List() []*StorageNode {
+	return s.set.List()
+}
+
+func (s *StorageNodeSet) Size() int {
+	return s.set.Size()
 }
 
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
@@ -180,7 +243,7 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 			return nodes, nil
 		}
 
-		if key.Test(key.Len() - cur.Len() - 1) {
+		if key.IsBitSet(key.Len() - cur.Len() - 1) {
 			cur = node.Right
 		} else {
 			cur = node.Left
@@ -192,7 +255,7 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
-	storageKey := t.feltToKey(key)
+	storageKey := t.FeltToKey(key)
 	value, err := t.storage.Get(&storageKey)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -261,6 +324,7 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent S
 	}
 }
 
+// TODO(weiihann): not a good idea to couple proof verification logic with trie logic
 func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsParentProof bool) error {
 	commonKey, _ := findCommonKey(nodeKey, sibling.key)
 
@@ -274,7 +338,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		if err != nil {
 			return err
 		}
-		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+		if nodeKey.IsBitSet(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Right = nodeKey
 			newParent.RightHash = node.Hash(nodeKey, t.hash)
 		} else {
@@ -286,7 +350,7 @@ func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode
 		}
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 	} else {
-		if nodeKey.Test(nodeKey.Len() - commonKey.Len() - 1) {
+		if nodeKey.IsBitSet(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Left, newParent.Right = sibling.key, nodeKey
 			leftChild, rightChild = sibling.node, node
 		} else {
@@ -328,7 +392,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 	}
 
 	old := felt.Zero
-	nodeKey := t.feltToKey(key)
+	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
 	}
@@ -373,13 +437,13 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 }
 
 // Put updates the corresponding `value` for a `key`
-func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []StorageNode) (*felt.Felt, error) {
+func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.Felt, error) {
 	if key.Cmp(t.maxKey) > 0 {
 		return nil, fmt.Errorf("key %s exceeds trie height %d", key, t.height)
 	}
 
 	old := felt.Zero
-	nodeKey := t.feltToKey(key)
+	nodeKey := t.FeltToKey(key)
 	node := &Node{
 		Value: value,
 	}
@@ -417,22 +481,12 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 		}
 
 		// override the sibling to be the parent if it's a proof
-		parentIsProof, found := false, false
-		for _, proof := range lProofPath {
-			if proof.key.Equal(sibling.key) {
-				sibling = proof
+		parentIsProof := false
+		for _, proofNode := range proof {
+			if proofNode.key.Equal(sibling.key) {
+				sibling = *proofNode
 				parentIsProof = true
-				found = true
 				break
-			}
-		}
-		if !found {
-			for _, proof := range rProofPath {
-				if proof.key.Equal(sibling.key) {
-					sibling = proof
-					parentIsProof = true
-					break
-				}
 			}
 		}
 
@@ -445,14 +499,11 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, lProofPath, rProofPath []Stor
 }
 
 // Put updates the corresponding `value` for a `key`
-func (t *Trie) PutInner(key *Key, node *Node) (*felt.Felt, error) {
+func (t *Trie) PutInner(key *Key, node *Node) error {
 	if err := t.storage.Put(key, node); err != nil {
-		return nil, err
+		return err
 	}
-	if t.rootKey == nil {
-		t.setRootKey(key)
-	}
-	return &felt.Zero, nil
+	return nil
 }
 
 func (t *Trie) setRootKey(newRootKey *Key) {
@@ -461,9 +512,6 @@ func (t *Trie) setRootKey(newRootKey *Key) {
 }
 
 func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
-	zeroFeltBytes := new(felt.Felt).Bytes()
-	nilKey := NewKey(0, zeroFeltBytes[:])
-
 	node, err := t.storage.Get(key)
 	if err != nil {
 		return nil, err
@@ -485,9 +533,9 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 	}
 
 	// Update inner proof nodes
-	if node.Left.Equal(&nilKey) && node.Right.Equal(&nilKey) { // leaf
+	if node.Left.Equal(NilKey) && node.Right.Equal(NilKey) { // leaf
 		shouldUpdate = false
-	} else if node.Left.Equal(&nilKey) || node.Right.Equal(&nilKey) { // inner
+	} else if node.Left.Equal(NilKey) || node.Right.Equal(NilKey) { // inner
 		shouldUpdate = true
 	}
 	if !shouldUpdate {
@@ -496,11 +544,11 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 
 	var leftIsProof, rightIsProof bool
 	var leftHash, rightHash *felt.Felt
-	if node.Left.Equal(&nilKey) {
+	if node.Left.Equal(NilKey) { // key could be nil but hash cannot be
 		leftIsProof = true
 		leftHash = node.LeftHash
 	}
-	if node.Right.Equal(&nilKey) {
+	if node.Right.Equal(NilKey) {
 		rightIsProof = true
 		rightHash = node.RightHash
 	}
@@ -698,12 +746,33 @@ func (t *Trie) dump(level int, parentP *Key) {
 	}
 	defer nodePool.Put(root)
 	path := path(t.rootKey, parentP)
-	fmt.Printf("%sstorage : \"%s\" %d spec: \"%s\" %d bottom: \"%s\" \n",
+
+	left := ""
+	right := ""
+	leftHash := ""
+	rightHash := ""
+
+	if root.Left != nil {
+		left = root.Left.String()
+	}
+	if root.Right != nil {
+		right = root.Right.String()
+	}
+	if root.LeftHash != nil {
+		leftHash = root.LeftHash.String()
+	}
+	if root.RightHash != nil {
+		rightHash = root.RightHash.String()
+	}
+
+	fmt.Printf("%skey : \"%s\" path: \"%s\" left: \"%s\" right: \"%s\" LH: \"%s\" RH: \"%s\" value: \"%s\" \n",
 		strings.Repeat("\t", level),
 		t.rootKey.String(),
-		t.rootKey.Len(),
 		path.String(),
-		path.Len(),
+		left,
+		right,
+		leftHash,
+		rightHash,
 		root.Value.String(),
 	)
 	(&Trie{

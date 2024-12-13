@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	stdsync "sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/adapters/vm2core"
@@ -38,6 +38,7 @@ type Builder struct {
 	privKey    *ecdsa.PrivateKey
 
 	bc        *blockchain.Blockchain
+	db        db.DB
 	vm        vm.VM
 	newHeads  *feed.Feed[*core.Header]
 	log       utils.Logger
@@ -45,8 +46,7 @@ type Builder struct {
 	pool      *mempool.Pool
 	listener  EventListener
 
-	pendingLock  stdsync.Mutex
-	pendingBlock blockchain.Pending
+	pendingBlock atomic.Pointer[sync.Pending]
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
@@ -69,7 +69,7 @@ type Builder struct {
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
-	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, disableFees bool,
+	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, disableFees bool, db db.DB,
 ) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
@@ -80,6 +80,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 
 		disableFees: disableFees,
 		bc:          bc,
+		db:          db,
 		pool:        pool,
 		vm:          builderVM,
 		newHeads:    feed.New[*core.Header](),
@@ -88,6 +89,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 
 func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, starknetData starknetdata.StarknetData,
+	db db.DB,
 ) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
@@ -101,6 +103,7 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 		chanNumTxnsToShadow: make(chan int, 1),
 
 		bc:       bc,
+		db:       db,
 		pool:     pool,
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
@@ -130,6 +133,49 @@ func (b *Builder) WithSyncToBlock(syncTo uint64) *Builder {
 	return b
 }
 
+func (b *Builder) Pending() (*sync.Pending, error) {
+	p := b.pendingBlock.Load()
+	if p == nil {
+		return nil, sync.ErrPendingBlockNotFound
+	}
+
+	expectedParentHash := &felt.Zero
+	if head, err := b.bc.HeadsHeader(); err == nil {
+		expectedParentHash = head.Hash
+	}
+	if p.Block.ParentHash.Equal(expectedParentHash) {
+		return p, nil
+	}
+
+	// Todo: pending should be reset when block is Finalised..
+	// Since the pending block in the cache is outdated remove it
+	b.pendingBlock.Store(nil)
+
+	return nil, sync.ErrPendingBlockNotFound
+}
+
+func (b *Builder) PendingBlock() *core.Block {
+	pending, err := b.Pending()
+	if err != nil {
+		return nil
+	}
+	return pending.Block
+}
+
+func (b *Builder) PendingState() (core.StateReader, func() error, error) {
+	txn, err := b.db.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pending, err := b.Pending()
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
+}
+
 func (b *Builder) Run(ctx context.Context) error {
 	switch {
 	case b.shadowMode:
@@ -143,12 +189,6 @@ func (b *Builder) runSequencer(ctx context.Context) error {
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
-
-	defer func() {
-		if pErr := b.ClearPending(); pErr != nil {
-			b.log.Errorw("clearing pending", "err", pErr)
-		}
-	}()
 
 	doneListen := make(chan struct{})
 	go func() {
@@ -178,21 +218,9 @@ func (b *Builder) runShadowMode(ctx context.Context) error {
 		return err
 	}
 
-	// Snapshots that have non-empty pending states need cleaned.
-	err := b.bc.CleanPendingState()
-	if err != nil {
-		return err
-	}
-
 	if err := b.InitPendingBlock(); err != nil {
 		return err
 	}
-
-	defer func() {
-		if pErr := b.ClearPending(); pErr != nil {
-			b.log.Errorw("clearing pending", "err", pErr)
-		}
-	}()
 
 	doneListen := make(chan struct{})
 	go func() {
@@ -216,7 +244,11 @@ func (b *Builder) runShadowMode(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-b.chanFinaliseBlock:
-			err := b.cleanStorageDiff(b.pendingBlock.StateUpdate.StateDiff)
+			pending, err := b.Pending()
+			if err != nil {
+				return err
+			}
+			err = b.cleanStorageDiff(pending.StateUpdate.StateDiff)
 			if err != nil {
 				return err
 			}
@@ -287,65 +319,52 @@ func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
 }
 
 func (b *Builder) InitPendingBlock() error {
-	if b.pendingBlock.Block != nil {
-		return nil
-	}
-
-	bcPending, err := b.bc.Pending()
+	header, err := b.bc.HeadsHeader()
 	if err != nil {
 		return err
 	}
-
-	b.pendingBlock, err = utils.Clone[blockchain.Pending](bcPending)
-	if err != nil {
-		return err
+	pendingBlock := core.Block{
+		Header: &core.Header{
+			ParentHash:       header.Hash,
+			SequencerAddress: &b.ownAddress,
+			GasPrice:         new(felt.Felt).SetUint64(1),
+			GasPriceSTRK:     new(felt.Felt).SetUint64(1),
+			L1DAMode:         core.Calldata,
+			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: new(felt.Felt).SetUint64(1),
+				PriceInFri: new(felt.Felt).SetUint64(1),
+			},
+		},
 	}
-	b.pendingBlock.Block.SequencerAddress = &b.ownAddress
-
-	// Todo: should *really* create a config file for this
-	b.pendingBlock.Block.L1DAMode = core.Calldata
-	b.pendingBlock.Block.L1DataGasPrice = &core.GasPrice{
-		PriceInWei: new(felt.Felt).SetUint64(1),
-		PriceInFri: new(felt.Felt).SetUint64(1),
+	newClasses := new(map[felt.Felt]core.Class)
+	pending := sync.Pending{
+		Block:       &pendingBlock,
+		StateUpdate: &core.StateUpdate{},
+		NewClasses:  *newClasses,
 	}
-	b.pendingBlock.Block.GasPrice = new(felt.Felt).SetUint64(1)
-	b.pendingBlock.Block.GasPriceSTRK = new(felt.Felt).SetUint64(1)
-
-	b.headState, b.headCloser, err = b.bc.HeadState()
-	return err
-}
-
-func (b *Builder) ClearPending() error {
-	b.pendingBlock = blockchain.Pending{}
-	if b.headState != nil {
-		if err := b.headCloser(); err != nil {
-			return err
-		}
-		b.headState = nil
-		b.headCloser = nil
-	}
+	b.pendingBlock.Store(&pending)
 	return nil
 }
 
 // Finalise the pending block and initialise the next one
 func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
-	b.pendingLock.Lock()
-	defer b.pendingLock.Unlock()
-
-	if err := b.bc.Finalise(&b.pendingBlock, signFunc, b.shadowStateUpdate, b.shadowBlock); err != nil {
+	pending, err := b.Pending()
+	if err != nil {
 		return err
 	}
-	b.log.Infow("Finalised block", "number", b.pendingBlock.Block.Number, "hash",
-		b.pendingBlock.Block.Hash.ShortString(), "state", b.pendingBlock.Block.GlobalStateRoot.ShortString())
-	b.listener.OnBlockFinalised(b.pendingBlock.Block.Header)
+
+	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign, b.shadowStateUpdate, b.shadowBlock); err != nil {
+		return err
+	}
+	b.log.Infow("Finalised block", "number", pending.Block.Number, "hash",
+		pending.Block.Hash.ShortString(), "state", pending.Block.GlobalStateRoot.ShortString())
+	b.listener.OnBlockFinalised(pending.Block.Header)
+
 	if b.plugin != nil {
-		err := b.plugin.NewBlock(b.pendingBlock.Block, b.pendingBlock.StateUpdate, b.pendingBlock.NewClasses)
+		err := b.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
 		if err != nil {
 			b.log.Errorw("error sending new block to plugin", err)
 		}
-	}
-	if err := b.ClearPending(); err != nil {
-		return err
 	}
 	return b.InitPendingBlock()
 }
@@ -358,12 +377,12 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 		declaredClasses = []core.Class{userTxn.DeclaredClass}
 	}
 
-	pendingBlock, err := b.bc.Pending()
+	pendingBlock, err := b.Pending()
 	if err != nil {
 		return err
 	}
 
-	state, stateCloser, err := b.bc.PendingState()
+	state, stateCloser, err := b.PendingState()
 	if err != nil {
 		return err
 	}
@@ -469,9 +488,11 @@ func (b *Builder) depletePool(ctx context.Context) error {
 }
 
 func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
-	b.pendingLock.Lock()
-	defer b.pendingLock.Unlock()
-	state := blockchain.NewPendingStateWriter(b.pendingBlock.StateUpdate.StateDiff, b.pendingBlock.NewClasses, b.headState)
+	pending, err := b.Pending()
+	if err != nil {
+		return err
+	}
+	state := sync.NewPendingStateWriter(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState)
 	var classes []core.Class
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
@@ -481,7 +502,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		classes,
 		[]*felt.Felt{new(felt.Felt).SetUint64(1)},
 		&vm.BlockInfo{
-			Header:                b.pendingBlock.Block.Header,
+			Header:                pending.Block.Header,
 			BlockHashToBeRevealed: b.blockHashToBeRevealed,
 		},
 		state,
@@ -513,11 +534,14 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 
 	receipt := vm2core.Receipt(fee[0], feeUnit, txn.Transaction.Hash(), &trace[0], &txnReceipts[0])
 	if b.shadowBlock != nil {
-		b.overrideTraces(receipt)
+		err = b.overrideTraces(receipt)
+		if err != nil {
+			return err
+		}
 	}
 	if b.junoEndpoint != "" {
 		seqTrace := vm2core.AdaptStateDiff(trace[0].StateDiff)
-		refTrace := vm2core.AdaptStateDiff(b.snBlockTraces[b.pendingBlock.Block.TransactionCount].TraceRoot.StateDiff)
+		refTrace := vm2core.AdaptStateDiff(b.snBlockTraces[pending.Block.TransactionCount].TraceRoot.StateDiff)
 		diffString, diffsNotEqual := seqTrace.Diff(refTrace, "sequencer", "sepolia")
 		if diffsNotEqual {
 			// Can't be fatal since FGW may remove values later (eg if the storage update element doesn't alter state)
@@ -525,17 +549,34 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 			b.log.Debugw(diffString) // Todo: Debug doesn't seem to format this nicely, use print?
 		}
 
-		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount]); differ {
+		if differ, diffStr := core.CompareReceipts(receipt, b.shadowBlock.Receipts[pending.Block.TransactionCount]); differ {
 			b.log.Debugw("CompareReceipts")
 			b.log.Debugw(diffStr)
 		}
 	}
 
-	b.pendingBlock.Block.Receipts = append(b.pendingBlock.Block.Receipts, receipt)
-	b.pendingBlock.Block.Transactions = append(b.pendingBlock.Block.Transactions, txn.Transaction)
-	b.pendingBlock.Block.TransactionCount += 1
-	b.pendingBlock.Block.EventCount += uint64(len(receipt.Events))
-	b.pendingBlock.StateUpdate.StateDiff = MergeStateDiffs(b.pendingBlock.StateUpdate.StateDiff, vm2core.StateDiff(&trace[0]))
+	pending.Block.Receipts = append(pending.Block.Receipts, receipt)
+	pending.Block.Transactions = append(pending.Block.Transactions, txn.Transaction)
+	pending.Block.TransactionCount += 1
+	pending.Block.EventCount += uint64(len(receipt.Events))
+	pending.StateUpdate.StateDiff = MergeStateDiffs(pending.StateUpdate.StateDiff, vm2core.StateDiff(&trace[0]))
+	return b.StorePending(pending)
+}
+
+// StorePending stores a pending block given that it is for the next height
+func (b *Builder) StorePending(newPending *sync.Pending) error {
+	expectedParentHash := new(felt.Felt)
+	h, err := b.bc.HeadsHeader()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	} else if err == nil {
+		expectedParentHash = h.Hash
+	}
+
+	if !expectedParentHash.Equal(newPending.Block.ParentHash) {
+		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
+	}
+	b.pendingBlock.Store(newPending)
 	return nil
 }
 
@@ -566,11 +607,16 @@ func MergeStateDiffs(oldStateDiff, newStateDiff *core.StateDiff) *core.StateDiff
 	return oldStateDiff
 }
 
-func (b *Builder) overrideTraces(receipt *core.TransactionReceipt) {
+func (b *Builder) overrideTraces(receipt *core.TransactionReceipt) error {
 	// Note: the error message changes between blockifier-rc2 and blockifier-rc3.
 	// If we run with blockifier-rc3, we won't get the same revert-reason that was
 	// generated if the FGW was running blockifier-rc2. We account for this here.
-	receipt.RevertReason = b.shadowBlock.Receipts[b.pendingBlock.Block.TransactionCount].RevertReason
+	pending, err := b.Pending()
+	if err != nil {
+		return err
+	}
+	receipt.RevertReason = b.shadowBlock.Receipts[pending.Block.TransactionCount].RevertReason
+	return nil
 }
 
 // shadowTxns pulls transactions from the FGW and feeds them into the mempool for execution.
@@ -618,10 +664,15 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 			b.snBlockTraces = snBlockTraces
 		}
 
+		pending, err := b.Pending()
+		if err != nil {
+			return nil
+		}
+
 		b.shadowStateUpdate = su
 		b.shadowBlock = block
 		b.setPendingHeader(block, nextBlockToSequence)
-		blockHashStorage := b.pendingBlock.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
+		blockHashStorage := pending.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
 		for _, blockHash := range blockHashStorage {
 			b.blockHashToBeRevealed = blockHash // Affects execution
 		}
@@ -646,16 +697,22 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 	}
 }
 
-func (b *Builder) setPendingHeader(refBlock *core.Block, nextBlockToSequence uint64) {
-	b.pendingBlock.Block.Transactions = nil
-	b.pendingBlock.Block.Number = nextBlockToSequence
-	b.pendingBlock.Block.SequencerAddress = refBlock.SequencerAddress      // Affects post 0.13.2 block hash
-	b.pendingBlock.Block.Timestamp = refBlock.Timestamp                    // Affects post 0.13.2 block hash
-	b.pendingBlock.Block.Header.ProtocolVersion = refBlock.ProtocolVersion // Affects post 0.13.2 block hash
-	b.pendingBlock.Block.Header.GasPrice = refBlock.GasPrice               // Affects post 0.13.2 block hash
-	b.pendingBlock.Block.Header.GasPriceSTRK = refBlock.GasPriceSTRK       // Affects post 0.13.2 block hash
-	b.pendingBlock.Block.Header.L1DataGasPrice = refBlock.L1DataGasPrice   // Affects post 0.13.2 block hash
-	b.pendingBlock.Block.Header.L1DAMode = refBlock.L1DAMode               // Affects data_availability
+func (b *Builder) setPendingHeader(refBlock *core.Block, nextBlockToSequence uint64) error {
+	pending, err := b.Pending()
+	if err != nil {
+		return err
+	}
+
+	pending.Block.Transactions = nil
+	pending.Block.Number = nextBlockToSequence
+	pending.Block.SequencerAddress = refBlock.SequencerAddress      // Affects post 0.13.2 block hash
+	pending.Block.Timestamp = refBlock.Timestamp                    // Affects post 0.13.2 block hash
+	pending.Block.Header.ProtocolVersion = refBlock.ProtocolVersion // Affects post 0.13.2 block hash
+	pending.Block.Header.GasPrice = refBlock.GasPrice               // Affects post 0.13.2 block hash
+	pending.Block.Header.GasPriceSTRK = refBlock.GasPriceSTRK       // Affects post 0.13.2 block hash
+	pending.Block.Header.L1DataGasPrice = refBlock.L1DataGasPrice   // Affects post 0.13.2 block hash
+	pending.Block.Header.L1DAMode = refBlock.L1DAMode               // Affects data_availability
+	return b.StorePending(pending)
 }
 
 // syncStore pulls blocks, classes and state-updates directly from the FGW and stores them in the
@@ -685,10 +742,13 @@ func (b *Builder) syncStore() error {
 		if err != nil {
 			return err
 		}
-		b.pendingBlock = blockchain.Pending{
+		err = b.StorePending(&sync.Pending{
 			Block:       block,
 			NewClasses:  classes,
 			StateUpdate: su,
+		})
+		if err != nil {
+			return err
 		}
 		err = b.Finalise(nil)
 		if err != nil {

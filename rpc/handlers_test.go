@@ -43,12 +43,13 @@ func TestSpecVersion(t *testing.T) {
 func TestThrottledVMError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, nil, throttledVM, "", nil)
+	handler := rpc.New(mockReader, mockSyncReader, throttledVM, "", nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
@@ -98,7 +99,7 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))

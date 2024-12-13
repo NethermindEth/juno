@@ -2,35 +2,51 @@ package genesis_test
 
 import (
 	"context"
+	"crypto/rand"
 	"testing"
+	"time"
+
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestGenesisStateDiff(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	mockCtrl := gomock.NewController(t)
 	network := &utils.Mainnet
 	client := feeder.NewTestClient(t, network)
 	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), network)
-
+	chain := blockchain.New(pebble.NewMemTest(t), network, nil)
+	mockVM := mocks.NewMockVM(mockCtrl)
+	privKey, err := ecdsa.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	p := mempool.New(pebble.NewMemTest(t))
+	testBuilder := builder.New(privKey, new(felt.Felt).SetUint64(1), chain, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB)
 	// Need to store pending block create NewPendingState
 	block, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
 	su, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
-	pendingGenesis := blockchain.Pending{
+	pendingGenesis := sync.Pending{
 		Block:       block,
 		StateUpdate: su,
 	}
-	require.NoError(t, chain.StorePending(&pendingGenesis))
+	require.NoError(t, testBuilder.StorePending(&pendingGenesis))
 
 	t.Run("empty genesis config", func(t *testing.T) {
 		genesisConfig := genesis.GenesisConfig{}

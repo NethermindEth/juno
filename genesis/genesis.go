@@ -7,7 +7,6 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/adapters/vm2core"
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -15,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
@@ -107,7 +107,7 @@ func GenesisStateDiff(
 			Timestamp: 0,
 		},
 	}
-	genesisState := blockchain.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
+	genesisState := sync.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
 		core.NewState(db.NewMemTransaction()))
 
 	for classHash, class := range newClasses {

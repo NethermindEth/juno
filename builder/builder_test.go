@@ -20,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -68,10 +69,10 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, &utils.Integration, nil)
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	p := mempool.New(pebble.NewMemTest(t))
-	testBuilder := builder.New(nil, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(nil, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB)
 
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
@@ -79,7 +80,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	su, b, err := gw.StateUpdateWithBlock(context.Background(), 0)
 	require.NoError(t, err)
 
-	require.NoError(t, bc.StorePending(&blockchain.Pending{
+	require.NoError(t, testBuilder.StorePending(&sync.Pending{
 		Block:       b,
 		StateUpdate: su,
 	}))
@@ -92,7 +93,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 			Program: "best program",
 		},
 	}
-	pendingBlock, err := bc.Pending()
+	pendingBlock, err := testBuilder.Pending()
 	require.NoError(t, err)
 	blockInfo := &vm.BlockInfo{
 		Header: &core.Header{
@@ -156,12 +157,12 @@ func TestSign(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, &utils.Integration, nil)
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB)
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
@@ -302,14 +303,14 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, &utils.Integration, nil)
 	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), nil))
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
 	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -332,8 +333,8 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 
 func TestBuildBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
-
-	bc := blockchain.New(pebble.NewMemTest(t), &utils.Integration)
+	testDB := pebble.NewMemTest(t)
+	bc := blockchain.New(testDB, &utils.Integration, nil)
 	require.NoError(t, bc.StoreGenesis(core.EmptyStateDiff(), map[felt.Felt]core.Class{}))
 	mockVM := mocks.NewMockVM(mockCtrl)
 
@@ -342,7 +343,7 @@ func TestBuildBlocks(t *testing.T) {
 	require.NoError(t, err)
 	p := mempool.New(pebble.NewMemTest(t))
 	blockTime := time.Millisecond
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, blockTime, p, utils.NewNopZapLogger(), false)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, blockTime, p, utils.NewNopZapLogger(), false, testDB)
 
 	txnHashes := []*felt.Felt{}
 	for i := uint64(0); i < 100; i++ {
@@ -433,9 +434,9 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 
 	expectedExnsInBlock := []rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
-
+	testDB := pebble.NewMemTest(t)
 	network := &utils.Mainnet
-	bc := blockchain.New(pebble.NewMemTest(t), network)
+	bc := blockchain.New(testDB, network, nil)
 	log := utils.NewNopZapLogger()
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -451,7 +452,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(diff, classes))
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, testDB)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(context.Background(), txn)
@@ -497,7 +498,8 @@ func TestShadowSepolia(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	snData := mocks.NewMockStarknetData(mockCtrl)
 	network := &utils.Sepolia
-	bc := blockchain.New(pebble.NewMemTest(t), network)
+	testDB := pebble.NewMemTest(t)
+	bc := blockchain.New(testDB, network, nil)
 	p := mempool.New(pebble.NewMemTest(t))
 	log := utils.NewNopZapLogger()
 	vmm := vm.New(false, log)
@@ -506,7 +508,7 @@ func TestShadowSepolia(t *testing.T) {
 	require.NoError(t, err)
 
 	blockTime := time.Second
-	testBuilder := builder.NewShadow(privKey, seqAddr, bc, vmm, blockTime, p, log, snData).WithSyncToBlock(0)
+	testBuilder := builder.NewShadow(privKey, seqAddr, bc, vmm, blockTime, p, log, snData, testDB).WithSyncToBlock(0)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, network))
 
 	const numTestBlocks = 3 // Note: depends on the number of blocks that the buidler syncStores (see Run())

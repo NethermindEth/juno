@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"sync/atomic"
-	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -40,23 +38,21 @@ type Reader interface {
 	HeadState() (core.StateReader, StateCloser, error)
 	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
 	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
-	PendingState() (core.StateReader, StateCloser, error)
 
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error)
-
-	Pending() (Pending, error)
 
 	Network() *utils.Network
 }
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
+	ErrPendingBlockNotFound   = errors.New("pending block not found")
 	SupportedStarknetVersion  = semver.MustParse("0.13.3")
 )
 
-func checkBlockVersion(protocolVersion string) error {
+func CheckBlockVersion(protocolVersion string) error {
 	blockVer, err := core.ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return err
@@ -83,20 +79,19 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network  *utils.Network
-	database db.DB
-
-	listener EventListener
-
-	cachedPending atomic.Pointer[Pending]
+	network        *utils.Network
+	database       db.DB
+	listener       EventListener
+	pendingBlockFn func() *core.Block
 }
 
-func New(database db.DB, network *utils.Network) *Blockchain {
+func New(database db.DB, network *utils.Network, pendingBlockFn func() *core.Block) *Blockchain {
 	RegisterCoreTypesToEncoder()
 	return &Blockchain{
-		database: database,
-		network:  network,
-		listener: &SelectiveListener{},
+		database:       database,
+		network:        network,
+		listener:       &SelectiveListener{},
+		pendingBlockFn: pendingBlockFn,
 	}
 }
 
@@ -266,24 +261,6 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 	return transaction, b.database.View(func(txn db.Transaction) error {
 		var err error
 		transaction, err = transactionByHash(txn, hash)
-
-		// not found in the canonical blocks, try pending
-		if errors.Is(err, db.ErrKeyNotFound) {
-			var pending Pending
-			pending, err = b.pendingBlock(txn)
-			if err != nil {
-				return err
-			}
-
-			for _, t := range pending.Block.Transactions {
-				if hash.Equal(t.Hash()) {
-					transaction = t
-					return nil
-				}
-			}
-			return db.ErrKeyNotFound
-		}
-
 		return err
 	})
 }
@@ -299,26 +276,6 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	return receipt, blockHash, blockNumber, b.database.View(func(txn db.Transaction) error {
 		var err error
 		receipt, blockHash, blockNumber, err = receiptByHash(txn, hash)
-
-		// not found in the canonical blocks, try pending
-		if errors.Is(err, db.ErrKeyNotFound) {
-			var pending Pending
-			pending, err = b.pendingBlock(txn)
-			if err != nil {
-				return err
-			}
-
-			for i, t := range pending.Block.Transactions {
-				if hash.Equal(t.Hash()) {
-					receipt = pending.Block.Receipts[i]
-					blockHash = nil
-					blockNumber = 0
-					return nil
-				}
-			}
-			return db.ErrKeyNotFound
-		}
-
 		return err
 	})
 }
@@ -398,10 +355,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := b.storeEmptyPending(txn, block.Header); err != nil {
-			return err
-		}
-
 		// Head of the blockchain is maintained as follows:
 		// [db.ChainHeight]() -> (BlockNumber)
 		heightBin := core.MarshalBlockNumber(block.Number)
@@ -417,7 +370,7 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 }
 
 func verifyBlock(txn db.Transaction, block *core.Block) error {
-	if err := checkBlockVersion(block.ProtocolVersion); err != nil {
+	if err := CheckBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
 
@@ -875,7 +828,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	return newEventFilter(txn, from, keys, 0, latest), nil
+	return newEventFilter(txn, from, keys, 0, latest, b.pendingBlockFn), nil
 }
 
 // RevertHead reverts the head block
@@ -949,21 +902,9 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 		return err
 	}
 
-	// Revert chain height and pending.
+	// Revert chain height.
 	if genesisBlock {
-		if err = txn.Delete(db.Pending.Key()); err != nil {
-			return err
-		}
 		return txn.Delete(db.ChainHeight.Key())
-	}
-
-	var newHeader *core.Header
-	newHeader, err = blockHeaderByNumber(txn, blockNumber-1)
-	if err != nil {
-		return err
-	}
-	if err := b.storeEmptyPending(txn, newHeader); err != nil {
-		return err
 	}
 
 	heightBin := core.MarshalBlockNumber(blockNumber - 1)
@@ -1000,154 +941,6 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 	}
 
 	return nil
-}
-
-func (b *Blockchain) CleanPendingState() error {
-	header, err := b.HeadsHeader()
-	if err != nil {
-		return err
-	}
-	txn, err := b.database.NewTransaction(true)
-	if err != nil {
-		return err
-	}
-	err = b.storeEmptyPending(txn, header)
-	if err != nil {
-		return err
-	}
-	return txn.Commit()
-}
-
-func (b *Blockchain) storeEmptyPending(txn db.Transaction, latestHeader *core.Header) error {
-	receipts := make([]*core.TransactionReceipt, 0)
-	pendingBlock := &core.Block{
-		Header: &core.Header{
-			ParentHash:       latestHeader.Hash,
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			GasPrice:         latestHeader.GasPrice,
-			GasPriceSTRK:     latestHeader.GasPriceSTRK,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := MakeStateDiffForEmptyBlock(b, latestHeader.Number+1)
-	if err != nil {
-		return err
-	}
-
-	emptyPending := &Pending{
-		Block: pendingBlock,
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   latestHeader.GlobalStateRoot,
-			StateDiff: stateDiff,
-		},
-		NewClasses: make(map[felt.Felt]core.Class, 0),
-	}
-	return b.storePending(txn, emptyPending)
-}
-
-// StorePending stores a pending block given that it is for the next height
-func (b *Blockchain) StorePending(pending *Pending) error {
-	return b.database.Update(func(txn db.Transaction) error {
-		expectedParentHash := new(felt.Felt)
-		h, err := headsHeader(txn)
-		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-			return err
-		} else if err == nil {
-			expectedParentHash = h.Hash
-		}
-
-		if !expectedParentHash.Equal(pending.Block.ParentHash) {
-			return ErrParentDoesNotMatchHead
-		}
-
-		if existingPending, err := b.pendingBlock(txn); err == nil {
-			if existingPending.Block.TransactionCount >= pending.Block.TransactionCount {
-				return nil // ignore the incoming pending if it has fewer transactions than the one we already have
-			}
-			pending.Block.Number = existingPending.Block.Number // Just in case the number is not set.
-		} else if !errors.Is(err, db.ErrKeyNotFound) { // Allow StorePending before block zero.
-			return err
-		}
-
-		return b.storePending(txn, pending)
-	})
-}
-
-func (b *Blockchain) storePending(txn db.Transaction, pending *Pending) error {
-	if err := storePending(txn, pending); err != nil {
-		return err
-	}
-	b.cachedPending.Store(pending)
-	return nil
-}
-
-func storePending(txn db.Transaction, pending *Pending) error {
-	pendingBytes, err := encoder.Marshal(pending)
-	if err != nil {
-		return err
-	}
-	return txn.Set(db.Pending.Key(), pendingBytes)
-}
-
-func (b *Blockchain) pendingBlock(txn db.Transaction) (Pending, error) {
-	if cachedPending := b.cachedPending.Load(); cachedPending != nil {
-		expectedParentHash := &felt.Zero
-		if head, err := headsHeader(txn); err == nil {
-			expectedParentHash = head.Hash
-		}
-		if cachedPending.Block.ParentHash.Equal(expectedParentHash) {
-			return *cachedPending, nil
-		}
-	}
-
-	// Either cachedPending was nil or wasn't consistent with the HEAD we have
-	// in the database, so read it directly from the database
-	return pendingBlock(txn)
-}
-
-func pendingBlock(txn db.Transaction) (Pending, error) {
-	var pending Pending
-	err := txn.Get(db.Pending.Key(), func(bytes []byte) error {
-		return encoder.Unmarshal(bytes, &pending)
-	})
-	return pending, err
-}
-
-// Pending returns the pending block from the database
-func (b *Blockchain) Pending() (Pending, error) {
-	b.listener.OnRead("Pending")
-	var pending Pending
-	return pending, b.database.View(func(txn db.Transaction) error {
-		var err error
-		pending, err = b.pendingBlock(txn)
-		return err
-	})
-}
-
-// PendingState returns the state resulting from execution of the pending block
-func (b *Blockchain) PendingState() (core.StateReader, StateCloser, error) {
-	b.listener.OnRead("PendingState")
-	txn, err := b.database.NewTransaction(false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pending, err := b.pendingBlock(txn)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return NewPendingState(
-		pending.StateUpdate.StateDiff,
-		pending.NewClasses,
-		core.NewState(txn),
-	), txn.Discard, nil
 }
 
 func MakeStateDiffForEmptyBlock(bc Reader, blockNumber uint64) (*core.StateDiff, error) {
@@ -1187,7 +980,14 @@ type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the
 // blockchain. In cases where the sequencer needs to re-generate another chain (eg Sepolia), the optional reference
 // block and state update should be provided.
-func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpdate *core.StateUpdate, refBlock *core.Block) error {
+func (b *Blockchain) Finalise(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	sign BlockSignFunc,
+	refStateUpdate *core.StateUpdate,
+	refBlock *core.Block,
+) error {
 	return b.database.Update(func(txn db.Transaction) error {
 		var err error
 		state := core.NewState(txn)
@@ -1195,92 +995,89 @@ func (b *Blockchain) Finalise(pending *Pending, sign BlockSignFunc, refStateUpda
 		if err != nil {
 			return err
 		}
-		pending.StateUpdate.OldRoot = oldStateRoot
+		stateUpdate.OldRoot = oldStateRoot
 
-		if err = state.Update(pending.Block.Number, pending.StateUpdate.StateDiff, pending.NewClasses); err != nil {
+		if err = state.Update(block.Number, stateUpdate.StateDiff, newClasses); err != nil {
 			return err
 		}
 		newStateRoot, err := state.Root()
 		if err != nil {
 			return err
 		}
-		pending.Block.GlobalStateRoot = newStateRoot
-		pending.StateUpdate.NewRoot = pending.Block.GlobalStateRoot
+		block.GlobalStateRoot = newStateRoot
+		stateUpdate.NewRoot = block.GlobalStateRoot
 
 		var commitments *core.BlockCommitments
-		pending.Block.Hash, commitments, err = core.BlockHash(
-			pending.Block,
-			pending.StateUpdate.StateDiff,
+		block.Hash, commitments, err = core.BlockHash(
+			block,
+			stateUpdate.StateDiff,
 			b.network,
-			pending.Block.SequencerAddress)
+			block.SequencerAddress)
 		if err != nil {
 			return err
 		}
-		pending.StateUpdate.BlockHash = pending.Block.Hash
+		stateUpdate.BlockHash = block.Hash
 
 		if refStateUpdate != nil && refBlock != nil {
-			err := b.verifyAgainstReference(pending, commitments, refStateUpdate, refBlock)
+			err := b.verifyAgainstReference(block, stateUpdate, commitments, refStateUpdate, refBlock)
 			if err != nil {
 				return err
 			}
 		}
 
 		if sign != nil {
-			sig, err := sign(pending.Block.Hash, pending.StateUpdate.StateDiff.Commitment())
+			sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
 			if err != nil {
 				return err
 			}
-			pending.Block.Signatures = [][]*felt.Felt{sig}
+			block.Signatures = [][]*felt.Felt{sig}
 		}
 
-		if !newStateRoot.Equal(pending.Block.GlobalStateRoot) {
+		if !newStateRoot.Equal(block.GlobalStateRoot) {
 			return fmt.Errorf("new pe root does not match expected root")
 		}
 
-		if err := StoreBlockHeader(txn, pending.Block.Header); err != nil {
+		if err := StoreBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 
-		for i, tx := range pending.Block.Transactions {
-			if err := storeTransactionAndReceipt(txn, pending.Block.Number, uint64(i), tx,
-				pending.Block.Receipts[i]); err != nil {
+		for i, tx := range block.Transactions {
+			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
+				block.Receipts[i]); err != nil {
 				return err
 			}
 		}
 
-		if err := storeStateUpdate(txn, pending.Block.Number, pending.StateUpdate); err != nil {
+		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
 			return err
 		}
 
-		if err := StoreBlockCommitments(txn, pending.Block.Number, commitments); err != nil {
+		if err := StoreBlockCommitments(txn, block.Number, commitments); err != nil {
 			return err
 		}
 
-		if err := StoreL1HandlerMsgHashes(txn, pending.Block.Transactions); err != nil {
-			return err
-		}
-
-		if err := b.storeEmptyPending(txn, pending.Block.Header); err != nil {
+		if err := StoreL1HandlerMsgHashes(txn, block.Transactions); err != nil {
 			return err
 		}
 
 		// Head of the blockchain is maintained as follows:
 		// [db.ChainHeight]() -> (BlockNumber)
-		heightBin := core.MarshalBlockNumber(pending.Block.Number)
+		heightBin := core.MarshalBlockNumber(block.Number)
 		return txn.Set(db.ChainHeight.Key(), heightBin)
 	})
 }
 
-func (b *Blockchain) verifyAgainstReference(pending *Pending, commitments *core.BlockCommitments,
+func (b *Blockchain) verifyAgainstReference(block *core.Block,
+	stateUpdate *core.StateUpdate, commitments *core.BlockCommitments,
 	refStateUpdate *core.StateUpdate, refBlock *core.Block,
 ) error {
-	if err := b.validateStateDiff(refStateUpdate, pending.StateUpdate); err != nil {
+	if err := b.validateStateDiff(refStateUpdate, stateUpdate); err != nil {
 		return err
 	}
 	if err := b.validateCommitments(refBlock, refStateUpdate, commitments); err != nil {
 		return err
 	}
-	if err := b.validateHeader(refBlock.Header, pending.Block.Header); err != nil {
+	if err := b.validateHeader(refBlock.Header, block.Header); err != nil {
 		return err
 	}
 	return nil
@@ -1392,26 +1189,26 @@ func (b *Blockchain) validateHeader(shadowHeader, sequenceHeader *core.Header) e
 
 func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
 	receipts := make([]*core.TransactionReceipt, 0)
-	pendingGenesis := Pending{
-		Block: &core.Block{
-			Header: &core.Header{
-				ParentHash:       &felt.Zero,
-				Number:           0,
-				SequencerAddress: &felt.Zero,
-				EventsBloom:      core.EventsBloom(receipts),
-				GasPrice:         &felt.Zero,
-				GasPriceSTRK:     &felt.Zero,
-			},
-			Transactions: make([]core.Transaction, 0),
-			Receipts:     receipts,
+
+	block := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &felt.Zero,
+			Number:           0,
+			SequencerAddress: &felt.Zero,
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         &felt.Zero,
+			GasPriceSTRK:     &felt.Zero,
 		},
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   &felt.Zero,
-			StateDiff: diff,
-		},
-		NewClasses: classes,
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
 	}
-	return b.Finalise(&pendingGenesis, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+	stateUpdate := &core.StateUpdate{
+		OldRoot:   &felt.Zero,
+		StateDiff: diff,
+	}
+	newClasses := classes
+
+	return b.Finalise(block, stateUpdate, newClasses, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
 		return nil, nil
 	}, nil, nil)
 }

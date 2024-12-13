@@ -1,13 +1,12 @@
-package blockchain_test
+package sync_test
 
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -34,7 +33,7 @@ func TestPendingState(t *testing.T) {
 	declaredV1CompiledClassHash, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	pending := blockchain.Pending{
+	pending := sync.Pending{
 		Block: nil,
 		StateUpdate: &core.StateUpdate{
 			BlockHash: nil,
@@ -65,7 +64,7 @@ func TestPendingState(t *testing.T) {
 			*deployedClassHash: &core.Cairo0Class{},
 		},
 	}
-	state := blockchain.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
+	state := sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
@@ -153,131 +152,4 @@ func TestPendingState(t *testing.T) {
 			assert.True(t, ok)
 		})
 	})
-}
-
-// "Write" functions are tested below.
-// The variables below are at package scope for convenience.
-// All tests are careful not to modify them.
-
-var (
-	contractAddr      = new(felt.Felt).SetUint64(1)
-	classHash         = new(felt.Felt).SetUint64(2)
-	compiledClassHash = new(felt.Felt).SetUint64(3)
-	storageKey        = felt.Felt{}
-	testState         = &core.StateDiff{
-		StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-			*contractAddr: {storageKey: new(felt.Felt).SetUint64(1)},
-		},
-		Nonces: map[felt.Felt]*felt.Felt{
-			*contractAddr: new(felt.Felt).SetUint64(2),
-		},
-		DeployedContracts: map[felt.Felt]*felt.Felt{*contractAddr: classHash},
-		DeclaredV0Classes: []*felt.Felt{},
-		DeclaredV1Classes: map[felt.Felt]*felt.Felt{*classHash: compiledClassHash},
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
-	}
-	testClass = &core.Cairo1Class{
-		AbiHash: new(felt.Felt),
-		EntryPoints: struct {
-			Constructor []core.SierraEntryPoint
-			External    []core.SierraEntryPoint
-			L1Handler   []core.SierraEntryPoint
-		}{
-			Constructor: []core.SierraEntryPoint{},
-			External:    []core.SierraEntryPoint{},
-			L1Handler:   []core.SierraEntryPoint{},
-		},
-		Program:     []*felt.Felt{},
-		ProgramHash: &felt.Felt{},
-		Compiled:    &core.CompiledClass{},
-	}
-)
-
-func makeState(t *testing.T) *blockchain.PendingStateWriter {
-	testDB := pebble.NewMemTest(t)
-	pebbleTxn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, pebbleTxn.Discard())
-	})
-	state := core.NewState(pebbleTxn)
-	blockNumber := uint64(0)
-	require.NoError(t, state.Update(blockNumber, testState, map[felt.Felt]core.Class{
-		*classHash: testClass,
-	}))
-	return blockchain.NewPendingStateWriter(core.EmptyStateDiff(), map[felt.Felt]core.Class{*contractAddr: testClass}, state)
-}
-
-func TestIncrementNonce(t *testing.T) {
-	state := makeState(t)
-	require.NoError(t, state.IncrementNonce(contractAddr))
-
-	got, err := state.ContractNonce(contractAddr)
-	require.NoError(t, err)
-	want := new(felt.Felt).Add(testState.Nonces[*contractAddr], new(felt.Felt).SetUint64(1))
-	require.Equal(t, want, got)
-}
-
-func TestUpdateExistingStorageValue(t *testing.T) {
-	state := makeState(t)
-	kv := testState.StorageDiffs[*contractAddr]
-	newValue := new(felt.Felt).Add(kv[storageKey], new(felt.Felt).SetUint64(1))
-	require.NoError(t, state.SetStorage(contractAddr, &storageKey, newValue))
-
-	got, err := state.ContractStorage(contractAddr, &storageKey)
-	require.NoError(t, err)
-	require.Equal(t, newValue, got)
-}
-
-func TestSetNewStorageValue(t *testing.T) {
-	state := makeState(t)
-	storageKey := new(felt.Felt).SetUint64(42)
-	storageValue := new(felt.Felt).SetUint64(43)
-	require.NoError(t, state.SetStorage(contractAddr, storageKey, storageValue))
-
-	got, err := state.ContractStorage(contractAddr, storageKey)
-	require.NoError(t, err)
-	require.Equal(t, storageValue, got)
-}
-
-func TestSetClassHashTwiceForNewContract(t *testing.T) {
-	state := makeState(t)
-	addr := new(felt.Felt).SetUint64(42)
-	classHash := new(felt.Felt).SetUint64(43)
-	require.NoError(t, state.SetClassHash(addr, classHash))
-
-	gotClassHash, err := state.ContractClassHash(addr)
-	require.NoError(t, err)
-	require.Equal(t, classHash, gotClassHash)
-
-	otherClassHash := new(felt.Felt).SetUint64(44)
-	require.NoError(t, state.SetClassHash(addr, otherClassHash))
-	gotNewClassHash, err := state.ContractClassHash(addr)
-	require.NoError(t, err)
-	require.Equal(t, otherClassHash, gotNewClassHash)
-}
-
-func TestSetClassHashForExistingContract(t *testing.T) {
-	state := makeState(t)
-	otherClassHash := new(felt.Felt).SetUint64(44)
-	require.NoError(t, state.SetClassHash(contractAddr, otherClassHash))
-	gotNewClassHash, err := state.ContractClassHash(contractAddr)
-	require.NoError(t, err)
-	require.Equal(t, otherClassHash, gotNewClassHash)
-}
-
-func TestSetCompiledClassHash(t *testing.T) {
-	state := makeState(t)
-	classHash := new(felt.Felt).SetUint64(42)
-	compiledClassHash := new(felt.Felt).SetUint64(43)
-	require.NoError(t, state.SetCompiledClassHash(classHash, compiledClassHash))
-}
-
-func TestStateDiff(t *testing.T) {
-	state := makeState(t)
-	gotSD, gotC := state.StateDiffAndClasses()
-	require.Equal(t, core.EmptyStateDiff(), gotSD)
-	require.Equal(t, map[felt.Felt]core.Class{
-		*contractAddr: testClass,
-	}, gotC)
 }

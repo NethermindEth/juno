@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -136,5 +137,57 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	n.LeftHash.SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
 	n.RightHash.SetBytes(data[:felt.Bytes])
+	return nil
+}
+
+func (n *Node) String() string {
+	return fmt.Sprintf("Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}", n.Value, n.Left, n.Right, n.LeftHash, n.RightHash)
+}
+
+// Update the receiver with non-nil fields from the `other` Node.
+// If a field is non-nil in both Nodes, they must be equal, or an error is returned.
+//
+// This method modifies the receiver in-place and returns an error if any field conflicts are detected.
+//
+//nolint:gocyclo
+func (n *Node) Update(other *Node) error {
+	// First validate all fields for conflicts
+	if n.Value != nil && other.Value != nil && !n.Value.Equal(other.Value) {
+		return fmt.Errorf("conflicting Values: %v != %v", n.Value, other.Value)
+	}
+
+	if n.Left != nil && other.Left != nil && !n.Left.Equal(NilKey) && !other.Left.Equal(NilKey) && !n.Left.Equal(other.Left) {
+		return fmt.Errorf("conflicting Left keys: %v != %v", n.Left, other.Left)
+	}
+
+	if n.Right != nil && other.Right != nil && !n.Right.Equal(NilKey) && !other.Right.Equal(NilKey) && !n.Right.Equal(other.Right) {
+		return fmt.Errorf("conflicting Right keys: %v != %v", n.Right, other.Right)
+	}
+
+	if n.LeftHash != nil && other.LeftHash != nil && !n.LeftHash.Equal(other.LeftHash) {
+		return fmt.Errorf("conflicting LeftHash: %v != %v", n.LeftHash, other.LeftHash)
+	}
+
+	if n.RightHash != nil && other.RightHash != nil && !n.RightHash.Equal(other.RightHash) {
+		return fmt.Errorf("conflicting RightHash: %v != %v", n.RightHash, other.RightHash)
+	}
+
+	// After validation, perform all updates
+	if other.Value != nil {
+		n.Value = other.Value
+	}
+	if other.Left != nil && !other.Left.Equal(NilKey) {
+		n.Left = other.Left
+	}
+	if other.Right != nil && !other.Right.Equal(NilKey) {
+		n.Right = other.Right
+	}
+	if other.LeftHash != nil {
+		n.LeftHash = other.LeftHash
+	}
+	if other.RightHash != nil {
+		n.RightHash = other.RightHash
+	}
+
 	return nil
 }
