@@ -164,7 +164,7 @@ func TestReorg(t *testing.T) {
 		integStart, err := bc.BlockHeaderByNumber(0)
 		require.NoError(t, err)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false)
+		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, testDB)
 		sub := synchronizer.SubscribeReorg()
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
@@ -183,6 +183,28 @@ func TestReorg(t *testing.T) {
 		assert.Equal(t, integStart.Hash, got.StartBlockHash)
 		assert.Equal(t, integStart.Number, got.StartBlockNum)
 	})
+}
+
+func TestPending(t *testing.T) {
+	t.Parallel()
+
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	testDB := pebble.NewMemTest(t)
+	log := utils.NewNopZapLogger()
+	bc := blockchain.New(testDB, &utils.Mainnet, nil)
+	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	require.NoError(t, synchronizer.Run(ctx))
+	cancel()
+
+	head, err := bc.HeadsHeader()
+	require.NoError(t, err)
+	pending, err := synchronizer.Pending()
+	require.NoError(t, err)
+	assert.Equal(t, head.Hash, pending.Block.ParentHash)
 }
 
 func TestSubscribeNewHeads(t *testing.T) {
@@ -217,8 +239,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 	testDB := pebble.NewMemTest(t)
 	log := utils.NewNopZapLogger()
-	bc := blockchain.New(testDB, &utils.Mainnet)
-	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false)
+	bc := blockchain.New(testDB, &utils.Mainnet, nil)
+	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
 	sub := synchronizer.SubscribePendingTxs()
@@ -226,7 +248,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
-	pending, err := bc.Pending()
+	pending, err := synchronizer.Pending()
 	require.NoError(t, err)
 	pendingTxs, ok := <-sub.Recv()
 	require.True(t, ok)

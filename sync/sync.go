@@ -55,6 +55,10 @@ type Reader interface {
 	SubscribeNewHeads() HeaderSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePendingTxs() PendingTxSubscription
+
+	Pending() (*Pending, error)
+	PendingBlock() *core.Block
+	PendingState() (core.StateReader, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -90,6 +94,18 @@ type ReorgData struct {
 	EndBlockHash *felt.Felt `json:"ending_block_hash"`
 	// Number of the last known block of the orphaned chain
 	EndBlockNum uint64 `json:"ending_block_number"`
+}
+
+func (n *NoopSynchronizer) PendingBlock() *core.Block {
+	return nil
+}
+
+func (n *NoopSynchronizer) Pending() (*Pending, error) {
+	return nil, errors.New("Pending() is not implemented")
+}
+
+func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+	return nil, nil, errors.New("PendingState() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -570,4 +586,79 @@ func (s *Synchronizer) SubscribePendingTxs() PendingTxSubscription {
 	return PendingTxSubscription{
 		Subscription: s.pendingTxsFeed.Subscribe(),
 	}
+}
+
+// StorePending stores a pending block given that it is for the next height
+func (s *Synchronizer) StorePending(p *Pending) error {
+	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+
+	expectedParentHash := new(felt.Felt)
+	h, err := s.blockchain.HeadsHeader()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	} else if err == nil {
+		expectedParentHash = h.Hash
+	}
+
+	if !expectedParentHash.Equal(p.Block.ParentHash) {
+		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
+	}
+
+	if existingPending, err := s.Pending(); err == nil {
+		if existingPending.Block.TransactionCount >= p.Block.TransactionCount {
+			// ignore the incoming pending if it has fewer transactions than the one we already have
+			return nil
+		}
+	} else if !errors.Is(err, ErrPendingBlockNotFound) {
+		return err
+	}
+	s.pending.Store(p)
+
+	return nil
+}
+
+func (s *Synchronizer) Pending() (*Pending, error) {
+	p := s.pending.Load()
+	if p == nil {
+		return nil, ErrPendingBlockNotFound
+	}
+
+	expectedParentHash := &felt.Zero
+	if head, err := s.blockchain.HeadsHeader(); err == nil {
+		expectedParentHash = head.Hash
+	}
+	if p.Block.ParentHash.Equal(expectedParentHash) {
+		return p, nil
+	}
+
+	// Since the pending block in the cache is outdated remove it
+	s.pending.Store(nil)
+
+	return nil, ErrPendingBlockNotFound
+}
+
+func (s *Synchronizer) PendingBlock() *core.Block {
+	pending, err := s.Pending()
+	if err != nil {
+		return nil
+	}
+	return pending.Block
+}
+
+// PendingState returns the state resulting from execution of the pending block
+func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+	txn, err := s.db.NewTransaction(false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pending, err := s.Pending()
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
 }
