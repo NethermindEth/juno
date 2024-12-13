@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"encoding/binary"
+	"math/bits"
 	"testing"
 )
 
@@ -14,34 +15,34 @@ func TestBytes(t *testing.T) {
 	}{
 		{
 			name:     "length == 0",
-			bitArray: bitArray{pos: 0, words: maxBitArray},
+			bitArray: bitArray{len: 0, words: maxBitArray},
 			want:     [32]byte{},
 		},
 		{
 			name:     "length < 64",
-			bitArray: bitArray{pos: 38, words: maxBitArray},
+			bitArray: bitArray{len: 38, words: maxBitArray},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[24:32], 0x7FFFFFFFFF)
+				binary.BigEndian.PutUint64(b[24:32], 0x3FFFFFFFFF)
 				return b
 			}(),
 		},
 		{
 			name:     "64 <= length < 128",
-			bitArray: bitArray{pos: 100, words: maxBitArray},
+			bitArray: bitArray{len: 100, words: maxBitArray},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[16:24], 0x1FFFFFFFFF)
+				binary.BigEndian.PutUint64(b[16:24], 0xFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[24:32], 0xFFFFFFFFFFFFFFFF)
 				return b
 			}(),
 		},
 		{
 			name:     "128 <= length < 192",
-			bitArray: bitArray{pos: 130, words: maxBitArray},
+			bitArray: bitArray{len: 130, words: maxBitArray},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[8:16], 0x7)
+				binary.BigEndian.PutUint64(b[8:16], 0x3)
 				binary.BigEndian.PutUint64(b[16:24], 0xFFFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[24:32], 0xFFFFFFFFFFFFFFFF)
 				return b
@@ -49,10 +50,10 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name:     "192 <= length < 255",
-			bitArray: bitArray{pos: 201, words: maxBitArray},
+			bitArray: bitArray{len: 201, words: maxBitArray},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[0:8], 0x3FF)
+				binary.BigEndian.PutUint64(b[0:8], 0x1FF)
 				binary.BigEndian.PutUint64(b[8:16], 0xFFFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[16:24], 0xFFFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[24:32], 0xFFFFFFFFFFFFFFFF)
@@ -61,10 +62,10 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name:     "length == 254",
-			bitArray: bitArray{pos: 254, words: maxBitArray},
+			bitArray: bitArray{len: 254, words: maxBitArray},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[0:8], 0x7FFFFFFFFFFFFFFF)
+				binary.BigEndian.PutUint64(b[0:8], 0x3FFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[8:16], 0xFFFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[16:24], 0xFFFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[24:32], 0xFFFFFFFFFFFFFFFF)
@@ -73,10 +74,10 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name:     "length == 255",
-			bitArray: bitArray{pos: 255, words: maxBitArray},
+			bitArray: bitArray{len: 255, words: maxBitArray},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[0:8], 0xFFFFFFFFFFFFFFFF)
+				binary.BigEndian.PutUint64(b[0:8], 0x7FFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[8:16], 0xFFFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[16:24], 0xFFFFFFFFFFFFFFFF)
 				binary.BigEndian.PutUint64(b[24:32], 0xFFFFFFFFFFFFFFFF)
@@ -91,42 +92,14 @@ func TestBytes(t *testing.T) {
 			if !bytes.Equal(got[:], tt.want[:]) {
 				t.Errorf("bitArray.Bytes() = %v, want %v", got, tt.want)
 			}
-		})
-	}
-}
 
-func BenchmarkBitArrayBytes(b *testing.B) {
-	testCases := []struct {
-		name string
-		ba   bitArray
-	}{
-		{
-			name: "empty",
-			ba:   bitArray{pos: 0, words: maxBitArray},
-		},
-		{
-			name: "pos_38",
-			ba:   bitArray{pos: 38, words: maxBitArray},
-		},
-		{
-			name: "pos_100",
-			ba:   bitArray{pos: 100, words: maxBitArray},
-		},
-		{
-			name: "pos_201",
-			ba:   bitArray{pos: 201, words: maxBitArray},
-		},
-		{
-			name: "pos_255",
-			ba:   bitArray{pos: 255, words: maxBitArray},
-		},
-	}
-
-	for _, tc := range testCases {
-		b.Run(tc.name, func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				_ = tc.ba.Bytes()
+			// check if the received bytes has the same bit count as the bitArray.len
+			count := 0
+			for _, b := range got {
+				count += bits.OnesCount8(b)
+			}
+			if count != int(tt.bitArray.len) {
+				t.Errorf("bitArray.Bytes() bit count = %v, want %v", count, tt.bitArray.len)
 			}
 		})
 	}
