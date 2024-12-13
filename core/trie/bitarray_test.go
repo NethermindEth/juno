@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-var maxBitArray = [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF}
-
 func TestBytes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -33,7 +31,7 @@ func TestBytes(t *testing.T) {
 			bitArray: bitArray{pos: 100, words: maxBitArray},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[16:24], 0x7FFFFFFFFF)
+				binary.BigEndian.PutUint64(b[16:24], 0x1FFFFFFFFF)
 				binary.BigEndian.PutUint64(b[24:32], 0xFFFFFFFFFFFFFFFF)
 				return b
 			}(),
