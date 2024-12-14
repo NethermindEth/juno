@@ -104,3 +104,106 @@ func TestBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestRsh(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  *bitArray
+		shiftBy  uint8
+		expected *bitArray
+	}{
+		{
+			name: "zero length array",
+			initial: &bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			shiftBy: 5,
+			expected: &bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "shift by 0",
+			initial: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			shiftBy: 0,
+			expected: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "shift by more than length",
+			initial: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			shiftBy: 65,
+			expected: &bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "shift by less than 64",
+			initial: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			shiftBy: 32,
+			expected: &bitArray{
+				len:   96,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0x00000000FFFFFFFF, 0, 0},
+			},
+		},
+		{
+			name: "shift by exactly 64",
+			initial: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			shiftBy: 64,
+			expected: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "shift by 128",
+			initial: &bitArray{
+				len:   251,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF},
+			},
+			shiftBy: 128,
+			expected: &bitArray{
+				len:   123,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+		},
+		{
+			name: "shift by 192",
+			initial: &bitArray{
+				len:   251,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF},
+			},
+			shiftBy: 192,
+			expected: &bitArray{
+				len:   59,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := new(bitArray).Rsh(tt.initial, tt.shiftBy)
+			if !result.Equal(tt.expected) {
+				t.Errorf("Rsh() got = %+v, want %+v", result, tt.expected)
+			}
+		})
+	}
+}
