@@ -60,6 +60,122 @@ func (b *bitArray) Bytes() [32]byte {
 	return res
 }
 
+func (b *bitArray) PrefixEqual(x *bitArray) bool {
+	if b.len == x.len {
+		return b.Equal(x)
+	}
+
+	if b.len == 0 || x.len == 0 {
+		return true
+	}
+
+	var long, short *bitArray
+	long, short = b, x
+
+	if b.len < x.len {
+		long, short = x, b
+	}
+
+	return long.Rsh(long, long.len-short.len).Equal(short)
+}
+
+// Truncate sets b to the first 'length' bits of x and returns b.
+// If length >= x.len, b is a copy of x.
+// Any bits beyond the specified length are cleared to zero.
+// For example:
+//
+//	x = 11001011 (len=8)
+//	Truncate(x, 4) = 1011 (len=4)
+//	Truncate(x, 10) = 11001011 (len=8, original x)
+//	Truncate(x, 0) = 0 (len=0)
+func (b *bitArray) Truncate(x *bitArray, length uint8) *bitArray {
+	if length >= x.len {
+		return b.Set(x)
+	}
+
+	b.Set(x)
+	b.len = length
+
+	// Clear all words beyond what's needed
+	switch {
+	case length == 0:
+		b.words = [4]uint64{0, 0, 0, 0}
+	case length <= 64:
+		mask := maxUint64 >> (64 - length)
+		b.words[0] &= mask
+		b.words[1] = 0
+		b.words[2] = 0
+		b.words[3] = 0
+	case length <= 128:
+		mask := maxUint64 >> (128 - length)
+		b.words[1] &= mask
+		b.words[2] = 0
+		b.words[3] = 0
+	case length <= 192:
+		mask := maxUint64 >> (192 - length)
+		b.words[2] &= mask
+		b.words[3] = 0
+	default:
+		mask := maxUint64 >> (256 - uint16(length))
+		b.words[3] &= mask
+	}
+
+	return b
+}
+
+// Rsh sets b = x >> n and returns b.
+func (b *bitArray) Rsh(x *bitArray, n uint8) *bitArray {
+	if x.len == 0 {
+		return b.Set(x)
+	}
+
+	if n >= x.len {
+		x.clear()
+		return b.Set(x)
+	}
+
+	switch {
+	case n == 0:
+		return b.Set(x)
+	case n >= 192:
+		b.rsh192(x)
+		b.len = x.len - n
+		n -= 192
+		b.words[0] >>= n
+	case n >= 128:
+		b.rsh128(x)
+		b.len = x.len - n
+		n -= 128
+		b.words[0] = (b.words[0] >> n) | (b.words[1] << (64 - n))
+		b.words[1] >>= n
+	case n >= 64:
+		b.rsh64(x)
+		b.len = x.len - n
+		n -= 64
+		b.words[0] = (b.words[0] >> n) | (b.words[1] << (64 - n))
+		b.words[1] = (b.words[1] >> n) | (b.words[2] << (64 - n))
+		b.words[2] >>= n
+	default:
+		b.Set(x)
+		b.len -= n
+		b.words[0] = (b.words[0] >> n) | (b.words[1] << (64 - n))
+		b.words[1] = (b.words[1] >> n) | (b.words[2] << (64 - n))
+		b.words[2] = (b.words[2] >> n) | (b.words[3] << (64 - n))
+		b.words[3] >>= n
+	}
+
+	return b
+}
+
+// Eq checks if two bit arrays are equal
+func (b *bitArray) Equal(x *bitArray) bool {
+	return b.len == x.len &&
+		b.words[0] == x.words[0] &&
+		b.words[1] == x.words[1] &&
+		b.words[2] == x.words[2] &&
+		b.words[3] == x.words[3]
+}
+
 func (b *bitArray) SetFelt(length uint8, f *felt.Felt) *bitArray {
 	b.setFelt(f)
 	b.len = length
@@ -80,75 +196,7 @@ func (b *bitArray) setFelt(f *felt.Felt) {
 	b.words[0] = binary.BigEndian.Uint64(res[24:32])
 }
 
-func (b *bitArray) PrefixEqual(x *bitArray) bool {
-	if b.len == x.len {
-		return b.Equal(x)
-	}
-
-	var long, short *bitArray
-	long, short = b, x
-
-	if b.len < x.len {
-		long, short = x, b
-	}
-
-	return long.Rsh(long, long.len-short.len).Equal(short)
-}
-
-// Rsh sets b = x >> n and returns b.
-func (b *bitArray) Rsh(x *bitArray, n uint8) *bitArray {
-	if x.len == 0 {
-		return b.set(x)
-	}
-
-	if n >= x.len {
-		x.clear()
-		return b.set(x)
-	}
-
-	switch {
-	case n == 0:
-		return b.set(x)
-	case n >= 192:
-		b.rsh192(x)
-		b.len = x.len - n
-		n -= 192
-		b.words[0] >>= n
-	case n >= 128:
-		b.rsh128(x)
-		b.len = x.len - n
-		n -= 128
-		b.words[0] = (b.words[0] >> n) | (b.words[1] << (64 - n))
-		b.words[1] >>= n
-	case n >= 64:
-		b.rsh64(x)
-		b.len = x.len - n
-		n -= 64
-		b.words[0] = (b.words[0] >> n) | (b.words[1] << (64 - n))
-		b.words[1] = (b.words[1] >> n) | (b.words[2] << (64 - n))
-		b.words[2] >>= n
-	default:
-		b.set(x)
-		b.len -= n
-		b.words[0] = (b.words[0] >> n) | (b.words[1] << (64 - n))
-		b.words[1] = (b.words[1] >> n) | (b.words[2] << (64 - n))
-		b.words[2] = (b.words[2] >> n) | (b.words[3] << (64 - n))
-		b.words[3] >>= n
-	}
-
-	return b
-}
-
-// Eq checks if two bit arrays are equal
-func (b *bitArray) Equal(x *bitArray) bool {
-	return b.len == x.len &&
-		b.words[0] == x.words[0] &&
-		b.words[1] == x.words[1] &&
-		b.words[2] == x.words[2] &&
-		b.words[3] == x.words[3]
-}
-
-func (b *bitArray) set(x *bitArray) *bitArray {
+func (b *bitArray) Set(x *bitArray) *bitArray {
 	b.len = x.len
 	b.words[0] = x.words[0]
 	b.words[1] = x.words[1]
