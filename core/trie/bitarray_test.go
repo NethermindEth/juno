@@ -207,3 +207,284 @@ func TestRsh(t *testing.T) {
 		})
 	}
 }
+
+func TestPrefixEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		a    *bitArray
+		b    *bitArray
+		want bool
+	}{
+		{
+			name: "equal lengths, equal values",
+			a: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			b: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			want: true,
+		},
+		{
+			name: "equal lengths, different values",
+			a: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			b: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFF0, 0, 0, 0},
+			},
+			want: false,
+		},
+		{
+			name: "different lengths, a longer but same prefix",
+			a: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			b: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			want: true,
+		},
+		{
+			name: "different lengths, b longer but same prefix",
+			a: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			b: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			want: true,
+		},
+		{
+			name: "different lengths, different prefix",
+			a: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			b: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFF0, 0, 0, 0},
+			},
+			want: false,
+		},
+		{
+			name: "zero length arrays",
+			a: &bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			b: &bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			want: true,
+		},
+		{
+			name: "one zero length array",
+			a: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			b: &bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			want: true,
+		},
+		{
+			name: "max length difference",
+			a: &bitArray{
+				len:   251,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFF},
+			},
+			b: &bitArray{
+				len:   1,
+				words: [4]uint64{0x1, 0, 0, 0},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.a.PrefixEqual(tt.b); got != tt.want {
+				t.Errorf("PrefixEqual() = %v, want %v", got, tt.want)
+			}
+			// Test symmetry: a.PrefixEqual(b) should equal b.PrefixEqual(a)
+			if got := tt.b.PrefixEqual(tt.a); got != tt.want {
+				t.Errorf("PrefixEqual() symmetric test = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	tests := []struct {
+		name     string
+		initial  bitArray
+		length   uint8
+		expected bitArray
+	}{
+		{
+			name: "truncate to zero",
+			initial: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			length: 0,
+			expected: bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "truncate within first word - 32 bits",
+			initial: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			length: 32,
+			expected: bitArray{
+				len:   32,
+				words: [4]uint64{0x00000000FFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "truncate to single bit",
+			initial: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			length: 1,
+			expected: bitArray{
+				len:   1,
+				words: [4]uint64{0x0000000000000001, 0, 0, 0},
+			},
+		},
+		{
+			name: "truncate across words - 100 bits",
+			initial: bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			length: 100,
+			expected: bitArray{
+				len:   100,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0x0000000FFFFFFFFF, 0, 0},
+			},
+		},
+		{
+			name: "truncate at word boundary - 64 bits",
+			initial: bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			length: 64,
+			expected: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "truncate at word boundary - 128 bits",
+			initial: bitArray{
+				len:   192,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0},
+			},
+			length: 128,
+			expected: bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+		},
+		{
+			name: "truncate in third word - 150 bits",
+			initial: bitArray{
+				len:   192,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0},
+			},
+			length: 150,
+			expected: bitArray{
+				len:   150,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x3FFFFF, 0},
+			},
+		},
+		{
+			name: "truncate in fourth word - 220 bits",
+			initial: bitArray{
+				len:   255,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF},
+			},
+			length: 220,
+			expected: bitArray{
+				len:   220,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFF},
+			},
+		},
+		{
+			name: "truncate max length - 251 bits",
+			initial: bitArray{
+				len:   255,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF},
+			},
+			length: 251,
+			expected: bitArray{
+				len:   251,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFF},
+			},
+		},
+		{
+			name: "truncate sparse bits",
+			initial: bitArray{
+				len:   128,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x5555555555555555, 0, 0},
+			},
+			length: 100,
+			expected: bitArray{
+				len:   100,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x0000000555555555, 0, 0},
+			},
+		},
+		{
+			name: "no change when new length equals current length",
+			initial: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			length: 64,
+			expected: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "no change when new length greater than current length",
+			initial: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			length: 128,
+			expected: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := new(bitArray).Truncate(&tt.initial, tt.length)
+			if !result.Equal(&tt.expected) {
+				t.Errorf("Truncate() got = %+v, want %+v", result, tt.expected)
+			}
+		})
+	}
+}
