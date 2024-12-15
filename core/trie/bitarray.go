@@ -1,17 +1,23 @@
 package trie
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math"
+	"math/bits"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
 
 const (
 	maxUint64 = uint64(math.MaxUint64)
+	byteBits  = 8
 )
 
-var maxBitArray = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
+var (
+	maxBitArray   = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
+	emptyBitArray = &bitArray{len: 0, words: [4]uint64{0, 0, 0, 0}}
+)
 
 // bitArray is a structure that represents a bit array with a max length of 255 bits.
 // It uses a little endian representation to do bitwise operations of the words efficiently.
@@ -60,7 +66,24 @@ func (b *bitArray) Bytes() [32]byte {
 	return res
 }
 
-func (b *bitArray) PrefixEqual(x *bitArray) bool {
+// EqualMSBs checks if two bit arrays share the same most significant bits, where the length of
+// the check is determined by the shorter array. Returns true if either array has
+// length 0, or if the first min(b.len, x.len) MSBs are identical.
+//
+// For example:
+//
+//	a = 1101 (len=4)
+//	b = 11010111 (len=8)
+//	a.EqualMSBs(b) = true  // First 4 MSBs match
+//
+//	a = 1100 (len=4)
+//	b = 1101 (len=4)
+//	a.EqualMSBs(b) = false // All bits compared, not equal
+//
+//	a = 1100 (len=4)
+//	b = [] (len=0)
+//	a.EqualMSBs(b) = true  // Zero length is always a prefix match
+func (b *bitArray) EqualMSBs(x *bitArray) bool {
 	if b.len == x.len {
 		return b.Equal(x)
 	}
@@ -70,8 +93,8 @@ func (b *bitArray) PrefixEqual(x *bitArray) bool {
 	}
 
 	var long, short *bitArray
-	long, short = b, x
 
+	long, short = b, x
 	if b.len < x.len {
 		long, short = x, b
 	}
@@ -123,6 +146,66 @@ func (b *bitArray) Truncate(x *bitArray, length uint8) *bitArray {
 	return b
 }
 
+// CommonMSBs sets b to the longest sequence of matching most significant bits between two bit arrays.
+// For example:
+//
+//	x = 1101 0111 (len=8)
+//	y = 1101 0000 (len=8)
+//	CommonMSBs(x,y) = 1101 (len=4)
+func (b *bitArray) CommonMSBs(x, y *bitArray) *bitArray {
+	if x.len == 0 || y.len == 0 {
+		return emptyBitArray
+	}
+
+	long, short := x, y
+	if x.len < y.len {
+		long, short = y, x
+	}
+
+	// Align arrays by right-shifting longer array and then XOR to find differences
+	// Example:
+	//   short = 1101 (len=4)
+	//   long  = 1101 0111 (len=8)
+	//
+	// Step 1: Right shift longer array by 4
+	//   short = 1100
+	//   long  = 1101
+	//
+	// Step 2: XOR shows difference at last bit
+	//   1100 (short)
+	//   1101 (aligned long)
+	//   ---- XOR
+	//   0001 (difference at last position)
+	// We can then use the position of the first set bit and right-shift to get the common MSBs
+	diff := long.len - short.len
+	b.Rsh(long, diff).Xor(b, short)
+	divergentBit := findFirstSetBit(b)
+
+	return b.Rsh(short, divergentBit)
+}
+
+// findFirstSetBit returns the position of the first '1' bit in the array,
+// scanning from most significant to least significant bit.
+//
+// The bit position is counted from the least significant bit, starting at 0.
+// For example:
+//
+//	array = 0000 0000 ... 0100 (len=251)
+//	findFirstSetBit() = 2 // third bit from right is set
+func findFirstSetBit(b *bitArray) uint8 {
+	if b.len == 0 {
+		return 0
+	}
+
+	for i := 3; i >= 0; i-- {
+		if word := b.words[i]; word != 0 {
+			return uint8((i+1)*64 - bits.LeadingZeros64(word))
+		}
+	}
+
+	return 0
+}
+
 // Rsh sets b = x >> n and returns b.
 func (b *bitArray) Rsh(x *bitArray, n uint8) *bitArray {
 	if x.len == 0 {
@@ -167,6 +250,15 @@ func (b *bitArray) Rsh(x *bitArray, n uint8) *bitArray {
 	return b
 }
 
+// Xor sets b = x ^ y and returns b.
+func (b *bitArray) Xor(x, y *bitArray) *bitArray {
+	b.words[0] = x.words[0] ^ y.words[0]
+	b.words[1] = x.words[1] ^ y.words[1]
+	b.words[2] = x.words[2] ^ y.words[2]
+	b.words[3] = x.words[3] ^ y.words[3]
+	return b
+}
+
 // Eq checks if two bit arrays are equal
 func (b *bitArray) Equal(x *bitArray) bool {
 	return b.len == x.len &&
@@ -174,6 +266,21 @@ func (b *bitArray) Equal(x *bitArray) bool {
 		b.words[1] == x.words[1] &&
 		b.words[2] == x.words[2] &&
 		b.words[3] == x.words[3]
+}
+
+// Write serializes the bitArray into a bytes buffer in the following format:
+// - First byte: length of the bit array (0-255)
+// - Remaining bytes: the necessary bytes included in big endian order
+// Example:
+//
+//	bitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x0A, 0x03, 0xFF]
+func (b *bitArray) Write(buf *bytes.Buffer) (int, error) {
+	if err := buf.WriteByte(b.len); err != nil {
+		return 0, err
+	}
+
+	n, err := buf.Write(b.activeBytes())
+	return n + 1, err
 }
 
 func (b *bitArray) SetFelt(length uint8, f *felt.Felt) *bitArray {
@@ -203,6 +310,25 @@ func (b *bitArray) Set(x *bitArray) *bitArray {
 	b.words[2] = x.words[2]
 	b.words[3] = x.words[3]
 	return b
+}
+
+// byteCount returns the minimum number of bytes needed to represent the bit array.
+// It rounds up to the nearest byte.
+func (b *bitArray) byteCount() uint8 {
+	// Cast to uint16 to avoid overflow
+	return uint8((uint16(b.len) + uint16(byteBits-1)) / uint16(byteBits))
+}
+
+// activeBytes returns a slice containing only the bytes that are actually used
+// by the bit array, excluding leading zero bytes. The returned slice is in
+// big-endian order.
+//
+// Example:
+//
+//	len = 10, words = [0x3FF, 0, 0, 0] -> [0x03, 0xFF]
+func (b *bitArray) activeBytes() []byte {
+	wordsBytes := b.Bytes()
+	return wordsBytes[32-b.byteCount():]
 }
 
 func (b *bitArray) rsh64(x *bitArray) {
