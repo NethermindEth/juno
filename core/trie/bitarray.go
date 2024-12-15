@@ -268,7 +268,7 @@ func (b *bitArray) Equal(x *bitArray) bool {
 		b.words[3] == x.words[3]
 }
 
-// Write serializes the bitArray into a bytes buffer in the following format:
+// Write serialises the bitArray into a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
 // Example:
@@ -283,6 +283,21 @@ func (b *bitArray) Write(buf *bytes.Buffer) (int, error) {
 	return n + 1, err
 }
 
+// UnmarshalBinary deserialises the bitArray from a bytes buffer in the following format:
+// - First byte: length of the bit array (0-255)
+// - Remaining bytes: the necessary bytes included in big endian order
+// Example:
+//
+//	[0x0A, 0x03, 0xFF] -> bitArray{len: 10, words: [4]uint64{0x03FF}}
+func (b *bitArray) UnmarshalBinary(data []byte) error {
+	b.len = data[0]
+
+	var bs [32]byte
+	copy(bs[32-b.byteCount():], data[1:])
+	b.SetBytes32(bs)
+	return nil
+}
+
 func (b *bitArray) SetFelt(length uint8, f *felt.Felt) *bitArray {
 	b.setFelt(f)
 	b.len = length
@@ -292,6 +307,14 @@ func (b *bitArray) SetFelt(length uint8, f *felt.Felt) *bitArray {
 func (b *bitArray) SetFelt251(f *felt.Felt) *bitArray {
 	b.setFelt(f)
 	b.len = 251
+	return b
+}
+
+func (b *bitArray) SetBytes32(data [32]byte) *bitArray {
+	b.words[3] = binary.BigEndian.Uint64(data[0:8])
+	b.words[2] = binary.BigEndian.Uint64(data[8:16])
+	b.words[1] = binary.BigEndian.Uint64(data[16:24])
+	b.words[0] = binary.BigEndian.Uint64(data[24:32])
 	return b
 }
 

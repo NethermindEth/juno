@@ -503,7 +503,7 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
-func TestWrite(t *testing.T) {
+func TestWriteAndUnmarshalBinary(t *testing.T) {
 	tests := []struct {
 		name     string
 		bitArray bitArray
@@ -584,8 +584,17 @@ func TestWrite(t *testing.T) {
 			}
 
 			// Check written bytes
-			if got := buf.Bytes(); !bytes.Equal(got, tt.want) {
+			got := buf.Bytes()
+			if !bytes.Equal(got, tt.want) {
 				t.Errorf("Write() = %v, want %v", got, tt.want)
+			}
+
+			gotBitArray := new(bitArray)
+			if err := gotBitArray.UnmarshalBinary(got); err != nil {
+				t.Errorf("UnmarshalBinary() = %v", err)
+			}
+			if !gotBitArray.Equal(&tt.bitArray) {
+				t.Errorf("UnmarshalBinary() = %v, want %v", gotBitArray, tt.bitArray)
 			}
 		})
 	}
