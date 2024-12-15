@@ -16,22 +16,31 @@ const (
 
 var (
 	maxBitArray   = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
-	emptyBitArray = &bitArray{len: 0, words: [4]uint64{0, 0, 0, 0}}
+	emptyBitArray = &BitArray{len: 0, words: [4]uint64{0, 0, 0, 0}}
 )
 
-// bitArray is a structure that represents a bit array with a max length of 255 bits.
+// BitArray is a structure that represents a bit array with a max length of 255 bits.
 // It uses a little endian representation to do bitwise operations of the words efficiently.
 // Unlike normal bit arrays, it has a `len` field that represents the number of used bits.
 // For example, if len is 10, it means that the 2^9, 2^8, ..., 2^0 bits are used.
 // The reason why 255 bits is the max length is because we only need up to 251 bits for a given trie key.
 // Though words can be used to represent 256 bits, we don't want to add an additional byte for the length.
-type bitArray struct {
+type BitArray struct {
 	len   uint8     // number of used bits
 	words [4]uint64 // little endian (i.e. words[0] is the least significant)
 }
 
+func (b *BitArray) Felt() *felt.Felt {
+	bs := b.Bytes()
+	return new(felt.Felt).SetBytes(bs[:])
+}
+
+func (b *BitArray) Len() uint8 {
+	return b.len
+}
+
 // Bytes returns the bytes representation of the bit array in big endian format
-func (b *bitArray) Bytes() [32]byte {
+func (b *BitArray) Bytes() [32]byte {
 	var res [32]byte
 
 	switch {
@@ -83,7 +92,7 @@ func (b *bitArray) Bytes() [32]byte {
 //	a = 1100 (len=4)
 //	b = [] (len=0)
 //	a.EqualMSBs(b) = true  // Zero length is always a prefix match
-func (b *bitArray) EqualMSBs(x *bitArray) bool {
+func (b *BitArray) EqualMSBs(x *BitArray) bool {
 	if b.len == x.len {
 		return b.Equal(x)
 	}
@@ -92,7 +101,7 @@ func (b *bitArray) EqualMSBs(x *bitArray) bool {
 		return true
 	}
 
-	var long, short *bitArray
+	var long, short *BitArray
 
 	long, short = b, x
 	if b.len < x.len {
@@ -111,7 +120,7 @@ func (b *bitArray) EqualMSBs(x *bitArray) bool {
 //	Truncate(x, 4) = 1011 (len=4)
 //	Truncate(x, 10) = 11001011 (len=8, original x)
 //	Truncate(x, 0) = 0 (len=0)
-func (b *bitArray) Truncate(x *bitArray, length uint8) *bitArray {
+func (b *BitArray) Truncate(x *BitArray, length uint8) *BitArray {
 	if length >= x.len {
 		return b.Set(x)
 	}
@@ -152,7 +161,7 @@ func (b *bitArray) Truncate(x *bitArray, length uint8) *bitArray {
 //	x = 1101 0111 (len=8)
 //	y = 1101 0000 (len=8)
 //	CommonMSBs(x,y) = 1101 (len=4)
-func (b *bitArray) CommonMSBs(x, y *bitArray) *bitArray {
+func (b *BitArray) CommonMSBs(x, y *BitArray) *BitArray {
 	if x.len == 0 || y.len == 0 {
 		return emptyBitArray
 	}
@@ -192,7 +201,7 @@ func (b *bitArray) CommonMSBs(x, y *bitArray) *bitArray {
 //
 //	array = 0000 0000 ... 0100 (len=251)
 //	findFirstSetBit() = 2 // third bit from right is set
-func findFirstSetBit(b *bitArray) uint8 {
+func findFirstSetBit(b *BitArray) uint8 {
 	if b.len == 0 {
 		return 0
 	}
@@ -207,7 +216,7 @@ func findFirstSetBit(b *bitArray) uint8 {
 }
 
 // Rsh sets b = x >> n and returns b.
-func (b *bitArray) Rsh(x *bitArray, n uint8) *bitArray {
+func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
 	if x.len == 0 {
 		return b.Set(x)
 	}
@@ -251,7 +260,7 @@ func (b *bitArray) Rsh(x *bitArray, n uint8) *bitArray {
 }
 
 // Xor sets b = x ^ y and returns b.
-func (b *bitArray) Xor(x, y *bitArray) *bitArray {
+func (b *BitArray) Xor(x, y *BitArray) *BitArray {
 	b.words[0] = x.words[0] ^ y.words[0]
 	b.words[1] = x.words[1] ^ y.words[1]
 	b.words[2] = x.words[2] ^ y.words[2]
@@ -260,7 +269,7 @@ func (b *bitArray) Xor(x, y *bitArray) *bitArray {
 }
 
 // Eq checks if two bit arrays are equal
-func (b *bitArray) Equal(x *bitArray) bool {
+func (b *BitArray) Equal(x *BitArray) bool {
 	return b.len == x.len &&
 		b.words[0] == x.words[0] &&
 		b.words[1] == x.words[1] &&
@@ -268,13 +277,13 @@ func (b *bitArray) Equal(x *bitArray) bool {
 		b.words[3] == x.words[3]
 }
 
-// Write serialises the bitArray into a bytes buffer in the following format:
+// Write serialises the BitArray into a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
 // Example:
 //
-//	bitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x0A, 0x03, 0xFF]
-func (b *bitArray) Write(buf *bytes.Buffer) (int, error) {
+//	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x0A, 0x03, 0xFF]
+func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 	if err := buf.WriteByte(b.len); err != nil {
 		return 0, err
 	}
@@ -283,13 +292,13 @@ func (b *bitArray) Write(buf *bytes.Buffer) (int, error) {
 	return n + 1, err
 }
 
-// UnmarshalBinary deserialises the bitArray from a bytes buffer in the following format:
+// UnmarshalBinary deserialises the BitArray from a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
 // Example:
 //
-//	[0x0A, 0x03, 0xFF] -> bitArray{len: 10, words: [4]uint64{0x03FF}}
-func (b *bitArray) UnmarshalBinary(data []byte) error {
+//	[0x0A, 0x03, 0xFF] -> BitArray{len: 10, words: [4]uint64{0x03FF}}
+func (b *BitArray) UnmarshalBinary(data []byte) error {
 	b.len = data[0]
 
 	var bs [32]byte
@@ -298,19 +307,19 @@ func (b *bitArray) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func (b *bitArray) SetFelt(length uint8, f *felt.Felt) *bitArray {
+func (b *BitArray) SetFelt(length uint8, f *felt.Felt) *BitArray {
 	b.setFelt(f)
 	b.len = length
 	return b
 }
 
-func (b *bitArray) SetFelt251(f *felt.Felt) *bitArray {
+func (b *BitArray) SetFelt251(f *felt.Felt) *BitArray {
 	b.setFelt(f)
 	b.len = 251
 	return b
 }
 
-func (b *bitArray) SetBytes32(data [32]byte) *bitArray {
+func (b *BitArray) SetBytes32(data [32]byte) *BitArray {
 	b.words[3] = binary.BigEndian.Uint64(data[0:8])
 	b.words[2] = binary.BigEndian.Uint64(data[8:16])
 	b.words[1] = binary.BigEndian.Uint64(data[16:24])
@@ -318,7 +327,7 @@ func (b *bitArray) SetBytes32(data [32]byte) *bitArray {
 	return b
 }
 
-func (b *bitArray) setFelt(f *felt.Felt) {
+func (b *BitArray) setFelt(f *felt.Felt) {
 	res := f.Bytes()
 	b.words[3] = binary.BigEndian.Uint64(res[0:8])
 	b.words[2] = binary.BigEndian.Uint64(res[8:16])
@@ -326,7 +335,7 @@ func (b *bitArray) setFelt(f *felt.Felt) {
 	b.words[0] = binary.BigEndian.Uint64(res[24:32])
 }
 
-func (b *bitArray) Set(x *bitArray) *bitArray {
+func (b *BitArray) Set(x *BitArray) *BitArray {
 	b.len = x.len
 	b.words[0] = x.words[0]
 	b.words[1] = x.words[1]
@@ -337,7 +346,7 @@ func (b *bitArray) Set(x *bitArray) *bitArray {
 
 // byteCount returns the minimum number of bytes needed to represent the bit array.
 // It rounds up to the nearest byte.
-func (b *bitArray) byteCount() uint8 {
+func (b *BitArray) byteCount() uint8 {
 	// Cast to uint16 to avoid overflow
 	return uint8((uint16(b.len) + uint16(byteBits-1)) / uint16(byteBits))
 }
@@ -349,24 +358,24 @@ func (b *bitArray) byteCount() uint8 {
 // Example:
 //
 //	len = 10, words = [0x3FF, 0, 0, 0] -> [0x03, 0xFF]
-func (b *bitArray) activeBytes() []byte {
+func (b *BitArray) activeBytes() []byte {
 	wordsBytes := b.Bytes()
 	return wordsBytes[32-b.byteCount():]
 }
 
-func (b *bitArray) rsh64(x *bitArray) {
+func (b *BitArray) rsh64(x *BitArray) {
 	b.words[3], b.words[2], b.words[1], b.words[0] = 0, x.words[3], x.words[2], x.words[1]
 }
 
-func (b *bitArray) rsh128(x *bitArray) {
+func (b *BitArray) rsh128(x *BitArray) {
 	b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, x.words[3], x.words[2]
 }
 
-func (b *bitArray) rsh192(x *bitArray) {
+func (b *BitArray) rsh192(x *BitArray) {
 	b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, x.words[3]
 }
 
-func (b *bitArray) clear() *bitArray {
+func (b *BitArray) clear() *BitArray {
 	b.len = 0
 	b.words[0], b.words[1], b.words[2], b.words[3] = 0, 0, 0, 0
 	return b
