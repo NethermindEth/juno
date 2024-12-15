@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"math/bits"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBytes(t *testing.T) {
@@ -173,6 +175,18 @@ func TestRsh(t *testing.T) {
 			},
 		},
 		{
+			name: "shift by 127",
+			initial: &bitArray{
+				len:   255,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF},
+			},
+			shiftBy: 127,
+			expected: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+		},
+		{
 			name: "shift by 128",
 			initial: &bitArray{
 				len:   251,
@@ -315,11 +329,11 @@ func TestPrefixEqual(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.a.PrefixEqual(tt.b); got != tt.want {
+			if got := tt.a.EqualMSBs(tt.b); got != tt.want {
 				t.Errorf("PrefixEqual() = %v, want %v", got, tt.want)
 			}
 			// Test symmetry: a.PrefixEqual(b) should equal b.PrefixEqual(a)
-			if got := tt.b.PrefixEqual(tt.a); got != tt.want {
+			if got := tt.b.EqualMSBs(tt.a); got != tt.want {
 				t.Errorf("PrefixEqual() symmetric test = %v, want %v", got, tt.want)
 			}
 		})
@@ -484,6 +498,302 @@ func TestTruncate(t *testing.T) {
 			result := new(bitArray).Truncate(&tt.initial, tt.length)
 			if !result.Equal(&tt.expected) {
 				t.Errorf("Truncate() got = %+v, want %+v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestWrite(t *testing.T) {
+	tests := []struct {
+		name     string
+		bitArray bitArray
+		want     []byte // Expected bytes after writing
+	}{
+		{
+			name: "empty bit array",
+			bitArray: bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			want: []byte{0}, // Just the length byte
+		},
+		{
+			name: "8 bits",
+			bitArray: bitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0},
+			},
+			want: []byte{8, 0xFF}, // length byte + 1 data byte
+		},
+		{
+			name: "10 bits requiring 2 bytes",
+			bitArray: bitArray{
+				len:   10,
+				words: [4]uint64{0x3FF, 0, 0, 0}, // 1111111111 in binary
+			},
+			want: []byte{10, 0x3, 0xFF}, // length byte + 2 data bytes
+		},
+		{
+			name: "64 bits",
+			bitArray: bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			want: append(
+				[]byte{64}, // length byte
+				[]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}..., // 8 data bytes
+			),
+		},
+		{
+			name: "251 bits",
+			bitArray: bitArray{
+				len:   251,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFF},
+			},
+			want: func() []byte {
+				b := make([]byte, 33) // 1 length byte + 32 data bytes
+				b[0] = 251            // length byte
+				// First byte is 0x07 (from the most significant bits)
+				b[1] = 0x07
+				// Rest of the bytes are 0xFF
+				for i := 2; i < 33; i++ {
+					b[i] = 0xFF
+				}
+				return b
+			}(),
+		},
+		{
+			name: "sparse bits",
+			bitArray: bitArray{
+				len:   16,
+				words: [4]uint64{0xAAAA, 0, 0, 0}, // 1010101010101010 in binary
+			},
+			want: []byte{16, 0xAA, 0xAA}, // length byte + 2 data bytes
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := new(bytes.Buffer)
+			gotN, err := tt.bitArray.Write(buf)
+			assert.NoError(t, err)
+
+			// Check number of bytes written
+			if gotN != len(tt.want) {
+				t.Errorf("Write() wrote %d bytes, want %d", gotN, len(tt.want))
+			}
+
+			// Check written bytes
+			if got := buf.Bytes(); !bytes.Equal(got, tt.want) {
+				t.Errorf("Write() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCommonPrefix(t *testing.T) {
+	tests := []struct {
+		name string
+		x    *bitArray
+		y    *bitArray
+		want *bitArray
+	}{
+		{
+			name: "empty arrays",
+			x:    emptyBitArray,
+			y:    emptyBitArray,
+			want: emptyBitArray,
+		},
+		{
+			name: "one empty array",
+			x: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			y:    emptyBitArray,
+			want: emptyBitArray,
+		},
+		{
+			name: "identical arrays - single word",
+			x: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			y: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			want: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "identical arrays - multiple words",
+			x: &bitArray{
+				len:   192,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0},
+			},
+			y: &bitArray{
+				len:   192,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0},
+			},
+			want: &bitArray{
+				len:   192,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0},
+			},
+		},
+		{
+			name: "different lengths with common prefix - first word",
+			x: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			y: &bitArray{
+				len:   32,
+				words: [4]uint64{0xFFFFFFFF, 0, 0, 0},
+			},
+			want: &bitArray{
+				len:   32,
+				words: [4]uint64{0xFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "different lengths with common prefix - multiple words",
+			x: &bitArray{
+				len:   255,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF},
+			},
+			y: &bitArray{
+				len:   127,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0, 0},
+			},
+			want: &bitArray{
+				len:   127,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0, 0},
+			},
+		},
+		{
+			name: "different at first bit",
+			x: &bitArray{
+				len:   64,
+				words: [4]uint64{0x7FFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			y: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			want: &bitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "different in middle of first word",
+			x: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFF0FFFFFFF, 0, 0, 0},
+			},
+			y: &bitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			want: &bitArray{
+				len:   32,
+				words: [4]uint64{0xFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "different in second word",
+			x: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFF0FFFFFFF, 0, 0},
+			},
+			y: &bitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			want: &bitArray{
+				len:   32,
+				words: [4]uint64{0xFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "different in third word",
+			x: &bitArray{
+				len:   192,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0},
+			},
+			y: &bitArray{
+				len:   192,
+				words: [4]uint64{0, 0, 0xFFFFFFFFFFFFFF0F, 0},
+			},
+			want: &bitArray{
+				len:   56,
+				words: [4]uint64{0xFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "different in last word",
+			x: &bitArray{
+				len:   251,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFF},
+			},
+			y: &bitArray{
+				len:   251,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFF0FFFFFFF},
+			},
+			want: &bitArray{
+				len:   27,
+				words: [4]uint64{0x7FFFFFF},
+			},
+		},
+		{
+			name: "sparse bits with common prefix",
+			x: &bitArray{
+				len:   128,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAAAAA, 0, 0},
+			},
+			y: &bitArray{
+				len:   128,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAA000, 0, 0},
+			},
+			want: &bitArray{
+				len:   52,
+				words: [4]uint64{0xAAAAAAAAAAAAA, 0, 0, 0},
+			},
+		},
+		{
+			name: "max length difference",
+			x: &bitArray{
+				len:   255,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF},
+			},
+			y: &bitArray{
+				len:   1,
+				words: [4]uint64{0x1, 0, 0, 0},
+			},
+			want: &bitArray{
+				len:   1,
+				words: [4]uint64{0x1, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(bitArray)
+			gotSymmetric := new(bitArray)
+
+			got.CommonMSBs(tt.x, tt.y)
+			if !got.Equal(tt.want) {
+				t.Errorf("CommonMSBs() = %v, want %v", got, tt.want)
+			}
+
+			// Test symmetry: x.CommonMSBs(y) should equal y.CommonMSBs(x)
+			gotSymmetric.CommonMSBs(tt.y, tt.x)
+			if !gotSymmetric.Equal(tt.want) {
+				t.Errorf("CommonMSBs() symmetric test = %v, want %v", gotSymmetric, tt.want)
 			}
 		})
 	}
