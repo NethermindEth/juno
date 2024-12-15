@@ -11,20 +11,19 @@ import (
 
 const (
 	maxUint64 = uint64(math.MaxUint64)
-	byteBits  = 8
+	bits8     = 8
 )
 
 var (
 	maxBitArray   = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
-	emptyBitArray = &BitArray{len: 0, words: [4]uint64{0, 0, 0, 0}}
+	emptyBitArray = new(BitArray)
 )
 
-// BitArray is a structure that represents a bit array with a max length of 255 bits.
+// BitArray is a structure that represents a bit array with length representing the number of used bits.
 // It uses a little endian representation to do bitwise operations of the words efficiently.
-// Unlike normal bit arrays, it has a `len` field that represents the number of used bits.
 // For example, if len is 10, it means that the 2^9, 2^8, ..., 2^0 bits are used.
-// The reason why 255 bits is the max length is because we only need up to 251 bits for a given trie key.
-// Though words can be used to represent 256 bits, we don't want to add an additional byte for the length.
+// The max length is 255 bits (uint8), because our use case only need up to 251 bits for a given trie key.
+// Although words can be used to represent 256 bits, we don't want to add an additional byte for the length.
 type BitArray struct {
 	len   uint8     // number of used bits
 	words [4]uint64 // little endian (i.e. words[0] is the least significant)
@@ -40,6 +39,8 @@ func (b *BitArray) Len() uint8 {
 }
 
 // Bytes returns the bytes representation of the bit array in big endian format
+//
+//nolint:mnd
 func (b *BitArray) Bytes() [32]byte {
 	var res [32]byte
 
@@ -120,6 +121,8 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 //	Truncate(x, 4) = 1011 (len=4)
 //	Truncate(x, 10) = 11001011 (len=8, original x)
 //	Truncate(x, 0) = 0 (len=0)
+//
+//nolint:mnd
 func (b *BitArray) Truncate(x *BitArray, length uint8) *BitArray {
 	if length >= x.len {
 		return b.Set(x)
@@ -173,7 +176,7 @@ func (b *BitArray) CommonMSBs(x, y *BitArray) *BitArray {
 
 	// Align arrays by right-shifting longer array and then XOR to find differences
 	// Example:
-	//   short = 1101 (len=4)
+	//   short = 1100 (len=4)
 	//   long  = 1101 0111 (len=8)
 	//
 	// Step 1: Right shift longer array by 4
@@ -216,6 +219,8 @@ func findFirstSetBit(b *BitArray) uint8 {
 }
 
 // Rsh sets b = x >> n and returns b.
+//
+//nolint:mnd
 func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
 	if x.len == 0 {
 		return b.Set(x)
@@ -358,7 +363,7 @@ func (b *BitArray) Set(x *BitArray) *BitArray {
 // It rounds up to the nearest byte.
 func (b *BitArray) byteCount() uint8 {
 	// Cast to uint16 to avoid overflow
-	return uint8((uint16(b.len) + uint16(byteBits-1)) / uint16(byteBits))
+	return uint8((uint16(b.len) + (bits8 - 1)) / uint16(bits8))
 }
 
 // activeBytes returns a slice containing only the bytes that are actually used
