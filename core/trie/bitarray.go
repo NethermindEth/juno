@@ -102,8 +102,8 @@ func (b *bitArray) EqualMSBs(x *bitArray) bool {
 	return long.Rsh(long, long.len-short.len).Equal(short)
 }
 
-// Truncate sets b to the first 'length' bits of x and returns b.
-// If length >= x.len, b is a copy of x.
+// Truncate sets b to the first 'length' bits of x (starting from the least significant bit).
+// If length >= x.len, b is an exact copy of x.
 // Any bits beyond the specified length are cleared to zero.
 // For example:
 //
