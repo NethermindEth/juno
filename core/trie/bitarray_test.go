@@ -807,3 +807,112 @@ func TestCommonPrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestIsBitSet(t *testing.T) {
+	tests := []struct {
+		name string
+		ba   BitArray
+		pos  uint8
+		want bool
+	}{
+		{
+			name: "empty array",
+			ba: BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			pos:  0,
+			want: false,
+		},
+		{
+			name: "first bit set",
+			ba: BitArray{
+				len:   64,
+				words: [4]uint64{1, 0, 0, 0},
+			},
+			pos:  0,
+			want: true,
+		},
+		{
+			name: "last bit in first word",
+			ba: BitArray{
+				len:   64,
+				words: [4]uint64{1 << 63, 0, 0, 0},
+			},
+			pos:  63,
+			want: true,
+		},
+		{
+			name: "first bit in second word",
+			ba: BitArray{
+				len:   128,
+				words: [4]uint64{0, 1, 0, 0},
+			},
+			pos:  64,
+			want: true,
+		},
+		{
+			name: "bit beyond length",
+			ba: BitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			pos:  65,
+			want: false,
+		},
+		{
+			name: "alternating bits",
+			ba: BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010 in binary
+			},
+			pos:  1,
+			want: true,
+		},
+		{
+			name: "alternating bits - unset position",
+			ba: BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010 in binary
+			},
+			pos:  0,
+			want: false,
+		},
+		{
+			name: "bit in last word",
+			ba: BitArray{
+				len:   251,
+				words: [4]uint64{0, 0, 0, 1 << 59},
+			},
+			pos:  251,
+			want: false, // position 251 is beyond the highest valid bit (250)
+		},
+		{
+			name: "highest valid bit (255)",
+			ba: BitArray{
+				len:   255,
+				words: [4]uint64{0, 0, 0, 1 << 62}, // bit 255 set
+			},
+			pos:  254,
+			want: true,
+		},
+		{
+			name: "position at length boundary",
+			ba: BitArray{
+				len:   100,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			pos:  100,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.ba.IsBitSet(tt.pos)
+			if got != tt.want {
+				t.Errorf("IsBitSet(%d) = %v, want %v", tt.pos, got, tt.want)
+			}
+		})
+	}
+}

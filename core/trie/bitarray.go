@@ -277,6 +277,16 @@ func (b *BitArray) Equal(x *BitArray) bool {
 		b.words[3] == x.words[3]
 }
 
+// IsBitSit returns true if bit n-th is set, where n = 0 is LSB.
+// The n must be <= 255.
+func (b *BitArray) IsBitSet(n uint8) bool {
+	if n >= b.len {
+		return false
+	}
+
+	return (b.words[n/64] & (1 << (n % 64))) != 0
+}
+
 // Write serialises the BitArray into a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
