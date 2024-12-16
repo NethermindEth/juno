@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"errors"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
