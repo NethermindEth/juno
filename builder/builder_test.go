@@ -20,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -80,10 +79,7 @@ func TestValidateAgainstPendingState(t *testing.T) {
 	su, b, err := gw.StateUpdateWithBlock(context.Background(), 0)
 	require.NoError(t, err)
 
-	require.NoError(t, testBuilder.StorePending(&sync.Pending{
-		Block:       b,
-		StateUpdate: su,
-	}))
+	require.NoError(t, bc.Finalise(b, su, nil, nil, nil, nil))
 
 	userTxn := mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
@@ -130,7 +126,9 @@ func TestValidateAgainstPendingState(t *testing.T) {
 
 	blockInfo.Header.Number += 1
 
-	require.NoError(t, bc.Store(b, &core.BlockCommitments{}, su, nil))
+	su, b, err = gw.StateUpdateWithBlock(context.Background(), 1)
+	require.NoError(t, err)
+	require.NoError(t, bc.Finalise(b, su, nil, nil, nil, nil))
 	mockVM.EXPECT().Execute([]core.Transaction{userTxn.Transaction},
 		[]core.Class{userTxn.DeclaredClass}, []*felt.Felt{}, gomock.Any(),
 		gomock.Any(), &utils.Integration, false, false, false).DoAndReturn(

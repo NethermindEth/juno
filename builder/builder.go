@@ -29,8 +29,9 @@ import (
 )
 
 var (
-	_ service.Service = (*Builder)(nil)
-	_ sync.Reader     = (*Builder)(nil)
+	_                    service.Service = (*Builder)(nil)
+	_                    sync.Reader     = (*Builder)(nil)
+	ErrPendingParentHash                 = errors.New("pending block parent hash does not match chain head")
 )
 
 type Builder struct {
@@ -147,11 +148,7 @@ func (b *Builder) Pending() (*sync.Pending, error) {
 		return p, nil
 	}
 
-	// Todo: pending should be reset when block is Finalised..
-	// Since the pending block in the cache is outdated remove it
-	b.pendingBlock.Store(nil)
-
-	return nil, sync.ErrPendingBlockNotFound
+	return nil, ErrPendingParentHash
 }
 
 func (b *Builder) PendingBlock() *core.Block {
@@ -326,6 +323,7 @@ func (b *Builder) InitPendingBlock() error {
 	pendingBlock := core.Block{
 		Header: &core.Header{
 			ParentHash:       header.Hash,
+			Number:           header.Number + 1,
 			SequencerAddress: &b.ownAddress,
 			GasPrice:         new(felt.Felt).SetUint64(1),
 			GasPriceSTRK:     new(felt.Felt).SetUint64(1),
@@ -336,11 +334,14 @@ func (b *Builder) InitPendingBlock() error {
 			},
 		},
 	}
-	newClasses := new(map[felt.Felt]core.Class)
+	newClasses := map[felt.Felt]core.Class{}
+	su := core.StateUpdate{
+		StateDiff: core.EmptyStateDiff(),
+	}
 	pending := sync.Pending{
 		Block:       &pendingBlock,
-		StateUpdate: &core.StateUpdate{},
-		NewClasses:  *newClasses,
+		StateUpdate: &su,
+		NewClasses:  newClasses,
 	}
 	b.pendingBlock.Store(&pending)
 	return nil
@@ -352,7 +353,6 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	if err != nil {
 		return err
 	}
-
 	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign, b.shadowStateUpdate, b.shadowBlock); err != nil {
 		return err
 	}
@@ -376,7 +376,6 @@ func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransa
 	if userTxn.DeclaredClass != nil {
 		declaredClasses = []core.Class{userTxn.DeclaredClass}
 	}
-
 	pendingBlock, err := b.Pending()
 	if err != nil {
 		return err
