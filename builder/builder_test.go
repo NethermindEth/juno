@@ -278,7 +278,7 @@ func TestBuildBlocks(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		time.Sleep(10 * time.Millisecond)
+		waitForTxns(t, bc, time.Second, txnHashes)
 		cancel()
 	}()
 	require.NoError(t, testBuilder.Run(ctx))

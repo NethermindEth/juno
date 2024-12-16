@@ -1085,7 +1085,6 @@ func (b *Blockchain) validateStateDiff(shadowStateUpdate, pendingStateUpdate *co
 	_, diffFound := pendingStateUpdate.StateDiff.Diff(shadowStateUpdate.StateDiff, "sequencer", "sepolia")
 	if diffFound {
 		// Todo: make format nicely
-		// fmt.Println(diffString)
 		return fmt.Errorf("state diff validation failed")
 	}
 	return nil

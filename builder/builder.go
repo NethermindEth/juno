@@ -189,6 +189,7 @@ func (b *Builder) Run(ctx context.Context) error {
 
 func (b *Builder) ClearPending() error {
 	b.pendingBlock.Store(&sync.Pending{})
+
 	if b.headState != nil {
 		if err := b.headCloser(); err != nil {
 			return err
@@ -258,11 +259,7 @@ func (b *Builder) runShadowMode(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-b.chanFinaliseBlock:
-			pending, err := b.Pending()
-			if err != nil {
-				return err
-			}
-			err = b.cleanStorageDiff(pending.StateUpdate.StateDiff)
+			err := b.cleanStorageDiff()
 			if err != nil {
 				return err
 			}
@@ -276,17 +273,24 @@ func (b *Builder) runShadowMode(ctx context.Context) error {
 	}
 }
 
-func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
+func (b *Builder) cleanStorageDiff() error {
 	b.log.Debugw("Removing values in the storage diff that don't affect state")
-	state, closer, err := b.bc.HeadState()
+	pending, err := b.Pending()
 	if err != nil {
 		return err
 	}
+	sd := pending.StateUpdate.StateDiff
+	state, stateCloser, err := b.PendingState()
+	if err != nil {
+		return err
+	}
+
 	defer func() {
-		if closeErr := closer(); closeErr != nil {
-			b.log.Errorw("Failed to close the state", "error", closeErr)
+		if err = stateCloser(); err != nil {
+			b.log.Errorw("closing state in cleanStorageDiff", "err", err)
 		}
 	}()
+
 	for addr, storage := range sd.StorageDiffs {
 		for k, v := range storage {
 			previousValue, err := state.ContractStorage(&addr, &k)
@@ -329,6 +333,7 @@ func (b *Builder) cleanStorageDiff(sd *core.StateDiff) error {
 		}
 	}
 	sd.DeclaredV0Classes = result
+	b.pendingBlock.Store(pending)
 	return nil
 }
 
@@ -371,7 +376,6 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("pending", pending.Block.Number, pending.StateUpdate)
 	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign, b.shadowStateUpdate, b.shadowBlock); err != nil {
 		return err
 	}
@@ -389,43 +393,6 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 		return err
 	}
 	return b.InitPendingBlock()
-}
-
-// ValidateAgainstPendingState validates a user transaction against the pending state
-// only hard-failures result in an error, reverts are not reported back to caller
-func (b *Builder) ValidateAgainstPendingState(userTxn *mempool.BroadcastedTransaction) error {
-	declaredClasses := []core.Class{}
-	if userTxn.DeclaredClass != nil {
-		declaredClasses = []core.Class{userTxn.DeclaredClass}
-	}
-	pendingBlock, err := b.Pending()
-	if err != nil {
-		return err
-	}
-
-	state, stateCloser, err := b.PendingState()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err = stateCloser(); err != nil {
-			b.log.Errorw("closing state in ValidateAgainstPendingState", "err", err)
-		}
-	}()
-
-	blockInfo := &vm.BlockInfo{
-		Header: &core.Header{
-			Number:           pendingBlock.Block.Number,
-			Timestamp:        pendingBlock.Block.Timestamp,
-			SequencerAddress: &b.ownAddress,
-			GasPrice:         pendingBlock.Block.GasPrice,
-			GasPriceSTRK:     pendingBlock.Block.GasPriceSTRK,
-		},
-	}
-	_, _, _, _, _, err = b.vm.Execute([]core.Transaction{userTxn.Transaction}, declaredClasses, //nolint:dogsled
-		[]*felt.Felt{}, blockInfo, state, b.bc.Network(), false, false, false)
-	return err
 }
 
 func (b *Builder) StartingBlockNumber() (uint64, error) {
@@ -724,7 +691,6 @@ func (b *Builder) setPendingHeader(refBlock *core.Block, nextBlockToSequence uin
 	if err != nil {
 		return err
 	}
-
 	pending.Block.Transactions = nil
 	pending.Block.Number = nextBlockToSequence
 	pending.Block.SequencerAddress = refBlock.SequencerAddress      // Affects post 0.13.2 block hash
@@ -777,7 +743,7 @@ func (b *Builder) syncStore() error {
 			return err
 		}
 	}
-	return nil
+	return b.ClearPending()
 }
 
 func (b *Builder) getSyncData(blockNumber uint64) (*core.Block, *core.StateUpdate,
