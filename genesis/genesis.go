@@ -200,7 +200,8 @@ func GenesisStateDiff(
 		default:
 			panic("transaction type not supported")
 		}
-		_, _, trace, _, _, err := v.Execute([]core.Transaction{coreTxn}, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)}, &blockInfo, genesisState, network, true, false, true)
+		_, _, trace, _, _, err := v.Execute([]core.Transaction{coreTxn}, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
+			&blockInfo, genesisState, network, true, false, true)
 		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
