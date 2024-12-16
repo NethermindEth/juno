@@ -54,15 +54,27 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.Empty(t, stateDiff.ReplacedClasses)
 		require.Equal(t, len(genesisConfig.BootstrapAccounts)+4, len(stateDiff.DeployedContracts)) // num_accounts + strk token + udc + udacnt + eth
 
+		// ETH
 		numFundedAccounts := 0
-		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
+		ethAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
+		ethTokenDiffs := stateDiff.StorageDiffs[*ethAddress]
+		for _, v := range ethTokenDiffs {
+			if v.Equal(utils.HexToFelt(t, "0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
+				numFundedAccounts++
+			}
+		}
+		require.Equal(t, len(genesisConfig.BootstrapAccounts)+1, numFundedAccounts) // Also fund udacnt
+
+		// STRK
+		numFundedAccounts = 0
+		strkAddress := utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
 		for _, v := range strkTokenDiffs {
 			if v.Equal(utils.HexToFelt(t, "0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
 				numFundedAccounts++
 			}
 		}
-		require.Equal(t, len(genesisConfig.BootstrapAccounts)+1, numFundedAccounts) // Also fund udacnt
+		require.Equal(t, len(genesisConfig.BootstrapAccounts), numFundedAccounts)
 	})
 
 }

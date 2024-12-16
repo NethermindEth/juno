@@ -88,6 +88,36 @@
 			"caller_address": "0x0"
 		},
 		{
+			"contract_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x101",
+				"0x56bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x102",
+				"0x56bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
+				"0x56bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
 			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
