@@ -91,7 +91,7 @@ func (g *GenesisConfig) Validate() error {
 }
 
 // GenesisState builds the genesis state given the genesis-config data.
-func GenesisStateDiff( //nolint:funlen
+func GenesisStateDiff( //nolint:funlen,gocyclo
 	config *GenesisConfig,
 	v vm.VM,
 	network *utils.Network,
