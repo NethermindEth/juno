@@ -20,6 +20,20 @@
 				"0x0"
 			]
 		},
+		"0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d": {
+			"class_hash": "0x3182d1ef7f16f9f0e8481a10d0182eb6e4fb59d5ffd58ba8204d57322f4ab90",
+			"constructor_args": [
+				"0x537461726b6e657420546f6b656e",
+				"0x5354524b",
+				"0x12",
+				"0x283c",
+				"0x123456789123456789",
+				"0x123456",
+				"0x123456",
+				"0x1",
+				"0x0"
+			]
+		},
 		"0x101": {
 			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
 			"constructor_args": [
