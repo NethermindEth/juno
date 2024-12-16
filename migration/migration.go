@@ -512,7 +512,7 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 }
 
 func bitset2Key(bs *bitset.BitSet) *trie.Key {
-	bsWords := bs.Bytes()
+	bsWords := bs.Words()
 	if len(bsWords) > felt.Limbs {
 		panic("key too long to fit in Felt")
 	}
