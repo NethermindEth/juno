@@ -29,9 +29,12 @@ type BitArray struct {
 	words [4]uint64 // little endian (i.e. words[0] is the least significant)
 }
 
-func (b *BitArray) Felt() *felt.Felt {
+func (b *BitArray) Felt() felt.Felt {
 	bs := b.Bytes()
-	return new(felt.Felt).SetBytes(bs[:])
+
+	var f felt.Felt
+	f.SetBytes(bs[:])
+	return f
 }
 
 func (b *BitArray) Len() uint8 {
