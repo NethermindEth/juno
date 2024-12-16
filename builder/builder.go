@@ -70,7 +70,7 @@ type Builder struct {
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
-	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, disableFees bool, db db.DB,
+	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, disableFees bool, database db.DB,
 ) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
@@ -81,7 +81,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 
 		disableFees: disableFees,
 		bc:          bc,
-		db:          db,
+		db:          database,
 		pool:        pool,
 		vm:          builderVM,
 		newHeads:    feed.New[*core.Header](),
@@ -90,7 +90,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 
 func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
 	blockTime time.Duration, pool *mempool.Pool, log utils.Logger, starknetData starknetdata.StarknetData,
-	db db.DB,
+	database db.DB,
 ) *Builder {
 	return &Builder{
 		ownAddress: *ownAddr,
@@ -104,7 +104,7 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 		chanNumTxnsToShadow: make(chan int, 1),
 
 		bc:       bc,
-		db:       db,
+		db:       database,
 		pool:     pool,
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
@@ -124,8 +124,8 @@ func (b *Builder) WithJunoEndpoint(endpoint string) *Builder {
 	return b
 }
 
-func (b *Builder) WithPlugin(plugin plugin.JunoPlugin) *Builder {
-	b.plugin = plugin
+func (b *Builder) WithPlugin(junoPlugin plugin.JunoPlugin) *Builder {
+	b.plugin = junoPlugin
 	return b
 }
 
@@ -475,7 +475,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 }
 
-func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
+func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error { //nolint:gocyclo
 	pending, err := b.Pending()
 	if err != nil {
 		return err
@@ -660,7 +660,10 @@ func (b *Builder) shadowTxns(ctx context.Context) error {
 
 		b.shadowStateUpdate = su
 		b.shadowBlock = block
-		b.setPendingHeader(block, nextBlockToSequence)
+		err = b.setPendingHeader(block, nextBlockToSequence)
+		if err != nil {
+			return err
+		}
 		blockHashStorage := pending.StateUpdate.StateDiff.StorageDiffs[*new(felt.Felt).SetUint64(1)]
 		for _, blockHash := range blockHashStorage {
 			b.blockHashToBeRevealed = blockHash // Affects execution

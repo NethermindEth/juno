@@ -980,7 +980,7 @@ type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the
 // blockchain. In cases where the sequencer needs to re-generate another chain (eg Sepolia), the optional reference
 // block and state update should be provided.
-func (b *Blockchain) Finalise(
+func (b *Blockchain) Finalise( //nolint:gocyclo
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
