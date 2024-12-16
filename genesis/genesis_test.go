@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
-
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -20,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
