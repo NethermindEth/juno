@@ -174,12 +174,29 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
+	defer func() {
+		if pErr := b.ClearPending(); pErr != nil {
+			b.log.Errorw("clearing pending", "err", pErr)
+		}
+	}()
 	switch {
 	case b.shadowMode:
 		return b.runShadowMode(ctx)
 	default:
 		return b.runSequencer(ctx)
 	}
+}
+
+func (b *Builder) ClearPending() error {
+	b.pendingBlock.Store(&sync.Pending{})
+	if b.headState != nil {
+		if err := b.headCloser(); err != nil {
+			return err
+		}
+		b.headState = nil
+		b.headCloser = nil
+	}
+	return nil
 }
 
 func (b *Builder) runSequencer(ctx context.Context) error {
@@ -344,7 +361,8 @@ func (b *Builder) InitPendingBlock() error {
 		NewClasses:  newClasses,
 	}
 	b.pendingBlock.Store(&pending)
-	return nil
+	b.headState, b.headCloser, err = b.bc.HeadState()
+	return err
 }
 
 // Finalise the pending block and initialise the next one
@@ -353,6 +371,7 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("pending", pending.Block.Number, pending.StateUpdate)
 	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign, b.shadowStateUpdate, b.shadowBlock); err != nil {
 		return err
 	}
@@ -365,6 +384,9 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 		if err != nil {
 			b.log.Errorw("error sending new block to plugin", err)
 		}
+	}
+	if err := b.ClearPending(); err != nil {
+		return err
 	}
 	return b.InitPendingBlock()
 }
@@ -492,6 +514,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error {
 		return err
 	}
 	state := sync.NewPendingStateWriter(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState)
+
 	var classes []core.Class
 	if txn.DeclaredClass != nil {
 		classes = append(classes, txn.DeclaredClass)
