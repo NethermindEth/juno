@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	maxBitArray   = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
+	maxBits       = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
 	emptyBitArray = new(BitArray)
 )
 
@@ -119,18 +119,18 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 	return long.Rsh(long, long.len-short.len).Equal(short)
 }
 
-// Truncate sets b to the first 'length' bits of x (starting from the least significant bit).
-// If length >= x.len, b is an exact copy of x.
+// LSBs sets b to the least significant 'n' bits of x.
+// If n >= x.len, b is an exact copy of x.
 // Any bits beyond the specified length are cleared to zero.
 // For example:
 //
 //	x = 11001011 (len=8)
-//	Truncate(x, 4) = 1011 (len=4)
-//	Truncate(x, 10) = 11001011 (len=8, original x)
-//	Truncate(x, 0) = 0 (len=0)
+//	LSBs(x, 4) = 1011 (len=4)
+//	LSBs(x, 10) = 11001011 (len=8, original x)
+//	LSBs(x, 0) = 0 (len=0)
 //
 //nolint:mnd
-func (b *BitArray) Truncate(x *BitArray, length uint8) *BitArray {
+func (b *BitArray) LSBs(x *BitArray, length uint8) *BitArray {
 	if length >= x.len {
 		return b.Set(x)
 	}
@@ -163,6 +163,23 @@ func (b *BitArray) Truncate(x *BitArray, length uint8) *BitArray {
 	}
 
 	return b
+}
+
+// MSBs sets b to the most significant 'n' bits of x.
+// If n >= x.len, b is an exact copy of x.
+// Any bits beyond the specified length are cleared to zero.
+// For example:
+//
+//	x = 11001011 (len=8)
+//	MSBs(x, 4) = 1100 (len=4)
+//	MSBs(x, 10) = 11001011 (len=8, original x)
+//	MSBs(x, 0) = 0 (len=0)
+func (b *BitArray) MSBs(x *BitArray, n uint8) *BitArray {
+	if n >= x.len {
+		return b.Set(x)
+	}
+
+	return b.Rsh(x, x.len-n)
 }
 
 // CommonMSBs sets b to the longest sequence of matching most significant bits between two bit arrays.
@@ -275,14 +292,6 @@ func (b *BitArray) IsBitSet(n uint8) bool {
 	}
 
 	return (b.words[n/64] & (1 << (n % 64))) != 0
-}
-
-func (b *BitArray) MSBs(x *BitArray, n uint8) *BitArray {
-	if n >= x.len {
-		return b.Set(x)
-	}
-
-	return b.Rsh(x, x.len-n)
 }
 
 // Write serialises the BitArray into a bytes buffer in the following format:
