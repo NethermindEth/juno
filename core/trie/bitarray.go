@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	maxUint64 = uint64(math.MaxUint64)
+	maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
 	bits8     = 8
 )
 
