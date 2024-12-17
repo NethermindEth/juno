@@ -129,7 +129,7 @@ func (i *Item) add(size utils.DataSize) {
 	i.Size += size
 }
 
-func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (*Item, error) {
+func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperBound bool) (*Item, error) {
 	var (
 		err error
 		v   []byte
@@ -138,8 +138,12 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte) (*Item, er
 	)
 
 	pebbleDB := pDB.Impl().(*pebble.DB)
+	iterOpt := &pebble.IterOptions{LowerBound: prefix}
+	if withUpperBound {
+		iterOpt.UpperBound = upperBound(prefix)
+	}
 
-	it, err := pebbleDB.NewIter(&pebble.IterOptions{LowerBound: prefix, UpperBound: upperBound(prefix)})
+	it, err := pebbleDB.NewIter(iterOpt)
 	if err != nil {
 		// No need to call utils.RunAndWrapOnError() since iterator couldn't be created
 		return nil, err
