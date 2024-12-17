@@ -204,9 +204,10 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		items [][]string
 	)
 
-	for _, b := range db.BucketValues() {
+	buckets := db.BucketValues()
+	for _, b := range buckets {
 		fmt.Fprintf(cmd.OutOrStdout(), "Calculating size of %s, remaining buckets: %d\n", b, len(db.BucketValues())-int(b)-1)
-		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)})
+		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)}, true)
 		if err != nil {
 			return err
 		}
@@ -227,6 +228,20 @@ func dbSize(cmd *cobra.Command, args []string) error {
 			withHistorySize += bucketItem.Size
 			withHistoryCount += bucketItem.Count
 		}
+	}
+
+	// check if there is any data left in the db
+	lastBucket := buckets[len(buckets)-1]
+	fmt.Fprintln(cmd.OutOrStdout(), "Calculating remaining data in the db")
+	lastBucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(lastBucket + 1)}, false)
+	if err != nil {
+		return err
+	}
+
+	if lastBucketItem.Count > 0 {
+		items = append(items, []string{"Unknown", lastBucketItem.Size.String(), fmt.Sprintf("%d", lastBucketItem.Count)})
+		totalSize += lastBucketItem.Size
+		totalCount += lastBucketItem.Count
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
