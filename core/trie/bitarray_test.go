@@ -11,6 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	ones63 = 0x7FFFFFFFFFFFFFFF
+)
+
 func TestBytes(t *testing.T) {
 	tests := []struct {
 		name string
@@ -19,12 +23,12 @@ func TestBytes(t *testing.T) {
 	}{
 		{
 			name: "length == 0",
-			ba:   BitArray{len: 0, words: maxBitArray},
+			ba:   BitArray{len: 0, words: maxBits},
 			want: [32]byte{},
 		},
 		{
 			name: "length < 64",
-			ba:   BitArray{len: 38, words: maxBitArray},
+			ba:   BitArray{len: 38, words: maxBits},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[24:32], 0x3FFFFFFFFF)
@@ -33,7 +37,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "64 <= length < 128",
-			ba:   BitArray{len: 100, words: maxBitArray},
+			ba:   BitArray{len: 100, words: maxBits},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[16:24], 0xFFFFFFFFF)
@@ -43,7 +47,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "128 <= length < 192",
-			ba:   BitArray{len: 130, words: maxBitArray},
+			ba:   BitArray{len: 130, words: maxBits},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[8:16], 0x3)
@@ -54,7 +58,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "192 <= length < 255",
-			ba:   BitArray{len: 201, words: maxBitArray},
+			ba:   BitArray{len: 201, words: maxBits},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[0:8], 0x1FF)
@@ -66,7 +70,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "length == 254",
-			ba:   BitArray{len: 254, words: maxBitArray},
+			ba:   BitArray{len: 254, words: maxBits},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[0:8], 0x3FFFFFFFFFFFFFFF)
@@ -78,10 +82,10 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "length == 255",
-			ba:   BitArray{len: 255, words: maxBitArray},
+			ba:   BitArray{len: 255, words: maxBits},
 			want: func() [32]byte {
 				var b [32]byte
-				binary.BigEndian.PutUint64(b[0:8], 0x7FFFFFFFFFFFFFFF)
+				binary.BigEndian.PutUint64(b[0:8], ones63)
 				binary.BigEndian.PutUint64(b[8:16], maxUint64)
 				binary.BigEndian.PutUint64(b[16:24], maxUint64)
 				binary.BigEndian.PutUint64(b[24:32], maxUint64)
@@ -180,7 +184,7 @@ func TestRsh(t *testing.T) {
 			name: "shift by 127",
 			initial: &BitArray{
 				len:   255,
-				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFFF},
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, ones63},
 			},
 			shiftBy: 127,
 			expected: &BitArray{
@@ -342,7 +346,7 @@ func TestPrefixEqual(t *testing.T) {
 	}
 }
 
-func TestTruncate(t *testing.T) {
+func TestLSBs(t *testing.T) {
 	tests := []struct {
 		name     string
 		initial  BitArray
@@ -497,9 +501,122 @@ func TestTruncate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := new(BitArray).Truncate(&tt.initial, tt.length)
+			result := new(BitArray).LSBs(&tt.initial, tt.length)
 			if !result.Equal(&tt.expected) {
 				t.Errorf("Truncate() got = %+v, want %+v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMSBs(t *testing.T) {
+	tests := []struct {
+		name string
+		x    *BitArray
+		n    uint8
+		want *BitArray
+	}{
+		{
+			name: "empty array",
+			x:    emptyBitArray,
+			n:    0,
+			want: emptyBitArray,
+		},
+		{
+			name: "get all bits",
+			x: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			n: 64,
+			want: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+		},
+		{
+			name: "get more bits than available",
+			x: &BitArray{
+				len:   32,
+				words: [4]uint64{0xFFFFFFFF, 0, 0, 0},
+			},
+			n: 64,
+			want: &BitArray{
+				len:   32,
+				words: [4]uint64{0xFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "get half of available bits",
+			x: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			n: 32,
+			want: &BitArray{
+				len:   32,
+				words: [4]uint64{0xFFFFFFFF00000000 >> 32, 0, 0, 0},
+			},
+		},
+		{
+			name: "get MSBs across word boundary",
+			x: &BitArray{
+				len:   128,
+				words: [4]uint64{maxUint64, maxUint64, 0, 0},
+			},
+			n: 100,
+			want: &BitArray{
+				len:   100,
+				words: [4]uint64{maxUint64, maxUint64 >> 28, 0, 0},
+			},
+		},
+		{
+			name: "get MSBs from max length array",
+			x: &BitArray{
+				len:   255,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, ones63},
+			},
+			n: 64,
+			want: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+		},
+		{
+			name: "get zero bits",
+			x: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			n: 0,
+			want: &BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "sparse bits",
+			x: &BitArray{
+				len:   128,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x5555555555555555, 0, 0},
+			},
+			n: 64,
+			want: &BitArray{
+				len:   64,
+				words: [4]uint64{0x5555555555555555, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(BitArray).MSBs(tt.x, tt.n)
+			if !got.Equal(tt.want) {
+				t.Errorf("MSBs() = %v, want %v", got, tt.want)
+			}
+
+			if got.len != tt.want.len {
+				t.Errorf("MSBs() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -671,22 +788,22 @@ func TestCommonPrefix(t *testing.T) {
 			name: "different lengths with common prefix - multiple words",
 			x: &BitArray{
 				len:   255,
-				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFFF},
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, ones63},
 			},
 			y: &BitArray{
 				len:   127,
-				words: [4]uint64{maxUint64, 0x7FFFFFFFFFFFFFFF, 0, 0},
+				words: [4]uint64{maxUint64, ones63, 0, 0},
 			},
 			want: &BitArray{
 				len:   127,
-				words: [4]uint64{maxUint64, 0x7FFFFFFFFFFFFFFF, 0, 0},
+				words: [4]uint64{maxUint64, ones63, 0, 0},
 			},
 		},
 		{
 			name: "different at first bit",
 			x: &BitArray{
 				len:   64,
-				words: [4]uint64{0x7FFFFFFFFFFFFFFF, 0, 0, 0},
+				words: [4]uint64{ones63, 0, 0, 0},
 			},
 			y: &BitArray{
 				len:   64,
@@ -776,7 +893,7 @@ func TestCommonPrefix(t *testing.T) {
 			name: "max length difference",
 			x: &BitArray{
 				len:   255,
-				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFFF},
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, ones63},
 			},
 			y: &BitArray{
 				len:   1,
@@ -961,12 +1078,12 @@ func TestFeltConversion(t *testing.T) {
 			want:   "0xffffffffffffffffffffffffffffffffffffffffffffffff",
 		},
 		{
-			name: "max length (251 bits)",
+			name: "251 bits",
 			ba: BitArray{
-				len:   255,
+				len:   251,
 				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFF},
 			},
-			length: 255,
+			length: 251,
 			want:   "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 		},
 		{
