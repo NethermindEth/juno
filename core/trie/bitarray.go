@@ -3,6 +3,8 @@ package trie
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"math"
 	"math/bits"
 
@@ -29,8 +31,8 @@ type BitArray struct {
 	words [4]uint64 // little endian (i.e. words[0] is the least significant)
 }
 
-func NewBitArray(val uint64) *BitArray {
-	return new(BitArray).SetUint64(val)
+func NewBitArray(length uint8, val uint64) *BitArray {
+	return new(BitArray).SetUint64(length, val)
 }
 
 func (b *BitArray) Felt() felt.Felt {
@@ -275,6 +277,14 @@ func (b *BitArray) IsBitSet(n uint8) bool {
 	return (b.words[n/64] & (1 << (n % 64))) != 0
 }
 
+func (b *BitArray) MSBs(x *BitArray, n uint8) *BitArray {
+	if n >= x.len {
+		return b.Set(x)
+	}
+
+	return b.Rsh(x, x.len-n)
+}
+
 // Write serialises the BitArray into a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
@@ -331,10 +341,24 @@ func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 	return b
 }
 
-func (b *BitArray) SetUint64(data uint64) *BitArray {
+func (b *BitArray) SetUint64(length uint8, data uint64) *BitArray {
 	b.words[0] = data
-	b.len = 64
+	b.len = length
 	return b
+}
+
+func (b *BitArray) EncodedLen() uint {
+	return b.byteCount() + 1
+}
+
+func (b *BitArray) Copy() BitArray {
+	var res BitArray
+	res.Set(b)
+	return res
+}
+
+func (b *BitArray) String() string {
+	return fmt.Sprintf("(%d) %s", b.len, hex.EncodeToString(b.Bytes()))
 }
 
 func (b *BitArray) setFelt(f *felt.Felt) {
@@ -355,9 +379,9 @@ func (b *BitArray) setBytes32(data []byte) {
 
 // byteCount returns the minimum number of bytes needed to represent the bit array.
 // It rounds up to the nearest byte.
-func (b *BitArray) byteCount() uint8 {
+func (b *BitArray) byteCount() uint {
 	// Cast to uint16 to avoid overflow
-	return uint8((uint16(b.len) + (bits8 - 1)) / uint16(bits8))
+	return (uint(b.len) + (bits8 - 1)) / uint(bits8)
 }
 
 // activeBytes returns a slice containing only the bytes that are actually used
