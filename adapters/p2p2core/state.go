@@ -45,7 +45,6 @@ func AdaptStateDiff(reader core.StateReader, contractDiffs []*spec.ContractDiff,
 			storageDiffs[*address] = utils.ToMap(diff.Values, adaptStoredValue)
 		}
 
-		// todo recheck this logic
 		if diff.ClassHash != nil {
 			addrToClsHash := addrToClassHash{
 				addr:      diff.Address,
