@@ -6,7 +6,9 @@ import (
 	"math/bits"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBytes(t *testing.T) {
@@ -91,7 +93,7 @@ func TestBytes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.ba.Bytes()
-			if !bytes.Equal(got[:], tt.want[:]) {
+			if !bytes.Equal(got, tt.want[:]) {
 				t.Errorf("BitArray.Bytes() = %v, want %v", got, tt.want)
 			}
 
@@ -589,10 +591,8 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				t.Errorf("Write() = %v, want %v", got, tt.want)
 			}
 
-			gotBitArray := new(BitArray)
-			if err := gotBitArray.UnmarshalBinary(got); err != nil {
-				t.Errorf("UnmarshalBinary() = %v", err)
-			}
+			var gotBitArray BitArray
+			gotBitArray.UnmarshalBinary(got)
 			if !gotBitArray.Equal(&tt.ba) {
 				t.Errorf("UnmarshalBinary() = %v, want %v", gotBitArray, tt.ba)
 			}
@@ -912,6 +912,140 @@ func TestIsBitSet(t *testing.T) {
 			got := tt.ba.IsBitSet(tt.pos)
 			if got != tt.want {
 				t.Errorf("IsBitSet(%d) = %v, want %v", tt.pos, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFeltConversion(t *testing.T) {
+	tests := []struct {
+		name   string
+		ba     BitArray
+		length uint8
+		want   string // hex representation of felt
+	}{
+		{
+			name: "empty bit array",
+			ba: BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			length: 0,
+			want:   "0x0",
+		},
+		{
+			name: "single word",
+			ba: BitArray{
+				len:   64,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			length: 64,
+			want:   "0xffffffffffffffff",
+		},
+		{
+			name: "two words",
+			ba: BitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			length: 128,
+			want:   "0xffffffffffffffffffffffffffffffff",
+		},
+		{
+			name: "three words",
+			ba: BitArray{
+				len:   192,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0},
+			},
+			length: 192,
+			want:   "0xffffffffffffffffffffffffffffffffffffffffffffffff",
+		},
+		{
+			name: "max length (251 bits)",
+			ba: BitArray{
+				len:   255,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFF},
+			},
+			length: 255,
+			want:   "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		},
+		{
+			name: "sparse bits",
+			ba: BitArray{
+				len:   128,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x5555555555555555, 0, 0},
+			},
+			length: 128,
+			want:   "0x5555555555555555aaaaaaaaaaaaaaaa",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test Felt() conversion
+			gotFelt := tt.ba.Felt()
+			assert.Equal(t, tt.want, gotFelt.String())
+
+			// Test SetFelt() conversion (round trip)
+			var newBA BitArray
+			newBA.SetFelt(tt.length, &gotFelt)
+			assert.Equal(t, tt.ba.len, newBA.len)
+			assert.Equal(t, tt.ba.words, newBA.words)
+		})
+	}
+}
+
+func TestSetFeltValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		feltStr     string
+		length      uint8
+		shouldMatch bool
+	}{
+		{
+			name:        "valid felt with matching length",
+			feltStr:     "0xf",
+			length:      4,
+			shouldMatch: true,
+		},
+		{
+			name:        "felt larger than specified length",
+			feltStr:     "0xff",
+			length:      4,
+			shouldMatch: false,
+		},
+		{
+			name:        "zero felt with non-zero length",
+			feltStr:     "0x0",
+			length:      8,
+			shouldMatch: true,
+		},
+		{
+			name:        "max felt with max length",
+			feltStr:     "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			length:      251,
+			shouldMatch: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var f felt.Felt
+			_, err := f.SetString(tt.feltStr)
+			require.NoError(t, err)
+
+			var ba BitArray
+			ba.SetFelt(tt.length, &f)
+
+			// Convert back to felt and compare
+			roundTrip := ba.Felt()
+			if tt.shouldMatch {
+				assert.True(t, roundTrip.Equal(&f),
+					"expected %s, got %s", f.String(), roundTrip.String())
+			} else {
+				assert.False(t, roundTrip.Equal(&f),
+					"values should not match: original %s, roundtrip %s",
+					f.String(), roundTrip.String())
 			}
 		})
 	}
