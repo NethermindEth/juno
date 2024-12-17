@@ -609,7 +609,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	}, nil
 }
 
-var errTransactionNotFound = fmt.Errorf("transaction not found")
+var errTransactionNotFound = errors.New("transaction not found")
 
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)

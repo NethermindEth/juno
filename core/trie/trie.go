@@ -191,7 +191,7 @@ func (s *StorageNodeSet) Get(key Key) (*StorageNode, bool) {
 // Put adds a new StorageNode or updates an existing one.
 func (s *StorageNodeSet) Put(key Key, node *StorageNode) error {
 	if node == nil {
-		return fmt.Errorf("cannot put nil node")
+		return errors.New("cannot put nil node")
 	}
 
 	// If key exists, update the node

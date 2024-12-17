@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -111,7 +112,7 @@ func (k *Key) shiftRight(n uint8) {
 // MostSignificantBits returns a new key with the most significant n bits of the current key.
 func (k *Key) MostSignificantBits(n uint8) (*Key, error) {
 	if n > k.len {
-		return nil, fmt.Errorf("cannot get more bits than the key length")
+		return nil, errors.New("cannot get more bits than the key length")
 	}
 
 	keyCopy := k.Copy()
