@@ -96,7 +96,7 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 	return do(trie)
 }
 
-// feltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
+// FeltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) FeltToKey(k *felt.Felt) Key {
 	return FeltToKey(t.height, k)
