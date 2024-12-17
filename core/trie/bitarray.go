@@ -109,14 +109,13 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 		return true
 	}
 
-	var long, short *BitArray
-
-	long, short = b, x
-	if b.len < x.len {
-		long, short = x, b
+	// Compare only the first min(b.len, x.len) bits
+	minLen := b.len
+	if x.len < minLen {
+		minLen = x.len
 	}
 
-	return long.Rsh(long, long.len-short.len).Equal(short)
+	return new(BitArray).MSBs(b, minLen).Equal(new(BitArray).MSBs(x, minLen))
 }
 
 // LSBs sets b to the least significant 'n' bits of x.
@@ -229,8 +228,7 @@ func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
 	}
 
 	if n >= x.len {
-		x.clear()
-		return b.Set(x)
+		return b.clear()
 	}
 
 	switch {
@@ -277,6 +275,13 @@ func (b *BitArray) Xor(x, y *BitArray) *BitArray {
 
 // Eq checks if two bit arrays are equal
 func (b *BitArray) Equal(x *BitArray) bool {
+	// TODO(weiihann): this is really not a good thing to do...
+	if b == nil && x == nil {
+		return true
+	} else if b == nil || x == nil {
+		return false
+	}
+
 	return b.len == x.len &&
 		b.words[0] == x.words[0] &&
 		b.words[1] == x.words[1] &&

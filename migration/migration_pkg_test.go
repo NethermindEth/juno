@@ -260,8 +260,11 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 
 	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet))
 
-	var trieKey trie.Key
-	err = memTxn.Get(key, trieKey.UnmarshalBinary)
+	var trieKey trie.BitArray
+	err = memTxn.Get(key, func(data []byte) error {
+		trieKey.UnmarshalBinary(data)
+		return nil
+	})
 	require.NoError(t, err)
 	require.Equal(t, bs.Len(), uint(trieKey.Len()))
 	require.Equal(t, felt.Zero, trieKey.Felt())
@@ -356,7 +359,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 	}
 }
 
-func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {
+func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 	migrator := migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)
 	memTxn := db.NewMemTransaction()
 
@@ -387,9 +390,9 @@ func TestMigrateTrieNodesFromBitsetToTrieKey(t *testing.T) {
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	var nodeKeyBuf bytes.Buffer
-	newNodeKey := bitset2Key(bs)
-	wrote, err = newNodeKey.WriteTo(&nodeKeyBuf)
-	require.True(t, wrote > 0)
+	newNodeKey := bitset2BitArray(bs)
+	bWrite, err := newNodeKey.Write(&nodeKeyBuf)
+	require.True(t, bWrite > 0)
 	require.NoError(t, err)
 
 	var trieNode trie.Node

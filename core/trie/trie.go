@@ -35,12 +35,12 @@ const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, s
 // [specification]: https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#merkle_patricia_trie
 type Trie struct {
 	height  uint8
-	rootKey *Key
+	rootKey *BitArray
 	maxKey  *felt.Felt
 	storage *Storage
 	hash    crypto.HashFn
 
-	dirtyNodes     []*Key
+	dirtyNodes     []*BitArray
 	rootKeyIsDirty bool
 }
 
@@ -94,32 +94,35 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 	return do(trie)
 }
 
-// feltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
+// FeltToKey converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
-func (t *Trie) FeltToKey(k *felt.Felt) Key {
-	return FeltToKey(t.height, k)
+func (t *Trie) FeltToKey(k *felt.Felt) BitArray {
+	var ba BitArray
+	ba.SetFelt(t.height, k)
+	return ba
 }
 
 // path returns the path as mentioned in the [specification] for commitment calculations.
 // path is suffix of key that diverges from parentKey. For example,
 // for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
-func path(key, parentKey *Key) Key {
-	path := *key
-	// drop parent key, and one more MSB since left/right relation already encodes that information
-	if parentKey != nil {
-		path.Truncate(path.Len() - parentKey.Len() - 1)
+func path(key, parentKey *BitArray) BitArray {
+	if parentKey == nil {
+		return key.Copy()
 	}
-	return path
+
+	var pathKey BitArray
+	pathKey.LSBs(key, key.Len()-parentKey.Len()-1)
+	return pathKey
 }
 
 // storageNode is the on-disk representation of a [Node],
 // where key is the storage key and node is the value.
 type StorageNode struct {
-	key  *Key
+	key  *BitArray
 	node *Node
 }
 
-func (sn *StorageNode) Key() *Key {
+func (sn *StorageNode) Key() *BitArray {
 	return sn.key
 }
 
@@ -133,7 +136,7 @@ func (sn *StorageNode) String() string {
 
 func (sn *StorageNode) Update(other *StorageNode) error {
 	// First validate all fields for conflicts
-	if sn.key != nil && other.key != nil && !sn.key.Equal(NilKey) && !other.key.Equal(NilKey) {
+	if sn.key != nil && other.key != nil && !sn.key.Equal(emptyBitArray) && !other.key.Equal(emptyBitArray) {
 		if !sn.key.Equal(other.key) {
 			return fmt.Errorf("keys do not match: %s != %s", sn.key, other.key)
 		}
@@ -147,47 +150,47 @@ func (sn *StorageNode) Update(other *StorageNode) error {
 	}
 
 	// After validation, perform update
-	if other.key != nil && !other.key.Equal(NilKey) {
+	if other.key != nil && !other.key.Equal(emptyBitArray) {
 		sn.key = other.key
 	}
 
 	return nil
 }
 
-func NewStorageNode(key *Key, node *Node) *StorageNode {
+func NewStorageNode(key *BitArray, node *Node) *StorageNode {
 	return &StorageNode{key: key, node: node}
 }
 
 // NewPartialStorageNode creates a new StorageNode with a given key and value,
 // where the right and left children are nil.
-func NewPartialStorageNode(key *Key, value *felt.Felt) *StorageNode {
+func NewPartialStorageNode(key *BitArray, value *felt.Felt) *StorageNode {
 	return &StorageNode{
 		key: key,
 		node: &Node{
 			Value: value,
-			Left:  NilKey,
-			Right: NilKey,
+			Left:  emptyBitArray,
+			Right: emptyBitArray,
 		},
 	}
 }
 
 // StorageNodeSet wraps OrderedSet to provide specific functionality for StorageNodes
 type StorageNodeSet struct {
-	set *utils.OrderedSet[Key, *StorageNode]
+	set *utils.OrderedSet[BitArray, *StorageNode]
 }
 
 func NewStorageNodeSet() *StorageNodeSet {
 	return &StorageNodeSet{
-		set: utils.NewOrderedSet[Key, *StorageNode](),
+		set: utils.NewOrderedSet[BitArray, *StorageNode](),
 	}
 }
 
-func (s *StorageNodeSet) Get(key Key) (*StorageNode, bool) {
+func (s *StorageNodeSet) Get(key BitArray) (*StorageNode, bool) {
 	return s.set.Get(key)
 }
 
 // Put adds a new StorageNode or updates an existing one.
-func (s *StorageNodeSet) Put(key Key, node *StorageNode) error {
+func (s *StorageNodeSet) Put(key BitArray, node *StorageNode) error {
 	if node == nil {
 		return errors.New("cannot put nil node")
 	}
@@ -217,7 +220,7 @@ func (s *StorageNodeSet) Size() int {
 // nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
+func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
 	var nodes []StorageNode
 	cur := t.rootKey
 	for cur != nil {
@@ -236,8 +239,7 @@ func (t *Trie) nodesFromRoot(key *Key) ([]StorageNode, error) {
 			node: node,
 		})
 
-		subset := isSubset(key, cur)
-		if cur.Len() >= key.Len() || !subset {
+		if cur.Len() >= key.Len() || !key.EqualMSBs(cur) {
 			return nodes, nil
 		}
 
@@ -267,12 +269,12 @@ func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 }
 
 // GetNodeFromKey returns the node for a given key.
-func (t *Trie) GetNodeFromKey(key *Key) (*Node, error) {
+func (t *Trie) GetNodeFromKey(key *BitArray) (*Node, error) {
 	return t.storage.Get(key)
 }
 
 // check if we are updating an existing leaf, if yes avoid traversing the trie
-func (t *Trie) updateLeaf(nodeKey Key, node *Node, value *felt.Felt) (*felt.Felt, error) {
+func (t *Trie) updateLeaf(nodeKey BitArray, node *Node, value *felt.Felt) (*felt.Felt, error) {
 	// Check if we are updating an existing leaf
 	if !value.IsZero() {
 		if existingLeaf, err := t.storage.Get(&nodeKey); err == nil {
@@ -289,7 +291,7 @@ func (t *Trie) updateLeaf(nodeKey Key, node *Node, value *felt.Felt) (*felt.Felt
 	return nil, nil
 }
 
-func (t *Trie) handleEmptyTrie(old felt.Felt, nodeKey Key, node *Node, value *felt.Felt) (*felt.Felt, error) {
+func (t *Trie) handleEmptyTrie(old felt.Felt, nodeKey BitArray, node *Node, value *felt.Felt) (*felt.Felt, error) {
 	if value.IsZero() {
 		return nil, nil // no-op
 	}
@@ -301,7 +303,7 @@ func (t *Trie) handleEmptyTrie(old felt.Felt, nodeKey Key, node *Node, value *fe
 	return &old, nil
 }
 
-func (t *Trie) deleteExistingKey(sibling StorageNode, nodeKey Key, nodes []StorageNode) (*felt.Felt, error) {
+func (t *Trie) deleteExistingKey(sibling StorageNode, nodeKey BitArray, nodes []StorageNode) (*felt.Felt, error) {
 	if nodeKey.Equal(sibling.key) {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -314,7 +316,7 @@ func (t *Trie) deleteExistingKey(sibling StorageNode, nodeKey Key, nodes []Stora
 	return nil, nil
 }
 
-func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent StorageNode) {
+func (t *Trie) replaceLinkWithNewParent(key *BitArray, commonKey BitArray, siblingParent StorageNode) {
 	if siblingParent.node.Left.Equal(key) {
 		*siblingParent.node.Left = commonKey
 	} else {
@@ -323,8 +325,9 @@ func (t *Trie) replaceLinkWithNewParent(key *Key, commonKey Key, siblingParent S
 }
 
 // TODO(weiihann): not a good idea to couple proof verification logic with trie logic
-func (t *Trie) insertOrUpdateValue(nodeKey *Key, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsParentProof bool) error {
-	commonKey, _ := findCommonKey(nodeKey, sibling.key)
+func (t *Trie) insertOrUpdateValue(nodeKey *BitArray, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsParentProof bool) error {
+	var commonKey BitArray
+	commonKey.CommonMSBs(nodeKey, sibling.key)
 
 	newParent := &Node{}
 	var leftChild, rightChild *Node
@@ -497,19 +500,19 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.
 }
 
 // Put updates the corresponding `value` for a `key`
-func (t *Trie) PutInner(key *Key, node *Node) error {
+func (t *Trie) PutInner(key *BitArray, node *Node) error {
 	if err := t.storage.Put(key, node); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *Trie) setRootKey(newRootKey *Key) {
+func (t *Trie) setRootKey(newRootKey *BitArray) {
 	t.rootKey = newRootKey
 	t.rootKeyIsDirty = true
 }
 
-func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
+func (t *Trie) updateValueIfDirty(key *BitArray) (*Node, error) { //nolint:gocyclo
 	node, err := t.storage.Get(key)
 	if err != nil {
 		return nil, err
@@ -523,7 +526,7 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 	shouldUpdate := false
 	for _, dirtyNode := range t.dirtyNodes {
 		if key.Len() < dirtyNode.Len() {
-			shouldUpdate = isSubset(dirtyNode, key)
+			shouldUpdate = key.EqualMSBs(dirtyNode)
 			if shouldUpdate {
 				break
 			}
@@ -531,9 +534,9 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 	}
 
 	// Update inner proof nodes
-	if node.Left.Equal(NilKey) && node.Right.Equal(NilKey) { // leaf
+	if node.Left.Equal(emptyBitArray) && node.Right.Equal(emptyBitArray) { // leaf
 		shouldUpdate = false
-	} else if node.Left.Equal(NilKey) || node.Right.Equal(NilKey) { // inner
+	} else if node.Left.Equal(emptyBitArray) || node.Right.Equal(emptyBitArray) { // inner
 		shouldUpdate = true
 	}
 	if !shouldUpdate {
@@ -542,11 +545,11 @@ func (t *Trie) updateValueIfDirty(key *Key) (*Node, error) { //nolint:gocyclo
 
 	var leftIsProof, rightIsProof bool
 	var leftHash, rightHash *felt.Felt
-	if node.Left.Equal(NilKey) { // key could be nil but hash cannot be
+	if node.Left.Equal(emptyBitArray) { // key could be nil but hash cannot be
 		leftIsProof = true
 		leftHash = node.LeftHash
 	}
-	if node.Right.Equal(NilKey) {
+	if node.Right.Equal(emptyBitArray) {
 		rightIsProof = true
 		rightHash = node.RightHash
 	}
@@ -643,7 +646,7 @@ func (t *Trie) deleteLast(nodes []StorageNode) error {
 		return err
 	}
 
-	var siblingKey Key
+	var siblingKey BitArray
 	if parent.node.Left.Equal(last.key) {
 		siblingKey = *parent.node.Right
 	} else {
@@ -710,7 +713,7 @@ func (t *Trie) Commit() error {
 }
 
 // RootKey returns db key of the [Trie] root node
-func (t *Trie) RootKey() *Key {
+func (t *Trie) RootKey() *BitArray {
 	return t.rootKey
 }
 
@@ -732,7 +735,7 @@ The following can be printed:
 
 The spacing to represent the levels of the trie can remain the same.
 */
-func (t *Trie) dump(level int, parentP *Key) {
+func (t *Trie) dump(level int, parentP *BitArray) {
 	if t.rootKey == nil {
 		fmt.Printf("%sEMPTY\n", strings.Repeat("\t", level))
 		return
