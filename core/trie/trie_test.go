@@ -164,7 +164,81 @@ func TestPutZero(t *testing.T) {
 		var keys []*felt.Felt
 
 		// put random 64 keys and record roots
-		for range 64 {
+		for i := 0; i < 64; i++ {
+			key, value := new(felt.Felt), new(felt.Felt)
+
+			_, err = key.SetRandom()
+			require.NoError(t, err)
+
+			t.Logf("key: %s", key.String())
+
+			_, err = value.SetRandom()
+			require.NoError(t, err)
+
+			t.Logf("value: %s", value.String())
+
+			_, err = tempTrie.Put(key, value)
+			require.NoError(t, err)
+
+			keys = append(keys, key)
+
+			var root *felt.Felt
+			root, err = tempTrie.Root()
+			require.NoError(t, err)
+
+			roots = append(roots, root)
+		}
+
+		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
+			var key, root *felt.Felt
+			key, err = new(felt.Felt).SetRandom()
+			require.NoError(t, err)
+
+			_, err = tempTrie.Put(key, new(felt.Felt))
+			require.NoError(t, err)
+
+			root, err = tempTrie.Root()
+			require.NoError(t, err)
+
+			assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+		})
+
+		t.Run("remove keys one by one, check roots", func(t *testing.T) {
+			var gotRoot *felt.Felt
+			// put zero in reverse order and check roots still match
+			for i := range 64 {
+				root := roots[len(roots)-1-i]
+
+				gotRoot, err = tempTrie.Root()
+				require.NoError(t, err)
+
+				assert.Equal(t, root, gotRoot)
+
+				key := keys[len(keys)-1-i]
+				_, err = tempTrie.Put(key, new(felt.Felt))
+				require.NoError(t, err)
+			}
+		})
+
+		t.Run("empty roots should match", func(t *testing.T) {
+			actualEmptyRoot, err := tempTrie.Root()
+			require.NoError(t, err)
+
+			assert.Equal(t, true, actualEmptyRoot.Equal(emptyRoot))
+		})
+		return nil
+	}))
+}
+
+func TestTrie(t *testing.T) {
+	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
+		emptyRoot, err := tempTrie.Root()
+		require.NoError(t, err)
+		var roots []*felt.Felt
+		var keys []*felt.Felt
+
+		// put random 64 keys and record roots
+		for i := 0; i < 64; i++ {
 			key, value := new(felt.Felt), new(felt.Felt)
 
 			_, err = key.SetRandom()
