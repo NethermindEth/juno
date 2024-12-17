@@ -28,6 +28,10 @@ func TestPendingState(t *testing.T) {
 	require.NoError(t, err)
 	replacedClassHash, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
+	declaredV1ClassHash, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
+	declaredV1CompiledClassHash, err := new(felt.Felt).SetRandom()
+	require.NoError(t, err)
 
 	pending := sync.Pending{
 		Block: nil,
@@ -50,6 +54,9 @@ func TestPendingState(t *testing.T) {
 					*deployedAddr: {
 						*new(felt.Felt).SetUint64(44): new(felt.Felt).SetUint64(37),
 					},
+				},
+				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+					*declaredV1ClassHash: declaredV1CompiledClassHash,
 				},
 			},
 		},

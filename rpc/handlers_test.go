@@ -6,10 +6,13 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -101,4 +104,35 @@ func TestThrottledVMError(t *testing.T) {
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
 	})
+}
+
+func TestAddMsgToL1(t *testing.T) {
+	mpool := mempool.New(pebble.NewMemTest(t))
+	network := &utils.Mainnet
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(network)
+	handler := rpc.New(mockReader, nil, nil, "", nil).WithMempool(mpool)
+	hash, rpcErr := handler.AddMsgFromL1(rpc.MsgFromL1{
+		From:     common.HexToAddress("0x1"),
+		To:       *new(felt.Felt).SetUint64(2),
+		Payload:  []felt.Felt{*new(felt.Felt).SetUint64(3)},
+		Selector: *new(felt.Felt).SetUint64(4),
+	}, *new(felt.Felt).SetUint64(5))
+	require.Nil(t, rpcErr)
+	msg, err := mpool.Pop()
+	require.NoError(t, err)
+	want := &core.L1HandlerTransaction{
+		ContractAddress:    new(felt.Felt).SetUint64(2),
+		EntryPointSelector: new(felt.Felt).SetUint64(4),
+		CallData:           []*felt.Felt{new(felt.Felt).SetUint64(3)},
+		Nonce:              new(felt.Felt).SetUint64(5),
+		Version:            new(core.TransactionVersion),
+		TransactionHash:    hash,
+	}
+	require.NoError(t, err)
+	require.Equal(t, mempool.BroadcastedTransaction{
+		Transaction: want,
+	}, msg)
 }
