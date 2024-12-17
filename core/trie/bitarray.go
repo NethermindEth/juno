@@ -29,11 +29,13 @@ type BitArray struct {
 	words [4]uint64 // little endian (i.e. words[0] is the least significant)
 }
 
-func (b *BitArray) Felt() felt.Felt {
-	bs := b.Bytes()
+func NewBitArray(val uint64) *BitArray {
+	return new(BitArray).SetUint64(val)
+}
 
+func (b *BitArray) Felt() felt.Felt {
 	var f felt.Felt
-	f.SetBytes(bs[:])
+	f.SetBytes(b.Bytes())
 	return f
 }
 
@@ -44,13 +46,13 @@ func (b *BitArray) Len() uint8 {
 // Bytes returns the bytes representation of the bit array in big endian format
 //
 //nolint:mnd
-func (b *BitArray) Bytes() [32]byte {
+func (b *BitArray) Bytes() []byte {
 	var res [32]byte
 
 	switch {
 	case b.len == 0:
 		// all zeros
-		return res
+		return res[:]
 	case b.len >= 192:
 		// Create mask for top word: keeps only valid bits above 192
 		// e.g., if len=200, keeps lowest 8 bits (200-192)
@@ -76,7 +78,7 @@ func (b *BitArray) Bytes() [32]byte {
 		binary.BigEndian.PutUint64(res[24:32], b.words[0]&mask)
 	}
 
-	return res
+	return res[:]
 }
 
 // EqualMSBs checks if two bit arrays share the same most significant bits, where the length of
@@ -199,28 +201,6 @@ func (b *BitArray) CommonMSBs(x, y *BitArray) *BitArray {
 	return b.Rsh(short, divergentBit)
 }
 
-// findFirstSetBit returns the position of the first '1' bit in the array,
-// scanning from most significant to least significant bit.
-//
-// The bit position is counted from the least significant bit, starting at 0.
-// For example:
-//
-//	array = 0000 0000 ... 0100 (len=251)
-//	findFirstSetBit() = 2 // third bit from right is set
-func findFirstSetBit(b *BitArray) uint8 {
-	if b.len == 0 {
-		return 0
-	}
-
-	for i := 3; i >= 0; i-- {
-		if word := b.words[i]; word != 0 {
-			return uint8((i+1)*64 - bits.LeadingZeros64(word))
-		}
-	}
-
-	return 0
-}
-
 // Rsh sets b = x >> n and returns b.
 //
 //nolint:mnd
@@ -316,13 +296,21 @@ func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 // Example:
 //
 //	[0x0A, 0x03, 0xFF] -> BitArray{len: 10, words: [4]uint64{0x03FF}}
-func (b *BitArray) UnmarshalBinary(data []byte) error {
+func (b *BitArray) UnmarshalBinary(data []byte) {
 	b.len = data[0]
 
 	var bs [32]byte
 	copy(bs[32-b.byteCount():], data[1:])
-	b.SetBytes32(bs)
-	return nil
+	b.setBytes32(bs[:])
+}
+
+func (b *BitArray) Set(x *BitArray) *BitArray {
+	b.len = x.len
+	b.words[0] = x.words[0]
+	b.words[1] = x.words[1]
+	b.words[2] = x.words[2]
+	b.words[3] = x.words[3]
+	return b
 }
 
 func (b *BitArray) SetFelt(length uint8, f *felt.Felt) *BitArray {
@@ -337,11 +325,15 @@ func (b *BitArray) SetFelt251(f *felt.Felt) *BitArray {
 	return b
 }
 
-func (b *BitArray) SetBytes32(data [32]byte) *BitArray {
-	b.words[3] = binary.BigEndian.Uint64(data[0:8])
-	b.words[2] = binary.BigEndian.Uint64(data[8:16])
-	b.words[1] = binary.BigEndian.Uint64(data[16:24])
-	b.words[0] = binary.BigEndian.Uint64(data[24:32])
+func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
+	b.setBytes32(data)
+	b.len = length
+	return b
+}
+
+func (b *BitArray) SetUint64(data uint64) *BitArray {
+	b.words[0] = data
+	b.len = 64
 	return b
 }
 
@@ -353,13 +345,12 @@ func (b *BitArray) setFelt(f *felt.Felt) {
 	b.words[0] = binary.BigEndian.Uint64(res[24:32])
 }
 
-func (b *BitArray) Set(x *BitArray) *BitArray {
-	b.len = x.len
-	b.words[0] = x.words[0]
-	b.words[1] = x.words[1]
-	b.words[2] = x.words[2]
-	b.words[3] = x.words[3]
-	return b
+func (b *BitArray) setBytes32(data []byte) {
+	_ = data[31]
+	b.words[3] = binary.BigEndian.Uint64(data[0:8])
+	b.words[2] = binary.BigEndian.Uint64(data[8:16])
+	b.words[1] = binary.BigEndian.Uint64(data[16:24])
+	b.words[0] = binary.BigEndian.Uint64(data[24:32])
 }
 
 // byteCount returns the minimum number of bytes needed to represent the bit array.
@@ -397,4 +388,26 @@ func (b *BitArray) clear() *BitArray {
 	b.len = 0
 	b.words[0], b.words[1], b.words[2], b.words[3] = 0, 0, 0, 0
 	return b
+}
+
+// findFirstSetBit returns the position of the first '1' bit in the array,
+// scanning from most significant to least significant bit.
+//
+// The bit position is counted from the least significant bit, starting at 0.
+// For example:
+//
+//	array = 0000 0000 ... 0100 (len=251)
+//	findFirstSetBit() = 2 // third bit from right is set
+func findFirstSetBit(b *BitArray) uint8 {
+	if b.len == 0 {
+		return 0
+	}
+
+	for i := 3; i >= 0; i-- {
+		if word := b.words[i]; word != 0 {
+			return uint8((i+1)*64 - bits.LeadingZeros64(word))
+		}
+	}
+
+	return 0
 }
