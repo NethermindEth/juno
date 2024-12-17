@@ -17,7 +17,7 @@ const (
 	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
 	// This is also pebble's default value.
 	minCacheSizeMB = 8
-	byteLimit      = 0xff
+	maxByte = ^byte(0)
 )
 
 var (
