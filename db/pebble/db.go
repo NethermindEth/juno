@@ -17,7 +17,7 @@ const (
 	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
 	// This is also pebble's default value.
 	minCacheSizeMB = 8
-	maxByte = ^byte(0)
+	maxByte        = ^byte(0)
 )
 
 var (
@@ -168,7 +168,7 @@ func upperBound(prefix []byte) []byte {
 	var ub []byte
 
 	for i := len(prefix) - 1; i >= 0; i-- {
-		if prefix[i] == byteLimit {
+		if prefix[i] == maxByte {
 			continue
 		}
 		ub = make([]byte, i+1)
