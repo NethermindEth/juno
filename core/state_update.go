@@ -1,8 +1,11 @@
 package core
 
 import (
+	"fmt"
 	"maps"
+	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -22,6 +25,181 @@ type StateDiff struct {
 	DeclaredV0Classes []*felt.Felt                           // class hashes
 	DeclaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
 	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
+}
+
+func (d *StateDiff) Diff(other *StateDiff, map1Tag, map2Tag string) (string, bool) {
+	var sb strings.Builder
+	differencesFound := false
+	checkDiff := func(label string, map1, map2 interface{}, diffFunc func() (string, bool)) {
+		if map1 == nil && map2 == nil {
+			sb.WriteString(fmt.Sprintf("Both %s and %s %s are nil\n", map1Tag, map2Tag, label))
+			return
+		}
+		if map1 == nil {
+			sb.WriteString(fmt.Sprintf("%s %s is nil\n", map1Tag, label))
+			differencesFound = true
+			return
+		}
+		if map2 == nil {
+			sb.WriteString(fmt.Sprintf("%s %s is nil\n", map2Tag, label))
+			differencesFound = true
+			return
+		}
+		sb.WriteString(fmt.Sprintf("  %s:\n", label))
+		diffStr, found := diffFunc()
+		if found {
+			differencesFound = true
+			sb.WriteString(diffStr)
+		}
+	}
+	checkDiff("StorageDiffs", d.StorageDiffs, other.StorageDiffs, func() (string, bool) {
+		return compareMapsOfMaps(d.StorageDiffs, other.StorageDiffs, map1Tag, map2Tag)
+	})
+	checkDiff("Nonces", d.Nonces, other.Nonces, func() (string, bool) {
+		return compareMaps(d.Nonces, other.Nonces)
+	})
+	checkDiff("DeployedContracts", d.DeployedContracts, other.DeployedContracts, func() (string, bool) {
+		return compareMaps(d.DeployedContracts, other.DeployedContracts)
+	})
+	checkDiff("DeclaredV0Classes", d.DeclaredV0Classes, other.DeclaredV0Classes, func() (string, bool) {
+		return compareSlices(d.DeclaredV0Classes, other.DeclaredV0Classes, map1Tag, map2Tag)
+	})
+	checkDiff("DeclaredV1Classes", d.DeclaredV1Classes, other.DeclaredV1Classes, func() (string, bool) {
+		return compareMaps(d.DeclaredV1Classes, other.DeclaredV1Classes)
+	})
+	checkDiff("ReplacedClasses", d.ReplacedClasses, other.ReplacedClasses, func() (string, bool) {
+		return compareMaps(d.ReplacedClasses, other.ReplacedClasses)
+	})
+	return sb.String(), differencesFound
+}
+
+func compareMapsOfMaps(map1, map2 map[felt.Felt]map[felt.Felt]*felt.Felt, map1Tag, map2Tag string) (string, bool) {
+	var result strings.Builder
+	differencesFound := false
+
+	// Iterate through the first map
+	for addrMap1, innerMap1 := range map1 {
+		if innerMap2, exists := map2[addrMap1]; exists {
+			for innerKeyMap1, map1Value := range innerMap1 {
+				if map2Value, exists := innerMap2[innerKeyMap1]; !exists {
+					result.WriteString(fmt.Sprintf(
+						"\tAddr '%s': \n\t\tKey '%s' Value '%s' is in %s, but missing in %s.\n",
+						addrMap1.String(),
+						innerKeyMap1.String(),
+						map1Value.String(),
+						map1Tag,
+						map2Tag))
+					differencesFound = true
+				} else if !reflect.DeepEqual(map1Value, map2Value) {
+					result.WriteString(fmt.Sprintf(
+						"\tAddr '%s': \n\t\tKey '%s' has different values:\n\t\t\t%s = '%s', %s = '%s'.\n",
+						addrMap1.String(),
+						innerKeyMap1.String(),
+						map1Tag,
+						map1Value.String(),
+						map2Tag, map2Value.String()))
+					differencesFound = true
+				}
+			}
+			for innerKeyMap2 := range innerMap2 {
+				if _, exists := innerMap1[innerKeyMap2]; !exists {
+					result.WriteString(fmt.Sprintf(
+						"\tAddr '%s': \n\t\tKey '%s' Value '%s' is in %s, but missing in %s.\n",
+						addrMap1.String(),
+						innerKeyMap2.String(),
+						innerMap2[innerKeyMap2].String(),
+						map2Tag,
+						map1Tag))
+					differencesFound = true
+				}
+			}
+		} else {
+			result.WriteString(fmt.Sprintf("\tAddr '%s' is missing in %s.\n", addrMap1.String(), map2Tag))
+			differencesFound = true
+		}
+	}
+
+	// Check for keys in the second map that are not in the first map
+	for addrMap2 := range map2 {
+		if _, exists := map1[addrMap2]; !exists {
+			result.WriteString(fmt.Sprintf("\tAddr '%s' is missing in %s.\n", addrMap2.String(), map1Tag))
+			differencesFound = true
+		}
+	}
+
+	// If no differences are found, indicate that the maps are equal
+	if !differencesFound {
+		result.WriteString("Both maps are equal.\n")
+	}
+
+	return result.String(), differencesFound
+}
+
+func compareMaps(m1, m2 map[felt.Felt]*felt.Felt) (string, bool) {
+	var sb strings.Builder
+	differencesFound := false
+
+	// Compare m1 against m2
+	for k, v := range m1 {
+		if v2, exists := m2[k]; !exists {
+			// Key is missing in the second map
+			sb.WriteString(fmt.Sprintf("    %s: %s -> <nil> (missing in second map)\n", k.String(), v.String()))
+			differencesFound = true
+		} else if !reflect.DeepEqual(v, v2) {
+			// Key exists in both maps but values are different
+			v2Str := "<nil>"
+			if v2 != nil {
+				v2Str = v2.String()
+			}
+			sb.WriteString(fmt.Sprintf("    %s: %s -> %s (changed in second map)\n", k.String(), v.String(), v2Str))
+			differencesFound = true
+		}
+	}
+
+	// Compare m2 against m1 to find keys missing in the first map
+	for k, v := range m2 {
+		if _, exists := m1[k]; !exists {
+			sb.WriteString(fmt.Sprintf("    %s: <nil> -> %s (missing in first map)\n", k.String(), v.String()))
+			differencesFound = true
+		}
+	}
+
+	// If no differences were found, state that both maps are equal
+	if !differencesFound {
+		sb.WriteString("Both maps are equal.\n")
+	}
+	return sb.String(), differencesFound
+}
+
+func compareSlices(s1, s2 []*felt.Felt, map1Tag, map2Tag string) (string, bool) {
+	var sb strings.Builder
+	differencesFound := false
+
+	s1Sum := new(felt.Felt).SetUint64(0)
+	for _, s := range s1 {
+		s1Sum = s1Sum.Add(s1Sum, s)
+	}
+	s2Sum := new(felt.Felt).SetUint64(0)
+	for _, s := range s2 {
+		s2Sum = s2Sum.Add(s2Sum, s)
+	}
+	if !s1Sum.Equal(s2Sum) {
+		differencesFound = true
+		sb.WriteString(fmt.Sprintf("    %s: %v\n", map1Tag, s1))
+		sb.WriteString(fmt.Sprintf("    %s: %v\n", map2Tag, s2))
+	}
+	return sb.String(), differencesFound
+}
+
+func EmptyStateDiff() *StateDiff {
+	return &StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+		Nonces:            make(map[felt.Felt]*felt.Felt),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt),
+		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+	}
 }
 
 func (d *StateDiff) Length() uint64 {

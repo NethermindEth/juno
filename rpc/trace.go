@@ -287,7 +287,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	_, daGas, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+	_, daGas, traces, _, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
 		&blockInfo, state, network, false, false, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))

@@ -942,3 +942,238 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 
 	return nil
 }
+
+type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
+
+// Finalise will calculate the state commitment and block hash for the given pending block and append it to the
+// blockchain. In cases where the sequencer needs to re-generate another chain (eg Sepolia), the optional reference
+// block and state update should be provided.
+func (b *Blockchain) Finalise( //nolint:gocyclo
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	sign BlockSignFunc,
+	refStateUpdate *core.StateUpdate,
+	refBlock *core.Block,
+) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		var err error
+		state := core.NewState(txn)
+		oldStateRoot, err := state.Root()
+		if err != nil {
+			return err
+		}
+		stateUpdate.OldRoot = oldStateRoot
+		if err = state.Update(block.Number, stateUpdate, newClasses); err != nil {
+			return err
+		}
+		newStateRoot, err := state.Root()
+		if err != nil {
+			return err
+		}
+		block.GlobalStateRoot = newStateRoot
+		stateUpdate.NewRoot = block.GlobalStateRoot
+
+		var commitments *core.BlockCommitments
+		block.Hash, commitments, err = core.BlockHash(
+			block,
+			stateUpdate.StateDiff,
+			b.network,
+			block.SequencerAddress)
+		if err != nil {
+			return err
+		}
+		stateUpdate.BlockHash = block.Hash
+		if refStateUpdate != nil && refBlock != nil {
+			err := b.verifyAgainstReference(block, stateUpdate, commitments, refStateUpdate, refBlock)
+			if err != nil {
+				return err
+			}
+		}
+
+		if sign != nil {
+			sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
+			if err != nil {
+				return err
+			}
+			block.Signatures = [][]*felt.Felt{sig}
+		}
+
+		if !newStateRoot.Equal(block.GlobalStateRoot) {
+			return fmt.Errorf("new state root does not match expected state root")
+		}
+
+		if err := StoreBlockHeader(txn, block.Header); err != nil {
+			return err
+		}
+
+		for i, tx := range block.Transactions {
+			if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx,
+				block.Receipts[i]); err != nil {
+				return err
+			}
+		}
+
+		if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+			return err
+		}
+
+		if err := StoreBlockCommitments(txn, block.Number, commitments); err != nil {
+			return err
+		}
+
+		if err := StoreL1HandlerMsgHashes(txn, block.Transactions); err != nil {
+			return err
+		}
+
+		// Head of the blockchain is maintained as follows:
+		// [db.ChainHeight]() -> (BlockNumber)
+		heightBin := core.MarshalBlockNumber(block.Number)
+		return txn.Set(db.ChainHeight.Key(), heightBin)
+	})
+}
+
+func (b *Blockchain) verifyAgainstReference(block *core.Block,
+	stateUpdate *core.StateUpdate, commitments *core.BlockCommitments,
+	refStateUpdate *core.StateUpdate, refBlock *core.Block,
+) error {
+	if err := b.validateStateDiff(refStateUpdate, stateUpdate); err != nil {
+		return err
+	}
+	if err := b.validateCommitments(refBlock, refStateUpdate, commitments); err != nil {
+		return err
+	}
+	if err := b.validateHeader(refBlock.Header, block.Header); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *Blockchain) validateStateDiff(refStateUpdate, pendingStateUpdate *core.StateUpdate) error {
+	_, diffFound := pendingStateUpdate.StateDiff.Diff(refStateUpdate.StateDiff, "sequencer", "sepolia")
+	if diffFound {
+		// Todo: make format nicely
+		return fmt.Errorf("state diff validation failed")
+	}
+	return nil
+}
+
+func (b *Blockchain) validateCommitments(refBlock *core.Block, refStateUpdate *core.StateUpdate,
+	sequencedCommitments *core.BlockCommitments,
+) error {
+	_, refCommitments, err := core.BlockHash(refBlock, refStateUpdate.StateDiff, b.network, nil)
+	if err != nil {
+		return fmt.Errorf("failed to compute the reference commitments %s", err)
+	}
+	blockVer, err := core.ParseBlockVersion(refBlock.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+	if blockVer.LessThan(semver.MustParse("0.13.2")) {
+		// receipt commitment isn't needed for pre 0.13.2 blocks. see post07Hash().
+		refCommitments.ReceiptCommitment = nil
+	}
+
+	if !refCommitments.TransactionCommitment.Equal(sequencedCommitments.TransactionCommitment) {
+		return fmt.Errorf("transaction commitment mismatch: reference commitment %v, sequenced commitment %v",
+			refCommitments.TransactionCommitment, sequencedCommitments.TransactionCommitment)
+	}
+	if !refCommitments.EventCommitment.Equal(sequencedCommitments.EventCommitment) {
+		return fmt.Errorf("event commitment mismatch: reference commitment %v, sequenced commitment %v",
+			refCommitments.EventCommitment, sequencedCommitments.EventCommitment)
+	}
+	if refCommitments.ReceiptCommitment != nil && !refCommitments.ReceiptCommitment.Equal(sequencedCommitments.ReceiptCommitment) {
+		return fmt.Errorf("receipt commitment mismatch: reference commitment %v, sequenced commitment %v",
+			refCommitments.ReceiptCommitment, sequencedCommitments.ReceiptCommitment)
+	}
+	if refCommitments.StateDiffCommitment != nil && !refCommitments.StateDiffCommitment.Equal(sequencedCommitments.StateDiffCommitment) {
+		return fmt.Errorf("state diff commitment mismatch: reference commitment %v, sequenced commitment %v",
+			refCommitments.StateDiffCommitment, sequencedCommitments.StateDiffCommitment)
+	}
+	return nil
+}
+
+func (b *Blockchain) validateHeader(refHeader, sequenceHeader *core.Header) error {
+	if !refHeader.ParentHash.Equal(sequenceHeader.ParentHash) {
+		return fmt.Errorf("parent hash mismatch: reference header parent hash %v, sequenced header parent hash %v",
+			refHeader.ParentHash, sequenceHeader.ParentHash)
+	}
+	if refHeader.Number != sequenceHeader.Number {
+		return fmt.Errorf("block number mismatch: reference header number %v, sequenced header number %v",
+			refHeader.Number, sequenceHeader.Number)
+	}
+	if !refHeader.SequencerAddress.Equal(sequenceHeader.SequencerAddress) {
+		return fmt.Errorf("sequencer address mismatch: reference header sequencer address %v, sequenced header sequencer address %v",
+			refHeader.SequencerAddress, sequenceHeader.SequencerAddress)
+	}
+	if refHeader.TransactionCount != sequenceHeader.TransactionCount {
+		return fmt.Errorf("transaction count mismatch: reference header transaction count %v, sequenced header transaction count %v",
+			refHeader.TransactionCount, sequenceHeader.TransactionCount)
+	}
+	if refHeader.EventCount != sequenceHeader.EventCount {
+		return fmt.Errorf("event count mismatch: reference header event count %v, sequenced header event count %v",
+			refHeader.EventCount, sequenceHeader.EventCount)
+	}
+	if refHeader.Timestamp != sequenceHeader.Timestamp {
+		return fmt.Errorf("timestamp mismatch: reference header timestamp %v, sequenced header timestamp %v",
+			refHeader.Timestamp, sequenceHeader.Timestamp)
+	}
+	if refHeader.ProtocolVersion != sequenceHeader.ProtocolVersion {
+		return fmt.Errorf("protocol version mismatch: reference header protocol version %v, sequenced header protocol version %v",
+			refHeader.ProtocolVersion, sequenceHeader.ProtocolVersion)
+	}
+	if !refHeader.GasPrice.Equal(sequenceHeader.GasPrice) {
+		return fmt.Errorf("gas price mismatch: reference header gas price %v, sequenced header gas price %v",
+			refHeader.GasPrice, sequenceHeader.GasPrice)
+	}
+	if !refHeader.GasPriceSTRK.Equal(sequenceHeader.GasPriceSTRK) {
+		return fmt.Errorf("gas price STRK mismatch: reference header gas price STRK %v, sequenced header gas price STRK %v",
+			refHeader.GasPriceSTRK, sequenceHeader.GasPriceSTRK)
+	}
+	if refHeader.L1DAMode != sequenceHeader.L1DAMode {
+		return fmt.Errorf("L1 data availability mode mismatch: reference header L1DAMode %v, sequenced header L1DAMode %v",
+			refHeader.L1DAMode, sequenceHeader.L1DAMode)
+	}
+	if !refHeader.L1DataGasPrice.PriceInFri.Equal(sequenceHeader.L1DataGasPrice.PriceInFri) {
+		return fmt.Errorf("L1 data gas PriceInFri mismatch: reference header L1DataGasPrice %v, sequenced header L1DataGasPrice %v",
+			refHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
+	}
+	if !refHeader.L1DataGasPrice.PriceInWei.Equal(sequenceHeader.L1DataGasPrice.PriceInWei) {
+		return fmt.Errorf("L1 data gas PriceInFri mismatch: reference header L1DataGasPrice %v, sequenced header L1DataGasPrice %v",
+			refHeader.L1DataGasPrice, sequenceHeader.L1DataGasPrice)
+	}
+	if !refHeader.GlobalStateRoot.Equal(sequenceHeader.GlobalStateRoot) {
+		return fmt.Errorf("global state root mismatch: reference header global state root %v, sequenced header global state root %v",
+			refHeader.GlobalStateRoot, sequenceHeader.GlobalStateRoot)
+	}
+	if !refHeader.Hash.Equal(sequenceHeader.Hash) {
+		return fmt.Errorf("hash mismatch: reference header hash %v, sequenced header hash %v", refHeader.Hash, sequenceHeader.Hash)
+	}
+	return nil
+}
+
+func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+	receipts := make([]*core.TransactionReceipt, 0)
+
+	block := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &felt.Zero,
+			Number:           0,
+			SequencerAddress: &felt.Zero,
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         &felt.Zero,
+			GasPriceSTRK:     &felt.Zero,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+	stateUpdate := &core.StateUpdate{
+		OldRoot:   &felt.Zero,
+		StateDiff: diff,
+	}
+	newClasses := classes
+
+	return b.Finalise(block, stateUpdate, newClasses, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+		return nil, nil
+	}, nil, nil)
+}

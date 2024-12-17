@@ -18,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -89,6 +90,7 @@ type Handler struct {
 	syncReader    sync.Reader
 	gatewayClient Gateway
 	feederClient  *feeder.Client
+	memPool       *mempool.Pool
 	vm            vm.VM
 	log           utils.Logger
 
@@ -179,6 +181,11 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 	return h
 }
 
+func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+	h.memPool = memPool
+	return h
+}
+
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
@@ -210,6 +217,29 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 
 func (h *Handler) SpecVersionV0_7() (string, *jsonrpc.Error) {
 	return "0.7.1", nil
+}
+
+func (h *Handler) AddMsgFromL1(msg MsgFromL1, nonce felt.Felt) (*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+	tx := &core.L1HandlerTransaction{
+		ContractAddress:    &msg.To,
+		EntryPointSelector: &msg.Selector,
+		Nonce:              &nonce,
+		CallData: utils.Map(msg.Payload, func(f felt.Felt) *felt.Felt {
+			return &f
+		}),
+		Version: new(core.TransactionVersion),
+	}
+	var err error
+	tx.TransactionHash, err = core.TransactionHash(tx, h.bcReader.Network())
+	if err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
+	if err := h.memPool.Push(&mempool.BroadcastedTransaction{
+		Transaction: tx,
+	}); err != nil {
+		return nil, ErrInternal.CloneWithData(err)
+	}
+	return tx.TransactionHash, nil
 }
 
 func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
@@ -392,6 +422,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getMessagesStatus",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.GetMessageStatus,
+		},
+		{
+			Name:    "juno_addMsgFromL1",
+			Params:  []jsonrpc.Parameter{{Name: "msg"}, {Name: "nonce"}},
+			Handler: h.AddMsgFromL1,
 		},
 	}, "/v0_8"
 }

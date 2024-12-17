@@ -188,7 +188,7 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 		return err
 	}
 
-	if !root.Equal(currentRoot) {
+	if root != nil && !root.Equal(currentRoot) {
 		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
 	}
 	return nil
@@ -199,18 +199,17 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
 func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
+	fmt.Println("--=")
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {
 		return err
 	}
-
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {
 		if err = s.putClass(&cHash, class, blockNumber); err != nil {
 			return err
 		}
 	}
-
 	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
 		return err
 	}
@@ -226,15 +225,12 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 			return err
 		}
 	}
-
 	if err = s.updateContracts(stateTrie, blockNumber, update.StateDiff, true); err != nil {
 		return err
 	}
-
 	if err = storageCloser(); err != nil {
 		return err
 	}
-
 	return s.verifyStateUpdateRoot(update.NewRoot)
 }
 

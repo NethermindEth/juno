@@ -117,7 +117,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 			overrideSeq = fallbackSeq
 		}
 
-		hash, commitments, err := blockHash(b, stateDiff, network, overrideSeq)
+		hash, commitments, err := BlockHash(b, stateDiff, network, overrideSeq)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +135,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
+func BlockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
 	*BlockCommitments, error,
 ) {
 	metaInfo := network.BlockHashMetaInfo
