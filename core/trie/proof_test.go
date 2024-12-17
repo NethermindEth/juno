@@ -13,6 +13,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestFix(t *testing.T) {
+	numKeys := 1000
+	memdb := pebble.NewMemTest(t)
+	txn, err := memdb.NewTransaction(true)
+	require.NoError(t, err)
+
+	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	require.NoError(t, err)
+
+	records := make([]*keyValue, numKeys)
+	for i := 1; i < numKeys+1; i++ {
+		key := new(felt.Felt).SetUint64(uint64(i))
+		records[i-1] = &keyValue{key: key, value: key}
+		_, err := tempTrie.Put(key, key)
+		require.NoError(t, err)
+	}
+
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].key.Cmp(records[j].key) < 0
+	})
+
+	require.NoError(t, tempTrie.Commit())
+}
+
 func TestProve(t *testing.T) {
 	t.Parallel()
 
@@ -360,7 +384,7 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 }
 
-// TestAllElementsProof tests the range proof with all elements and nil proof.
+// TestAllElementsRangeProof tests the range proof with all elements and nil proof.
 func TestAllElementsRangeProof(t *testing.T) {
 	t.Parallel()
 

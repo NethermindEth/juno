@@ -40,14 +40,14 @@ func (b *Binary) String() string {
 
 type Edge struct {
 	Child *felt.Felt // child hash
-	Path  *Key       // path from parent to child
+	Path  *BitArray  // path from parent to child
 }
 
 func (e *Edge) Hash(hash crypto.HashFn) *felt.Felt {
 	length := make([]byte, len(e.Path.bitset))
 	length[len(e.Path.bitset)-1] = e.Path.len
 	pathFelt := e.Path.Felt()
-	lengthFelt := new(felt.Felt).SetBytes(length)
+	lengthFelt := new(felt.Felt).SetBytes(length[:])
 	return new(felt.Felt).Add(hash(e.Child, &pathFelt), lengthFelt)
 }
 
@@ -71,7 +71,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		return err
 	}
 
-	var parentKey *Key
+	var parentKey *BitArray
 
 	for i, sNode := range nodesFromRoot {
 		sNodeEdge, sNodeBinary, err := storageNodeToProofNode(t, parentKey, sNode)
@@ -140,7 +140,6 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) (*felt.Felt, error) {
 	key := FeltToKey(globalTrieHeight, keyFelt)
 	expectedHash := root
-	keyLen := key.Len()
 
 	var curPos uint8
 	for {
@@ -156,17 +155,17 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 
 		switch node := proofNode.(type) {
 		case *Binary: // Binary nodes represent left/right choices
-			if key.Len() <= curPos {
-				return nil, fmt.Errorf("key length less than current position, key length: %d, current position: %d", key.Len(), curPos)
+			if keyBits.Len() <= curPos {
+				return nil, fmt.Errorf("key length less than current position, key length: %d, current position: %d", keyBits.Len(), curPos)
 			}
 			// Determine the next node to traverse based on the next bit position
 			expectedHash = node.LeftHash
-			if key.IsBitSet(keyLen - curPos - 1) {
+			if keyBits.IsBitSet(keyBits.Len() - curPos - 1) {
 				expectedHash = node.RightHash
 			}
 			curPos++
 		case *Edge: // Edge nodes represent paths between binary nodes
-			if !verifyEdgePath(&key, node.Path, curPos) {
+			if !verifyEdgePath(keyBits, node.Path, curPos) {
 				return &felt.Zero, nil
 			}
 
@@ -176,7 +175,7 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 		}
 
 		// We've consumed all bits in our path
-		if curPos >= keyLen {
+		if curPos >= keyBits.Len() {
 			return expectedHash, nil
 		}
 	}
@@ -235,18 +234,18 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	}
 
 	nodes := NewStorageNodeSet()
-	firstKey := FeltToKey(globalTrieHeight, first)
+	firstKey := new(BitArray).SetFelt(globalTrieHeight, first)
 
 	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
 	// Empty range proof with more elements on the right is not accepted in this function.
 	// This is due to snap sync specification detail, where the responder must send an existing key (if any) if the requested range is empty.
 	if len(keys) == 0 {
-		rootKey, val, err := proofToPath(root, &firstKey, proof, nodes)
+		rootKey, val, err := proofToPath(root, firstKey, proof, nodes)
 		if err != nil {
 			return false, err
 		}
 
-		if val != nil || hasRightElement(rootKey, &firstKey, nodes) {
+		if val != nil || hasRightElement(rootKey, firstKey, nodes) {
 			return false, errors.New("more entries available")
 		}
 
@@ -254,17 +253,17 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	}
 
 	last := keys[len(keys)-1]
-	lastKey := FeltToKey(globalTrieHeight, last)
+	lastKey := new(BitArray).SetFelt(globalTrieHeight, last)
 
 	// Special case: there is only one element and two edge keys are the same
-	if len(keys) == 1 && firstKey.Equal(&lastKey) {
-		rootKey, val, err := proofToPath(root, &firstKey, proof, nodes)
+	if len(keys) == 1 && firstKey.Equal(lastKey) {
+		rootKey, val, err := proofToPath(root, firstKey, proof, nodes)
 		if err != nil {
 			return false, err
 		}
 
-		elementKey := FeltToKey(globalTrieHeight, keys[0])
-		if !firstKey.Equal(&elementKey) {
+		elementKey := new(BitArray).SetFelt(globalTrieHeight, keys[0])
+		if !firstKey.Equal(elementKey) {
 			return false, errors.New("correct proof but invalid key")
 		}
 
@@ -272,7 +271,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 			return false, errors.New("correct proof but invalid value")
 		}
 
-		return hasRightElement(rootKey, &firstKey, nodes), nil
+		return hasRightElement(rootKey, firstKey, nodes), nil
 	}
 
 	// In all other cases, we require two edge paths available.
@@ -281,12 +280,12 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 		return false, errors.New("last key is less than first key")
 	}
 
-	rootKey, _, err := proofToPath(root, &firstKey, proof, nodes)
+	rootKey, _, err := proofToPath(root, firstKey, proof, nodes)
 	if err != nil {
 		return false, err
 	}
 
-	lastRootKey, _, err := proofToPath(root, &lastKey, proof, nodes)
+	lastRootKey, _, err := proofToPath(root, lastKey, proof, nodes)
 	if err != nil {
 		return false, err
 	}
@@ -311,11 +310,11 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", root.String(), recomputedRoot.String())
 	}
 
-	return hasRightElement(rootKey, &lastKey, nodes), nil
+	return hasRightElement(rootKey, lastKey, nodes), nil
 }
 
 // isEdge checks if the storage node is an edge node.
-func isEdge(parentKey *Key, sNode StorageNode) bool {
+func isEdge(parentKey *BitArray, sNode StorageNode) bool {
 	sNodeLen := sNode.key.len
 	if parentKey == nil { // Root
 		return sNodeLen != 0
@@ -326,7 +325,7 @@ func isEdge(parentKey *Key, sNode StorageNode) bool {
 // storageNodeToProofNode converts a StorageNode to the ProofNode(s).
 // Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
 // We need to convert the former to the latter for proof generation.
-func storageNodeToProofNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge, *Binary, error) {
+func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (*Edge, *Binary, error) {
 	var edge *Edge
 	if isEdge(parentKey, sNode) {
 		edgePath := path(sNode.key, parentKey)
@@ -375,8 +374,8 @@ func storageNodeToProofNode(tri *Trie, parentKey *Key, sNode StorageNode) (*Edge
 
 // proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
 // as hashes. The given edge proof can be existent or non-existent.
-func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageNodeSet) (*Key, *felt.Felt, error) {
-	rootKey, val, err := buildPath(root, key, 0, nil, proof, nodes)
+func proofToPath(root *felt.Felt, keyBits *BitArray, proof *ProofNodeSet, nodes *StorageNodeSet) (*BitArray, *felt.Felt, error) {
+	rootKey, val, err := buildPath(root, keyBits, 0, nil, proof, nodes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -400,7 +399,7 @@ func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 		sn := NewPartialStorageNode(edge.Path, edge.Child)
 
 		// Handle leaf edge case (single key trie)
-		if edge.Path.Len() == key.Len() {
+		if edge.Path.Len() == keyBits.Len() {
 			if err := nodes.Put(*sn.key, sn); err != nil {
 				return nil, nil, fmt.Errorf("failed to store leaf edge: %w", err)
 			}
@@ -433,12 +432,12 @@ func proofToPath(root *felt.Felt, key *Key, proof *ProofNodeSet, nodes *StorageN
 // It returns the current node's key and any leaf value found along this path.
 func buildPath(
 	nodeHash *felt.Felt,
-	key *Key,
+	key *BitArray,
 	curPos uint8,
 	curNode *StorageNode,
 	proof *ProofNodeSet,
 	nodes *StorageNodeSet,
-) (*Key, *felt.Felt, error) {
+) (*BitArray, *felt.Felt, error) {
 	// We reached the leaf
 	if curPos == key.Len() {
 		leafKey := key.Copy()
@@ -451,7 +450,7 @@ func buildPath(
 
 	proofNode, ok := proof.Get(*nodeHash)
 	if !ok { // non-existent proof node
-		return NilKey, nil, nil
+		return emptyBitArray, nil, nil
 	}
 
 	switch pn := proofNode.(type) {
@@ -470,23 +469,19 @@ func buildPath(
 func handleBinaryNode(
 	binary *Binary,
 	nodeHash *felt.Felt,
-	key *Key,
+	key *BitArray,
 	curPos uint8,
 	curNode *StorageNode,
 	proof *ProofNodeSet,
 	nodes *StorageNodeSet,
-) (*Key, *felt.Felt, error) {
+) (*BitArray, *felt.Felt, error) {
 	// If curNode is nil, it means that this current binary node is the root node.
 	// Or, it's an internal binary node and the parent is also a binary node.
 	// A standalone binary proof node always corresponds to a single storage node.
 	// If curNode is not nil, it means that the parent node is an edge node.
 	// In this case, the key of the storage node is based on the parent edge node.
 	if curNode == nil {
-		nodeKey, err := key.MostSignificantBits(curPos)
-		if err != nil {
-			return nil, nil, err
-		}
-		curNode = NewPartialStorageNode(nodeKey, nodeHash)
+		curNode = NewPartialStorageNode(new(BitArray).MSBs(key, curPos), nodeHash)
 	}
 	curNode.node.LeftHash = binary.LeftHash
 	curNode.node.RightHash = binary.RightHash
@@ -523,23 +518,19 @@ func handleBinaryNode(
 // the current node's key and any leaf value found along this path.
 func handleEdgeNode(
 	edge *Edge,
-	key *Key,
+	key *BitArray,
 	curPos uint8,
 	proof *ProofNodeSet,
 	nodes *StorageNodeSet,
-) (*Key, *felt.Felt, error) {
+) (*BitArray, *felt.Felt, error) {
 	// Verify the edge path matches the key path
 	if !verifyEdgePath(key, edge.Path, curPos) {
-		return NilKey, nil, nil
+		return emptyBitArray, nil, nil
 	}
 
 	// The next node position is the end of the edge path
 	nextPos := curPos + edge.Path.Len()
-	nodeKey, err := key.MostSignificantBits(nextPos)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get MSB for internal edge: %w", err)
-	}
-	curNode := NewPartialStorageNode(nodeKey, edge.Child)
+	curNode := NewPartialStorageNode(new(BitArray).MSBs(key, nextPos), edge.Child)
 
 	// This is an edge leaf, stop traversing the trie
 	if nextPos == key.Len() {
@@ -562,24 +553,12 @@ func handleEdgeNode(
 }
 
 // verifyEdgePath checks if the edge path matches the key path at the current position.
-func verifyEdgePath(key, edgePath *Key, curPos uint8) bool {
-	if key.Len() < curPos+edgePath.Len() {
-		return false
-	}
-
-	// Ensure the bits between segment of the key and the node path match
-	start := key.Len() - curPos - edgePath.Len()
-	end := key.Len() - curPos
-	for i := start; i < end; i++ {
-		if key.IsBitSet(i) != edgePath.IsBitSet(i-start) {
-			return false // paths diverge - this proves non-membership
-		}
-	}
-	return true
+func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
+	return new(BitArray).LSBs(key, key.Len()-curPos).EqualMSBs(edgePath)
 }
 
 // buildTrie builds a trie from a list of storage nodes and a list of keys and values.
-func buildTrie(height uint8, rootKey *Key, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
+func buildTrie(height uint8, rootKey *BitArray, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
 	tr, err := NewTriePedersen(newMemStorage(), height)
 	if err != nil {
 		return nil, err
@@ -607,9 +586,9 @@ func buildTrie(height uint8, rootKey *Key, nodes []*StorageNode, keys, values []
 
 // hasRightElement checks if there is a right sibling for the given key in the trie.
 // This function assumes that the entire path has been resolved.
-func hasRightElement(rootKey, key *Key, nodes *StorageNodeSet) bool {
+func hasRightElement(rootKey, key *BitArray, nodes *StorageNodeSet) bool {
 	cur := rootKey
-	for cur != nil && !cur.Equal(NilKey) {
+	for cur != nil && !cur.Equal(emptyBitArray) {
 		sn, ok := nodes.Get(*cur)
 		if !ok {
 			return false
