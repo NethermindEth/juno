@@ -206,8 +206,8 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
 	cBlockInfo.block_timestamp = C.ulonglong(blockInfo.Header.Timestamp)
 	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
-	copyFeltIntoCArray(blockInfo.Header.GasPrice, &cBlockInfo.gas_price_wei[0])
-	copyFeltIntoCArray(blockInfo.Header.GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.gas_price_wei[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
 	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
 	copyFeltIntoCArray(blockInfo.BlockHashToBeRevealed, &cBlockInfo.block_hash_to_be_revealed[0])
 	if blockInfo.Header.L1DAMode == core.Blob {
