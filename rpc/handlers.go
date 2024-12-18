@@ -177,7 +177,7 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	feed.Tee(newHeadsSub, h.newHeads)
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -485,7 +485,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
-			Handler: h.EstimateFee,
+			Handler: h.EstimateFeeV0_7,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
