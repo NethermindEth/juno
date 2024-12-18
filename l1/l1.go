@@ -228,6 +228,7 @@ func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int)
 }
 
 func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int) error {
+	defer close(c.eventsToP2P)
 	addresses, err := c.l1.GetIPAddresses(ctx, *c.network.IPAddressRegistry)
 	if err != nil {
 		return err
