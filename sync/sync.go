@@ -39,7 +39,7 @@ type HeaderSubscription struct {
 }
 
 type ReorgSubscription struct {
-	*feed.Subscription[*ReorgData]
+	*feed.Subscription[*ReorgBlockRange]
 }
 
 type PendingTxSubscription struct {
@@ -77,15 +77,15 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 }
 
 func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
-	return ReorgSubscription{feed.New[*ReorgData]().Subscribe()}
+	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
 	return PendingTxSubscription{feed.New[[]core.Transaction]().Subscribe()}
 }
 
-// ReorgData represents data about reorganised blocks, starting and ending block number and hash
-type ReorgData struct {
+// ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
+type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
 	StartBlockHash *felt.Felt `json:"starting_block_hash"`
 	// StartBlockNum is the number of the first known block of the orphaned chain
@@ -117,7 +117,7 @@ type Synchronizer struct {
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
-	reorgFeed           *feed.Feed[*ReorgData]
+	reorgFeed           *feed.Feed[*ReorgBlockRange]
 	pendingTxsFeed      *feed.Feed[[]core.Transaction]
 
 	log      utils.SimpleLogger
@@ -128,7 +128,7 @@ type Synchronizer struct {
 	catchUpMode         bool
 	plugin              junoplugin.JunoPlugin
 
-	currReorg *ReorgData // If nil, no reorg is happening
+	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
@@ -140,7 +140,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
-		reorgFeed:           feed.New[*ReorgData](),
+		reorgFeed:           feed.New[*ReorgBlockRange](),
 		pendingTxsFeed:      feed.New[[]core.Transaction](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
@@ -446,7 +446,7 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	}
 
 	if s.currReorg == nil { // first block of the reorg
-		s.currReorg = &ReorgData{
+		s.currReorg = &ReorgBlockRange{
 			StartBlockHash: localHead,
 			StartBlockNum:  head.Number,
 			EndBlockHash:   localHead,

@@ -96,7 +96,7 @@ type Handler struct {
 
 	version    string
 	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgData]
+	reorgs     *feed.Feed[*sync.ReorgBlockRange]
 	pendingTxs *feed.Feed[[]core.Transaction]
 
 	idgen         func() uint64
@@ -138,7 +138,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		},
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
-		reorgs:        feed.New[*sync.ReorgData](),
+		reorgs:        feed.New[*sync.ReorgBlockRange](),
 		pendingTxs:    feed.New[[]core.Transaction](),
 		subscriptions: make(map[uint64]*subscription),
 

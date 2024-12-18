@@ -284,7 +284,7 @@ func (h *Handler) processPendingTxs(
 // filterTxs filters the transactions based on the getDetails flag.
 // If getDetails is true, response will contain the transaction details.
 // If getDetails is false, response will only contain the transaction hashes.
-func (h *Handler) filterTxs(pendingTxs []core.Transaction, getDetails bool, senderAddr []felt.Felt) interface{} {
+func (h *Handler) filterTxs(pendingTxs []core.Transaction, getDetails bool, senderAddr []felt.Felt) any {
 	if getDetails {
 		return h.filterTxDetails(pendingTxs, senderAddr)
 	}
@@ -386,8 +386,7 @@ func (h *Handler) resolveBlockRange(blockID *BlockID) (*core.Header, *core.Heade
 // sendHistoricalHeaders sends a range of headers from the start header until the latest header
 func (h *Handler) sendHistoricalHeaders(
 	ctx context.Context,
-	startHeader *core.Header,
-	latestHeader *core.Header,
+	startHeader, latestHeader *core.Header,
 	w jsonrpc.Conn,
 	id uint64,
 ) error {
@@ -448,7 +447,7 @@ func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) err
 	return err
 }
 
-func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription[*sync.ReorgData], w jsonrpc.Conn, id uint64) {
+func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription[*sync.ReorgBlockRange], w jsonrpc.Conn, id uint64) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -462,13 +461,25 @@ func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription
 	}
 }
 
-func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *sync.ReorgData, id uint64) error {
+type ReorgEvent struct {
+	StartBlockHash *felt.Felt `json:"starting_block_hash"`
+	StartBlockNum  uint64     `json:"starting_block_number"`
+	EndBlockHash   *felt.Felt `json:"ending_block_hash"`
+	EndBlockNum    uint64     `json:"ending_block_number"`
+}
+
+func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id uint64) error {
 	resp, err := json.Marshal(jsonrpc.Request{
 		Version: "2.0",
 		Method:  "starknet_subscriptionReorg",
 		Params: map[string]any{
 			"subscription_id": id,
-			"result":          reorg,
+			"result": &ReorgEvent{
+				StartBlockHash: reorg.StartBlockHash,
+				StartBlockNum:  reorg.StartBlockNum,
+				EndBlockHash:   reorg.EndBlockHash,
+				EndBlockNum:    reorg.EndBlockNum,
+			},
 		},
 	})
 	if err != nil {
