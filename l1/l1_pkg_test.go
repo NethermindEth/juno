@@ -478,7 +478,7 @@ func TestMakeSubscribtionsToIPAddresses(t *testing.T) {
 	address := common.HexToAddress("0x1234")
 	network.IPAddressRegistry = &address
 	eventsChan := make(chan p2p.IPAddressRegistryEvent, 10)
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
 	client := NewClient(nil, chain, nopLog, eventsChan).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -547,7 +547,7 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 	address := common.HexToAddress("0x1234")
 	network := utils.Mainnet
 	network.IPAddressRegistry = &address
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
 	nopLog := utils.NewNopZapLogger()
 	err := errors.New("test err")
 
