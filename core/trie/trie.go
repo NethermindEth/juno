@@ -325,7 +325,13 @@ func (t *Trie) replaceLinkWithNewParent(key *BitArray, commonKey BitArray, sibli
 }
 
 // TODO(weiihann): not a good idea to couple proof verification logic with trie logic
-func (t *Trie) insertOrUpdateValue(nodeKey *BitArray, node *Node, nodes []StorageNode, sibling StorageNode, siblingIsParentProof bool) error {
+func (t *Trie) insertOrUpdateValue(
+	nodeKey *BitArray,
+	node *Node,
+	nodes []StorageNode,
+	sibling StorageNode,
+	siblingIsParentProof bool,
+) error {
 	var commonKey BitArray
 	commonKey.CommonMSBs(nodeKey, sibling.key)
 

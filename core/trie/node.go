@@ -157,7 +157,9 @@ func (n *Node) Update(other *Node) error {
 		return fmt.Errorf("conflicting Left keys: %v != %v", n.Left, other.Left)
 	}
 
-	if n.Right != nil && other.Right != nil && !n.Right.Equal(emptyBitArray) && !other.Right.Equal(emptyBitArray) && !n.Right.Equal(other.Right) {
+	if n.Right != nil && other.Right != nil &&
+		!n.Right.Equal(emptyBitArray) && !other.Right.Equal(emptyBitArray) &&
+		!n.Right.Equal(other.Right) {
 		return fmt.Errorf("conflicting Right keys: %v != %v", n.Right, other.Right)
 	}
 

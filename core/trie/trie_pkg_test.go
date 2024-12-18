@@ -135,7 +135,6 @@ func TestTrieKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		newVal := new(felt.Felt).SetUint64(12)
-		//nolint: dupl
 		t.Run("Add to left branch", func(t *testing.T) {
 			newKey := new(felt.Felt).SetUint64(0b101)
 			_, err = tempTrie.Put(newKey, newVal)
@@ -146,7 +145,6 @@ func TestTrieKeys(t *testing.T) {
 			assert.Equal(t, tempTrie.FeltToKey(leftKey), *parentNode.Left)
 			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Right)
 		})
-		//nolint: dupl
 		t.Run("Add to right branch", func(t *testing.T) {
 			newKey := new(felt.Felt).SetUint64(0b110)
 			_, err = tempTrie.Put(newKey, newVal)
