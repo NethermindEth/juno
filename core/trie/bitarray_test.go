@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"math/bits"
 	"testing"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var maxBits = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
 
 const (
 	ones63 = 0x7FFFFFFFFFFFFFFF
