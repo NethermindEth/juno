@@ -104,6 +104,85 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	return &SubscriptionID{ID: id}, nil
 }
 
+// SubscribeTxnStatus subscribes to status changes of a transaction. It checks for updates each time a new block is added.
+// Subsequent updates are sent only when the transaction status changes.
+// The optional block_id parameter is ignored, as status changes are not stored and historical data cannot be sent.
+func (h *Handler) SubscribeTxnStatus(ctx context.Context, txHash felt.Felt, _ *BlockID) (*SubscriptionID, *jsonrpc.Error) {
+	var (
+		lastKnownStatus, lastSendStatus *TransactionStatus
+		wrapResult                      = func(s *TransactionStatus) *NewTransactionStatus {
+			return &NewTransactionStatus{
+				TransactionHash: &txHash,
+				Status:          s,
+			}
+		}
+	)
+
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	id := h.idgen()
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	sub := &subscription{
+		cancel: subscriptionCtxCancel,
+		conn:   w,
+	}
+
+	lastKnownStatus, rpcErr := h.TransactionStatus(subscriptionCtx, txHash)
+	if rpcErr != nil {
+		h.log.Errorw("Failed to get Tx status", "txHash", &txHash, "rpcErr", rpcErr)
+		return nil, rpcErr
+	}
+
+	h.mu.Lock()
+	h.subscriptions[id] = sub
+	h.mu.Unlock()
+
+	headerSub := h.newHeads.Subscribe()
+	sub.wg.Go(func() {
+		defer func() {
+			h.unsubscribe(sub, id)
+			headerSub.Unsubscribe()
+		}()
+
+		if err := h.sendTxnStatus(sub.conn, wrapResult(lastKnownStatus), id); err != nil {
+			h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
+			return
+		}
+		lastSendStatus = lastKnownStatus
+
+		for {
+			select {
+			case <-subscriptionCtx.Done():
+				return
+			case <-headerSub.Recv():
+				lastKnownStatus, rpcErr = h.TransactionStatus(subscriptionCtx, txHash)
+				if rpcErr != nil {
+					h.log.Errorw("Failed to get Tx status", "txHash", txHash, "rpcErr", rpcErr)
+					return
+				}
+
+				if *lastKnownStatus != *lastSendStatus {
+					if err := h.sendTxnStatus(sub.conn, wrapResult(lastKnownStatus), id); err != nil {
+						h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
+						return
+					}
+					lastSendStatus = lastKnownStatus
+				}
+
+				// Stop when final status reached and notified
+				if isFinal(lastSendStatus) {
+					return
+				}
+			}
+		}
+	})
+
+	return &SubscriptionID{ID: id}, nil
+}
+
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt, keys [][]felt.Felt) {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys)
 	if err != nil {
@@ -181,4 +260,31 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 		}
 	}
 	return nil
+}
+
+type NewTransactionStatus struct {
+	TransactionHash *felt.Felt         `json:"transaction_hash"`
+	Status          *TransactionStatus `json:"status"`
+}
+
+// sendTxnStatus creates a response and sends it to the client
+func (h *Handler) sendTxnStatus(w jsonrpc.Conn, status *NewTransactionStatus, id uint64) error {
+	resp, err := json.Marshal(SubscriptionResponse{
+		Version: "2.0",
+		Method:  "starknet_subscriptionTransactionsStatus",
+		Params: map[string]any{
+			"subscription_id": id,
+			"result":          status,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	h.log.Debugw("Sending Txn status", "status", string(resp))
+	_, err = w.Write(resp)
+	return err
+}
+
+func isFinal(status *TransactionStatus) bool {
+	return status.Finality == TxnStatusRejected || status.Finality == TxnStatusAcceptedOnL1
 }

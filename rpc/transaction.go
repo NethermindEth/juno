@@ -616,8 +616,9 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	switch txErr {
 	case nil:
 		return &TransactionStatus{
-			Finality:  TxnStatus(receipt.FinalityStatus),
-			Execution: receipt.ExecutionStatus,
+			Finality:      TxnStatus(receipt.FinalityStatus),
+			Execution:     receipt.ExecutionStatus,
+			FailureReason: receipt.RevertReason,
 		}, nil
 	case ErrTxnHashNotFound:
 		if h.feederClient == nil {

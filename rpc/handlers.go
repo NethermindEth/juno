@@ -66,6 +66,7 @@ var (
 	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
+	ErrTooManyAddressesInFilter        = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
 	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
 	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
 
@@ -93,8 +94,9 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version  string
-	newHeads *feed.Feed[*core.Header]
+	version    string
+	newHeads   *feed.Feed[*core.Header]
+	pendingTxs *feed.Feed[[]core.Transaction]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -135,6 +137,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		},
 		version:       version,
 		newHeads:      feed.New[*core.Header](),
+		pendingTxs:    feed.New[[]core.Transaction](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -177,7 +180,8 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	feed.Tee(newHeadsSub, h.newHeads)
+
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
 		sub.wg.Wait()
@@ -346,6 +350,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "juno_subscribeNewHeads",
 			Handler: h.SubscribeNewHeads,
+		},
+		{
+			Name:    "starknet_subscribeTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block", Optional: true}},
+			Handler: h.SubscribeTxnStatus,
 		},
 		{
 			Name:    "juno_unsubscribe",
