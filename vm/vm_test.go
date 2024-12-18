@@ -207,8 +207,8 @@ func TestExecute(t *testing.T) {
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
-				GasPrice:         &felt.Zero,
-				GasPriceSTRK:     &felt.Zero,
+				L1GasPriceETH:    &felt.Zero,
+				L1GasPriceSTRK:   &felt.Zero,
 			},
 		}, state,
 			&network, false, false, false)
@@ -218,8 +218,8 @@ func TestExecute(t *testing.T) {
 		_, _, _, _, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
-				GasPrice:         &felt.Zero,
-				GasPriceSTRK:     &felt.Zero,
+				L1GasPriceETH:    &felt.Zero,
+				L1GasPriceSTRK:   &felt.Zero,
 			},
 		}, state, &network, false, false, false)
 		require.NoError(t, err)
