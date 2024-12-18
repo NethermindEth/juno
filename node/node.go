@@ -39,9 +39,9 @@ import (
 )
 
 const (
-	upgraderDelay    * time.Minute
-	githubAPIUrl = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
-	latestReleaseURLhttps://github.com/NethermindEth/juno/releases/latest"
+	upgraderDelay    = 5 * time.Minute
+	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
+	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
 )
 
 // Config is the top-level juno configuration.
@@ -181,7 +181,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 
-	l1ToP2P := make(chan p2p.IPAddressRegistryEvent)	
+	l1ToP2P := make(chan p2p.IPAddressRegistryEvent)
 	if !cfg.DisableL1Verification {
 		// Due to mutually exclusive flag we can do the following.
 		if cfg.EthNode == "" {
