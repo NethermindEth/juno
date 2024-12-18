@@ -15,7 +15,7 @@ import (
 var maxBits = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
 
 const (
-	ones63 = 0x7FFFFFFFFFFFFFFF
+	ones63 = 0x7FFFFFFFFFFFFFFF // 63 bits of 1
 )
 
 func TestBytes(t *testing.T) {
@@ -231,7 +231,7 @@ func TestRsh(t *testing.T) {
 	}
 }
 
-func TestPrefixEqual(t *testing.T) {
+func TestEqualMSBs(t *testing.T) {
 	tests := []struct {
 		name string
 		a    *BitArray
@@ -357,7 +357,7 @@ func TestLSBs(t *testing.T) {
 		expected BitArray
 	}{
 		{
-			name: "truncate to zero",
+			name: "zero",
 			initial: BitArray{
 				len:   64,
 				words: [4]uint64{maxUint64, 0, 0, 0},
@@ -369,7 +369,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate within first word - 32 bits",
+			name: "get 32 LSBs",
 			initial: BitArray{
 				len:   64,
 				words: [4]uint64{maxUint64, 0, 0, 0},
@@ -381,7 +381,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate to single bit",
+			name: "get 1 LSB",
 			initial: BitArray{
 				len:   64,
 				words: [4]uint64{maxUint64, 0, 0, 0},
@@ -389,11 +389,11 @@ func TestLSBs(t *testing.T) {
 			length: 1,
 			expected: BitArray{
 				len:   1,
-				words: [4]uint64{0x0000000000000001, 0, 0, 0},
+				words: [4]uint64{0x1, 0, 0, 0},
 			},
 		},
 		{
-			name: "truncate across words - 100 bits",
+			name: "get 100 LSBs across words",
 			initial: BitArray{
 				len:   128,
 				words: [4]uint64{maxUint64, maxUint64, 0, 0},
@@ -405,7 +405,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate at word boundary - 64 bits",
+			name: "get 64 LSBs at word boundary",
 			initial: BitArray{
 				len:   128,
 				words: [4]uint64{maxUint64, maxUint64, 0, 0},
@@ -417,7 +417,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate at word boundary - 128 bits",
+			name: "get 128 LSBs at word boundary",
 			initial: BitArray{
 				len:   192,
 				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0},
@@ -429,7 +429,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate in third word - 150 bits",
+			name: "get 150 LSBs in third word",
 			initial: BitArray{
 				len:   192,
 				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0},
@@ -441,7 +441,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate in fourth word - 220 bits",
+			name: "get 220 LSBs in fourth word",
 			initial: BitArray{
 				len:   255,
 				words: [4]uint64{maxUint64, maxUint64, maxUint64, maxUint64},
@@ -453,7 +453,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate max length - 251 bits",
+			name: "get 251 LSBs",
 			initial: BitArray{
 				len:   255,
 				words: [4]uint64{maxUint64, maxUint64, maxUint64, maxUint64},
@@ -465,7 +465,7 @@ func TestLSBs(t *testing.T) {
 			},
 		},
 		{
-			name: "truncate sparse bits",
+			name: "get 100 LSBs from sparse bits",
 			initial: BitArray{
 				len:   128,
 				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0x5555555555555555, 0, 0},
