@@ -83,7 +83,6 @@ func (b *BitArray) Bytes() []byte {
 
 // Sets b to the least significant 'n' bits of x.
 // If n >= x.len, b is an exact copy of x.
-// Any bits beyond the specified length are cleared to zero.
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -164,7 +163,6 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 
 // Sets b to the most significant 'n' bits of x.
 // If n >= x.len, b is an exact copy of x.
-// Any bits beyond the specified length are cleared to zero.
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -406,7 +404,7 @@ func (b *BitArray) byteCount() uint {
 }
 
 // activeBytes returns a slice containing only the bytes that are actually used
-// by the bit array, excluding leading zero bytes. The returned slice is in
+// by the bit array, as specified by the length. The returned slice is in
 // big-endian order.
 //
 // Example:
@@ -448,11 +446,13 @@ func findFirstSetBit(b *BitArray) uint8 {
 		return 0
 	}
 
+	// Start from the most significant and move towards the least significant
 	for i := 3; i >= 0; i-- {
 		if word := b.words[i]; word != 0 {
 			return uint8((i+1)*64 - bits.LeadingZeros64(word))
 		}
 	}
 
+	// All bits are zero, no set bit found
 	return 0
 }

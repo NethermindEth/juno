@@ -106,6 +106,7 @@ func (t *Trie) FeltToKey(k *felt.Felt) BitArray {
 // path is suffix of key that diverges from parentKey. For example,
 // for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
 func path(key, parentKey *BitArray) BitArray {
+	// drop parent key, and one more MSB since left/right relation already encodes that information
 	if parentKey == nil {
 		return key.Copy()
 	}
