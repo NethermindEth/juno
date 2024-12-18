@@ -87,13 +87,13 @@ func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
-	StartBlockHash *felt.Felt `json:"starting_block_hash"`
+	StartBlockHash *felt.Felt
 	// StartBlockNum is the number of the first known block of the orphaned chain
-	StartBlockNum uint64 `json:"starting_block_number"`
+	StartBlockNum uint64
 	// The last known block of the orphaned chain
-	EndBlockHash *felt.Felt `json:"ending_block_hash"`
+	EndBlockHash *felt.Felt
 	// Number of the last known block of the orphaned chain
-	EndBlockNum uint64 `json:"ending_block_number"`
+	EndBlockNum uint64
 }
 
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
