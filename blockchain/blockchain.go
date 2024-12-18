@@ -918,6 +918,7 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 			return err
 		}
 		fmt.Println("commit 1")
+		fmt.Println("commit 2")
 		if err = txn.Delete(db.TransactionBlockNumbersAndIndicesByHash.Key(reorgedTxn.Hash().Marshal())); err != nil {
 			return err
 		}
