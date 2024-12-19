@@ -3,6 +3,7 @@ package mempool
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -50,6 +51,22 @@ func (p *Pool) WithValidator(validator ValidatorFunc) *Pool {
 	return p
 }
 
+func (p *Pool) rejectDuplicateTxn(userTxn *BroadcastedTransaction) error {
+	txHash := userTxn.Transaction.Hash().Marshal()
+	err := p.db.View(func(txn db.Transaction) error {
+		return txn.Get(txHash, func(val []byte) error {
+			if val != nil {
+				return fmt.Errorf("transaction already exists in the mempool: %x", txHash)
+			}
+			return nil
+		})
+	})
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return nil
+	}
+	return err
+}
+
 // Push queues a transaction to the pool
 func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 	err := p.validator(userTxn)
@@ -57,9 +74,13 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		return err
 	}
 
+	err = p.rejectDuplicateTxn(userTxn)
+	if err != nil {
+		return err
+	}
+
 	if err := p.db.Update(func(txn db.Transaction) error {
-		var tail *felt.Felt
-		tail, err := p.tailHash(txn, tail)
+		tail, err := p.tailHash(txn)
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
 		}
@@ -69,6 +90,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		}); err != nil {
 			return err
 		}
+		fmt.Println("tail", tail)
 		if tail != nil {
 			var oldTail storageElem
 			oldTail, err = p.elem(txn, tail)
@@ -113,8 +135,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 func (p *Pool) Pop() (BroadcastedTransaction, error) {
 	var nextTxn BroadcastedTransaction
 	return nextTxn, p.db.Update(func(txn db.Transaction) error {
-		var headHash *felt.Felt
-		headHash, err := p.headHash(txn, headHash)
+		headHash, err := p.headHash(txn)
 		if err != nil {
 			return err
 		}
@@ -191,9 +212,10 @@ func (p *Pool) updateLen(txn db.Transaction, l uint64) error {
 	return txn.Set([]byte(poolLengthKey), binary.BigEndian.AppendUint64(nil, l))
 }
 
-func (p *Pool) headHash(txn db.Transaction, headHash *felt.Felt) (*felt.Felt, error) {
-	return headHash, txn.Get([]byte(headKey), func(b []byte) error {
-		headHash = headHash.SetBytes(b)
+func (p *Pool) headHash(txn db.Transaction) (*felt.Felt, error) {
+	var head *felt.Felt
+	return head, txn.Get([]byte(headKey), func(b []byte) error {
+		head = new(felt.Felt).SetBytes(b)
 		return nil
 	})
 }
@@ -202,9 +224,10 @@ func (p *Pool) updateHead(txn db.Transaction, head *felt.Felt) error {
 	return txn.Set([]byte(headKey), head.Marshal())
 }
 
-func (p *Pool) tailHash(txn db.Transaction, tail *felt.Felt) (*felt.Felt, error) {
+func (p *Pool) tailHash(txn db.Transaction) (*felt.Felt, error) {
+	var tail *felt.Felt
 	return tail, txn.Get([]byte(tailKey), func(b []byte) error {
-		tail = tail.SetBytes(b)
+		tail = new(felt.Felt).SetBytes(b)
 		return nil
 	})
 }
