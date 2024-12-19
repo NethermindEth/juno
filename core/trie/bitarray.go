@@ -11,10 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-const (
-	maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
-	bits8     = 8
-)
+const maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
 
 var emptyBitArray = new(BitArray)
 
@@ -28,8 +25,10 @@ type BitArray struct {
 	words [4]uint64 // little endian (i.e. words[0] is the least significant)
 }
 
-func NewBitArray(length uint8, val uint64) *BitArray {
-	return new(BitArray).SetUint64(length, val)
+func NewBitArray(length uint8, val uint64) BitArray {
+	var b BitArray
+	b.SetUint64(length, val)
+	return b
 }
 
 // Returns the felt representation of the bit array.
@@ -81,8 +80,8 @@ func (b *BitArray) Bytes() []byte {
 	return res[:]
 }
 
-// Sets b to the least significant 'n' bits of x.
-// If n >= x.len, b is an exact copy of x.
+// Sets the bit array to the least significant 'n' bits of x.
+// If length >= x.len, the bit array is an exact copy of x.
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -91,35 +90,35 @@ func (b *BitArray) Bytes() []byte {
 //	LSBs(x, 0) = 0 (len=0)
 //
 //nolint:mnd
-func (b *BitArray) LSBs(x *BitArray, length uint8) *BitArray {
-	if length >= x.len {
+func (b *BitArray) LSBs(x *BitArray, n uint8) *BitArray {
+	if n >= x.len {
 		return b.Set(x)
 	}
 
 	b.Set(x)
-	b.len = length
+	b.len = n
 
 	// Clear all words beyond what's needed
 	switch {
-	case length == 0:
+	case n == 0:
 		b.words = [4]uint64{0, 0, 0, 0}
-	case length <= 64:
-		mask := maxUint64 >> (64 - length)
+	case n <= 64:
+		mask := maxUint64 >> (64 - n)
 		b.words[0] &= mask
 		b.words[1] = 0
 		b.words[2] = 0
 		b.words[3] = 0
-	case length <= 128:
-		mask := maxUint64 >> (128 - length)
+	case n <= 128:
+		mask := maxUint64 >> (128 - n)
 		b.words[1] &= mask
 		b.words[2] = 0
 		b.words[3] = 0
-	case length <= 192:
-		mask := maxUint64 >> (192 - length)
+	case n <= 192:
+		mask := maxUint64 >> (192 - n)
 		b.words[2] &= mask
 		b.words[3] = 0
 	default:
-		mask := maxUint64 >> (256 - uint16(length))
+		mask := maxUint64 >> (256 - uint16(n))
 		b.words[3] &= mask
 	}
 
@@ -161,8 +160,8 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 	return new(BitArray).MSBs(b, minLen).Equal(new(BitArray).MSBs(x, minLen))
 }
 
-// Sets b to the most significant 'n' bits of x.
-// If n >= x.len, b is an exact copy of x.
+// Sets the bit array to the most significant 'n' bits of x.
+// If n >= x.len, the bit array is an exact copy of x.
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -177,7 +176,7 @@ func (b *BitArray) MSBs(x *BitArray, n uint8) *BitArray {
 	return b.Rsh(x, x.len-n)
 }
 
-// Sets b to the longest sequence of matching most significant bits between two bit arrays.
+// Sets the bit array to the longest sequence of matching most significant bits between two bit arrays.
 // For example:
 //
 //	x = 1101 0111 (len=8)
@@ -185,7 +184,7 @@ func (b *BitArray) MSBs(x *BitArray, n uint8) *BitArray {
 //	CommonMSBs(x,y) = 1101 (len=4)
 func (b *BitArray) CommonMSBs(x, y *BitArray) *BitArray {
 	if x.len == 0 || y.len == 0 {
-		return emptyBitArray
+		return b.clear()
 	}
 
 	long, short := x, y
@@ -215,7 +214,7 @@ func (b *BitArray) CommonMSBs(x, y *BitArray) *BitArray {
 	return b.Rsh(short, divergentBit)
 }
 
-// Sets b = x >> n and returns b.
+// Sets the bit array to x >> n and returns the bit array.
 //
 //nolint:mnd
 func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
@@ -260,7 +259,7 @@ func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
 	return b
 }
 
-// Sets b = x ^ y and returns b.
+// Sets the bit array to x ^ y and returns the bit array.
 func (b *BitArray) Xor(x, y *BitArray) *BitArray {
 	b.words[0] = x.words[0] ^ y.words[0]
 	b.words[1] = x.words[1] ^ y.words[1]
@@ -324,7 +323,7 @@ func (b *BitArray) UnmarshalBinary(data []byte) {
 	b.setBytes32(bs[:])
 }
 
-// Sets b to the same value as x.
+// Sets the bit array to the same value as x.
 func (b *BitArray) Set(x *BitArray) *BitArray {
 	b.len = x.len
 	b.words[0] = x.words[0]
@@ -334,21 +333,21 @@ func (b *BitArray) Set(x *BitArray) *BitArray {
 	return b
 }
 
-// Sets b to the bytes representation of a felt.
+// Sets the bit array to the bytes representation of a felt.
 func (b *BitArray) SetFelt(length uint8, f *felt.Felt) *BitArray {
 	b.setFelt(f)
 	b.len = length
 	return b
 }
 
-// Sets b to the bytes representation of a felt with length 251.
+// Sets the bit array to the bytes representation of a felt with length 251.
 func (b *BitArray) SetFelt251(f *felt.Felt) *BitArray {
 	b.setFelt(f)
 	b.len = 251
 	return b
 }
 
-// Interprets the data as the big-endian bytes, sets b to that value and returns b.
+// Interprets the data as the big-endian bytes, sets the bit array to that value and returns it.
 // If the data is larger than 32 bytes, only the first 32 bytes are used.
 func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 	b.setBytes32(data)
@@ -356,7 +355,7 @@ func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 	return b
 }
 
-// Sets b to the uint64 representation of a bit array.
+// Sets the bit array to the uint64 representation of a bit array.
 func (b *BitArray) SetUint64(length uint8, data uint64) *BitArray {
 	b.words[0] = data
 	b.len = length
@@ -368,7 +367,7 @@ func (b *BitArray) EncodedLen() uint {
 	return b.byteCount() + 1
 }
 
-// Returns a deep copy of b.
+// Returns a deep copy of the bit array.
 func (b *BitArray) Copy() BitArray {
 	var res BitArray
 	res.Set(b)
@@ -396,16 +395,16 @@ func (b *BitArray) setBytes32(data []byte) {
 	b.words[0] = binary.BigEndian.Uint64(data[24:32])
 }
 
-// byteCount returns the minimum number of bytes needed to represent the bit array.
+// Returns the minimum number of bytes needed to represent the bit array.
 // It rounds up to the nearest byte.
 func (b *BitArray) byteCount() uint {
+	const bits8 = 8
 	// Cast to uint16 to avoid overflow
 	return (uint(b.len) + (bits8 - 1)) / uint(bits8)
 }
 
-// activeBytes returns a slice containing only the bytes that are actually used
-// by the bit array, as specified by the length. The returned slice is in
-// big-endian order.
+// Returns a slice containing only the bytes that are actually used by the bit array,
+// as specified by the length. The returned slice is in big-endian order.
 //
 // Example:
 //
@@ -433,9 +432,7 @@ func (b *BitArray) clear() *BitArray {
 	return b
 }
 
-// findFirstSetBit returns the position of the first '1' bit in the array,
-// scanning from most significant to least significant bit.
-//
+// Returns the position of the first '1' bit in the array, scanning from most significant to least significant bit.
 // The bit position is counted from the least significant bit, starting at 0.
 // For example:
 //
