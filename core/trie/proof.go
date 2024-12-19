@@ -48,6 +48,7 @@ func (e *Edge) Hash(hash hashFunc) *felt.Felt {
 	length[31] = e.Path.len
 	pathFelt := e.Path.Felt()
 	lengthFelt := new(felt.Felt).SetBytes(length[:])
+	// TODO: no need to return reference, just return value to avoid heap allocation
 	return new(felt.Felt).Add(hash(e.Child, &pathFelt), lengthFelt)
 }
 
