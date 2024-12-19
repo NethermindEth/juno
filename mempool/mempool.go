@@ -3,6 +3,7 @@ package mempool
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -50,9 +51,30 @@ func (p *Pool) WithValidator(validator ValidatorFunc) *Pool {
 	return p
 }
 
+func (p *Pool) rejectDuplicateTxn(userTxn *BroadcastedTransaction) error {
+	txHash := userTxn.Transaction.Hash().Marshal()
+	err := p.db.View(func(txn db.Transaction) error {
+		return txn.Get(txHash, func(val []byte) error {
+			if val != nil {
+				return fmt.Errorf("transaction already exists in the mempool: %x", txHash)
+			}
+			return nil
+		})
+	})
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return nil
+	}
+	return err
+}
+
 // Push queues a transaction to the pool
 func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 	err := p.validator(userTxn)
+	if err != nil {
+		return err
+	}
+
+	err = p.rejectDuplicateTxn(userTxn)
 	if err != nil {
 		return err
 	}
@@ -68,7 +90,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		}); err != nil {
 			return err
 		}
-
+		fmt.Println("tail", tail)
 		if tail != nil {
 			var oldTail storageElem
 			oldTail, err = p.elem(txn, tail)

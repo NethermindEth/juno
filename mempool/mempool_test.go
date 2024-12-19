@@ -79,6 +79,15 @@ func TestMempool(t *testing.T) {
 	_, err = pool.Pop()
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
+	// reject duplicate txn
+	txn := mempool.BroadcastedTransaction{
+		Transaction: &core.InvokeTransaction{
+			TransactionHash: new(felt.Felt).SetUint64(2),
+		},
+	}
+	require.NoError(t, pool.Push(&txn))
+	require.Error(t, pool.Push(&txn))
+
 	// validation error
 	pool = pool.WithValidator(func(bt *mempool.BroadcastedTransaction) error {
 		return errors.New("some error")
@@ -100,7 +109,7 @@ func TestWait(t *testing.T) {
 	// One transaction.
 	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
-			TransactionHash: new(felt.Felt),
+			TransactionHash: new(felt.Felt).SetUint64(1),
 		},
 	}))
 	<-pool.Wait()
@@ -108,12 +117,12 @@ func TestWait(t *testing.T) {
 	// Two transactions.
 	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
-			TransactionHash: new(felt.Felt),
+			TransactionHash: new(felt.Felt).SetUint64(2),
 		},
 	}))
 	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
-			TransactionHash: new(felt.Felt),
+			TransactionHash: new(felt.Felt).SetUint64(3),
 		},
 	}))
 	<-pool.Wait()
