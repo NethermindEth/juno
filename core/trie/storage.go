@@ -42,17 +42,17 @@ func NewStorage(txn db.Transaction, prefix []byte) *Storage {
 
 // dbKey creates a byte array to be used as a key to our KV store
 // it simply appends the given key to the configured prefix
-func (t *Storage) dbKey(key *Key, buffer *bytes.Buffer) (int64, error) {
+func (t *Storage) dbKey(key *BitArray, buffer *bytes.Buffer) (int, error) {
 	_, err := buffer.Write(t.prefix)
 	if err != nil {
 		return 0, err
 	}
 
-	keyLen, err := key.WriteTo(buffer)
-	return int64(len(t.prefix)) + keyLen, err
+	keyLen, err := key.Write(buffer)
+	return len(t.prefix) + keyLen, err
 }
 
-func (t *Storage) Put(key *Key, value *Node) error {
+func (t *Storage) Put(key *BitArray, value *Node) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	keyLen, err := t.dbKey(key, buffer)
@@ -69,7 +69,7 @@ func (t *Storage) Put(key *Key, value *Node) error {
 	return t.txn.Set(encodedBytes[:keyLen], encodedBytes[keyLen:])
 }
 
-func (t *Storage) Get(key *Key) (*Node, error) {
+func (t *Storage) Get(key *BitArray) (*Node, error) {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := t.dbKey(key, buffer)
@@ -87,7 +87,7 @@ func (t *Storage) Get(key *Key) (*Node, error) {
 	return node, err
 }
 
-func (t *Storage) Delete(key *Key) error {
+func (t *Storage) Delete(key *BitArray) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
 	_, err := t.dbKey(key, buffer)
@@ -97,21 +97,22 @@ func (t *Storage) Delete(key *Key) error {
 	return t.txn.Delete(buffer.Bytes())
 }
 
-func (t *Storage) RootKey() (*Key, error) {
-	var rootKey *Key
+func (t *Storage) RootKey() (*BitArray, error) {
+	var rootKey *BitArray
 	if err := t.txn.Get(t.prefix, func(val []byte) error {
-		rootKey = new(Key)
-		return rootKey.UnmarshalBinary(val)
+		rootKey = new(BitArray)
+		rootKey.UnmarshalBinary(val)
+		return nil
 	}); err != nil {
 		return nil, err
 	}
 	return rootKey, nil
 }
 
-func (t *Storage) PutRootKey(newRootKey *Key) error {
+func (t *Storage) PutRootKey(newRootKey *BitArray) error {
 	buffer := getBuffer()
 	defer bufferPool.Put(buffer)
-	_, err := newRootKey.WriteTo(buffer)
+	_, err := newRootKey.Write(buffer)
 	if err != nil {
 		return err
 	}
