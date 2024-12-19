@@ -24,5 +24,5 @@ func TestNodeHash(t *testing.T) {
 	}
 	path := trie.NewBitArray(6, 42)
 
-	assert.Equal(t, expected, node.Hash(path, crypto.Pedersen), "TestTrieNode_Hash failed")
+	assert.Equal(t, expected, node.Hash(&path, crypto.Pedersen), "TestTrieNode_Hash failed")
 }
