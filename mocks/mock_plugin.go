@@ -14,7 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
-	junoplugin "github.com/NethermindEth/juno/plugin"
+	plugin "github.com/NethermindEth/juno/plugin"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -70,7 +70,7 @@ func (mr *MockJunoPluginMockRecorder) NewBlock(arg0, arg1, arg2 any) *gomock.Cal
 }
 
 // RevertBlock mocks base method.
-func (m *MockJunoPlugin) RevertBlock(arg0, arg1 *junoplugin.BlockAndStateUpdate, arg2 *core.StateDiff) error {
+func (m *MockJunoPlugin) RevertBlock(arg0, arg1 *plugin.BlockAndStateUpdate, arg2 *core.StateDiff) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RevertBlock", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

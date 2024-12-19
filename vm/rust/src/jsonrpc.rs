@@ -1,3 +1,4 @@
+use crate::juno_state_reader::JunoStateReader;
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
@@ -5,17 +6,16 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
+use blockifier::transaction::objects::GasVector;
 use cairo_vm::types::builtin_name::BuiltinName;
 use serde::Serialize;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
 use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::transaction::{Calldata, EventContent, L2ToL1Payload};
+use starknet_api::transaction::{Calldata, EventContent, Fee, L2ToL1Payload};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 use starknet_types_core::felt::Felt;
 
 type StarkFelt = Felt;
-
-use crate::juno_state_reader::JunoStateReader;
 
 #[derive(Serialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
@@ -29,6 +29,14 @@ pub enum TransactionType {
     DeployAccount,
     #[serde(rename = "L1_HANDLER")]
     L1Handler,
+}
+
+#[derive(serde::Serialize, Default, Debug, PartialEq)]
+pub struct TransactionReceipt {
+    pub fee: Fee,
+    pub gas: GasVector,
+    pub da_gas: GasVector,
+    // pub resources: TransactionResources, // Todo: not needed currently, can't serialize.
 }
 
 #[derive(Serialize, Default)]
