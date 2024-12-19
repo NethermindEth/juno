@@ -164,6 +164,22 @@ func (mr *MockReaderMockRecorder) HeadState() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadState", reflect.TypeOf((*MockReader)(nil).HeadState))
 }
 
+// HeadTrie mocks base method.
+func (m *MockReader) HeadTrie() (core.TrieReader, func() error, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HeadTrie")
+	ret0, _ := ret[0].(core.TrieReader)
+	ret1, _ := ret[1].(func() error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// HeadTrie indicates an expected call of HeadTrie.
+func (mr *MockReaderMockRecorder) HeadTrie() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeadTrie", reflect.TypeOf((*MockReader)(nil).HeadTrie))
+}
+
 // HeadsHeader mocks base method.
 func (m *MockReader) HeadsHeader() (*core.Header, error) {
 	m.ctrl.T.Helper()

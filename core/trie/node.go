@@ -1,9 +1,9 @@
 package trie
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -19,7 +19,7 @@ type Node struct {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
+func (n *Node) Hash(path *Key, hashFunc HashFunc) *felt.Felt {
 	if path.Len() == 0 {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -34,12 +34,12 @@ func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) HashFromParent(parentKey, nodeKey *Key, hashFunc hashFunc) *felt.Felt {
+func (n *Node) HashFromParent(parentKey, nodeKey *Key, hashFunc HashFunc) *felt.Felt {
 	path := path(nodeKey, parentKey)
 	return n.Hash(&path, hashFunc)
 }
 
-func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
+func (n *Node) WriteTo(buf io.Writer) (int64, error) {
 	if n.Value == nil {
 		return 0, errors.New("cannot marshal node with nil value")
 	}
