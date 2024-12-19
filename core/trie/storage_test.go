@@ -27,7 +27,7 @@ func TestStorage(t *testing.T) {
 	t.Run("put a node", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewStorage(txn, prefix)
-			return tTxn.Put(key, node)
+			return tTxn.Put(&key, node)
 		}))
 	})
 
@@ -35,7 +35,7 @@ func TestStorage(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := trie.NewStorage(txn, prefix)
 			var got *trie.Node
-			got, err = tTxn.Get(key)
+			got, err = tTxn.Get(&key)
 			require.NoError(t, err)
 			assert.Equal(t, node, got)
 			return err
@@ -46,7 +46,7 @@ func TestStorage(t *testing.T) {
 		// Successfully delete a node and return an error to force a roll back.
 		require.Error(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewStorage(txn, prefix)
-			err = tTxn.Delete(key)
+			err = tTxn.Delete(&key)
 			require.NoError(t, err)
 			return errors.New("should rollback")
 		}))
@@ -56,7 +56,7 @@ func TestStorage(t *testing.T) {
 		require.NoError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := trie.NewStorage(txn, prefix)
 			var got *trie.Node
-			got, err = tTxn.Get(key)
+			got, err = tTxn.Get(&key)
 			assert.Equal(t, node, got)
 			return err
 		}))
@@ -66,13 +66,13 @@ func TestStorage(t *testing.T) {
 		// Delete a node.
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewStorage(txn, prefix)
-			return tTxn.Delete(key)
+			return tTxn.Delete(&key)
 		}))
 
 		// Node should no longer exist in the database.
 		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
 			tTxn := trie.NewStorage(txn, prefix)
-			_, err = tTxn.Get(key)
+			_, err = tTxn.Get(&key)
 			return err
 		}), db.ErrKeyNotFound.Error())
 	})
@@ -82,7 +82,7 @@ func TestStorage(t *testing.T) {
 	t.Run("put root key", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			tTxn := trie.NewStorage(txn, prefix)
-			return tTxn.PutRootKey(rootKey)
+			return tTxn.PutRootKey(&rootKey)
 		}))
 	})
 
@@ -91,7 +91,7 @@ func TestStorage(t *testing.T) {
 			tTxn := trie.NewStorage(txn, prefix)
 			gotRootKey, err := tTxn.RootKey()
 			require.NoError(t, err)
-			assert.Equal(t, rootKey, gotRootKey)
+			assert.Equal(t, &rootKey, gotRootKey)
 			return nil
 		}))
 	})
