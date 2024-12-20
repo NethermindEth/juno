@@ -1,4 +1,4 @@
-package starknet
+package sync
 
 import (
 	"bytes"

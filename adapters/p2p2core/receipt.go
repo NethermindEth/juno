@@ -3,24 +3,24 @@ package p2p2core
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 )
 
 // todo change type of txHash to spec
-func AdaptReceipt(r *spec.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
-	var common *spec.Receipt_Common
+func AdaptReceipt(r *gen.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
+	var common *gen.Receipt_Common
 
 	switch r.Type.(type) {
-	case *spec.Receipt_Invoke_:
+	case *gen.Receipt_Invoke_:
 		common = r.GetInvoke().GetCommon()
-	case *spec.Receipt_Declare_:
+	case *gen.Receipt_Declare_:
 		common = r.GetDeclare().GetCommon()
-	case *spec.Receipt_DeployAccount_:
+	case *gen.Receipt_DeployAccount_:
 		common = r.GetDeployAccount().GetCommon()
-	case *spec.Receipt_L1Handler_:
+	case *gen.Receipt_L1Handler_:
 		common = r.GetL1Handler().GetCommon()
-	case *spec.Receipt_DeprecatedDeploy:
+	case *gen.Receipt_DeprecatedDeploy:
 		common = r.GetDeprecatedDeploy().GetCommon()
 	}
 
@@ -37,7 +37,7 @@ func AdaptReceipt(r *spec.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
 	}
 }
 
-func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.ExecutionResources {
+func adaptExecutionResources(er *gen.Receipt_ExecutionResources) *core.ExecutionResources {
 	if er == nil {
 		return nil
 	}
@@ -70,7 +70,7 @@ func adaptExecutionResources(er *spec.Receipt_ExecutionResources) *core.Executio
 	}
 }
 
-func adaptMessageToL1(m *spec.MessageToL1) *core.L2ToL1Message {
+func adaptMessageToL1(m *gen.MessageToL1) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
 		From:    AdaptFelt(m.FromAddress),
 		To:      AdaptEthAddress(m.ToAddress),
@@ -78,7 +78,7 @@ func adaptMessageToL1(m *spec.MessageToL1) *core.L2ToL1Message {
 	}
 }
 
-func feltToUint64(f *spec.Felt252) uint64 {
+func feltToUint64(f *gen.Felt252) uint64 {
 	var result uint64
 	if adapted := AdaptFelt(f); adapted != nil {
 		result = adapted.Uint64()

@@ -1,4 +1,4 @@
-package starknet
+package sync
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"iter"
 	"time"
 
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -101,25 +101,25 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 }
 
 func (c *Client) RequestBlockHeaders(
-	ctx context.Context, req *spec.BlockHeadersRequest,
-) (iter.Seq[*spec.BlockHeadersResponse], error) {
-	return requestAndReceiveStream[*spec.BlockHeadersRequest, *spec.BlockHeadersResponse](
+	ctx context.Context, req *gen.BlockHeadersRequest,
+) (iter.Seq[*gen.BlockHeadersResponse], error) {
+	return requestAndReceiveStream[*gen.BlockHeadersRequest, *gen.BlockHeadersResponse](
 		ctx, c.newStream, HeadersPID(), req, c.log)
 }
 
-func (c *Client) RequestEvents(ctx context.Context, req *spec.EventsRequest) (iter.Seq[*spec.EventsResponse], error) {
-	return requestAndReceiveStream[*spec.EventsRequest, *spec.EventsResponse](ctx, c.newStream, EventsPID(), req, c.log)
+func (c *Client) RequestEvents(ctx context.Context, req *gen.EventsRequest) (iter.Seq[*gen.EventsResponse], error) {
+	return requestAndReceiveStream[*gen.EventsRequest, *gen.EventsResponse](ctx, c.newStream, EventsPID(), req, c.log)
 }
 
-func (c *Client) RequestClasses(ctx context.Context, req *spec.ClassesRequest) (iter.Seq[*spec.ClassesResponse], error) {
-	return requestAndReceiveStream[*spec.ClassesRequest, *spec.ClassesResponse](ctx, c.newStream, ClassesPID(), req, c.log)
+func (c *Client) RequestClasses(ctx context.Context, req *gen.ClassesRequest) (iter.Seq[*gen.ClassesResponse], error) {
+	return requestAndReceiveStream[*gen.ClassesRequest, *gen.ClassesResponse](ctx, c.newStream, ClassesPID(), req, c.log)
 }
 
-func (c *Client) RequestStateDiffs(ctx context.Context, req *spec.StateDiffsRequest) (iter.Seq[*spec.StateDiffsResponse], error) {
-	return requestAndReceiveStream[*spec.StateDiffsRequest, *spec.StateDiffsResponse](ctx, c.newStream, StateDiffPID(), req, c.log)
+func (c *Client) RequestStateDiffs(ctx context.Context, req *gen.StateDiffsRequest) (iter.Seq[*gen.StateDiffsResponse], error) {
+	return requestAndReceiveStream[*gen.StateDiffsRequest, *gen.StateDiffsResponse](ctx, c.newStream, StateDiffPID(), req, c.log)
 }
 
-func (c *Client) RequestTransactions(ctx context.Context, req *spec.TransactionsRequest) (iter.Seq[*spec.TransactionsResponse], error) {
-	return requestAndReceiveStream[*spec.TransactionsRequest, *spec.TransactionsResponse](
+func (c *Client) RequestTransactions(ctx context.Context, req *gen.TransactionsRequest) (iter.Seq[*gen.TransactionsResponse], error) {
+	return requestAndReceiveStream[*gen.TransactionsRequest, *gen.TransactionsResponse](
 		ctx, c.newStream, TransactionsPID(), req, c.log)
 }
