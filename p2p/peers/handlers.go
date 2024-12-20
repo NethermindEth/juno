@@ -1,4 +1,3 @@
-//go:generate protoc --go_out=../gen --go_opt=paths=source_relative -I=../spec ../spec/*.proto
 package peers
 
 import (
