@@ -3,7 +3,6 @@ package pebble
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -36,17 +35,12 @@ func New(path string) (db.DB, error) {
 	return newPebble(path, nil)
 }
 
-func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLogger bool, logEncoding utils.LogEncoding) (db.DB, error) {
+func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, logger pebble.Logger) (db.DB, error) {
 	// Ensure that the specified cache size meets a minimum threshold.
 	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
 
-	dbLog, err := utils.NewZapLogger(utils.ERROR, colouredLogger, logEncoding)
-	if err != nil {
-		return nil, fmt.Errorf("create DB logger: %w", err)
-	}
-
 	return newPebble(path, &pebble.Options{
-		Logger:       dbLog,
+		Logger:       logger,
 		Cache:        pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
 		MaxOpenFiles: maxOpenFiles,
 	})
