@@ -1,4 +1,4 @@
-package starknet
+package peers
 
 import (
 	"testing"
