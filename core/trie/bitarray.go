@@ -437,7 +437,7 @@ func (b *BitArray) truncateToLength() {
 // For example:
 //
 //	array = 0000 0000 ... 0100 (len=251)
-//	findFirstSetBit() = 2 // third bit from right is set
+//	findFirstSetBit() = 3 // third bit from right is set
 func findFirstSetBit(b *BitArray) uint8 {
 	if b.len == 0 {
 		return 0
