@@ -43,39 +43,14 @@ func (b *BitArray) Len() uint8 {
 }
 
 // Returns the bytes representation of the bit array in big endian format
-//
-//nolint:mnd
 func (b *BitArray) Bytes() []byte {
 	var res [32]byte
 
-	switch {
-	case b.len == 0:
-		// all zeros
-		return res[:]
-	case b.len >= 192:
-		// Create mask for top word: keeps only valid bits above 192
-		// e.g., if len=200, keeps lowest 8 bits (200-192)
-		mask := maxUint64 >> (256 - uint16(b.len))
-		binary.BigEndian.PutUint64(res[0:8], b.words[3]&mask)
-		binary.BigEndian.PutUint64(res[8:16], b.words[2])
-		binary.BigEndian.PutUint64(res[16:24], b.words[1])
-		binary.BigEndian.PutUint64(res[24:32], b.words[0])
-	case b.len >= 128:
-		// Mask for bits 128-191: keeps only valid bits above 128
-		// e.g., if len=150, keeps lowest 22 bits (150-128)
-		mask := maxUint64 >> (192 - b.len)
-		binary.BigEndian.PutUint64(res[8:16], b.words[2]&mask)
-		binary.BigEndian.PutUint64(res[16:24], b.words[1])
-		binary.BigEndian.PutUint64(res[24:32], b.words[0])
-	case b.len >= 64:
-		// You get the idea
-		mask := maxUint64 >> (128 - b.len)
-		binary.BigEndian.PutUint64(res[16:24], b.words[1]&mask)
-		binary.BigEndian.PutUint64(res[24:32], b.words[0])
-	default:
-		mask := maxUint64 >> (64 - b.len)
-		binary.BigEndian.PutUint64(res[24:32], b.words[0]&mask)
-	}
+	b.truncateToLength()
+	binary.BigEndian.PutUint64(res[0:8], b.words[3])
+	binary.BigEndian.PutUint64(res[8:16], b.words[2])
+	binary.BigEndian.PutUint64(res[16:24], b.words[1])
+	binary.BigEndian.PutUint64(res[24:32], b.words[0])
 
 	return res[:]
 }
@@ -335,15 +310,17 @@ func (b *BitArray) Set(x *BitArray) *BitArray {
 
 // Sets the bit array to the bytes representation of a felt.
 func (b *BitArray) SetFelt(length uint8, f *felt.Felt) *BitArray {
-	b.setFelt(f)
 	b.len = length
+	b.setFelt(f)
+	b.truncateToLength()
 	return b
 }
 
 // Sets the bit array to the bytes representation of a felt with length 251.
 func (b *BitArray) SetFelt251(f *felt.Felt) *BitArray {
-	b.setFelt(f)
 	b.len = 251
+	b.setFelt(f)
+	b.truncateToLength()
 	return b
 }
 
@@ -352,6 +329,7 @@ func (b *BitArray) SetFelt251(f *felt.Felt) *BitArray {
 func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 	b.setBytes32(data)
 	b.len = length
+	b.truncateToLength()
 	return b
 }
 
@@ -359,6 +337,7 @@ func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 func (b *BitArray) SetUint64(length uint8, data uint64) *BitArray {
 	b.words[0] = data
 	b.len = length
+	b.truncateToLength()
 	return b
 }
 
@@ -430,6 +409,27 @@ func (b *BitArray) clear() *BitArray {
 	b.len = 0
 	b.words[0], b.words[1], b.words[2], b.words[3] = 0, 0, 0, 0
 	return b
+}
+
+// Truncates the bit array to the specified length, ensuring that any unused bits are all zeros.
+//
+//nolint:mnd
+func (b *BitArray) truncateToLength() {
+	switch {
+	case b.len == 0:
+		b.words = [4]uint64{0, 0, 0, 0}
+	case b.len <= 64:
+		b.words[0] &= maxUint64 >> (64 - b.len)
+		b.words[1], b.words[2], b.words[3] = 0, 0, 0
+	case b.len <= 128:
+		b.words[1] &= maxUint64 >> (128 - b.len)
+		b.words[2], b.words[3] = 0, 0
+	case b.len <= 192:
+		b.words[2] &= maxUint64 >> (192 - b.len)
+		b.words[3] = 0
+	default:
+		b.words[3] &= maxUint64 >> (256 - uint16(b.len))
+	}
 }
 
 // Returns the position of the first '1' bit in the array, scanning from most significant to least significant bit.
