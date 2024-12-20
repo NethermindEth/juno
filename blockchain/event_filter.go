@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/NethermindEth/juno/core"
@@ -14,6 +15,16 @@ import (
 
 var errChunkSizeReached = errors.New("chunk size reached")
 
+//go:generate mockgen -destination=../mocks/mock_event_filterer.go -package=mocks github.com/NethermindEth/juno/blockchain EventFilterer
+type EventFilterer interface {
+	io.Closer
+
+	Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error)
+	SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error
+	SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error
+	WithLimit(limit uint) *EventFilter
+}
+
 type EventFilter struct {
 	txn             db.Transaction
 	fromBlock       uint64
@@ -21,6 +32,7 @@ type EventFilter struct {
 	contractAddress *felt.Felt
 	keys            [][]felt.Felt
 	maxScanned      uint // maximum number of scanned blocks in single call.
+	pendingBlockFn  func() *core.Block
 }
 
 type EventFilterRange uint
@@ -30,7 +42,9 @@ const (
 	EventFilterTo
 )
 
-func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64) *EventFilter {
+func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64,
+	pendingBlockFn func() *core.Block,
+) *EventFilter {
 	return &EventFilter{
 		txn:             txn,
 		contractAddress: contractAddress,
@@ -38,6 +52,7 @@ func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]fel
 		fromBlock:       fromBlock,
 		toBlock:         toBlock,
 		maxScanned:      math.MaxUint,
+		pendingBlockFn:  pendingBlockFn,
 	}
 }
 
@@ -97,19 +112,18 @@ type FilteredEvent struct {
 //nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
-	latest, err := chainHeight(e.txn)
+	latest, err := ChainHeight(e.txn)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var pending Pending
+	var pending *core.Block
 	if e.toBlock > latest {
 		e.toBlock = latest + 1
-		pending, err = pendingBlock(e.txn)
-		if errors.Is(err, db.ErrKeyNotFound) {
+
+		pending = e.pendingBlockFn()
+		if pending == nil {
 			e.toBlock = latest
-		} else if err != nil {
-			return nil, nil, err
 		}
 	}
 
@@ -133,7 +147,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 				return nil, nil, err
 			}
 		} else {
-			header = pending.Block.Header
+			header = pending.Header
 		}
 
 		if possibleMatches := e.testBloom(header.EventsBloom, filterKeysMaps); !possibleMatches {
@@ -148,7 +162,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 				return nil, nil, err
 			}
 		} else {
-			receipts = pending.Block.Receipts
+			receipts = pending.Receipts
 		}
 
 		var processedEvents uint64

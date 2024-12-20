@@ -1,5 +1,8 @@
-use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use cairo_lang_starknet_classes::casm_contract_class::{
+    CasmContractClass, StarknetSierraCompilationError,
+};
 use std::ffi::{c_char, CStr, CString};
+use std::panic::{self, AssertUnwindSafe};
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -24,7 +27,23 @@ pub extern "C" fn compileSierraToCasm(sierra_json: *const c_char, result: *mut *
         }
     };
 
-    let casm_class = match CasmContractClass::from_contract_class(sierra_class, true, usize::MAX) {
+    let mut casm_class_result: Option<Result<CasmContractClass, StarknetSierraCompilationError>> =
+        None;
+    let compilation_result = panic::catch_unwind(AssertUnwindSafe(|| {
+        casm_class_result = Some(CasmContractClass::from_contract_class(
+            sierra_class,
+            true,
+            usize::MAX,
+        ));
+    }));
+    if let Err(_) = compilation_result {
+        unsafe {
+            *result = raw_cstr("panic during compilation".to_string());
+        }
+        return 0;
+    }
+
+    let casm_class = match casm_class_result.unwrap() {
         Ok(value) => value,
         Err(e) => {
             unsafe {

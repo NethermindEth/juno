@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var benchReceiptR *felt.Felt
+
 func BenchmarkReceiptCommitment(b *testing.B) {
 	fromHex := func(hex string) *felt.Felt {
 		b.Helper()
@@ -90,9 +92,12 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 		},
 	}
 	receipts := slices.Repeat(baseReceipts, 100)
+	var f *felt.Felt
+	var err error
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := receiptCommitment(receipts)
+		f, err = receiptCommitment(receipts)
 		require.NoError(b, err)
 	}
+	benchReceiptR = f
 }

@@ -18,7 +18,6 @@ import (
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -289,14 +288,9 @@ func (s *syncService) adaptAndSanityCheckBlock(ctx context.Context, header *spec
 				txHashEventsM[*txH] = append(txHashEventsM[*txH], p2p2core.AdaptEvent(event))
 			}
 
-			var coreReceipts []*core.TransactionReceipt
+			coreReceipts := make([]*core.TransactionReceipt, 0, len(receipts))
 			for i, r := range receipts {
-				txHash := coreTxs[i].Hash()
-				if txHash == nil {
-					spew.Dump(coreTxs[i])
-					panic(fmt.Errorf("TX hash %d is nil", i))
-				}
-				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, txHash))
+				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, coreTxs[i].Hash()))
 			}
 			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
 				r.Events = txHashEventsM[*r.TransactionHash]
@@ -675,10 +669,4 @@ func (s *syncService) createIteratorForBlock(blockNumber uint64) *spec.Iteration
 
 func (s *syncService) WithListener(l junoSync.EventListener) {
 	s.listener = l
-}
-
-//nolint:unused
-func (s *syncService) sleep(d time.Duration) {
-	s.log.Debugw("Sleeping...", "for", d)
-	time.Sleep(d)
 }

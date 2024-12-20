@@ -47,7 +47,7 @@
 
 - Golang 1.23 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
-- [Rust](https://www.rust-lang.org/tools/install) 1.80.1 or higher.
+- [Rust](https://www.rust-lang.org/tools/install) 1.81.0 or higher.
 - A C compiler: `gcc` or `clang`.
 - Install some dependencies on your system:
   
@@ -112,32 +112,32 @@ Use the provided snapshots to quickly sync your Juno node with the current state
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.dev/files/mainnet/latest) |
+| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
 
 #### Sepolia
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.dev/files/sepolia/latest) |
+| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
 
 #### Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest) |
+| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ### Getting the size for each snapshot
 ```console
 $date
 Thu  1 Aug 2024 09:49:30 BST
 
-$curl -s -I -L https://juno-snapshots.nethermind.dev/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+$curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
 172.47 GB
 
-$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+$curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
 5.67 GB
 
-$curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
+$curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
 2.4 GB
 ```
 
@@ -148,7 +148,7 @@ $curl -s -I -L https://juno-snapshots.nethermind.dev/files/sepolia-integration/l
    Fetch the snapshot from the provided URL:
 
    ```bash
-   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.dev/files/mainnet/latest
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.io/files/mainnet/latest
    ```
 
 2. **Prepare Directory**

@@ -13,6 +13,12 @@ import (
 
 const subscribeEventsChunkSize = 1024
 
+type SubscriptionResponse struct {
+	Version string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  any    `json:"params"`
+}
+
 func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt,
 	blockID *BlockID,
 ) (*SubscriptionID, *jsonrpc.Error) {
@@ -38,13 +44,16 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	if blockID == nil {
 		requestedHeader = headHeader
 	} else {
+		if blockID.Pending {
+			return nil, ErrCallOnPending
+		}
+
 		var rpcErr *jsonrpc.Error
 		requestedHeader, rpcErr = h.blockHeaderByID(blockID)
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
 
-		// Todo: should the pending block be included in the head count?
 		if headHeader.Number >= maxBlocksBack && requestedHeader.Number <= headHeader.Number-maxBlocksBack {
 			return nil, ErrTooManyBlocksBack
 		}
@@ -100,6 +109,7 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 		h.log.Warnw("Error creating event filter", "err", err)
 		return
 	}
+
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events subscription")
 
 	if err = setEventFilterRange(filter, &BlockID{Number: from}, &BlockID{Number: to}, to); err != nil {
@@ -107,8 +117,7 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 		return
 	}
 
-	var cToken *blockchain.ContinuationToken
-	filteredEvents, cToken, err := filter.Events(cToken, subscribeEventsChunkSize)
+	filteredEvents, cToken, err := filter.Events(nil, subscribeEventsChunkSize)
 	if err != nil {
 		h.log.Warnw("Error filtering events", "err", err)
 		return
@@ -141,13 +150,8 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			// Pending block doesn't have a number
-			var blockNumber *uint64
-			if event.BlockHash != nil {
-				blockNumber = &(event.BlockNumber)
-			}
 			emittedEvent := &EmittedEvent{
-				BlockNumber:     blockNumber,
+				BlockNumber:     &event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending block
 				BlockHash:       event.BlockHash,
 				TransactionHash: event.TransactionHash,
 				Event: &Event{
@@ -157,7 +161,7 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 				},
 			}
 
-			resp, err := json.Marshal(jsonrpc.Request{
+			resp, err := json.Marshal(SubscriptionResponse{
 				Version: "2.0",
 				Method:  "starknet_subscriptionEvents",
 				Params: map[string]any{

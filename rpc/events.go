@@ -78,7 +78,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 			case <-subscriptionCtx.Done():
 				return
 			case header := <-headerSub.Recv():
-				resp, err := json.Marshal(jsonrpc.Request{
+				resp, err := json.Marshal(SubscriptionResponse{
 					Version: "2.0",
 					Method:  "juno_subscribeNewHeads",
 					Params: map[string]any{
@@ -195,7 +195,7 @@ func (h *Handler) unsubscribe(sub *subscription, id uint64) {
 	h.mu.Unlock()
 }
 
-func setEventFilterRange(filter *blockchain.EventFilter, fromID, toID *BlockID, latestHeight uint64) error {
+func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID, latestHeight uint64) error {
 	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
 		if id == nil {
 			return nil

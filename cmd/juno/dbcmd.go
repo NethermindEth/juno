@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -21,6 +23,7 @@ const (
 
 type DBInfo struct {
 	Network         string     `json:"network"`
+	SchemaVersion   uint64     `json:"schema_version"`
 	ChainHeight     uint64     `json:"chain_height"`
 	LatestBlockHash *felt.Felt `json:"latest_block_hash"`
 	LatestStateRoot *felt.Felt `json:"latest_state_root"`
@@ -83,8 +86,8 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil)
-	info := DBInfo{}
+	chain := blockchain.New(database, nil, nil)
+	var info DBInfo
 
 	// Get the latest block information
 	headBlock, err := chain.Head()
@@ -97,6 +100,12 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
+	schemaMeta, err := migration.SchemaMetadata(database)
+	if err != nil {
+		return fmt.Errorf("failed to get schema metadata: %v", err)
+	}
+
+	info.SchemaVersion = schemaMeta.Version
 	info.Network = getNetwork(headBlock, stateUpdate.StateDiff)
 	info.ChainHeight = headBlock.Number
 	info.LatestBlockHash = headBlock.Hash
@@ -144,7 +153,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New(database, nil)
+		chain := blockchain.New(database, nil, nil)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)
@@ -195,9 +204,10 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		items [][]string
 	)
 
-	for _, b := range db.BucketValues() {
+	buckets := db.BucketValues()
+	for _, b := range buckets {
 		fmt.Fprintf(cmd.OutOrStdout(), "Calculating size of %s, remaining buckets: %d\n", b, len(db.BucketValues())-int(b)-1)
-		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)})
+		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)}, true)
 		if err != nil {
 			return err
 		}
@@ -218,6 +228,20 @@ func dbSize(cmd *cobra.Command, args []string) error {
 			withHistorySize += bucketItem.Size
 			withHistoryCount += bucketItem.Count
 		}
+	}
+
+	// check if there is any data left in the db
+	lastBucket := buckets[len(buckets)-1]
+	fmt.Fprintln(cmd.OutOrStdout(), "Calculating remaining data in the db")
+	lastBucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(lastBucket + 1)}, false)
+	if err != nil {
+		return err
+	}
+
+	if lastBucketItem.Count > 0 {
+		items = append(items, []string{"Unknown", lastBucketItem.Size.String(), fmt.Sprintf("%d", lastBucketItem.Count)})
+		totalSize += lastBucketItem.Size
+		totalCount += lastBucketItem.Count
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -257,7 +281,7 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 func openDB(path string) (db.DB, error) {
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("database path does not exist")
+		return nil, errors.New("database path does not exist")
 	}
 
 	database, err := pebble.New(path)

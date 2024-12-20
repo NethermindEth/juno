@@ -18,9 +18,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            arch: amd64
           - os: macos-13
+            arch: amd64
           - os: ubuntu-arm64-4-core
+            arch: arm64
           - os: macos-latest
+            arch: arm64
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -29,35 +33,55 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get latest tag
-        run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
-
-      - name: Get artifact name
-        run: echo "ARTIFACT_NAME=juno-${{ env.TAG }}-${{ runner.os }}-$(uname -m)" >> $GITHUB_ENV
-
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y upx-ucl build-essential cargo git golang libjemalloc-dev libjemalloc2 -y
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install cargo-c jemalloc
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          
-      - name: Build Juno
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            vm/rust
+            core/rust
+            starknet/compiler/rust
+
+      - name: Get latest tag
+        run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
+
+      - name: Get artifact name
         run: |
-          make juno
-          if [[ "${{ runner.os }}" != "macOS" ]]; then
-            upx build/juno
-          fi
+          OS_NAME=$([ "${{ runner.os }}" == "macOS" ] && echo "darwin" || echo "linux")
+          echo "ARTIFACT_NAME=juno-${{ env.TAG }}-${OS_NAME}-${{ matrix.arch }}" >> $GITHUB_ENV
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y upx-ucl libjemalloc-dev libjemalloc2 libbz2-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install jemalloc
+          
+      - name: Build binary
+        run: make juno
+
+      - name: Compress binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          upx build/juno
           mv build/juno ${{ env.ARTIFACT_NAME }}
 
-      - name: Generate Checksum
-        id: checksum
+      - name: Prepare binary (macOS)
+        if: runner.os == 'macOS'
+        run: mv build/juno ${{ env.ARTIFACT_NAME }}
+
+      - name: Generate checksum
         run: |
           if [[ "${{ runner.os }}" == "macOS" ]]; then
             shasum -a 256 ${{ env.ARTIFACT_NAME }} > ${{ env.ARTIFACT_NAME }}.sha256
@@ -65,10 +89,11 @@ jobs:
             sha256sum ${{ env.ARTIFACT_NAME }} > ${{ env.ARTIFACT_NAME }}.sha256
           fi
 
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: |
             ${{ env.ARTIFACT_NAME }}
             ${{ env.ARTIFACT_NAME }}.sha256
+          retention-days: 30

@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/utils"
@@ -64,6 +65,32 @@ func TestEstimateFee(t *testing.T) {
 			ExecutionError:   "oops",
 		}), err)
 		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+	})
+
+	t.Run("transaction with invalid contract class", func(t *testing.T) {
+		toFelt := func(hex string) *felt.Felt {
+			return utils.HexToFelt(t, hex)
+		}
+		invalidTx := rpc.BroadcastedTransaction{
+			Transaction: rpc.Transaction{
+				Type:          rpc.TxnDeclare,
+				Version:       toFelt("0x1"),
+				Nonce:         toFelt("0x0"),
+				MaxFee:        toFelt("0x1"),
+				SenderAddress: toFelt("0x2"),
+				Signature: &[]*felt.Felt{
+					toFelt("0x123"),
+				},
+			},
+			ContractClass: json.RawMessage(`{}`),
+		}
+		_, _, err := handler.EstimateFee([]rpc.BroadcastedTransaction{invalidTx}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
+		expectedErr := &jsonrpc.Error{
+			Code:    jsonrpc.InvalidParams,
+			Message: "Invalid Params",
+			Data:    "invalid program",
+		}
+		require.Equal(t, expectedErr, err)
 	})
 }
 

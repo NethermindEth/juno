@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -153,7 +154,8 @@ func TestBlockTransactionCount(t *testing.T) {
 
 	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -215,7 +217,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
 			Block: latestBlock,
 		}, nil)
 
@@ -232,13 +234,24 @@ func TestBlockWithTxHashes(t *testing.T) {
 		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
 		"number":  {Number: 1},
 	}
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
 
-	for description, id := range errTests {
+	var mockSyncReader *mocks.MockSyncReader
+	mockReader := mocks.NewMockReader(mockCtrl)
+
+	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", log)
+			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+
+			if description == "pending" { //nolint:goconst
+				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
+				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+			}
+
+			handler := rpc.New(chain, mockSyncReader, nil, "", log)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
 			assert.Nil(t, block)
@@ -246,12 +259,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 		})
 	}
 
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
 	n := utils.Ptr(utils.Sepolia)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -333,7 +342,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
 			Block: latestBlock,
 		}, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
@@ -352,12 +361,24 @@ func TestBlockWithTxs(t *testing.T) {
 		"number":  {Number: 1},
 	}
 
-	for description, id := range errTests {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	var mockSyncReader *mocks.MockSyncReader
+	mockReader := mocks.NewMockReader(mockCtrl)
+
+	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", log)
+			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+
+			if description == "pending" {
+				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
+				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+			}
+
+			handler := rpc.New(chain, mockSyncReader, nil, "", log)
 
 			block, rpcErr := handler.BlockWithTxs(id)
 			assert.Nil(t, block)
@@ -365,12 +386,8 @@ func TestBlockWithTxs(t *testing.T) {
 		})
 	}
 
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
 	n := utils.Ptr(utils.Mainnet)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -470,7 +487,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
 			Block: latestBlock,
 		}, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
@@ -563,7 +580,8 @@ func TestBlockWithReceipts(t *testing.T) {
 
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", nil)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
@@ -596,7 +614,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{Block: block0}, nil)
+		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: block0}, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
 		resp, rpcErr := handler.BlockWithReceipts(rpc.BlockID{Pending: true})
@@ -606,6 +624,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpc.AdaptTransaction(tx)
+			adaptedTx.Hash = nil
 
 			txsWithReceipt = append(txsWithReceipt, rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
@@ -650,6 +669,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
 			adaptedTx := rpc.AdaptTransaction(tx)
+			adaptedTx.Hash = nil
 
 			transactions = append(transactions, rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,

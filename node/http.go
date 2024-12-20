@@ -131,11 +131,11 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 		handler = cors.Default().Handler(handler)
 	}
 
-	service := makeHTTPService(host, port, handler)
-	service.registerOnShutdown(func() {
+	httpServ := makeHTTPService(host, port, handler)
+	httpServ.registerOnShutdown(func() {
 		close(shutdown)
 	})
-	return service
+	return httpServ
 }
 
 func makeMetrics(host string, port uint16) *httpService {

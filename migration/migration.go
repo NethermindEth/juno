@@ -66,6 +66,8 @@ var defaultMigrations = []Migration{
 	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass).WithBatchSize(1_000),              //nolint:mnd
+	MigrationFunc(calculateL1MsgHashes),
+	MigrationFunc(removePendingBlock),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -216,7 +218,7 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error
 	var value []byte
 	for it.Seek(oldPrefix); it.Valid(); it.Next() {
 		// Stop iterating once we're out of the old bucket.
-		if !bytes.Equal(it.Key()[:len(oldPrefix)], oldPrefix) {
+		if !bytes.HasPrefix(it.Key(), oldPrefix) {
 			break
 		}
 
@@ -268,6 +270,10 @@ func recalculateBloomFilters(txn db.Transaction, _ *utils.Network) error {
 			return err
 		}
 	}
+}
+
+func removePendingBlock(txn db.Transaction, _ *utils.Network) error {
+	return txn.Delete(db.Unused.Key())
 }
 
 // changeTrieNodeEncoding migrates to using a custom encoding for trie nodes
@@ -436,36 +442,77 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, 
 	return nil, iterator.Close()
 }
 
-// calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
-func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error {
-	var txnLock sync.RWMutex
-	workerPool := pool.New().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) error) error {
+	numOfWorkers := runtime.GOMAXPROCS(0)
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
-	for blockNumber := 0; ; blockNumber++ {
-		txnLock.RLock()
-		block, err := blockchain.BlockByNumber(txn, uint64(blockNumber))
-		txnLock.RUnlock()
-
+	chainHeight, err := blockchain.ChainHeight(txn)
+	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			break
+			return nil
 		}
-
+		return err
+	}
+	blockNumbers := make(chan uint64, 1024) //nolint:mnd
+	go func() {
+		for bNumber := range chainHeight + 1 {
+			blockNumbers <- bNumber
+		}
+		close(blockNumbers)
+	}()
+	var txnLock sync.Mutex
+	for range numOfWorkers {
 		workerPool.Go(func() error {
-			commitments, err := core.VerifyBlockHash(block, network, nil)
-			if err != nil {
-				return err
+			for bNumber := range blockNumbers {
+				if err := processBlock(bNumber, &txnLock); err != nil {
+					return err
+				}
 			}
-			txnLock.Lock()
-			defer txnLock.Unlock()
-			return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
+			return nil
 		})
 	}
-
 	return workerPool.Wait()
 }
 
+// calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
+func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error {
+	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
+		txnLock.Lock()
+		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		txnLock.Unlock()
+		if err != nil {
+			return err
+		}
+		txnLock.Lock()
+		commitments, err := core.VerifyBlockHash(block, network, nil)
+		txnLock.Unlock()
+		if err != nil {
+			return err
+		}
+		txnLock.Lock()
+		defer txnLock.Unlock()
+		return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
+	}
+	return processBlocks(txn, processBlockFunc)
+}
+
+func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
+	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
+		txnLock.Lock()
+		txns, err := blockchain.TransactionsByBlockNumber(txn, blockNumber)
+		txnLock.Unlock()
+		if err != nil {
+			return err
+		}
+		txnLock.Lock()
+		defer txnLock.Unlock()
+		return blockchain.StoreL1HandlerMsgHashes(txn, txns)
+	}
+	return processBlocks(txn, processBlockFunc)
+}
+
 func bitset2Key(bs *bitset.BitSet) *trie.Key {
-	bsWords := bs.Bytes()
+	bsWords := bs.Words()
 	if len(bsWords) > felt.Limbs {
 		panic("key too long to fit in Felt")
 	}

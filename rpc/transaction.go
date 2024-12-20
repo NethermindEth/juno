@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -210,7 +211,7 @@ type Transaction struct {
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ClassHash             *felt.Felt                   `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1"`
+	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
 	Signature             *[]*felt.Felt                `json:"signature,omitempty" validate:"required"`
 	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
@@ -224,8 +225,9 @@ type Transaction struct {
 }
 
 type TransactionStatus struct {
-	Finality  TxnStatus          `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
+	Finality      TxnStatus          `json:"finality_status"`
+	Execution     TxnExecutionStatus `json:"execution_status,omitempty"`
+	FailureReason string             `json:"failure_reason,omitempty"`
 }
 
 type MsgFromL1 struct {
@@ -426,7 +428,20 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, ErrInternal.CloneWithData(err)
+		}
+
+		pendingB := h.syncReader.PendingBlock()
+		if pendingB == nil {
+			return nil, ErrTxnHashNotFound
+		}
+
+		for _, t := range pendingB.Transactions {
+			if hash.Equal(t.Hash()) {
+				txn = t
+			}
+		}
 	}
 	return AdaptTransaction(txn), nil
 }
@@ -442,7 +457,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 	}
 
 	if id.Pending {
-		pending, err := h.bcReader.Pending()
+		pending, err := h.syncReader.Pending()
 		if err != nil {
 			return nil, ErrBlockNotFound
 		}
@@ -472,14 +487,44 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	var (
+		pendingB      *core.Block
+		pendingBIndex int
+	)
+
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, ErrInternal.CloneWithData(err)
+		}
+
+		pendingB = h.syncReader.PendingBlock()
+		if pendingB == nil {
+			return nil, ErrTxnHashNotFound
+		}
+
+		for i, t := range pendingB.Transactions {
+			pendingBIndex = i
+			if hash.Equal(t.Hash()) {
+				txn = t
+				break
+			}
+		}
 	}
 
-	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
-	if err != nil {
-		return nil, ErrTxnHashNotFound
+	var (
+		receipt     *core.TransactionReceipt
+		blockHash   *felt.Felt
+		blockNumber uint64
+	)
+
+	if pendingB != nil {
+		receipt = pendingB.Receipts[pendingBIndex]
+	} else {
+		receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
+		if err != nil {
+			return nil, ErrTxnHashNotFound
+		}
 	}
 
 	status := TxnAcceptedOnL2
@@ -564,6 +609,8 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	}, nil
 }
 
+var errTransactionNotFound = errors.New("transaction not found")
+
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
@@ -584,10 +631,11 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 
 		status, err := adaptTransactionStatus(txStatus)
 		if err != nil {
-			h.log.Errorw("Failed to adapt transaction status", "err", err)
+			if !errors.Is(err, errTransactionNotFound) {
+				h.log.Errorw("Failed to adapt transaction status", "err", err)
+			}
 			return nil, ErrTxnHashNotFound
 		}
-
 		return status, nil
 	}
 	return nil, txErr
@@ -750,6 +798,8 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
+	case starknet.NotReceived:
+		return nil, errTransactionNotFound
 	default:
 		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
@@ -759,8 +809,10 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
 		status.Execution = TxnFailure
+		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
+		status.FailureReason = txStatus.RevertError
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
