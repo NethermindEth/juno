@@ -72,7 +72,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 
 	subscriber.EXPECT().Close().Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(subscriber, chain, nopLog, nil).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
@@ -96,7 +96,7 @@ func TestMismatchedChainID(t *testing.T) {
 		Return(new(big.Int), nil).
 		Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(subscriber, chain, nopLog, nil).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	t.Cleanup(cancel)
@@ -141,7 +141,7 @@ func TestEventListener(t *testing.T) {
 	subscriber.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog).
+	client := l1.NewClient(subscriber, chain, nopLog, nil).
 		WithResubscribeDelay(0).
 		WithPollFinalisedInterval(time.Nanosecond).
 		WithEventListener(l1.SelectiveListener{
@@ -247,7 +247,7 @@ func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 			server, listener := startServer("127.0.0.1:0", test.service)
 			defer server.Stop()
 
-			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), common.Address{})
+			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), &utils.Network{})
 			require.NoError(t, err)
 			defer subscriber.Close()
 
