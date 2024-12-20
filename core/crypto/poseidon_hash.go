@@ -113,7 +113,7 @@ func setRoundKeys() {
 	}
 }
 
-var _ Digest = (*PedersenDigest)(nil)
+var _ Digest = (*PoseidonDigest)(nil)
 
 type PoseidonDigest struct {
 	state    [3]felt.Felt
