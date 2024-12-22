@@ -52,6 +52,17 @@ type FeeEstimate struct {
 		Estimate Fee Handlers
 *****************************************************/
 
+func FeeEstimateToV0_7(feeEstimate FeeEstimate) FeeEstimateV0_7 {
+	return FeeEstimateV0_7{
+		GasConsumed:     feeEstimate.L1GasConsumed,
+		GasPrice:        feeEstimate.L1GasPrice,
+		DataGasConsumed: feeEstimate.L1DataGasConsumed,
+		DataGasPrice:    feeEstimate.L1DataGasPrice,
+		OverallFee:      feeEstimate.OverallFee,
+		Unit:            feeEstimate.Unit,
+	}
+}
+
 func (h *Handler) EstimateFeeV0_7(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimateV0_7, http.Header, *jsonrpc.Error) {
@@ -61,14 +72,7 @@ func (h *Handler) EstimateFeeV0_7(broadcastedTxns []BroadcastedTransaction,
 	}
 
 	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimateV0_7 {
-		return FeeEstimateV0_7{
-			GasConsumed:     tx.FeeEstimation.L1GasConsumed,
-			GasPrice:        tx.FeeEstimation.L1GasPrice,
-			DataGasConsumed: tx.FeeEstimation.L1DataGasConsumed,
-			DataGasPrice:    tx.FeeEstimation.L1DataGasPrice,
-			OverallFee:      tx.FeeEstimation.OverallFee,
-			Unit:            tx.FeeEstimation.Unit,
-		}
+		return FeeEstimateToV0_7(tx.FeeEstimation)
 	}), httpHeader, nil
 }
 
