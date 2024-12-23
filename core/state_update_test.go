@@ -79,6 +79,18 @@ func TestStateDiffHash(t *testing.T) {
 	}
 }
 
+func BenchmarkStateDiffHash(b *testing.B) {
+	client := feeder.NewTestClient(b, &utils.SepoliaIntegration)
+	gw := adaptfeeder.New(client)
+	su, err := gw.StateUpdate(context.Background(), 38748)
+	require.NoError(b, err)
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		su.StateDiff.Hash()
+	}
+}
+
 func TestStateDiffLength(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
