@@ -351,7 +351,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 		Params:  []jsonrpc.Parameter{{Name: "id"}},
 		Handler: handler.Unsubscribe,
 	}))
-	ws := jsonrpc.NewWebsocket(server, log)
+	ws := jsonrpc.NewWebsocket(server, nil, log)
 	httpSrv := httptest.NewServer(ws)
 	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)

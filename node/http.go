@@ -52,6 +52,10 @@ func (h *httpService) Run(ctx context.Context) error {
 	}
 }
 
+func (h *httpService) registerOnShutdown(f func()) {
+	h.srv.RegisterOnShutdown(f)
+}
+
 func makeHTTPService(host string, port uint16, handler http.Handler) *httpService {
 	portStr := strconv.FormatUint(uint64(port), 10)
 	return &httpService{
@@ -108,9 +112,11 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 		listener = makeWSMetrics()
 	}
 
+	shutdown := make(chan struct{})
+
 	mux := http.NewServeMux()
 	for path, server := range servers {
-		wsHandler := jsonrpc.NewWebsocket(server, log)
+		wsHandler := jsonrpc.NewWebsocket(server, shutdown, log)
 		if listener != nil {
 			wsHandler = wsHandler.WithListener(listener)
 		}
@@ -124,7 +130,12 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 	if corsEnabled {
 		handler = cors.Default().Handler(handler)
 	}
-	return makeHTTPService(host, port, handler)
+
+	httpServ := makeHTTPService(host, port, handler)
+	httpServ.registerOnShutdown(func() {
+		close(shutdown)
+	})
+	return httpServ
 }
 
 func makeMetrics(host string, port uint16) *httpService {

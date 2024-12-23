@@ -90,7 +90,6 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 				case <-subscriptionCtx.Done():
 					return
 				case header := <-headerSub.Recv():
-
 					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys)
 				}
 			}
