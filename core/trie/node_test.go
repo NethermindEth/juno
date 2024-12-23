@@ -1,7 +1,9 @@
 package trie_test
 
 import (
+	"bytes"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -25,4 +27,34 @@ func TestNodeHash(t *testing.T) {
 	path := trie.NewKey(6, []byte{42})
 
 	assert.Equal(t, expected, node.Hash(&path, crypto.Pedersen), "TestTrieNode_Hash failed")
+}
+
+func TestNodeErrorHandling(t *testing.T) {
+	t.Run("WriteTo node value is nil", func(t *testing.T) {
+		node := trie.Node{}
+		var buffer bytes.Buffer
+		_, err := node.WriteTo(&buffer)
+		require.Error(t, err)
+	})
+	t.Run("WriteTo returns error", func(t *testing.T) {
+		node := trie.Node{
+			Value: new(felt.Felt).SetUint64(42),
+			Left:  &trie.Key{},
+			Right: &trie.Key{},
+		}
+
+		wrote, err := node.WriteTo(&errorBuffer{})
+		require.Error(t, err)
+		require.Equal(t, int64(0), wrote)
+	})
+	t.Run("UnmarshalBinary returns error", func(t *testing.T) {
+		node := trie.Node{}
+
+		err := node.UnmarshalBinary([]byte{42})
+		require.Equal(t, errors.New("size of input data is less than felt size"), err)
+
+		bs := new(felt.Felt).Bytes()
+		err = node.UnmarshalBinary(append(bs[:], 0, 0, 42))
+		require.Equal(t, errors.New("the node does not contain both left and right hash"), err)
+	})
 }

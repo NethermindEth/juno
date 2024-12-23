@@ -16,7 +16,7 @@ import (
 
 const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
 
-type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
+type HashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
@@ -40,7 +40,7 @@ type Trie struct {
 	rootKey *Key
 	maxKey  *felt.Felt
 	storage *Storage
-	hash    hashFunc
+	hash    HashFunc
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
@@ -56,7 +56,7 @@ func NewTriePoseidon(storage *Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
+func newTrie(storage *Storage, height uint8, hash HashFunc) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
@@ -96,10 +96,15 @@ func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
 	return do(trie)
 }
 
-// feltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
+// FeltToKey Converts a key, given in felt, to a trie.Key which when followed on a [Trie],
 // leads to the corresponding [Node]
 func (t *Trie) FeltToKey(k *felt.Felt) Key {
 	return FeltToKey(t.height, k)
+}
+
+// HashFunc returns the hash function used by the trie
+func (t *Trie) HashFunc() HashFunc {
+	return t.hash
 }
 
 // path returns the path as mentioned in the [specification] for commitment calculations.
