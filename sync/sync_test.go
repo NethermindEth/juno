@@ -160,8 +160,12 @@ func TestReorg(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
+		integEnd := head
+		integStart, err := bc.BlockHeaderByNumber(0)
+		require.NoError(t, err)
 
 		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, testDB)
+		sub := synchronizer.SubscribeReorg()
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
@@ -170,54 +174,15 @@ func TestReorg(t *testing.T) {
 		head, err = bc.HeadsHeader()
 		require.NoError(t, err)
 		require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
+
+		// Validate reorg event
+		got, ok := <-sub.Recv()
+		require.True(t, ok)
+		assert.Equal(t, integEnd.Hash, got.EndBlockHash)
+		assert.Equal(t, integEnd.Number, got.EndBlockNum)
+		assert.Equal(t, integStart.Hash, got.StartBlockHash)
+		assert.Equal(t, integStart.Number, got.StartBlockNum)
 	})
-}
-
-func TestSubscribeNewHeads(t *testing.T) {
-	t.Parallel()
-	testDB := pebble.NewMemTest(t)
-	log := utils.NewNopZapLogger()
-	integration := utils.Integration
-	chain := blockchain.New(testDB, &integration, nil)
-	integrationClient := feeder.NewTestClient(t, &integration)
-	gw := adaptfeeder.New(integrationClient)
-	syncer := sync.New(chain, gw, log, 0, false, testDB)
-
-	sub := syncer.SubscribeNewHeads()
-
-	// Receive on new block.
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	require.NoError(t, syncer.Run(ctx))
-	cancel()
-	got, ok := <-sub.Recv()
-	require.True(t, ok)
-	want, err := gw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
-	require.Equal(t, want.Header, got)
-	sub.Unsubscribe()
-}
-
-func TestPendingSync(t *testing.T) {
-	t.Parallel()
-
-	client := feeder.NewTestClient(t, &utils.Mainnet)
-	gw := adaptfeeder.New(client)
-
-	var synchronizer *sync.Synchronizer
-	testDB := pebble.NewMemTest(t)
-	log := utils.NewNopZapLogger()
-	bc := blockchain.New(testDB, &utils.Mainnet, synchronizer.PendingBlock)
-	synchronizer = sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-
-	require.NoError(t, synchronizer.Run(ctx))
-	cancel()
-
-	head, err := bc.HeadsHeader()
-	require.NoError(t, err)
-	pending, err := synchronizer.Pending()
-	require.NoError(t, err)
-	assert.Equal(t, head.Hash, pending.Block.ParentHash)
 }
 
 func TestPending(t *testing.T) {
@@ -295,4 +260,53 @@ func TestPending(t *testing.T) {
 		})
 		require.NoError(t, pErr)
 	})
+}
+
+func TestSubscribeNewHeads(t *testing.T) {
+	t.Parallel()
+	testDB := pebble.NewMemTest(t)
+	log := utils.NewNopZapLogger()
+	integration := utils.Integration
+	chain := blockchain.New(testDB, &integration, nil)
+	integrationClient := feeder.NewTestClient(t, &integration)
+	gw := adaptfeeder.New(integrationClient)
+	syncer := sync.New(chain, gw, log, 0, false, testDB)
+
+	sub := syncer.SubscribeNewHeads()
+
+	// Receive on new block.
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	require.NoError(t, syncer.Run(ctx))
+	cancel()
+	got, ok := <-sub.Recv()
+	require.True(t, ok)
+	want, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	require.Equal(t, want.Header, got)
+	sub.Unsubscribe()
+}
+
+func TestSubscribePendingTxs(t *testing.T) {
+	t.Parallel()
+
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+
+	testDB := pebble.NewMemTest(t)
+	log := utils.NewNopZapLogger()
+	bc := blockchain.New(testDB, &utils.Mainnet, nil)
+	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	sub := synchronizer.SubscribePendingTxs()
+
+	require.NoError(t, synchronizer.Run(ctx))
+	cancel()
+
+	pending, err := synchronizer.Pending()
+	require.NoError(t, err)
+	pendingTxs, ok := <-sub.Recv()
+	require.True(t, ok)
+	require.Equal(t, pending.Block.Transactions, pendingTxs)
+	sub.Unsubscribe()
 }

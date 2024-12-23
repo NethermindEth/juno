@@ -174,6 +174,13 @@ func TestHandle(t *testing.T) {
 				return 0, jsonrpc.Err(jsonrpc.InternalError, nil)
 			},
 		},
+		{
+			Name:   "singleOptionalParam",
+			Params: []jsonrpc.Parameter{{Name: "param", Optional: true}},
+			Handler: func(param *int) (int, *jsonrpc.Error) {
+				return 0, nil
+			},
+		},
 	}
 
 	listener := CountingEventListener{}
@@ -474,6 +481,14 @@ func TestHandle(t *testing.T) {
 			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,
 			res:              `{"jsonrpc":"2.0","error":{"code":-32603,"message":"Internal error"},"id":1}`,
 			checkFailedEvent: true,
+		},
+		"empty optional param": {
+			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "params": {}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+		"null optional param": {
+			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
 	}
 

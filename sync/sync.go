@@ -38,6 +38,26 @@ type HeaderSubscription struct {
 	*feed.Subscription[*core.Header]
 }
 
+type ReorgSubscription struct {
+	*feed.Subscription[*ReorgBlockRange]
+}
+
+type PendingTxSubscription struct {
+	*feed.Subscription[[]core.Transaction]
+}
+
+// ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
+type ReorgBlockRange struct {
+	// StartBlockHash is the hash of the first known block of the orphaned chain
+	StartBlockHash *felt.Felt
+	// StartBlockNum is the number of the first known block of the orphaned chain
+	StartBlockNum uint64
+	// The last known block of the orphaned chain
+	EndBlockHash *felt.Felt
+	// Number of the last known block of the orphaned chain
+	EndBlockNum uint64
+}
+
 // Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
@@ -45,6 +65,8 @@ type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
+	SubscribeReorg() ReorgSubscription
+	SubscribePendingTxs() PendingTxSubscription
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
@@ -64,6 +86,14 @@ func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
 
 func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
+}
+
+func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
+	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
+}
+
+func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
+	return PendingTxSubscription{feed.New[[]core.Transaction]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
@@ -87,6 +117,8 @@ type Synchronizer struct {
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
+	reorgFeed           *feed.Feed[*ReorgBlockRange]
+	pendingTxsFeed      *feed.Feed[[]core.Transaction]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -95,6 +127,8 @@ type Synchronizer struct {
 	pendingPollInterval time.Duration
 	catchUpMode         bool
 	plugin              junoplugin.JunoPlugin
+
+	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
@@ -106,6 +140,8 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
+		reorgFeed:           feed.New[*ReorgBlockRange](),
+		pendingTxsFeed:      feed.New[[]core.Transaction](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -304,6 +340,11 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
 			}
 
+			if s.currReorg != nil {
+				s.reorgFeed.Send(s.currReorg)
+				s.currReorg = nil // reset the reorg data
+			}
+
 			s.newHeads.Send(block.Header)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
@@ -403,6 +444,19 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	} else {
 		s.log.Infow("Reverted HEAD", "reverted", localHead)
 	}
+
+	if s.currReorg == nil { // first block of the reorg
+		s.currReorg = &ReorgBlockRange{
+			StartBlockHash: localHead,
+			StartBlockNum:  head.Number,
+			EndBlockHash:   localHead,
+			EndBlockNum:    head.Number,
+		}
+	} else { // not the first block of the reorg, adjust the starting block
+		s.currReorg.StartBlockHash = localHead
+		s.currReorg.StartBlockNum = head.Number
+	}
+
 	s.listener.OnReorg(head.Number)
 }
 
@@ -519,6 +573,18 @@ func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
 	}
 }
 
+func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
+	return ReorgSubscription{
+		Subscription: s.reorgFeed.Subscribe(),
+	}
+}
+
+func (s *Synchronizer) SubscribePendingTxs() PendingTxSubscription {
+	return PendingTxSubscription{
+		Subscription: s.pendingTxsFeed.Subscribe(),
+	}
+}
+
 // StorePending stores a pending block given that it is for the next height
 func (s *Synchronizer) StorePending(p *Pending) error {
 	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
@@ -547,6 +613,9 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 		return err
 	}
 	s.pending.Store(p)
+
+	// send the pending transactions to the feed
+	s.pendingTxsFeed.Send(p.Block.Transactions)
 
 	return nil
 }
