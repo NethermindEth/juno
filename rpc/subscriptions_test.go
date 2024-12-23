@@ -524,7 +524,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
 
-	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
 	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose
@@ -778,7 +778,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 }
 
 func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *websocket.Conn {
-	ws := jsonrpc.NewWebsocket(server, utils.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 
 	conn, _, err := websocket.Dial(ctx, httpSrv.URL, nil) //nolint:bodyclose
