@@ -14,9 +14,9 @@ type Felt struct {
 	val fp.Element
 }
 
-func NewFelt(element *fp.Element) *Felt {
-	return &Felt{
-		val: *element,
+func New(element fp.Element) Felt {
+	return Felt{
+		val: element,
 	}
 }
 

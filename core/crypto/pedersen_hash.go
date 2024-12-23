@@ -19,7 +19,8 @@ func PedersenArray(elems ...*felt.Felt) *felt.Felt {
 // [Pedersen hash]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#pedersen_hash
 func Pedersen(a, b *felt.Felt) *felt.Felt {
 	hash := pedersenhash.Pedersen(a.Impl(), b.Impl())
-	return felt.NewFelt(&hash)
+	f := felt.New(hash)
+	return &f
 }
 
 var _ Digest = (*PedersenDigest)(nil)
@@ -39,5 +40,6 @@ func (d *PedersenDigest) Update(elems ...*felt.Felt) Digest {
 
 func (d *PedersenDigest) Finish() *felt.Felt {
 	d.digest = pedersenhash.Pedersen(&d.digest, new(fp.Element).SetUint64(d.count))
-	return felt.NewFelt(&d.digest)
+	f := felt.New(d.digest)
+	return &f
 }
