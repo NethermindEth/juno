@@ -46,6 +46,18 @@ type PendingTxSubscription struct {
 	*feed.Subscription[[]core.Transaction]
 }
 
+// ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
+type ReorgBlockRange struct {
+	// StartBlockHash is the hash of the first known block of the orphaned chain
+	StartBlockHash *felt.Felt
+	// StartBlockNum is the number of the first known block of the orphaned chain
+	StartBlockNum uint64
+	// The last known block of the orphaned chain
+	EndBlockHash *felt.Felt
+	// Number of the last known block of the orphaned chain
+	EndBlockNum uint64
+}
+
 // Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
@@ -82,18 +94,6 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 
 func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
 	return PendingTxSubscription{feed.New[[]core.Transaction]().Subscribe()}
-}
-
-// ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
-type ReorgBlockRange struct {
-	// StartBlockHash is the hash of the first known block of the orphaned chain
-	StartBlockHash *felt.Felt
-	// StartBlockNum is the number of the first known block of the orphaned chain
-	StartBlockNum uint64
-	// The last known block of the orphaned chain
-	EndBlockHash *felt.Felt
-	// Number of the last known block of the orphaned chain
-	EndBlockNum uint64
 }
 
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
@@ -548,9 +548,6 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return err
 	}
 
-	// send the pending transactions to the feed
-	s.pendingTxsFeed.Send(pendingBlock.Transactions)
-
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
 	return s.StorePending(&Pending{
 		Block:       pendingBlock,
@@ -616,6 +613,9 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 		return err
 	}
 	s.pending.Store(p)
+
+	// send the pending transactions to the feed
+	s.pendingTxsFeed.Send(p.Block.Transactions)
 
 	return nil
 }

@@ -259,10 +259,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 	return &SubscriptionID{ID: id}, nil
 }
 
-func (h *Handler) processPendingTxs(
-	ctx context.Context,
-	getDetails bool,
-	senderAddr []felt.Felt,
+func (h *Handler) processPendingTxs(ctx context.Context, getDetails bool, senderAddr []felt.Felt,
 	pendingTxsSub *feed.Subscription[[]core.Transaction],
 	w jsonrpc.Conn,
 	id uint64,
@@ -338,11 +335,11 @@ func (h *Handler) filterTxBySender(txn core.Transaction, senderAddr []felt.Felt)
 	return false
 }
 
-func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result interface{}, id uint64) error {
+func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result any, id uint64) error {
 	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionPendingTransactions",
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"subscription_id": id,
 			"result":          result,
 		},
