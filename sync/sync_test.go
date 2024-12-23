@@ -186,25 +186,80 @@ func TestReorg(t *testing.T) {
 }
 
 func TestPending(t *testing.T) {
-	t.Parallel()
-
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
+	var synchronizer *sync.Synchronizer
 	testDB := pebble.NewMemTest(t)
-	log := utils.NewNopZapLogger()
-	bc := blockchain.New(testDB, &utils.Mainnet, nil)
-	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	chain := blockchain.New(testDB, &utils.Mainnet, synchronizer.PendingBlock)
+	synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, false, testDB)
 
-	require.NoError(t, synchronizer.Run(ctx))
-	cancel()
+	b, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	su, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
 
-	head, err := bc.HeadsHeader()
-	require.NoError(t, err)
-	pending, err := synchronizer.Pending()
-	require.NoError(t, err)
-	assert.Equal(t, head.Hash, pending.Block.ParentHash)
+	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
+		_, _, err = synchronizer.PendingState()
+		require.Error(t, err)
+	})
+
+	t.Run("cannot store unsupported pending block version", func(t *testing.T) {
+		pending := &sync.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+		require.Error(t, synchronizer.StorePending(pending))
+	})
+
+	t.Run("store genesis as pending", func(t *testing.T) {
+		pendingGenesis := &sync.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, synchronizer.StorePending(pendingGenesis))
+
+		gotPending, pErr := synchronizer.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, pendingGenesis, gotPending)
+	})
+
+	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+
+	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 2)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 2)
+		require.NoError(t, err)
+
+		notExpectedPending := sync.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+	})
+
+	t.Run("store expected pending block", func(t *testing.T) {
+		b, err = gw.BlockByNumber(context.Background(), 1)
+		require.NoError(t, err)
+		su, err = gw.StateUpdate(context.Background(), 1)
+		require.NoError(t, err)
+
+		expectedPending := &sync.Pending{
+			Block:       b,
+			StateUpdate: su,
+		}
+		require.NoError(t, synchronizer.StorePending(expectedPending))
+
+		gotPending, pErr := synchronizer.Pending()
+		require.NoError(t, pErr)
+		assert.Equal(t, expectedPending, gotPending)
+	})
+
+	t.Run("get pending state", func(t *testing.T) {
+		_, pendingStateCloser, pErr := synchronizer.PendingState()
+		t.Cleanup(func() {
+			require.NoError(t, pendingStateCloser())
+		})
+		require.NoError(t, pErr)
+	})
 }
 
 func TestSubscribeNewHeads(t *testing.T) {

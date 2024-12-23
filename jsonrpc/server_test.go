@@ -175,7 +175,7 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
-			Name:   "emptyOptionalParam",
+			Name:   "singleOptionalParam",
 			Params: []jsonrpc.Parameter{{Name: "param", Optional: true}},
 			Handler: func(param *int) (int, *jsonrpc.Error) {
 				return 0, nil
@@ -483,7 +483,11 @@ func TestHandle(t *testing.T) {
 			checkFailedEvent: true,
 		},
 		"empty optional param": {
-			req: `{"jsonrpc": "2.0", "method": "emptyOptionalParam", "params": {}, "id": 1}`,
+			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "params": {}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+		"null optional param": {
+			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
 	}
