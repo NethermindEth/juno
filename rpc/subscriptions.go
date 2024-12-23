@@ -38,6 +38,10 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		return nil, ErrTooManyKeysInFilter
 	}
 
+	if blockID != nil && blockID.Pending {
+		return nil, ErrCallOnPending
+	}
+
 	requestedHeader, headHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -82,6 +86,133 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 
 		wg.Go(func() {
 			h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys)
+		})
+
+		wg.Wait()
+	})
+
+	return &SubscriptionID{ID: id}, nil
+}
+
+// SubscribeTransactionStatus subscribes to status changes of a transaction. It checks for updates each time a new block is added.
+// Later updates are sent only when the transaction status changes.
+// The optional block_id parameter is ignored, as status changes are not stored and historical data cannot be sent.
+//
+//nolint:gocyclo
+func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Felt, blockID *BlockID) (*SubscriptionID,
+	*jsonrpc.Error,
+) {
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	// resolveBlockRange is only used to make sure that the requested block id is not older than 1024 block and check
+	// if the requested block is found. The range is inconsequential since we assume the provided transaction hash
+	// of a transaction is included in the block range: latest/pending - 1024.
+	_, _, rpcErr := h.resolveBlockRange(blockID)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	curStatus, rpcErr := h.TransactionStatus(context.Background(), txHash)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	id := h.idgen()
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	sub := &subscription{
+		cancel: subscriptionCtxCancel,
+		conn:   w,
+	}
+	h.mu.Lock()
+	h.subscriptions[id] = sub
+	h.mu.Unlock()
+
+	l2HeadSub := h.newHeads.Subscribe()
+	l1HeadSub := h.l1Heads.Subscribe()
+	reorgSub := h.reorgs.Subscribe()
+
+	sub.wg.Go(func() {
+		defer func() {
+			h.unsubscribe(sub, id)
+			l2HeadSub.Unsubscribe()
+			l1HeadSub.Unsubscribe()
+			reorgSub.Unsubscribe()
+		}()
+
+		var wg conc.WaitGroup
+
+		err := h.sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
+		if err != nil {
+			h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
+			return
+		}
+
+		// Check if the requested transaction is already final.
+		// A transaction is considered to be final if it has been rejected or accepted on l1
+		if curStatus.Finality == TxnStatusRejected || curStatus.Finality == TxnStatusAcceptedOnL1 {
+			return
+		}
+
+		// At this point, the transaction has not reached finality.
+		wg.Go(func() {
+			for {
+				select {
+				case <-subscriptionCtx.Done():
+					return
+				case <-l2HeadSub.Recv():
+					// A new block has been added to the DB, hence, check if transaction has reached l2 finality,
+					// if not, check feeder.
+					// We could use a separate timer to periodically check for the transaction status at feeder
+					// gateway, however, for the time being new l2 head update is sufficient.
+					if curStatus.Finality < TxnStatusAcceptedOnL2 {
+						prevStatus := curStatus
+						curStatus, rpcErr = h.TransactionStatus(subscriptionCtx, txHash)
+
+						if rpcErr != nil {
+							h.log.Errorw("Error while getting Txn status", "txHash", txHash, "err", rpcErr)
+							return
+						}
+
+						if curStatus.Finality > prevStatus.Finality {
+							err := h.sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
+							if err != nil {
+								h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
+								return
+							}
+							if curStatus.Finality == TxnStatusRejected || curStatus.Finality == TxnStatusAcceptedOnL1 {
+								return
+							}
+						}
+					}
+				case <-l1HeadSub.Recv():
+					receipt, rpcErr := h.TransactionReceiptByHash(txHash)
+					if rpcErr != nil {
+						h.log.Errorw("Error while getting Receipt", "txHash", txHash, "err", rpcErr)
+						return
+					}
+
+					if receipt.FinalityStatus == TxnAcceptedOnL1 {
+						s := &TransactionStatus{
+							Finality:      TxnStatus(receipt.FinalityStatus),
+							Execution:     receipt.ExecutionStatus,
+							FailureReason: receipt.RevertReason,
+						}
+
+						err := h.sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *s}, id)
+						if err != nil {
+							h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
+						}
+						return
+					}
+				}
+			}
+		})
+
+		wg.Go(func() {
+			h.processReorgs(subscriptionCtx, reorgSub, w, id)
 		})
 
 		wg.Wait()
@@ -174,6 +305,10 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	if blockID != nil && blockID.Pending {
+		return nil, ErrCallOnPending
 	}
 
 	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
@@ -364,10 +499,6 @@ func (h *Handler) resolveBlockRange(blockID *BlockID) (*core.Header, *core.Heade
 		return latestHeader, latestHeader, nil
 	}
 
-	if blockID.Pending {
-		return nil, nil, ErrCallOnPending
-	}
-
 	startHeader, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, nil, rpcErr
@@ -500,4 +631,26 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	sub.cancel()
 	sub.wg.Wait() // Let the subscription finish before responding.
 	return true, nil
+}
+
+type SubscriptionTransactionStatus struct {
+	TransactionHash *felt.Felt        `json:"transaction_hash"`
+	Status          TransactionStatus `json:"status"`
+}
+
+// sendTxnStatus creates a response and sends it to the client
+func (h *Handler) sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id uint64) error {
+	resp, err := json.Marshal(SubscriptionResponse{
+		Version: "2.0",
+		Method:  "starknet_subscriptionTransactionsStatus",
+		Params: map[string]any{
+			"subscription_id": id,
+			"result":          status,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(resp)
+	return err
 }

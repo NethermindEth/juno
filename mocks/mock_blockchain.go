@@ -317,6 +317,20 @@ func (mr *MockReaderMockRecorder) StateUpdateByNumber(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateByNumber", reflect.TypeOf((*MockReader)(nil).StateUpdateByNumber), arg0)
 }
 
+// SubscribeL1Head mocks base method.
+func (m *MockReader) SubscribeL1Head() blockchain.L1HeadSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeL1Head")
+	ret0, _ := ret[0].(blockchain.L1HeadSubscription)
+	return ret0
+}
+
+// SubscribeL1Head indicates an expected call of SubscribeL1Head.
+func (mr *MockReaderMockRecorder) SubscribeL1Head() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeL1Head", reflect.TypeOf((*MockReader)(nil).SubscribeL1Head))
+}
+
 // TransactionByBlockNumberAndIndex mocks base method.
 func (m *MockReader) TransactionByBlockNumberAndIndex(arg0, arg1 uint64) (core.Transaction, error) {
 	m.ctrl.T.Helper()

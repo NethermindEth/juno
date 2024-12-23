@@ -11,6 +11,10 @@ type EventsArg struct {
 	ResultPageRequest
 }
 
+type SubscriptionID struct {
+	ID uint64 `json:"subscription_id"`
+}
+
 type EventFilter struct {
 	FromBlock *BlockID      `json:"from_block"`
 	ToBlock   *BlockID      `json:"to_block"`
@@ -39,10 +43,6 @@ type EmittedEvent struct {
 type EventsChunk struct {
 	Events            []*EmittedEvent `json:"events"`
 	ContinuationToken string          `json:"continuation_token,omitempty"`
-}
-
-type SubscriptionID struct {
-	ID uint64 `json:"subscription_id"`
 }
 
 /****************************************************

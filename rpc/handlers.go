@@ -96,6 +96,7 @@ type Handler struct {
 	newHeads   *feed.Feed[*core.Header]
 	reorgs     *feed.Feed[*sync.ReorgBlockRange]
 	pendingTxs *feed.Feed[[]core.Transaction]
+	l1Heads    *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -138,6 +139,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		newHeads:      feed.New[*core.Header](),
 		reorgs:        feed.New[*sync.ReorgBlockRange](),
 		pendingTxs:    feed.New[[]core.Transaction](),
+		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -181,12 +183,15 @@ func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
+	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
 	defer pendingTxsSub.Unsubscribe()
+	defer l1HeadsSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
 	feed.Tee(pendingTxsSub, h.pendingTxs)
+	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()
 	for _, sub := range h.subscriptions {
@@ -357,6 +362,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_subscribeNewHeads",
 			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
 			Handler: h.SubscribeNewHeads,
+		},
+		{
+			Name:    "starknet_subscribeTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block", Optional: true}},
+			Handler: h.SubscribeTransactionStatus,
 		},
 		{
 			Name:    "starknet_subscribePendingTransactions",

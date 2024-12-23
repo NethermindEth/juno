@@ -72,10 +72,10 @@ func (t *TransactionType) UnmarshalJSON(data []byte) error {
 type TxnStatus uint8
 
 const (
-	TxnStatusAcceptedOnL1 TxnStatus = iota + 1
-	TxnStatusAcceptedOnL2
-	TxnStatusReceived
+	TxnStatusReceived TxnStatus = iota + 1
 	TxnStatusRejected
+	TxnStatusAcceptedOnL2
+	TxnStatusAcceptedOnL1
 )
 
 func (s TxnStatus) MarshalText() ([]byte, error) {
@@ -114,8 +114,8 @@ func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 type TxnFinalityStatus uint8
 
 const (
-	TxnAcceptedOnL1 TxnFinalityStatus = iota + 1
-	TxnAcceptedOnL2
+	TxnAcceptedOnL2 TxnFinalityStatus = iota + 3
+	TxnAcceptedOnL1
 )
 
 func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
@@ -510,6 +510,10 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 				break
 			}
 		}
+
+		if txn == nil {
+			return nil, ErrTxnHashNotFound
+		}
 	}
 
 	var (
@@ -616,8 +620,9 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 	switch txErr {
 	case nil:
 		return &TransactionStatus{
-			Finality:  TxnStatus(receipt.FinalityStatus),
-			Execution: receipt.ExecutionStatus,
+			Finality:      TxnStatus(receipt.FinalityStatus),
+			Execution:     receipt.ExecutionStatus,
+			FailureReason: receipt.RevertReason,
 		}, nil
 	case ErrTxnHashNotFound:
 		if h.feederClient == nil {

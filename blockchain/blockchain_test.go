@@ -690,3 +690,20 @@ func TestL1Update(t *testing.T) {
 		})
 	}
 }
+
+func TestSubscribeL1Head(t *testing.T) {
+	l1Head := &core.L1Head{
+		BlockNumber: 1,
+		StateRoot:   new(felt.Felt).SetUint64(2),
+	}
+
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet, nil)
+	sub := chain.SubscribeL1Head()
+	t.Cleanup(sub.Unsubscribe)
+
+	require.NoError(t, chain.SetL1Head(l1Head))
+
+	got, ok := <-sub.Recv()
+	require.True(t, ok)
+	assert.Equal(t, l1Head, got)
+}
