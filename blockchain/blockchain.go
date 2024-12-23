@@ -11,9 +11,14 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
+
+type L1HeadSubscription struct {
+	*feed.Subscription[*core.L1Head]
+}
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
@@ -21,6 +26,7 @@ type Reader interface {
 
 	Head() (head *core.Block, err error)
 	L1Head() (*core.L1Head, error)
+	SubscribeL1Head() L1HeadSubscription
 	BlockByNumber(number uint64) (block *core.Block, err error)
 	BlockByHash(hash *felt.Felt) (block *core.Block, err error)
 
@@ -81,6 +87,7 @@ type Blockchain struct {
 	network        *utils.Network
 	database       db.DB
 	listener       EventListener
+	l1HeadFeed     *feed.Feed[*core.L1Head]
 	pendingBlockFn func() *core.Block
 }
 
@@ -90,6 +97,7 @@ func New(database db.DB, network *utils.Network, pendingBlockFn func() *core.Blo
 		database:       database,
 		network:        network,
 		listener:       &SelectiveListener{},
+		l1HeadFeed:     feed.New[*core.L1Head](),
 		pendingBlockFn: pendingBlockFn,
 	}
 }
@@ -279,6 +287,10 @@ func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.F
 	})
 }
 
+func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
+	return L1HeadSubscription{b.l1HeadFeed.Subscribe()}
+}
+
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
 	b.listener.OnRead("L1Head")
 	var update *core.L1Head
@@ -305,9 +317,15 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 	if err != nil {
 		return err
 	}
-	return b.database.Update(func(txn db.Transaction) error {
+
+	if err := b.database.Update(func(txn db.Transaction) error {
 		return txn.Set(db.L1Height.Key(), updateBytes)
-	})
+	}); err != nil {
+		return err
+	}
+
+	b.l1HeadFeed.Send(update)
+	return nil
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.

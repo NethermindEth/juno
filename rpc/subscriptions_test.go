@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -29,9 +30,6 @@ import (
 
 var emptyCommitments = core.BlockCommitments{}
 
-// Due to the difference in how some test files in rpc use "package rpc" vs "package rpc_test" it was easiest to copy
-// the fakeConn here.
-// Todo: move all the subscription related test here
 type fakeConn struct {
 	w io.Writer
 }
@@ -92,8 +90,6 @@ func TestSubscribeEvents(t *testing.T) {
 		})
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
 		assert.Zero(t, id)
@@ -330,6 +326,226 @@ func TestSubscribeEvents(t *testing.T) {
 	})
 }
 
+func TestSubscribeTxnStatus(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	txHash := new(felt.Felt).SetUint64(1)
+
+	t.Run("Return error when transaction not found", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncer.EXPECT().PendingBlock().Return(nil)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		assert.Nil(t, id)
+		assert.Equal(t, ErrTxnHashNotFound, rpcErr)
+	})
+
+	t.Run("Return error if block is too far back", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		blockID := &BlockID{Number: 0}
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		// Note the end of the window doesn't need to be tested because if requested block number is more than the
+		// head, a block not found error will be returned. This behaviour has been tested in various other tests, and we
+		// don't need to test it here again.
+		t.Run("head is 1024", func(t *testing.T) {
+			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
+
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
+		})
+
+		t.Run("head is more than 1024", func(t *testing.T) {
+			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
+
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
+			assert.Zero(t, id)
+			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
+		})
+	})
+
+	t.Run("Transaction status is final", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
+
+		t.Run("rejected", func(t *testing.T) { //nolint:dupl
+			serverConn, clientConn := net.Pipe()
+			t.Cleanup(func() {
+				require.NoError(t, serverConn.Close())
+				require.NoError(t, clientConn.Close())
+			})
+
+			respStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s","failure_reason":"some error"}},"subscription_id":%v}}`
+			txHash, err := new(felt.Felt).SetString("0x1111")
+			require.NoError(t, err)
+
+			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+			mockSyncer.EXPECT().PendingBlock().Return(nil)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			require.Nil(t, rpcErr)
+
+			b, err := TxnStatusRejected.MarshalText()
+			require.NoError(t, err)
+
+			resp := fmt.Sprintf(respStr, txHash, b, id.ID)
+			got := make([]byte, len(resp))
+			_, err = clientConn.Read(got)
+			require.NoError(t, err)
+			assert.Equal(t, resp, string(got))
+			cancel()
+		})
+
+		t.Run("accepted on L1", func(t *testing.T) { //nolint:dupl
+			serverConn, clientConn := net.Pipe()
+			t.Cleanup(func() {
+				require.NoError(t, serverConn.Close())
+				require.NoError(t, clientConn.Close())
+			})
+
+			respStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s","execution_status":"SUCCEEDED"}},"subscription_id":%v}}`
+			txHash, err := new(felt.Felt).SetString("0x1010")
+			require.NoError(t, err)
+
+			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
+			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+			mockSyncer.EXPECT().PendingBlock().Return(nil)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			require.Nil(t, rpcErr)
+
+			b, err := TxnStatusAcceptedOnL1.MarshalText()
+			require.NoError(t, err)
+
+			resp := fmt.Sprintf(respStr, txHash, b, id.ID)
+			got := make([]byte, len(resp))
+			_, err = clientConn.Read(got)
+			require.NoError(t, err)
+			assert.Equal(t, resp, string(got))
+			cancel()
+		})
+	})
+
+	t.Run("Multiple transaction status update", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		gw := adaptfeeder.New(client)
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+		handler.WithFeeder(client)
+		l2Feed := feed.New[*core.Header]()
+		l1Feed := feed.New[*core.L1Head]()
+		handler.newHeads = l2Feed
+		handler.l1Heads = l1Feed
+
+		block, err := gw.BlockByNumber(context.Background(), 38748)
+		require.NoError(t, err)
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		receivedRespStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s"}},"subscription_id":%v}}`
+		txHash, err := new(felt.Felt).SetString("0x1001")
+		require.NoError(t, err)
+
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: block.Number}, nil)
+		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncer.EXPECT().PendingBlock().Return(nil)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		require.Nil(t, rpcErr)
+
+		b, err := TxnStatusReceived.MarshalText()
+		require.NoError(t, err)
+
+		resp := fmt.Sprintf(receivedRespStr, txHash, b, id.ID)
+		got := make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, resp, string(got))
+
+		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
+		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		l2Feed.Send(&core.Header{Number: block.Number + 1})
+
+		b, err = TxnStatusAcceptedOnL2.MarshalText()
+		require.NoError(t, err)
+
+		l1AndL2RespStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s","execution_status":"SUCCEEDED"}},"subscription_id":%v}}`
+		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id.ID)
+		got = make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, resp, string(got))
+
+		l1Head := &core.L1Head{BlockNumber: block.Number}
+		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
+		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockChain.EXPECT().L1Head().Return(l1Head, nil)
+
+		l1Feed.Send(l1Head)
+
+		b, err = TxnStatusAcceptedOnL1.MarshalText()
+		require.NoError(t, err)
+
+		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id.ID)
+		got = make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, resp, string(got))
+		cancel()
+	})
+}
+
 type fakeSyncer struct {
 	newHeads   *feed.Feed[*core.Header]
 	reorgs     *feed.Feed[*sync.ReorgBlockRange]
@@ -378,8 +594,6 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -438,10 +652,12 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		syncer := newFakeSyncer()
-		handler, server := setupRPC(t, ctx, mockChain, syncer)
 
+		l1Feed := feed.New[*core.L1Head]()
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
+		mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
+		handler, server := setupRPC(t, ctx, mockChain, syncer)
 		conn := createWsConn(t, ctx, server)
 
 		id := uint64(1)
@@ -520,6 +736,10 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	syncer := newFakeSyncer()
+
+	l1Feed := feed.New[*core.L1Head]()
+	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
@@ -584,6 +804,9 @@ func TestSubscriptionReorg(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
+	l1Feed := feed.New[*core.L1Head]()
+	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
@@ -648,6 +871,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
+	l1Feed := feed.New[*core.L1Head]()
+	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
@@ -799,28 +1025,6 @@ func subMsg(method string) string {
 	return fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q}`, method)
 }
 
-func testHeader(t *testing.T) *core.Header {
-	t.Helper()
-
-	header := &core.Header{
-		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
-		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
-		Number:           2,
-		GlobalStateRoot:  utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
-		Timestamp:        1637084470,
-		SequencerAddress: utils.HexToFelt(t, "0x0"),
-		L1DataGasPrice: &core.GasPrice{
-			PriceInFri: utils.HexToFelt(t, "0x0"),
-			PriceInWei: utils.HexToFelt(t, "0x0"),
-		},
-		GasPrice:        utils.HexToFelt(t, "0x0"),
-		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
-		L1DAMode:        core.Calldata,
-		ProtocolVersion: "",
-	}
-	return header
-}
-
 func newHeadsResponse(id uint64) string {
 	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`, id)
 }
@@ -865,4 +1069,26 @@ func marshalSubEventsResp(e *EmittedEvent, id uint64) ([]byte, error) {
 			"result":          e,
 		},
 	})
+}
+
+func testHeader(t *testing.T) *core.Header {
+	t.Helper()
+
+	header := &core.Header{
+		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
+		Number:           2,
+		GlobalStateRoot:  utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
+		Timestamp:        1637084470,
+		SequencerAddress: utils.HexToFelt(t, "0x0"),
+		L1DataGasPrice: &core.GasPrice{
+			PriceInFri: utils.HexToFelt(t, "0x0"),
+			PriceInWei: utils.HexToFelt(t, "0x0"),
+		},
+		GasPrice:        utils.HexToFelt(t, "0x0"),
+		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
+		L1DAMode:        core.Calldata,
+		ProtocolVersion: "",
+	}
+	return header
 }

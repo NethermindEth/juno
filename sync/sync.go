@@ -568,21 +568,15 @@ func (s *Synchronizer) HighestBlockHeader() *core.Header {
 }
 
 func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
-	return HeaderSubscription{
-		Subscription: s.newHeads.Subscribe(),
-	}
+	return HeaderSubscription{s.newHeads.Subscribe()}
 }
 
 func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
-	return ReorgSubscription{
-		Subscription: s.reorgFeed.Subscribe(),
-	}
+	return ReorgSubscription{s.reorgFeed.Subscribe()}
 }
 
 func (s *Synchronizer) SubscribePendingTxs() PendingTxSubscription {
-	return PendingTxSubscription{
-		Subscription: s.pendingTxsFeed.Subscribe(),
-	}
+	return PendingTxSubscription{s.pendingTxsFeed.Subscribe()}
 }
 
 // StorePending stores a pending block given that it is for the next height
