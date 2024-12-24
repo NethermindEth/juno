@@ -9,7 +9,7 @@ import (
 
 func TestFeeEstimateToV0_7(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		assert.Equal(t, FeeEstimateV0_7{}, FeeEstimateToV0_7(FeeEstimate{}))
+		assert.Equal(t, FeeEstimateV0_7{}, feeEstimateToV0_7(FeeEstimate{}))
 	})
 
 	t.Run("full", func(t *testing.T) {
@@ -29,7 +29,7 @@ func TestFeeEstimateToV0_7(t *testing.T) {
 				OverallFee:      overallFee,
 				Unit:            &unit,
 			},
-			FeeEstimateToV0_7(FeeEstimate{
+			feeEstimateToV0_7(FeeEstimate{
 				L1GasConsumed:     gasConsumed,
 				L1GasPrice:        gasPrice,
 				L2GasConsumed:     new(felt.Felt).SetUint64(6),
