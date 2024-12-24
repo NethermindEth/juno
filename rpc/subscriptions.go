@@ -495,7 +495,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	sub, ok := h.subscriptions[id]
 	h.mu.Unlock() // Don't defer since h.unsubscribe acquires the lock.
 	if !ok || !sub.conn.Equal(w) {
-		return false, ErrSubscriptionNotFound
+		return false, ErrInvalidSubscriptionID
 	}
 	sub.cancel()
 	sub.wg.Wait() // Let the subscription finish before responding.

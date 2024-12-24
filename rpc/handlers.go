@@ -66,12 +66,10 @@ var (
 	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
 	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
 	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
+	ErrInvalidSubscriptionID           = &jsonrpc.Error{Code: 66, Message: "Invalid subscription id"}
 	ErrTooManyAddressesInFilter        = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
 	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
 	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
-
-	// These errors can be only be returned by Juno-specific methods.
-	ErrSubscriptionNotFound = &jsonrpc.Error{Code: 100, Message: "Subscription not found"}
 )
 
 const (
@@ -366,7 +364,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SubscribePendingTxs,
 		},
 		{
-			Name:    "juno_unsubscribe",
+			Name:    "starknet_unsubscribe",
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
 		},
@@ -535,7 +533,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SubscribeNewHeads,
 		},
 		{
-			Name:    "juno_unsubscribe",
+			Name:    "starknet_unsubscribe",
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
 			Handler: h.Unsubscribe,
 		},
