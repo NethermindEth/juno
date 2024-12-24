@@ -5,19 +5,19 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 )
 
 //nolint:funlen,gocyclo
-func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transaction {
+func AdaptTransaction(t *gen.Transaction, network *utils.Network) core.Transaction {
 	if t == nil {
 		return nil
 	}
 
 	// can Txn be nil?
 	switch t.Txn.(type) {
-	case *spec.Transaction_DeclareV0_:
+	case *gen.Transaction_DeclareV0_:
 		tx := t.GetDeclareV0()
 		declareTx := &core.DeclareTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
@@ -39,7 +39,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return declareTx
-	case *spec.Transaction_DeclareV1_:
+	case *gen.Transaction_DeclareV1_:
 		tx := t.GetDeclareV1()
 		declareTx := &core.DeclareTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
@@ -61,7 +61,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return declareTx
-	case *spec.Transaction_DeclareV2_:
+	case *gen.Transaction_DeclareV2_:
 		tx := t.GetDeclareV2()
 		declareTx := &core.DeclareTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
@@ -82,7 +82,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return declareTx
-	case *spec.Transaction_DeclareV3_:
+	case *gen.Transaction_DeclareV3_:
 		tx := t.GetDeclareV3()
 
 		nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
@@ -116,7 +116,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return declareTx
-	case *spec.Transaction_Deploy_:
+	case *gen.Transaction_Deploy_:
 		tx := t.GetDeploy()
 
 		addressSalt := AdaptFelt(tx.AddressSalt)
@@ -132,7 +132,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return deployTx
-	case *spec.Transaction_DeployAccountV1_:
+	case *gen.Transaction_DeployAccountV1_:
 		tx := t.GetDeployAccountV1()
 
 		addressSalt := AdaptFelt(tx.AddressSalt)
@@ -159,7 +159,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return deployAccTx
-	case *spec.Transaction_DeployAccountV3_:
+	case *gen.Transaction_DeployAccountV3_:
 		tx := t.GetDeployAccountV3()
 
 		nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
@@ -198,7 +198,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return deployAccTx
-	case *spec.Transaction_InvokeV0_:
+	case *gen.Transaction_InvokeV0_:
 		tx := t.GetInvokeV0()
 		invTx := &core.InvokeTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
@@ -221,7 +221,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return invTx
-	case *spec.Transaction_InvokeV1_:
+	case *gen.Transaction_InvokeV1_:
 		tx := t.GetInvokeV1()
 		invTx := &core.InvokeTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
@@ -243,7 +243,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return invTx
-	case *spec.Transaction_InvokeV3_:
+	case *gen.Transaction_InvokeV3_:
 		tx := t.GetInvokeV3()
 
 		nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
@@ -278,7 +278,7 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 		}
 
 		return invTx
-	case *spec.Transaction_L1Handler:
+	case *gen.Transaction_L1Handler:
 		tx := t.GetL1Handler()
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash:    AdaptHash(t.TransactionHash),
@@ -295,14 +295,14 @@ func AdaptTransaction(t *spec.Transaction, network *utils.Network) core.Transact
 	}
 }
 
-func adaptResourceLimits(limits *spec.ResourceLimits) core.ResourceBounds {
+func adaptResourceLimits(limits *gen.ResourceLimits) core.ResourceBounds {
 	return core.ResourceBounds{
 		MaxAmount:       AdaptFelt(limits.MaxAmount).Uint64(),
 		MaxPricePerUnit: AdaptFelt(limits.MaxPricePerUnit),
 	}
 }
 
-func adaptAccountSignature(s *spec.AccountSignature) []*felt.Felt {
+func adaptAccountSignature(s *gen.AccountSignature) []*felt.Felt {
 	return utils.Map(s.Parts, AdaptFelt)
 }
 
@@ -310,11 +310,11 @@ func txVersion(v uint64) *core.TransactionVersion {
 	return new(core.TransactionVersion).SetUint64(v)
 }
 
-func adaptVolitionDomain(v spec.VolitionDomain) (core.DataAvailabilityMode, error) {
+func adaptVolitionDomain(v gen.VolitionDomain) (core.DataAvailabilityMode, error) {
 	switch v {
-	case spec.VolitionDomain_L1:
+	case gen.VolitionDomain_L1:
 		return core.DAModeL1, nil
-	case spec.VolitionDomain_L2:
+	case gen.VolitionDomain_L2:
 		return core.DAModeL2, nil
 	default:
 		return 0, fmt.Errorf("unknown volition domain %d", v)
