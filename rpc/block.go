@@ -331,8 +331,8 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InFri: nilToZero(header.L1GasPriceSTRK),
 		},
 		L2GasPrice: &ResourcePrice{
-			InWei: nilToZero(header.L2GasPriceETH),
-			InFri: nilToZero(header.L2GasPriceSTRK),
+			InWei: header.L2GasPriceETH,
+			InFri: header.L2GasPriceSTRK,
 		},
 		L1DataGasPrice:  &l1DataGasPrice,
 		L1DAMode:        &l1DAMode,

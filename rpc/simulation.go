@@ -164,7 +164,7 @@ func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUn
 
 	return FeeEstimate{
 		L1GasConsumed:     l1GasConsumed,
-		L2GasConsumed:     &felt.Zero, // TODO: Fix when we have l2 gas price
+		L2GasConsumed:     nil, // TODO: Fix when we have l2 gas price
 		L1GasPrice:        l1GasPrice,
 		L2GasPrice:        l2GasPrice,
 		L1DataGasConsumed: l1DataGasConsumed,
