@@ -34,14 +34,16 @@ func AdaptBlockHeader(h *spec.SignedBlockHeader, eventsBloom *bloom.BloomFilter)
 		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,
 		EventsBloom:      eventsBloom,
+		L1GasPriceETH:    AdaptUint128(h.GasPriceWei),
+		L2GasPriceETH:    nil, // TODO: Fix when we have l2 gas price
 		Signatures:       utils.Map(h.Signatures, adaptSignature),
+		L1GasPriceSTRK:   AdaptUint128(h.GasPriceFri),
+		L2GasPriceSTRK:   nil, // TODO: Fix when we have l2 gas price
 		L1DAMode:         adaptDA(h.L1DataAvailabilityMode),
 		L1DataGasPrice: &core.GasPrice{
 			PriceInWei: AdaptUint128(h.DataGasPriceWei),
 			PriceInFri: AdaptUint128(h.DataGasPriceFri),
 		},
-		GasPrice:     AdaptUint128(h.GasPriceWei),
-		GasPriceSTRK: AdaptUint128(h.GasPriceFri),
 	}
 }
 
