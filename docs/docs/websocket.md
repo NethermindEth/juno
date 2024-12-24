@@ -155,7 +155,7 @@ When a new block is added, you will receive a message like this:
 
 ## Unsubscribe from newly created blocks
 
-Use the `juno_unsubscribe` method with the `result` value from the subscription response or the `subscription` field from any new block event to stop receiving updates for new blocks:
+Use the `starknet_unsubscribe` method with the `result` value from the subscription response or the `subscription` field from any new block event to stop receiving updates for new blocks:
 
 <Tabs>
 <TabItem value="request" label="Request">
@@ -163,7 +163,7 @@ Use the `juno_unsubscribe` method with the `result` value from the subscription 
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "juno_unsubscribe",
+  "method": "starknet_unsubscribe",
   "params": {
     "id": 16570962336122680234
   },

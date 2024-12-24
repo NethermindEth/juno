@@ -571,7 +571,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.Equal(t, newHeadsResponse(secondID), string(secondHeaderGot))
 
 	// Unsubscribe
-	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"juno_unsubscribe","params":[%d]}`
+	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_unsubscribe","params":[%d]}`
 	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, firstID))))
 	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, secondID))))
 }
