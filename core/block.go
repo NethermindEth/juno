@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -137,9 +136,8 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	if err != nil {
 		return nil, nil, err
 	}
-	v0_13_2 := semver.MustParse("0.13.2")
 
-	if blockVer.LessThan(v0_13_2) {
+	if blockVer.LessThan(Ver0_13_2) {
 		if b.Number < metaInfo.First07Block {
 			return pre07Hash(b, network.L2ChainIDFelt())
 		}
@@ -173,11 +171,11 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 }
 
 func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
+	wg := conc.NewWaitGroup()
 	wg.Go(func() {
 		txCommitment, tErr = transactionCommitmentPoseidon(b.Transactions)
 	})
@@ -207,21 +205,43 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
+	// These values are nil for some pre 0.13.2 blocks
+	// `crypto.PoseidonArray` panics if any of the values are nil
+	seqAddr := &felt.Zero
+	gasPriceStrk := &felt.Zero
+	l1DataGasPricrInWei := &felt.Zero
+	l1DataGasPriceInFri := &felt.Zero
+
+	if b.SequencerAddress != nil {
+		seqAddr = b.SequencerAddress
+	}
+	if b.GasPriceSTRK != nil {
+		gasPriceStrk = b.GasPriceSTRK
+	}
+	if b.L1DataGasPrice != nil {
+		if b.L1DataGasPrice.PriceInWei != nil {
+			l1DataGasPricrInWei = b.L1DataGasPrice.PriceInWei
+		}
+		if b.L1DataGasPrice.PriceInFri != nil {
+			l1DataGasPriceInFri = b.L1DataGasPrice.PriceInFri
+		}
+	}
+
 	return crypto.PoseidonArray(
 			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
-			b.SequencerAddress,                    // sequencer address
+			seqAddr,                               // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			concatCounts,
 			sdCommitment,
-			txCommitment,   // transaction commitment
-			eCommitment,    // event commitment
-			rCommitment,    // receipt commitment
-			b.GasPrice,     // gas price in wei
-			b.GasPriceSTRK, // gas price in fri
-			b.L1DataGasPrice.PriceInWei,
-			b.L1DataGasPrice.PriceInFri,
+			txCommitment, // transaction commitment
+			eCommitment,  // event commitment
+			rCommitment,  // receipt commitment
+			b.GasPrice,   // gas price in wei
+			gasPriceStrk, // gas price in fri
+			l1DataGasPricrInWei,
+			l1DataGasPriceInFri,
 			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
