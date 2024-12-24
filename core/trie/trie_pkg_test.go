@@ -55,16 +55,17 @@ func TestTrieKeys(t *testing.T) {
 		// Check parent and its left right children
 		l := tempTrie.FeltToKey(leftKey)
 		r := tempTrie.FeltToKey(rightKey)
-		commonKey, isSame := findCommonKey(&l, &r)
-		require.False(t, isSame)
+		var commonKey BitArray
+		commonKey.CommonMSBs(&l, &r)
 
 		// Common key should be 0b100, length 251-2;
-		expectKey := NewKey(251-2, []byte{0x4})
+		// expectKey := NewKey(251-2, []byte{0x4})
+		expectKey := NewBitArray(249, 4)
 
 		assert.Equal(t, expectKey, commonKey)
 
 		// Current rootKey should be the common key
-		assert.Equal(t, expectKey, *tempTrie.rootKey)
+		assert.Equal(t, &expectKey, tempTrie.rootKey)
 
 		parentNode, err := tempTrie.storage.Get(&commonKey)
 		require.NoError(t, err)
@@ -98,12 +99,12 @@ func TestTrieKeys(t *testing.T) {
 		// Check parent and its left right children
 		l := tempTrie.FeltToKey(leftKey)
 		r := tempTrie.FeltToKey(rightKey)
-		commonKey, isSame := findCommonKey(&l, &r)
-		require.False(t, isSame)
+		var commonKey BitArray
+		commonKey.CommonMSBs(&l, &r)
 
-		expectKey := NewKey(251-2, []byte{0x4})
+		expectKey := NewBitArray(249, 4)
 
-		assert.Equal(t, expectKey, commonKey)
+		assert.Equal(t, &expectKey, &commonKey)
 
 		parentNode, err := tempTrie.storage.Get(&commonKey)
 		require.NoError(t, err)
@@ -134,23 +135,21 @@ func TestTrieKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		newVal := new(felt.Felt).SetUint64(12)
-		//nolint: dupl
 		t.Run("Add to left branch", func(t *testing.T) {
 			newKey := new(felt.Felt).SetUint64(0b101)
 			_, err = tempTrie.Put(newKey, newVal)
 			require.NoError(t, err)
-			commonKey := NewKey(250, []byte{0x2})
+			commonKey := NewBitArray(250, 2)
 			parentNode, pErr := tempTrie.storage.Get(&commonKey)
 			require.NoError(t, pErr)
 			assert.Equal(t, tempTrie.FeltToKey(leftKey), *parentNode.Left)
 			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Right)
 		})
-		//nolint: dupl
 		t.Run("Add to right branch", func(t *testing.T) {
 			newKey := new(felt.Felt).SetUint64(0b110)
 			_, err = tempTrie.Put(newKey, newVal)
 			require.NoError(t, err)
-			commonKey := NewKey(250, []byte{0x3})
+			commonKey := NewBitArray(250, 3)
 			parentNode, pErr := tempTrie.storage.Get(&commonKey)
 			require.NoError(t, pErr)
 			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Left)
@@ -166,15 +165,15 @@ func TestTrieKeys(t *testing.T) {
 			_, err = tempTrie.Put(newKey, newVal)
 			require.NoError(t, err)
 
-			commonKey := NewKey(248, []byte{})
+			commonKey := NewBitArray(248, 0)
 			parentNode, err := tempTrie.storage.Get(&commonKey)
 			require.NoError(t, err)
 
 			assert.Equal(t, tempTrie.FeltToKey(newKey), *parentNode.Left)
 
-			expectRightKey := NewKey(249, []byte{0x1})
+			expectRightKey := NewBitArray(249, 1)
 
-			assert.Equal(t, expectRightKey, *parentNode.Right)
+			assert.Equal(t, &expectRightKey, parentNode.Right)
 		})
 	})
 }
@@ -239,9 +238,9 @@ func TestTrieKeysAfterDeleteSubtree(t *testing.T) {
 			_, err = tempTrie.Put(test.deleteKey, zeroVal)
 			require.NoError(t, err)
 
-			newRootKey := NewKey(251-2, []byte{0x1})
+			newRootKey := NewBitArray(249, 1)
 
-			assert.Equal(t, newRootKey, *tempTrie.rootKey)
+			assert.Equal(t, &newRootKey, tempTrie.rootKey)
 
 			rootNode, err := tempTrie.storage.Get(&newRootKey)
 			require.NoError(t, err)
