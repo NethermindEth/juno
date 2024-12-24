@@ -535,8 +535,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				InWei: utils.HexToFelt(t, "0x3b9aca10"),
 			},
 			L2GasPrice: &rpc.ResourcePrice{
-				InFri: &felt.Zero,
-				InWei: &felt.Zero,
+				InFri: nil,
+				InWei: nil,
 			},
 			L1DataGasPrice: &rpc.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
