@@ -122,8 +122,8 @@ func TestAdaptBlock(t *testing.T) {
 
 			assert.Equal(t, test.gasPriceSTRK, block.L1GasPriceSTRK)
 			assert.Equal(t, test.gasPriceWEI, block.L1GasPriceETH)
-			assert.Equal(t, &felt.Zero, block.L2GasPriceSTRK)
-			assert.Equal(t, &felt.Zero, block.L2GasPriceETH)
+			assert.Nil(t, block.L2GasPriceSTRK)
+			assert.Nil(t, block.L2GasPriceETH)
 			if test.l1DAGasPriceFRI != nil {
 				assert.Equal(t, test.l1DAGasPriceFRI, block.L1DataGasPrice.PriceInFri)
 			}
