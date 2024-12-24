@@ -91,7 +91,12 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 
 //nolint:gocritic
 func (h *Handler) EstimateMessageFeeV0_7(msg MsgFromL1, id BlockID) (*FeeEstimateV0_7, http.Header, *jsonrpc.Error) {
-	return estimateMessageFee(msg, id, h.EstimateFeeV0_7)
+	estimate, header, err := estimateMessageFee(msg, id, h.EstimateFee)
+	if err != nil {
+		return nil, header, err
+	}
+	estimateV0_7 := FeeEstimateToV0_7(*estimate)
+	return &estimateV0_7, header, nil
 }
 
 //nolint:gocritic
@@ -99,12 +104,12 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, h
 	return estimateMessageFee(msg, id, h.EstimateFee)
 }
 
-type estimateFeeHandler[T any] func(broadcastedTxns []BroadcastedTransaction,
+type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
-) ([]T, http.Header, *jsonrpc.Error)
+) ([]FeeEstimate, http.Header, *jsonrpc.Error)
 
 //nolint:gocritic
-func estimateMessageFee[T any](msg MsgFromL1, id BlockID, f estimateFeeHandler[T]) (*T, http.Header, *jsonrpc.Error) {
+func estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
