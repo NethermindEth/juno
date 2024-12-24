@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -34,6 +35,18 @@ const (
 	clientName                = "juno"
 )
 
+type IPAddressEvent uint8
+
+const (
+	Add IPAddressEvent = iota
+	Remove
+)
+
+type IPAddressRegistryEvent struct {
+	EventType IPAddressEvent
+	Address   string
+}
+
 type Service struct {
 	host host.Host
 
@@ -49,10 +62,12 @@ type Service struct {
 
 	feederNode bool
 	database   db.DB
+
+	l1events <-chan IPAddressRegistryEvent
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.DB, l1events <-chan IPAddressRegistryEvent,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -109,11 +124,11 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database, l1events)
 }
 
 func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.DB, l1events <-chan IPAddressRegistryEvent,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
@@ -155,6 +170,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		feederNode:   feederNode,
 		handler:      starknet.NewHandler(bc, log),
 		database:     database,
+		l1events:     l1events,
 	}
 	return s, nil
 }
@@ -207,6 +223,8 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 
+	go s.listenForL1Events(ctx)
+
 	err := s.dht.Bootstrap(ctx)
 	if err != nil {
 		return err
@@ -246,6 +264,43 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
 	return nil
+}
+
+func (s *Service) listenForL1Events(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case registryEvent, ok := <-s.l1events:
+			if !ok {
+				s.log.Debugw("L1 events channel closed")
+				return
+			}
+			peerInfo, err := peer.AddrInfoFromP2pAddr(multiaddr.StringCast(registryEvent.Address))
+			if err != nil {
+				s.log.Warnw("Failed to parse peer address", "peer", registryEvent.Address, "err", err)
+				continue
+			}
+			switch registryEvent.EventType {
+			case Add:
+				if err := s.host.Connect(ctx, *peerInfo); err != nil {
+					s.log.Warnw("Failed to connect to peer", "peer", registryEvent.Address, "err", err)
+				} else {
+					s.log.Debugw("Connected to peer", "peer", registryEvent.Address)
+				}
+			case Remove:
+				if err := s.host.Network().ClosePeer(peerInfo.ID); err != nil {
+					s.log.Warnw("Failed to disconnect from peer", "peer", registryEvent.Address, "err", err)
+				} else {
+					s.log.Debugw("Disconnected from peer", "peer", registryEvent.Address)
+				}
+				s.host.Peerstore().RemovePeer(peerInfo.ID)
+				s.log.Debugw("Removed peer from peerstore", "peer", peerInfo.ID)
+				s.dht.RoutingTable().RemovePeer(peerInfo.ID)
+				s.log.Debugw("Removed peer from routing table", "peer", peerInfo.ID)
+			}
+		}
+	}
 }
 
 func (s *Service) setProtocolHandlers() {
@@ -360,9 +415,13 @@ func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 		defer it.Close()
 
 		prefix := db.Peer.Key()
+		var peerIDBytes []byte
 		for it.Seek(prefix); it.Valid(); it.Next() {
-			peerIDBytes := it.Key()[len(prefix):]
-			peerID, err := peer.IDFromBytes(peerIDBytes)
+			peerIDBytes = it.Key()
+			if !bytes.HasPrefix(peerIDBytes, prefix) {
+				break
+			}
+			peerID, err := peer.IDFromBytes(peerIDBytes[len(prefix):])
 			if err != nil {
 				return fmt.Errorf("decode peer ID: %w", err)
 			}
