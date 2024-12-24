@@ -11,8 +11,8 @@ import (
 func TestL2GasPrice(t *testing.T) {
 	t.Run("L2GasPrice is not set", func(t *testing.T) {
 		block := starknet.Block{}
-		assert.Equal(t, &felt.Zero, block.L2GasPriceETH())
-		assert.Equal(t, &felt.Zero, block.L2GasPriceSTRK())
+		assert.Nil(t, block.L2GasPriceETH())
+		assert.Nil(t, block.L2GasPriceSTRK())
 	})
 
 	t.Run("L2GasPrice is set", func(t *testing.T) {

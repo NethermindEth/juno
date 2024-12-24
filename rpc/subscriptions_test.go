@@ -813,8 +813,8 @@ func testHeader(t *testing.T) *core.Header {
 			PriceInFri: utils.HexToFelt(t, "0x0"),
 			PriceInWei: utils.HexToFelt(t, "0x0"),
 		},
-		GasPrice:        utils.HexToFelt(t, "0x0"),
-		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
+		L1GasPriceETH:   utils.HexToFelt(t, "0x0"),
+		L1GasPriceSTRK:  utils.HexToFelt(t, "0x0"),
 		L1DAMode:        core.Calldata,
 		ProtocolVersion: "",
 	}

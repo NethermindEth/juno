@@ -35,5 +35,5 @@ func TestCalculateFeeEstimate(t *testing.T) {
 	assert.Equal(t, overallFee, feeEstimate.OverallFee)
 	assert.Equal(t, FRI, *feeEstimate.Unit)
 	assert.Equal(t, new(felt.Felt).SetUint64(35), feeEstimate.L1GasConsumed)
-	assert.Equal(t, &felt.Zero, feeEstimate.L2GasConsumed)
+	assert.Nil(t, feeEstimate.L2GasConsumed)
 }

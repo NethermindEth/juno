@@ -58,7 +58,7 @@ func (b *Block) L2GasPriceETH() *felt.Felt {
 	if b.L2GasPrice != nil {
 		return b.L2GasPrice.PriceInWei
 	}
-	return &felt.Zero
+	return nil
 }
 
 // TODO: Fix when we have l2 gas price
@@ -66,7 +66,7 @@ func (b *Block) L2GasPriceSTRK() *felt.Felt {
 	if b.L2GasPrice != nil {
 		return b.L2GasPrice.PriceInFri
 	}
-	return &felt.Zero
+	return nil
 }
 
 type L1DAMode uint
