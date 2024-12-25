@@ -48,7 +48,6 @@ type Reader interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	ErrPendingBlockNotFound   = errors.New("pending block not found")
 	SupportedStarknetVersion  = semver.MustParse("0.13.3")
 )
 
