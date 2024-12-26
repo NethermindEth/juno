@@ -52,7 +52,7 @@ type FeeEstimate struct {
 		Estimate Fee Handlers
 *****************************************************/
 
-func FeeEstimateToV0_7(feeEstimate FeeEstimate) FeeEstimateV0_7 {
+func feeEstimateToV0_7(feeEstimate FeeEstimate) FeeEstimateV0_7 {
 	return FeeEstimateV0_7{
 		GasConsumed:     feeEstimate.L1GasConsumed,
 		GasPrice:        feeEstimate.L1GasPrice,
@@ -72,7 +72,7 @@ func (h *Handler) EstimateFeeV0_7(broadcastedTxns []BroadcastedTransaction,
 	}
 
 	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimateV0_7 {
-		return FeeEstimateToV0_7(tx.FeeEstimation)
+		return feeEstimateToV0_7(tx.FeeEstimation)
 	}), httpHeader, nil
 }
 
@@ -95,7 +95,7 @@ func (h *Handler) EstimateMessageFeeV0_7(msg MsgFromL1, id BlockID) (*FeeEstimat
 	if err != nil {
 		return nil, header, err
 	}
-	estimateV0_7 := FeeEstimateToV0_7(*estimate)
+	estimateV0_7 := feeEstimateToV0_7(*estimate)
 	return &estimateV0_7, header, nil
 }
 
