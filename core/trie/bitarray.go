@@ -280,13 +280,22 @@ func (b *BitArray) Equal(x *BitArray) bool {
 }
 
 // Returns true if bit n-th is set, where n = 0 is LSB.
-// The n must be <= 255.
 func (b *BitArray) IsBitSet(n uint8) bool {
+	return b.BitSet(n) == 1
+}
+
+// Returns the bit value at position n, where n = 0 is LSB.
+// If n is out of bounds, returns 0.
+func (b *BitArray) BitSet(n uint8) uint8 {
 	if n >= b.len {
-		return false
+		return 0
 	}
 
-	return (b.words[n/64] & (1 << (n % 64))) != 0
+	if (b.words[n/64] & (1 << (n % 64))) != 0 {
+		return 1
+	}
+
+	return 0
 }
 
 // Serialises the BitArray into a bytes buffer in the following format:
