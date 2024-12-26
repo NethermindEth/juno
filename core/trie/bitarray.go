@@ -100,6 +100,26 @@ func (b *BitArray) LSBs(x *BitArray, n uint8) *BitArray {
 	return b
 }
 
+// Returns the least significant bits of `x` with `pos` as the most significant bit.
+// `pos` is counted from the most significant bit, starting at 0.
+// For example:
+//
+//	x = 11001011 (len=8)
+//	LSBsAtPos(x, 1) = 1001011 (len=7)
+//	LSBsAtPos(x, 10) = 0 (len=0)
+//	LSBsAtPos(x, 0) = 11001011 (len=8, original x)
+func (b *BitArray) LSBsAtPos(x *BitArray, pos uint8) *BitArray {
+	if pos == 0 {
+		return b.Set(x)
+	}
+
+	if pos > x.Len() {
+		return b.clear()
+	}
+
+	return b.LSBs(x, x.Len()-pos)
+}
+
 // Checks if the current bit array share the same most significant bits with another, where the length of
 // the check is determined by the shorter array. Returns true if either array has
 // length 0, or if the first min(b.len, x.len) MSBs are identical.
