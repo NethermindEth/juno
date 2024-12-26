@@ -35,13 +35,13 @@ type Header struct {
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
 	// Amount of WEI charged per Gas spent on L1
-	L1GasPriceETH *felt.Felt
+	L1GasPriceETH *felt.Felt `cbor:"gasprice"`
 	// Amount of STRK charged per Gas spent on L2
 	L2GasPriceETH *felt.Felt
 	// Sequencer signatures
 	Signatures [][]*felt.Felt
 	// Amount of STRK charged per Gas spent on L1
-	L1GasPriceSTRK *felt.Felt
+	L1GasPriceSTRK *felt.Felt `cbor:"gaspricestrk"`
 	// Amount of STRK charged per Gas spent on L2
 	L2GasPriceSTRK *felt.Felt
 	// The mode of the L1 data availability
