@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -19,7 +20,7 @@ type Node struct {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
+func (n *Node) Hash(path *Key, hashFn crypto.HashFn) *felt.Felt {
 	if path.Len() == 0 {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -28,15 +29,15 @@ func (n *Node) Hash(path *Key, hashFunc hashFunc) *felt.Felt {
 	}
 
 	pathFelt := path.Felt()
-	hash := hashFunc(n.Value, &pathFelt)
+	hash := hashFn(n.Value, &pathFelt)
 	pathFelt.SetUint64(uint64(path.Len()))
 	return hash.Add(hash, &pathFelt)
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) HashFromParent(parentKey, nodeKey *Key, hashFunc hashFunc) *felt.Felt {
+func (n *Node) HashFromParent(parentKey, nodeKey *Key, hashFn crypto.HashFn) *felt.Felt {
 	path := path(nodeKey, parentKey)
-	return n.Hash(&path, hashFunc)
+	return n.Hash(&path, hashFn)
 }
 
 func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {

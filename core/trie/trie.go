@@ -16,8 +16,6 @@ import (
 
 const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
 
-type hashFunc func(*felt.Felt, *felt.Felt) *felt.Felt
-
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
 // This implementation allows for a "flat" storage by keying nodes on their path rather than
@@ -40,7 +38,7 @@ type Trie struct {
 	rootKey *Key
 	maxKey  *felt.Felt
 	storage *Storage
-	hash    hashFunc
+	hash    crypto.HashFn
 
 	dirtyNodes     []*Key
 	rootKeyIsDirty bool
@@ -56,7 +54,7 @@ func NewTriePoseidon(storage *Storage, height uint8) (*Trie, error) {
 	return newTrie(storage, height, crypto.Poseidon)
 }
 
-func newTrie(storage *Storage, height uint8, hash hashFunc) (*Trie, error) {
+func newTrie(storage *Storage, height uint8, hash crypto.HashFn) (*Trie, error) {
 	if height > felt.Bits {
 		return nil, fmt.Errorf("max trie height is %d, got: %d", felt.Bits, height)
 	}
