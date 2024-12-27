@@ -231,6 +231,300 @@ func TestRsh(t *testing.T) {
 	}
 }
 
+func TestLsh(t *testing.T) {
+	tests := []struct {
+		name string
+		x    *BitArray
+		n    uint8
+		want *BitArray
+	}{
+		{
+			name: "empty array",
+			x:    emptyBitArray,
+			n:    5,
+			want: emptyBitArray,
+		},
+		{
+			name: "shift by 0",
+			x: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			n: 0,
+			want: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+		},
+		{
+			name: "shift within first word",
+			x: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			n: 4,
+			want: &BitArray{
+				len:   8,
+				words: [4]uint64{0xF0, 0, 0, 0}, // 11110000
+			},
+		},
+		{
+			name: "shift across word boundary",
+			x: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			n: 62,
+			want: &BitArray{
+				len:   66,
+				words: [4]uint64{0xC000000000000000, 0x3, 0, 0},
+			},
+		},
+		{
+			name: "shift by 64 (full word)",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			n: 64,
+			want: &BitArray{
+				len:   72,
+				words: [4]uint64{0, 0xFF, 0, 0},
+			},
+		},
+		{
+			name: "shift by 128",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			n: 128,
+			want: &BitArray{
+				len:   136,
+				words: [4]uint64{0, 0, 0xFF, 0},
+			},
+		},
+		{
+			name: "shift by 192",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			n: 192,
+			want: &BitArray{
+				len:   200,
+				words: [4]uint64{0, 0, 0, 0xFF},
+			},
+		},
+		{
+			name: "shift causing length overflow",
+			x: &BitArray{
+				len:   200,
+				words: [4]uint64{0xFF, 0, 0, 0},
+			},
+			n: 60,
+			want: &BitArray{
+				len: 255, // capped at maxUint8
+				words: [4]uint64{
+					0xF000000000000000,
+					0xF,
+					0,
+					0,
+				},
+			},
+		},
+		{
+			name: "shift sparse bits",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010
+			},
+			n: 4,
+			want: &BitArray{
+				len:   12,
+				words: [4]uint64{0xAA0, 0, 0, 0}, // 101010100000
+			},
+		},
+		{
+			name: "shift partial word across boundary",
+			x: &BitArray{
+				len:   100,
+				words: [4]uint64{0xFF, 0xFF, 0, 0},
+			},
+			n: 60,
+			want: &BitArray{
+				len: 160,
+				words: [4]uint64{
+					0xF000000000000000,
+					0xF00000000000000F,
+					0xF,
+					0,
+				},
+			},
+		},
+		{
+			name: "near maximum length shift",
+			x: &BitArray{
+				len:   251,
+				words: [4]uint64{0xFF, 0, 0, 0},
+			},
+			n: 4,
+			want: &BitArray{
+				len:   255, // capped at maxUint8
+				words: [4]uint64{0xFF0, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(BitArray).Lsh(tt.x, tt.n)
+			if !got.Equal(tt.want) {
+				t.Errorf("Lsh() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAppend(t *testing.T) {
+	tests := []struct {
+		name string
+		x    *BitArray
+		y    *BitArray
+		want *BitArray
+	}{
+		{
+			name: "both empty arrays",
+			x:    emptyBitArray,
+			y:    emptyBitArray,
+			want: emptyBitArray,
+		},
+		{
+			name: "first array empty",
+			x:    emptyBitArray,
+			y: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			want: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+		},
+		{
+			name: "second array empty",
+			x: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			y: emptyBitArray,
+			want: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+		},
+		{
+			name: "within first word",
+			x: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			y: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			want: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+		},
+		{
+			name: "different lengths within word",
+			x: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			y: &BitArray{
+				len:   2,
+				words: [4]uint64{0x3, 0, 0, 0}, // 11
+			},
+			want: &BitArray{
+				len:   6,
+				words: [4]uint64{0x3F, 0, 0, 0}, // 111111
+			},
+		},
+		{
+			name: "across word boundary",
+			x: &BitArray{
+				len:   62,
+				words: [4]uint64{0x3FFFFFFFFFFFFFFF, 0, 0, 0},
+			},
+			y: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+			want: &BitArray{
+				len:   66,
+				words: [4]uint64{maxUint64, 0x3, 0, 0},
+			},
+		},
+		{
+			name: "across multiple words",
+			x: &BitArray{
+				len:   128,
+				words: [4]uint64{maxUint64, maxUint64, 0, 0},
+			},
+			y: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			want: &BitArray{
+				len:   192,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0},
+			},
+		},
+		{
+			name: "sparse bits",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010
+			},
+			y: &BitArray{
+				len:   8,
+				words: [4]uint64{0x55, 0, 0, 0}, // 01010101
+			},
+			want: &BitArray{
+				len:   16,
+				words: [4]uint64{0xAA55, 0, 0, 0}, // 1010101001010101
+			},
+		},
+		{
+			name: "result exactly at length limit",
+			x: &BitArray{
+				len:   251,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFFF},
+			},
+			y: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0},
+			},
+			want: &BitArray{
+				len:   255,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFFF},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(BitArray).Append(tt.x, tt.y)
+			if !got.Equal(tt.want) {
+				t.Errorf("Append() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestEqualMSBs(t *testing.T) {
 	tests := []struct {
 		name string
