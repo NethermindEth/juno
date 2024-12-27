@@ -11,7 +11,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-const maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
+const (
+	maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
+	maxUint8  = uint8(math.MaxUint8)
+)
 
 var emptyBitArray = new(BitArray)
 
@@ -251,6 +254,85 @@ func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
 		b.words[3] >>= n
 	}
 
+	b.truncateToLength()
+	return b
+}
+
+// Lsh sets the bit array to x << n and returns the bit array.
+//
+//nolint:mnd
+func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
+	b.Set(x)
+
+	if x.len == 0 || n == 0 {
+		return b
+	}
+
+	// If the result will overflow, we set the length to the max length
+	// but we still shift `n` bits
+	if n > maxUint8-x.len {
+		b.len = maxUint8
+	} else {
+		b.len = x.len + n
+	}
+
+	switch {
+	case n == 0:
+		return b
+	case n >= 192:
+		b.lsh192(x)
+		n -= 192
+		b.words[3] <<= n
+	case n >= 128:
+		b.lsh128(x)
+		n -= 128
+		b.words[3] = (b.words[3] << n) | (b.words[2] >> (64 - n))
+		b.words[2] <<= n
+	case n >= 64:
+		b.lsh64(x)
+		n -= 64
+		b.words[3] = (b.words[3] << n) | (b.words[2] >> (64 - n))
+		b.words[2] = (b.words[2] << n) | (b.words[1] >> (64 - n))
+		b.words[1] <<= n
+	default:
+		b.words[3] = (b.words[3] << n) | (b.words[2] >> (64 - n))
+		b.words[2] = (b.words[2] << n) | (b.words[1] >> (64 - n))
+		b.words[1] = (b.words[1] << n) | (b.words[0] >> (64 - n))
+		b.words[0] <<= n
+	}
+
+	b.truncateToLength()
+	return b
+}
+
+// Sets the bit array to the concatenation of x and y and returns the bit array.
+// For example:
+//
+//	x = 000 (len=3)
+//	y = 111 (len=3)
+//	Append(x,y) = 000111 (len=6)
+func (b *BitArray) Append(x, y *BitArray) *BitArray {
+	if x.len == 0 {
+		return b.Set(y)
+	}
+	if y.len == 0 {
+		return b.Set(x)
+	}
+
+	// First copy x
+	b.Set(x)
+
+	// Then shift left by y's length and OR with y
+	return b.Lsh(b, y.len).Or(b, y)
+}
+
+// Sets the bit array to x | y and returns the bit array.
+func (b *BitArray) Or(x, y *BitArray) *BitArray {
+	b.words[0] = x.words[0] | y.words[0]
+	b.words[1] = x.words[1] | y.words[1]
+	b.words[2] = x.words[2] | y.words[2]
+	b.words[3] = x.words[3] | y.words[3]
+	b.len = x.len
 	return b
 }
 
@@ -441,6 +523,18 @@ func (b *BitArray) rsh128(x *BitArray) {
 
 func (b *BitArray) rsh192(x *BitArray) {
 	b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, x.words[3]
+}
+
+func (b *BitArray) lsh64(x *BitArray) {
+	b.words[3], b.words[2], b.words[1], b.words[0] = x.words[2], x.words[1], x.words[0], 0
+}
+
+func (b *BitArray) lsh128(x *BitArray) {
+	b.words[3], b.words[2], b.words[1], b.words[0] = x.words[1], x.words[0], 0, 0
+}
+
+func (b *BitArray) lsh192(x *BitArray) {
+	b.words[3], b.words[2], b.words[1], b.words[0] = x.words[0], 0, 0, 0
 }
 
 func (b *BitArray) clear() *BitArray {
