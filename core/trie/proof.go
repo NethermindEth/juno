@@ -44,8 +44,8 @@ type Edge struct {
 }
 
 func (e *Edge) Hash(hash crypto.HashFn) *felt.Felt {
-	length := make([]byte, len(e.Path.bitset))
-	length[len(e.Path.bitset)-1] = e.Path.len
+	var length [32]byte
+	length[31] = e.Path.len
 	pathFelt := e.Path.Felt()
 	lengthFelt := new(felt.Felt).SetBytes(length[:])
 	// TODO: no need to return reference, just return value to avoid heap allocation
@@ -139,7 +139,7 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 //   - The path bits don't match the key bits
 //   - The proof ends before processing all key bits
 func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) (*felt.Felt, error) {
-	key := FeltToKey(globalTrieHeight, keyFelt)
+	keyBits := new(BitArray).SetFelt(globalTrieHeight, keyFelt)
 	expectedHash := root
 
 	var curPos uint8
