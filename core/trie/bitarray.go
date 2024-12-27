@@ -298,6 +298,11 @@ func (b *BitArray) BitSet(n uint8) uint8 {
 	return 0
 }
 
+// Returns the bit value at the most significant bit
+func (b *BitArray) BitSetAtMSB() uint8 {
+	return b.BitSet(b.Len() - 1)
+}
+
 // Serialises the BitArray into a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
