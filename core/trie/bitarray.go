@@ -303,6 +303,10 @@ func (b *BitArray) BitSetAtMSB() uint8 {
 	return b.BitSet(b.Len() - 1)
 }
 
+func (b *BitArray) IsEmpty() bool {
+	return b.len == 0
+}
+
 // Serialises the BitArray into a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
