@@ -554,6 +554,7 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 	testCases := []struct {
 		name        string
 		setupMock   func(subscriber *mocks.MockSubscriber)
+		timeOut     time.Duration
 		expectedErr error
 	}{
 		{
@@ -561,6 +562,7 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 			setupMock: func(subscriber *mocks.MockSubscriber) {
 				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(nil, err).Times(1)
 			},
+			timeOut:     50 * time.Millisecond,
 			expectedErr: err,
 		},
 		{
@@ -571,7 +573,7 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
 				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
 			},
-			expectedErr: nil,
+			timeOut: 50 * time.Millisecond,
 		},
 		{
 			name: "WatchIPRemoved error",
@@ -581,7 +583,7 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(nil, err).Times(1)
 				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
 			},
-			expectedErr: nil,
+			timeOut: 50 * time.Millisecond,
 		},
 		{
 			name: "Addition subscription error",
@@ -591,7 +593,7 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
 				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
 			},
-			expectedErr: nil,
+			timeOut: 50 * time.Millisecond,
 		},
 		{
 			name: "Removal subscription error",
@@ -601,7 +603,34 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(err), nil).Times(1)
 				subscriber.EXPECT().WatchIPRemoved(gomock.Any(), gomock.Any()).Return(newFakeSubscription(), nil).Times(1)
 			},
-			expectedErr: nil,
+			timeOut: 50 * time.Millisecond,
+		},
+		{
+			name: "Addition subscription expires",
+			setupMock: func(subscriber *mocks.MockSubscriber) {
+				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).DoAndReturn(
+					func(_ context.Context, _ common.Address) ([]string, error) {
+						time.Sleep(100 * time.Millisecond)
+						return nil, nil
+					},
+				).Times(1)
+			},
+			expectedErr: context.DeadlineExceeded,
+			timeOut:     50 * time.Millisecond,
+		},
+		{
+			name: "Removal subscription expires",
+			setupMock: func(subscriber *mocks.MockSubscriber) {
+				subscriber.EXPECT().GetIPAddresses(gomock.Any(), address).Return(nil, nil).Times(1)
+				subscriber.EXPECT().WatchIPAdded(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, sink chan<- *contract.IPAddressRegistryIPAdded) (*fakeSubscription, error) {
+						time.Sleep(100 * time.Millisecond)
+						return newFakeSubscription(), nil
+					},
+				).Times(1)
+			},
+			timeOut:     50 * time.Millisecond,
+			expectedErr: context.DeadlineExceeded,
 		},
 	}
 
@@ -627,7 +656,7 @@ func TestUnreliableSubscriptionToIPAddresses(t *testing.T) {
 			client.l1 = subscriber
 			tc.setupMock(subscriber)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), tc.timeOut)
 			defer cancel()
 			err := client.makeSubscribtionsToIPAddresses(ctx, 1)
 			require.ErrorIs(t, err, tc.expectedErr)
