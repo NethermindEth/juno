@@ -59,6 +59,7 @@ func (b *BitArray) Bytes() []byte {
 }
 
 // Sets the bit array to the least significant 'n' bits of x.
+// n is counted from the least significant bit, starting at 0.
 // If length >= x.len, the bit array is an exact copy of x.
 // For example:
 //
@@ -103,15 +104,14 @@ func (b *BitArray) LSBs(x *BitArray, n uint8) *BitArray {
 	return b
 }
 
-// Returns the least significant bits of `x` with `pos` as the most significant bit.
-// `pos` is counted from the most significant bit, starting at 0.
+// Returns the least significant bits of `x` with `pos` counted from the most significant bit, starting at 0.
 // For example:
 //
 //	x = 11001011 (len=8)
-//	LSBsAtPos(x, 1) = 1001011 (len=7)
-//	LSBsAtPos(x, 10) = 0 (len=0)
-//	LSBsAtPos(x, 0) = 11001011 (len=8, original x)
-func (b *BitArray) LSBsAtPos(x *BitArray, pos uint8) *BitArray {
+//	LSBsFromMSB(x, 1) = 1001011 (len=7)
+//	LSBsFromMSB(x, 10) = 0 (len=0)
+//	LSBsFromMSB(x, 0) = 11001011 (len=8, original x)
+func (b *BitArray) LSBsFromMSB(x *BitArray, pos uint8) *BitArray {
 	if pos == 0 {
 		return b.Set(x)
 	}
@@ -380,8 +380,18 @@ func (b *BitArray) BitSet(n uint8) uint8 {
 	return 0
 }
 
+// Returns the bit value at position n, where n = 0 is MSB.
+// If n is out of bounds, returns 0.
+func (b *BitArray) BitSetFromMSB(n uint8) uint8 {
+	if n >= b.Len() {
+		return 0
+	}
+
+	return b.BitSet(b.Len() - n - 1)
+}
+
 // Returns the bit value at the most significant bit
-func (b *BitArray) BitSetAtMSB() uint8 {
+func (b *BitArray) MSB() uint8 {
 	return b.BitSet(b.Len() - 1)
 }
 
