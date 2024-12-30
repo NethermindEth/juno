@@ -112,7 +112,7 @@ func path(key, parentKey *BitArray) BitArray {
 	}
 
 	var pathKey BitArray
-	pathKey.LSBsFromMSB(key, parentKey.Len()+1)
+	pathKey.LSBs(key, parentKey.Len()+1)
 	return pathKey
 }
 
