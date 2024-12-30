@@ -108,10 +108,10 @@ func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
 // For example:
 //
 //	x = 11001011 (len=8)
-//	LSBsFromMSB(x, 1) = 1001011 (len=7)
-//	LSBsFromMSB(x, 10) = 0 (len=0)
-//	LSBsFromMSB(x, 0) = 11001011 (len=8, original x)
-func (b *BitArray) LSBsFromMSB(x *BitArray, pos uint8) *BitArray {
+//	LSBs(x, 1) = 1001011 (len=7)
+//	LSBs(x, 10) = 0 (len=0)
+//	LSBs(x, 0) = 11001011 (len=8, original x)
+func (b *BitArray) LSBs(x *BitArray, pos uint8) *BitArray {
 	if pos == 0 {
 		return b.Set(x)
 	}

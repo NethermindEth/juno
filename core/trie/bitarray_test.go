@@ -643,7 +643,7 @@ func TestEqualMSBs(t *testing.T) {
 	}
 }
 
-func TestLSBsFromMSB(t *testing.T) {
+func TestLSBs(t *testing.T) {
 	tests := []struct {
 		name string
 		x    *BitArray
@@ -747,9 +747,9 @@ func TestLSBsFromMSB(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := new(BitArray).LSBsFromMSB(tt.x, tt.pos)
+			got := new(BitArray).LSBs(tt.x, tt.pos)
 			if !got.Equal(tt.want) {
-				t.Errorf("LSBsFromMSB() = %v, want %v", got, tt.want)
+				t.Errorf("LSBs() = %v, want %v", got, tt.want)
 			}
 		})
 	}
