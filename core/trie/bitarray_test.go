@@ -204,7 +204,7 @@ func TestRsh(t *testing.T) {
 			shiftBy: 128,
 			expected: &BitArray{
 				len:   123,
-				words: [4]uint64{maxUint64, maxUint64, 0, 0},
+				words: [4]uint64{maxUint64, 0x7FFFFFFFFFFFFFF, 0, 0},
 			},
 		},
 		{
@@ -216,7 +216,7 @@ func TestRsh(t *testing.T) {
 			shiftBy: 192,
 			expected: &BitArray{
 				len:   59,
-				words: [4]uint64{maxUint64, 0, 0, 0},
+				words: [4]uint64{0x7FFFFFFFFFFFFFF, 0, 0, 0},
 			},
 		},
 	}
