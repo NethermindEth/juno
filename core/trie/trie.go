@@ -244,7 +244,7 @@ func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
 			return nodes, nil
 		}
 
-		if key.IsBitSet(key.Len() - cur.Len() - 1) {
+		if key.IsBitSetFromLSB(key.Len() - cur.Len() - 1) {
 			cur = node.Right
 		} else {
 			cur = node.Left
@@ -346,7 +346,7 @@ func (t *Trie) insertOrUpdateValue(
 		if err != nil {
 			return err
 		}
-		if nodeKey.IsBitSet(nodeKey.Len() - commonKey.Len() - 1) {
+		if nodeKey.IsBitSetFromLSB(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Right = nodeKey
 			newParent.RightHash = node.Hash(nodeKey, t.hash)
 		} else {
@@ -358,7 +358,7 @@ func (t *Trie) insertOrUpdateValue(
 		}
 		t.dirtyNodes = append(t.dirtyNodes, &commonKey)
 	} else {
-		if nodeKey.IsBitSet(nodeKey.Len() - commonKey.Len() - 1) {
+		if nodeKey.IsBitSetFromLSB(nodeKey.Len() - commonKey.Len() - 1) {
 			newParent.Left, newParent.Right = sibling.key, nodeKey
 			leftChild, rightChild = sibling.node, node
 		} else {

@@ -643,7 +643,7 @@ func TestEqualMSBs(t *testing.T) {
 	}
 }
 
-func TestLSBs(t *testing.T) {
+func TestLSBsFromLSB(t *testing.T) {
 	tests := []struct {
 		name     string
 		initial  BitArray
@@ -798,7 +798,7 @@ func TestLSBs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := new(BitArray).LSBs(&tt.initial, tt.length)
+			result := new(BitArray).LSBsFromLSB(&tt.initial, tt.length)
 			if !result.Equal(&tt.expected) {
 				t.Errorf("Truncate() got = %+v, want %+v", result, tt.expected)
 			}
@@ -1222,7 +1222,7 @@ func TestCommonPrefix(t *testing.T) {
 	}
 }
 
-func TestIsBitSet(t *testing.T) {
+func TestIsBitSetFromLSB(t *testing.T) {
 	tests := []struct {
 		name string
 		ba   BitArray
@@ -1323,9 +1323,9 @@ func TestIsBitSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.ba.IsBitSet(tt.pos)
+			got := tt.ba.IsBitSetFromLSB(tt.pos)
 			if got != tt.want {
-				t.Errorf("IsBitSet(%d) = %v, want %v", tt.pos, got, tt.want)
+				t.Errorf("IsBitSetFromLSB(%d) = %v, want %v", tt.pos, got, tt.want)
 			}
 		})
 	}
