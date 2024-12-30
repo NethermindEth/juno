@@ -161,7 +161,7 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 			}
 			// Determine the next node to traverse based on the next bit position
 			expectedHash = node.LeftHash
-			if keyBits.IsBitSet(keyBits.Len() - curPos - 1) {
+			if keyBits.IsBitSet(curPos + 1) {
 				expectedHash = node.RightHash
 			}
 			curPos++
@@ -489,7 +489,7 @@ func handleBinaryNode(
 
 	// Calculate next position and determine to take left or right path
 	nextPos := curPos + 1
-	isRightPath := key.IsBitSet(key.Len() - nextPos)
+	isRightPath := key.IsBitSet(nextPos)
 	nextHash := binary.LeftHash
 	if isRightPath {
 		nextHash = binary.RightHash
@@ -555,7 +555,7 @@ func handleEdgeNode(
 
 // verifyEdgePath checks if the edge path matches the key path at the current position.
 func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
-	return new(BitArray).LSBsFromMSB(key, curPos).EqualMSBs(edgePath)
+	return new(BitArray).LSBs(key, curPos).EqualMSBs(edgePath)
 }
 
 // buildTrie builds a trie from a list of storage nodes and a list of keys and values.
@@ -602,8 +602,7 @@ func hasRightElement(rootKey, key *BitArray, nodes *StorageNodeSet) bool {
 
 		// If we're taking a left path and there's a right sibling,
 		// then there are elements with larger values
-		bitPos := key.Len() - cur.Len() - 1
-		isLeft := !key.IsBitSet(bitPos)
+		isLeft := !key.IsBitSet(cur.Len() + 1)
 		if isLeft && sn.node.RightHash != nil {
 			return true
 		}
