@@ -17,13 +17,24 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+//go:generate mockgen -destination=../mocks/mock_getter.go -package=mocks github.com/NethermindEth/juno/l1 IPAddressGetter
+type IPAddressGetter interface {
+	GetIPAddresses(*bind.CallOpts) ([]string, error)
+}
+
+//go:generate mockgen -destination=../mocks/mock_watcher.go -package=mocks github.com/NethermindEth/juno/l1 IPWatcher
+type IPWatcher interface {
+	WatchIPAdded(*bind.WatchOpts, chan<- *contract.IPAddressRegistryIPAdded) (event.Subscription, error)
+	WatchIPRemoved(*bind.WatchOpts, chan<- *contract.IPAddressRegistryIPRemoved) (event.Subscription, error)
+}
+
 type EthSubscriber struct {
 	ethClient                 *ethclient.Client
 	client                    *rpc.Client
 	filterer                  *contract.StarknetFilterer
 	listener                  EventListener
-	ipAddressRegistry         *contract.IPAddressRegistry
-	ipAddressRegistryFilterer *contract.IPAddressRegistryFilterer
+	ipAddressRegistry         IPAddressGetter
+	ipAddressRegistryFilterer IPWatcher
 }
 
 var _ Subscriber = (*EthSubscriber)(nil)
