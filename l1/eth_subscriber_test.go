@@ -33,4 +33,5 @@ func TestIPAddressRegistry(t *testing.T) {
 	_, err = subscriber.WatchIPAdded(context.Background(), nil)
 	require.NoError(t, err)
 	_, err = subscriber.WatchIPRemoved(context.Background(), nil)
+	require.NoError(t, err)
 }
