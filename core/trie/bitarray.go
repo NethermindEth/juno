@@ -64,12 +64,12 @@ func (b *BitArray) Bytes() []byte {
 // For example:
 //
 //	x = 11001011 (len=8)
-//	LSBs(x, 4) = 1011 (len=4)
-//	LSBs(x, 10) = 11001011 (len=8, original x)
-//	LSBs(x, 0) = 0 (len=0)
+//	LSBsFromLSB(x, 4) = 1011 (len=4)
+//	LSBsFromLSB(x, 10) = 11001011 (len=8, original x)
+//	LSBsFromLSB(x, 0) = 0 (len=0)
 //
 //nolint:mnd
-func (b *BitArray) LSBs(x *BitArray, n uint8) *BitArray {
+func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
 	if n >= x.len {
 		return b.Set(x)
 	}
@@ -108,10 +108,10 @@ func (b *BitArray) LSBs(x *BitArray, n uint8) *BitArray {
 // For example:
 //
 //	x = 11001011 (len=8)
-//	LSBsFromMSB(x, 1) = 1001011 (len=7)
-//	LSBsFromMSB(x, 10) = 0 (len=0)
-//	LSBsFromMSB(x, 0) = 11001011 (len=8, original x)
-func (b *BitArray) LSBsFromMSB(x *BitArray, pos uint8) *BitArray {
+//	LSBs(x, 1) = 1001011 (len=7)
+//	LSBs(x, 10) = 0 (len=0)
+//	LSBs(x, 0) = 11001011 (len=8, original x)
+func (b *BitArray) LSBs(x *BitArray, pos uint8) *BitArray {
 	if pos == 0 {
 		return b.Set(x)
 	}
@@ -120,7 +120,7 @@ func (b *BitArray) LSBsFromMSB(x *BitArray, pos uint8) *BitArray {
 		return b.clear()
 	}
 
-	return b.LSBs(x, x.Len()-pos)
+	return b.LSBsFromLSB(x, x.Len()-pos)
 }
 
 // Checks if the current bit array share the same most significant bits with another, where the length of
@@ -361,14 +361,29 @@ func (b *BitArray) Equal(x *BitArray) bool {
 		b.words[3] == x.words[3]
 }
 
-// Returns true if bit n-th is set, where n = 0 is LSB.
+// Returns true if bit n-th is set, where n = 0 is MSB.
 func (b *BitArray) IsBitSet(n uint8) bool {
 	return b.BitSet(n) == 1
 }
 
-// Returns the bit value at position n, where n = 0 is LSB.
+// Returns true if bit n-th is set, where n = 0 is LSB.
+func (b *BitArray) IsBitSetFromLSB(n uint8) bool {
+	return b.BitSetFromLSB(n) == 1
+}
+
+// Returns the bit value at position n, where n = 0 is MSB.
 // If n is out of bounds, returns 0.
 func (b *BitArray) BitSet(n uint8) uint8 {
+	if n >= b.Len() {
+		return 0
+	}
+
+	return b.BitSetFromLSB(b.Len() - n - 1)
+}
+
+// Returns the bit value at position n, where n = 0 is LSB.
+// If n is out of bounds, returns 0.
+func (b *BitArray) BitSetFromLSB(n uint8) uint8 {
 	if n >= b.len {
 		return 0
 	}
@@ -380,19 +395,14 @@ func (b *BitArray) BitSet(n uint8) uint8 {
 	return 0
 }
 
-// Returns the bit value at position n, where n = 0 is MSB.
-// If n is out of bounds, returns 0.
-func (b *BitArray) BitSetFromMSB(n uint8) uint8 {
-	if n >= b.Len() {
-		return 0
-	}
-
-	return b.BitSet(b.Len() - n - 1)
-}
-
 // Returns the bit value at the most significant bit
 func (b *BitArray) MSB() uint8 {
-	return b.BitSet(b.Len() - 1)
+	return b.BitSet(0)
+}
+
+// Returns the bit value at the least significant bit
+func (b *BitArray) LSB() uint8 {
+	return b.BitSetFromLSB(0)
 }
 
 func (b *BitArray) IsEmpty() bool {
