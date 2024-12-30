@@ -1452,7 +1452,7 @@ func TestIsBitSetFromLSB(t *testing.T) {
 	}
 }
 
-func TestIsBitSetFromMSB(t *testing.T) {
+func TestIsBitSet(t *testing.T) {
 	tests := []struct {
 		name string
 		ba   BitArray
@@ -1544,9 +1544,9 @@ func TestIsBitSetFromMSB(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.ba.IsBitSetFromMSB(tt.pos)
+			got := tt.ba.IsBitSet(tt.pos)
 			if got != tt.want {
-				t.Errorf("IsBitSetFromMSB(%d) = %v, want %v", tt.pos, got, tt.want)
+				t.Errorf("IsBitSet(%d) = %v, want %v", tt.pos, got, tt.want)
 			}
 		})
 	}
@@ -1572,9 +1572,9 @@ func TestDebug(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.ba.IsBitSetFromMSB(tt.pos)
+			got := tt.ba.IsBitSet(tt.pos)
 			if got != tt.want {
-				t.Errorf("IsBitSetFromMSB(%d) = %v, want %v", tt.pos, got, tt.want)
+				t.Errorf("IsBitSet(%d) = %v, want %v", tt.pos, got, tt.want)
 			}
 		})
 	}

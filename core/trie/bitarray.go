@@ -380,13 +380,13 @@ func (b *BitArray) BitSetFromLSB(n uint8) uint8 {
 	return 0
 }
 
-func (b *BitArray) IsBitSetFromMSB(n uint8) bool {
-	return b.BitSetFromMSB(n) == 1
+func (b *BitArray) IsBitSet(n uint8) bool {
+	return b.BitSet(n) == 1
 }
 
 // Returns the bit value at position n, where n = 0 is MSB.
 // If n is out of bounds, returns 0.
-func (b *BitArray) BitSetFromMSB(n uint8) uint8 {
+func (b *BitArray) BitSet(n uint8) uint8 {
 	if n >= b.Len() {
 		return 0
 	}
@@ -396,7 +396,7 @@ func (b *BitArray) BitSetFromMSB(n uint8) uint8 {
 
 // Returns the bit value at the most significant bit
 func (b *BitArray) MSB() uint8 {
-	return b.BitSetFromMSB(0)
+	return b.BitSet(0)
 }
 
 func (b *BitArray) LSB() uint8 {
