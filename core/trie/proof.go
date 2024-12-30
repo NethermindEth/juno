@@ -161,7 +161,7 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 			}
 			// Determine the next node to traverse based on the next bit position
 			expectedHash = node.LeftHash
-			if keyBits.IsBitSetFromLSB(keyBits.Len() - curPos - 1) {
+			if keyBits.IsBitSetFromMSB(curPos) {
 				expectedHash = node.RightHash
 			}
 			curPos++
@@ -489,7 +489,7 @@ func handleBinaryNode(
 
 	// Calculate next position and determine to take left or right path
 	nextPos := curPos + 1
-	isRightPath := key.IsBitSetFromLSB(key.Len() - nextPos)
+	isRightPath := key.IsBitSetFromMSB(curPos)
 	nextHash := binary.LeftHash
 	if isRightPath {
 		nextHash = binary.RightHash
@@ -602,8 +602,7 @@ func hasRightElement(rootKey, key *BitArray, nodes *StorageNodeSet) bool {
 
 		// If we're taking a left path and there's a right sibling,
 		// then there are elements with larger values
-		bitPos := key.Len() - cur.Len() - 1
-		isLeft := !key.IsBitSetFromLSB(bitPos)
+		isLeft := !key.IsBitSetFromMSB(cur.Len())
 		if isLeft && sn.node.RightHash != nil {
 			return true
 		}
