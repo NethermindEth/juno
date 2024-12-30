@@ -643,6 +643,118 @@ func TestEqualMSBs(t *testing.T) {
 	}
 }
 
+func TestLSBsFromMSB(t *testing.T) {
+	tests := []struct {
+		name string
+		x    *BitArray
+		pos  uint8
+		want *BitArray
+	}{
+		{
+			name: "zero position",
+			x: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			pos: 0,
+			want: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+		},
+		{
+			name: "position beyond length",
+			x: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			pos: 65,
+			want: &BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "get last 4 bits",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			pos: 4,
+			want: &BitArray{
+				len:   4,
+				words: [4]uint64{0x0F, 0, 0, 0}, // 1111
+			},
+		},
+		{
+			name: "get bits across word boundary",
+			x: &BitArray{
+				len:   128,
+				words: [4]uint64{maxUint64, maxUint64, 0, 0},
+			},
+			pos: 64,
+			want: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+		},
+		{
+			name: "get bits from max length array",
+			x: &BitArray{
+				len:   251,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFF},
+			},
+			pos: 200,
+			want: &BitArray{
+				len:   51,
+				words: [4]uint64{0x7FFFFFFFFFFFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "empty array",
+			x:    emptyBitArray,
+			pos:  1,
+			want: &BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "sparse bits",
+			x: &BitArray{
+				len:   16,
+				words: [4]uint64{0xAAAA, 0, 0, 0}, // 1010101010101010
+			},
+			pos: 8,
+			want: &BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010
+			},
+		},
+		{
+			name: "position equals length",
+			x: &BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+			pos: 64,
+			want: &BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(BitArray).LSBsFromMSB(tt.x, tt.pos)
+			if !got.Equal(tt.want) {
+				t.Errorf("LSBsFromMSB() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLSBsFromLSB(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1302,6 +1414,15 @@ func TestIsBitSetFromLSB(t *testing.T) {
 			want: false, // position 251 is beyond the highest valid bit (250)
 		},
 		{
+			name: "251 bits",
+			ba: BitArray{
+				len:   251,
+				words: [4]uint64{0, 0, 0, 1 << 58},
+			},
+			pos:  250,
+			want: true,
+		},
+		{
 			name: "highest valid bit (255)",
 			ba: BitArray{
 				len:   255,
@@ -1326,6 +1447,134 @@ func TestIsBitSetFromLSB(t *testing.T) {
 			got := tt.ba.IsBitSetFromLSB(tt.pos)
 			if got != tt.want {
 				t.Errorf("IsBitSetFromLSB(%d) = %v, want %v", tt.pos, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsBitSetFromMSB(t *testing.T) {
+	tests := []struct {
+		name string
+		ba   BitArray
+		pos  uint8
+		want bool
+	}{
+		{
+			name: "empty array",
+			ba: BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+			pos:  0,
+			want: false,
+		},
+		{
+			name: "first bit (MSB) set",
+			ba: BitArray{
+				len:   8,
+				words: [4]uint64{0x80, 0, 0, 0}, // 10000000
+			},
+			pos:  0,
+			want: true,
+		},
+		{
+			name: "last bit (LSB) set",
+			ba: BitArray{
+				len:   8,
+				words: [4]uint64{0x01, 0, 0, 0}, // 00000001
+			},
+			pos:  7,
+			want: true,
+		},
+		{
+			name: "alternating bits",
+			ba: BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010
+			},
+			pos:  0,
+			want: true,
+		},
+		{
+			name: "alternating bits - unset position",
+			ba: BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010
+			},
+			pos:  1,
+			want: false,
+		},
+		{
+			name: "position beyond length",
+			ba: BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0},
+			},
+			pos:  8,
+			want: false,
+		},
+		{
+			name: "bit in second word",
+			ba: BitArray{
+				len:   128,
+				words: [4]uint64{0, 1, 0, 0},
+			},
+			pos:  63,
+			want: true,
+		},
+		{
+			name: "251 bits",
+			ba: BitArray{
+				len:   251,
+				words: [4]uint64{0, 0, 0, 1 << 58},
+			},
+			pos:  0,
+			want: true,
+		},
+		{
+			name: "position at length boundary",
+			ba: BitArray{
+				len:   100,
+				words: [4]uint64{maxUint64, maxUint64, 0, 0},
+			},
+			pos:  99,
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.ba.IsBitSetFromMSB(tt.pos)
+			if got != tt.want {
+				t.Errorf("IsBitSetFromMSB(%d) = %v, want %v", tt.pos, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDebug(t *testing.T) {
+	tests := []struct {
+		name string
+		ba   BitArray
+		pos  uint8
+		want bool
+	}{
+		{
+			name: "bit in second word",
+			ba: BitArray{
+				len:   128,
+				words: [4]uint64{0, 1, 0, 0},
+			},
+			pos:  63,
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.ba.IsBitSetFromMSB(tt.pos)
+			if got != tt.want {
+				t.Errorf("IsBitSetFromMSB(%d) = %v, want %v", tt.pos, got, tt.want)
 			}
 		})
 	}
@@ -1460,118 +1709,6 @@ func TestSetFeltValidation(t *testing.T) {
 				assert.False(t, roundTrip.Equal(&f),
 					"values should not match: original %s, roundtrip %s",
 					f.String(), roundTrip.String())
-			}
-		})
-	}
-}
-
-func TestLSBsFromMSB(t *testing.T) {
-	tests := []struct {
-		name string
-		x    *BitArray
-		pos  uint8
-		want *BitArray
-	}{
-		{
-			name: "zero position",
-			x: &BitArray{
-				len:   64,
-				words: [4]uint64{maxUint64, 0, 0, 0},
-			},
-			pos: 0,
-			want: &BitArray{
-				len:   64,
-				words: [4]uint64{maxUint64, 0, 0, 0},
-			},
-		},
-		{
-			name: "position beyond length",
-			x: &BitArray{
-				len:   64,
-				words: [4]uint64{maxUint64, 0, 0, 0},
-			},
-			pos: 65,
-			want: &BitArray{
-				len:   0,
-				words: [4]uint64{0, 0, 0, 0},
-			},
-		},
-		{
-			name: "get last 4 bits",
-			x: &BitArray{
-				len:   8,
-				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
-			},
-			pos: 4,
-			want: &BitArray{
-				len:   4,
-				words: [4]uint64{0x0F, 0, 0, 0}, // 1111
-			},
-		},
-		{
-			name: "get bits across word boundary",
-			x: &BitArray{
-				len:   128,
-				words: [4]uint64{maxUint64, maxUint64, 0, 0},
-			},
-			pos: 64,
-			want: &BitArray{
-				len:   64,
-				words: [4]uint64{maxUint64, 0, 0, 0},
-			},
-		},
-		{
-			name: "get bits from max length array",
-			x: &BitArray{
-				len:   251,
-				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFF},
-			},
-			pos: 200,
-			want: &BitArray{
-				len:   51,
-				words: [4]uint64{0x7FFFFFFFFFFFF, 0, 0, 0},
-			},
-		},
-		{
-			name: "empty array",
-			x:    emptyBitArray,
-			pos:  1,
-			want: &BitArray{
-				len:   0,
-				words: [4]uint64{0, 0, 0, 0},
-			},
-		},
-		{
-			name: "sparse bits",
-			x: &BitArray{
-				len:   16,
-				words: [4]uint64{0xAAAA, 0, 0, 0}, // 1010101010101010
-			},
-			pos: 8,
-			want: &BitArray{
-				len:   8,
-				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010
-			},
-		},
-		{
-			name: "position equals length",
-			x: &BitArray{
-				len:   64,
-				words: [4]uint64{maxUint64, 0, 0, 0},
-			},
-			pos: 64,
-			want: &BitArray{
-				len:   0,
-				words: [4]uint64{0, 0, 0, 0},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := new(BitArray).LSBsFromMSB(tt.x, tt.pos)
-			if !got.Equal(tt.want) {
-				t.Errorf("LSBsFromMSB() = %v, want %v", got, tt.want)
 			}
 		})
 	}
