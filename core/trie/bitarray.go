@@ -64,9 +64,9 @@ func (b *BitArray) Bytes() []byte {
 // For example:
 //
 //	x = 11001011 (len=8)
-//	LSBs(x, 4) = 1011 (len=4)
-//	LSBs(x, 10) = 11001011 (len=8, original x)
-//	LSBs(x, 0) = 0 (len=0)
+//	LSBsFromLSB(x, 4) = 1011 (len=4)
+//	LSBsFromLSB(x, 10) = 11001011 (len=8, original x)
+//	LSBsFromLSB(x, 0) = 0 (len=0)
 //
 //nolint:mnd
 func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
@@ -104,23 +104,23 @@ func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
 	return b
 }
 
-// Returns the least significant bits of `x` with `pos` counted from the most significant bit, starting at 0.
+// Returns the least significant bits of `x` with `n` counted from the most significant bit, starting at 0.
 // For example:
 //
 //	x = 11001011 (len=8)
 //	LSBs(x, 1) = 1001011 (len=7)
 //	LSBs(x, 10) = 0 (len=0)
 //	LSBs(x, 0) = 11001011 (len=8, original x)
-func (b *BitArray) LSBs(x *BitArray, pos uint8) *BitArray {
-	if pos == 0 {
+func (b *BitArray) LSBs(x *BitArray, n uint8) *BitArray {
+	if n == 0 {
 		return b.Set(x)
 	}
 
-	if pos > x.Len() {
+	if n > x.Len() {
 		return b.clear()
 	}
 
-	return b.LSBsFromLSB(x, x.Len()-pos)
+	return b.LSBsFromLSB(x, x.Len()-n)
 }
 
 // Checks if the current bit array share the same most significant bits with another, where the length of
