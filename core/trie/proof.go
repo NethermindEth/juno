@@ -555,7 +555,7 @@ func handleEdgeNode(
 
 // verifyEdgePath checks if the edge path matches the key path at the current position.
 func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
-	return new(BitArray).LSBsFromMSB(key, curPos).EqualMSBs(edgePath)
+	return new(BitArray).LSBs(key, curPos).EqualMSBs(edgePath)
 }
 
 // buildTrie builds a trie from a list of storage nodes and a list of keys and values.
