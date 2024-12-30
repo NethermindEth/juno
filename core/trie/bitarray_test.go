@@ -1171,7 +1171,7 @@ func TestSetFeltValidation(t *testing.T) {
 	}
 }
 
-func TestLSBsAtPos(t *testing.T) {
+func TestLSBsFromMSB(t *testing.T) {
 	tests := []struct {
 		name string
 		x    *BitArray
@@ -1275,9 +1275,9 @@ func TestLSBsAtPos(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := new(BitArray).LSBsAtPos(tt.x, tt.pos)
+			got := new(BitArray).LSBsFromMSB(tt.x, tt.pos)
 			if !got.Equal(tt.want) {
-				t.Errorf("LSBsAtPos() = %v, want %v", got, tt.want)
+				t.Errorf("LSBsFromMSB() = %v, want %v", got, tt.want)
 			}
 		})
 	}

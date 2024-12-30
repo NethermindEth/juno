@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	_ node = (*internalNode)(nil)
+	_ node = (*binaryNode)(nil)
 	_ node = (*edgeNode)(nil)
 	_ node = (*hashNode)(nil)
 	_ node = (*valueNode)(nil)
@@ -19,12 +19,12 @@ var (
 type node interface {
 	hash(crypto.HashFn) *felt.Felt // TODO(weiihann): return felt value instead of pointers
 	cache() (*hashNode, bool)
-	encode(*bytes.Buffer) error
+	write(*bytes.Buffer) error
 	String() string
 }
 
 type (
-	internalNode struct {
+	binaryNode struct {
 		children [2]node // 0 = left, 1 = right
 		flags    nodeFlag
 	}
@@ -37,12 +37,21 @@ type (
 	valueNode struct{ *felt.Felt }
 )
 
+const (
+	binaryNodeType byte = iota
+	edgeNodeType
+	hashNodeType
+	valueNodeType
+)
+
 type nodeFlag struct {
 	hash  *hashNode
 	dirty bool
 }
 
-func (n *internalNode) hash(hf crypto.HashFn) *felt.Felt {
+func newFlag() nodeFlag { return nodeFlag{dirty: false} }
+
+func (n *binaryNode) hash(hf crypto.HashFn) *felt.Felt {
 	return hf(n.children[0].hash(hf), n.children[1].hash(hf))
 }
 
@@ -57,13 +66,13 @@ func (n *edgeNode) hash(hf crypto.HashFn) *felt.Felt {
 func (n hashNode) hash(crypto.HashFn) *felt.Felt  { return n.Felt }
 func (n valueNode) hash(crypto.HashFn) *felt.Felt { return n.Felt }
 
-func (n *internalNode) cache() (*hashNode, bool) { return n.flags.hash, n.flags.dirty }
-func (n *edgeNode) cache() (*hashNode, bool)     { return n.flags.hash, n.flags.dirty }
-func (n hashNode) cache() (*hashNode, bool)      { return nil, true }
-func (n valueNode) cache() (*hashNode, bool)     { return nil, true }
+func (n *binaryNode) cache() (*hashNode, bool) { return n.flags.hash, n.flags.dirty }
+func (n *edgeNode) cache() (*hashNode, bool)   { return n.flags.hash, n.flags.dirty }
+func (n hashNode) cache() (*hashNode, bool)    { return nil, true }
+func (n valueNode) cache() (*hashNode, bool)   { return nil, true }
 
-func (n *internalNode) String() string {
-	return fmt.Sprintf("Internal[\n  left: %s\n  right: %s\n]",
+func (n *binaryNode) String() string {
+	return fmt.Sprintf("Binary[\n  left: %s\n  right: %s\n]",
 		indent(n.children[0].String()),
 		indent(n.children[1].String()))
 }
@@ -82,31 +91,31 @@ func (n valueNode) String() string {
 	return fmt.Sprintf("Value(%s)", n.Felt.String())
 }
 
-func (n *internalNode) encode(buf *bytes.Buffer) error {
-	if err := n.children[0].encode(buf); err != nil {
+func (n *binaryNode) write(buf *bytes.Buffer) error {
+	if err := n.children[0].write(buf); err != nil {
 		return err
 	}
 
-	if err := n.children[1].encode(buf); err != nil {
+	if err := n.children[1].write(buf); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (n *edgeNode) encode(buf *bytes.Buffer) error {
+func (n *edgeNode) write(buf *bytes.Buffer) error {
 	if _, err := n.path.Write(buf); err != nil {
 		return err
 	}
 
-	if err := n.child.encode(buf); err != nil {
+	if err := n.child.write(buf); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (n hashNode) encode(buf *bytes.Buffer) error {
+func (n hashNode) write(buf *bytes.Buffer) error {
 	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
 		return err
 	}
@@ -114,7 +123,7 @@ func (n hashNode) encode(buf *bytes.Buffer) error {
 	return nil
 }
 
-func (n valueNode) encode(buf *bytes.Buffer) error {
+func (n valueNode) write(buf *bytes.Buffer) error {
 	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
 		return err
 	}
@@ -122,11 +131,15 @@ func (n valueNode) encode(buf *bytes.Buffer) error {
 	return nil
 }
 
-func (n *edgeNode) PathMatches(key *BitArray) bool {
+// TODO(weiihann): check if we want to return a pointer or a value
+func (n *binaryNode) copy() *binaryNode { cpy := *n; return &cpy }
+func (n *edgeNode) copy() *edgeNode     { cpy := *n; return &cpy }
+
+func (n *edgeNode) pathMatches(key *BitArray) bool {
 	return n.path.EqualMSBs(key)
 }
 
-func (n *edgeNode) CommonPath(key *BitArray) BitArray {
+func (n *edgeNode) commonPath(key *BitArray) BitArray {
 	var commonPath BitArray
 	commonPath.CommonMSBs(n.path, key)
 	return commonPath
