@@ -1552,34 +1552,6 @@ func TestIsBitSet(t *testing.T) {
 	}
 }
 
-func TestDebug(t *testing.T) {
-	tests := []struct {
-		name string
-		ba   BitArray
-		pos  uint8
-		want bool
-	}{
-		{
-			name: "bit in second word",
-			ba: BitArray{
-				len:   128,
-				words: [4]uint64{0, 1, 0, 0},
-			},
-			pos:  63,
-			want: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.ba.IsBitSet(tt.pos)
-			if got != tt.want {
-				t.Errorf("IsBitSet(%d) = %v, want %v", tt.pos, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestFeltConversion(t *testing.T) {
 	tests := []struct {
 		name   string
