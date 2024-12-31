@@ -479,6 +479,18 @@ func (b *BitArray) SetUint64(length uint8, data uint64) *BitArray {
 	return b
 }
 
+// Sets the bit array to a single bit.
+func (b *BitArray) SetBit(bit bool) *BitArray {
+	b.len = 1
+	if bit {
+		b.words[0] = 1
+	} else {
+		b.words[0] = 0
+	}
+	b.truncateToLength()
+	return b
+}
+
 // Returns the length of the encoded bit array in bytes.
 func (b *BitArray) EncodedLen() uint {
 	return b.byteCount() + 1

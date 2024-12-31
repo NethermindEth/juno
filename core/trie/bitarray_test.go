@@ -1713,3 +1713,37 @@ func TestSetFeltValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestSetBit(t *testing.T) {
+	tests := []struct {
+		name string
+		bit  bool
+		want BitArray
+	}{
+		{
+			name: "set bit false",
+			bit:  false,
+			want: BitArray{
+				len:   1,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name: "set bit true",
+			bit:  true,
+			want: BitArray{
+				len:   1,
+				words: [4]uint64{1, 0, 0, 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(BitArray).SetBit(tt.bit)
+			if !got.Equal(&tt.want) {
+				t.Errorf("SetBit(%v) = %v, want %v", tt.bit, got, tt.want)
+			}
+		})
+	}
+}
