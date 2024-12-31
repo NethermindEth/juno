@@ -139,6 +139,7 @@ func (n *edgeNode) pathMatches(key *BitArray) bool {
 	return n.path.EqualMSBs(key)
 }
 
+// Returns the common bits between the current node and the given key, starting from the most significant bit
 func (n *edgeNode) commonPath(key *BitArray) BitArray {
 	var commonPath BitArray
 	commonPath.CommonMSBs(n.path, key)
