@@ -9,16 +9,16 @@ import (
 )
 
 func TestUpdate(t *testing.T) {
-	trie := NewTrie(251)
+	tr, records := nonRandomTrie(t, 1000)
 
-	key := new(felt.Felt).SetUint64(1)
-	value := new(felt.Felt).SetUint64(2)
-	err := trie.Update(key, value)
-	require.NoError(t, err)
+	for _, record := range records {
+		err := tr.Update(record.key, record.value)
+		require.NoError(t, err)
 
-	got, err := trie.Get(key)
-	require.NoError(t, err)
-	require.Equal(t, value, got)
+		got, err := tr.Get(record.key)
+		require.NoError(t, err)
+		require.Equal(t, record.value, got)
+	}
 }
 
 func TestUpdateRandom(t *testing.T) {
@@ -34,14 +34,49 @@ func TestUpdateRandom(t *testing.T) {
 	}
 }
 
-func Test4KeysTrieD(t *testing.T) {
-	tr, _ := build4KeysTrieD(t)
-	t.Log(tr.String())
+func TestDelete(t *testing.T) {
+	tr, records := nonRandomTrie(t, 10000)
+
+	for _, record := range records {
+		err := tr.Delete(record.key)
+		require.NoError(t, err)
+
+		got, err := tr.Get(record.key)
+		require.NoError(t, err)
+		require.Equal(t, got, &felt.Zero)
+	}
+}
+
+func TestDeleteRandom(t *testing.T) {
+	tr, records := randomTrie(t, 10000)
+
+	for i := len(records) - 1; i >= 0; i-- {
+		err := tr.Delete(records[i].key)
+		require.NoError(t, err)
+
+		got, err := tr.Get(records[i].key)
+		require.NoError(t, err)
+		require.Equal(t, got, &felt.Zero)
+	}
 }
 
 type keyValue struct {
 	key   *felt.Felt
 	value *felt.Felt
+}
+
+func nonRandomTrie(t *testing.T, numKeys int) (*Trie, []*keyValue) {
+	tr := NewTrie(251)
+	records := make([]*keyValue, numKeys)
+
+	for i := 1; i < numKeys+1; i++ {
+		key := new(felt.Felt).SetUint64(uint64(i))
+		records[i-1] = &keyValue{key: key, value: key}
+		err := tr.Update(key, key)
+		require.NoError(t, err)
+	}
+
+	return tr, records
 }
 
 func randomTrie(t testing.TB, n int) (*Trie, []*keyValue) {
@@ -80,8 +115,6 @@ func buildTrie(t *testing.T, records []*keyValue) *Trie {
 
 	for _, record := range records {
 		err := tempTrie.Update(record.key, record.value)
-		t.Log("--------------------------------")
-		t.Log(tempTrie.String())
 		require.NoError(t, err)
 	}
 
