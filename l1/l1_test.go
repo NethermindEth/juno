@@ -247,7 +247,8 @@ func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 			server, listener := startServer("127.0.0.1:0", test.service)
 			defer server.Stop()
 
-			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), &utils.Network{})
+			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(),
+				&utils.Network{IPAddressRegistry: &common.Address{}})
 			require.NoError(t, err)
 			defer subscriber.Close()
 
