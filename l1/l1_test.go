@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -110,6 +111,7 @@ func TestEventListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
+	network.IPAddressRegistry = &common.Address{}
 	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
@@ -128,6 +130,24 @@ func TestEventListener(t *testing.T) {
 
 	subscriber.
 		EXPECT().
+		GetIPAddresses(gomock.Any(), gomock.Any()).
+		Return([]string{}, nil).
+		Times(1)
+
+	subscriber.
+		EXPECT().
+		WatchIPAdded(gomock.Any(), gomock.Any()).
+		Return(newFakeSubscription(), nil).
+		Times(1)
+
+	subscriber.
+		EXPECT().
+		WatchIPRemoved(gomock.Any(), gomock.Any()).
+		Return(newFakeSubscription(), nil).
+		Times(1)
+
+	subscriber.
+		EXPECT().
 		FinalisedHeight(gomock.Any()).
 		Return(uint64(0), nil).
 		AnyTimes()
@@ -141,7 +161,7 @@ func TestEventListener(t *testing.T) {
 	subscriber.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog, nil).
+	client := l1.NewClient(subscriber, chain, nopLog, make(chan<- p2p.IPAddressRegistryEvent)).
 		WithResubscribeDelay(0).
 		WithPollFinalisedInterval(time.Nanosecond).
 		WithEventListener(l1.SelectiveListener{
