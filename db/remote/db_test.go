@@ -63,7 +63,7 @@ func TestRemote(t *testing.T) {
 
 	t.Run("iterate", func(t *testing.T) {
 		err := remoteDB.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator()
+			it, err := txn.NewIterator(nil, false)
 			if err != nil {
 				return err
 			}
@@ -85,7 +85,7 @@ func TestRemote(t *testing.T) {
 
 	t.Run("seek", func(t *testing.T) {
 		err := remoteDB.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator()
+			it, err := txn.NewIterator(nil, false)
 			if err != nil {
 				return err
 			}

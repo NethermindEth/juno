@@ -572,7 +572,7 @@ func TestChangeStateDiffStructEmptyDB(t *testing.T) {
 		require.Nil(t, intermediateState)
 
 		// DB is still empty.
-		iter, err := txn.NewIterator()
+		iter, err := txn.NewIterator(nil, false)
 		defer func() {
 			require.NoError(t, iter.Close())
 		}()
@@ -654,7 +654,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	// - Both state diffs have been updated.
 	// - There are no extraneous entries in the DB.
 	require.NoError(t, testdb.View(func(txn db.Transaction) error {
-		iter, err := txn.NewIterator()
+		iter, err := txn.NewIterator(nil, false)
 		require.NoError(t, err)
 		defer func() {
 			require.NoError(t, iter.Close())

@@ -29,7 +29,7 @@ func (h *history) deleteLog(key []byte, height uint64) error {
 }
 
 func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
-	it, err := h.txn.NewIterator()
+	it, err := h.txn.NewIterator(nil, false)
 	if err != nil {
 		return nil, err
 	}

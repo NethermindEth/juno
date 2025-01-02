@@ -353,15 +353,14 @@ func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
 	var peers []peer.AddrInfo
 
 	err := database.View(func(txn db.Transaction) error {
-		it, err := txn.NewIterator()
+		it, err := txn.NewIterator(db.Peer.Key(), true)
 		if err != nil {
 			return fmt.Errorf("create iterator: %w", err)
 		}
 		defer it.Close()
 
-		prefix := db.Peer.Key()
-		for it.Seek(prefix); it.Valid(); it.Next() {
-			peerIDBytes := it.Key()[len(prefix):]
+		for it.First(); it.Valid(); it.Next() {
+			peerIDBytes := it.Key()
 			peerID, err := peer.IDFromBytes(peerIDBytes)
 			if err != nil {
 				return fmt.Errorf("decode peer ID: %w", err)
