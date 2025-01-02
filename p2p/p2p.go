@@ -223,7 +223,9 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 
-	go s.listenForL1Events(ctx)
+	if s.l1events != nil {
+		go s.listenForL1Events(ctx)
+	}
 
 	err := s.dht.Bootstrap(ctx)
 	if err != nil {

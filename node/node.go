@@ -181,22 +181,20 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 
-	l1ToP2P := make(chan p2p.IPAddressRegistryEvent)
+	var l1ToP2P chan p2p.IPAddressRegistryEvent
 	if !cfg.DisableL1Verification {
 		// Due to mutually exclusive flag we can do the following.
 		if cfg.EthNode == "" {
 			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
 		}
 
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, chain, log, l1ToP2P)
+		l1ToP2P = make(chan p2p.IPAddressRegistryEvent)
+		l1Client, err := newL1Client(cfg.EthNode, cfg.Metrics, chain, log, l1ToP2P)
 		if err != nil {
 			return nil, fmt.Errorf("create L1 client: %w", err)
 		}
 		services = append(services, l1Client)
 		rpcHandler.WithL1Client(l1Client.L1())
-	} else {
-		close(l1ToP2P)
 	}
 
 	var p2pService *p2p.Service
