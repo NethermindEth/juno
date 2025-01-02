@@ -3,6 +3,7 @@ package trie2
 import (
 	"fmt"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -11,11 +12,12 @@ type Trie struct {
 	root   node
 	reader interface{} // TODO(weiihann): implement reader
 	// committed bool
+	hashFn crypto.HashFn
 }
 
 // TODO(weiihann): implement this
-func NewTrie(height uint8) *Trie {
-	return &Trie{height: height}
+func NewTrie(height uint8, hashFn crypto.HashFn) *Trie {
+	return &Trie{height: height, hashFn: hashFn}
 }
 
 // Modifies or inserts a key-value pair in the trie.
@@ -53,6 +55,13 @@ func (t *Trie) Delete(key *felt.Felt) error {
 	}
 	t.root = n
 	return nil
+}
+
+// Returns the root hash of the trie. Calling this method will also cache the hash of each node in the trie.
+func (t *Trie) Hash() *felt.Felt {
+	hash, cached := t.hashRoot()
+	t.root = cached
+	return hash.(*hashNode).Felt
 }
 
 func (t *Trie) get(n node, key *BitArray) (*felt.Felt, node, bool, error) {
@@ -242,6 +251,11 @@ func (t *Trie) delete(n node, prefix, key *BitArray) (bool, node, error) {
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
 	}
+}
+
+func (t *Trie) hashRoot() (node, node) {
+	h := newHasher(t.hashFn, false) // TODO(weiihann): handle parallel hashing
+	return h.hash(t.root)
 }
 
 // Converts a Felt value into a BitArray representation suitable for
