@@ -46,7 +46,8 @@ func NewEthSubscriber(ethClientAddress string, network *utils.Network) (*EthSubs
 		ipAddressRegistry         *contract.IPAddressRegistry
 		ipAddressRegistryFilterer *contract.IPAddressRegistryFilterer
 	)
-	if network.BootnodeRegistry != nil {
+	if network.BootnodeRegistry != emptyIPAddressRegistry {
+		fmt.Println("Bootnode registry is not empty")
 		ipAddressRegistry, err = contract.NewIPAddressRegistry(network.BootnodeRegistry, ethClient)
 		if err != nil {
 			return nil, err

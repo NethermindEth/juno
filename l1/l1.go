@@ -20,6 +20,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var emptyIPAddressRegistry = common.Address{}
+
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
@@ -157,7 +159,7 @@ func (c *Client) Run(ctx context.Context) error {
 	errs.Go(func() error {
 		return c.makeSubscriptionToStateUpdates(ctx, buffer)
 	})
-	if c.network.BootnodeRegistry != nil {
+	if c.network.BootnodeRegistry != emptyIPAddressRegistry {
 		errs.Go(func() error {
 			return c.makeSubscribtionsToIPAddresses(ctx, buffer)
 		})
@@ -229,7 +231,7 @@ func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int)
 
 func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int) error {
 	defer close(c.eventsToP2P)
-	addresses, err := c.l1.GetIPAddresses(ctx, *c.network.BootnodeRegistry)
+	addresses, err := c.l1.GetIPAddresses(ctx, c.network.BootnodeRegistry)
 	if err != nil {
 		return err
 	}

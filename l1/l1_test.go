@@ -111,7 +111,7 @@ func TestEventListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
-	network.BootnodeRegistry = &common.Address{}
+	network.BootnodeRegistry = common.HexToAddress("0x1234")
 	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
@@ -268,7 +268,7 @@ func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 			defer server.Stop()
 
 			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(),
-				&utils.Network{BootnodeRegistry: &common.Address{}})
+				&utils.Network{BootnodeRegistry: common.Address{}})
 			require.NoError(t, err)
 			defer subscriber.Close()
 

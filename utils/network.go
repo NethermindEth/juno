@@ -22,7 +22,7 @@ type Network struct {
 	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
 	L2ChainID           string             `json:"l2_chain_id" validate:"required"`
 	CoreContractAddress common.Address     `json:"core_contract_address" validate:"required"`
-	BootnodeRegistry    *common.Address     `json:"ip_address_registry"`
+	BootnodeRegistry    common.Address     `json:"ip_address_registry"`
 	BlockHashMetaInfo   *BlockHashMetaInfo `json:"block_hash_meta_info"`
 }
 
@@ -39,9 +39,8 @@ var (
 	fallBackSequencerAddressMainnet, _ = new(felt.Felt).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
 	fallBackSequencerAddress, _        = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	// The following are necessary for Cobra and Viper, respectively, to unmarshal log level CLI/config parameters properly.
-	_                 pflag.Value              = (*Network)(nil)
-	_                 encoding.TextUnmarshaler = (*Network)(nil)
-	ipAddressRegistry                          = common.HexToAddress("0xa2499F2a3Fb071fd99f921038d043eF31B446883")
+	_ pflag.Value              = (*Network)(nil)
+	_ encoding.TextUnmarshaler = (*Network)(nil)
 
 	// The docs states the addresses for each network: https://docs.starknet.io/tools/important-addresses/
 	Mainnet = Network{
@@ -109,7 +108,7 @@ var (
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
-		BootnodeRegistry: &ipAddressRegistry,
+		BootnodeRegistry: common.HexToAddress("0xa2499F2a3Fb071fd99f921038d043eF31B446883"),
 	}
 	SepoliaIntegration = Network{
 		Name:       "sepolia-integration",
