@@ -88,12 +88,12 @@ func (z *Felt) SetString(number string) (*Felt, error) {
 
 	if _, ok := vv.SetString(number, 0); !ok {
 		if _, ok := vv.SetString(number, Base16); !ok {
-			return z, errors.New("can't parse into a big.Int: " + number)
+			return z, fmt.Errorf("can't parse into a big.Int: " + number)
 		}
 	}
 
 	if vv.BitLen() > fp.Bits {
-		return z, errors.New("can't fit in felt: " + number)
+		return z, fmt.Errorf("can't fit in felt: " + number)
 	}
 
 	var bytes [32]byte
