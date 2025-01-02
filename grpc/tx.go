@@ -23,7 +23,7 @@ func newTx(dbTx db.Transaction) *tx {
 }
 
 func (t *tx) newCursor() (uint32, error) {
-	it, err := t.dbTx.NewIterator()
+	it, err := t.dbTx.NewIterator(nil, false)
 	if err != nil {
 		return 0, err
 	}

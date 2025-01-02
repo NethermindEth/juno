@@ -14,7 +14,7 @@ func NewMemTransaction() Transaction {
 	return &memTransaction{storage: make(map[string][]byte)}
 }
 
-func (t *memTransaction) NewIterator() (Iterator, error) {
+func (t *memTransaction) NewIterator(_ []byte, _ bool) (Iterator, error) {
 	return nil, errors.New("not implemented")
 }
 

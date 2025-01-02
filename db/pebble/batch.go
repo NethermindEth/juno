@@ -88,7 +88,7 @@ func (b *batch) Get(key []byte, cb func([]byte) error) error {
 }
 
 // NewIterator : see db.Transaction.NewIterator
-func (b *batch) NewIterator() (db.Iterator, error) {
+func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator, error) {
 	var iter *pebble.Iterator
 	var err error
 
@@ -96,7 +96,12 @@ func (b *batch) NewIterator() (db.Iterator, error) {
 		return nil, ErrDiscardedTransaction
 	}
 
-	iter, err = b.batch.NewIter(nil)
+	iterOpt := &pebble.IterOptions{LowerBound: lowerBound}
+	if withUpperBound {
+		iterOpt.UpperBound = upperBound(lowerBound)
+	}
+
+	iter, err = b.batch.NewIter(iterOpt)
 	if err != nil {
 		return nil, err
 	}

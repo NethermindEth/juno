@@ -42,6 +42,9 @@ type Iterator interface {
 	// Valid returns true if the iterator is positioned at a valid key/value pair.
 	Valid() bool
 
+	// First moves the iterator to the first key/value pair.
+	First() bool
+
 	// Next moves the iterator to the next key/value pair. It returns whether the
 	// iterator is valid after the call. Once invalid, the iterator remains
 	// invalid.
@@ -63,7 +66,7 @@ type Iterator interface {
 // the transaction is committed.
 type Transaction interface {
 	// NewIterator returns an iterator over the database's key/value pairs.
-	NewIterator() (Iterator, error)
+	NewIterator(lowerBound []byte, withUpperBound bool) (Iterator, error)
 	// Discard discards all the changes done to the database with this transaction
 	Discard() error
 	// Commit flushes all the changes pending on this transaction to the database, making the changes visible to other
