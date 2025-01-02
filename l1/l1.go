@@ -157,7 +157,7 @@ func (c *Client) Run(ctx context.Context) error {
 	errs.Go(func() error {
 		return c.makeSubscriptionToStateUpdates(ctx, buffer)
 	})
-	if c.network.IPAddressRegistry != nil {
+	if c.network.BootnodeRegistry != nil {
 		errs.Go(func() error {
 			return c.makeSubscribtionsToIPAddresses(ctx, buffer)
 		})
@@ -229,7 +229,7 @@ func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int)
 
 func (c *Client) makeSubscribtionsToIPAddresses(ctx context.Context, buffer int) error {
 	defer close(c.eventsToP2P)
-	addresses, err := c.l1.GetIPAddresses(ctx, *c.network.IPAddressRegistry)
+	addresses, err := c.l1.GetIPAddresses(ctx, *c.network.BootnodeRegistry)
 	if err != nil {
 		return err
 	}

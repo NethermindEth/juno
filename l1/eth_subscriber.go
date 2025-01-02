@@ -46,12 +46,12 @@ func NewEthSubscriber(ethClientAddress string, network *utils.Network) (*EthSubs
 		ipAddressRegistry         *contract.IPAddressRegistry
 		ipAddressRegistryFilterer *contract.IPAddressRegistryFilterer
 	)
-	if network.IPAddressRegistry != nil {
-		ipAddressRegistry, err = contract.NewIPAddressRegistry(*network.IPAddressRegistry, ethClient)
+	if network.BootnodeRegistry != nil {
+		ipAddressRegistry, err = contract.NewIPAddressRegistry(network.BootnodeRegistry, ethClient)
 		if err != nil {
 			return nil, err
 		}
-		ipAddressRegistryFilterer, err = contract.NewIPAddressRegistryFilterer(*network.IPAddressRegistry, ethClient)
+		ipAddressRegistryFilterer, err = contract.NewIPAddressRegistryFilterer(network.BootnodeRegistry, ethClient)
 		if err != nil {
 			return nil, err
 		}
