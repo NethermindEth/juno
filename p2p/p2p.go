@@ -297,9 +297,9 @@ func (s *Service) listenForL1Events(ctx context.Context) {
 					s.log.Debugw("Disconnected from peer", "peer", registryEvent.Address)
 				}
 				s.host.Peerstore().RemovePeer(peerInfo.ID)
-				s.log.Debugw("Removed peer from peerstore", "peer", peerInfo.ID)
+				s.log.Debugw("L1 event: Removed peer from routing table", "peer", peerInfo.ID)
 				s.dht.RoutingTable().RemovePeer(peerInfo.ID)
-				s.log.Debugw("Removed peer from routing table", "peer", peerInfo.ID)
+				s.log.Debugw("L1 event: Removed peer from DHT", "peer", peerInfo.ID)
 			}
 		}
 	}
