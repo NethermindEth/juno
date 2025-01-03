@@ -121,7 +121,8 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 func (p *Pool) Pop() (BroadcastedTransaction, error) {
 	var nextTxn BroadcastedTransaction
 	return nextTxn, p.db.Update(func(txn db.Transaction) error {
-		headHash, err := p.headHash(txn)
+		headHash := new(felt.Felt)
+		err := p.headHash(txn, headHash)
 		if err != nil {
 			return err
 		}
@@ -198,10 +199,9 @@ func (p *Pool) updateLen(txn db.Transaction, l uint64) error {
 	return txn.Set([]byte(poolLengthKey), binary.BigEndian.AppendUint64(nil, l))
 }
 
-func (p *Pool) headHash(txn db.Transaction) (*felt.Felt, error) {
-	var head *felt.Felt
-	return head, txn.Get([]byte(headKey), func(b []byte) error {
-		head = new(felt.Felt).SetBytes(b)
+func (p *Pool) headHash(txn db.Transaction, head *felt.Felt) error {
+	return txn.Get([]byte(headKey), func(b []byte) error {
+		head.SetBytes(b)
 		return nil
 	})
 }
