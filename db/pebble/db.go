@@ -164,6 +164,14 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperB
 	return item, utils.RunAndWrapOnError(it.Close, err)
 }
 
+// Calculates the next possible prefix after the given prefix bytes.
+// It's used to establish an upper boundary for prefix-based database scans.
+// Examples:
+//
+//	[1]     	  -> [2]
+//	[1, 255, 255] -> [2]
+//	[1, 2, 255]   -> [1, 3]
+//	[255, 255]    -> nil
 func upperBound(prefix []byte) []byte {
 	var ub []byte
 
