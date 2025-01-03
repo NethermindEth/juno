@@ -2,6 +2,7 @@ package mempool_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -28,8 +29,8 @@ func TestMempool(t *testing.T) {
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 
-	// push multiple to empty
-	for i := uint64(0); i < 3; i++ {
+	// push multiple to empty (1,2,3)
+	for i := uint64(1); i < 4; i++ {
 		assert.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -38,22 +39,23 @@ func TestMempool(t *testing.T) {
 
 		l, err := pool.Len()
 		require.NoError(t, err)
-		assert.Equal(t, i+1, l)
+		assert.Equal(t, i, l)
 	}
 
-	// consume some
-	for i := uint64(0); i < 2; i++ {
+	// consume some (remove 1,2, keep 3)
+	for i := uint64(1); i < 3; i++ {
 		txn, err := pool.Pop()
+		fmt.Println("txn", txn.Transaction.Hash().String())
 		require.NoError(t, err)
 		assert.Equal(t, i, txn.Transaction.Hash().Uint64())
 
 		l, err := pool.Len()
 		require.NoError(t, err)
-		assert.Equal(t, 3-i-1, l)
+		assert.Equal(t, 3-i, l)
 	}
 
-	// push multiple to non empty
-	for i := uint64(3); i < 5; i++ {
+	// push multiple to non empty (push 4,5. now have 3,4,5)
+	for i := uint64(4); i < 6; i++ {
 		assert.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -62,11 +64,11 @@ func TestMempool(t *testing.T) {
 
 		l, err := pool.Len()
 		require.NoError(t, err)
-		assert.Equal(t, i-1, l)
+		assert.Equal(t, i-2, l)
 	}
 
-	// consume all
-	for i := uint64(2); i < 5; i++ {
+	// consume all (remove 3,4,5)
+	for i := uint64(3); i < 6; i++ {
 		txn, err := pool.Pop()
 		require.NoError(t, err)
 		assert.Equal(t, i, txn.Transaction.Hash().Uint64())

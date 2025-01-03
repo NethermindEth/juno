@@ -64,11 +64,13 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 	}
 
 	if err := p.db.Update(func(txn db.Transaction) error {
-		tail, err := p.tailHash(txn)
-		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-			return err
+		tail := new(felt.Felt)
+		if err := p.tailHash(txn, tail); err != nil {
+			if !errors.Is(err, db.ErrKeyNotFound) {
+				return err
+			}
+			tail = nil
 		}
-
 		if err = p.putElem(txn, userTxn.Transaction.Hash(), &storageElem{
 			Txn: *userTxn,
 		}); err != nil {
@@ -208,10 +210,9 @@ func (p *Pool) updateHead(txn db.Transaction, head *felt.Felt) error {
 	return txn.Set([]byte(headKey), head.Marshal())
 }
 
-func (p *Pool) tailHash(txn db.Transaction) (*felt.Felt, error) {
-	var tail *felt.Felt
-	return tail, txn.Get([]byte(tailKey), func(b []byte) error {
-		tail = new(felt.Felt).SetBytes(b)
+func (p *Pool) tailHash(txn db.Transaction, tail *felt.Felt) error {
+	return txn.Get([]byte(tailKey), func(b []byte) error {
+		tail.SetBytes(b)
 		return nil
 	})
 }
