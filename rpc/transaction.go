@@ -265,6 +265,11 @@ type DataAvailability struct {
 }
 
 type ExecutionResources struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+	L2Gas     uint64 `json:"l2_gas"`
+
+	// TODO: Remove this field once the API is updated.
 	ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
