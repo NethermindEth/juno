@@ -24,12 +24,12 @@ const (
 	tailKey       = "tailKey"
 )
 
-// Pool stores the transactions in a linked list for its inherent FCFS behaviour
 type storageElem struct {
 	Txn      BroadcastedTransaction
 	NextHash *felt.Felt
 }
 
+// Pool stores the transactions in a linked list for its inherent FCFS behaviour
 type Pool struct {
 	db        db.DB
 	validator ValidatorFunc
@@ -49,22 +49,6 @@ func New(poolDB db.DB) *Pool {
 func (p *Pool) WithValidator(validator ValidatorFunc) *Pool {
 	p.validator = validator
 	return p
-}
-
-func (p *Pool) rejectDuplicateTxn(userTxn *BroadcastedTransaction) error {
-	txHash := userTxn.Transaction.Hash().Marshal()
-	err := p.db.View(func(txn db.Transaction) error {
-		return txn.Get(txHash, func(val []byte) error {
-			if val != nil {
-				return fmt.Errorf("transaction already exists in the mempool: %x", txHash)
-			}
-			return nil
-		})
-	})
-	if errors.Is(err, db.ErrKeyNotFound) {
-		return nil
-	}
-	return err
 }
 
 // Push queues a transaction to the pool
@@ -90,7 +74,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		}); err != nil {
 			return err
 		}
-		fmt.Println("tail", tail)
+
 		if tail != nil {
 			var oldTail storageElem
 			oldTail, err = p.elem(txn, tail)
@@ -250,4 +234,20 @@ func (p *Pool) putElem(txn db.Transaction, itemKey *felt.Felt, item *storageElem
 		return err
 	}
 	return txn.Set(itemKey.Marshal(), itemBytes)
+}
+
+func (p *Pool) rejectDuplicateTxn(userTxn *BroadcastedTransaction) error {
+	txHash := userTxn.Transaction.Hash().Marshal()
+	err := p.db.View(func(txn db.Transaction) error {
+		return txn.Get(txHash, func(val []byte) error {
+			if val != nil {
+				return fmt.Errorf("transaction already exists in the mempool: %x", txHash)
+			}
+			return nil
+		})
+	})
+	if errors.Is(err, db.ErrKeyNotFound) {
+		return nil
+	}
+	return err
 }
