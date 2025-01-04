@@ -149,7 +149,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 	return s
 }
 
-// WithPlugin registers an plugin
+// WithPlugin registers a plugin
 func (s *Synchronizer) WithPlugin(plugin junoplugin.JunoPlugin) *Synchronizer {
 	s.plugin = plugin
 	return s
