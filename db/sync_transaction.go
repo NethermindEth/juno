@@ -61,6 +61,6 @@ func (t *SyncTransaction) Impl() any {
 }
 
 // NewIterator : see db.Transaction.NewIterator
-func (t *SyncTransaction) NewIterator() (Iterator, error) {
+func (t *SyncTransaction) NewIterator(_ []byte, _ bool) (Iterator, error) {
 	return nil, errors.New("sync transactions dont support iterators")
 }

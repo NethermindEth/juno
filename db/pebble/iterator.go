@@ -39,6 +39,11 @@ func (i *iterator) Value() ([]byte, error) {
 	return buf, nil
 }
 
+func (i *iterator) First() bool {
+	i.positioned = true
+	return i.iter.First()
+}
+
 // Next : see db.Transaction.Iterator.Next
 func (i *iterator) Next() bool {
 	if !i.positioned {

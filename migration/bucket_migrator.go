@@ -78,7 +78,7 @@ func (m *BucketMigrator) Before(_ []byte) error {
 
 func (m *BucketMigrator) Migrate(ctx context.Context, txn db.Transaction, network *utils.Network, log utils.SimpleLogger) ([]byte, error) {
 	remainingInBatch := m.batchSize
-	iterator, err := txn.NewIterator()
+	iterator, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return nil, err
 	}

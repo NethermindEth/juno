@@ -183,7 +183,7 @@ func updateSchemaMetadata(txn db.Transaction, schema schemaMetadata) error {
 
 // migration0000 makes sure the targetDB is empty
 func migration0000(txn db.Transaction, _ *utils.Network) error {
-	it, err := txn.NewIterator()
+	it, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func migration0000(txn db.Transaction, _ *utils.Network) error {
 //
 // This enables us to remove the db.ContractRootKey prefix.
 func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error {
-	it, err := txn.NewIterator()
+	it, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, 
 		return nil
 	}
 
-	iterator, err := txn.NewIterator()
+	iterator, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return nil, err
 	}

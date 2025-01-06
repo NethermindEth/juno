@@ -505,20 +505,16 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 }
 
 func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
-	iterator, err := txn.NewIterator()
+	numBytes := core.MarshalBlockNumber(number)
+	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
+
+	iterator, err := txn.NewIterator(prefix, true)
 	if err != nil {
 		return nil, err
 	}
 
 	var txs []core.Transaction
-	numBytes := core.MarshalBlockNumber(number)
-
-	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
-	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
-		if !bytes.HasPrefix(iterator.Key(), prefix) {
-			break
-		}
-
+	for iterator.First(); iterator.Valid(); iterator.Next() {
 		val, vErr := iterator.Value()
 		if vErr != nil {
 			return nil, utils.RunAndWrapOnError(iterator.Close, vErr)
@@ -540,16 +536,17 @@ func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 }
 
 func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.TransactionReceipt, error) {
-	iterator, err := txn.NewIterator()
+	numBytes := core.MarshalBlockNumber(number)
+	prefix := db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
+
+	iterator, err := txn.NewIterator(prefix, true)
 	if err != nil {
 		return nil, err
 	}
 
 	var receipts []*core.TransactionReceipt
-	numBytes := core.MarshalBlockNumber(number)
 
-	prefix := db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
-	for iterator.Seek(prefix); iterator.Valid(); iterator.Next() {
+	for iterator.First(); iterator.Valid(); iterator.Next() {
 		if !bytes.HasPrefix(iterator.Key(), prefix) {
 			break
 		}
