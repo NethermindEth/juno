@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/NethermindEth/juno/encoder/registry"
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"

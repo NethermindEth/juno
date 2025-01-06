@@ -1,4 +1,4 @@
-package blockchain
+package registry
 
 import (
 	"reflect"
@@ -10,7 +10,8 @@ import (
 
 var once sync.Once
 
-func RegisterCoreTypesToEncoder() {
+//nolint:gochecknoinits
+func init() {
 	once.Do(func() {
 		types := []reflect.Type{
 			reflect.TypeOf(core.DeclareTransaction{}),

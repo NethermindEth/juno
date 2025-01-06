@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -13,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -25,27 +22,6 @@ var (
 	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
 	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
 )
-
-func TestMain(m *testing.M) {
-	txTypes := []core.Transaction{
-		&core.DeclareTransaction{},
-		&core.DeployTransaction{},
-		&core.InvokeTransaction{},
-		&core.L1HandlerTransaction{},
-		&core.DeployAccountTransaction{},
-	}
-
-	for _, tx := range txTypes {
-		_ = encoder.RegisterType(reflect.TypeOf(tx))
-	}
-
-	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{}))
-	_ = encoder.RegisterType(reflect.TypeOf(core.Cairo1Class{}))
-
-	code := m.Run()
-
-	os.Exit(code)
-}
 
 func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)

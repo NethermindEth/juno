@@ -92,7 +92,6 @@ type Blockchain struct {
 }
 
 func New(database db.DB, network *utils.Network, pendingBlockFn func() *core.Block) *Blockchain {
-	RegisterCoreTypesToEncoder()
 	return &Blockchain{
 		database:       database,
 		network:        network,

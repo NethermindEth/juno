@@ -3,14 +3,12 @@ package vm
 import (
 	"context"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -32,8 +30,6 @@ func TestV0Call(t *testing.T) {
 	classHash := utils.HexToFelt(t, "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
-
-	require.NoError(t, encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{})))
 
 	testState := core.NewState(txn)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
@@ -94,8 +90,6 @@ func TestV1Call(t *testing.T) {
 	classHash := utils.HexToFelt(t, "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
-
-	require.NoError(t, encoder.RegisterType(reflect.TypeOf(core.Cairo1Class{})))
 
 	testState := core.NewState(txn)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
@@ -164,8 +158,6 @@ func TestCall_MaxSteps(t *testing.T) {
 	classHash := utils.HexToFelt(t, "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
-
-	encoder.RegisterType(reflect.TypeOf(core.Cairo0Class{})) //nolint:errcheck
 
 	testState := core.NewState(txn)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
