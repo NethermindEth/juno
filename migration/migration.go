@@ -256,7 +256,6 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error
 
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
 func recalculateBloomFilters(txn db.Transaction, _ *utils.Network) error {
-	blockchain.RegisterCoreTypesToEncoder()
 	for blockNumber := uint64(0); ; blockNumber++ {
 		block, err := blockchain.BlockByNumber(txn, blockNumber)
 		if err != nil {

@@ -268,7 +268,6 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 }
 
 func TestMigrateCairo1CompiledClass(t *testing.T) {
-	blockchain.RegisterCoreTypesToEncoder()
 	txn := db.NewMemTransaction()
 
 	key := []byte("key")
