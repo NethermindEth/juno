@@ -289,52 +289,56 @@ func TestSeek(t *testing.T) {
 
 func TestPrefixSearch(t *testing.T) {
 	type entry struct {
-		key   uint64
-		value []byte
+		prefix []byte
+		key    uint64
+		value  []byte
 	}
 
 	data := []entry{
-		{11, []byte("c")},
-		{12, []byte("a")},
-		{13, []byte("e")},
-		{22, []byte("d")},
-		{23, []byte("b")},
-		{123, []byte("f")},
+		{[]byte{11}, 1, []byte("c")},
+		{[]byte{11}, 2, []byte("a")},
+		{[]byte{11}, 3, []byte("e")},
+		{[]byte{12}, 4, []byte("d")},
+		{[]byte{23}, 5, []byte("b")},
+		{[]byte{123}, 6, []byte("f")},
+		{[]byte{0}, 7, []byte("g")},
 	}
 
 	testDB := pebble.NewMemTest(t)
 
 	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 		for _, d := range data {
-			numBytes := make([]byte, 8)
-			binary.BigEndian.PutUint64(numBytes, d.key)
-			require.NoError(t, txn.Set(numBytes, d.value))
+			keyBytes := make([]byte, 8)
+			binary.BigEndian.PutUint64(keyBytes, d.key)
+			var dbKey []byte
+			dbKey = append(dbKey, d.prefix...)
+			dbKey = append(dbKey, keyBytes...)
+			require.NoError(t, txn.Set(dbKey, d.value))
 		}
 		return nil
 	}))
 
 	require.NoError(t, testDB.View(func(txn db.Transaction) error {
-		iter, err := txn.NewIterator(nil, false)
+		targetPrefix := []byte{11}
+		iter, err := txn.NewIterator(targetPrefix, true)
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			require.NoError(t, iter.Close())
 		})
 
-		prefixBytes := make([]byte, 8)
-		binary.BigEndian.PutUint64(prefixBytes, 1)
-
 		var entries []entry
-		for iter.Seek(prefixBytes); iter.Valid(); iter.Next() {
-			key := binary.BigEndian.Uint64(iter.Key())
-			if key >= 20 {
-				break
-			}
+		for iter.First(); iter.Valid(); iter.Next() {
+			key := iter.Key()
+			key = key[len(targetPrefix):]
+			keyUint64 := binary.BigEndian.Uint64(key)
+
 			v, err := iter.Value()
 			require.NoError(t, err)
-			entries = append(entries, entry{key, v})
+
+			entries = append(entries, entry{targetPrefix, keyUint64, v})
 		}
 
-		expectedKeys := []uint64{11, 12, 13}
+		expectedKeys := []uint64{1, 2, 3}
 
 		assert.Equal(t, len(expectedKeys), len(entries))
 
@@ -344,6 +348,39 @@ func TestPrefixSearch(t *testing.T) {
 
 		return nil
 	}))
+}
+
+func TestFirst(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+	require.NoError(t, txn.Set([]byte{0}, []byte{0}))
+	require.NoError(t, txn.Set([]byte{1}, []byte{1}))
+	require.NoError(t, txn.Set([]byte{2}, []byte{2}))
+
+	t.Run("First() on new iterator", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, true, iter.First())
+		assert.Equal(t, []byte{0}, iter.Key())
+		require.NoError(t, iter.Close())
+	})
+
+	t.Run("First() after multiple Next()", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, true, iter.Next())
+		assert.Equal(t, []byte{0}, iter.Key())
+		assert.Equal(t, true, iter.Next())
+		assert.Equal(t, []byte{1}, iter.Key())
+		assert.Equal(t, true, iter.First())
+		assert.Equal(t, []byte{0}, iter.Key())
+		require.NoError(t, iter.Close())
+	})
 }
 
 func TestNext(t *testing.T) {
