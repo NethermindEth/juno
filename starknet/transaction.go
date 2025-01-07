@@ -110,6 +110,7 @@ type Resource uint32
 const (
 	ResourceL1Gas Resource = iota + 1
 	ResourceL2Gas
+	ResourceL1DataGas
 )
 
 func (r *Resource) UnmarshalJSON(data []byte) error {
@@ -120,10 +121,12 @@ func (r *Resource) UnmarshalText(text []byte) error {
 	switch string(text) {
 	case "L1_GAS":
 		*r = ResourceL1Gas
+	case "L1_DATA_GAS":
+		*r = ResourceL1DataGas
 	case "L2_GAS":
 		*r = ResourceL2Gas
 	default:
-		return fmt.Errorf("unknown resource: %q", string(text))
+		return fmt.Errorf("unknown resource3: %q", string(text))
 	}
 	return nil
 }
