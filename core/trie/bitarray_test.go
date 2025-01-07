@@ -1689,20 +1689,20 @@ func TestSetFeltValidation(t *testing.T) {
 func TestSetBit(t *testing.T) {
 	tests := []struct {
 		name string
-		bit  bool
+		bit  uint8
 		want BitArray
 	}{
 		{
-			name: "set bit false",
-			bit:  false,
+			name: "set bit 0",
+			bit:  0,
 			want: BitArray{
 				len:   1,
 				words: [4]uint64{0, 0, 0, 0},
 			},
 		},
 		{
-			name: "set bit true",
-			bit:  true,
+			name: "set bit 1",
+			bit:  1,
 			want: BitArray{
 				len:   1,
 				words: [4]uint64{1, 0, 0, 0},
@@ -1715,6 +1715,90 @@ func TestSetBit(t *testing.T) {
 			got := new(BitArray).SetBit(tt.bit)
 			if !got.Equal(&tt.want) {
 				t.Errorf("SetBit(%v) = %v, want %v", tt.bit, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCmp(t *testing.T) {
+	tests := []struct {
+		name string
+		x    BitArray
+		y    BitArray
+		want int
+	}{
+		{
+			name: "equal empty arrays",
+			x:    BitArray{len: 0, words: [4]uint64{0, 0, 0, 0}},
+			y:    BitArray{len: 0, words: [4]uint64{0, 0, 0, 0}},
+			want: 0,
+		},
+		{
+			name: "equal non-empty arrays",
+			x:    BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
+			y:    BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
+			want: 0,
+		},
+		{
+			name: "different lengths - x shorter",
+			x:    BitArray{len: 32, words: [4]uint64{maxUint64, 0, 0, 0}},
+			y:    BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
+			want: -1,
+		},
+		{
+			name: "different lengths - x longer",
+			x:    BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
+			y:    BitArray{len: 32, words: [4]uint64{maxUint64, 0, 0, 0}},
+			want: 1,
+		},
+		{
+			name: "same length, x < y in first word",
+			x:    BitArray{len: 64, words: [4]uint64{0xFFFFFFFFFFFFFFFE, 0, 0, 0}},
+			y:    BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
+			want: -1,
+		},
+		{
+			name: "same length, x > y in first word",
+			x:    BitArray{len: 64, words: [4]uint64{maxUint64, 0, 0, 0}},
+			y:    BitArray{len: 64, words: [4]uint64{0xFFFFFFFFFFFFFFFE, 0, 0, 0}},
+			want: 1,
+		},
+		{
+			name: "same length, difference in last word",
+			x:    BitArray{len: 251, words: [4]uint64{0, 0, 0, 0x7FFFFFFFFFFFFFF}},
+			y:    BitArray{len: 251, words: [4]uint64{0, 0, 0, 0x7FFFFFFFFFFFFF0}},
+			want: 1,
+		},
+		{
+			name: "same length, sparse bits",
+			x:    BitArray{len: 128, words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAAAAA, 0, 0}},
+			y:    BitArray{len: 128, words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAA000, 0, 0}},
+			want: 1,
+		},
+		{
+			name: "max length difference",
+			x:    BitArray{len: 255, words: [4]uint64{maxUint64, maxUint64, maxUint64, ones63}},
+			y:    BitArray{len: 1, words: [4]uint64{0x1, 0, 0, 0}},
+			want: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.x.Cmp(&tt.y)
+			if got != tt.want {
+				t.Errorf("Cmp() = %v, want %v", got, tt.want)
+			}
+
+			// Test anti-symmetry: if x.Cmp(y) = z then y.Cmp(x) = -z
+			gotReverse := tt.y.Cmp(&tt.x)
+			if gotReverse != -tt.want {
+				t.Errorf("Reverse Cmp() = %v, want %v", gotReverse, -tt.want)
+			}
+
+			// Test transitivity with self: x.Cmp(x) should always be 0
+			if tt.x.Cmp(&tt.x) != 0 {
+				t.Error("Self Cmp() != 0")
 			}
 		})
 	}
