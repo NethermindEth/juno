@@ -48,7 +48,7 @@
 - Golang 1.23 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
 - [Rust](https://www.rust-lang.org/tools/install) 1.81.0 or higher.
-- A C compiler: `gcc` or `clang`.
+- A C compiler: `gcc`.
 - Install some dependencies on your system:
   
   - macOS
