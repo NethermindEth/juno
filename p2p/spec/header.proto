@@ -1,7 +1,7 @@
 syntax = "proto3";
-import "p2p/proto/common.proto";
+import "common.proto";
 
-option go_package = "github.com/NethermindEth/juno/p2p/starknet/spec";
+option go_package = "github.com/NethermindEth/juno/p2p/gen";
 
 // Note: commitments may change to be for the previous blocks like comet/tendermint
 // hash of block header sent to L1

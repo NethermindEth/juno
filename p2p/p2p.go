@@ -12,7 +12,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/p2p/starknet"
+	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
+	p2pSync "github.com/NethermindEth/juno/p2p/sync"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
@@ -38,13 +39,13 @@ type Service struct {
 	host host.Host
 
 	network *utils.Network
-	handler *starknet.Handler
+	handler *p2pPeers.Handler
 	log     utils.SimpleLogger
 
 	dht    *dht.IpfsDHT
 	pubsub *pubsub.PubSub
 
-	synchroniser *syncService
+	synchroniser *p2pSync.Service
 	gossipTracer *gossipTracer
 
 	feederNode bool
@@ -145,7 +146,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	synchroniser := newSyncService(bc, p2phost, snNetwork, log)
+	synchroniser := p2pSync.New(bc, p2phost, snNetwork, log)
 	s := &Service{
 		synchroniser: synchroniser,
 		log:          log,
@@ -153,7 +154,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		network:      snNetwork,
 		dht:          p2pdht,
 		feederNode:   feederNode,
-		handler:      starknet.NewHandler(bc, log),
+		handler:      p2pPeers.NewHandler(bc, log),
 		database:     database,
 	}
 	return s, nil
@@ -161,7 +162,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(starknet.Prefix),
+		dht.ProtocolPrefix(p2pSync.Prefix),
 		dht.BootstrapPeers(addrInfos...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
@@ -235,7 +236,7 @@ func (s *Service) Run(ctx context.Context) error {
 	s.setProtocolHandlers()
 
 	if !s.feederNode {
-		s.synchroniser.start(ctx)
+		s.synchroniser.Run(ctx)
 	}
 
 	<-ctx.Done()
@@ -249,11 +250,11 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) setProtocolHandlers() {
-	s.SetProtocolHandler(starknet.HeadersPID(), s.handler.HeadersHandler)
-	s.SetProtocolHandler(starknet.EventsPID(), s.handler.EventsHandler)
-	s.SetProtocolHandler(starknet.TransactionsPID(), s.handler.TransactionsHandler)
-	s.SetProtocolHandler(starknet.ClassesPID(), s.handler.ClassesHandler)
-	s.SetProtocolHandler(starknet.StateDiffPID(), s.handler.StateDiffHandler)
+	s.SetProtocolHandler(p2pSync.HeadersPID(), s.handler.HeadersHandler)
+	s.SetProtocolHandler(p2pSync.EventsPID(), s.handler.EventsHandler)
+	s.SetProtocolHandler(p2pSync.TransactionsPID(), s.handler.TransactionsHandler)
+	s.SetProtocolHandler(p2pSync.ClassesPID(), s.handler.ClassesHandler)
+	s.SetProtocolHandler(p2pSync.StateDiffPID(), s.handler.StateDiffHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {

@@ -5,23 +5,23 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptBlockID(header *core.Header) *spec.BlockID {
+func AdaptBlockID(header *core.Header) *gen.BlockID {
 	if header == nil {
 		return nil
 	}
 
-	return &spec.BlockID{
+	return &gen.BlockID{
 		Number: header.Number,
 		Header: AdaptHash(header.Hash),
 	}
 }
 
-func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
-	return &spec.ConsensusSignature{
+func AdaptSignature(sig []*felt.Felt) *gen.ConsensusSignature {
+	return &gen.ConsensusSignature{
 		R: AdaptFelt(sig[0]),
 		S: AdaptFelt(sig[1]),
 	}
@@ -29,19 +29,19 @@ func AdaptSignature(sig []*felt.Felt) *spec.ConsensusSignature {
 
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 	stateDiffCommitment *felt.Felt, stateDiffLength uint64,
-) *spec.SignedBlockHeader {
-	return &spec.SignedBlockHeader{
+) *gen.SignedBlockHeader {
+	return &gen.SignedBlockHeader{
 		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),
 		Number:           header.Number,
 		Time:             header.Timestamp,
 		SequencerAddress: AdaptAddress(header.SequencerAddress),
 		StateRoot:        AdaptHash(header.GlobalStateRoot),
-		Transactions: &spec.Patricia{
+		Transactions: &gen.Patricia{
 			NLeaves: header.TransactionCount,
 			Root:    AdaptHash(commitments.TransactionCommitment),
 		},
-		Events: &spec.Patricia{
+		Events: &gen.Patricia{
 			NLeaves: header.EventCount,
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
@@ -49,7 +49,7 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 		ProtocolVersion: header.ProtocolVersion,
 		GasPriceFri:     AdaptUint128(header.GasPriceSTRK),
 		Signatures:      utils.Map(header.Signatures, AdaptSignature),
-		StateDiffCommitment: &spec.StateDiffCommitment{
+		StateDiffCommitment: &gen.StateDiffCommitment{
 			StateDiffLength: stateDiffLength,
 			Root:            AdaptHash(stateDiffCommitment),
 		},
@@ -60,23 +60,23 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 	}
 }
 
-func adaptL1DA(da core.L1DAMode) spec.L1DataAvailabilityMode {
+func adaptL1DA(da core.L1DAMode) gen.L1DataAvailabilityMode {
 	switch da {
 	case core.Calldata:
-		return spec.L1DataAvailabilityMode_Calldata
+		return gen.L1DataAvailabilityMode_Calldata
 	case core.Blob:
-		return spec.L1DataAvailabilityMode_Blob
+		return gen.L1DataAvailabilityMode_Blob
 	default:
 		panic(fmt.Errorf("unknown L1DAMode %v", da))
 	}
 }
 
-func AdaptEvent(e *core.Event, txH *felt.Felt) *spec.Event {
+func AdaptEvent(e *core.Event, txH *felt.Felt) *gen.Event {
 	if e == nil {
 		return nil
 	}
 
-	return &spec.Event{
+	return &gen.Event{
 		TransactionHash: AdaptHash(txH),
 		FromAddress:     AdaptFelt(e.From),
 		Keys:            utils.Map(e.Keys, AdaptFelt),
