@@ -1,8 +1,8 @@
 syntax = "proto3";
-import "p2p/proto/common.proto";
-import "p2p/proto/receipt.proto";
+import "common.proto";
+import "receipt.proto";
 
-option go_package = "github.com/NethermindEth/juno/p2p/starknet/spec";
+option go_package = "github.com/NethermindEth/juno/p2p/gen";
 
 message ResourceLimits {
     Felt252 max_amount = 1;

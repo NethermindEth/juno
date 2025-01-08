@@ -5,17 +5,17 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 )
 
 //nolint:funlen,gocyclo
-func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
+func AdaptTransaction(transaction core.Transaction) *gen.Transaction {
 	if transaction == nil {
 		return nil
 	}
 
-	var specTx spec.Transaction
+	var specTx gen.Transaction
 
 	switch tx := transaction.(type) {
 	case *core.DeployTransaction:
@@ -23,8 +23,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	case *core.DeployAccountTransaction:
 		switch {
 		case tx.Version.Is(1):
-			specTx.Txn = &spec.Transaction_DeployAccountV1_{
-				DeployAccountV1: &spec.Transaction_DeployAccountV1{
+			specTx.Txn = &gen.Transaction_DeployAccountV1_{
+				DeployAccountV1: &gen.Transaction_DeployAccountV1{
 					MaxFee:      AdaptFelt(tx.MaxFee),
 					Signature:   AdaptAccountSignature(tx.Signature()),
 					ClassHash:   AdaptHash(tx.ClassHash),
@@ -34,8 +34,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 				},
 			}
 		case tx.Version.Is(3):
-			specTx.Txn = &spec.Transaction_DeployAccountV3_{
-				DeployAccountV3: &spec.Transaction_DeployAccountV3{
+			specTx.Txn = &gen.Transaction_DeployAccountV3_{
+				DeployAccountV3: &gen.Transaction_DeployAccountV3{
 					Signature:                 AdaptAccountSignature(tx.Signature()),
 					ClassHash:                 AdaptHash(tx.ClassHash),
 					Nonce:                     AdaptFelt(tx.Nonce),
@@ -54,8 +54,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	case *core.DeclareTransaction:
 		switch {
 		case tx.Version.Is(0):
-			specTx.Txn = &spec.Transaction_DeclareV0_{
-				DeclareV0: &spec.Transaction_DeclareV0{
+			specTx.Txn = &gen.Transaction_DeclareV0_{
+				DeclareV0: &gen.Transaction_DeclareV0{
 					Sender:    AdaptAddress(tx.SenderAddress),
 					MaxFee:    AdaptFelt(tx.MaxFee),
 					Signature: AdaptAccountSignature(tx.Signature()),
@@ -63,8 +63,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 				},
 			}
 		case tx.Version.Is(1):
-			specTx.Txn = &spec.Transaction_DeclareV1_{
-				DeclareV1: &spec.Transaction_DeclareV1{
+			specTx.Txn = &gen.Transaction_DeclareV1_{
+				DeclareV1: &gen.Transaction_DeclareV1{
 					Sender:    AdaptAddress(tx.SenderAddress),
 					MaxFee:    AdaptFelt(tx.MaxFee),
 					Signature: AdaptAccountSignature(tx.Signature()),
@@ -73,8 +73,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 				},
 			}
 		case tx.Version.Is(2):
-			specTx.Txn = &spec.Transaction_DeclareV2_{
-				DeclareV2: &spec.Transaction_DeclareV2{
+			specTx.Txn = &gen.Transaction_DeclareV2_{
+				DeclareV2: &gen.Transaction_DeclareV2{
 					Sender:            AdaptAddress(tx.SenderAddress),
 					MaxFee:            AdaptFelt(tx.MaxFee),
 					Signature:         AdaptAccountSignature(tx.Signature()),
@@ -84,8 +84,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 				},
 			}
 		case tx.Version.Is(3):
-			specTx.Txn = &spec.Transaction_DeclareV3_{
-				DeclareV3: &spec.Transaction_DeclareV3{
+			specTx.Txn = &gen.Transaction_DeclareV3_{
+				DeclareV3: &gen.Transaction_DeclareV3{
 					Sender:                    AdaptAddress(tx.SenderAddress),
 					Signature:                 AdaptAccountSignature(tx.Signature()),
 					ClassHash:                 AdaptHash(tx.ClassHash),
@@ -105,8 +105,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	case *core.InvokeTransaction:
 		switch {
 		case tx.Version.Is(0):
-			specTx.Txn = &spec.Transaction_InvokeV0_{
-				InvokeV0: &spec.Transaction_InvokeV0{
+			specTx.Txn = &gen.Transaction_InvokeV0_{
+				InvokeV0: &gen.Transaction_InvokeV0{
 					MaxFee:             AdaptFelt(tx.MaxFee),
 					Signature:          AdaptAccountSignature(tx.Signature()),
 					Address:            AdaptAddress(tx.ContractAddress),
@@ -115,8 +115,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 				},
 			}
 		case tx.Version.Is(1):
-			specTx.Txn = &spec.Transaction_InvokeV1_{
-				InvokeV1: &spec.Transaction_InvokeV1{
+			specTx.Txn = &gen.Transaction_InvokeV1_{
+				InvokeV1: &gen.Transaction_InvokeV1{
 					Sender:    AdaptAddress(tx.SenderAddress),
 					MaxFee:    AdaptFelt(tx.MaxFee),
 					Signature: AdaptAccountSignature(tx.Signature()),
@@ -125,8 +125,8 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 				},
 			}
 		case tx.Version.Is(3):
-			specTx.Txn = &spec.Transaction_InvokeV3_{
-				InvokeV3: &spec.Transaction_InvokeV3{
+			specTx.Txn = &gen.Transaction_InvokeV3_{
+				InvokeV3: &gen.Transaction_InvokeV3{
 					Sender:                    AdaptAddress(tx.SenderAddress),
 					Signature:                 AdaptAccountSignature(tx.Signature()),
 					Calldata:                  AdaptFeltSlice(tx.CallData),
@@ -151,24 +151,24 @@ func AdaptTransaction(transaction core.Transaction) *spec.Transaction {
 	return &specTx
 }
 
-func adaptResourceLimits(bounds core.ResourceBounds) *spec.ResourceLimits {
+func adaptResourceLimits(bounds core.ResourceBounds) *gen.ResourceLimits {
 	maxAmount := new(felt.Felt).SetUint64(bounds.MaxAmount)
-	return &spec.ResourceLimits{
+	return &gen.ResourceLimits{
 		MaxAmount:       AdaptFelt(maxAmount),
 		MaxPricePerUnit: AdaptFelt(bounds.MaxPricePerUnit),
 	}
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *spec.ResourceBounds {
-	return &spec.ResourceBounds{
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *gen.ResourceBounds {
+	return &gen.ResourceBounds{
 		L1Gas: adaptResourceLimits(rb[core.ResourceL1Gas]),
 		L2Gas: adaptResourceLimits(rb[core.ResourceL2Gas]),
 	}
 }
 
-func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy_ {
-	return &spec.Transaction_Deploy_{
-		Deploy: &spec.Transaction_Deploy{
+func adaptDeployTransaction(tx *core.DeployTransaction) *gen.Transaction_Deploy_ {
+	return &gen.Transaction_Deploy_{
+		Deploy: &gen.Transaction_Deploy{
 			ClassHash:   AdaptHash(tx.ClassHash),
 			AddressSalt: AdaptFelt(tx.ContractAddressSalt),
 			Calldata:    AdaptFeltSlice(tx.ConstructorCallData),
@@ -177,9 +177,9 @@ func adaptDeployTransaction(tx *core.DeployTransaction) *spec.Transaction_Deploy
 	}
 }
 
-func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *spec.Transaction_L1Handler {
-	return &spec.Transaction_L1Handler{
-		L1Handler: &spec.Transaction_L1HandlerV0{
+func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *gen.Transaction_L1Handler {
+	return &gen.Transaction_L1Handler{
+		L1Handler: &gen.Transaction_L1HandlerV0{
 			Nonce:              AdaptFelt(tx.Nonce),
 			Address:            AdaptAddress(tx.ContractAddress),
 			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
@@ -188,12 +188,12 @@ func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *spec.Transaction_
 	}
 }
 
-func adaptVolitionDomain(mode core.DataAvailabilityMode) spec.VolitionDomain {
+func adaptVolitionDomain(mode core.DataAvailabilityMode) gen.VolitionDomain {
 	switch mode {
 	case core.DAModeL1:
-		return spec.VolitionDomain_L1
+		return gen.VolitionDomain_L1
 	case core.DAModeL2:
-		return spec.VolitionDomain_L2
+		return gen.VolitionDomain_L2
 	default:
 		panic("unreachable in adaptVolitionDomain")
 	}
