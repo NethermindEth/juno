@@ -40,7 +40,8 @@ type txnList struct {
 
 // Pool stores the transactions in a linked list for its inherent FCFS behaviour
 type Pool struct {
-	db          db.DB
+	state       core.StateReader
+	db          db.DB // persistent mempool
 	txPushed    chan struct{}
 	txnList     *txnList // in-memory
 	maxNumTxns  uint16
@@ -50,8 +51,9 @@ type Pool struct {
 
 // New initializes the Pool and starts the database writer goroutine.
 // It is the responsibility of the user to call the cancel function if the context is cancelled
-func New(db db.DB, maxNumTxns uint16) (*Pool, func() error, error) {
+func New(db db.DB, state core.StateReader, maxNumTxns uint16) (*Pool, func() error, error) {
 	pool := &Pool{
+		state:       state,
 		db:          db, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
 		txPushed:    make(chan struct{}, 1),
 		txnList:     &txnList{},
@@ -195,11 +197,10 @@ func (p *Pool) handleTransaction(userTxn *BroadcastedTransaction) error {
 
 // Push queues a transaction to the pool and adds it to both the in-memory list and DB
 func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
-	if p.txnList.len >= uint16(p.maxNumTxns) {
-		return ErrTxnPoolFull
+	err := p.validate(userTxn)
+	if err != nil {
+		return err
 	}
-
-	// todo(rian this PR): validation
 
 	// todo: should db overloading block the in-memory mempool??
 	select {
@@ -236,6 +237,44 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 	return nil
 }
 
+func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
+	if p.txnList.len+1 >= uint16(p.maxNumTxns) {
+		return ErrTxnPoolFull
+	}
+
+	switch t := userTxn.Transaction.(type) {
+	case *core.DeployTransaction:
+		return fmt.Errorf("deploy transactions are not supported")
+	case *core.DeployAccountTransaction:
+		if !t.Nonce.IsZero() {
+			return fmt.Errorf("validation failed, received non-zero nonce %s", t.Nonce)
+		}
+	case *core.DeclareTransaction:
+		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		if err != nil {
+			return fmt.Errorf("validation failed, error when retrieving nonce, %v:", err)
+		}
+		if nonce.Cmp(t.Nonce) > 0 {
+			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
+		}
+	case *core.InvokeTransaction:
+		if t.TxVersion().Is(0) { // cant verify nonce since SenderAddress was only added in v1
+			return fmt.Errorf("invoke v0 transactions not supported")
+		}
+		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		if err != nil {
+			return fmt.Errorf("validation failed, error when retrieving nonce, %v:", err)
+		}
+		if nonce.Cmp(t.Nonce) > 0 {
+			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
+		}
+	case *core.L1HandlerTransaction:
+		// todo: verification of the L1 handler nonce requires checking the
+		// message nonce on the L1 Core Contract.
+	}
+	return nil
+}
+
 // Pop returns the transaction with the highest priority from the in-memory pool
 func (p *Pool) Pop() (BroadcastedTransaction, error) {
 	p.txnList.mu.Lock()
@@ -256,6 +295,8 @@ func (p *Pool) Pop() (BroadcastedTransaction, error) {
 }
 
 // Remove removes a set of transactions from the pool
+// todo: should be called by the builder to remove txns from the db everytime a new block is stored.
+// todo: in the consensus+p2p world, the txns should also be removed from the in-memory pool.
 func (p *Pool) Remove(hash ...*felt.Felt) error {
 	return errors.New("not implemented")
 }

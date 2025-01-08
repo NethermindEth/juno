@@ -5,14 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func setupDatabase(dltExisting bool) (*db.DB, func(), error) {
@@ -39,12 +40,14 @@ func setupDatabase(dltExisting bool) (*db.DB, func(), error) {
 
 func TestMempool(t *testing.T) {
 	testDB, dbCloser, err := setupDatabase(true)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	state := mocks.NewMockStateHistoryReader(mockCtrl)
 	require.NoError(t, err)
 	defer dbCloser()
-	pool, closer, err := mempool.New(*testDB, 5)
+	pool, closer, err := mempool.New(*testDB, state, 4)
 	defer closer()
 	require.NoError(t, err)
-	blockchain.RegisterCoreTypesToEncoder()
 
 	l := pool.Len()
 	assert.Equal(t, uint16(0), l)
@@ -54,16 +57,19 @@ func TestMempool(t *testing.T) {
 
 	// push multiple to empty (1,2,3)
 	for i := uint64(1); i < 4; i++ {
+		senderAddress := new(felt.Felt).SetUint64(i)
+		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
 		assert.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
+				Nonce:           new(felt.Felt).SetUint64(1),
+				SenderAddress:   senderAddress,
+				Version:         new(core.TransactionVersion).SetUint64(1),
 			},
 		}))
-
 		l := pool.Len()
 		assert.Equal(t, uint16(i), l)
 	}
-
 	// consume some (remove 1,2, keep 3)
 	for i := uint64(1); i < 3; i++ {
 		txn, err := pool.Pop()
@@ -76,12 +82,16 @@ func TestMempool(t *testing.T) {
 
 	// push multiple to non empty (push 4,5. now have 3,4,5)
 	for i := uint64(4); i < 6; i++ {
+		senderAddress := new(felt.Felt).SetUint64(i)
+		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
 		assert.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
+				Nonce:           new(felt.Felt).SetUint64(1),
+				SenderAddress:   senderAddress,
+				Version:         new(core.TransactionVersion).SetUint64(1),
 			},
 		}))
-
 		l := pool.Len()
 		assert.Equal(t, uint16(i-2), l)
 	}
@@ -103,15 +113,16 @@ func TestMempool(t *testing.T) {
 
 	_, err = pool.Pop()
 	require.Equal(t, err.Error(), "transaction pool is empty")
-
 }
 
 func TestRestoreMempool(t *testing.T) {
-	blockchain.RegisterCoreTypesToEncoder()
-
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	state := mocks.NewMockStateHistoryReader(mockCtrl)
 	testDB, _, err := setupDatabase(true)
 	require.NoError(t, err)
-	pool, closer, err := mempool.New(*testDB, 1024)
+
+	pool, closer, err := mempool.New(*testDB, state, 1024)
 	require.NoError(t, err)
 
 	// Check both pools are empty
@@ -122,9 +133,14 @@ func TestRestoreMempool(t *testing.T) {
 
 	// push multiple transactions to empty mempool (1,2,3)
 	for i := uint64(1); i < 4; i++ {
+		senderAddress := new(felt.Felt).SetUint64(i)
+		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
 		assert.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
+				Version:         new(core.TransactionVersion).SetUint64(1),
+				SenderAddress:   senderAddress,
+				Nonce:           new(felt.Felt).SetUint64(0),
 			},
 		}))
 		assert.Equal(t, uint16(i), pool.Len())
@@ -142,7 +158,7 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	defer dbCloser()
 
-	poolRestored, closer2, err := mempool.New(*testDB, 1024)
+	poolRestored, closer2, err := mempool.New(*testDB, state, 1024)
 	require.NoError(t, err)
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
@@ -163,9 +179,11 @@ func TestRestoreMempool(t *testing.T) {
 
 func TestWait(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
-	pool, _, err := mempool.New(testDB, 1024)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	pool, _, err := mempool.New(testDB, state, 1024)
 	require.NoError(t, err)
-	blockchain.RegisterCoreTypesToEncoder()
 
 	select {
 	case <-pool.Wait():
@@ -174,22 +192,34 @@ func TestWait(t *testing.T) {
 	}
 
 	// One transaction.
+	state.EXPECT().ContractNonce(new(felt.Felt).SetUint64(1)).Return(new(felt.Felt).SetUint64(0), nil)
 	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
 			TransactionHash: new(felt.Felt).SetUint64(1),
+			Nonce:           new(felt.Felt).SetUint64(1),
+			SenderAddress:   new(felt.Felt).SetUint64(1),
+			Version:         new(core.TransactionVersion).SetUint64(1),
 		},
 	}))
 	<-pool.Wait()
 
 	// Two transactions.
+	state.EXPECT().ContractNonce(new(felt.Felt).SetUint64(2)).Return(new(felt.Felt).SetUint64(0), nil)
 	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
 			TransactionHash: new(felt.Felt).SetUint64(2),
+			Nonce:           new(felt.Felt).SetUint64(1),
+			SenderAddress:   new(felt.Felt).SetUint64(2),
+			Version:         new(core.TransactionVersion).SetUint64(1),
 		},
 	}))
+	state.EXPECT().ContractNonce(new(felt.Felt).SetUint64(3)).Return(new(felt.Felt).SetUint64(0), nil)
 	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
 			TransactionHash: new(felt.Felt).SetUint64(3),
+			Nonce:           new(felt.Felt).SetUint64(1),
+			SenderAddress:   new(felt.Felt).SetUint64(3),
+			Version:         new(core.TransactionVersion).SetUint64(1),
 		},
 	}))
 	<-pool.Wait()
