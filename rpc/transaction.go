@@ -184,7 +184,7 @@ func (r *Resource) UnmarshalJSON(data []byte) error {
 	case `"l2_gas"`:
 		*r = ResourceL2Gas
 	default:
-		return fmt.Errorf("unknown Resource3: %q", string(data))
+		return fmt.Errorf("unknown Resource: %q", string(data))
 	}
 	return nil
 }

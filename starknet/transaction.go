@@ -126,7 +126,7 @@ func (r *Resource) UnmarshalText(text []byte) error {
 	case "L2_GAS":
 		*r = ResourceL2Gas
 	default:
-		return fmt.Errorf("unknown resource3: %q", string(text))
+		return fmt.Errorf("unknown resource: %q", string(text))
 	}
 	return nil
 }
