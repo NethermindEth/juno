@@ -669,7 +669,7 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 }
 
 // transactionCommitmentPoseidon0134 handles empty signatures compared to transactionCommitmentPoseidon:
-// empty signatures interpreted as [] instead of [0]
+// empty signatures are interpreted as [] instead of [0]
 func transactionCommitmentPoseidon0134(transactions []Transaction) (*felt.Felt, error) {
 	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
 		var digest crypto.PoseidonDigest
