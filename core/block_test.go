@@ -267,3 +267,28 @@ func Test0132BlockHash(t *testing.T) {
 		})
 	}
 }
+
+func Test0134BlockHash(t *testing.T) {
+	t.Parallel()
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	gw := adaptfeeder.New(client)
+
+	for _, test := range []struct {
+		blockNum uint64
+	}{
+		{blockNum: 64164},
+	} {
+		t.Run(fmt.Sprintf("blockNum=%v", test.blockNum), func(t *testing.T) {
+			t.Parallel()
+			b, err := gw.BlockByNumber(context.Background(), test.blockNum)
+			require.NoError(t, err)
+
+			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			require.NoError(t, err)
+
+			c, err := core.VerifyBlockHash(b, &utils.SepoliaIntegration, su.StateDiff)
+			require.NoError(t, err)
+			assert.NotNil(t, c)
+		})
+	}
+}

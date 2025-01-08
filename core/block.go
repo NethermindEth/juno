@@ -255,7 +255,7 @@ func post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitmentPoseidon(b.Transactions)
+		txCommitment, tErr = transactionCommitmentPoseidon0132(b.Transactions)
 	})
 	wg.Go(func() {
 		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts)
