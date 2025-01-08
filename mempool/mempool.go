@@ -12,12 +12,6 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 )
 
-const (
-	poolLengthKey = "poolLength"
-	headKey       = "headKey"
-	tailKey       = "tailKey"
-)
-
 var ErrTxnPoolFull = errors.New("transaction pool is full")
 
 type storageElem struct {
@@ -318,7 +312,7 @@ func (p *Pool) LenDB() (uint16, error) {
 
 func (p *Pool) lenDB(txn db.Transaction) (uint16, error) {
 	var l uint16
-	err := txn.Get([]byte(poolLengthKey), func(b []byte) error {
+	err := txn.Get(Length.Key(), func(b []byte) error {
 		l = binary.BigEndian.Uint16(b)
 		return nil
 	})
@@ -330,7 +324,7 @@ func (p *Pool) lenDB(txn db.Transaction) (uint16, error) {
 }
 
 func (p *Pool) updateLen(txn db.Transaction, l uint16) error {
-	return txn.Set([]byte(poolLengthKey), binary.BigEndian.AppendUint16(nil, l))
+	return txn.Set(Length.Key(), binary.BigEndian.AppendUint16(nil, l))
 }
 
 func (p *Pool) Wait() <-chan struct{} {
@@ -338,7 +332,7 @@ func (p *Pool) Wait() <-chan struct{} {
 }
 
 func (p *Pool) headHash(txn db.Transaction, head *felt.Felt) error {
-	return txn.Get([]byte(headKey), func(b []byte) error {
+	return txn.Get(Head.Key(), func(b []byte) error {
 		head.SetBytes(b)
 		return nil
 	})
@@ -350,7 +344,7 @@ func (p *Pool) HeadHash() (*felt.Felt, error) {
 		return nil, err
 	}
 	var head *felt.Felt
-	err = txn.Get([]byte(headKey), func(b []byte) error {
+	err = txn.Get(Head.Key(), func(b []byte) error {
 		head = new(felt.Felt).SetBytes(b)
 		return nil
 	})
@@ -358,23 +352,24 @@ func (p *Pool) HeadHash() (*felt.Felt, error) {
 }
 
 func (p *Pool) updateHead(txn db.Transaction, head *felt.Felt) error {
-	return txn.Set([]byte(headKey), head.Marshal())
+	return txn.Set(Head.Key(), head.Marshal())
 }
 
 func (p *Pool) tailValue(txn db.Transaction, tail *felt.Felt) error {
-	return txn.Get([]byte(tailKey), func(b []byte) error {
+	return txn.Get(Tail.Key(), func(b []byte) error {
 		tail.SetBytes(b)
 		return nil
 	})
 }
 
 func (p *Pool) updateTail(txn db.Transaction, tail *felt.Felt) error {
-	return txn.Set([]byte(tailKey), tail.Marshal())
+	return txn.Set(Tail.Key(), tail.Marshal())
 }
 
 func (p *Pool) dbElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, error) {
 	var item storageElem
-	err := txn.Get(itemKey.Marshal(), func(b []byte) error {
+	keyBytes := itemKey.Bytes()
+	err := txn.Get(Node.Key(keyBytes[:]), func(b []byte) error {
 		return encoder.Unmarshal(b, &item)
 	})
 	return item, err
@@ -385,5 +380,6 @@ func (p *Pool) putdbElem(txn db.Transaction, itemKey *felt.Felt, item *storageEl
 	if err != nil {
 		return err
 	}
-	return txn.Set(itemKey.Marshal(), itemBytes)
+	keyBytes := itemKey.Bytes()
+	return txn.Set(Node.Key(keyBytes[:]), itemBytes)
 }
