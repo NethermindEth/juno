@@ -142,13 +142,13 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	// if block.version >= 0.13.4
 	v0_13_4 := semver.MustParse("0.13.4")
 	if blockVer.GreaterThanEqual(v0_13_4) {
-		return Post0134Hash(b, stateDiff)
+		return post0134Hash(b, stateDiff)
 	}
 
 	// if 0.13.2 <= block.version < 0.13.4
 	v0_13_2 := semver.MustParse("0.13.2")
 	if blockVer.GreaterThanEqual(v0_13_2) {
-		return Post0132Hash(b, stateDiff)
+		return post0132Hash(b, stateDiff)
 	}
 
 	// following statements applied only if block.version < 0.13.2
@@ -181,7 +181,7 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
 }
 
-func Post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
+func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
 	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
@@ -248,7 +248,7 @@ func Post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		}, nil
 }
 
-func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
+func post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
 	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
