@@ -30,11 +30,11 @@ type (
 	}
 	edgeNode struct {
 		child node
-		path  *BitArray
+		path  *Path
 		flags nodeFlag
 	}
-	hashNode  struct{ *felt.Felt }
-	valueNode struct{ *felt.Felt }
+	hashNode  struct{ felt.Felt }
+	valueNode struct{ felt.Felt }
 )
 
 const (
@@ -57,14 +57,14 @@ func (n *binaryNode) hash(hf crypto.HashFn) *felt.Felt {
 
 func (n *edgeNode) hash(hf crypto.HashFn) *felt.Felt {
 	var length [32]byte
-	length[31] = n.path.len
+	length[31] = n.path.Len()
 	pathFelt := n.path.Felt()
 	lengthFelt := new(felt.Felt).SetBytes(length[:])
 	return new(felt.Felt).Add(hf(n.child.hash(hf), &pathFelt), lengthFelt)
 }
 
-func (n hashNode) hash(crypto.HashFn) *felt.Felt  { return n.Felt }
-func (n valueNode) hash(crypto.HashFn) *felt.Felt { return n.Felt }
+func (n hashNode) hash(crypto.HashFn) *felt.Felt  { return &n.Felt }
+func (n valueNode) hash(crypto.HashFn) *felt.Felt { return &n.Felt }
 
 func (n *binaryNode) cache() (*hashNode, bool) { return n.flags.hash, n.flags.dirty }
 func (n *edgeNode) cache() (*hashNode, bool)   { return n.flags.hash, n.flags.dirty }
@@ -91,57 +91,17 @@ func (n valueNode) String() string {
 	return fmt.Sprintf("Value(%s)", n.Felt.String())
 }
 
-func (n *binaryNode) write(buf *bytes.Buffer) error {
-	if err := n.children[0].write(buf); err != nil {
-		return err
-	}
-
-	if err := n.children[1].write(buf); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (n *edgeNode) write(buf *bytes.Buffer) error {
-	if _, err := n.path.Write(buf); err != nil {
-		return err
-	}
-
-	if err := n.child.write(buf); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (n hashNode) write(buf *bytes.Buffer) error {
-	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (n valueNode) write(buf *bytes.Buffer) error {
-	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // TODO(weiihann): check if we want to return a pointer or a value
 func (n *binaryNode) copy() *binaryNode { cpy := *n; return &cpy }
 func (n *edgeNode) copy() *edgeNode     { cpy := *n; return &cpy }
 
-func (n *edgeNode) pathMatches(key *BitArray) bool {
+func (n *edgeNode) pathMatches(key *Path) bool {
 	return n.path.EqualMSBs(key)
 }
 
 // Returns the common bits between the current node and the given key, starting from the most significant bit
-func (n *edgeNode) commonPath(key *BitArray) BitArray {
-	var commonPath BitArray
+func (n *edgeNode) commonPath(key *Path) Path {
+	var commonPath Path
 	commonPath.CommonMSBs(n.path, key)
 	return commonPath
 }
