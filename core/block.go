@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -146,14 +145,12 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	}
 
 	// if block.version >= 0.13.4
-	v0_13_4 := semver.MustParse("0.13.4")
-	if blockVer.GreaterThanEqual(v0_13_4) {
+	if blockVer.GreaterThanEqual(Ver0_13_4) {
 		return post0134Hash(b, stateDiff)
 	}
 
 	// if 0.13.2 <= block.version < 0.13.4
-	v0_13_2 := semver.MustParse("0.13.2")
-	if blockVer.GreaterThanEqual(v0_13_2) {
+	if blockVer.GreaterThanEqual(Ver0_13_2) {
 		return post0132Hash(b, stateDiff)
 	}
 
