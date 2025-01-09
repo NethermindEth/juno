@@ -45,93 +45,93 @@ func (m *MockReader) EXPECT() *MockReaderMockRecorder {
 }
 
 // BlockByHash mocks base method.
-func (m *MockReader) BlockByHash(arg0 *felt.Felt) (*core.Block, error) {
+func (m *MockReader) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockByHash", arg0)
+	ret := m.ctrl.Call(m, "BlockByHash", hash)
 	ret0, _ := ret[0].(*core.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockByHash indicates an expected call of BlockByHash.
-func (mr *MockReaderMockRecorder) BlockByHash(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) BlockByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByHash", reflect.TypeOf((*MockReader)(nil).BlockByHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByHash", reflect.TypeOf((*MockReader)(nil).BlockByHash), hash)
 }
 
 // BlockByNumber mocks base method.
-func (m *MockReader) BlockByNumber(arg0 uint64) (*core.Block, error) {
+func (m *MockReader) BlockByNumber(number uint64) (*core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockByNumber", arg0)
+	ret := m.ctrl.Call(m, "BlockByNumber", number)
 	ret0, _ := ret[0].(*core.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockByNumber indicates an expected call of BlockByNumber.
-func (mr *MockReaderMockRecorder) BlockByNumber(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) BlockByNumber(number any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockReader)(nil).BlockByNumber), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockReader)(nil).BlockByNumber), number)
 }
 
 // BlockCommitmentsByNumber mocks base method.
-func (m *MockReader) BlockCommitmentsByNumber(arg0 uint64) (*core.BlockCommitments, error) {
+func (m *MockReader) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockCommitmentsByNumber", arg0)
+	ret := m.ctrl.Call(m, "BlockCommitmentsByNumber", blockNumber)
 	ret0, _ := ret[0].(*core.BlockCommitments)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockCommitmentsByNumber indicates an expected call of BlockCommitmentsByNumber.
-func (mr *MockReaderMockRecorder) BlockCommitmentsByNumber(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) BlockCommitmentsByNumber(blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockCommitmentsByNumber", reflect.TypeOf((*MockReader)(nil).BlockCommitmentsByNumber), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockCommitmentsByNumber", reflect.TypeOf((*MockReader)(nil).BlockCommitmentsByNumber), blockNumber)
 }
 
 // BlockHeaderByHash mocks base method.
-func (m *MockReader) BlockHeaderByHash(arg0 *felt.Felt) (*core.Header, error) {
+func (m *MockReader) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockHeaderByHash", arg0)
+	ret := m.ctrl.Call(m, "BlockHeaderByHash", hash)
 	ret0, _ := ret[0].(*core.Header)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockHeaderByHash indicates an expected call of BlockHeaderByHash.
-func (mr *MockReaderMockRecorder) BlockHeaderByHash(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) BlockHeaderByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByHash", reflect.TypeOf((*MockReader)(nil).BlockHeaderByHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByHash", reflect.TypeOf((*MockReader)(nil).BlockHeaderByHash), hash)
 }
 
 // BlockHeaderByNumber mocks base method.
-func (m *MockReader) BlockHeaderByNumber(arg0 uint64) (*core.Header, error) {
+func (m *MockReader) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockHeaderByNumber", arg0)
+	ret := m.ctrl.Call(m, "BlockHeaderByNumber", number)
 	ret0, _ := ret[0].(*core.Header)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockHeaderByNumber indicates an expected call of BlockHeaderByNumber.
-func (mr *MockReaderMockRecorder) BlockHeaderByNumber(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) BlockHeaderByNumber(number any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderByNumber), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByNumber", reflect.TypeOf((*MockReader)(nil).BlockHeaderByNumber), number)
 }
 
 // EventFilter mocks base method.
-func (m *MockReader) EventFilter(arg0 *felt.Felt, arg1 [][]felt.Felt) (blockchain.EventFilterer, error) {
+func (m *MockReader) EventFilter(from *felt.Felt, keys [][]felt.Felt) (blockchain.EventFilterer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EventFilter", arg0, arg1)
+	ret := m.ctrl.Call(m, "EventFilter", from, keys)
 	ret0, _ := ret[0].(blockchain.EventFilterer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EventFilter indicates an expected call of EventFilter.
-func (mr *MockReaderMockRecorder) EventFilter(arg0, arg1 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) EventFilter(from, keys any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventFilter", reflect.TypeOf((*MockReader)(nil).EventFilter), from, keys)
 }
 
 // Head mocks base method.
@@ -196,18 +196,18 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 }
 
 // L1HandlerTxnHash mocks base method.
-func (m *MockReader) L1HandlerTxnHash(arg0 *common.Hash) (*felt.Felt, error) {
+func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "L1HandlerTxnHash", arg0)
+	ret := m.ctrl.Call(m, "L1HandlerTxnHash", msgHash)
 	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // L1HandlerTxnHash indicates an expected call of L1HandlerTxnHash.
-func (mr *MockReaderMockRecorder) L1HandlerTxnHash(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) L1HandlerTxnHash(msgHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1HandlerTxnHash", reflect.TypeOf((*MockReader)(nil).L1HandlerTxnHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "L1HandlerTxnHash", reflect.TypeOf((*MockReader)(nil).L1HandlerTxnHash), msgHash)
 }
 
 // L1Head mocks base method.
@@ -240,9 +240,9 @@ func (mr *MockReaderMockRecorder) Network() *gomock.Call {
 }
 
 // Receipt mocks base method.
-func (m *MockReader) Receipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
+func (m *MockReader) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Receipt", arg0)
+	ret := m.ctrl.Call(m, "Receipt", hash)
 	ret0, _ := ret[0].(*core.TransactionReceipt)
 	ret1, _ := ret[1].(*felt.Felt)
 	ret2, _ := ret[2].(uint64)
@@ -251,15 +251,15 @@ func (m *MockReader) Receipt(arg0 *felt.Felt) (*core.TransactionReceipt, *felt.F
 }
 
 // Receipt indicates an expected call of Receipt.
-func (mr *MockReaderMockRecorder) Receipt(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Receipt", reflect.TypeOf((*MockReader)(nil).Receipt), hash)
 }
 
 // StateAtBlockHash mocks base method.
-func (m *MockReader) StateAtBlockHash(arg0 *felt.Felt) (core.StateReader, func() error, error) {
+func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, func() error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtBlockHash", arg0)
+	ret := m.ctrl.Call(m, "StateAtBlockHash", blockHash)
 	ret0, _ := ret[0].(core.StateReader)
 	ret1, _ := ret[1].(func() error)
 	ret2, _ := ret[2].(error)
@@ -267,15 +267,15 @@ func (m *MockReader) StateAtBlockHash(arg0 *felt.Felt) (core.StateReader, func()
 }
 
 // StateAtBlockHash indicates an expected call of StateAtBlockHash.
-func (mr *MockReaderMockRecorder) StateAtBlockHash(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) StateAtBlockHash(blockHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockHash", reflect.TypeOf((*MockReader)(nil).StateAtBlockHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockHash", reflect.TypeOf((*MockReader)(nil).StateAtBlockHash), blockHash)
 }
 
 // StateAtBlockNumber mocks base method.
-func (m *MockReader) StateAtBlockNumber(arg0 uint64) (core.StateReader, func() error, error) {
+func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (core.StateReader, func() error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtBlockNumber", arg0)
+	ret := m.ctrl.Call(m, "StateAtBlockNumber", blockNumber)
 	ret0, _ := ret[0].(core.StateReader)
 	ret1, _ := ret[1].(func() error)
 	ret2, _ := ret[2].(error)
@@ -283,39 +283,39 @@ func (m *MockReader) StateAtBlockNumber(arg0 uint64) (core.StateReader, func() e
 }
 
 // StateAtBlockNumber indicates an expected call of StateAtBlockNumber.
-func (mr *MockReaderMockRecorder) StateAtBlockNumber(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) StateAtBlockNumber(blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).StateAtBlockNumber), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtBlockNumber", reflect.TypeOf((*MockReader)(nil).StateAtBlockNumber), blockNumber)
 }
 
 // StateUpdateByHash mocks base method.
-func (m *MockReader) StateUpdateByHash(arg0 *felt.Felt) (*core.StateUpdate, error) {
+func (m *MockReader) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdateByHash", arg0)
+	ret := m.ctrl.Call(m, "StateUpdateByHash", hash)
 	ret0, _ := ret[0].(*core.StateUpdate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StateUpdateByHash indicates an expected call of StateUpdateByHash.
-func (mr *MockReaderMockRecorder) StateUpdateByHash(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) StateUpdateByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateByHash", reflect.TypeOf((*MockReader)(nil).StateUpdateByHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateByHash", reflect.TypeOf((*MockReader)(nil).StateUpdateByHash), hash)
 }
 
 // StateUpdateByNumber mocks base method.
-func (m *MockReader) StateUpdateByNumber(arg0 uint64) (*core.StateUpdate, error) {
+func (m *MockReader) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdateByNumber", arg0)
+	ret := m.ctrl.Call(m, "StateUpdateByNumber", number)
 	ret0, _ := ret[0].(*core.StateUpdate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StateUpdateByNumber indicates an expected call of StateUpdateByNumber.
-func (mr *MockReaderMockRecorder) StateUpdateByNumber(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) StateUpdateByNumber(number any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateByNumber", reflect.TypeOf((*MockReader)(nil).StateUpdateByNumber), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateByNumber", reflect.TypeOf((*MockReader)(nil).StateUpdateByNumber), number)
 }
 
 // SubscribeL1Head mocks base method.
@@ -333,31 +333,31 @@ func (mr *MockReaderMockRecorder) SubscribeL1Head() *gomock.Call {
 }
 
 // TransactionByBlockNumberAndIndex mocks base method.
-func (m *MockReader) TransactionByBlockNumberAndIndex(arg0, arg1 uint64) (core.Transaction, error) {
+func (m *MockReader) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TransactionByBlockNumberAndIndex", arg0, arg1)
+	ret := m.ctrl.Call(m, "TransactionByBlockNumberAndIndex", blockNumber, index)
 	ret0, _ := ret[0].(core.Transaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // TransactionByBlockNumberAndIndex indicates an expected call of TransactionByBlockNumberAndIndex.
-func (mr *MockReaderMockRecorder) TransactionByBlockNumberAndIndex(arg0, arg1 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) TransactionByBlockNumberAndIndex(blockNumber, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).TransactionByBlockNumberAndIndex), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByBlockNumberAndIndex", reflect.TypeOf((*MockReader)(nil).TransactionByBlockNumberAndIndex), blockNumber, index)
 }
 
 // TransactionByHash mocks base method.
-func (m *MockReader) TransactionByHash(arg0 *felt.Felt) (core.Transaction, error) {
+func (m *MockReader) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TransactionByHash", arg0)
+	ret := m.ctrl.Call(m, "TransactionByHash", hash)
 	ret0, _ := ret[0].(core.Transaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // TransactionByHash indicates an expected call of TransactionByHash.
-func (mr *MockReaderMockRecorder) TransactionByHash(arg0 any) *gomock.Call {
+func (mr *MockReaderMockRecorder) TransactionByHash(hash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionByHash", reflect.TypeOf((*MockReader)(nil).TransactionByHash), hash)
 }
