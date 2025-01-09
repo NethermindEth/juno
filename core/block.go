@@ -185,11 +185,11 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 }
 
 func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
+	wg := conc.NewWaitGroup()
 	wg.Go(func() {
 		txCommitment, tErr = transactionCommitmentPoseidon0134(b.Transactions)
 	})
@@ -252,11 +252,11 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 }
 
 func post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
-	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
+	wg := conc.NewWaitGroup()
 	wg.Go(func() {
 		txCommitment, tErr = transactionCommitmentPoseidon0132(b.Transactions)
 	})
