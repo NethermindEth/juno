@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+//nolint:dupl
 func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 	t.Run("nil", func(t *testing.T) {
 		c, err := transactionCommitmentPoseidon0134(nil)
@@ -62,7 +63,7 @@ func TestTransactionCommitmentPoseidon0134(t *testing.T) {
 	})
 }
 
-func TestTransactionCommitmentPoseidon0132(t *testing.T) {
+func TestTransactionCommitmentPoseidon0132(t *testing.T) { //nolint:dupl
 	t.Run("nil", func(t *testing.T) {
 		c, err := transactionCommitmentPoseidon0132(nil)
 		require.NoError(t, err)

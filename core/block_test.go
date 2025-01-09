@@ -243,6 +243,7 @@ func TestBlockHash(t *testing.T) {
 	})
 }
 
+//nolint:dupl
 func Test0132BlockHash(t *testing.T) {
 	t.Parallel()
 	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
@@ -277,7 +278,7 @@ func Test0134BlockHash(t *testing.T) {
 		blockNum uint64
 	}{
 		{blockNum: 64164},
-	} {
+	} { //nolint:dupl
 		t.Run(fmt.Sprintf("blockNum=%v", test.blockNum), func(t *testing.T) {
 			t.Parallel()
 			b, err := gw.BlockByNumber(context.Background(), test.blockNum)
