@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var ErrTxnPoolFull = errors.New("transaction pool is full")
@@ -34,6 +35,7 @@ type txnList struct {
 
 // Pool stores the transactions in a linked list for its inherent FCFS behaviour
 type Pool struct {
+	log         utils.SimpleLogger
 	state       core.StateReader
 	db          db.DB // persistent mempool
 	txPushed    chan struct{}
@@ -43,12 +45,13 @@ type Pool struct {
 	wg          sync.WaitGroup
 }
 
-// New initializes the Pool and starts the database writer goroutine.
+// New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the user to call the cancel function if the context is cancelled
-func New(db db.DB, state core.StateReader, maxNumTxns uint16) (*Pool, func() error, error) {
+func New(persistentPool db.DB, state core.StateReader, maxNumTxns uint16, log utils.SimpleLogger) (*Pool, func() error, error) {
 	pool := &Pool{
+		log:         log,
 		state:       state,
-		db:          db, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
+		db:          persistentPool, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
 		txPushed:    make(chan struct{}, 1),
 		txnList:     &txnList{},
 		maxNumTxns:  maxNumTxns,
@@ -56,7 +59,7 @@ func New(db db.DB, state core.StateReader, maxNumTxns uint16) (*Pool, func() err
 	}
 
 	if err := pool.loadFromDB(); err != nil {
-		return nil, nil, fmt.Errorf("failed to load transactions from database into the in-memory transaction list: %v\n", err)
+		return nil, nil, fmt.Errorf("failed to load transactions from database into the in-memory transaction list: %v", err)
 	}
 
 	pool.wg.Add(1)
@@ -74,25 +77,20 @@ func New(db db.DB, state core.StateReader, maxNumTxns uint16) (*Pool, func() err
 
 func (p *Pool) dbWriter() {
 	defer p.wg.Done()
-	for {
-		select {
-		case txn, ok := <-p.dbWriteChan:
-			if !ok {
-				return
-			}
-			p.handleTransaction(txn)
-		}
+	for txn := range p.dbWriteChan {
+		err := p.handleTransaction(txn)
+		p.log.Errorw("error in handling user transaction in persistent mempool", "err", err)
 	}
 }
 
 // loadFromDB restores the in-memory transaction pool from the database
 func (p *Pool) loadFromDB() error {
 	return p.db.View(func(txn db.Transaction) error {
-		len, err := p.LenDB()
+		lenDB, err := p.LenDB()
 		if err != nil {
 			return err
 		}
-		if len >= p.maxNumTxns {
+		if lenDB >= p.maxNumTxns {
 			return ErrTxnPoolFull
 		}
 		headValue := new(felt.Felt)
@@ -152,13 +150,11 @@ func (p *Pool) handleTransaction(userTxn *BroadcastedTransaction) error {
 			}
 			tailValue = nil
 		}
-
 		if err := p.putdbElem(dbTxn, userTxn.Transaction.Hash(), &storageElem{
 			Txn: *userTxn,
 		}); err != nil {
 			return err
 		}
-
 		if tailValue != nil {
 			// Update old tail to point to the new item
 			var oldTailElem storageElem
@@ -176,16 +172,14 @@ func (p *Pool) handleTransaction(userTxn *BroadcastedTransaction) error {
 				return err
 			}
 		}
-
 		if err := p.updateTail(dbTxn, userTxn.Transaction.Hash()); err != nil {
 			return err
 		}
-
 		pLen, err := p.lenDB(dbTxn)
 		if err != nil {
 			return err
 		}
-		return p.updateLen(dbTxn, uint16(pLen+1))
+		return p.updateLen(dbTxn, pLen+1)
 	})
 }
 
@@ -196,18 +190,17 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		return err
 	}
 
-	// todo: should db overloading block the in-memory mempool??
 	select {
 	case p.dbWriteChan <- userTxn:
 	default:
 		select {
 		case _, ok := <-p.dbWriteChan:
 			if !ok {
-				return errors.New("transaction pool database write channel is closed")
+				p.log.Errorw("cannot store user transasction in persistent pool, database write channel is closed")
 			}
-			return ErrTxnPoolFull
+			p.log.Errorw("cannot store user transasction in persistent pool, database is full")
 		default:
-			return ErrTxnPoolFull
+			p.log.Errorw("cannot store user transasction in persistent pool, database is full")
 		}
 	}
 
@@ -232,7 +225,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 }
 
 func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
-	if p.txnList.len+1 >= uint16(p.maxNumTxns) {
+	if p.txnList.len+1 >= p.maxNumTxns {
 		return ErrTxnPoolFull
 	}
 
@@ -246,7 +239,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 	case *core.DeclareTransaction:
 		nonce, err := p.state.ContractNonce(t.SenderAddress)
 		if err != nil {
-			return fmt.Errorf("validation failed, error when retrieving nonce, %v:", err)
+			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
 			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
@@ -257,7 +250,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 		}
 		nonce, err := p.state.ContractNonce(t.SenderAddress)
 		if err != nil {
-			return fmt.Errorf("validation failed, error when retrieving nonce, %v:", err)
+			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
 			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
@@ -302,12 +295,17 @@ func (p *Pool) Len() uint16 {
 
 // Len returns the number of transactions in the persistent pool
 func (p *Pool) LenDB() (uint16, error) {
+	p.wg.Add(1)
+	defer p.wg.Done()
 	txn, err := p.db.NewTransaction(false)
 	if err != nil {
 		return 0, err
 	}
-	defer txn.Discard()
-	return p.lenDB(txn)
+	lenDB, err := p.lenDB(txn)
+	if err != nil {
+		return 0, err
+	}
+	return lenDB, txn.Discard()
 }
 
 func (p *Pool) lenDB(txn db.Transaction) (uint16, error) {
@@ -338,19 +336,6 @@ func (p *Pool) headHash(txn db.Transaction, head *felt.Felt) error {
 	})
 }
 
-func (p *Pool) HeadHash() (*felt.Felt, error) {
-	txn, err := p.db.NewTransaction(false)
-	if err != nil {
-		return nil, err
-	}
-	var head *felt.Felt
-	err = txn.Get(Head.Key(), func(b []byte) error {
-		head = new(felt.Felt).SetBytes(b)
-		return nil
-	})
-	return head, err
-}
-
 func (p *Pool) updateHead(txn db.Transaction, head *felt.Felt) error {
 	return txn.Set(Head.Key(), head.Marshal())
 }
@@ -366,6 +351,8 @@ func (p *Pool) updateTail(txn db.Transaction, tail *felt.Felt) error {
 	return txn.Set(Tail.Key(), tail.Marshal())
 }
 
+// todo : error when unmarshalling the core.Transasction...
+// but unmarshalling core.Transaction works fine in TransactionsByBlockNumber...
 func (p *Pool) dbElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, error) {
 	var item storageElem
 	keyBytes := itemKey.Bytes()
