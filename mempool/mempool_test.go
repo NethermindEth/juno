@@ -49,8 +49,7 @@ func TestMempool(t *testing.T) {
 	pool, closer, err := mempool.New(testDB, state, 4, log)
 	require.NoError(t, err)
 
-	l := pool.Len()
-	require.Equal(t, uint16(0), l)
+	require.Equal(t, 0, pool.Len())
 
 	_, err = pool.Pop()
 	require.Equal(t, err.Error(), "transaction pool is empty")
@@ -67,17 +66,14 @@ func TestMempool(t *testing.T) {
 				Version:         new(core.TransactionVersion).SetUint64(1),
 			},
 		}))
-		l := pool.Len()
-		require.Equal(t, uint16(i), l)
+		require.Equal(t, int(i), pool.Len())
 	}
 	// consume some (remove 1,2, keep 3)
 	for i := uint64(1); i < 3; i++ {
 		txn, err := pool.Pop()
 		require.NoError(t, err)
 		require.Equal(t, i, txn.Transaction.Hash().Uint64())
-
-		l := pool.Len()
-		require.Equal(t, uint16(3-i), l)
+		require.Equal(t, int(3-i), pool.Len())
 	}
 
 	// push multiple to non empty (push 4,5. now have 3,4,5)
@@ -92,8 +88,7 @@ func TestMempool(t *testing.T) {
 				Version:         new(core.TransactionVersion).SetUint64(1),
 			},
 		}))
-		l := pool.Len()
-		require.Equal(t, uint16(i-2), l)
+		require.Equal(t, int(i-2), pool.Len())
 	}
 
 	// push more than max
@@ -109,7 +104,7 @@ func TestMempool(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, i, txn.Transaction.Hash().Uint64())
 	}
-	require.Equal(t, uint16(0), l)
+	require.Equal(t, 0, pool.Len())
 
 	_, err = pool.Pop()
 	require.Equal(t, err.Error(), "transaction pool is empty")
@@ -132,8 +127,8 @@ func TestRestoreMempool(t *testing.T) {
 	// Check both pools are empty
 	lenDB, err := pool.LenDB()
 	require.NoError(t, err)
-	require.Equal(t, uint16(0), lenDB)
-	require.Equal(t, uint16(0), pool.Len())
+	require.Equal(t, 0, lenDB)
+	require.Equal(t, 0, pool.Len())
 
 	// push multiple transactions to empty mempool (1,2,3)
 	for i := uint64(1); i < 4; i++ {
@@ -147,14 +142,14 @@ func TestRestoreMempool(t *testing.T) {
 				Nonce:           new(felt.Felt).SetUint64(0),
 			},
 		}))
-		require.Equal(t, uint16(i), pool.Len())
+		require.Equal(t, int(i), pool.Len())
 	}
 
 	// check the db has stored the transactions
 	time.Sleep(100 * time.Millisecond)
 	lenDB, err = pool.LenDB()
 	require.NoError(t, err)
-	require.Equal(t, uint16(3), lenDB)
+	require.Equal(t, 3, lenDB)
 	// Close the mempool
 	require.NoError(t, closer())
 	testDB, _, err = setupDatabase("testrestoremempool", false)
@@ -164,8 +159,8 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
-	require.Equal(t, uint16(3), lenDB)
-	require.Equal(t, uint16(3), poolRestored.Len())
+	require.Equal(t, 3, lenDB)
+	require.Equal(t, 3, poolRestored.Len())
 
 	// Remove transactions
 	_, err = poolRestored.Pop()
@@ -174,8 +169,8 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
-	require.Equal(t, uint16(3), lenDB)
-	require.Equal(t, uint16(1), poolRestored.Len())
+	require.Equal(t, 3, lenDB)
+	require.Equal(t, 1, poolRestored.Len())
 
 	require.NoError(t, closer2())
 }

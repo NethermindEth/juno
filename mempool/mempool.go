@@ -1,9 +1,9 @@
 package mempool
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 
 	"github.com/NethermindEth/juno/core"
@@ -29,7 +29,7 @@ type BroadcastedTransaction struct {
 type txnList struct {
 	head *storageElem
 	tail *storageElem
-	len  uint16
+	len  int
 	mu   sync.Mutex
 }
 
@@ -40,14 +40,14 @@ type Pool struct {
 	db          db.DB // persistent mempool
 	txPushed    chan struct{}
 	txnList     *txnList // in-memory
-	maxNumTxns  uint16
+	maxNumTxns  int
 	dbWriteChan chan *BroadcastedTransaction
 	wg          sync.WaitGroup
 }
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the user to call the cancel function if the context is cancelled
-func New(persistentPool db.DB, state core.StateReader, maxNumTxns uint16, log utils.SimpleLogger) (*Pool, func() error, error) {
+func New(persistentPool db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error, error) {
 	pool := &Pool{
 		log:         log,
 		state:       state,
@@ -86,15 +86,8 @@ func (p *Pool) dbWriter() {
 // loadFromDB restores the in-memory transaction pool from the database
 func (p *Pool) loadFromDB() error {
 	return p.db.View(func(txn db.Transaction) error {
-		lenDB, err := p.LenDB()
-		if err != nil {
-			return err
-		}
-		if lenDB >= p.maxNumTxns {
-			return ErrTxnPoolFull
-		}
 		headValue := new(felt.Felt)
-		err = p.headHash(txn, headValue)
+		err := p.headHash(txn, headValue)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
@@ -289,12 +282,12 @@ func (p *Pool) Remove(hash ...*felt.Felt) error {
 }
 
 // Len returns the number of transactions in the in-memory pool
-func (p *Pool) Len() uint16 {
+func (p *Pool) Len() int {
 	return p.txnList.len
 }
 
 // Len returns the number of transactions in the persistent pool
-func (p *Pool) LenDB() (uint16, error) {
+func (p *Pool) LenDB() (int, error) {
 	p.wg.Add(1)
 	defer p.wg.Done()
 	txn, err := p.db.NewTransaction(false)
@@ -308,10 +301,10 @@ func (p *Pool) LenDB() (uint16, error) {
 	return lenDB, txn.Discard()
 }
 
-func (p *Pool) lenDB(txn db.Transaction) (uint16, error) {
-	var l uint16
+func (p *Pool) lenDB(txn db.Transaction) (int, error) {
+	var l int
 	err := txn.Get(Length.Key(), func(b []byte) error {
-		l = binary.BigEndian.Uint16(b)
+		l = int(new(big.Int).SetBytes(b).Int64())
 		return nil
 	})
 
@@ -321,8 +314,8 @@ func (p *Pool) lenDB(txn db.Transaction) (uint16, error) {
 	return l, err
 }
 
-func (p *Pool) updateLen(txn db.Transaction, l uint16) error {
-	return txn.Set(Length.Key(), binary.BigEndian.AppendUint16(nil, l))
+func (p *Pool) updateLen(txn db.Transaction, l int) error {
+	return txn.Set(Length.Key(), new(big.Int).SetInt64(int64(l)).Bytes())
 }
 
 func (p *Pool) Wait() <-chan struct{} {
