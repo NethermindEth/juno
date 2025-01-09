@@ -652,7 +652,7 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, chain.RevertHead())
 	require.NoError(t, chain.RevertHead())
 
-	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
+	t.Run("empty blockchain should mean db with p2p hash only", func(t *testing.T) {
 		require.NoError(t, testdb.View(func(txn db.Transaction) error {
 			it, err := txn.NewIterator(nil, false)
 			if err != nil {
