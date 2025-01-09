@@ -1,4 +1,4 @@
-package trie2
+package utils
 
 import (
 	"bytes"
@@ -158,7 +158,7 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 	return new(BitArray).MSBs(b, minLen).Equal(new(BitArray).MSBs(x, minLen))
 }
 
-// Sets the bit array to the most significant 'n' bits of x.
+// Sets the bit array to the most significant 'n' bits of x, that is position 0 to n (exclusive).
 // If n >= x.len, the bit array is an exact copy of x.
 // For example:
 //
@@ -480,14 +480,10 @@ func (b *BitArray) SetUint64(length uint8, data uint64) *BitArray {
 }
 
 // Sets the bit array to a single bit.
-func (b *BitArray) SetBit(bit bool) *BitArray {
+func (b *BitArray) SetBit(bit uint8) *BitArray {
 	b.len = 1
-	if bit {
-		b.words[0] = 1
-	} else {
-		b.words[0] = 0
-	}
-	b.truncateToLength()
+	b.words[0] = uint64(bit & 1)
+	b.words[1], b.words[2], b.words[3] = 0, 0, 0
 	return b
 }
 
@@ -503,7 +499,16 @@ func (b *BitArray) Copy() BitArray {
 	return res
 }
 
+// Returns the encoded string representation of the bit array.
+func (b *BitArray) EncodedString() string {
+	var res []byte
+	res = append(res, b.len)
+	res = append(res, b.Bytes()...)
+	return string(res)
+}
+
 // Returns a string representation of the bit array.
+// This is typically used for logging or debugging.
 func (b *BitArray) String() string {
 	return fmt.Sprintf("(%d) %s", b.len, hex.EncodeToString(b.Bytes()))
 }
@@ -614,4 +619,37 @@ func findFirstSetBit(b *BitArray) uint8 {
 
 	// All bits are zero, no set bit found
 	return 0
+}
+
+// Cmp compares two bit arrays lexicographically.
+// The comparison is first done by length, then by content if lengths are equal.
+// Returns:
+//
+//	-1 if b < x
+//	 0 if b == x
+//	 1 if b > x
+func (b *BitArray) Cmp(x *BitArray) int {
+	// First compare lengths
+	if b.len < x.len {
+		return -1
+	}
+	if b.len > x.len {
+		return 1
+	}
+
+	// Lengths are equal, compare the actual bits
+	d0, carry := bits.Sub64(b.words[0], x.words[0], 0)
+	d1, carry := bits.Sub64(b.words[1], x.words[1], carry)
+	d2, carry := bits.Sub64(b.words[2], x.words[2], carry)
+	d3, carry := bits.Sub64(b.words[3], x.words[3], carry)
+
+	if carry == 1 {
+		return -1
+	}
+
+	if d0|d1|d2|d3 == 0 {
+		return 0
+	}
+
+	return 1
 }

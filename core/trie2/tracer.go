@@ -5,28 +5,36 @@ import (
 )
 
 type tracer struct {
-	inserts map[BitArray]struct{}
-	deletes map[BitArray]struct{}
+	inserts map[Path]struct{}
+	deletes map[Path]struct{}
 }
 
 func newTracer() *tracer {
 	return &tracer{
-		inserts: make(map[BitArray]struct{}),
-		deletes: make(map[BitArray]struct{}),
+		inserts: make(map[Path]struct{}),
+		deletes: make(map[Path]struct{}),
 	}
 }
 
-func (t *tracer) onInsert(key *BitArray) {
-	t.inserts[*key] = struct{}{}
+func (t *tracer) onInsert(key *Path) {
+	k := *key
+	if _, present := t.deletes[k]; present {
+		return
+	}
+	t.inserts[k] = struct{}{}
 }
 
-func (t *tracer) onDelete(key *BitArray) {
-	t.deletes[*key] = struct{}{}
+func (t *tracer) onDelete(key *Path) {
+	k := *key
+	if _, present := t.inserts[k]; present {
+		return
+	}
+	t.deletes[k] = struct{}{}
 }
 
 func (t *tracer) reset() {
-	t.inserts = make(map[BitArray]struct{})
-	t.deletes = make(map[BitArray]struct{})
+	t.inserts = make(map[Path]struct{})
+	t.deletes = make(map[Path]struct{})
 }
 
 func (t *tracer) copy() *tracer {
@@ -36,8 +44,8 @@ func (t *tracer) copy() *tracer {
 	}
 }
 
-func (t *tracer) deletedNodes() []BitArray {
-	keys := make([]BitArray, 0, len(t.deletes))
+func (t *tracer) deletedNodes() []Path {
+	keys := make([]Path, 0, len(t.deletes))
 	for k := range t.deletes {
 		keys = append(keys, k)
 	}
