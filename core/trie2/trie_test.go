@@ -172,6 +172,14 @@ func TestHash(t *testing.T) {
 	})
 }
 
+func TestCommit(t *testing.T) {
+	tr, _ := nonRandomTrie(t, 1000)
+	tr2 := tr.Copy()
+
+	root := tr.Commit()
+	require.Equal(t, root, tr2.Hash())
+}
+
 type keyValue struct {
 	key   *felt.Felt
 	value *felt.Felt
