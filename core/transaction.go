@@ -24,6 +24,7 @@ type Resource uint32
 const (
 	ResourceL1Gas Resource = iota + 1
 	ResourceL2Gas
+	ResourceL1DataGas
 )
 
 func (r Resource) String() string {
@@ -32,6 +33,8 @@ func (r Resource) String() string {
 		return "L1_GAS"
 	case ResourceL2Gas:
 		return "L2_GAS"
+	case ResourceL1DataGas:
+		return "L1_DATA"
 	default:
 		return ""
 	}
@@ -471,7 +474,19 @@ func invokeTransactionHash(i *InvokeTransaction, n *utils.Network) (*felt.Felt, 
 func tipAndResourcesHash(tip uint64, resourceBounds map[Resource]ResourceBounds) *felt.Felt {
 	l1Bounds := new(felt.Felt).SetBytes(resourceBounds[ResourceL1Gas].Bytes(ResourceL1Gas))
 	l2Bounds := new(felt.Felt).SetBytes(resourceBounds[ResourceL2Gas].Bytes(ResourceL2Gas))
-	return crypto.PoseidonArray(new(felt.Felt).SetUint64(tip), l1Bounds, l2Bounds)
+	elems := []*felt.Felt{
+		new(felt.Felt).SetUint64(tip),
+		l1Bounds,
+		l2Bounds,
+	}
+
+	// l1_data_gas resource bounds were added in 0.13.4
+	if bounds, ok := resourceBounds[ResourceL1DataGas]; ok {
+		l1DataBounds := new(felt.Felt).SetBytes(bounds.Bytes(ResourceL1DataGas))
+		elems = append(elems, l1DataBounds)
+	}
+
+	return crypto.PoseidonArray(elems...)
 }
 
 func dataAvailabilityMode(feeDAMode, nonceDAMode DataAvailabilityMode) uint64 {
@@ -653,7 +668,23 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 	return calculateCommitment(transactions, trie.RunOnTempTriePedersen, hashFunc)
 }
 
-func transactionCommitmentPoseidon(transactions []Transaction) (*felt.Felt, error) {
+// transactionCommitmentPoseidon0134 handles empty signatures compared to transactionCommitmentPoseidon0132:
+// empty signatures are interpreted as [] instead of [0]
+func transactionCommitmentPoseidon0134(transactions []Transaction) (*felt.Felt, error) {
+	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
+		var digest crypto.PoseidonDigest
+		digest.Update(transaction.Hash())
+
+		if txSignature := transaction.Signature(); len(txSignature) > 0 {
+			digest.Update(txSignature...)
+		}
+
+		return digest.Finish()
+	})
+}
+
+// transactionCommitmentPoseidon0132 is used to calculate tx commitment for 0.13.2 <= block.version < 0.13.4
+func transactionCommitmentPoseidon0132(transactions []Transaction) (*felt.Felt, error) {
 	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
 		var digest crypto.PoseidonDigest
 		digest.Update(transaction.Hash())

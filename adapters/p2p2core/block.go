@@ -42,6 +42,7 @@ func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) 
 		},
 		GasPrice:     AdaptUint128(h.GasPriceWei),
 		GasPriceSTRK: AdaptUint128(h.GasPriceFri),
+		L2GasPrice:   nil, // todo pass correct value once it's in the p2p spec
 	}
 }
 

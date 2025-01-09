@@ -45,6 +45,7 @@ type Header struct {
 	L1DAMode L1DAMode
 	// The gas price for L1 data availability
 	L1DataGasPrice *GasPrice
+	L2GasPrice     *GasPrice
 }
 
 type L1DAMode uint
@@ -137,16 +138,24 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 	if err != nil {
 		return nil, nil, err
 	}
-	v0_13_2 := semver.MustParse("0.13.2")
 
-	if blockVer.LessThan(v0_13_2) {
-		if b.Number < metaInfo.First07Block {
-			return pre07Hash(b, network.L2ChainIDFelt())
-		}
-		return post07Hash(b, overrideSeqAddr)
+	// if block.version >= 0.13.4
+	v0_13_4 := semver.MustParse("0.13.4")
+	if blockVer.GreaterThanEqual(v0_13_4) {
+		return post0134Hash(b, stateDiff)
 	}
 
-	return Post0132Hash(b, stateDiff)
+	// if 0.13.2 <= block.version < 0.13.4
+	v0_13_2 := semver.MustParse("0.13.2")
+	if blockVer.GreaterThanEqual(v0_13_2) {
+		return post0132Hash(b, stateDiff)
+	}
+
+	// following statements applied only if block.version < 0.13.2
+	if b.Number < metaInfo.First07Block {
+		return pre07Hash(b, network.L2ChainIDFelt())
+	}
+	return post07Hash(b, overrideSeqAddr)
 }
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
@@ -172,14 +181,81 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	), &BlockCommitments{TransactionCommitment: txCommitment}, nil
 }
 
-func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
+func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
 	wg := conc.NewWaitGroup()
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitmentPoseidon(b.Transactions)
+		txCommitment, tErr = transactionCommitmentPoseidon0134(b.Transactions)
+	})
+	wg.Go(func() {
+		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts)
+	})
+	wg.Go(func() {
+		rCommitment, rErr = receiptCommitment(b.Receipts)
+	})
+
+	wg.Go(func() {
+		sdLength = stateDiff.Length()
+		sdCommitment = stateDiff.Hash()
+	})
+
+	wg.Wait()
+
+	if tErr != nil {
+		return nil, nil, tErr
+	}
+	if eErr != nil {
+		return nil, nil, eErr
+	}
+	if rErr != nil {
+		return nil, nil, rErr
+	}
+
+	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
+
+	pricesHash := gasPricesHash(
+		GasPrice{
+			PriceInFri: b.GasPriceSTRK,
+			PriceInWei: b.GasPrice,
+		},
+		*b.L1DataGasPrice,
+		*b.L2GasPrice,
+	)
+
+	return crypto.PoseidonArray(
+			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH1")),
+			new(felt.Felt).SetUint64(b.Number),    // block number
+			b.GlobalStateRoot,                     // global state root
+			b.SequencerAddress,                    // sequencer address
+			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+			concatCounts,
+			sdCommitment,
+			txCommitment, // transaction commitment
+			eCommitment,  // event commitment
+			rCommitment,  // receipt commitment
+			pricesHash,   // gas prices hash
+			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+			&felt.Zero,   // reserved: extra data
+			b.ParentHash, // parent block hash
+		), &BlockCommitments{
+			TransactionCommitment: txCommitment,
+			EventCommitment:       eCommitment,
+			ReceiptCommitment:     rCommitment,
+			StateDiffCommitment:   sdCommitment,
+		}, nil
+}
+
+func post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
+	wg := conc.NewWaitGroup()
+	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
+	var sdLength uint64
+	var tErr, eErr, rErr error
+
+	wg.Go(func() {
+		txCommitment, tErr = transactionCommitmentPoseidon0132(b.Transactions)
 	})
 	wg.Go(func() {
 		eCommitment, eErr = eventCommitmentPoseidon(b.Receipts)
@@ -318,4 +394,19 @@ func concatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *fe
 		zeroPadding,
 	)
 	return new(felt.Felt).SetBytes(concatBytes)
+}
+
+func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) *felt.Felt {
+	return crypto.PoseidonArray(
+		new(felt.Felt).SetBytes([]byte("STARKNET_GAS_PRICES0")),
+		// gas prices
+		gasPrices.PriceInWei,
+		gasPrices.PriceInFri,
+		// data gas prices
+		dataGasPrices.PriceInWei,
+		dataGasPrices.PriceInFri,
+		// l2 gas prices
+		l2GasPrices.PriceInWei,
+		l2GasPrices.PriceInFri,
+	)
 }

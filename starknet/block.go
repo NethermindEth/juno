@@ -26,6 +26,7 @@ type Block struct {
 	L1GasPrice            *GasPrice             `json:"l1_gas_price"`
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
+	L2GasPrice            *GasPrice             `json:"l2_gas_price"`
 
 	// TODO we can remove the GasPrice method and the GasPriceLegacy field
 	// once v0.13 lands on mainnet. In the meantime, we include both to support
