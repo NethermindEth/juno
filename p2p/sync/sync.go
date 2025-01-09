@@ -13,13 +13,8 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-<<<<<<< HEAD:p2p/sync/sync.go
 	"github.com/NethermindEth/juno/p2p/gen"
-=======
 	"github.com/NethermindEth/juno/p2p/hashstorage"
-	"github.com/NethermindEth/juno/p2p/starknet"
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
->>>>>>> 5fc21a24 (Update adaptAndSanityCheckBlock):p2p/sync.go
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
