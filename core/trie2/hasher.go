@@ -32,12 +32,12 @@ func (h *hasher) hash(n node) (node, node) {
 	switch n := n.(type) {
 	case *edgeNode:
 		collapsed, cached := h.hashEdgeChild(n)
-		hn := &hashNode{Felt: collapsed.hash(h.hashFn)}
+		hn := &hashNode{Felt: *collapsed.hash(h.hashFn)}
 		cached.flags.hash = hn
 		return hn, cached
 	case *binaryNode:
 		collapsed, cached := h.hashBinaryChildren(n)
-		hn := &hashNode{Felt: collapsed.hash(h.hashFn)}
+		hn := &hashNode{Felt: *collapsed.hash(h.hashFn)}
 		cached.flags.hash = hn
 		return hn, cached
 	case valueNode, hashNode:
