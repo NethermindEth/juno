@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
-	"github.com/NethermindEth/juno/p2p/starknet/spec"
+	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -12,10 +12,10 @@ import (
 func TestAdaptReceipt(t *testing.T) {
 	t.Run("successful", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xCAFEBABE")
-		receipt := &spec.Receipt{
-			Type: &spec.Receipt_L1Handler_{
-				L1Handler: &spec.Receipt_L1Handler{
-					Common: &spec.Receipt_Common{
+		receipt := &gen.Receipt{
+			Type: &gen.Receipt_L1Handler_{
+				L1Handler: &gen.Receipt_L1Handler{
+					Common: &gen.Receipt_Common{
 						RevertReason: nil,
 					},
 				},
@@ -30,10 +30,10 @@ func TestAdaptReceipt(t *testing.T) {
 
 		for _, reason := range reasons {
 			hash := utils.HexToFelt(t, "0xCAFEDEAD")
-			receipt := &spec.Receipt{
-				Type: &spec.Receipt_L1Handler_{
-					L1Handler: &spec.Receipt_L1Handler{
-						Common: &spec.Receipt_Common{
+			receipt := &gen.Receipt{
+				Type: &gen.Receipt_L1Handler_{
+					L1Handler: &gen.Receipt_L1Handler{
+						Common: &gen.Receipt_Common{
 							RevertReason: utils.Ptr(reason),
 						},
 					},
