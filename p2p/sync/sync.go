@@ -13,7 +13,13 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+<<<<<<< HEAD:p2p/sync/sync.go
 	"github.com/NethermindEth/juno/p2p/gen"
+=======
+	"github.com/NethermindEth/juno/p2p/hashstorage"
+	"github.com/NethermindEth/juno/p2p/starknet"
+	"github.com/NethermindEth/juno/p2p/starknet/spec"
+>>>>>>> 5fc21a24 (Update adaptAndSanityCheckBlock):p2p/sync.go
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/utils/pipeline"
@@ -261,7 +267,7 @@ func (s *Service) processSpecBlockParts(
 	return orderedBlockBodiesCh
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (s *Service) adaptAndSanityCheckBlock(ctx context.Context, header *gen.SignedBlockHeader, contractDiffs []*gen.ContractDiff,
 	classes []*gen.Class, txs []*gen.Transaction, receipts []*gen.Receipt, events []*gen.Event, prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
@@ -289,12 +295,10 @@ func (s *Service) adaptAndSanityCheckBlock(ctx context.Context, header *gen.Sign
 
 			coreReceipts := make([]*core.TransactionReceipt, 0, len(receipts))
 			for i, r := range receipts {
-				coreReceipts = append(coreReceipts, p2p2core.AdaptReceipt(r, coreTxs[i].Hash()))
+				coreReceipt := p2p2core.AdaptReceipt(r, coreTxs[i].Hash())
+				coreReceipt.Events = txHashEventsM[*coreReceipt.TransactionHash]
+				coreReceipts = append(coreReceipts, coreReceipt)
 			}
-			coreReceipts = utils.Map(coreReceipts, func(r *core.TransactionReceipt) *core.TransactionReceipt {
-				r.Events = txHashEventsM[*r.TransactionHash]
-				return r
-			})
 			coreBlock.Receipts = coreReceipts
 
 			eventsBloom := core.EventsBloom(coreBlock.Receipts)
@@ -351,11 +355,34 @@ func (s *Service) adaptAndSanityCheckBlock(ctx context.Context, header *gen.Sign
 				}
 			}()
 
+			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+
+			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
+			if err != nil {
+				bodyCh <- blockBody{err: fmt.Errorf("failed to parse block version: %w", err)}
+				return
+			}
+
+			if blockVer.LessThan(core.Ver0_13_2) {
+				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
+				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff)
+				if err != nil {
+					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
+					return
+				}
+
+				if !expectedHash.Equal(post0132Hash) {
+					err = fmt.Errorf("block hash mismatch: expected %s, got %s", expectedHash, post0132Hash)
+					bodyCh <- blockBody{err: err}
+					return
+				}
+			}
+
 			stateUpdate := &core.StateUpdate{
 				BlockHash: coreBlock.Hash,
 				NewRoot:   coreBlock.GlobalStateRoot,
 				OldRoot:   prevBlockRoot,
-				StateDiff: p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes),
+				StateDiff: stateDiff,
 			}
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
