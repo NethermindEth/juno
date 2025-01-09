@@ -55,7 +55,7 @@ func TestMempool(t *testing.T) {
 	require.Equal(t, err.Error(), "transaction pool is empty")
 
 	// push multiple to empty (1,2,3)
-	for i := uint64(1); i < 4; i++ {
+	for i := uint64(1); i < 4; i++ { //nolint:dupl
 		senderAddress := new(felt.Felt).SetUint64(i)
 		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
@@ -131,7 +131,7 @@ func TestRestoreMempool(t *testing.T) {
 	require.Equal(t, 0, pool.Len())
 
 	// push multiple transactions to empty mempool (1,2,3)
-	for i := uint64(1); i < 4; i++ {
+	for i := uint64(1); i < 4; i++ { //nolint:dupl
 		senderAddress := new(felt.Felt).SetUint64(i)
 		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{

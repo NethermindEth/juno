@@ -37,7 +37,7 @@ type txnList struct {
 type Pool struct {
 	log         utils.SimpleLogger
 	state       core.StateReader
-	db          db.DB // persistent mempool
+	db          db.DB // to store the persistent mempool
 	txPushed    chan struct{}
 	txnList     *txnList // in-memory
 	maxNumTxns  int
@@ -47,11 +47,11 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the user to call the cancel function if the context is cancelled
-func New(persistentPool db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error, error) {
+func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error, error) {
 	pool := &Pool{
 		log:         log,
 		state:       state,
-		db:          persistentPool, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
+		db:          mainDB, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
 		txPushed:    make(chan struct{}, 1),
 		txnList:     &txnList{},
 		maxNumTxns:  maxNumTxns,
@@ -303,7 +303,7 @@ func (p *Pool) LenDB() (int, error) {
 
 func (p *Pool) lenDB(txn db.Transaction) (int, error) {
 	var l int
-	err := txn.Get(Length.Key(), func(b []byte) error {
+	err := txn.Get(db.MempoolLength.Key(), func(b []byte) error {
 		l = int(new(big.Int).SetBytes(b).Int64())
 		return nil
 	})
@@ -315,7 +315,7 @@ func (p *Pool) lenDB(txn db.Transaction) (int, error) {
 }
 
 func (p *Pool) updateLen(txn db.Transaction, l int) error {
-	return txn.Set(Length.Key(), new(big.Int).SetInt64(int64(l)).Bytes())
+	return txn.Set(db.MempoolLength.Key(), new(big.Int).SetInt64(int64(l)).Bytes())
 }
 
 func (p *Pool) Wait() <-chan struct{} {
@@ -323,25 +323,25 @@ func (p *Pool) Wait() <-chan struct{} {
 }
 
 func (p *Pool) headHash(txn db.Transaction, head *felt.Felt) error {
-	return txn.Get(Head.Key(), func(b []byte) error {
+	return txn.Get(db.MempoolHead.Key(), func(b []byte) error {
 		head.SetBytes(b)
 		return nil
 	})
 }
 
 func (p *Pool) updateHead(txn db.Transaction, head *felt.Felt) error {
-	return txn.Set(Head.Key(), head.Marshal())
+	return txn.Set(db.MempoolHead.Key(), head.Marshal())
 }
 
 func (p *Pool) tailValue(txn db.Transaction, tail *felt.Felt) error {
-	return txn.Get(Tail.Key(), func(b []byte) error {
+	return txn.Get(db.MempoolTail.Key(), func(b []byte) error {
 		tail.SetBytes(b)
 		return nil
 	})
 }
 
 func (p *Pool) updateTail(txn db.Transaction, tail *felt.Felt) error {
-	return txn.Set(Tail.Key(), tail.Marshal())
+	return txn.Set(db.MempoolTail.Key(), tail.Marshal())
 }
 
 // todo : error when unmarshalling the core.Transasction...
@@ -349,7 +349,7 @@ func (p *Pool) updateTail(txn db.Transaction, tail *felt.Felt) error {
 func (p *Pool) dbElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, error) {
 	var item storageElem
 	keyBytes := itemKey.Bytes()
-	err := txn.Get(Node.Key(keyBytes[:]), func(b []byte) error {
+	err := txn.Get(db.MempoolNode.Key(keyBytes[:]), func(b []byte) error {
 		return encoder.Unmarshal(b, &item)
 	})
 	return item, err
@@ -361,5 +361,5 @@ func (p *Pool) putdbElem(txn db.Transaction, itemKey *felt.Felt, item *storageEl
 		return err
 	}
 	keyBytes := itemKey.Bytes()
-	return txn.Set(Node.Key(keyBytes[:]), itemBytes)
+	return txn.Set(db.MempoolNode.Key(keyBytes[:]), itemBytes)
 }
