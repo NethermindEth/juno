@@ -228,8 +228,8 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	pricesHash := gasPricesHash(
 		GasPrice{
-			PriceInFri: b.GasPriceSTRK,
-			PriceInWei: b.GasPrice,
+			PriceInFri: b.L1GasPriceSTRK,
+			PriceInWei: b.L1GasPriceETH,
 		},
 		*b.L1DataGasPrice,
 		*b.L2GasPrice,
