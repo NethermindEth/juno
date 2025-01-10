@@ -39,10 +39,12 @@ func (d *StateDiff) Length() uint64 {
 	return uint64(length)
 }
 
+var starknetStateDiff0 = new(felt.Felt).SetBytes([]byte("STARKNET_STATE_DIFF0"))
+
 func (d *StateDiff) Hash() *felt.Felt {
 	digest := new(crypto.PoseidonDigest)
 
-	digest.Update(new(felt.Felt).SetBytes([]byte("STARKNET_STATE_DIFF0")))
+	digest.Update(starknetStateDiff0)
 
 	// updated_contracts = deployedContracts + replacedClasses
 	// Digest: [number_of_updated_contracts, address_0, class_hash_0, address_1, class_hash_1, ...].
