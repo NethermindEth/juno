@@ -151,7 +151,7 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 
 	// if 0.13.2 <= block.version < 0.13.4
 	if blockVer.GreaterThanEqual(Ver0_13_2) {
-		return post0132Hash(b, stateDiff)
+		return Post0132Hash(b, stateDiff)
 	}
 
 	// following statements applied only if block.version < 0.13.2
@@ -251,7 +251,7 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		}, nil
 }
 
-func post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
+func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments, error) {
 	var txCommitment, eCommitment, rCommitment, sdCommitment *felt.Felt
 	var sdLength uint64
 	var tErr, eErr, rErr error
