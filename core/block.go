@@ -55,6 +55,12 @@ const (
 	Blob
 )
 
+var (
+	starknetBlockHash0 = new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0"))
+	starknetBlockHash1 = new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH1"))
+	starknetGasPrices0 = new(felt.Felt).SetBytes([]byte("STARKNET_GAS_PRICES0"))
+)
+
 type GasPrice struct {
 	PriceInWei *felt.Felt
 	PriceInFri *felt.Felt
@@ -226,7 +232,7 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	)
 
 	return crypto.PoseidonArray(
-			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH1")),
+			starknetBlockHash1,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
 			b.SequencerAddress,                    // sequencer address
@@ -284,7 +290,7 @@ func post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
 	return crypto.PoseidonArray(
-			new(felt.Felt).SetBytes([]byte("STARKNET_BLOCK_HASH0")),
+			starknetBlockHash0,
 			new(felt.Felt).SetUint64(b.Number),    // block number
 			b.GlobalStateRoot,                     // global state root
 			b.SequencerAddress,                    // sequencer address
@@ -398,7 +404,7 @@ func concatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *fe
 
 func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) *felt.Felt {
 	return crypto.PoseidonArray(
-		new(felt.Felt).SetBytes([]byte("STARKNET_GAS_PRICES0")),
+		starknetGasPrices0,
 		// gas prices
 		gasPrices.PriceInWei,
 		gasPrices.PriceInFri,
