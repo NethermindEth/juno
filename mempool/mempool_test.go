@@ -1,7 +1,6 @@
 package mempool_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -123,9 +122,7 @@ func TestRestoreMempool(t *testing.T) {
 	defer dbCloser()
 
 	pool, closer := mempool.New(testDB, state, 1024, log)
-	fmt.Println("============")
 	require.NoError(t, pool.LoadFromDB())
-	fmt.Println("============")
 	// Check both pools are empty
 	lenDB, err := pool.LenDB()
 	require.NoError(t, err)
@@ -146,7 +143,6 @@ func TestRestoreMempool(t *testing.T) {
 		}))
 		require.Equal(t, int(i), pool.Len())
 	}
-	fmt.Println("============")
 	// check the db has stored the transactions
 	time.Sleep(100 * time.Millisecond)
 	lenDB, err = pool.LenDB()
@@ -160,7 +156,7 @@ func TestRestoreMempool(t *testing.T) {
 
 	poolRestored, closer2 := mempool.New(testDB, state, 1024, log)
 	time.Sleep(100 * time.Millisecond)
-	require.NoError(t, pool.LoadFromDB())
+	require.NoError(t, poolRestored.LoadFromDB())
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
@@ -175,7 +171,6 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	require.Equal(t, 1, poolRestored.Len())
-	fmt.Println("-------------------")
 	require.NoError(t, closer2())
 }
 

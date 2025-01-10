@@ -15,17 +15,17 @@ import (
 
 var ErrTxnPoolFull = errors.New("transaction pool is full")
 
+type BroadcastedTransaction struct {
+	Transaction   core.Transaction
+	DeclaredClass core.Class
+}
+
 // storageElem defines a node for both the
 // in-memory and persistent linked-list
 type storageElem struct {
 	Txn      BroadcastedTransaction
 	NextHash *felt.Felt   // persistent db
 	Next     *storageElem // in-memory
-}
-
-type BroadcastedTransaction struct {
-	Transaction   core.Transaction
-	DeclaredClass core.Class
 }
 
 // txnList is the in-memory mempool
@@ -38,6 +38,7 @@ type txnList struct {
 
 func (t *txnList) push(newNode *storageElem) {
 	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.tail != nil {
 		t.tail.Next = newNode
 		t.tail = newNode
@@ -46,7 +47,6 @@ func (t *txnList) push(newNode *storageElem) {
 		t.tail = newNode
 	}
 	t.len++
-	t.mu.Unlock()
 }
 
 // Pool represents a blockchain mempool, managing transactions using both an
