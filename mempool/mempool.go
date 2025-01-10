@@ -15,6 +15,8 @@ import (
 
 var ErrTxnPoolFull = errors.New("transaction pool is full")
 
+// storageElem defines a node for both the
+// in-memory and persistent linked-list
 type storageElem struct {
 	Txn      BroadcastedTransaction
 	NextHash *felt.Felt   // persistent db
@@ -26,6 +28,7 @@ type BroadcastedTransaction struct {
 	DeclaredClass core.Class
 }
 
+// txnList is the in-memory mempool
 type txnList struct {
 	head *storageElem
 	tail *storageElem
@@ -33,7 +36,8 @@ type txnList struct {
 	mu   sync.Mutex
 }
 
-// Pool stores the transactions in a linked list for its inherent FCFS behaviour
+// Pool represents a blockchain mempool, managing transactions using both an
+// in-memory and persistent database.
 type Pool struct {
 	log         utils.SimpleLogger
 	state       core.StateReader
@@ -134,6 +138,7 @@ func (p *Pool) loadFromDB() error {
 	})
 }
 
+// handleTransaction adds the transaction to the persistent linked-list db
 func (p *Pool) handleTransaction(userTxn *BroadcastedTransaction) error {
 	return p.db.Update(func(dbTxn db.Transaction) error {
 		tailValue := new(felt.Felt)
@@ -176,7 +181,7 @@ func (p *Pool) handleTransaction(userTxn *BroadcastedTransaction) error {
 	})
 }
 
-// Push queues a transaction to the pool and adds it to both the in-memory list and DB
+// Push queues a transaction to the pool
 func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 	err := p.validate(userTxn)
 	if err != nil {
@@ -344,8 +349,6 @@ func (p *Pool) updateTail(txn db.Transaction, tail *felt.Felt) error {
 	return txn.Set(db.MempoolTail.Key(), tail.Marshal())
 }
 
-// todo : error when unmarshalling the core.Transasction...
-// but unmarshalling core.Transaction works fine in TransactionsByBlockNumber...
 func (p *Pool) dbElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, error) {
 	var item storageElem
 	keyBytes := itemKey.Bytes()
