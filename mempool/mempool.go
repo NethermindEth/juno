@@ -36,6 +36,19 @@ type txnList struct {
 	mu   sync.Mutex
 }
 
+func (t *txnList) push(newNode *storageElem) {
+	t.mu.Lock()
+	if t.tail != nil {
+		t.tail.Next = newNode
+		t.tail = newNode
+	} else {
+		t.head = newNode
+		t.tail = newNode
+	}
+	t.len++
+	t.mu.Unlock()
+}
+
 // Pool represents a blockchain mempool, managing transactions using both an
 // in-memory and persistent database.
 type Pool struct {
@@ -78,8 +91,10 @@ func (p *Pool) dbWriter() {
 	go func() {
 		defer p.wg.Done()
 		for txn := range p.dbWriteChan {
-			err := p.handleTransaction(txn)
-			p.log.Errorw("error in handling user transaction in persistent mempool", "err", err)
+			err := p.writeToDB(txn)
+			if err != nil {
+				p.log.Errorw("error in handling user transaction in persistent mempool", "err", err)
+			}
 		}
 	}()
 }
@@ -95,18 +110,16 @@ func (p *Pool) LoadFromDB() error {
 			}
 			return err
 		}
-
+		// loop through the persistent pool and push nodes to the in-memory pool
 		currentHash := headValue
 		for currentHash != nil {
 			curElem, err := p.dbElem(txn, currentHash)
 			if err != nil {
 				return err
 			}
-
 			newNode := &storageElem{
 				Txn: curElem.Txn,
 			}
-
 			if curElem.NextHash != nil {
 				nxtElem, err := p.dbElem(txn, curElem.NextHash)
 				if err != nil {
@@ -116,27 +129,15 @@ func (p *Pool) LoadFromDB() error {
 					Txn: nxtElem.Txn,
 				}
 			}
-
-			p.txnList.mu.Lock()
-			if p.txnList.tail != nil {
-				p.txnList.tail.Next = newNode
-				p.txnList.tail = newNode
-			} else {
-				p.txnList.head = newNode
-				p.txnList.tail = newNode
-			}
-			p.txnList.len++
-			p.txnList.mu.Unlock()
-
+			p.txnList.push(newNode)
 			currentHash = curElem.NextHash
 		}
-
 		return nil
 	})
 }
 
-// handleTransaction adds the transaction to the persistent linked-list db
-func (p *Pool) handleTransaction(userTxn *BroadcastedTransaction) error {
+// writeToDB adds the transaction to the persistent pool db
+func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 	return p.db.Update(func(dbTxn db.Transaction) error {
 		tailValue := new(felt.Felt)
 		if err := p.tailValue(dbTxn, tailValue); err != nil {
@@ -199,17 +200,8 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		}
 	}
 
-	p.txnList.mu.Lock()
 	newNode := &storageElem{Txn: *userTxn, Next: nil}
-	if p.txnList.tail != nil {
-		p.txnList.tail.Next = newNode
-		p.txnList.tail = newNode
-	} else {
-		p.txnList.head = newNode
-		p.txnList.tail = newNode
-	}
-	p.txnList.len++
-	p.txnList.mu.Unlock()
+	p.txnList.push(newNode)
 
 	select {
 	case p.txPushed <- struct{}{}:
