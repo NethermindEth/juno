@@ -1,6 +1,7 @@
 package mempool_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -46,8 +47,8 @@ func TestMempool(t *testing.T) {
 	state := mocks.NewMockStateHistoryReader(mockCtrl)
 	require.NoError(t, err)
 	defer dbCloser()
-	pool, closer, err := mempool.New(testDB, state, 4, log)
-	require.NoError(t, err)
+	pool, closer := mempool.New(testDB, state, 4, log)
+	require.NoError(t, pool.LoadFromDB())
 
 	require.Equal(t, 0, pool.Len())
 
@@ -121,9 +122,10 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	defer dbCloser()
 
-	pool, closer, err := mempool.New(testDB, state, 1024, log)
-	require.NoError(t, err)
-
+	pool, closer := mempool.New(testDB, state, 1024, log)
+	fmt.Println("============")
+	require.NoError(t, pool.LoadFromDB())
+	fmt.Println("============")
 	// Check both pools are empty
 	lenDB, err := pool.LenDB()
 	require.NoError(t, err)
@@ -144,7 +146,7 @@ func TestRestoreMempool(t *testing.T) {
 		}))
 		require.Equal(t, int(i), pool.Len())
 	}
-
+	fmt.Println("============")
 	// check the db has stored the transactions
 	time.Sleep(100 * time.Millisecond)
 	lenDB, err = pool.LenDB()
@@ -152,11 +154,13 @@ func TestRestoreMempool(t *testing.T) {
 	require.Equal(t, 3, lenDB)
 	// Close the mempool
 	require.NoError(t, closer())
+
 	testDB, _, err = setupDatabase("testrestoremempool", false)
 	require.NoError(t, err)
 
-	poolRestored, closer2, err := mempool.New(testDB, state, 1024, log)
-	require.NoError(t, err)
+	poolRestored, closer2 := mempool.New(testDB, state, 1024, log)
+	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, pool.LoadFromDB())
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
@@ -171,7 +175,7 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	require.Equal(t, 1, poolRestored.Len())
-
+	fmt.Println("-------------------")
 	require.NoError(t, closer2())
 }
 
@@ -183,8 +187,8 @@ func TestWait(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	state := mocks.NewMockStateHistoryReader(mockCtrl)
-	pool, _, err := mempool.New(testDB, state, 1024, log)
-	require.NoError(t, err)
+	pool, _ := mempool.New(testDB, state, 1024, log)
+	require.NoError(t, pool.LoadFromDB())
 
 	select {
 	case <-pool.Wait():

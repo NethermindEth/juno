@@ -50,8 +50,8 @@ type Pool struct {
 }
 
 // New initialises the Pool and starts the database writer goroutine.
-// It is the responsibility of the user to call the cancel function if the context is cancelled
-func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error, error) {
+// It is the responsibility of the caller to execute the closer function.
+func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
 	pool := &Pool{
 		log:         log,
 		state:       state,
@@ -61,13 +61,6 @@ func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleL
 		maxNumTxns:  maxNumTxns,
 		dbWriteChan: make(chan *BroadcastedTransaction, maxNumTxns),
 	}
-
-	if err := pool.loadFromDB(); err != nil {
-		return nil, nil, fmt.Errorf("failed to load transactions from database into the in-memory transaction list: %v", err)
-	}
-
-	pool.wg.Add(1)
-	go pool.dbWriter()
 	closer := func() error {
 		close(pool.dbWriteChan)
 		pool.wg.Wait()
@@ -76,19 +69,23 @@ func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleL
 		}
 		return nil
 	}
-	return pool, closer, nil
+	pool.dbWriter()
+	return pool, closer
 }
 
 func (p *Pool) dbWriter() {
-	defer p.wg.Done()
-	for txn := range p.dbWriteChan {
-		err := p.handleTransaction(txn)
-		p.log.Errorw("error in handling user transaction in persistent mempool", "err", err)
-	}
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		for txn := range p.dbWriteChan {
+			err := p.handleTransaction(txn)
+			p.log.Errorw("error in handling user transaction in persistent mempool", "err", err)
+		}
+	}()
 }
 
-// loadFromDB restores the in-memory transaction pool from the database
-func (p *Pool) loadFromDB() error {
+// LoadFromDB restores the in-memory transaction pool from the database
+func (p *Pool) LoadFromDB() error {
 	return p.db.View(func(txn db.Transaction) error {
 		headValue := new(felt.Felt)
 		err := p.headHash(txn, headValue)
