@@ -199,3 +199,41 @@ func noncesDigest(nonces map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest
 		digest.Update(&addr, nonces[addr])
 	}
 }
+
+func EmptyStateDiff() *StateDiff {
+	return &StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+		Nonces:            make(map[felt.Felt]*felt.Felt),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt),
+		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+	}
+}
+
+func MergeStateDiffs(oldStateDiff, newStateDiff *StateDiff) *StateDiff {
+	mergeMaps := func(oldMap, newMap map[felt.Felt]*felt.Felt) {
+		for key, value := range newMap {
+			oldMap[key] = value
+		}
+	}
+
+	mergeStorageDiffs := func(oldMap, newMap map[felt.Felt]map[felt.Felt]*felt.Felt) {
+		for addr, newAddrStorage := range newMap {
+			if oldAddrStorage, exists := oldMap[addr]; exists {
+				mergeMaps(oldAddrStorage, newAddrStorage)
+			} else {
+				oldMap[addr] = newAddrStorage
+			}
+		}
+	}
+
+	mergeStorageDiffs(oldStateDiff.StorageDiffs, newStateDiff.StorageDiffs)
+	mergeMaps(oldStateDiff.Nonces, newStateDiff.Nonces)
+	mergeMaps(oldStateDiff.DeployedContracts, newStateDiff.DeployedContracts)
+	mergeMaps(oldStateDiff.DeclaredV1Classes, newStateDiff.DeclaredV1Classes)
+	mergeMaps(oldStateDiff.ReplacedClasses, newStateDiff.ReplacedClasses)
+	oldStateDiff.DeclaredV0Classes = append(oldStateDiff.DeclaredV0Classes, newStateDiff.DeclaredV0Classes...)
+
+	return oldStateDiff
+}
