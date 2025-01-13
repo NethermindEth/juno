@@ -205,7 +205,8 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
-		traceSD := vm2core.StateDiff(&trace[0])
+
+		traceSD := vm2core.StateDiff(trace[0].StateDiff)
 		for k, v := range traceSD.DeployedContracts {
 			fmt.Println(k.String(), v.String())
 		}

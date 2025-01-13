@@ -75,7 +75,7 @@ func adaptDA(da *vm.DataAvailability) *core.DataAvailability {
 	}
 }
 
-func AdaptStateDiff(sd *vm.StateDiff) *core.StateDiff {
+func AdaptStateDiff(traceSD *vm.StateDiff) *core.StateDiff {
 	result := core.StateDiff{
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
 		Nonces:            make(map[felt.Felt]*felt.Felt),
@@ -84,79 +84,43 @@ func AdaptStateDiff(sd *vm.StateDiff) *core.StateDiff {
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
-	if sd == nil {
+
+	if traceSD == nil {
 		return &result
 	}
-	for _, entries := range sd.StorageDiffs {
-		KeyVals := map[felt.Felt]*felt.Felt{}
-		for _, entry := range entries.StorageEntries {
-			KeyVals[entry.Key] = &entry.Value
-		}
-		result.StorageDiffs[entries.Address] = KeyVals
-	}
-	for _, addrNonce := range sd.Nonces {
-		result.Nonces[addrNonce.ContractAddress] = &addrNonce.Nonce
-	}
-	for _, addrClassHash := range sd.DeployedContracts {
-		result.Nonces[addrClassHash.Address] = &addrClassHash.ClassHash
-	}
-	for _, hashes := range sd.DeclaredClasses {
-		result.DeclaredV1Classes[hashes.ClassHash] = &hashes.CompiledClassHash
-	}
-	for _, addrClassHash := range sd.ReplacedClasses {
-		result.ReplacedClasses[addrClassHash.ClassHash] = &addrClassHash.ClassHash
-	}
-	result.DeclaredV0Classes = append(result.DeclaredV0Classes, sd.DeprecatedDeclaredClasses...)
-	return &result
-}
 
-func StateDiff(trace *vm.TransactionTrace) *core.StateDiff {
-	if trace.StateDiff == nil {
-		return nil
-	}
-	stateDiff := trace.StateDiff
-	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
-	for _, sd := range stateDiff.StorageDiffs {
+	for _, sd := range traceSD.StorageDiffs {
 		entries := make(map[felt.Felt]*felt.Felt)
 		for _, entry := range sd.StorageEntries {
 			val := entry.Value
 			entries[entry.Key] = &val
 		}
-		newStorageDiffs[sd.Address] = entries
+		result.StorageDiffs[sd.Address] = entries
 	}
 
-	newNonces := make(map[felt.Felt]*felt.Felt)
-	for _, nonce := range stateDiff.Nonces {
+	for _, nonce := range traceSD.Nonces {
 		nonc := nonce.Nonce
-		newNonces[nonce.ContractAddress] = &nonc
+		result.Nonces[nonce.ContractAddress] = &nonc
 	}
 
-	newDeployedContracts := make(map[felt.Felt]*felt.Felt)
-	for _, dc := range stateDiff.DeployedContracts {
+	for _, dc := range traceSD.DeployedContracts {
 		ch := dc.ClassHash
-		newDeployedContracts[dc.Address] = &ch
+		result.DeployedContracts[dc.Address] = &ch
 	}
 
-	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt)
-	for _, dc := range stateDiff.DeclaredClasses {
+	result.DeclaredV0Classes = traceSD.DeprecatedDeclaredClasses
+
+	for _, dc := range traceSD.DeclaredClasses {
 		cch := dc.CompiledClassHash
-		newDeclaredV1Classes[dc.ClassHash] = &cch
+		result.DeclaredV1Classes[dc.ClassHash] = &cch
 	}
 
-	newReplacedClasses := make(map[felt.Felt]*felt.Felt)
-	for _, rc := range stateDiff.ReplacedClasses {
+	for _, rc := range traceSD.ReplacedClasses {
 		ch := rc.ClassHash
-		newReplacedClasses[rc.ContractAddress] = &ch
+		result.ReplacedClasses[rc.ContractAddress] = &ch
 	}
 
-	return &core.StateDiff{
-		StorageDiffs:      newStorageDiffs,
-		Nonces:            newNonces,
-		DeployedContracts: newDeployedContracts,
-		DeclaredV0Classes: stateDiff.DeprecatedDeclaredClasses,
-		DeclaredV1Classes: newDeclaredV1Classes,
-		ReplacedClasses:   newReplacedClasses,
-	}
+	return &result
 }
 
 func Receipt(fee *felt.Felt, feeUnit core.FeeUnit, txHash *felt.Felt,

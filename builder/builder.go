@@ -568,7 +568,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction) error { //nolint:g
 	pending.Block.Transactions = append(pending.Block.Transactions, txn.Transaction)
 	pending.Block.TransactionCount += 1
 	pending.Block.EventCount += uint64(len(receipt.Events))
-	pending.StateUpdate.StateDiff = MergeStateDiffs(pending.StateUpdate.StateDiff, vm2core.StateDiff(&trace[0]))
+	pending.StateUpdate.StateDiff = MergeStateDiffs(pending.StateUpdate.StateDiff, vm2core.StateDiff(trace[0].StateDiff))
 	return b.StorePending(pending)
 }
 
