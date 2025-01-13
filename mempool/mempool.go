@@ -28,15 +28,15 @@ type storageElem struct {
 	Next     *storageElem // in-memory
 }
 
-// txnList is the in-memory mempool
-type txnList struct {
+// memTxnList represents a linked list of user transactions at runtime"
+type memTxnList struct {
 	head *storageElem
 	tail *storageElem
 	len  int
 	mu   sync.Mutex
 }
 
-func (t *txnList) push(newNode *storageElem) {
+func (t *memTxnList) push(newNode *storageElem) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.tail != nil {
@@ -49,6 +49,23 @@ func (t *txnList) push(newNode *storageElem) {
 	t.len++
 }
 
+func (t *memTxnList) pop() (BroadcastedTransaction, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.head == nil {
+		return BroadcastedTransaction{}, errors.New("transaction pool is empty")
+	}
+
+	headNode := t.head
+	t.head = headNode.Next
+	if t.head == nil {
+		t.tail = nil
+	}
+	t.len--
+	return headNode.Txn, nil
+}
+
 // Pool represents a blockchain mempool, managing transactions using both an
 // in-memory and persistent database.
 type Pool struct {
@@ -56,7 +73,7 @@ type Pool struct {
 	state       core.StateReader
 	db          db.DB // to store the persistent mempool
 	txPushed    chan struct{}
-	txnList     *txnList // in-memory
+	memTxnList  *memTxnList
 	maxNumTxns  int
 	dbWriteChan chan *BroadcastedTransaction
 	wg          sync.WaitGroup
@@ -70,7 +87,7 @@ func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleL
 		state:       state,
 		db:          mainDB, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
 		txPushed:    make(chan struct{}, 1),
-		txnList:     &txnList{},
+		memTxnList:  &memTxnList{},
 		maxNumTxns:  maxNumTxns,
 		dbWriteChan: make(chan *BroadcastedTransaction, maxNumTxns),
 	}
@@ -113,7 +130,7 @@ func (p *Pool) LoadFromDB() error {
 		// loop through the persistent pool and push nodes to the in-memory pool
 		currentHash := headValue
 		for currentHash != nil {
-			curElem, err := p.dbElem(txn, currentHash)
+			curElem, err := p.readDBElem(txn, currentHash)
 			if err != nil {
 				return err
 			}
@@ -121,7 +138,7 @@ func (p *Pool) LoadFromDB() error {
 				Txn: curElem.Txn,
 			}
 			if curElem.NextHash != nil {
-				nxtElem, err := p.dbElem(txn, curElem.NextHash)
+				nxtElem, err := p.readDBElem(txn, curElem.NextHash)
 				if err != nil {
 					return err
 				}
@@ -129,7 +146,7 @@ func (p *Pool) LoadFromDB() error {
 					Txn: nxtElem.Txn,
 				}
 			}
-			p.txnList.push(newNode)
+			p.memTxnList.push(newNode)
 			currentHash = curElem.NextHash
 		}
 		return nil
@@ -146,20 +163,18 @@ func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 			}
 			tailValue = nil
 		}
-		if err := p.putdbElem(dbTxn, userTxn.Transaction.Hash(), &storageElem{
-			Txn: *userTxn,
-		}); err != nil {
+		if err := p.setDBElem(dbTxn, &storageElem{Txn: *userTxn}); err != nil {
 			return err
 		}
 		if tailValue != nil {
 			// Update old tail to point to the new item
 			var oldTailElem storageElem
-			oldTailElem, err := p.dbElem(dbTxn, tailValue)
+			oldTailElem, err := p.readDBElem(dbTxn, tailValue)
 			if err != nil {
 				return err
 			}
 			oldTailElem.NextHash = userTxn.Transaction.Hash()
-			if err = p.putdbElem(dbTxn, tailValue, &oldTailElem); err != nil {
+			if err = p.setDBElem(dbTxn, &oldTailElem); err != nil {
 				return err
 			}
 		} else {
@@ -201,7 +216,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 	}
 
 	newNode := &storageElem{Txn: *userTxn, Next: nil}
-	p.txnList.push(newNode)
+	p.memTxnList.push(newNode)
 
 	select {
 	case p.txPushed <- struct{}{}:
@@ -212,7 +227,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 }
 
 func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
-	if p.txnList.len+1 >= p.maxNumTxns {
+	if p.memTxnList.len+1 >= p.maxNumTxns {
 		return ErrTxnPoolFull
 	}
 
@@ -251,21 +266,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 
 // Pop returns the transaction with the highest priority from the in-memory pool
 func (p *Pool) Pop() (BroadcastedTransaction, error) {
-	p.txnList.mu.Lock()
-	defer p.txnList.mu.Unlock()
-
-	if p.txnList.head == nil {
-		return BroadcastedTransaction{}, errors.New("transaction pool is empty")
-	}
-
-	headNode := p.txnList.head
-	p.txnList.head = headNode.Next
-	if p.txnList.head == nil {
-		p.txnList.tail = nil
-	}
-	p.txnList.len--
-
-	return headNode.Txn, nil
+	return p.memTxnList.pop()
 }
 
 // Remove removes a set of transactions from the pool
@@ -277,7 +278,7 @@ func (p *Pool) Remove(hash ...*felt.Felt) error {
 
 // Len returns the number of transactions in the in-memory pool
 func (p *Pool) Len() int {
-	return p.txnList.len
+	return p.memTxnList.len
 }
 
 // Len returns the number of transactions in the persistent pool
@@ -338,7 +339,7 @@ func (p *Pool) updateTail(txn db.Transaction, tail *felt.Felt) error {
 	return txn.Set(db.MempoolTail.Key(), tail.Marshal())
 }
 
-func (p *Pool) dbElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, error) {
+func (p *Pool) readDBElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, error) {
 	var item storageElem
 	keyBytes := itemKey.Bytes()
 	err := txn.Get(db.MempoolNode.Key(keyBytes[:]), func(b []byte) error {
@@ -347,11 +348,11 @@ func (p *Pool) dbElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, erro
 	return item, err
 }
 
-func (p *Pool) putdbElem(txn db.Transaction, itemKey *felt.Felt, item *storageElem) error {
+func (p *Pool) setDBElem(txn db.Transaction, item *storageElem) error {
 	itemBytes, err := encoder.Marshal(item)
 	if err != nil {
 		return err
 	}
-	keyBytes := itemKey.Bytes()
+	keyBytes := item.Txn.Transaction.Hash().Bytes()
 	return txn.Set(db.MempoolNode.Key(keyBytes[:]), itemBytes)
 }
