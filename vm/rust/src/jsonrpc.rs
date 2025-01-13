@@ -36,6 +36,7 @@ pub struct TransactionReceipt {
     pub fee: Fee,
     pub gas: GasVector,
     pub da_gas: GasVector,
+    // pub resources: TransactionResources, // Todo: not needed currently, can't serialize.
 }
 
 #[derive(Serialize, Default)]
