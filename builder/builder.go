@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	stdsync "sync"
+
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -17,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
@@ -26,6 +29,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
+	"github.com/sourcegraph/conc"
 )
 
 var (
@@ -66,7 +70,17 @@ type Builder struct {
 
 	blockHashToBeRevealed *felt.Felt
 
+	muSubs         stdsync.Mutex // protects subscriptions.
+	subscriptions  map[uint64]*subscription
+	pendingTxsFeed *feed.Feed[[]core.Transaction]
+
 	plugin plugin.JunoPlugin
+}
+
+type subscription struct {
+	cancel func()
+	wg     conc.WaitGroup
+	conn   jsonrpc.Conn
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, builderVM vm.VM,
@@ -79,12 +93,13 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		log:        log,
 		listener:   &SelectiveListener{},
 
-		disableFees: disableFees,
-		bc:          bc,
-		db:          database,
-		pool:        pool,
-		vm:          builderVM,
-		newHeads:    feed.New[*core.Header](),
+		disableFees:    disableFees,
+		bc:             bc,
+		db:             database,
+		pool:           pool,
+		vm:             builderVM,
+		newHeads:       feed.New[*core.Header](),
+		pendingTxsFeed: feed.New[[]core.Transaction](),
 	}
 }
 
@@ -109,8 +124,9 @@ func NewShadow(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blo
 		vm:       builderVM,
 		newHeads: feed.New[*core.Header](),
 
-		shadowMode:   true,
-		starknetData: starknetData,
+		shadowMode:     true,
+		starknetData:   starknetData,
+		pendingTxsFeed: feed.New[[]core.Transaction](),
 	}
 }
 
@@ -435,6 +451,10 @@ func (b *Builder) listenPool(ctx context.Context) error {
 				return err
 			}
 		}
+
+		// send the pending transactions to the feed
+		b.pendingTxsFeed.Send(b.PendingBlock().Transactions)
+
 		select {
 		case <-ctx.Done():
 			return nil
@@ -832,11 +852,10 @@ func (b *Builder) rpcGetBlockTrace(blockNum int) ([]rpc.TracedBlockTransaction, 
 }
 
 func (b *Builder) SubscribePendingTxs() sync.PendingTxSubscription {
-	panic("not implemented")
-	return sync.PendingTxSubscription{}
+	return sync.PendingTxSubscription{b.pendingTxsFeed.Subscribe()}
 }
 
+// The builder has no reorg logic (centralised sequencer that can't reorg)
 func (b *Builder) SubscribeReorg() sync.ReorgSubscription {
-	panic("not implemented")
 	return sync.ReorgSubscription{}
 }
