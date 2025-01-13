@@ -3,10 +3,10 @@
 .PHONY: vm juno
 
 ifeq ($(VM_DEBUG),true)
-    GO_TAGS = -tags vm_debug
+    GO_TAGS = -tags 'vm_debug,no_coverage'
     VM_TARGET = debug
 else
-    GO_TAGS =
+    GO_TAGS = -tags 'no_coverage'
     VM_TARGET = all
 endif
 
@@ -164,6 +164,65 @@ node3: juno-cached ## Run a node №3. P2P usage only
 	--metrics-port=9093 \
 	--disable-l1-verification
 
+sequencer:
+	./build/juno \
+	--http \
+	--http-port=6060 \
+	--http-host=0.0.0.0 \
+	--db-path=../seq-db \
+	--log-level=debug \
+	--seq-enable \
+	--seq-block-time=1 \
+	--network sequencer \
+	--disable-l1-verification \
+	--rpc-call-max-steps=4123000
+
+sequencer-plugin-w-accounts:
+	./build/juno \
+	--http \
+	--http-port=6060 \
+	--http-host=0.0.0.0 \
+	--db-path=../seq-db \
+	--log-level=debug \
+	--seq-enable \
+	--seq-block-time=1 \
+	--network sequencer \
+	--plugin-path="myplugin.so" \
+	--seq-disable-fees \
+	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
+	--rpc-call-max-steps=4123000
+
+sequencer-with-accounts:
+	./build/juno \
+    --http \
+    --http-port=6060 \
+    --http-host=0.0.0.0 \
+    --db-path=../seq-db \
+    --log-level=debug \
+    --seq-enable \
+    --seq-block-time=1 \
+	--network sequencer \
+	--disable-l1-verification \
+	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
+    --rpc-call-max-steps=4123000
+
+
+sequencer-shadow-sepolia: # Only works for 0.12.3 Sepolia blocks
+	./build/juno \
+    --http \
+    --http-port=6066 \
+    --http-host=0.0.0.0 \
+    --db-path=../seq-db\
+    --log-level=info \
+    --seq-enable \
+	--seq-shadow-mode \
+    --seq-block-time=5 \
+	--seq-shadow-mode-sync-to-block=0 \
+	--seq-rpc-endpoint="" \
+	--network sepolia \
+	--disable-l1-verification \
+    --rpc-call-max-steps=4123000
+	
 pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P usage only
 	./build/juno \
 	--network=sepolia \

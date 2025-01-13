@@ -64,6 +64,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultGwTimeout := 5 * time.Second
+	defaultSeqBlockTime := uint(60)
+	defaultSeqShadowModeSyncTo := uint64(1)
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -110,6 +112,8 @@ func TestConfigPrecedence(t *testing.T) {
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"custom network config file": {
@@ -155,6 +159,8 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"default config with no flags": {
@@ -187,6 +193,8 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file path is empty string": {
@@ -219,6 +227,8 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file doesn't exist": {
@@ -256,6 +266,8 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -267,7 +279,7 @@ db-path: /home/.juno
 network: sepolia
 pprof: true
 `,
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:            utils.DEBUG,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -295,6 +307,8 @@ pprof: true
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -331,6 +345,8 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"all flags without config file": {
@@ -366,6 +382,8 @@ http-port: 4576
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				PendingPollInterval: defaultPendingPollInterval,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some flags without config file": {
@@ -373,7 +391,7 @@ http-port: 4576
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0", "--db-path", "/home/.juno",
 				"--network", "sepolia",
 			},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:            utils.DEBUG,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -401,6 +419,8 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -460,6 +480,8 @@ db-cache-size: 1024
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -470,7 +492,7 @@ http-port: 4576
 network: sepolia
 `,
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:            utils.WARN,
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -498,6 +520,8 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -532,6 +556,8 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"only set env variables": {
@@ -564,6 +590,8 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -597,6 +625,8 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -631,6 +661,8 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
+				SeqShadowModeSyncTo: defaultSeqShadowModeSyncTo,
 			},
 		},
 	}

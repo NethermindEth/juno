@@ -280,6 +280,14 @@ func TestStore(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stateUpdate1, got1Update)
 	})
+
+	t.Run("failing state root check", func(t *testing.T) {
+		wrongRootStateUpdate := stateUpdate0
+		wrongRootStateUpdate.NewRoot = new(felt.Felt).SetUint64(1337)
+		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet, nil)
+		require.ErrorContains(t, chain.Store(block0, &emptyCommitments, wrongRootStateUpdate, nil),
+			"does not match the expected root")
+	})
 }
 
 func TestStoreL1HandlerTxnHash(t *testing.T) {
@@ -666,6 +674,18 @@ func TestRevert(t *testing.T) {
 	t.Run("cannot revert on empty chain", func(t *testing.T) {
 		require.Error(t, chain.RevertHead())
 	})
+}
+
+func dbIsEmpty(t testing.TB, testDB db.DB) {
+	t.Helper()
+	require.NoError(t, testDB.View(func(txn db.Transaction) error {
+		it, err := txn.NewIterator(nil, false)
+		if err != nil {
+			return err
+		}
+		require.False(t, it.Next(), it.Key())
+		return it.Close()
+	}))
 }
 
 func TestL1Update(t *testing.T) {

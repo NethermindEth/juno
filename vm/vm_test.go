@@ -32,15 +32,11 @@ func TestV0Call(t *testing.T) {
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
-	require.NoError(t, testState.Update(0, &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
-		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
-				*contractAddr: classHash,
-			},
+	require.NoError(t, testState.Update(0, &core.StateUpdate{StateDiff: &core.StateDiff{
+		DeployedContracts: map[felt.Felt]*felt.Felt{
+			*contractAddr: classHash,
 		},
-	}, map[felt.Felt]core.Class{
+	}}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
 	}))
 
@@ -55,8 +51,6 @@ func TestV0Call(t *testing.T) {
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
-		OldRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
-		NewRoot: utils.HexToFelt(t, "0x4a948783e8786ba9d8edaf42de972213bd2deb1b50c49e36647f1fef844890f"),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
@@ -93,8 +87,6 @@ func TestV1Call(t *testing.T) {
 
 	testState := core.NewState(txn)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -121,8 +113,6 @@ func TestV1Call(t *testing.T) {
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
-		OldRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
-		NewRoot: utils.HexToFelt(t, "0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552"),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
@@ -161,8 +151,6 @@ func TestCall_MaxSteps(t *testing.T) {
 
 	testState := core.NewState(txn)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -195,7 +183,7 @@ func TestExecute(t *testing.T) {
 	state := core.NewState(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
-		_, _, _, _, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
+		_, _, _, _, _, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
@@ -207,7 +195,7 @@ func TestExecute(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, _, _, _, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
+		_, _, _, _, _, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
 				GasPrice:         &felt.Zero,
