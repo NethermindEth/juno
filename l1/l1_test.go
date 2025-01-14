@@ -171,7 +171,7 @@ func TestEventListener(t *testing.T) {
 		})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	require.NoError(t, client.Run(ctx))
+	require.ErrorIs(t, client.Run(ctx), context.DeadlineExceeded)
 	cancel()
 
 	require.Equal(t, &core.L1Head{

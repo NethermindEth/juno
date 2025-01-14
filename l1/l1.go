@@ -161,7 +161,7 @@ func (c *Client) Run(ctx context.Context) error {
 	})
 	if c.network.BootnodeRegistry != emptyBootnodeRegistry {
 		errs.Go(func() error {
-			return c.makeSubscribtionsToBootnodes(ctx, buffer)
+			return c.makeSubscriptionsToBootnodes(ctx, buffer)
 		})
 	}
 	return errs.Wait()
@@ -229,12 +229,37 @@ func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int)
 	}
 }
 
-func (c *Client) makeSubscribtionsToBootnodes(ctx context.Context, buffer int) error {
+func (c *Client) makeSubscriptionsToBootnodes(ctx context.Context, buffer int) error {
 	defer close(c.eventsToP2P)
 
+	if err := c.processInitialAddresses(ctx); err != nil {
+		return err
+	}
+
+	addedChan := make(chan *contract.BootnodeRegistryIPAdded, buffer)
+	addedSub, err := c.subscribeToBootnodeAddition(ctx, addedChan)
+	if err != nil {
+		return fmt.Errorf("failed to setup addition subscription: %w", err)
+	}
+	defer addedSub.Unsubscribe()
+
+	removedChan := make(chan *contract.BootnodeRegistryIPRemoved, buffer)
+	removedSub, err := c.subscribeToBootnodeRemoval(ctx, removedChan)
+	if err != nil {
+		return fmt.Errorf("failed to setup removal subscription: %w", err)
+	}
+	defer removedSub.Unsubscribe()
+
+	c.log.Debugw("Successfully subscribed to bootnode registry events")
+
+	// Handle events
+	return c.handleBootnodeEvents(ctx, addedSub, removedSub, addedChan, removedChan)
+}
+
+func (c *Client) processInitialAddresses(ctx context.Context) error {
 	addresses, err := c.l1.GetIPAddresses(ctx, c.network.BootnodeRegistry)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch bootnode registry addresses: %w", err)
 	}
 
 	for _, address := range addresses {
@@ -247,23 +272,14 @@ func (c *Client) makeSubscribtionsToBootnodes(ctx context.Context, buffer int) e
 			return ctx.Err()
 		}
 	}
+	return nil
+}
 
-	addedChan := make(chan *contract.BootnodeRegistryIPAdded, buffer)
-	addedSub, err := c.subscribeToBootnodeAddition(ctx, addedChan)
-	if err != nil {
-		return err
-	}
-	defer addedSub.Unsubscribe()
-
-	removedChan := make(chan *contract.BootnodeRegistryIPRemoved, buffer)
-	removedSub, err := c.subscribeToBootnodeRemoval(ctx, removedChan)
-	if err != nil {
-		return err
-	}
-	defer removedSub.Unsubscribe()
-
-	c.log.Debugw("Successfully subscribed to bootnode registry events")
-
+func (c *Client) handleBootnodeEvents(
+	ctx context.Context, addedSub, removedSub event.Subscription,
+	addedChan chan *contract.BootnodeRegistryIPAdded,
+	removedChan chan *contract.BootnodeRegistryIPRemoved,
+) error {
 	for {
 		select {
 		case <-ctx.Done():
