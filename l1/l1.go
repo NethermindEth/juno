@@ -1,3 +1,4 @@
+//go:generate abigen --abi abi/bootnode_registry.json --pkg contract --type BootnodeRegistry --out contract/bootnode_registry.go
 package l1
 
 import (
@@ -18,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"golang.org/x/sync/errgroup"
 )
+
+var emptyBootnodeRegistry = common.Address{}
 
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 type Subscriber interface {
@@ -41,11 +44,12 @@ type Client struct {
 	pollFinalisedInterval time.Duration
 	nonFinalisedLogs      map[uint64]*contract.StarknetLogStateUpdate
 	listener              EventListener
+	eventsToP2P           chan<- p2p.BootnodeRegistryEvent
 }
 
 var _ service.Service = (*Client)(nil)
 
-func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogger) *Client {
+func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogger, eventsToP2P chan<- p2p.BootnodeRegistryEvent) *Client {
 	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,
@@ -55,6 +59,7 @@ func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogg
 		pollFinalisedInterval: time.Minute,
 		nonFinalisedLogs:      make(map[uint64]*contract.StarknetLogStateUpdate, 0),
 		listener:              SelectiveListener{},
+		eventsToP2P:           eventsToP2P,
 	}
 }
 
@@ -90,6 +95,42 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 	}
 }
 
+func (c *Client) subscribeToBootnodeAddition(
+	ctx context.Context, updateChan chan *contract.BootnodeRegistryIPAdded,
+) (event.Subscription, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
+		default:
+			updateSub, err := c.l1.WatchIPAdded(ctx, updateChan)
+			if err == nil {
+				return updateSub, nil
+			}
+			c.log.Debugw("Failed to subscribe to L1 IP address additions", "tryAgainIn", c.resubscribeDelay, "err", err)
+			time.Sleep(c.resubscribeDelay)
+		}
+	}
+}
+
+func (c *Client) subscribeToBootnodeRemoval(
+	ctx context.Context, updateChan chan *contract.BootnodeRegistryIPRemoved,
+) (event.Subscription, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
+		default:
+			updateSub, err := c.l1.WatchIPRemoved(ctx, updateChan)
+			if err == nil {
+				return updateSub, nil
+			}
+			c.log.Debugw("Failed to subscribe to L1 IP address removals", "tryAgainIn", c.resubscribeDelay, "err", err)
+			time.Sleep(c.resubscribeDelay)
+		}
+	}
+}
+
 func (c *Client) checkChainID(ctx context.Context) error {
 	gotChainID, err := c.l1.ChainID(ctx)
 	if err != nil {
@@ -114,8 +155,20 @@ func (c *Client) Run(ctx context.Context) error {
 
 	buffer := 128
 
-	c.log.Infow("Subscribing to L1 updates...")
+	errs, ctx := errgroup.WithContext(ctx)
+	errs.Go(func() error {
+		return c.makeSubscriptionToStateUpdates(ctx, buffer)
+	})
+	if c.network.BootnodeRegistry != emptyBootnodeRegistry {
+		errs.Go(func() error {
+			return c.makeSubscribtionsToBootnodes(ctx, buffer)
+		})
+	}
+	return errs.Wait()
+}
 
+func (c *Client) makeSubscriptionToStateUpdates(ctx context.Context, buffer int) error {
+	c.log.Infow("Subscribing to L1 updates...")
 	updateChan := make(chan *contract.StarknetLogStateUpdate, buffer)
 	updateSub, err := c.subscribeToUpdates(ctx, updateChan)
 	if err != nil {
@@ -127,6 +180,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -170,6 +224,89 @@ func (c *Client) Run(ctx context.Context) error {
 
 			if err := c.setL1Head(ctx); err != nil {
 				return err
+			}
+		}
+	}
+}
+
+func (c *Client) makeSubscribtionsToBootnodes(ctx context.Context, buffer int) error {
+	defer close(c.eventsToP2P)
+
+	addresses, err := c.l1.GetIPAddresses(ctx, c.network.BootnodeRegistry)
+	if err != nil {
+		return err
+	}
+
+	for _, address := range addresses {
+		select {
+		case c.eventsToP2P <- p2p.BootnodeRegistryEvent{
+			EventType: p2p.Add,
+			Address:   address,
+		}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	addedChan := make(chan *contract.BootnodeRegistryIPAdded, buffer)
+	addedSub, err := c.subscribeToBootnodeAddition(ctx, addedChan)
+	if err != nil {
+		return err
+	}
+	defer addedSub.Unsubscribe()
+
+	removedChan := make(chan *contract.BootnodeRegistryIPRemoved, buffer)
+	removedSub, err := c.subscribeToBootnodeRemoval(ctx, removedChan)
+	if err != nil {
+		return err
+	}
+	defer removedSub.Unsubscribe()
+
+	c.log.Debugw("Successfully subscribed to bootnode registry events")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case err := <-addedSub.Err():
+			c.log.Debugw("IP address addition subscription failed, resubscribing", "error", err)
+			addedSub.Unsubscribe()
+
+			addedSub, err = c.subscribeToBootnodeAddition(ctx, addedChan)
+			if err != nil {
+				return err
+			}
+
+		case err := <-removedSub.Err():
+			c.log.Debugw("IP address removal subscription failed, resubscribing", "error", err)
+			removedSub.Unsubscribe()
+
+			removedSub, err = c.subscribeToBootnodeRemoval(ctx, removedChan)
+			if err != nil {
+				return err
+			}
+
+		case added := <-addedChan:
+			c.log.Infow("Received bootnode addition", "ip", added.IpAddress)
+			select {
+			case c.eventsToP2P <- p2p.BootnodeRegistryEvent{
+				EventType: p2p.Add,
+				Address:   added.IpAddress,
+			}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+
+		case removed := <-removedChan:
+			c.log.Infow("Received bootnode removal", "ip", removed.IpAddress)
+			select {
+			case c.eventsToP2P <- p2p.BootnodeRegistryEvent{
+				EventType: p2p.Remove,
+				Address:   removed.IpAddress,
+			}:
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 		}
 	}
