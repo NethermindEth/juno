@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,15 +18,17 @@ import (
 )
 
 type EthSubscriber struct {
-	ethClient *ethclient.Client
-	client    *rpc.Client
-	filterer  *contract.StarknetFilterer
-	listener  EventListener
+	ethClient                *ethclient.Client
+	client                   *rpc.Client
+	filterer                 *contract.StarknetFilterer
+	listener                 EventListener
+	bootnodeRegistry         *contract.BootnodeRegistry
+	bootnodeRegistryFilterer *contract.BootnodeRegistryFilterer
 }
 
 var _ Subscriber = (*EthSubscriber)(nil)
 
-func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Address) (*EthSubscriber, error) {
+func NewEthSubscriber(ethClientAddress string, network *utils.Network) (*EthSubscriber, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -34,15 +37,34 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 		return nil, err
 	}
 	ethClient := ethclient.NewClient(client)
-	filterer, err := contract.NewStarknetFilterer(coreContractAddress, ethClient)
+	filterer, err := contract.NewStarknetFilterer(network.CoreContractAddress, ethClient)
 	if err != nil {
 		return nil, err
 	}
+
+	var (
+		bootnodeRegistry         *contract.BootnodeRegistry
+		bootnodeRegistryFilterer *contract.BootnodeRegistryFilterer
+	)
+	if network.BootnodeRegistry != emptyBootnodeRegistry {
+		fmt.Println("Bootnode registry is not empty")
+		bootnodeRegistry, err = contract.NewBootnodeRegistry(network.BootnodeRegistry, ethClient)
+		if err != nil {
+			return nil, err
+		}
+		bootnodeRegistryFilterer, err = contract.NewBootnodeRegistryFilterer(network.BootnodeRegistry, ethClient)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &EthSubscriber{
-		ethClient: ethClient,
-		client:    client,
-		filterer:  filterer,
-		listener:  SelectiveListener{},
+		ethClient:                ethClient,
+		client:                   client,
+		filterer:                 filterer,
+		listener:                 SelectiveListener{},
+		bootnodeRegistry:         bootnodeRegistry,
+		bootnodeRegistryFilterer: bootnodeRegistryFilterer,
 	}, nil
 }
 
