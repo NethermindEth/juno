@@ -20,23 +20,27 @@ type BroadcastedTransaction struct {
 	DeclaredClass core.Class
 }
 
-// storageElem defines a node for both the
-// in-memory and persistent linked-list
-type storageElem struct {
-	Txn      BroadcastedTransaction
-	NextHash *felt.Felt   // persistent db
-	Next     *storageElem // in-memory
+// runtime mempool txn
+type memPoolTxn struct {
+	Txn  BroadcastedTransaction
+	Next *memPoolTxn
 }
 
-// memTxnList represents a linked list of user transactions at runtime"
+// persistent db txn value
+type dbPoolTxn struct {
+	Txn      BroadcastedTransaction
+	NextHash *felt.Felt
+}
+
+// memTxnList represents a linked list of user transactions at runtime
 type memTxnList struct {
-	head *storageElem
-	tail *storageElem
+	head *memPoolTxn
+	tail *memPoolTxn
 	len  int
 	mu   sync.Mutex
 }
 
-func (t *memTxnList) push(newNode *storageElem) {
+func (t *memTxnList) push(newNode *memPoolTxn) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.tail != nil {
@@ -130,24 +134,24 @@ func (p *Pool) LoadFromDB() error {
 		// loop through the persistent pool and push nodes to the in-memory pool
 		currentHash := headValue
 		for currentHash != nil {
-			curElem, err := p.readDBElem(txn, currentHash)
+			curDBElem, err := p.readDBElem(txn, currentHash)
 			if err != nil {
 				return err
 			}
-			newNode := &storageElem{
-				Txn: curElem.Txn,
+			newMemPoolTxn := &memPoolTxn{
+				Txn: curDBElem.Txn,
 			}
-			if curElem.NextHash != nil {
-				nxtElem, err := p.readDBElem(txn, curElem.NextHash)
+			if curDBElem.NextHash != nil {
+				nextDBTxn, err := p.readDBElem(txn, curDBElem.NextHash)
 				if err != nil {
 					return err
 				}
-				newNode.Next = &storageElem{
-					Txn: nxtElem.Txn,
+				newMemPoolTxn.Next = &memPoolTxn{
+					Txn: nextDBTxn.Txn,
 				}
 			}
-			p.memTxnList.push(newNode)
-			currentHash = curElem.NextHash
+			p.memTxnList.push(newMemPoolTxn)
+			currentHash = curDBElem.NextHash
 		}
 		return nil
 	})
@@ -163,12 +167,12 @@ func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 			}
 			tailValue = nil
 		}
-		if err := p.setDBElem(dbTxn, &storageElem{Txn: *userTxn}); err != nil {
+		if err := p.setDBElem(dbTxn, &dbPoolTxn{Txn: *userTxn}); err != nil {
 			return err
 		}
 		if tailValue != nil {
 			// Update old tail to point to the new item
-			var oldTailElem storageElem
+			var oldTailElem dbPoolTxn
 			oldTailElem, err := p.readDBElem(dbTxn, tailValue)
 			if err != nil {
 				return err
@@ -215,7 +219,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 		}
 	}
 
-	newNode := &storageElem{Txn: *userTxn, Next: nil}
+	newNode := &memPoolTxn{Txn: *userTxn, Next: nil}
 	p.memTxnList.push(newNode)
 
 	select {
@@ -339,8 +343,8 @@ func (p *Pool) updateTail(txn db.Transaction, tail *felt.Felt) error {
 	return txn.Set(db.MempoolTail.Key(), tail.Marshal())
 }
 
-func (p *Pool) readDBElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, error) {
-	var item storageElem
+func (p *Pool) readDBElem(txn db.Transaction, itemKey *felt.Felt) (dbPoolTxn, error) {
+	var item dbPoolTxn
 	keyBytes := itemKey.Bytes()
 	err := txn.Get(db.MempoolNode.Key(keyBytes[:]), func(b []byte) error {
 		return encoder.Unmarshal(b, &item)
@@ -348,7 +352,7 @@ func (p *Pool) readDBElem(txn db.Transaction, itemKey *felt.Felt) (storageElem, 
 	return item, err
 }
 
-func (p *Pool) setDBElem(txn db.Transaction, item *storageElem) error {
+func (p *Pool) setDBElem(txn db.Transaction, item *dbPoolTxn) error {
 	itemBytes, err := encoder.Marshal(item)
 	if err != nil {
 		return err
