@@ -50,6 +50,18 @@ func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *co
 	return s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, sink)
 }
 
+func (s *EthSubscriber) WatchIPAdded(ctx context.Context, sink chan<- *contract.BootnodeRegistryIPAdded) (event.Subscription, error) {
+	return s.bootnodeRegistryFilterer.WatchIPAdded(&bind.WatchOpts{Context: ctx}, sink)
+}
+
+func (s *EthSubscriber) WatchIPRemoved(ctx context.Context, sink chan<- *contract.BootnodeRegistryIPRemoved) (event.Subscription, error) {
+	return s.bootnodeRegistryFilterer.WatchIPRemoved(&bind.WatchOpts{Context: ctx}, sink)
+}
+
+func (s *EthSubscriber) GetIPAddresses(ctx context.Context, ip common.Address) ([]string, error) {
+	return s.bootnodeRegistry.GetIPAddresses(&bind.CallOpts{Context: ctx})
+}
+
 func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
 	reqTimer := time.Now()
 	chainID, err := s.ethClient.ChainID(ctx)
