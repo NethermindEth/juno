@@ -514,7 +514,7 @@ func TestMakeSubscribtionsToBootnodes(t *testing.T) {
 		}).
 		Times(1)
 
-	require.NoError(t, client.makeSubscribtionsToBootnodes(ctx, 1))
+	require.ErrorIs(t, client.makeSubscriptionsToBootnodes(ctx, 1), context.DeadlineExceeded)
 
 	expectedAddressesToAdd := make(map[string]struct{}, len(addressesToAdd)+len(storedAddresses))
 	for _, addr := range addressesToAdd {
@@ -662,7 +662,7 @@ func TestUnreliableSubscriptionToBootnodes(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(context.Background(), tc.timeOut)
 			defer cancel()
-			err := client.makeSubscribtionsToBootnodes(ctx, 1)
+			err := client.makeSubscriptionsToBootnodes(ctx, 1)
 			require.ErrorIs(t, err, tc.expectedErr)
 		})
 	}
