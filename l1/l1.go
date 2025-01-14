@@ -10,17 +10,22 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"golang.org/x/sync/errgroup"
 )
 
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
+	WatchIPAdded(ctx context.Context, sink chan<- *contract.BootnodeRegistryIPAdded) (event.Subscription, error)
+	WatchIPRemoved(ctx context.Context, sink chan<- *contract.BootnodeRegistryIPRemoved) (event.Subscription, error)
+	GetIPAddresses(ctx context.Context, ip common.Address) ([]string, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 
