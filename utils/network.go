@@ -22,6 +22,7 @@ type Network struct {
 	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
 	L2ChainID           string             `json:"l2_chain_id" validate:"required"`
 	CoreContractAddress common.Address     `json:"core_contract_address" validate:"required"`
+	BootnodeRegistry    common.Address     `json:"ip_address_registry"`
 	BlockHashMetaInfo   *BlockHashMetaInfo `json:"block_hash_meta_info"`
 }
 
@@ -107,6 +108,7 @@ var (
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
+		BootnodeRegistry: common.HexToAddress("0xa2499F2a3Fb071fd99f921038d043eF31B446883"),
 	}
 	SepoliaIntegration = Network{
 		Name:       "sepolia-integration",
