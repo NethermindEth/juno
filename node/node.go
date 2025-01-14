@@ -174,6 +174,33 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services, plugin.NewService(p))
 	}
 
+	throttledVM := NewThrottledVM(vm.New(false, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
+
+	var syncReader sync.Reader = &sync.NoopSynchronizer{}
+	if synchronizer != nil {
+		syncReader = synchronizer
+	}
+
+	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
+	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+	services = append(services, rpcHandler)
+
+	var l1ToP2P chan p2p.BootnodeRegistryEvent
+	if !cfg.DisableL1Verification {
+		// Due to mutually exclusive flag we can do the following.
+		if cfg.EthNode == "" {
+			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
+		}
+
+		l1ToP2P = make(chan p2p.BootnodeRegistryEvent)
+		l1Client, err := newL1Client(cfg.EthNode, cfg.Metrics, chain, log, l1ToP2P)
+		if err != nil {
+			return nil, fmt.Errorf("create L1 client: %w", err)
+		}
+		services = append(services, l1Client)
+		rpcHandler.WithL1Client(l1Client.L1())
+	}
+
 	var p2pService *p2p.Service
 	if cfg.P2P {
 		if cfg.Network == utils.Mainnet {
@@ -186,7 +213,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			synchronizer = nil
 		}
 		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-			chain, &cfg.Network, log, database)
+			chain, &cfg.Network, log, database, l1ToP2P)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
@@ -197,16 +224,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services, synchronizer)
 	}
 
-	throttledVM := NewThrottledVM(vm.New(false, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-
-	var syncReader sync.Reader = &sync.NoopSynchronizer{}
-	if synchronizer != nil {
-		syncReader = synchronizer
-	}
-
-	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
-	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
-	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
@@ -289,21 +306,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		earlyServices: earlyServices,
 	}
 
-	if !n.cfg.DisableL1Verification {
-		// Due to mutually exclusive flag we can do the following.
-		if n.cfg.EthNode == "" {
-			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
-		}
-
-		var l1Client *l1.Client
-		l1Client, err = newL1Client(cfg.EthNode, cfg.Metrics, n.blockchain, n.log)
-		if err != nil {
-			return nil, fmt.Errorf("create L1 client: %w", err)
-		}
-		n.services = append(n.services, l1Client)
-		rpcHandler.WithL1Client(l1Client.L1())
-	}
-
 	if semversion, err := semver.NewVersion(version); err == nil {
 		ug := upgrader.NewUpgrader(semversion, githubAPIUrl, latestReleaseURL, upgraderDelay, n.log)
 		n.services = append(n.services, ug)
@@ -314,7 +316,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain,
+	log utils.SimpleLogger, l1ToP2P chan p2p.BootnodeRegistryEvent,
+) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
@@ -325,13 +329,12 @@ func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockcha
 
 	network := chain.Network()
 
-	var ethSubscriber *l1.EthSubscriber
-	ethSubscriber, err = l1.NewEthSubscriber(ethNode, network.CoreContractAddress)
+	ethSubscriber, err := l1.NewEthSubscriber(ethNode, network)
 	if err != nil {
 		return nil, fmt.Errorf("set up ethSubscriber: %w", err)
 	}
 
-	l1Client := l1.NewClient(ethSubscriber, chain, log)
+	l1Client := l1.NewClient(ethSubscriber, chain, log, l1ToP2P)
 
 	if includeMetrics {
 		l1Client.WithEventListener(makeL1Metrics())
