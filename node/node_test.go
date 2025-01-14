@@ -2,6 +2,8 @@ package node_test
 
 import (
 	"context"
+	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,4 +94,60 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNodeWithL1Verification(t *testing.T) {
+	server := rpc.NewServer()
+	require.NoError(t, server.RegisterName("eth", &testEmptyService{}))
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() {
+		_ = http.Serve(listener, server.WebsocketHandler([]string{"*"}))
+	}()
+	defer server.Stop()
+	_, err = node.New(&node.Config{
+		Network:               utils.Network{},
+		EthNode:               "ws://" + listener.Addr().String(),
+		DatabasePath:          t.TempDir(),
+		DisableL1Verification: false,
+	}, "v0.1")
+	require.NoError(t, err)
+}
+
+func TestNodeWithL1VerificationError(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  *node.Config
+		err  string
+	}{
+		{
+			name: "no network",
+			cfg: &node.Config{
+				DatabasePath:          t.TempDir(),
+				DisableL1Verification: false,
+			},
+			err: "ethereum node address not found",
+		},
+		{
+			name: "parce URL error",
+			cfg: &node.Config{
+				DatabasePath:          t.TempDir(),
+				DisableL1Verification: false,
+				EthNode:               string([]byte{0x7f}),
+			},
+			err: "parse Ethereum node URL",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := node.New(tt.cfg, "v0.1")
+			require.ErrorContains(t, err, tt.err)
+		})
+	}
+}
+
+type testEmptyService struct{}
+
+func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+	return nil, nil
 }
