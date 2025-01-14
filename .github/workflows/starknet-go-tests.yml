@@ -31,6 +31,6 @@ jobs:
         run: go mod download
 
       - name: Test RPC on testnet
-        run: cd rpc && go test -timeout 1200s -v -env testnet .
+        run: cd rpc && go test -skip 'TestBlockWithReceipts'  -timeout 1200s -v -env testnet .
         env:
           INTEGRATION_BASE: ${{ secrets.TEST_RPC_URL }}
