@@ -22,6 +22,7 @@ import (
 type MockJunoPlugin struct {
 	ctrl     *gomock.Controller
 	recorder *MockJunoPluginMockRecorder
+	isgomock struct{}
 }
 
 // MockJunoPluginMockRecorder is the mock recorder for MockJunoPlugin.
@@ -56,31 +57,31 @@ func (mr *MockJunoPluginMockRecorder) Init() *gomock.Call {
 }
 
 // NewBlock mocks base method.
-func (m *MockJunoPlugin) NewBlock(arg0 *core.Block, arg1 *core.StateUpdate, arg2 map[felt.Felt]core.Class) error {
+func (m *MockJunoPlugin) NewBlock(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewBlock", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewBlock", block, stateUpdate, newClasses)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // NewBlock indicates an expected call of NewBlock.
-func (mr *MockJunoPluginMockRecorder) NewBlock(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockJunoPluginMockRecorder) NewBlock(block, stateUpdate, newClasses any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlock", reflect.TypeOf((*MockJunoPlugin)(nil).NewBlock), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlock", reflect.TypeOf((*MockJunoPlugin)(nil).NewBlock), block, stateUpdate, newClasses)
 }
 
 // RevertBlock mocks base method.
-func (m *MockJunoPlugin) RevertBlock(arg0, arg1 *plugin.BlockAndStateUpdate, arg2 *core.StateDiff) error {
+func (m *MockJunoPlugin) RevertBlock(from, to *plugin.BlockAndStateUpdate, reverseStateDiff *core.StateDiff) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevertBlock", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RevertBlock", from, to, reverseStateDiff)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RevertBlock indicates an expected call of RevertBlock.
-func (mr *MockJunoPluginMockRecorder) RevertBlock(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockJunoPluginMockRecorder) RevertBlock(from, to, reverseStateDiff any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevertBlock", reflect.TypeOf((*MockJunoPlugin)(nil).RevertBlock), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevertBlock", reflect.TypeOf((*MockJunoPlugin)(nil).RevertBlock), from, to, reverseStateDiff)
 }
 
 // Shutdown mocks base method.
