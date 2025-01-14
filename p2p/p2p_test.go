@@ -24,6 +24,7 @@ func TestInvalidKey(t *testing.T) {
 		&utils.Integration,
 		utils.NewNopZapLogger(),
 		nil,
+		nil,
 	)
 
 	require.Error(t, err)
@@ -61,6 +62,7 @@ func TestLoadAndPersistPeers(t *testing.T) {
 		&utils.Integration,
 		utils.NewNopZapLogger(),
 		testDB,
+		nil,
 	)
 	require.NoError(t, err)
 }
