@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -72,7 +73,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 
 	subscriber.EXPECT().Close().Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(subscriber, chain, nopLog, nil).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
@@ -96,7 +97,7 @@ func TestMismatchedChainID(t *testing.T) {
 		Return(new(big.Int), nil).
 		Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(subscriber, chain, nopLog, nil).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	t.Cleanup(cancel)
@@ -110,6 +111,7 @@ func TestEventListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
+	network.BootnodeRegistry = common.HexToAddress("0x1234")
 	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
@@ -128,6 +130,24 @@ func TestEventListener(t *testing.T) {
 
 	subscriber.
 		EXPECT().
+		GetIPAddresses(gomock.Any(), gomock.Any()).
+		Return([]string{}, nil).
+		Times(1)
+
+	subscriber.
+		EXPECT().
+		WatchIPAdded(gomock.Any(), gomock.Any()).
+		Return(newFakeSubscription(), nil).
+		Times(1)
+
+	subscriber.
+		EXPECT().
+		WatchIPRemoved(gomock.Any(), gomock.Any()).
+		Return(newFakeSubscription(), nil).
+		Times(1)
+
+	subscriber.
+		EXPECT().
 		FinalisedHeight(gomock.Any()).
 		Return(uint64(0), nil).
 		AnyTimes()
@@ -141,7 +161,7 @@ func TestEventListener(t *testing.T) {
 	subscriber.EXPECT().Close().Times(1)
 
 	var got *core.L1Head
-	client := l1.NewClient(subscriber, chain, nopLog).
+	client := l1.NewClient(subscriber, chain, nopLog, make(chan<- p2p.BootnodeRegistryEvent)).
 		WithResubscribeDelay(0).
 		WithPollFinalisedInterval(time.Nanosecond).
 		WithEventListener(l1.SelectiveListener{
@@ -247,7 +267,8 @@ func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 			server, listener := startServer("127.0.0.1:0", test.service)
 			defer server.Stop()
 
-			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), common.Address{})
+			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(),
+				&utils.Network{BootnodeRegistry: common.Address{}})
 			require.NoError(t, err)
 			defer subscriber.Close()
 
