@@ -19,6 +19,9 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
+// The constructor entrypoint for cairo contracts
+const CONSTRUCTOR_SELECTOR = "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
+
 type GenesisConfig struct {
 	Classes           []string                          `json:"classes"`            // []path-to-class.json
 	Contracts         map[felt.Felt]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
@@ -122,7 +125,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		}
 	}
 
-	constructorSelector, err := new(felt.Felt).SetString("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
+	constructorSelector, err := new(felt.Felt).SetString(CONSTRUCTOR_SELECTOR)
 	if err != nil {
 		return nil, nil, fmt.Errorf("convert string to felt: %v", err)
 	}
@@ -210,8 +213,11 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 
 		traceSD := vm2core.AdaptStateDiff(&trace[0])
 		genesisSD, _ := genesisState.StateDiffAndClasses()
-		mergedSD := core.MergeStateDiffs(genesisSD, traceSD)
-		genesisState.SetStateDiff(mergedSD)
+		fmt.Println("==")
+		fmt.Println(genesisSD)
+		fmt.Println(traceSD)
+		genesisSD.Merge(traceSD)
+		genesisState.SetStateDiff(genesisSD)
 	}
 	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
 	return genesisStateDiff, genesisClasses, nil

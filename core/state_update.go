@@ -39,6 +39,24 @@ func (d *StateDiff) Length() uint64 {
 	return uint64(length)
 }
 
+func (d *StateDiff) Merge(incoming *StateDiff) {
+	mergeStorageDiffs := func(oldMap, newMap map[felt.Felt]map[felt.Felt]*felt.Felt) {
+		for addr, newAddrStorage := range newMap {
+			if oldAddrStorage, exists := oldMap[addr]; exists {
+				maps.Copy(oldAddrStorage, newAddrStorage)
+			} else {
+				oldMap[addr] = newAddrStorage
+			}
+		}
+	}
+	maps.Copy(d.Nonces, incoming.Nonces)
+	maps.Copy(d.DeployedContracts, incoming.DeployedContracts)
+	maps.Copy(d.DeclaredV1Classes, incoming.DeclaredV1Classes)
+	maps.Copy(d.ReplacedClasses, incoming.ReplacedClasses)
+	mergeStorageDiffs(d.StorageDiffs, incoming.StorageDiffs)
+	d.DeclaredV0Classes = append(d.DeclaredV0Classes, incoming.DeclaredV0Classes...)
+}
+
 var starknetStateDiff0 = new(felt.Felt).SetBytes([]byte("STARKNET_STATE_DIFF0"))
 
 func (d *StateDiff) Hash() *felt.Felt {
@@ -209,31 +227,4 @@ func EmptyStateDiff() *StateDiff {
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
-}
-
-func MergeStateDiffs(oldStateDiff, newStateDiff *StateDiff) *StateDiff {
-	mergeMaps := func(oldMap, newMap map[felt.Felt]*felt.Felt) {
-		for key, value := range newMap {
-			oldMap[key] = value
-		}
-	}
-
-	mergeStorageDiffs := func(oldMap, newMap map[felt.Felt]map[felt.Felt]*felt.Felt) {
-		for addr, newAddrStorage := range newMap {
-			if oldAddrStorage, exists := oldMap[addr]; exists {
-				mergeMaps(oldAddrStorage, newAddrStorage)
-			} else {
-				oldMap[addr] = newAddrStorage
-			}
-		}
-	}
-
-	mergeStorageDiffs(oldStateDiff.StorageDiffs, newStateDiff.StorageDiffs)
-	mergeMaps(oldStateDiff.Nonces, newStateDiff.Nonces)
-	mergeMaps(oldStateDiff.DeployedContracts, newStateDiff.DeployedContracts)
-	mergeMaps(oldStateDiff.DeclaredV1Classes, newStateDiff.DeclaredV1Classes)
-	mergeMaps(oldStateDiff.ReplacedClasses, newStateDiff.ReplacedClasses)
-	oldStateDiff.DeclaredV0Classes = append(oldStateDiff.DeclaredV0Classes, newStateDiff.DeclaredV0Classes...)
-
-	return oldStateDiff
 }
