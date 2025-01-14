@@ -440,7 +440,12 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 		for _, t := range pendingB.Transactions {
 			if hash.Equal(t.Hash()) {
 				txn = t
+				break
 			}
+		}
+
+		if txn == nil {
+			return nil, ErrTxnHashNotFound
 		}
 	}
 	return AdaptTransaction(txn), nil

@@ -39,6 +39,32 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 }
 
+func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+	searchTxHash := utils.HexToFelt(t, "0x123456")
+
+	otherTxHash := utils.HexToFelt(t, "0x789abc")
+	pendingTx := &core.InvokeTransaction{
+		TransactionHash: otherTxHash,
+		Version:         new(core.TransactionVersion).SetUint64(1),
+	}
+
+	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().PendingBlock().Return(&core.Block{
+		Transactions: []core.Transaction{pendingTx},
+	})
+
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
+
+	tx, rpcErr := handler.TransactionByHash(*searchTxHash)
+	assert.Nil(t, tx)
+	assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
+}
+
 func TestTransactionByHash(t *testing.T) {
 	tests := map[string]struct {
 		hash     string
