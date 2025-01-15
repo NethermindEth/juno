@@ -330,17 +330,20 @@ func TestSubscribeTxnStatus(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	txHash := new(felt.Felt).SetUint64(1)
 
-	t.Run("Return error when transaction not found", func(t *testing.T) {
+	t.Run("Return error when transaction not found after timeout expiry", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
+
+		subscribeTxStatusTimeout = 50 * time.Millisecond
+		subscribeTxStatusTickerDuration = 10 * time.Millisecond
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
-		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingBlock().Return(nil)
+		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
