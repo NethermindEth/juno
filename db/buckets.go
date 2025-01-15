@@ -38,6 +38,9 @@ const (
 	MempoolTail               // key of the tail node
 	MempoolLength             // number of transactions
 	MempoolNode
+	ClassTrie
+	ContractTrieContract
+	ContractTrieStorage
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
