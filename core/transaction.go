@@ -105,6 +105,7 @@ type ExecutionResources struct {
 type DataAvailability struct {
 	L1Gas     uint64
 	L1DataGas uint64
+	L2Gas     uint64
 }
 
 type BuiltinInstanceCounter struct {
