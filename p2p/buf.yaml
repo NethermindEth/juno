@@ -4,7 +4,7 @@ modules:
   - path: spec/
 lint:
   use:
-    - DEFAULT
+    - STANDARD
 breaking:
   use:
     - FILE
