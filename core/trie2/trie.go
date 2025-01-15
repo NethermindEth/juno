@@ -1,25 +1,43 @@
 package trie2
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
-	"github.com/NethermindEth/juno/core/trie2/utils"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 )
 
-type Path = utils.BitArray
+const contractClassTrieHeight = 251
+
+var emptyRoot = felt.Felt{}
+
+type Path = trieutils.BitArray
 
 type Trie struct {
-	txn    db.Transaction
-	owner  felt.Felt
+	// Height of the trie
 	height uint8
-	root   node
-	reader interface{} // TODO(weiihann): implement reader
-	// committed bool
+
+	// The owner of the trie, only used for contract trie. If not empty, this is a storage trie.
+	owner felt.Felt
+
+	// The root node of the trie
+	root node
+
+	// Hash function used to hash the trie nodes
 	hashFn crypto.HashFn
+
+	// The underlying database to store and retrieve trie nodes
+	db *triedb.Database
+
+	// Check if the trie has been committed. Trie is unusable once committed.
+	committed bool
+
+	// Maintains the records of trie changes, ensuring all nodes are modified or garbage collected properly
 	tracer *tracer
 
 	// Tracks the number of leaves inserted since the last hashing operation
@@ -29,48 +47,80 @@ type Trie struct {
 	pendingUpdates int
 }
 
-// TODO(weiihann): implement this
-func NewTrie(height uint8, hashFn crypto.HashFn) *Trie {
-	return &Trie{
+func New(id *ID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
+	database := triedb.New(txn, id.Bucket())
+	tr := &Trie{
+		owner:  id.Owner,
 		height: height,
 		hashFn: hashFn,
+		db:     database,
 		tracer: newTracer(),
 	}
+
+	if id.Root != emptyRoot {
+		root, err := tr.resolveNode(&hashNode{Felt: id.Root}, Path{})
+		if err != nil {
+			return nil, err
+		}
+		tr.root = root
+	}
+	return tr, nil
 }
 
 // Modifies or inserts a key-value pair in the trie.
 // If value is zero, the key is deleted from the trie.
 func (t *Trie) Update(key, value *felt.Felt) error {
-	// if t.commited {
-	// 	return ErrCommitted
-	// }
+	if t.committed {
+		return ErrCommitted
+	}
+
 	if err := t.update(key, value); err != nil {
 		return err
 	}
 	t.pendingUpdates++
 	t.pendingHashes++
+
 	return nil
 }
 
 // Retrieves the value associated with the given key.
 // Returns felt.Zero if the key doesn't exist.
 // May update the trie's internal structure if nodes need to be resolved.
-func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
+func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
+	if t.committed {
+		return felt.Zero, ErrCommitted
+	}
+
 	k := t.FeltToPath(key)
-	// TODO(weiihann): get the value directly from the reader
+	// We first check if the value node exists in the trie database directly
+	v, err := t.resolveNode(&hashNode{}, k)
+	if _, ok := v.(*valueNode); ok && err == nil {
+		return v.(*valueNode).Felt, nil
+	}
+
+	// Otherwise, we need to traverse the trie to find the value node
+	var ret felt.Felt
 	val, root, didResolve, err := t.get(t.root, new(Path), &k)
 	// In Starknet, a non-existent key is mapped to felt.Zero
 	if val == nil {
-		val = &felt.Zero
+		ret = felt.Zero
+	} else {
+		ret = *val
 	}
+
 	if err == nil && didResolve {
 		t.root = root
 	}
-	return val, err
+
+	return ret, err
 }
 
 // Removes the given key from the trie.
 func (t *Trie) Delete(key *felt.Felt) error {
+	if t.committed {
+		return ErrCommitted
+	}
+
 	k := t.FeltToPath(key)
 	_, n, err := t.delete(t.root, new(Path), &k)
 	if err != nil {
@@ -89,11 +139,16 @@ func (t *Trie) Hash() felt.Felt {
 	return hash.(*hashNode).Felt
 }
 
-func (t *Trie) Commit() felt.Felt {
+// Collapses the trie into a single hash node and flush the node changes to the database.
+func (t *Trie) Commit() (felt.Felt, error) {
+	defer func() {
+		t.committed = true
+	}()
+
 	rootHash := t.Hash()
 	if hashedNode, dirty := t.root.cache(); !dirty {
 		t.root = hashedNode
-		return rootHash
+		return rootHash, nil
 	}
 
 	nodes := trienode.NewNodeSet(t.owner)
@@ -103,17 +158,31 @@ func (t *Trie) Commit() felt.Felt {
 
 	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
-	return rootHash
+
+	err := nodes.ForEach(true, func(key trieutils.BitArray, node *trienode.Node) error {
+		if node.IsDeleted() {
+			return t.db.Delete(t.owner, key)
+		}
+		return t.db.Put(t.owner, key, node.Blob())
+	})
+	if err != nil {
+		return felt.Felt{}, err
+	}
+
+	return rootHash, nil
 }
 
 func (t *Trie) Copy() *Trie {
 	return &Trie{
-		txn:    t.txn,
-		owner:  t.owner,
-		height: t.height,
-		root:   t.root,
-		hashFn: t.hashFn,
-		tracer: t.tracer.copy(),
+		height:         t.height,
+		owner:          t.owner,
+		root:           t.root,
+		hashFn:         t.hashFn,
+		committed:      t.committed,
+		db:             t.db,
+		tracer:         t.tracer.copy(),
+		pendingHashes:  t.pendingHashes,
+		pendingUpdates: t.pendingUpdates,
 	}
 }
 
@@ -131,15 +200,20 @@ func (t *Trie) get(n node, prefix, key *Path) (*felt.Felt, node, bool, error) {
 		return val, n, didResolve, err
 	case *binaryNode:
 		bit := key.MSB()
-		val, child, didResolve, err := t.get(n.children[bit], new(Path).SetBit(bit), key.LSBs(key, 1))
+		val, child, didResolve, err := t.get(n.children[bit], new(Path).AppendBit(prefix, bit), key.LSBs(key, 1))
 		if err == nil && didResolve {
 			n = n.copy()
 			n.children[bit] = child
 		}
 		return val, n, didResolve, err
-	case hashNode:
-		panic("TODO(weiihann): implement me")
-	case valueNode:
+	case *hashNode:
+		child, err := t.resolveNode(n, *key)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		value, newNode, _, err := t.get(child, prefix, key)
+		return value, newNode, true, err
+	case *valueNode:
 		return &n.Felt, n, false, nil
 	case nil:
 		return nil, nil, false, nil
@@ -159,7 +233,7 @@ func (t *Trie) update(key, value *felt.Felt) error {
 		}
 		t.root = n
 	} else {
-		_, n, err := t.insert(t.root, new(Path), &k, valueNode{Felt: *value})
+		_, n, err := t.insert(t.root, new(Path), &k, &valueNode{Felt: *value})
 		if err != nil {
 			return err
 		}
@@ -171,8 +245,8 @@ func (t *Trie) update(key, value *felt.Felt) error {
 func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error) {
 	// We reach the end of the key
 	if key.Len() == 0 {
-		if v, ok := n.(valueNode); ok {
-			vFelt := value.(valueNode).Felt
+		if v, ok := n.(*valueNode); ok {
+			vFelt := value.(*valueNode).Felt
 			return v.Equal(&vFelt), value, nil
 		}
 		return true, value, nil
@@ -226,7 +300,7 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 		// Go to the child node based on the MSB of the key
 		bit := key.MSB()
 		dirty, newNode, err := t.insert(
-			n.children[bit], new(Path).Append(prefix, new(Path).SetBit(bit)), new(Path).LSBs(key, 1), value,
+			n.children[bit], new(Path).AppendBit(prefix, bit), new(Path).LSBs(key, 1), value,
 		)
 		if !dirty || err != nil {
 			return false, n, err
@@ -244,8 +318,16 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 		}
 		// Otherwise, return a new edge node with the Path being the key and the value as the child
 		return true, &edgeNode{path: key, child: value, flags: newFlag()}, nil
-	case hashNode:
-		panic("TODO(weiihann): implement me")
+	case *hashNode:
+		child, err := t.resolveNode(n, *key)
+		if err != nil {
+			return false, n, err
+		}
+		dirty, newNode, err := t.insert(child, prefix, key, value)
+		if !dirty || err != nil {
+			return false, child, err
+		}
+		return true, newNode, nil
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
 	}
@@ -265,7 +347,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 			return true, nil, nil
 		}
 
-		// Otherwise, key is longer than current node Path, so we need to delete the child.
+		// Otherwise, key is longer than current node path, so we need to delete the child.
 		// Child can never be nil because it's guaranteed that we have at least 2 other values in the subtrie.
 		keyPrefix := new(Path).MSBs(key, n.path.Len())
 		dirty, child, err := t.delete(n.child, new(Path).Append(prefix, keyPrefix), key.LSBs(key, n.path.Len()))
@@ -310,15 +392,41 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 		// other child is not an edge node, create a new edge node with the bit prefix as the Path
 		// containing the other child as the child
 		return true, &edgeNode{path: bitPrefix, child: n.children[other], flags: newFlag()}, nil
-	case valueNode:
+	case *valueNode:
 		return true, nil, nil
 	case nil:
 		return false, nil, nil
-	case hashNode:
-		panic("TODO(weiihann): implement me")
+	case *hashNode:
+		child, err := t.resolveNode(n, *key)
+		if err != nil {
+			return false, nil, err
+		}
+
+		dirty, newNode, err := t.delete(child, prefix, key)
+		if !dirty || err != nil {
+			return false, child, err
+		}
+		return true, newNode, nil
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
 	}
+}
+
+func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer func() {
+		buf.Reset()
+		bufferPool.Put(buf)
+	}()
+
+	_, err := t.db.Get(buf, t.owner, path)
+	if err != nil {
+		return nil, err
+	}
+
+	blob := buf.Bytes()
+	return decodeNode(blob, hash.Felt, path.Len(), t.height)
 }
 
 func (t *Trie) hashRoot() (node, node) {
@@ -341,4 +449,12 @@ func (t *Trie) String() string {
 		return ""
 	}
 	return t.root.String()
+}
+
+func NewEmptyPedersen() (*Trie, error) {
+	return New(TrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, db.NewMemTransaction())
+}
+
+func NewEmptyPoseidon() (*Trie, error) {
+	return New(TrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, db.NewMemTransaction())
 }
