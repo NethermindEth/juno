@@ -1,4 +1,4 @@
-package utils
+package trieutils
 
 import (
 	"bytes"
@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	MaxBitArraySize = 33 // (1 + 4 * 8) bytes
+
 	maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
 	maxUint8  = uint8(math.MaxUint8)
 )
@@ -37,7 +39,8 @@ func NewBitArray(length uint8, val uint64) BitArray {
 // Returns the felt representation of the bit array.
 func (b *BitArray) Felt() felt.Felt {
 	var f felt.Felt
-	f.SetBytes(b.Bytes())
+	bs := b.Bytes()
+	f.SetBytes(bs[:])
 	return f
 }
 
@@ -46,7 +49,7 @@ func (b *BitArray) Len() uint8 {
 }
 
 // Returns the bytes representation of the bit array in big endian format
-func (b *BitArray) Bytes() []byte {
+func (b *BitArray) Bytes() [32]byte {
 	var res [32]byte
 
 	b.truncateToLength()
@@ -55,7 +58,7 @@ func (b *BitArray) Bytes() []byte {
 	binary.BigEndian.PutUint64(res[16:24], b.words[1])
 	binary.BigEndian.PutUint64(res[24:32], b.words[0])
 
-	return res[:]
+	return res
 }
 
 // Sets the bit array to the least significant 'n' bits of x.
@@ -326,6 +329,10 @@ func (b *BitArray) Append(x, y *BitArray) *BitArray {
 	return b.Lsh(b, y.len).Or(b, y)
 }
 
+func (b *BitArray) AppendBit(x *BitArray, bit uint8) *BitArray {
+	return b.Append(x, new(BitArray).SetBit(bit))
+}
+
 // Sets the bit array to x | y and returns the bit array.
 func (b *BitArray) Or(x, y *BitArray) *BitArray {
 	b.words[0] = x.words[0] | y.words[0]
@@ -502,15 +509,17 @@ func (b *BitArray) Copy() BitArray {
 // Returns the encoded string representation of the bit array.
 func (b *BitArray) EncodedString() string {
 	var res []byte
+	bs := b.Bytes()
 	res = append(res, b.len)
-	res = append(res, b.Bytes()...)
+	res = append(res, bs[:]...)
 	return string(res)
 }
 
 // Returns a string representation of the bit array.
 // This is typically used for logging or debugging.
 func (b *BitArray) String() string {
-	return fmt.Sprintf("(%d) %s", b.len, hex.EncodeToString(b.Bytes()))
+	bs := b.Bytes()
+	return fmt.Sprintf("(%d) %s", b.len, hex.EncodeToString(bs[:]))
 }
 
 func (b *BitArray) setFelt(f *felt.Felt) {
