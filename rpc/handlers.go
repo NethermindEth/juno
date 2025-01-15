@@ -355,17 +355,17 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_subscribeEvents",
-			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block_id", Optional: true}},
 			Handler: h.SubscribeEvents,
 		},
 		{
 			Name:    "starknet_subscribeNewHeads",
-			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{
 			Name:    "starknet_subscribeTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block_id", Optional: true}},
 			Handler: h.SubscribeTransactionStatus,
 		},
 		{
