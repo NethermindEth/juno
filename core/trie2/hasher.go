@@ -40,7 +40,7 @@ func (h *hasher) hash(n node) (node, node) {
 		hn := &hashNode{Felt: *collapsed.hash(h.hashFn)}
 		cached.flags.hash = hn
 		return hn, cached
-	case valueNode, hashNode:
+	case *valueNode, *hashNode:
 		return n, n
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
