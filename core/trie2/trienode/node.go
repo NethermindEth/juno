@@ -13,6 +13,10 @@ func (r *Node) IsDeleted() bool {
 	return len(r.blob) == 0
 }
 
+func (r *Node) Blob() []byte {
+	return r.blob
+}
+
 func NewNode(hash felt.Felt, blob []byte) *Node {
 	return &Node{hash: hash, blob: blob}
 }
