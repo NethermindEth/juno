@@ -30,6 +30,20 @@ func adaptSignature(sig []*felt.Felt) *gen.ConsensusSignature {
 func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 	stateDiffCommitment *felt.Felt, stateDiffLength uint64,
 ) *gen.SignedBlockHeader {
+	var l2GasPriceSTRK, l2GasPriceETH *felt.Felt
+
+	if header.L2GasPriceSTRK != nil {
+		l2GasPriceSTRK = header.L2GasPriceSTRK
+	} else {
+		l2GasPriceSTRK = &felt.Zero
+	}
+
+	if header.L2GasPriceETH != nil {
+		l2GasPriceETH = header.L2GasPriceETH
+	} else {
+		l2GasPriceETH = &felt.Zero
+	}
+
 	return &gen.SignedBlockHeader{
 		BlockHash:        AdaptHash(header.Hash),
 		ParentHash:       AdaptHash(header.ParentHash),
@@ -57,8 +71,8 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 		L1DataGasPriceFri:      AdaptUint128(header.L1DataGasPrice.PriceInFri),
 		L1DataGasPriceWei:      AdaptUint128(header.L1DataGasPrice.PriceInWei),
 		L1DataAvailabilityMode: adaptL1DA(header.L1DAMode),
-		L2GasPriceFri:          AdaptUint128(header.L2GasPriceSTRK),
-		L2GasPriceWei:          AdaptUint128(header.L2GasPriceETH),
+		L2GasPriceFri:          AdaptUint128(l2GasPriceSTRK),
+		L2GasPriceWei:          AdaptUint128(l2GasPriceETH),
 	}
 }
 
