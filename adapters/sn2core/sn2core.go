@@ -90,6 +90,7 @@ func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
 	return &core.GasConsumed{
 		L1Gas:     response.L1Gas,
 		L1DataGas: response.L1DataGas,
+		L2Gas:     response.L2Gas,
 	}
 }
 
