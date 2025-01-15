@@ -37,19 +37,12 @@ type (
 	valueNode struct{ felt.Felt }
 )
 
-const (
-	binaryNodeType byte = iota
-	edgeNodeType
-	hashNodeType
-	valueNodeType
-)
-
 type nodeFlag struct {
 	hash  *hashNode
 	dirty bool
 }
 
-func newFlag() nodeFlag { return nodeFlag{dirty: false} }
+func newFlag() nodeFlag { return nodeFlag{dirty: true} }
 
 func (n *binaryNode) hash(hf crypto.HashFn) *felt.Felt {
 	return hf(n.children[0].hash(hf), n.children[1].hash(hf))
@@ -63,13 +56,13 @@ func (n *edgeNode) hash(hf crypto.HashFn) *felt.Felt {
 	return new(felt.Felt).Add(hf(n.child.hash(hf), &pathFelt), lengthFelt)
 }
 
-func (n hashNode) hash(crypto.HashFn) *felt.Felt  { return &n.Felt }
-func (n valueNode) hash(crypto.HashFn) *felt.Felt { return &n.Felt }
+func (n *hashNode) hash(crypto.HashFn) *felt.Felt  { return &n.Felt }
+func (n *valueNode) hash(crypto.HashFn) *felt.Felt { return &n.Felt }
 
 func (n *binaryNode) cache() (*hashNode, bool) { return n.flags.hash, n.flags.dirty }
 func (n *edgeNode) cache() (*hashNode, bool)   { return n.flags.hash, n.flags.dirty }
-func (n hashNode) cache() (*hashNode, bool)    { return nil, true }
-func (n valueNode) cache() (*hashNode, bool)   { return nil, true }
+func (n *hashNode) cache() (*hashNode, bool)   { return nil, true }
+func (n *valueNode) cache() (*hashNode, bool)  { return nil, true }
 
 func (n *binaryNode) String() string {
 	return fmt.Sprintf("Binary[\n  left: %s\n  right: %s\n]",
