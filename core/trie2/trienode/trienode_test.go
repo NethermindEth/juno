@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie2/utils"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,14 +21,14 @@ func TestNodeSet(t *testing.T) {
 		ns := NewNodeSet(felt.Zero)
 
 		// Add a regular node
-		key1 := utils.NewBitArray(8, 0xFF)
+		key1 := trieutils.NewBitArray(8, 0xFF)
 		node1 := NewNode(felt.Zero, []byte{1, 2, 3})
 		ns.Add(key1, node1)
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 0, ns.deletes)
 
 		// Add a deleted node
-		key2 := utils.NewBitArray(8, 0xAA)
+		key2 := trieutils.NewBitArray(8, 0xAA)
 		node2 := NewDeleted()
 		ns.Add(key2, node2)
 		require.Equal(t, 1, ns.updates)
@@ -44,12 +44,12 @@ func TestNodeSet(t *testing.T) {
 		ns2 := NewNodeSet(felt.Zero)
 
 		// Add nodes to first set
-		key1 := utils.NewBitArray(8, 0xFF)
+		key1 := trieutils.NewBitArray(8, 0xFF)
 		node1 := NewNode(felt.Zero, []byte{1, 2, 3})
 		ns1.Add(key1, node1)
 
 		// Add nodes to second set
-		key2 := utils.NewBitArray(8, 0xAA)
+		key2 := trieutils.NewBitArray(8, 0xAA)
 		node2 := NewDeleted()
 		ns2.Add(key2, node2)
 
@@ -80,8 +80,8 @@ func TestNodeSet(t *testing.T) {
 		ns := NewNodeSet(*owner)
 
 		// Create a map to merge
-		nodes := make(map[utils.BitArray]*Node)
-		key1 := utils.NewBitArray(8, 0xFF)
+		nodes := make(map[trieutils.BitArray]*Node)
+		key1 := trieutils.NewBitArray(8, 0xFF)
 		node1 := NewNode(felt.Zero, []byte{1, 2, 3})
 		nodes[key1] = node1
 
@@ -100,19 +100,20 @@ func TestNodeSet(t *testing.T) {
 		ns := NewNodeSet(felt.Zero)
 
 		// Add nodes in random order
-		keys := []utils.BitArray{
-			utils.NewBitArray(8, 0xFF),
-			utils.NewBitArray(8, 0xAA),
-			utils.NewBitArray(8, 0x55),
+		keys := []trieutils.BitArray{
+			trieutils.NewBitArray(8, 0xFF),
+			trieutils.NewBitArray(8, 0xAA),
+			trieutils.NewBitArray(8, 0x55),
 		}
 		for _, key := range keys {
 			ns.Add(key, NewNode(felt.Zero, []byte{1}))
 		}
 
 		t.Run("ascending order", func(t *testing.T) {
-			var visited []utils.BitArray
-			ns.ForEach(false, func(key utils.BitArray, node *Node) {
+			var visited []trieutils.BitArray
+			_ = ns.ForEach(false, func(key trieutils.BitArray, node *Node) error {
 				visited = append(visited, key)
+				return nil
 			})
 
 			// Verify ascending order
@@ -122,9 +123,10 @@ func TestNodeSet(t *testing.T) {
 		})
 
 		t.Run("descending order", func(t *testing.T) {
-			var visited []utils.BitArray
-			ns.ForEach(true, func(key utils.BitArray, node *Node) {
+			var visited []trieutils.BitArray
+			_ = ns.ForEach(true, func(key trieutils.BitArray, node *Node) error {
 				visited = append(visited, key)
+				return nil
 			})
 
 			// Verify descending order
