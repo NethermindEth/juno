@@ -32,10 +32,5 @@ func All[T any](slice []T, f func(T) bool) bool {
 }
 
 func AnyOf[T comparable](e T, values ...T) bool {
-	for _, v := range values {
-		if e == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, e)
 }
