@@ -20,7 +20,7 @@ import (
 )
 
 // The constructor entrypoint for cairo contracts
-const CONSTRUCTOR_SELECTOR = "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
+const constructorSelector = "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
 
 type GenesisConfig struct {
 	Classes           []string                          `json:"classes"`            // []path-to-class.json
@@ -125,7 +125,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		}
 	}
 
-	constructorSelector, err := new(felt.Felt).SetString(CONSTRUCTOR_SELECTOR)
+	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
 	if err != nil {
 		return nil, nil, fmt.Errorf("convert string to felt: %v", err)
 	}
