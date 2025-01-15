@@ -47,16 +47,18 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 		},
 		Receipts:        AdaptHash(commitments.ReceiptCommitment),
 		ProtocolVersion: header.ProtocolVersion,
-		GasPriceFri:     AdaptUint128(header.L1GasPriceSTRK),
+		L1GasPriceFri:   AdaptUint128(header.L1GasPriceSTRK),
 		Signatures:      utils.Map(header.Signatures, adaptSignature),
 		StateDiffCommitment: &gen.StateDiffCommitment{
 			StateDiffLength: stateDiffLength,
 			Root:            AdaptHash(stateDiffCommitment),
 		},
-		GasPriceWei:            AdaptUint128(header.L1GasPriceETH),
-		DataGasPriceFri:        AdaptUint128(header.L1DataGasPrice.PriceInFri),
-		DataGasPriceWei:        AdaptUint128(header.L1DataGasPrice.PriceInWei),
+		L1GasPriceWei:          AdaptUint128(header.L1GasPriceETH),
+		L1DataGasPriceFri:      AdaptUint128(header.L1DataGasPrice.PriceInFri),
+		L1DataGasPriceWei:      AdaptUint128(header.L1DataGasPrice.PriceInWei),
 		L1DataAvailabilityMode: adaptL1DA(header.L1DAMode),
+		L2GasPriceFri:          AdaptUint128(header.L2GasPriceSTRK),
+		L2GasPriceWei:          AdaptUint128(header.L2GasPriceETH),
 	}
 }
 
