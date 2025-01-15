@@ -86,14 +86,28 @@ func TestTraceTransaction(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0xBBBB")
-		// Receipt() returns error related to db
-		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+		t.Run("key not found", func(t *testing.T) {
+			hash := utils.HexToFelt(t, "0xBBBB")
+			// Receipt() returns error related to db
+			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+			mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: &core.Block{}}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
-		assert.Nil(t, trace)
-		assert.Equal(t, rpc.ErrTxnHashNotFound, err)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+			trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+			assert.Nil(t, trace)
+			assert.Equal(t, rpc.ErrTxnHashNotFound, err)
+			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		})
+
+		t.Run("other error", func(t *testing.T) {
+			hash := utils.HexToFelt(t, "0xBBBB")
+			// Receipt() returns some other error
+			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
+
+			trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+			assert.Nil(t, trace)
+			assert.Equal(t, rpc.ErrTxnHashNotFound, err)
+			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		})
 	})
 	t.Run("ok", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
