@@ -6,23 +6,21 @@ import (
 	"sort"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie2/utils"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
-
-type path = utils.BitArray
 
 type NodeSet struct {
 	Owner   felt.Felt
-	Nodes   map[path]*Node
+	Nodes   map[trieutils.BitArray]*Node
 	updates int
 	deletes int
 }
 
 func NewNodeSet(owner felt.Felt) *NodeSet {
-	return &NodeSet{Owner: owner, Nodes: make(map[path]*Node)}
+	return &NodeSet{Owner: owner, Nodes: make(map[trieutils.BitArray]*Node)}
 }
 
-func (ns *NodeSet) Add(key path, node *Node) {
+func (ns *NodeSet) Add(key trieutils.BitArray, node *Node) {
 	if node.IsDeleted() {
 		ns.deletes += 1
 	} else {
@@ -31,8 +29,8 @@ func (ns *NodeSet) Add(key path, node *Node) {
 	ns.Nodes[key] = node
 }
 
-func (ns *NodeSet) ForEach(desc bool, callback func(key path, node *Node)) {
-	paths := make([]path, 0, len(ns.Nodes))
+func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.BitArray, node *Node) error) error {
+	paths := make([]trieutils.BitArray, 0, len(ns.Nodes))
 	for key := range ns.Nodes {
 		paths = append(paths, key)
 	}
@@ -48,8 +46,12 @@ func (ns *NodeSet) ForEach(desc bool, callback func(key path, node *Node)) {
 	}
 
 	for _, key := range paths {
-		callback(key, ns.Nodes[key])
+		if err := callback(key, ns.Nodes[key]); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (ns *NodeSet) MergeSet(other *NodeSet) error {
@@ -62,7 +64,7 @@ func (ns *NodeSet) MergeSet(other *NodeSet) error {
 	return nil
 }
 
-func (ns *NodeSet) Merge(owner felt.Felt, other map[path]*Node) error {
+func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.BitArray]*Node) error {
 	if ns.Owner != owner {
 		return fmt.Errorf("cannot merge node sets with different owners %x-%x", ns.Owner, owner)
 	}
