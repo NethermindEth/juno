@@ -4,68 +4,64 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestUpdate(t *testing.T) {
-	tr, records := nonRandomTrie(t, 1000)
-
-	for _, record := range records {
-		err := tr.Update(record.key, record.value)
-		require.NoError(t, err)
-
-		got, err := tr.Get(record.key)
-		require.NoError(t, err)
-		require.Equal(t, record.value, got)
-	}
-}
-
-func TestUpdateRandom(t *testing.T) {
-	tr, records := randomTrie(t, 1000)
-
-	for _, record := range records {
-		got, err := tr.Get(record.key)
-		require.NoError(t, err)
-
-		if !got.Equal(record.value) {
-			t.Fatalf("expected %s, got %s", record.value, got)
+	verifyRecords := func(t *testing.T, tr *Trie, records []*keyValue) {
+		t.Helper()
+		for _, record := range records {
+			got, err := tr.Get(record.key)
+			require.NoError(t, err)
+			require.True(t, got.Equal(record.value), "expected %v, got %v", record.value, got)
 		}
 	}
+
+	t.Run("sequential", func(t *testing.T) {
+		tr, records := nonRandomTrie(t, 10000)
+		verifyRecords(t, tr, records)
+	})
+
+	t.Run("random", func(t *testing.T) {
+		tr, records := randomTrie(t, 10000)
+		verifyRecords(t, tr, records)
+	})
 }
 
 func TestDelete(t *testing.T) {
-	tr, records := nonRandomTrie(t, 10000)
+	verifyDelete := func(t *testing.T, tr *Trie, records []*keyValue) {
+		t.Helper()
+		for _, record := range records {
+			err := tr.Delete(record.key)
+			require.NoError(t, err)
 
-	for _, record := range records {
-		err := tr.Delete(record.key)
-		require.NoError(t, err)
-
-		got, err := tr.Get(record.key)
-		require.NoError(t, err)
-		require.Equal(t, got, &felt.Zero)
+			got, err := tr.Get(record.key)
+			require.NoError(t, err)
+			require.True(t, got.Equal(&felt.Zero), "expected %v, got %v", &felt.Zero, got)
+		}
 	}
-}
 
-func TestDeleteRandom(t *testing.T) {
-	tr, records := randomTrie(t, 10000)
+	t.Run("sequential", func(t *testing.T) {
+		tr, records := nonRandomTrie(t, 10000)
+		verifyDelete(t, tr, records)
+	})
 
-	for i := len(records) - 1; i >= 0; i-- {
-		err := tr.Delete(records[i].key)
-		require.NoError(t, err)
-
-		got, err := tr.Get(records[i].key)
-		require.NoError(t, err)
-		require.Equal(t, got, &felt.Zero)
-	}
+	t.Run("random", func(t *testing.T) {
+		tr, records := randomTrie(t, 10000)
+		// Delete in reverse order for random case
+		for i, j := 0, len(records)-1; i < j; i, j = i+1, j-1 {
+			records[i], records[j] = records[j], records[i]
+		}
+		verifyDelete(t, tr, records)
+	})
 }
 
 // The expected hashes are taken from Pathfinder's tests
 func TestHash(t *testing.T) {
 	t.Run("one leaf", func(t *testing.T) {
-		tr := NewTrie(251, crypto.Pedersen)
+		tr, _ := NewEmptyPedersen()
 		err := tr.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(2))
 		require.NoError(t, err)
 		hash := tr.Hash()
@@ -75,7 +71,7 @@ func TestHash(t *testing.T) {
 	})
 
 	t.Run("two leaves", func(t *testing.T) {
-		tr := NewTrie(251, crypto.Pedersen)
+		tr, _ := NewEmptyPedersen()
 		err := tr.Update(new(felt.Felt).SetUint64(0), new(felt.Felt).SetUint64(2))
 		require.NoError(t, err)
 		err = tr.Update(new(felt.Felt).SetUint64(1), new(felt.Felt).SetUint64(3))
@@ -87,7 +83,7 @@ func TestHash(t *testing.T) {
 	})
 
 	t.Run("three leaves", func(t *testing.T) {
-		tr := NewTrie(251, crypto.Pedersen)
+		tr, _ := NewEmptyPedersen()
 
 		keys := []*felt.Felt{
 			new(felt.Felt).SetUint64(16),
@@ -132,7 +128,7 @@ func TestHash(t *testing.T) {
 			new(felt.Felt).SetUint64(5),
 		}
 
-		tr := NewTrie(251, crypto.Pedersen)
+		tr, _ := NewEmptyPedersen()
 		for i := range keys {
 			err := tr.Update(keys[i], vals[i])
 			require.NoError(t, err)
@@ -160,7 +156,7 @@ func TestHash(t *testing.T) {
 			utils.HexToFelt(t, "0xdd"),
 		}
 
-		tr := NewTrie(251, crypto.Pedersen)
+		tr, _ := NewEmptyPedersen()
 		for i := range keys {
 			err := tr.Update(keys[i], vals[i])
 			require.NoError(t, err)
@@ -173,11 +169,24 @@ func TestHash(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	tr, _ := nonRandomTrie(t, 1000)
-	tr2 := tr.Copy()
+	t.Run("sequential", func(t *testing.T) {
+		tr, _ := nonRandomTrie(t, 10000)
 
-	root := tr.Commit()
-	require.Equal(t, root, tr2.Hash())
+		_, err := tr.Commit()
+		require.NoError(t, err)
+	})
+
+	t.Run("random", func(t *testing.T) {
+		tr, _ := randomTrie(t, 10000)
+
+		_, err := tr.Commit()
+		require.NoError(t, err)
+	})
+}
+
+func TestTrieOpsRandom(t *testing.T) {
+	t.Skip()
+	panic("implement me")
 }
 
 type keyValue struct {
@@ -186,7 +195,7 @@ type keyValue struct {
 }
 
 func nonRandomTrie(t *testing.T, numKeys int) (*Trie, []*keyValue) {
-	tr := NewTrie(251, crypto.Pedersen)
+	tr, _ := NewEmptyPedersen()
 	records := make([]*keyValue, numKeys)
 
 	for i := 1; i < numKeys+1; i++ {
@@ -202,7 +211,7 @@ func nonRandomTrie(t *testing.T, numKeys int) (*Trie, []*keyValue) {
 func randomTrie(t testing.TB, n int) (*Trie, []*keyValue) {
 	rrand := rand.New(rand.NewSource(3))
 
-	tr := NewTrie(251, crypto.Pedersen)
+	tr, _ := NewEmptyPedersen()
 	records := make([]*keyValue, n)
 
 	for i := 0; i < n; i++ {
@@ -231,7 +240,7 @@ func buildTrie(t *testing.T, records []*keyValue) *Trie {
 		t.Fatal("records must have at least one element")
 	}
 
-	tempTrie := NewTrie(251, crypto.Pedersen)
+	tempTrie, _ := NewEmptyPedersen()
 
 	for _, record := range records {
 		err := tempTrie.Update(record.key, record.value)

@@ -6,6 +6,7 @@ import (
 )
 
 import (
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 )
 
@@ -19,8 +20,8 @@ func newCollector(nodes *trienode.NodeSet) *collector {
 }
 
 // Collects the nodes in the node set and collapses a node into a hash node
-func (c *collector) Collect(n node, parallel bool) hashNode {
-	return c.collect(new(Path), n, parallel).(hashNode)
+func (c *collector) Collect(n node, parallel bool) *hashNode {
+	return c.collect(new(Path), n, parallel).(*hashNode)
 }
 
 func (c *collector) collect(path *Path, n node, parallel bool) node {
@@ -46,9 +47,9 @@ func (c *collector) collect(path *Path, n node, parallel bool) node {
 		collapsed := cn.copy()
 		collapsed.children = c.collectChildren(path, cn, parallel)
 		return c.store(path, collapsed)
-	case hashNode:
+	case *hashNode:
 		return cn
-	case valueNode: // each leaf node is stored as a single entry in the node set
+	case *valueNode: // each leaf node is stored as a single entry in the node set
 		return c.store(path, cn)
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", cn))
@@ -111,6 +112,12 @@ func (c *collector) collectChildren(path *Path, n *binaryNode, parallel bool) [2
 // Stores the node in the node set and returns the hash node
 func (c *collector) store(path *Path, n node) node {
 	hash, _ := n.cache()
+
+	if hash == nil { // this is a value node
+		c.nodes.Add(*path, trienode.NewNode(felt.Felt{}, nodeToBytes(n)))
+		return n
+	}
+
 	c.nodes.Add(*path, trienode.NewNode(hash.Felt, nodeToBytes(n)))
 	return hash
 }
