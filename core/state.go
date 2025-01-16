@@ -42,6 +42,10 @@ type StateReader interface {
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	Class(classHash *felt.Felt) (*DeclaredClass, error)
+
+	ClassTrie() (*trie.Trie, error)
+	ContractTrie() (*trie.Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
 }
 
 type State struct {
@@ -122,6 +126,21 @@ func (s *State) Root() (*felt.Felt, error) {
 	}
 
 	return crypto.PoseidonArray(stateVersion, storageRoot, classesRoot), nil
+}
+
+func (s *State) ClassTrie() (*trie.Trie, error) {
+	// We don't need to call the closer function here because we are only reading the trie
+	tr, _, err := s.classesTrie()
+	return tr, err
+}
+
+func (s *State) ContractTrie() (*trie.Trie, error) {
+	tr, _, err := s.storage()
+	return tr, err
+}
+
+func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+	return storage(addr, s.txn)
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.

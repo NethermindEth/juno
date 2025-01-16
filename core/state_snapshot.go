@@ -4,8 +4,11 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 )
+
+var ErrHistoricalTrieNotSupported = errors.New("cannot support historical trie")
 
 type stateSnapshot struct {
 	blockNumber uint64
@@ -86,4 +89,16 @@ func (s *stateSnapshot) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 		return nil, db.ErrKeyNotFound
 	}
 	return declaredClass, nil
+}
+
+func (s *stateSnapshot) ClassTrie() (*trie.Trie, error) {
+	return nil, ErrHistoricalTrieNotSupported
+}
+
+func (s *stateSnapshot) ContractTrie() (*trie.Trie, error) {
+	return nil, ErrHistoricalTrieNotSupported
+}
+
+func (s *stateSnapshot) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+	return nil, ErrHistoricalTrieNotSupported
 }
