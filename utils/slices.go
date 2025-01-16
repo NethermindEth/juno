@@ -40,12 +40,13 @@ func AnyOf[T comparable](e T, values ...T) bool {
 
 // Unique returns a new slice with duplicates removed
 func Unique[T comparable](slice []T) []T {
+	if len(slice) == 0 {
+		return slice
+	}
+
 	// do not support unique on pointer types, just return the slice as it is
-	if len(slice) > 0 {
-		elt := slice[0]
-		if reflect.TypeOf(elt).Kind() == reflect.Ptr {
-			return slice
-		}
+	if reflect.TypeOf(slice[0]).Kind() == reflect.Ptr {
+		return slice
 	}
 
 	result := make([]T, 0, len(slice))
