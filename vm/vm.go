@@ -341,7 +341,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	return context.actualFees, context.daGas, traces, context.executionSteps, nil
 }
 
-func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll
+func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
 	txnJSONs := make([]json.RawMessage, 0, len(txns))
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)
