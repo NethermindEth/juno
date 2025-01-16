@@ -100,7 +100,7 @@ func (s *StorageProofResult) String() string {
 		result.WriteString("    Leaves:\n")
 		for i, leaf := range s.ContractsProof.LeavesData {
 			if leaf != nil {
-				result.WriteString(fmt.Sprintf("      [%d] Nonce: %v, ClassHash: %v\n", i, leaf.Nonce, leaf.ClassHash))
+				result.WriteString(fmt.Sprintf("      [%d] Nonce: %v, ClassHash: %v Root: %v\n", i, leaf.Nonce, leaf.ClassHash, leaf.StorageRoot))
 			}
 		}
 	}
@@ -221,6 +221,11 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 			return nil, err
 		}
 
+		root, err := tr.Root()
+		if err != nil {
+			return nil, err
+		}
+
 		nonce, err := state.ContractNonce(&contract)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) { // contract does not exist, skip getting leaf data
@@ -235,8 +240,9 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 		}
 
 		contractLeavesData[i] = &LeafData{
-			Nonce:     nonce,
-			ClassHash: classHash,
+			Nonce:       nonce,
+			ClassHash:   classHash,
+			StorageRoot: root,
 		}
 	}
 
@@ -342,8 +348,9 @@ type HashToNode struct {
 }
 
 type LeafData struct {
-	Nonce     *felt.Felt `json:"nonce"`
-	ClassHash *felt.Felt `json:"class_hash"`
+	Nonce       *felt.Felt `json:"nonce"`
+	ClassHash   *felt.Felt `json:"class_hash"`
+	StorageRoot *felt.Felt `json:"storage_root"`
 }
 
 type ContractProof struct {

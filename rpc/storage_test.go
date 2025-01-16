@@ -372,10 +372,12 @@ func TestStorageProof_VerifyPathfinderResponse(t *testing.T) {
 				{
 					Nonce:     utils.HexToFelt(t, "0x0"),
 					ClassHash: utils.HexToFelt(t, "0x772164c9d6179a89e7f1167f099219f47d752304b16ed01f081b6e0b45c93c3"),
+					// TODO: get the storage root
 				},
 				{
 					Nonce:     utils.HexToFelt(t, "0x0"),
 					ClassHash: utils.HexToFelt(t, "0x78401746828463e2c3f92ebb261fc82f7d4d4c8d9a80a356c44580dab124cb0"),
+					// TODO: get the storage root
 				},
 			},
 			Nodes: []*rpc.HashToNode{
@@ -652,8 +654,9 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 			ContractsProof: &rpc.ContractProof{
 				LeavesData: []*rpc.LeafData{
 					{
-						Nonce:     utils.HexToFelt(t, "0x0"),
-						ClassHash: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+						Nonce:       utils.HexToFelt(t, "0x0"),
+						ClassHash:   utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+						StorageRoot: utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
 					},
 				},
 				Nodes: []*rpc.HashToNode{
