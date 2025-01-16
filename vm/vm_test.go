@@ -224,7 +224,7 @@ func TestSetVersionedConstants(t *testing.T) {
 		assert.NoError(t, err)
 	})
 	t.Run("not valid json", func(t *testing.T) {
-		fd, err := os.CreateTemp("", "versioned_constants_test*")
+		fd, err := os.CreateTemp(t.TempDir(), "versioned_constants_test*")
 		require.NoError(t, err)
 		defer os.Remove(fd.Name())
 
