@@ -118,7 +118,7 @@ func TestUpdate(t *testing.T) {
 		},
 	}
 
-	t.Run("update noClassContracts storage", func(t *testing.T) {
+	t.Run("update systemContracts storage", func(t *testing.T) {
 		require.NoError(t, state.Update(4, su4, nil))
 
 		gotValue, err := state.ContractStorage(scAddr, scKey)
@@ -571,7 +571,7 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 	require.NoError(t, state.Revert(0, su))
 }
 
-func TestRevertNoClassContracts(t *testing.T) {
+func TestRevertSystemContracts(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
