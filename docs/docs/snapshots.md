@@ -55,7 +55,7 @@ wget -O juno_mainnet.tar https://juno-snapshots.nethermind.io/files/mainnet/late
 Ensure you have a directory to store the snapshots. We will use the `$HOME/snapshots` directory:
 
 ```bash
-mkdir -p $HOME/snapshots
+mkdir -p $HOME/snapshots/juno_mainnet
 ```
 
 ### 3. Extract the snapshot
@@ -63,7 +63,7 @@ mkdir -p $HOME/snapshots
 Extract the contents of the downloaded `.tar` file into the directory:
 
 ```bash
-tar -xvf juno_mainnet.tar -C $HOME/snapshots
+tar -xvf juno_mainnet.tar -C $HOME/snapshots/juno_mainnet
 ```
 
 ### 4. Run Juno
