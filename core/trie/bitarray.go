@@ -433,7 +433,10 @@ func (b *BitArray) UnmarshalBinary(data []byte) error {
 	}
 
 	b.len = length
-	b.SetBytes(length, data[1:])
+
+	var bs [32]byte
+	copy(bs[32-byteCount:], data[1:])
+	b.setBytes32(bs[:])
 
 	return nil
 }
