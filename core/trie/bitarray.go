@@ -584,7 +584,7 @@ func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 		_ = data[30]
 		b.words[3], b.words[2] = bigEndianUint56(data[0:7]), binary.BigEndian.Uint64(data[7:15])
 		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[15:23]), binary.BigEndian.Uint64(data[23:31])
-	case 32:
+	default:
 		b.setBytes32(data)
 	}
 	b.len = length

@@ -1801,3 +1801,140 @@ func TestCmp(t *testing.T) {
 		})
 	}
 }
+
+func TestSetBytes(t *testing.T) {
+	tests := []struct {
+		name   string
+		length uint8
+		data   []byte
+		want   BitArray
+	}{
+		{
+			name:   "empty data",
+			length: 0,
+			data:   []byte{},
+			want: BitArray{
+				len:   0,
+				words: [4]uint64{0, 0, 0, 0},
+			},
+		},
+		{
+			name:   "single byte",
+			length: 8,
+			data:   []byte{0xFF},
+			want: BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0},
+			},
+		},
+		{
+			name:   "two bytes",
+			length: 16,
+			data:   []byte{0xAA, 0xFF},
+			want: BitArray{
+				len:   16,
+				words: [4]uint64{0xAAFF, 0, 0, 0},
+			},
+		},
+		{
+			name:   "three bytes",
+			length: 24,
+			data:   []byte{0xAA, 0xBB, 0xCC},
+			want: BitArray{
+				len:   24,
+				words: [4]uint64{0xAABBCC, 0, 0, 0},
+			},
+		},
+		{
+			name:   "four bytes",
+			length: 32,
+			data:   []byte{0xAA, 0xBB, 0xCC, 0xDD},
+			want: BitArray{
+				len:   32,
+				words: [4]uint64{0xAABBCCDD, 0, 0, 0},
+			},
+		},
+		{
+			name:   "eight bytes (full word)",
+			length: 64,
+			data:   []byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+			want: BitArray{
+				len:   64,
+				words: [4]uint64{maxUint64, 0, 0, 0},
+			},
+		},
+		{
+			name:   "sixteen bytes (two words)",
+			length: 128,
+			data: []byte{
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+			},
+			want: BitArray{
+				len: 128,
+				words: [4]uint64{
+					0xAAAAAAAAAAAAAAAA,
+					0xFFFFFFFFFFFFFFFF,
+					0, 0,
+				},
+			},
+		},
+		{
+			name:   "thirty-two bytes (full array)",
+			length: 251,
+			data: []byte{
+				0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+			},
+			want: BitArray{
+				len: 251,
+				words: [4]uint64{
+					maxUint64,
+					maxUint64,
+					maxUint64,
+					0x7FFFFFFFFFFFFFF,
+				},
+			},
+		},
+		{
+			name:   "truncate to length",
+			length: 4,
+			data:   []byte{0xFF},
+			want: BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0},
+			},
+		},
+		{
+			name:   "data larger than 32 bytes",
+			length: 251,
+			data: []byte{
+				0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, // extra bytes should be ignored
+			},
+			want: BitArray{
+				len: 251,
+				words: [4]uint64{
+					maxUint64,
+					maxUint64,
+					maxUint64,
+					0x7FFFFFFFFFFFFFF,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(BitArray).SetBytes(tt.length, tt.data)
+			if !got.Equal(&tt.want) {
+				t.Errorf("SetBytes(%d, %v) = %v, want %v", tt.length, tt.data, got, tt.want)
+			}
+		})
+	}
+}
