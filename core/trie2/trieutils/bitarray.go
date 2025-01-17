@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"math/bits"
@@ -52,7 +53,6 @@ func (b *BitArray) Len() uint8 {
 func (b *BitArray) Bytes() [32]byte {
 	var res [32]byte
 
-	b.truncateToLength()
 	binary.BigEndian.PutUint64(res[0:8], b.words[3])
 	binary.BigEndian.PutUint64(res[8:16], b.words[2])
 	binary.BigEndian.PutUint64(res[16:24], b.words[1])
@@ -77,31 +77,28 @@ func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
 		return b.Set(x)
 	}
 
-	b.Set(x)
 	b.len = n
 
-	// Clear all words beyond what's needed
 	switch {
 	case n == 0:
 		b.words = [4]uint64{0, 0, 0, 0}
 	case n <= 64:
-		mask := maxUint64 >> (64 - n)
-		b.words[0] &= mask
-		b.words[1] = 0
-		b.words[2] = 0
-		b.words[3] = 0
+		b.words[0] = x.words[0] & (maxUint64 >> (64 - n))
+		b.words[1], b.words[2], b.words[3] = 0, 0, 0
 	case n <= 128:
-		mask := maxUint64 >> (128 - n)
-		b.words[1] &= mask
-		b.words[2] = 0
-		b.words[3] = 0
+		b.words[0] = x.words[0]
+		b.words[1] = x.words[1] & (maxUint64 >> (128 - n))
+		b.words[2], b.words[3] = 0, 0
 	case n <= 192:
-		mask := maxUint64 >> (192 - n)
-		b.words[2] &= mask
+		b.words[0] = x.words[0]
+		b.words[1] = x.words[1]
+		b.words[2] = x.words[2] & (maxUint64 >> (192 - n))
 		b.words[3] = 0
 	default:
-		mask := maxUint64 >> (256 - uint16(n))
-		b.words[3] &= mask
+		b.words[0] = x.words[0]
+		b.words[1] = x.words[1]
+		b.words[2] = x.words[2]
+		b.words[3] = x.words[3] & (maxUint64 >> (256 - uint16(n)))
 	}
 
 	return b
@@ -435,12 +432,25 @@ func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 // Example:
 //
 //	[0x0A, 0x03, 0xFF] -> BitArray{len: 10, words: [4]uint64{0x03FF}}
-func (b *BitArray) UnmarshalBinary(data []byte) {
-	b.len = data[0]
+func (b *BitArray) UnmarshalBinary(data []byte) error {
+	if len(data) == 0 {
+		return errors.New("empty data")
+	}
+
+	length := data[0]
+	byteCount := (uint(length) + 7) / 8 // Round up to nearest byte
+
+	if len(data) < int(byteCount)+1 {
+		return fmt.Errorf("invalid data length: got %d bytes, expected %d", len(data), byteCount+1)
+	}
+
+	b.len = length
 
 	var bs [32]byte
-	copy(bs[32-b.byteCount():], data[1:])
+	copy(bs[32-byteCount:], data[1:])
 	b.setBytes32(bs[:])
+
+	return nil
 }
 
 // Sets the bit array to the same value as x.
@@ -531,7 +541,7 @@ func (b *BitArray) setFelt(f *felt.Felt) {
 }
 
 func (b *BitArray) setBytes32(data []byte) {
-	_ = data[31]
+	_ = data[31] // bound check hint, see https://golang.org/issue/14808
 	b.words[3] = binary.BigEndian.Uint64(data[0:8])
 	b.words[2] = binary.BigEndian.Uint64(data[8:16])
 	b.words[1] = binary.BigEndian.Uint64(data[16:24])
@@ -588,6 +598,20 @@ func (b *BitArray) clear() *BitArray {
 }
 
 // Truncates the bit array to the specified length, ensuring that any unused bits are all zeros.
+//
+// Example:
+//
+//	b := &BitArray{
+//	    len: 5,
+//	    words: [4]uint64{
+//	        0xFFFFFFFFFFFFFFFF,  // Before: all bits are 1
+//	        0x0, 0x0, 0x0,
+//	    },
+//	}
+//	b.truncateToLength()
+//	// After: only first 5 bits remain
+//	// words[0] = 0x000000000000001F
+//	// words[1..3] = 0x0
 //
 //nolint:mnd
 func (b *BitArray) truncateToLength() {
