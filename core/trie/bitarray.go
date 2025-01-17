@@ -275,8 +275,6 @@ func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
 	}
 
 	switch {
-	case n == 0:
-		return b
 	case n >= 192:
 		b.lsh192(x)
 		n -= 192
