@@ -35,12 +35,16 @@ type Header struct {
 	ProtocolVersion string
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
-	// Amount of WEI charged per Gas spent
-	GasPrice *felt.Felt
+	// Amount of WEI charged per Gas spent on L1
+	L1GasPriceETH *felt.Felt `cbor:"gasprice"`
+	// Amount of STRK charged per Gas spent on L2
+	L2GasPriceETH *felt.Felt
 	// Sequencer signatures
 	Signatures [][]*felt.Felt
-	// Amount of STRK charged per Gas spent
-	GasPriceSTRK *felt.Felt
+	// Amount of STRK charged per Gas spent on L1
+	L1GasPriceSTRK *felt.Felt `cbor:"gaspricestrk"`
+	// Amount of STRK charged per Gas spent on L2
+	L2GasPriceSTRK *felt.Felt
 	// The mode of the L1 data availability
 	L1DAMode L1DAMode
 	// The gas price for L1 data availability
@@ -224,8 +228,8 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	pricesHash := gasPricesHash(
 		GasPrice{
-			PriceInFri: b.GasPriceSTRK,
-			PriceInWei: b.GasPrice,
+			PriceInFri: b.L1GasPriceSTRK,
+			PriceInWei: b.L1GasPriceETH,
 		},
 		*b.L1DataGasPrice,
 		*b.L2GasPrice,
@@ -297,11 +301,11 @@ func post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			concatCounts,
 			sdCommitment,
-			txCommitment,   // transaction commitment
-			eCommitment,    // event commitment
-			rCommitment,    // receipt commitment
-			b.GasPrice,     // gas price in wei
-			b.GasPriceSTRK, // gas price in fri
+			txCommitment,     // transaction commitment
+			eCommitment,      // event commitment
+			rCommitment,      // receipt commitment
+			b.L1GasPriceETH,  // gas price in wei
+			b.L1GasPriceSTRK, // gas price in fri
 			b.L1DataGasPrice.PriceInWei,
 			b.L1DataGasPrice.PriceInFri,
 			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),

@@ -715,7 +715,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.Equal(t, subResp(id), got)
 
 	// Check block 0 content
-	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
 	want = fmt.Sprintf(want, id)
 	_, block0Got, err := conn.Read(ctx)
 	require.NoError(t, err)
@@ -1028,8 +1028,30 @@ func subMsg(method string) string {
 	return fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q}`, method)
 }
 
+func testHeader(t *testing.T) *core.Header {
+	t.Helper()
+
+	header := &core.Header{
+		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
+		Number:           2,
+		GlobalStateRoot:  utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
+		Timestamp:        1637084470,
+		SequencerAddress: utils.HexToFelt(t, "0x0"),
+		L1DataGasPrice: &core.GasPrice{
+			PriceInFri: utils.HexToFelt(t, "0x0"),
+			PriceInWei: utils.HexToFelt(t, "0x0"),
+		},
+		L1GasPriceETH:   utils.HexToFelt(t, "0x0"),
+		L1GasPriceSTRK:  utils.HexToFelt(t, "0x0"),
+		L1DAMode:        core.Calldata,
+		ProtocolVersion: "",
+	}
+	return header
+}
+
 func newHeadsResponse(id uint64) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`, id)
+	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`, id)
 }
 
 // setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
@@ -1072,26 +1094,4 @@ func marshalSubEventsResp(e *EmittedEvent, id uint64) ([]byte, error) {
 			"result":          e,
 		},
 	})
-}
-
-func testHeader(t *testing.T) *core.Header {
-	t.Helper()
-
-	header := &core.Header{
-		Hash:             utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
-		ParentHash:       utils.HexToFelt(t, "0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb"),
-		Number:           2,
-		GlobalStateRoot:  utils.HexToFelt(t, "0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9"),
-		Timestamp:        1637084470,
-		SequencerAddress: utils.HexToFelt(t, "0x0"),
-		L1DataGasPrice: &core.GasPrice{
-			PriceInFri: utils.HexToFelt(t, "0x0"),
-			PriceInWei: utils.HexToFelt(t, "0x0"),
-		},
-		GasPrice:        utils.HexToFelt(t, "0x0"),
-		GasPriceSTRK:    utils.HexToFelt(t, "0x0"),
-		L1DAMode:        core.Calldata,
-		ProtocolVersion: "",
-	}
-	return header
 }

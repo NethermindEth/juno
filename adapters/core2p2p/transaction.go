@@ -161,8 +161,9 @@ func adaptResourceLimits(bounds core.ResourceBounds) *gen.ResourceLimits {
 
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *gen.ResourceBounds {
 	return &gen.ResourceBounds{
-		L1Gas: adaptResourceLimits(rb[core.ResourceL1Gas]),
-		L2Gas: adaptResourceLimits(rb[core.ResourceL2Gas]),
+		L1Gas:     adaptResourceLimits(rb[core.ResourceL1Gas]),
+		L1DataGas: adaptResourceLimits(rb[core.ResourceL1DataGas]),
+		L2Gas:     adaptResourceLimits(rb[core.ResourceL2Gas]),
 	}
 }
 

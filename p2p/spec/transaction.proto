@@ -11,7 +11,10 @@ message ResourceLimits {
 
 message ResourceBounds {
     ResourceLimits l1_gas = 1;
-    ResourceLimits l2_gas = 2;
+    // This can be None only in transactions that don't support l2 gas.
+    // Starting from 0.14.0, MempoolTransaction and ConsensusTransaction shouldn't have None here.
+    optional ResourceLimits l1_data_gas = 2;
+    ResourceLimits l2_gas = 3;
 }
 
 message AccountSignature {
