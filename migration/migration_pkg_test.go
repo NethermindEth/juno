@@ -261,10 +261,7 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet))
 
 	var trieKey trie.BitArray
-	err = memTxn.Get(key, func(data []byte) error {
-		trieKey.UnmarshalBinary(data)
-		return nil
-	})
+	err = memTxn.Get(key, trieKey.UnmarshalBinary)
 	require.NoError(t, err)
 	require.Equal(t, bs.Len(), uint(trieKey.Len()))
 	require.Equal(t, felt.Zero, trieKey.Felt())
