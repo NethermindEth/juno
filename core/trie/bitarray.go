@@ -49,7 +49,6 @@ func (b *BitArray) Len() uint8 {
 func (b *BitArray) Bytes() []byte {
 	var res [32]byte
 
-	b.truncateToLength()
 	binary.BigEndian.PutUint64(res[0:8], b.words[3])
 	binary.BigEndian.PutUint64(res[8:16], b.words[2])
 	binary.BigEndian.PutUint64(res[16:24], b.words[1])
