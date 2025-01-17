@@ -73,31 +73,28 @@ func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
 		return b.Set(x)
 	}
 
-	b.Set(x)
 	b.len = n
 
-	// Clear all words beyond what's needed
 	switch {
 	case n == 0:
 		b.words = [4]uint64{0, 0, 0, 0}
 	case n <= 64:
-		mask := maxUint64 >> (64 - n)
-		b.words[0] &= mask
-		b.words[1] = 0
-		b.words[2] = 0
-		b.words[3] = 0
+		b.words[0] = x.words[0] & (maxUint64 >> (64 - n))
+		b.words[1], b.words[2], b.words[3] = 0, 0, 0
 	case n <= 128:
-		mask := maxUint64 >> (128 - n)
-		b.words[1] &= mask
-		b.words[2] = 0
-		b.words[3] = 0
+		b.words[0] = x.words[0]
+		b.words[1] = x.words[1] & (maxUint64 >> (128 - n))
+		b.words[2], b.words[3] = 0, 0
 	case n <= 192:
-		mask := maxUint64 >> (192 - n)
-		b.words[2] &= mask
+		b.words[0] = x.words[0]
+		b.words[1] = x.words[1]
+		b.words[2] = x.words[2] & (maxUint64 >> (192 - n))
 		b.words[3] = 0
 	default:
-		mask := maxUint64 >> (256 - uint16(n))
-		b.words[3] &= mask
+		b.words[0] = x.words[0]
+		b.words[1] = x.words[1]
+		b.words[2] = x.words[2]
+		b.words[3] = x.words[3] & (maxUint64 >> (256 - uint16(n)))
 	}
 
 	return b
