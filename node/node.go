@@ -46,28 +46,28 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel               utils.LogLevel `mapstructure:"log-level"`
-	HTTP                   bool           `mapstructure:"http"`
-	HTTPHost               string         `mapstructure:"http-host"`
-	HTTPPort               uint16         `mapstructure:"http-port"`
-	RPCCorsEnable          bool           `mapstructure:"rpc-cors-enable"`
-	Websocket              bool           `mapstructure:"ws"`
-	WebsocketHost          string         `mapstructure:"ws-host"`
-	WebsocketPort          uint16         `mapstructure:"ws-port"`
-	GRPC                   bool           `mapstructure:"grpc"`
-	GRPCHost               string         `mapstructure:"grpc-host"`
-	GRPCPort               uint16         `mapstructure:"grpc-port"`
-	DatabasePath           string         `mapstructure:"db-path"`
-	Network                utils.Network  `mapstructure:"network"`
-	EthNode                string         `mapstructure:"eth-node"`
-	DisableL1Verification  bool           `mapstructure:"disable-l1-verification"`
-	Pprof                  bool           `mapstructure:"pprof"`
-	PprofHost              string         `mapstructure:"pprof-host"`
-	PprofPort              uint16         `mapstructure:"pprof-port"`
-	Colour                 bool           `mapstructure:"colour"`
-	PendingPollInterval    time.Duration  `mapstructure:"pending-poll-interval"`
-	RemoteDB               string         `mapstructure:"remote-db"`
-	VersionedConstantsFile string         `mapstructure:"versioned-constants-file"`
+	LogLevel               string        `mapstructure:"log-level"`
+	HTTP                   bool          `mapstructure:"http"`
+	HTTPHost               string        `mapstructure:"http-host"`
+	HTTPPort               uint16        `mapstructure:"http-port"`
+	RPCCorsEnable          bool          `mapstructure:"rpc-cors-enable"`
+	Websocket              bool          `mapstructure:"ws"`
+	WebsocketHost          string        `mapstructure:"ws-host"`
+	WebsocketPort          uint16        `mapstructure:"ws-port"`
+	GRPC                   bool          `mapstructure:"grpc"`
+	GRPCHost               string        `mapstructure:"grpc-host"`
+	GRPCPort               uint16        `mapstructure:"grpc-port"`
+	DatabasePath           string        `mapstructure:"db-path"`
+	Network                utils.Network `mapstructure:"network"`
+	EthNode                string        `mapstructure:"eth-node"`
+	DisableL1Verification  bool          `mapstructure:"disable-l1-verification"`
+	Pprof                  bool          `mapstructure:"pprof"`
+	PprofHost              string        `mapstructure:"pprof-host"`
+	PprofPort              uint16        `mapstructure:"pprof-port"`
+	Colour                 bool          `mapstructure:"colour"`
+	PendingPollInterval    time.Duration `mapstructure:"pending-poll-interval"`
+	RemoteDB               string        `mapstructure:"remote-db"`
+	VersionedConstantsFile string        `mapstructure:"versioned-constants-file"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -92,6 +92,9 @@ type Config struct {
 	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
 
 	PluginPath string `mapstructure:"plugin-path"`
+
+	LogHost string `mapstructure:"log-host"`
+	LogPort uint16 `mapstructure:"log-port"`
 }
 
 type Node struct {
@@ -99,17 +102,17 @@ type Node struct {
 	db         db.DB
 	blockchain *blockchain.Blockchain
 
-	metricsService service.Service // Start the metrics service earlier than other services.
-	services       []service.Service
-	log            utils.Logger
+	earlyServices []service.Service // Services that needs to start before than other services and before migration.
+	services      []service.Service
+	log           utils.Logger
 
 	version string
 }
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
-	log, err := utils.NewZapLogger(cfg.LogLevel, cfg.Colour)
+func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
+	log, err := utils.NewZapLogger(logLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +131,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	ua := fmt.Sprintf("Juno/%s Starknet Client", version)
 
 	services := make([]service.Service, 0)
+	earlyServices := make([]service.Service, 0)
 
 	synchronizer := new(sync.Synchronizer)
 	chain := blockchain.New(database, &cfg.Network, synchronizer.PendingBlock)
@@ -234,7 +238,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		services = append(services,
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
-	var metricsService service.Service
+	if cfg.LogPort != 0 {
+		log.Infow("Log level can be changed via HTTP PUT request to " + cfg.LogHost + ":" + fmt.Sprintf("%d", cfg.LogPort) + "/log/level")
+		earlyServices = append(earlyServices, makeLogService(cfg.LogHost, cfg.LogPort, logLevel))
+	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()
 		makeVMThrottlerMetrics(throttledVM)
@@ -247,7 +254,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
-		metricsService = makeMetrics(cfg.MetricsHost, cfg.MetricsPort)
+		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 
 		if synchronizer != nil {
 			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
@@ -265,13 +272,13 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	}
 
 	n := &Node{
-		cfg:            cfg,
-		log:            log,
-		version:        version,
-		db:             database,
-		blockchain:     chain,
-		services:       services,
-		metricsService: metricsService,
+		cfg:           cfg,
+		log:           log,
+		version:       version,
+		db:            database,
+		blockchain:    chain,
+		services:      services,
+		earlyServices: earlyServices,
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -352,13 +359,8 @@ func (n *Node) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	if n.metricsService != nil {
-		wg.Go(func() {
-			defer cancel()
-			if err := n.metricsService.Run(ctx); err != nil {
-				n.log.Errorw("Metrics error", "err", err)
-			}
-		})
+	for _, s := range n.earlyServices {
+		n.StartService(wg, ctx, cancel, s)
 	}
 
 	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
@@ -371,18 +373,22 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	for _, s := range n.services {
-		wg.Go(func() {
-			// Immediately acknowledge panicing services by shutting down the node
-			// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
-			defer cancel()
-			if err := s.Run(ctx); err != nil {
-				n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
-			}
-		})
+		n.StartService(wg, ctx, cancel, s)
 	}
 
 	<-ctx.Done()
 	n.log.Infow("Shutting down Juno...")
+}
+
+func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service) {
+	wg.Go(func() {
+		// Immediately acknowledge panicing services by shutting down the node
+		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
+		defer cancel()
+		if err := s.Run(ctx); err != nil {
+			n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
+		}
+	})
 }
 
 func (n *Node) Config() Config {

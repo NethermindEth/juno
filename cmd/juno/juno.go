@@ -85,6 +85,8 @@ const (
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
 	pluginPathF             = "plugin-path"
+	logHostF                = "log-host"
+	logPortF                = "log-port"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -124,6 +126,7 @@ const (
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
+	defaultLogPort                  = 0
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -177,6 +180,8 @@ const (
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	pluginPathUsage             = "Path to the plugin .so file"
+	logHostUsage                = "The interface on which the log level HTTP server will listen for requests."
+	logPortUsage                = "The port on which the log level HTTP server will listen for requests."
 )
 
 var Version string
@@ -203,7 +208,13 @@ func main() {
 			return err
 		}
 
-		n, err := node.New(config, Version)
+		logLevel := utils.NewLogLevel(utils.INFO)
+		err = logLevel.Set(config.LogLevel)
+		if err != nil {
+			return err
+		}
+
+		n, err := node.New(config, Version, logLevel)
 		if err != nil {
 			return err
 		}
@@ -308,13 +319,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 
 	// For testing purposes, these variables cannot be declared outside the function because Cobra
 	// may mutate their values.
-	defaultLogLevel := utils.INFO
 	defaultNetwork := utils.Mainnet
 	defaultMaxVMs := 3 * runtime.GOMAXPROCS(0)
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().Var(&defaultLogLevel, logLevelF, logLevelFlagUsage)
+	junoCmd.Flags().String(logLevelF, utils.INFO.String(), logLevelFlagUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
@@ -365,6 +375,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
+	junoCmd.Flags().String(logHostF, defaulHost, logHostUsage)
+	junoCmd.Flags().Uint16(logPortF, defaultLogPort, logPortUsage)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
