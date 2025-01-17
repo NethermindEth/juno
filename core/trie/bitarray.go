@@ -260,10 +260,8 @@ func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
 //
 //nolint:mnd
 func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
-	b.Set(x)
-
 	if x.len == 0 || n == 0 {
-		return b
+		return b.Set(x)
 	}
 
 	// If the result will overflow, we set the length to the max length
@@ -282,19 +280,19 @@ func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
 	case n >= 128:
 		b.lsh128(x)
 		n -= 128
-		b.words[3] = (b.words[3] << n) | (b.words[2] >> (64 - n))
+		b.words[3] = (x.words[3] << n) | (x.words[2] >> (64 - n))
 		b.words[2] <<= n
 	case n >= 64:
 		b.lsh64(x)
 		n -= 64
-		b.words[3] = (b.words[3] << n) | (b.words[2] >> (64 - n))
-		b.words[2] = (b.words[2] << n) | (b.words[1] >> (64 - n))
+		b.words[3] = (x.words[3] << n) | (x.words[2] >> (64 - n))
+		b.words[2] = (x.words[2] << n) | (x.words[1] >> (64 - n))
 		b.words[1] <<= n
 	default:
-		b.words[3] = (b.words[3] << n) | (b.words[2] >> (64 - n))
-		b.words[2] = (b.words[2] << n) | (b.words[1] >> (64 - n))
-		b.words[1] = (b.words[1] << n) | (b.words[0] >> (64 - n))
-		b.words[0] <<= n
+		b.words[3] = (x.words[3] << n) | (x.words[2] >> (64 - n))
+		b.words[2] = (x.words[2] << n) | (x.words[1] >> (64 - n))
+		b.words[1] = (x.words[1] << n) | (x.words[0] >> (64 - n))
+		b.words[0] = x.words[0] << n
 	}
 
 	b.truncateToLength()
