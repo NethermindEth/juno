@@ -308,18 +308,15 @@ func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
 //	y = 111 (len=3)
 //	Append(x,y) = 000111 (len=6)
 func (b *BitArray) Append(x, y *BitArray) *BitArray {
-	if x.len == 0 {
+	if x.len == 0 || y.len == maxUint8 {
 		return b.Set(y)
 	}
 	if y.len == 0 {
 		return b.Set(x)
 	}
 
-	// First copy x
-	b.Set(x)
-
 	// Then shift left by y's length and OR with y
-	return b.Lsh(b, y.len).Or(b, y)
+	return b.Lsh(x, y.len).Or(b, y)
 }
 
 // Sets the bit array to x | y and returns the bit array.
