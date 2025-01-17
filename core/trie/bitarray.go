@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"math/bits"
@@ -424,12 +425,25 @@ func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 // Example:
 //
 //	[0x0A, 0x03, 0xFF] -> BitArray{len: 10, words: [4]uint64{0x03FF}}
-func (b *BitArray) UnmarshalBinary(data []byte) {
-	b.len = data[0]
+func (b *BitArray) UnmarshalBinary(data []byte) error {
+	if len(data) == 0 {
+		return errors.New("empty data")
+	}
+
+	length := data[0]
+	byteCount := (uint(length) + 7) / 8 // Round up to nearest byte
+
+	if len(data) < int(byteCount)+1 {
+		return fmt.Errorf("invalid data length: got %d bytes, expected %d", len(data), byteCount+1)
+	}
+
+	b.len = length
 
 	var bs [32]byte
-	copy(bs[32-b.byteCount():], data[1:])
+	copy(bs[32-byteCount:], data[1:])
 	b.setBytes32(bs[:])
+
+	return nil
 }
 
 // Sets the bit array to the same value as x.

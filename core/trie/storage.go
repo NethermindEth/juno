@@ -101,8 +101,7 @@ func (t *Storage) RootKey() (*BitArray, error) {
 	var rootKey *BitArray
 	if err := t.txn.Get(t.prefix, func(val []byte) error {
 		rootKey = new(BitArray)
-		rootKey.UnmarshalBinary(val)
-		return nil
+		return rootKey.UnmarshalBinary(val)
 	}); err != nil {
 		return nil, err
 	}

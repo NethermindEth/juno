@@ -114,9 +114,14 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 		n.Right = new(BitArray)
 	}
 
-	n.Left.UnmarshalBinary(data)
+	if err := n.Left.UnmarshalBinary(data); err != nil {
+		return err
+	}
 	data = data[n.Left.EncodedLen():]
-	n.Right.UnmarshalBinary(data)
+
+	if err := n.Right.UnmarshalBinary(data); err != nil {
+		return err
+	}
 	data = data[n.Right.EncodedLen():]
 
 	if n.LeftHash == nil {
