@@ -142,8 +142,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 	var rootKey *trie.BitArray // TODO: use value instead of pointer
 	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
 		rootKey = new(trie.BitArray)
-		rootKey.UnmarshalBinary(val)
-		return nil
+		return rootKey.UnmarshalBinary(val)
 	})
 
 	// if some error other than "not found"
