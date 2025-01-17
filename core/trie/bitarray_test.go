@@ -3,7 +3,6 @@ package trie
 import (
 	"bytes"
 	"encoding/binary"
-	"math"
 	"math/bits"
 	"testing"
 
@@ -11,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var maxBits = [4]uint64{math.MaxUint64, math.MaxUint64, math.MaxUint64, math.MaxUint64}
 
 const (
 	ones63 = 0x7FFFFFFFFFFFFFFF // 63 bits of 1
@@ -26,12 +23,12 @@ func TestBytes(t *testing.T) {
 	}{
 		{
 			name: "length == 0",
-			ba:   BitArray{len: 0, words: maxBits},
+			ba:   BitArray{len: 0, words: [4]uint64{0, 0, 0, 0}},
 			want: [32]byte{},
 		},
 		{
 			name: "length < 64",
-			ba:   BitArray{len: 38, words: maxBits},
+			ba:   BitArray{len: 38, words: [4]uint64{0x3FFFFFFFFF, 0, 0, 0}},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[24:32], 0x3FFFFFFFFF)
@@ -40,7 +37,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "64 <= length < 128",
-			ba:   BitArray{len: 100, words: maxBits},
+			ba:   BitArray{len: 100, words: [4]uint64{maxUint64, 0xFFFFFFFFF, 0, 0}},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[16:24], 0xFFFFFFFFF)
@@ -50,7 +47,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "128 <= length < 192",
-			ba:   BitArray{len: 130, words: maxBits},
+			ba:   BitArray{len: 130, words: [4]uint64{maxUint64, maxUint64, 0x3, 0}},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[8:16], 0x3)
@@ -61,7 +58,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "192 <= length < 255",
-			ba:   BitArray{len: 201, words: maxBits},
+			ba:   BitArray{len: 201, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x1FF}},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[0:8], 0x1FF)
@@ -73,7 +70,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "length == 254",
-			ba:   BitArray{len: 254, words: maxBits},
+			ba:   BitArray{len: 254, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x3FFFFFFFFFFFFFFF}},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[0:8], 0x3FFFFFFFFFFFFFFF)
@@ -85,7 +82,7 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "length == 255",
-			ba:   BitArray{len: 255, words: maxBits},
+			ba:   BitArray{len: 255, words: [4]uint64{maxUint64, maxUint64, maxUint64, ones63}},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[0:8], ones63)
@@ -1118,7 +1115,8 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 			}
 
 			var gotBitArray BitArray
-			gotBitArray.UnmarshalBinary(got)
+			err = gotBitArray.UnmarshalBinary(got)
+			require.NoError(t, err)
 			if !gotBitArray.Equal(&tt.ba) {
 				t.Errorf("UnmarshalBinary() = %v, want %v", gotBitArray, tt.ba)
 			}

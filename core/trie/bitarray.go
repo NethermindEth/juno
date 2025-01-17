@@ -532,7 +532,7 @@ func (b *BitArray) setFelt(f *felt.Felt) {
 }
 
 func (b *BitArray) setBytes32(data []byte) {
-	_ = data[31]
+	_ = data[31] // bound check hint, see https://golang.org/issue/14808
 	b.words[3] = binary.BigEndian.Uint64(data[0:8])
 	b.words[2] = binary.BigEndian.Uint64(data[8:16])
 	b.words[1] = binary.BigEndian.Uint64(data[16:24])
@@ -543,7 +543,6 @@ func (b *BitArray) setBytes32(data []byte) {
 // It rounds up to the nearest byte.
 func (b *BitArray) byteCount() uint {
 	const bits8 = 8
-	// Cast to uint16 to avoid overflow
 	return (uint(b.len) + (bits8 - 1)) / uint(bits8)
 }
 
@@ -589,6 +588,20 @@ func (b *BitArray) clear() *BitArray {
 }
 
 // Truncates the bit array to the specified length, ensuring that any unused bits are all zeros.
+//
+// Example:
+//
+//	b := &BitArray{
+//	    len: 5,
+//	    words: [4]uint64{
+//	        0xFFFFFFFFFFFFFFFF,  // Before: all bits are 1
+//	        0x0, 0x0, 0x0,
+//	    },
+//	}
+//	b.truncateToLength()
+//	// After: only first 5 bits remain
+//	// words[0] = 0x000000000000001F
+//	// words[1..3] = 0x0
 //
 //nolint:mnd
 func (b *BitArray) truncateToLength() {
