@@ -128,12 +128,12 @@ func (b *Blockchain) Height() (uint64, error) {
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
-		height, err = ChainHeight(txn)
+		height, err = chainHeight(txn)
 		return err
 	})
 }
 
-func ChainHeight(txn db.Transaction) (uint64, error) {
+func chainHeight(txn db.Transaction) (uint64, error) {
 	var height uint64
 	return height, txn.Get(db.ChainHeight.Key(), func(val []byte) error {
 		height = binary.BigEndian.Uint64(val)
@@ -163,15 +163,15 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 }
 
 func head(txn db.Transaction) (*core.Block, error) {
-	height, err := ChainHeight(txn)
+	height, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
-	return BlockByNumber(txn, height)
+	return blockByNumber(txn, height)
 }
 
 func headsHeader(txn db.Transaction) (*core.Header, error) {
-	height, err := ChainHeight(txn)
+	height, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 	var block *core.Block
 	return block, b.database.View(func(txn db.Transaction) error {
 		var err error
-		block, err = BlockByNumber(txn, number)
+		block, err = blockByNumber(txn, number)
 		return err
 	})
 }
@@ -339,7 +339,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
-		if err := StoreBlockHeader(txn, block.Header); err != nil {
+		if err := storeBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 
@@ -354,11 +354,11 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := StoreBlockCommitments(txn, block.Number, blockCommitments); err != nil {
+		if err := storeBlockCommitments(txn, block.Number, blockCommitments); err != nil {
 			return err
 		}
 
-		if err := StoreL1HandlerMsgHashes(txn, block.Transactions); err != nil {
+		if err := storeL1HandlerMsgHashes(txn, block.Transactions); err != nil {
 			return err
 		}
 
@@ -402,7 +402,7 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 	return nil
 }
 
-func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
+func storeBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
 	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	commitmentBytes, err := encoder.Marshal(commitments)
@@ -445,7 +445,7 @@ func blockCommitmentsByNumber(txn db.Transaction, blockNumber uint64) (*core.Blo
 // "[]" is the db prefix to represent a bucket
 // "()" are additional keys appended to the prefix or multiple values marshalled together
 // "->" represents a key value pair.
-func StoreBlockHeader(txn db.Transaction, header *core.Header) error {
+func storeBlockHeader(txn db.Transaction, header *core.Header) error {
 	numBytes := core.MarshalBlockNumber(header.Number)
 
 	if err := txn.Set(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()), numBytes); err != nil {
@@ -483,8 +483,8 @@ func blockHeaderByHash(txn db.Transaction, hash *felt.Felt) (*core.Header, error
 	})
 }
 
-// BlockByNumber retrieves a block from database by its number
-func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
+// blockByNumber retrieves a block from database by its number
+func blockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	header, err := blockHeaderByNumber(txn, number)
 	if err != nil {
 		return nil, err
@@ -492,7 +492,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 
 	block := new(core.Block)
 	block.Header = header
-	block.Transactions, err = TransactionsByBlockNumber(txn, number)
+	block.Transactions, err = transactionsByBlockNumber(txn, number)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +504,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 	return block, nil
 }
 
-func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
+func transactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
 	numBytes := core.MarshalBlockNumber(number)
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
 
@@ -576,12 +576,12 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	var block *core.Block
 	return block, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
 		var err error
-		block, err = BlockByNumber(txn, binary.BigEndian.Uint64(val))
+		block, err = blockByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
 	})
 }
 
-func StoreL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
+func storeL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
 	for _, txn := range blockTxns {
 		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
 			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(l1Handler.MessageHash()), txn.Hash().Marshal())
@@ -773,7 +773,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, err
 	}
 
-	_, err = ChainHeight(txn)
+	_, err = chainHeight(txn)
 	if err != nil {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
@@ -827,7 +827,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	latest, err := ChainHeight(txn)
+	latest, err := chainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
@@ -843,7 +843,7 @@ func (b *Blockchain) RevertHead() error {
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 	return reverseStateDiff, b.database.View(func(txn db.Transaction) error {
-		blockNumber, err := ChainHeight(txn)
+		blockNumber, err := chainHeight(txn)
 		if err != nil {
 			return err
 		}
@@ -858,7 +858,7 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 }
 
 func (b *Blockchain) revertHead(txn db.Transaction) error {
-	blockNumber, err := ChainHeight(txn)
+	blockNumber, err := chainHeight(txn)
 	if err != nil {
 		return err
 	}
