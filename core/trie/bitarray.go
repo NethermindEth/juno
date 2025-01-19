@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
-	maxUint8  = uint8(math.MaxUint8)
+	maxUint64       = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
+	maxUint8        = uint8(math.MaxUint8)
+	MaxBitArraySize = 33 // (1 + 4 * 8) bytes
 )
 
 var emptyBitArray = new(BitArray)
@@ -316,6 +317,11 @@ func (b *BitArray) Append(x, y *BitArray) *BitArray {
 
 	// Then shift left by y's length and OR with y
 	return b.Lsh(x, y.len).Or(b, y)
+}
+
+// Sets the bit array to the concatenation of x and a single bit.
+func (b *BitArray) AppendBit(x *BitArray, bit uint8) *BitArray {
+	return b.Append(b, new(BitArray).SetBit(bit))
 }
 
 // Sets the bit array to x | y and returns the bit array.
