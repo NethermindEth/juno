@@ -60,6 +60,8 @@ const (
 	p2pPeersF               = "p2p-peers"
 	p2pFeederNodeF          = "p2p-feeder-node"
 	p2pPrivateKey           = "p2p-private-key"
+	p2pDenyList             = "p2p-deny-list"
+	p2pAllowList            = "p2p-allow-list"
 	metricsF                = "metrics"
 	metricsHostF            = "metrics-host"
 	metricsPortF            = "metrics-port"
@@ -157,7 +159,11 @@ const (
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
-	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	p2pPrivateKeyUsage = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	p2pDenyListUsage   = "CIDR subnets to block peer connections. " +
+		"For example, '192.168.0.0/16' blocks local network peers. By default, all connections are accepted."
+	p2pAllowListUsage = "CIDR subnets to allow peer connections. " +
+		"For example, '192.168.0.0/16' allows local network peers. By default, all connections are accepted."
 	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
 	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
 	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
@@ -344,6 +350,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
+	junoCmd.Flags().StringArray(p2pDenyList, nil, p2pDenyListUsage)
+	junoCmd.Flags().StringArray(p2pAllowList, nil, p2pAllowListUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
