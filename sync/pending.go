@@ -114,6 +114,8 @@ func (p *PendingStateWriter) SetClassHash(contractAddress, classHash *felt.Felt)
 	return nil
 }
 
+// SetContractClass writes a new CairoV0 class to the PendingState
+// Assumption: SetCompiledClassHash should be called for CairoV1 contracts
 func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.Class) error {
 	if _, err := p.Class(classHash); err == nil {
 		return errors.New("class already declared")
@@ -124,12 +126,13 @@ func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.C
 	p.newClasses[*classHash] = class
 	if class.Version() == 0 {
 		p.stateDiff.DeclaredV0Classes = append(p.stateDiff.DeclaredV0Classes, classHash.Clone())
-	} // assumption: SetCompiledClassHash will be called for Cairo1 contracts
+	}
 	return nil
 }
 
+// SetCompiledClassHash writes CairoV1 classes to the pending state
+// Assumption: SetContractClass was called for classHash and succeeded
 func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *felt.Felt) error {
-	// assumption: SetContractClass was called for classHash and succeeded
 	p.stateDiff.DeclaredV1Classes[*classHash] = compiledClassHash.Clone()
 	return nil
 }

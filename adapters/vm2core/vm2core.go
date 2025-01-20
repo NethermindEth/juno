@@ -46,7 +46,7 @@ func AdaptStateDiff(trace *vm.TransactionTrace) *core.StateDiff {
 		return nil
 	}
 	stateDiff := trace.StateDiff
-	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
+	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(stateDiff.StorageDiffs))
 	for _, sd := range stateDiff.StorageDiffs {
 		entries := make(map[felt.Felt]*felt.Felt)
 		for _, entry := range sd.StorageEntries {

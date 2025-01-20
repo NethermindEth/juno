@@ -49,14 +49,13 @@ func Read(path string) (*GenesisConfig, error) {
 }
 
 func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
-	type auxConfig struct {
+	var aux struct {
 		Classes           []string                       `json:"classes"`            // []path-to-class.json
 		Contracts         map[string]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
 		FunctionCalls     []FunctionCall                 `json:"function_calls"`     // list of functionCalls to Call()
 		BootstrapAccounts []Account                      `json:"bootstrap_accounts"` // accounts to prefund with strk token
 		Txns              []*rpc.Transaction             `json:"transactions"`       // declare NOT supported
 	}
-	var aux auxConfig
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
@@ -88,8 +87,7 @@ type FunctionCall struct {
 }
 
 func (g *GenesisConfig) Validate() error {
-	validate := validator.Validator()
-	return validate.Struct(g)
+	return validator.Validator().Struct(g)
 }
 
 // GenesisState builds the genesis state given the genesis-config data.
@@ -202,7 +200,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 			}
 
 		default:
-			panic("transaction type not supported")
+			return nil, nil, fmt.Errorf("unsupported transaction type: %v", txn.Type)
 		}
 
 		_, _, trace, _, _, err := v.Execute([]core.Transaction{coreTxn}, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
@@ -213,9 +211,6 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 
 		traceSD := vm2core.AdaptStateDiff(&trace[0])
 		genesisSD, _ := genesisState.StateDiffAndClasses()
-		fmt.Println("==")
-		fmt.Println(genesisSD)
-		fmt.Println(traceSD)
 		genesisSD.Merge(traceSD)
 		genesisState.SetStateDiff(genesisSD)
 	}
@@ -241,10 +236,14 @@ func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
 			if coreClass, err = sn2core.AdaptCairo0Class(response.V0); err != nil {
 				return nil, err
 			}
-		} else if compiledClass, cErr := compiler.Compile(response.V1); cErr != nil {
-			return nil, cErr
-		} else if coreClass, err = sn2core.AdaptCairo1Class(response.V1, compiledClass); err != nil {
-			return nil, err
+		} else {
+			var compiledClass *starknet.CompiledClass
+			if compiledClass, err = compiler.Compile(response.V1); err != nil {
+				return nil, err
+			}
+			if coreClass, err = sn2core.AdaptCairo1Class(response.V1, compiledClass); err != nil {
+				return nil, err
+			}
 		}
 
 		classhash, err := coreClass.Hash()
