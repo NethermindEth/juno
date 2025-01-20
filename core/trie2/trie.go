@@ -38,7 +38,7 @@ type Trie struct {
 	committed bool
 
 	// Maintains the records of trie changes, ensuring all nodes are modified or garbage collected properly
-	tracer *tracer
+	nodeTracer *nodeTracer
 
 	// Tracks the number of leaves inserted since the last hashing operation
 	pendingHashes int
@@ -50,11 +50,11 @@ type Trie struct {
 func New(id *ID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
 	database := triedb.New(txn, id.Bucket())
 	tr := &Trie{
-		owner:  id.Owner,
-		height: height,
-		hashFn: hashFn,
-		db:     database,
-		tracer: newTracer(),
+		owner:      id.Owner,
+		height:     height,
+		hashFn:     hashFn,
+		db:         database,
+		nodeTracer: newTracer(),
 	}
 
 	if id.Root != emptyRoot {
@@ -65,6 +65,16 @@ func New(id *ID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie,
 		tr.root = root
 	}
 	return tr, nil
+}
+
+// Creates an empty trie, only used for temporary trie construction
+func NewEmpty(height uint8, hashFn crypto.HashFn) *Trie {
+	return &Trie{
+		height:     height,
+		hashFn:     hashFn,
+		root:       nil,
+		nodeTracer: newTracer(),
+	}
 }
 
 // Modifies or inserts a key-value pair in the trie.
@@ -152,7 +162,7 @@ func (t *Trie) Commit() (felt.Felt, error) {
 	}
 
 	nodes := trienode.NewNodeSet(t.owner)
-	for _, Path := range t.tracer.deletedNodes() {
+	for _, Path := range t.nodeTracer.deletedNodes() {
 		nodes.Add(Path, trienode.NewDeleted())
 	}
 
@@ -180,7 +190,7 @@ func (t *Trie) Copy() *Trie {
 		hashFn:         t.hashFn,
 		committed:      t.committed,
 		db:             t.db,
-		tracer:         t.tracer.copy(),
+		nodeTracer:     t.nodeTracer.copy(),
 		pendingHashes:  t.pendingHashes,
 		pendingUpdates: t.pendingUpdates,
 	}
@@ -291,7 +301,7 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 			return true, branch, nil
 		}
 		matchPrefix := new(Path).MSBs(key, match.Len())
-		t.tracer.onInsert(new(Path).Append(prefix, matchPrefix))
+		t.nodeTracer.onInsert(new(Path).Append(prefix, matchPrefix))
 
 		// Otherwise, create a new edge node with the Path being the common Path and the branch as the child
 		return true, &edgeNode{path: matchPrefix, child: branch, flags: newFlag()}, nil
@@ -311,7 +321,7 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 		n.children[bit] = newNode
 		return true, n, nil
 	case nil:
-		t.tracer.onInsert(prefix)
+		t.nodeTracer.onInsert(prefix)
 		// We reach the end of the key, return the value node
 		if key.IsEmpty() {
 			return true, value, nil
@@ -343,7 +353,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 		}
 		// If the whole key matches, remove the entire edge node
 		if match.Len() == key.Len() {
-			t.tracer.onDelete(prefix)
+			t.nodeTracer.onDelete(prefix)
 			return true, nil, nil
 		}
 
@@ -356,7 +366,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 		}
 		switch child := child.(type) {
 		case *edgeNode:
-			t.tracer.onDelete(new(Path).Append(prefix, n.path))
+			t.nodeTracer.onDelete(new(Path).Append(prefix, n.path))
 			return true, &edgeNode{path: new(Path).Append(n.path, child.path), child: child.child, flags: newFlag()}, nil
 		default:
 			return true, &edgeNode{path: new(Path).Set(n.path), child: child, flags: newFlag()}, nil
@@ -381,7 +391,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 		other := bit ^ 1
 		bitPrefix := new(Path).SetBit(other)
 		if cn, ok := n.children[other].(*edgeNode); ok { // other child is an edge node, append the bit prefix to the child Path
-			t.tracer.onDelete(new(Path).Append(prefix, bitPrefix))
+			t.nodeTracer.onDelete(new(Path).Append(prefix, bitPrefix))
 			return true, &edgeNode{
 				path:  new(Path).Append(bitPrefix, cn.path),
 				child: cn.child,
