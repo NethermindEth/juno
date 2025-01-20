@@ -1938,3 +1938,154 @@ func TestSetBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestSubset(t *testing.T) {
+	tests := []struct {
+		name     string
+		x        *BitArray
+		startPos uint8
+		endPos   uint8
+		want     *BitArray
+	}{
+		{
+			name:     "empty array",
+			x:        emptyBitArray,
+			startPos: 0,
+			endPos:   0,
+			want:     emptyBitArray,
+		},
+		{
+			name: "invalid range - start >= end",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			startPos: 4,
+			endPos:   2,
+			want:     emptyBitArray,
+		},
+		{
+			name: "invalid range - start >= length",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			startPos: 8,
+			endPos:   10,
+			want:     emptyBitArray,
+		},
+		{
+			name: "full range",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			startPos: 0,
+			endPos:   8,
+			want: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+		},
+		{
+			name: "middle subset",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			startPos: 2,
+			endPos:   5,
+			want: &BitArray{
+				len:   3,
+				words: [4]uint64{0x7, 0, 0, 0}, // 111
+			},
+		},
+		{
+			name: "end subset",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			startPos: 5,
+			endPos:   8,
+			want: &BitArray{
+				len:   3,
+				words: [4]uint64{0x7, 0, 0, 0}, // 111
+			},
+		},
+		{
+			name: "start subset",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			startPos: 0,
+			endPos:   3,
+			want: &BitArray{
+				len:   3,
+				words: [4]uint64{0x7, 0, 0, 0}, // 111
+			},
+		},
+		{
+			name: "endPos beyond length",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0}, // 11111111
+			},
+			startPos: 4,
+			endPos:   10,
+			want: &BitArray{
+				len:   4,
+				words: [4]uint64{0xF, 0, 0, 0}, // 1111
+			},
+		},
+		{
+			name: "sparse bits",
+			x: &BitArray{
+				len:   8,
+				words: [4]uint64{0xAA, 0, 0, 0}, // 10101010
+			},
+			startPos: 2,
+			endPos:   6,
+			want: &BitArray{
+				len:   4,
+				words: [4]uint64{0xA, 0, 0, 0}, // 1010
+			},
+		},
+		{
+			name: "across word boundary",
+			x: &BitArray{
+				len:   128,
+				words: [4]uint64{0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0, 0},
+			},
+			startPos: 60,
+			endPos:   68,
+			want: &BitArray{
+				len:   8,
+				words: [4]uint64{0xFF, 0, 0, 0},
+			},
+		},
+		{
+			name: "max length subset",
+			x: &BitArray{
+				len:   251,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x7FFFFFFFFFFFFFF},
+			},
+			startPos: 1,
+			endPos:   251,
+			want: &BitArray{
+				len:   250,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x3FFFFFFFFFFFFFF},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := new(BitArray).Subset(tt.x, tt.startPos, tt.endPos)
+			if !got.Equal(tt.want) {
+				t.Errorf("Subset(%v, %d, %d) = %v, want %v", tt.x, tt.startPos, tt.endPos, got, tt.want)
+			}
+		})
+	}
+}
