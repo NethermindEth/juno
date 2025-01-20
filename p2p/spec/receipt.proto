@@ -39,8 +39,9 @@ message Receipt {
     uint32 memory_holes = 3;
     Felt252 l1_gas = 4;
     Felt252 l1_data_gas = 5;
-    Felt252 l2_gas = 6;
-    Felt252 total_l1_gas = 7;
+    Felt252 total_l1_gas = 6;
+    Felt252 total_l1_data_gas = 7;
+    Felt252 l2_gas = 8;
   }
 
   message Common {
