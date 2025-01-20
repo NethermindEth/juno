@@ -2,6 +2,7 @@ package trie2
 
 import (
 	"math/rand"
+	"sort"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -221,6 +222,11 @@ func randomTrie(t testing.TB, n int) (*Trie, []*keyValue) {
 		require.NoError(t, err)
 	}
 
+	// Sort records by key
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].key.Cmp(records[j].key) < 0
+	})
+
 	return tr, records
 }
 
@@ -232,10 +238,10 @@ func build4KeysTrieD(t *testing.T) (*Trie, []*keyValue) {
 		{key: new(felt.Felt).SetUint64(7), value: new(felt.Felt).SetUint64(7)},
 	}
 
-	return buildTrie(t, records), records
+	return buildTestTrie(t, records), records
 }
 
-func buildTrie(t *testing.T, records []*keyValue) *Trie {
+func buildTestTrie(t *testing.T, records []*keyValue) *Trie {
 	if len(records) == 0 {
 		t.Fatal("records must have at least one element")
 	}
