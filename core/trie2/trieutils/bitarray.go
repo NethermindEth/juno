@@ -13,10 +13,9 @@ import (
 )
 
 const (
+	maxUint64       = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
+	maxUint8        = uint8(math.MaxUint8)
 	MaxBitArraySize = 33 // (1 + 4 * 8) bytes
-
-	maxUint64 = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
-	maxUint8  = uint8(math.MaxUint8)
 )
 
 var emptyBitArray = new(BitArray)
@@ -40,8 +39,8 @@ func NewBitArray(length uint8, val uint64) BitArray {
 // Returns the felt representation of the bit array.
 func (b *BitArray) Felt() felt.Felt {
 	var f felt.Felt
-	bs := b.Bytes()
-	f.SetBytes(bs[:])
+	bt := b.Bytes()
+	f.SetBytes(bt[:])
 	return f
 }
 
@@ -262,10 +261,8 @@ func (b *BitArray) Rsh(x *BitArray, n uint8) *BitArray {
 //
 //nolint:mnd
 func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
-	b.Set(x)
-
 	if x.len == 0 || n == 0 {
-		return b
+		return b.Set(x)
 	}
 
 	// If the result will overflow, we set the length to the max length
@@ -277,8 +274,6 @@ func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
 	}
 
 	switch {
-	case n == 0:
-		return b
 	case n >= 192:
 		b.lsh192(x)
 		n -= 192
@@ -295,6 +290,7 @@ func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
 		b.words[2] = (b.words[2] << n) | (b.words[1] >> (64 - n))
 		b.words[1] <<= n
 	default:
+		b.words[3], b.words[2], b.words[1], b.words[0] = x.words[3], x.words[2], x.words[1], x.words[0]
 		b.words[3] = (b.words[3] << n) | (b.words[2] >> (64 - n))
 		b.words[2] = (b.words[2] << n) | (b.words[1] >> (64 - n))
 		b.words[1] = (b.words[1] << n) | (b.words[0] >> (64 - n))
@@ -312,22 +308,20 @@ func (b *BitArray) Lsh(x *BitArray, n uint8) *BitArray {
 //	y = 111 (len=3)
 //	Append(x,y) = 000111 (len=6)
 func (b *BitArray) Append(x, y *BitArray) *BitArray {
-	if x.len == 0 {
+	if x.len == 0 || y.len == maxUint8 {
 		return b.Set(y)
 	}
 	if y.len == 0 {
 		return b.Set(x)
 	}
 
-	// First copy x
-	b.Set(x)
-
 	// Then shift left by y's length and OR with y
-	return b.Lsh(b, y.len).Or(b, y)
+	return b.Lsh(x, y.len).Or(b, y)
 }
 
+// Sets the bit array to the concatenation of x and a single bit.
 func (b *BitArray) AppendBit(x *BitArray, bit uint8) *BitArray {
-	return b.Append(x, new(BitArray).SetBit(bit))
+	return b.Append(b, new(BitArray).SetBit(bit))
 }
 
 // Sets the bit array to x | y and returns the bit array.
@@ -481,8 +475,124 @@ func (b *BitArray) SetFelt251(f *felt.Felt) *BitArray {
 
 // Interprets the data as the big-endian bytes, sets the bit array to that value and returns it.
 // If the data is larger than 32 bytes, only the first 32 bytes are used.
+//
+//nolint:mnd,funlen,gocyclo
 func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
-	b.setBytes32(data)
+	switch l := len(data); l {
+	case 0:
+		b.clear()
+	case 1:
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(data[0])
+	case 2:
+		_ = data[1]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(binary.BigEndian.Uint16(data[0:2]))
+	case 3:
+		_ = data[2]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(binary.BigEndian.Uint16(data[1:3]))|uint64(data[0])<<16
+	case 4:
+		_ = data[3]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(binary.BigEndian.Uint32(data[0:4]))
+	case 5:
+		_ = data[4]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, bigEndianUint40(data[0:5])
+	case 6:
+		_ = data[5]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, bigEndianUint48(data[0:6])
+	case 7:
+		_ = data[6]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, bigEndianUint56(data[0:7])
+	case 8:
+		_ = data[7]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, binary.BigEndian.Uint64(data[0:8])
+	case 9:
+		_ = data[8]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(data[0]), binary.BigEndian.Uint64(data[1:9])
+	case 10:
+		_ = data[9]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(binary.BigEndian.Uint16(data[0:2])), binary.BigEndian.Uint64(data[2:10])
+	case 11:
+		_ = data[10]
+		b.words[3], b.words[2] = 0, 0
+		b.words[1], b.words[0] = uint64(binary.BigEndian.Uint16(data[1:3]))|uint64(data[0])<<16, binary.BigEndian.Uint64(data[3:11])
+	case 12:
+		_ = data[11]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(binary.BigEndian.Uint32(data[0:4])), binary.BigEndian.Uint64(data[4:12])
+	case 13:
+		_ = data[12]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint40(data[0:5]), binary.BigEndian.Uint64(data[5:13])
+	case 14:
+		_ = data[13]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint48(data[0:6]), binary.BigEndian.Uint64(data[6:14])
+	case 15:
+		_ = data[14]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint56(data[0:7]), binary.BigEndian.Uint64(data[7:15])
+	case 16:
+		_ = data[15]
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, binary.BigEndian.Uint64(data[0:8]), binary.BigEndian.Uint64(data[8:16])
+	case 17:
+		_ = data[16]
+		b.words[3], b.words[2] = 0, uint64(data[0])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[1:9]), binary.BigEndian.Uint64(data[9:17])
+	case 18:
+		_ = data[17]
+		b.words[3], b.words[2] = 0, uint64(binary.BigEndian.Uint16(data[0:2]))
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[2:10]), binary.BigEndian.Uint64(data[10:18])
+	case 19:
+		_ = data[18]
+		b.words[3], b.words[2] = 0, uint64(binary.BigEndian.Uint16(data[1:3]))|uint64(data[0])<<16
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[3:11]), binary.BigEndian.Uint64(data[11:19])
+	case 20:
+		_ = data[19]
+		b.words[3], b.words[2] = 0, uint64(binary.BigEndian.Uint32(data[0:4]))
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[4:12]), binary.BigEndian.Uint64(data[12:20])
+	case 21:
+		_ = data[20]
+		b.words[3], b.words[2] = 0, bigEndianUint40(data[0:5])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[5:13]), binary.BigEndian.Uint64(data[13:21])
+	case 22:
+		_ = data[21]
+		b.words[3], b.words[2] = 0, bigEndianUint48(data[0:6])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[6:14]), binary.BigEndian.Uint64(data[14:22])
+	case 23:
+		_ = data[22]
+		b.words[3], b.words[2] = 0, bigEndianUint56(data[0:7])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[7:15]), binary.BigEndian.Uint64(data[15:23])
+	case 24:
+		_ = data[23]
+		b.words[3], b.words[2] = 0, binary.BigEndian.Uint64(data[0:8])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[8:16]), binary.BigEndian.Uint64(data[16:24])
+	case 25:
+		_ = data[24]
+		b.words[3], b.words[2] = uint64(data[0]), binary.BigEndian.Uint64(data[1:9])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[9:17]), binary.BigEndian.Uint64(data[17:25])
+	case 26:
+		_ = data[25]
+		b.words[3], b.words[2] = uint64(binary.BigEndian.Uint16(data[0:2])), binary.BigEndian.Uint64(data[2:10])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[10:18]), binary.BigEndian.Uint64(data[18:26])
+	case 27:
+		_ = data[26]
+		b.words[3] = uint64(binary.BigEndian.Uint16(data[1:3])) | uint64(data[0])<<16
+		b.words[2] = binary.BigEndian.Uint64(data[3:11])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[11:19]), binary.BigEndian.Uint64(data[19:27])
+	case 28:
+		_ = data[27]
+		b.words[3], b.words[2] = uint64(binary.BigEndian.Uint32(data[0:4])), binary.BigEndian.Uint64(data[4:12])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[12:20]), binary.BigEndian.Uint64(data[20:28])
+	case 29:
+		_ = data[28]
+		b.words[3], b.words[2] = bigEndianUint40(data[0:5]), binary.BigEndian.Uint64(data[5:13])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[13:21]), binary.BigEndian.Uint64(data[21:29])
+	case 30:
+		_ = data[29]
+		b.words[3], b.words[2] = bigEndianUint48(data[0:6]), binary.BigEndian.Uint64(data[6:14])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[14:22]), binary.BigEndian.Uint64(data[22:30])
+	case 31:
+		_ = data[30]
+		b.words[3], b.words[2] = bigEndianUint56(data[0:7]), binary.BigEndian.Uint64(data[7:15])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[15:23]), binary.BigEndian.Uint64(data[23:31])
+	default:
+		b.setBytes32(data)
+	}
 	b.len = length
 	b.truncateToLength()
 	return b
@@ -519,17 +629,17 @@ func (b *BitArray) Copy() BitArray {
 // Returns the encoded string representation of the bit array.
 func (b *BitArray) EncodedString() string {
 	var res []byte
-	bs := b.Bytes()
+	bt := b.Bytes()
 	res = append(res, b.len)
-	res = append(res, bs[:]...)
+	res = append(res, bt[:]...)
 	return string(res)
 }
 
 // Returns a string representation of the bit array.
 // This is typically used for logging or debugging.
 func (b *BitArray) String() string {
-	bs := b.Bytes()
-	return fmt.Sprintf("(%d) %s", b.len, hex.EncodeToString(bs[:]))
+	bt := b.Bytes()
+	return fmt.Sprintf("(%d) %s", b.len, hex.EncodeToString(bt[:]))
 }
 
 func (b *BitArray) setFelt(f *felt.Felt) {
@@ -552,7 +662,6 @@ func (b *BitArray) setBytes32(data []byte) {
 // It rounds up to the nearest byte.
 func (b *BitArray) byteCount() uint {
 	const bits8 = 8
-	// Cast to uint16 to avoid overflow
 	return (uint(b.len) + (bits8 - 1)) / uint(bits8)
 }
 
@@ -685,4 +794,22 @@ func (b *BitArray) Cmp(x *BitArray) int {
 	}
 
 	return 1
+}
+
+func bigEndianUint40(b []byte) uint64 {
+	_ = b[4] // bounds check hint to compiler; see golang.org/issue/14808
+	return uint64(b[4]) | uint64(b[3])<<8 | uint64(b[2])<<16 | uint64(b[1])<<24 |
+		uint64(b[0])<<32
+}
+
+func bigEndianUint48(b []byte) uint64 {
+	_ = b[5] // bounds check hint to compiler; see golang.org/issue/14808
+	return uint64(b[5]) | uint64(b[4])<<8 | uint64(b[3])<<16 | uint64(b[2])<<24 |
+		uint64(b[1])<<32 | uint64(b[0])<<40
+}
+
+func bigEndianUint56(b []byte) uint64 {
+	_ = b[6] // bounds check hint to compiler; see golang.org/issue/14808
+	return uint64(b[6]) | uint64(b[5])<<8 | uint64(b[4])<<16 | uint64(b[3])<<24 |
+		uint64(b[2])<<32 | uint64(b[1])<<40 | uint64(b[0])<<48
 }
