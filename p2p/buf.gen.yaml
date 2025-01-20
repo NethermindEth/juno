@@ -2,5 +2,5 @@ version: v2
 clean: true
 plugins:
   - remote: buf.build/protocolbuffers/go
-    out: p2p/gen
+    out: gen
     opt: paths=source_relative
