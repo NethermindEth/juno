@@ -104,6 +104,7 @@ func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
 }
 
 // Returns the least significant bits of `x` with `n` counted from the most significant bit, starting at 0.
+// Think of this method as array[n:]
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -159,6 +160,7 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 
 // Sets the bit array to the most significant 'n' bits of x, that is position 0 to n (exclusive).
 // If n >= x.len, the bit array is an exact copy of x.
+// Think of this method as array[0:n]
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -324,12 +326,54 @@ func (b *BitArray) AppendBit(x *BitArray, bit uint8) *BitArray {
 	return b.Append(b, new(BitArray).SetBit(bit))
 }
 
+// Sets the bit array to a subset of x from startPos (inclusive) to endPos (exclusive),
+// where position 0 is the MSB. If startPos >= endPos or if startPos >= x.len,
+// returns an empty BitArray.
+// Think of this method as array[start:end]
+// For example:
+//
+//	x = 001011011 (len=9)
+//	Subset(x, 2, 5) = 101 (len=3)
+func (b *BitArray) Subset(x *BitArray, startPos, endPos uint8) *BitArray {
+	// Check for invalid inputs
+	if startPos >= endPos || startPos >= x.len {
+		return b.clear()
+	}
+
+	// Clamp endPos to x.len if it exceeds it
+	if endPos > x.len {
+		endPos = x.len
+	}
+
+	length := endPos - startPos
+
+	// First, trim off the MSBs that are not part of the subset
+	b.LSBs(x, startPos)
+
+	// Then, we create a mask of ones and appends zeros to the end to match the length
+	mask := new(BitArray).Ones(length)
+	zeros := &BitArray{len: b.len - length}
+	mask.Append(mask, zeros)
+
+	// Apply the mask to the bit array and then only take the first `length` bits
+	return b.And(b, mask).MSBs(b, length)
+}
+
 // Sets the bit array to x | y and returns the bit array.
 func (b *BitArray) Or(x, y *BitArray) *BitArray {
 	b.words[0] = x.words[0] | y.words[0]
 	b.words[1] = x.words[1] | y.words[1]
 	b.words[2] = x.words[2] | y.words[2]
 	b.words[3] = x.words[3] | y.words[3]
+	b.len = x.len
+	return b
+}
+
+func (b *BitArray) And(x, y *BitArray) *BitArray {
+	b.words[0] = x.words[0] & y.words[0]
+	b.words[1] = x.words[1] & y.words[1]
+	b.words[2] = x.words[2] & y.words[2]
+	b.words[3] = x.words[3] & y.words[3]
 	b.len = x.len
 	return b
 }
@@ -739,6 +783,17 @@ func (b *BitArray) truncateToLength() {
 	default:
 		b.words[3] &= maxUint64 >> (256 - uint16(b.len))
 	}
+}
+
+// Sets the bit array to a sequence of ones of the specified length.
+func (b *BitArray) Ones(length uint8) *BitArray {
+	b.len = length
+	b.words[0] = maxUint64
+	b.words[1] = maxUint64
+	b.words[2] = maxUint64
+	b.words[3] = maxUint64
+	b.truncateToLength()
+	return b
 }
 
 // Returns the position of the first '1' bit in the array, scanning from most significant to least significant bit.
