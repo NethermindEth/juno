@@ -82,9 +82,9 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 			}
 		}()
 
+		var zero ResT
+		res := zero.ProtoReflect().New().Interface()
 		for {
-			var zero ResT
-			res := zero.ProtoReflect().New().Interface()
 			if err := receiveInto(stream, res); err != nil {
 				if !errors.Is(err, io.EOF) {
 					log.Debugw("Error while reading from stream", "err", err)
@@ -96,6 +96,8 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 			if !yield(res.(ResT)) {
 				break
 			}
+
+			proto.Reset(res)
 		}
 	}, nil
 }
