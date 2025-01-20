@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -257,7 +256,7 @@ func relocateContractStorageRootKeys(txn db.Transaction, _ *utils.Network) error
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
 func recalculateBloomFilters(txn db.Transaction, _ *utils.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		block, err := blockByNumber(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
@@ -265,7 +264,7 @@ func recalculateBloomFilters(txn db.Transaction, _ *utils.Network) error {
 			return err
 		}
 		block.EventsBloom = core.EventsBloom(block.Receipts)
-		if err = blockchain.StoreBlockHeader(txn, block.Header); err != nil {
+		if err = storeBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 	}
@@ -445,13 +444,14 @@ func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) er
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
-	chainHeight, err := blockchain.ChainHeight(txn)
+	header, err := head(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil
 		}
 		return err
 	}
+	chainHeight := header.Number
 	blockNumbers := make(chan uint64, 1024) //nolint:mnd
 	go func() {
 		for bNumber := range chainHeight + 1 {
@@ -477,7 +477,7 @@ func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) er
 func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		block, err := blockchain.BlockByNumber(txn, blockNumber)
+		block, err := blockByNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
@@ -490,7 +490,7 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 		}
 		txnLock.Lock()
 		defer txnLock.Unlock()
-		return blockchain.StoreBlockCommitments(txn, block.Number, commitments)
+		return storeBlockCommitments(txn, block.Number, commitments)
 	}
 	return processBlocks(txn, processBlockFunc)
 }
@@ -498,14 +498,16 @@ func calculateBlockCommitments(txn db.Transaction, network *utils.Network) error
 func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		txns, err := blockchain.TransactionsByBlockNumber(txn, blockNumber)
+		block, err := blockByNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
 		}
+
+		txns := block.Transactions
 		txnLock.Lock()
 		defer txnLock.Unlock()
-		return blockchain.StoreL1HandlerMsgHashes(txn, txns)
+		return storeL1HandlerMsgHashes(txn, txns)
 	}
 	return processBlocks(txn, processBlockFunc)
 }
