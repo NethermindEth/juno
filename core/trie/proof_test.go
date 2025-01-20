@@ -284,6 +284,7 @@ func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 	}
 
 	_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+	t.Log(err)
 	require.Error(t, err)
 }
 
