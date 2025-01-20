@@ -289,6 +289,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	}
 }
 
+//nolint:gocyclo
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
@@ -318,6 +319,18 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 						s.handlePluginRevertBlock()
 					}
 					s.revertHead(block)
+
+					// The previous head has been reverted, hence, get the current head and store empty pending block
+					head, err := s.blockchain.HeadsHeader()
+					if err != nil {
+						s.log.Errorw("Failed to retrieve the head header", "err", err)
+					}
+
+					if head != nil {
+						if err := s.storeEmptyPending(head); err != nil {
+							s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+						}
+					}
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,
 						"hash", block.Hash.ShortString(), "err", err)
@@ -325,6 +338,11 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				resetStreams()
 				return
 			}
+
+			if err := s.storeEmptyPending(block.Header); err != nil {
+				s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+			}
+
 			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			highestBlockHeader := s.highestBlockHeader.Load()
@@ -628,9 +646,6 @@ func (s *Synchronizer) Pending() (*Pending, error) {
 		return p, nil
 	}
 
-	// Since the pending block in the cache is outdated remove it
-	s.pending.Store(nil)
-
 	return nil, ErrPendingBlockNotFound
 }
 
@@ -655,4 +670,66 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	}
 
 	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
+}
+
+func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingBlock := &core.Block{
+		Header: &core.Header{
+			ParentHash:       latestHeader.Hash,
+			SequencerAddress: latestHeader.SequencerAddress,
+			Number:           latestHeader.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
+			ProtocolVersion:  latestHeader.ProtocolVersion,
+			EventsBloom:      core.EventsBloom(receipts),
+			GasPrice:         latestHeader.GasPrice,
+			GasPriceSTRK:     latestHeader.GasPriceSTRK,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
+	if err != nil {
+		return err
+	}
+
+	emptyPending := &Pending{
+		Block: pendingBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   latestHeader.GlobalStateRoot,
+			StateDiff: stateDiff,
+		},
+		NewClasses: make(map[felt.Felt]core.Class, 0),
+	}
+
+	s.pending.Store(emptyPending)
+	return nil
+}
+
+func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
+	stateDiff := &core.StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+		Nonces:            make(map[felt.Felt]*felt.Felt),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt),
+		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+	}
+
+	const blockHashLag = 10
+	if blockNumber < blockHashLag {
+		return stateDiff, nil
+	}
+
+	header, err := bc.BlockHeaderByNumber(blockNumber - blockHashLag)
+	if err != nil {
+		return nil, err
+	}
+
+	blockHashStorageContract := new(felt.Felt).SetUint64(1)
+	stateDiff.StorageDiffs[*blockHashStorageContract] = map[felt.Felt]*felt.Felt{
+		*new(felt.Felt).SetUint64(header.Number): header.Hash,
+	}
+	return stateDiff, nil
 }

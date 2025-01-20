@@ -110,6 +110,8 @@ linters:
     - tparallel
     - gci
     - exhaustruct
+    - usetesting
+    - nilnesserr
 
   # don't enable:
   # - asciicheck

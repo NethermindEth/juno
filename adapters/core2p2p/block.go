@@ -20,7 +20,7 @@ func AdaptBlockID(header *core.Header) *gen.BlockID {
 	}
 }
 
-func AdaptSignature(sig []*felt.Felt) *gen.ConsensusSignature {
+func adaptSignature(sig []*felt.Felt) *gen.ConsensusSignature {
 	return &gen.ConsensusSignature{
 		R: AdaptFelt(sig[0]),
 		S: AdaptFelt(sig[1]),
@@ -48,7 +48,7 @@ func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
 		Receipts:        AdaptHash(commitments.ReceiptCommitment),
 		ProtocolVersion: header.ProtocolVersion,
 		GasPriceFri:     AdaptUint128(header.GasPriceSTRK),
-		Signatures:      utils.Map(header.Signatures, AdaptSignature),
+		Signatures:      utils.Map(header.Signatures, adaptSignature),
 		StateDiffCommitment: &gen.StateDiffCommitment{
 			StateDiffLength: stateDiffLength,
 			Root:            AdaptHash(stateDiffCommitment),
