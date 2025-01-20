@@ -35,10 +35,8 @@ func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) 
 		ProtocolVersion:  h.ProtocolVersion,
 		EventsBloom:      eventsBloom,
 		L1GasPriceETH:    AdaptUint128(h.L1GasPriceWei),
-		L2GasPriceETH:    AdaptUint128(h.L2GasPriceWei),
 		Signatures:       utils.Map(h.Signatures, adaptSignature),
 		L1GasPriceSTRK:   AdaptUint128(h.L1GasPriceFri),
-		L2GasPriceSTRK:   AdaptUint128(h.L2GasPriceFri),
 		L1DAMode:         adaptDA(h.L1DataAvailabilityMode),
 		L1DataGasPrice: &core.GasPrice{
 			PriceInWei: AdaptUint128(h.L1DataGasPriceWei),

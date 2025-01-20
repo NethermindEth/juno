@@ -37,14 +37,10 @@ type Header struct {
 	// Amount of WEI charged per Gas spent on L1
 	L1GasPriceETH *felt.Felt `cbor:"gasprice"`
 	// Amount of STRK charged per Gas spent on L2
-	L2GasPriceETH *felt.Felt
-	// Sequencer signatures
 	Signatures [][]*felt.Felt
 	// Amount of STRK charged per Gas spent on L1
 	L1GasPriceSTRK *felt.Felt `cbor:"gaspricestrk"`
 	// Amount of STRK charged per Gas spent on L2
-	L2GasPriceSTRK *felt.Felt
-	// The mode of the L1 data availability
 	L1DAMode L1DAMode
 	// The gas price for L1 data availability
 	L1DataGasPrice *GasPrice

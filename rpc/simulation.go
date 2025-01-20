@@ -149,11 +149,11 @@ func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUn
 	switch feeUnit {
 	case FRI:
 		l1GasPrice = header.L1GasPriceSTRK
-		l2GasPrice = header.L2GasPriceSTRK
+		l2GasPrice = header.L2GasPrice.PriceInFri
 		l1DataGasPrice = header.L1DataGasPrice.PriceInFri
 	case WEI:
 		l1GasPrice = header.L1GasPriceETH
-		l2GasPrice = header.L2GasPriceETH
+		l2GasPrice = header.L2GasPrice.PriceInWei
 		l1DataGasPrice = header.L1DataGasPrice.PriceInWei
 	}
 
