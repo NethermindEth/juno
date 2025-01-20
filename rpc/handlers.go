@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maps"
 	"math"
 	"strings"
 	stdsync "sync"
@@ -194,9 +195,15 @@ func (h *Handler) Run(ctx context.Context) error {
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()
-	for _, sub := range h.subscriptions {
+
+	h.mu.Lock()
+	subscriptions := maps.Values(h.subscriptions)
+	h.mu.Unlock()
+
+	for sub := range subscriptions {
 		sub.wg.Wait()
 	}
+
 	return nil
 }
 
