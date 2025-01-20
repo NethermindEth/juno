@@ -104,6 +104,7 @@ func (b *BitArray) LSBsFromLSB(x *BitArray, n uint8) *BitArray {
 }
 
 // Returns the least significant bits of `x` with `n` counted from the most significant bit, starting at 0.
+// Think of this method as array[n:]
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -159,6 +160,7 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 
 // Sets the bit array to the most significant 'n' bits of x, that is position 0 to n (exclusive).
 // If n >= x.len, the bit array is an exact copy of x.
+// Think of this method as array[0:n]
 // For example:
 //
 //	x = 11001011 (len=8)
@@ -327,6 +329,7 @@ func (b *BitArray) AppendBit(x *BitArray, bit uint8) *BitArray {
 // Sets the bit array to a subset of x from startPos (inclusive) to endPos (exclusive),
 // where position 0 is the MSB. If startPos >= endPos or if startPos >= x.len,
 // returns an empty BitArray.
+// Think of this method as array[start:end]
 // For example:
 //
 //	x = 001011011 (len=9)
