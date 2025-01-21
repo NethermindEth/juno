@@ -250,16 +250,10 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 		return false, err
 	}
 
-	fmt.Println("Before unsetInternal")
-	fmt.Println(root.String())
-
 	empty, err := unsetInternal(root, firstKey, lastKey)
 	if err != nil {
 		return false, err
 	}
-
-	fmt.Println("After unsetInternal")
-	fmt.Println(root.String())
 
 	tr := NewEmpty(contractClassTrieHeight, crypto.Pedersen)
 	if !empty {
@@ -271,9 +265,6 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 			return false, err
 		}
 	}
-
-	fmt.Println("After update")
-	fmt.Println(tr.root.String())
 
 	newRoot := tr.Hash()
 
@@ -510,14 +501,17 @@ func unset(parent node, child node, key *Path, pos uint8, removeLeft bool) error
 		keyPos := new(Path).LSBs(key, pos)
 		keyBit := key.Bit(pos - 1)
 		if !cld.pathMatches(keyPos) {
+			// We append zeros to the path to match the length of the remaining key
+			// The key length is guaranteed to be >= path length
+			edgePath := new(Path).AppendZeros(cld.path, keyPos.Len()-cld.path.Len())
 			// Found fork point, non-existent branch
 			if removeLeft {
-				if cld.path.Cmp(keyPos) < 0 {
+				if edgePath.Cmp(keyPos) < 0 {
 					// Edge node path is in range, unset entire branch
 					parent.(*binaryNode).children[keyBit] = nil
 				}
 			} else {
-				if cld.path.Cmp(keyPos) > 0 {
+				if edgePath.Cmp(keyPos) > 0 {
 					parent.(*binaryNode).children[keyBit] = nil
 				}
 			}
