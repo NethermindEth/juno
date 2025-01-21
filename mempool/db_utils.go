@@ -31,7 +31,7 @@ func updateTail(txn db.Transaction, tail *felt.Felt) error {
 	return txn.Set(db.MempoolTail.Key(), tail.Marshal())
 }
 
-func readDBElem(txn db.Transaction, itemKey *felt.Felt) (dbPoolTxn, error) {
+func readTxn(txn db.Transaction, itemKey *felt.Felt) (dbPoolTxn, error) {
 	var item dbPoolTxn
 	keyBytes := itemKey.Bytes()
 	err := txn.Get(db.MempoolNode.Key(keyBytes[:]), func(b []byte) error {
@@ -40,7 +40,7 @@ func readDBElem(txn db.Transaction, itemKey *felt.Felt) (dbPoolTxn, error) {
 	return item, err
 }
 
-func setDBElem(txn db.Transaction, item *dbPoolTxn) error {
+func setTxn(txn db.Transaction, item *dbPoolTxn) error {
 	itemBytes, err := encoder.Marshal(item)
 	if err != nil {
 		return err
