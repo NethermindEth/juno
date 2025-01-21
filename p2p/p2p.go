@@ -53,7 +53,7 @@ type Service struct {
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.DB, denyListCIDR []string, allowListCIDR []string,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -89,6 +89,11 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		return addrs
 	}
 
+	connGater, err := newConnectionGater(denyListCIDR, allowListCIDR, log)
+	if err != nil {
+		return nil, err
+	}
+
 	p2pHost, err := libp2p.New(
 		libp2p.ListenAddrs(sourceMultiAddr),
 		libp2p.Identity(prvKey),
@@ -103,6 +108,8 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 		libp2p.EnableHolePunching(),
 		// Try to open a port in the NAT router to accept incoming connections.
 		libp2p.NATPortMap(),
+		// Manage inbound / outbound connections.
+		libp2p.ConnectionGater(connGater),
 	)
 	if err != nil {
 		return nil, err
