@@ -37,6 +37,9 @@ type (
 	valueNode struct{ felt.Felt }
 )
 
+// nilValueNode is used when collapsing internal trie nodes for hashing, since unset children need to be hashed correctly
+var nilValueNode = &valueNode{felt.Felt{}}
+
 type nodeFlag struct {
 	hash  *hashNode
 	dirty bool
