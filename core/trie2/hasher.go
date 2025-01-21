@@ -67,18 +67,35 @@ func (h *hasher) hashBinaryChildren(n *binaryNode) (collapsed, cached *binaryNod
 
 		go func() {
 			defer wg.Done()
-			collapsed.children[0], cached.children[0] = h.hash(n.children[0])
+			if n.children[0] != nil {
+				collapsed.children[0], cached.children[0] = h.hash(n.children[0])
+			} else {
+				collapsed.children[0], cached.children[0] = nilValueNode, nilValueNode
+			}
 		}()
 
 		go func() {
 			defer wg.Done()
-			collapsed.children[1], cached.children[1] = h.hash(n.children[1])
+			if n.children[1] != nil {
+				collapsed.children[1], cached.children[1] = h.hash(n.children[1])
+			} else {
+				collapsed.children[1], cached.children[1] = nilValueNode, nilValueNode
+			}
 		}()
 
 		wg.Wait()
 	} else {
-		collapsed.children[0], cached.children[0] = h.hash(n.children[0])
-		collapsed.children[1], cached.children[1] = h.hash(n.children[1])
+		if n.children[0] != nil {
+			collapsed.children[0], cached.children[0] = h.hash(n.children[0])
+		} else {
+			collapsed.children[0], cached.children[0] = nilValueNode, nilValueNode
+		}
+
+		if n.children[1] != nil {
+			collapsed.children[1], cached.children[1] = h.hash(n.children[1])
+		} else {
+			collapsed.children[1], cached.children[1] = nilValueNode, nilValueNode
+		}
 	}
 
 	return collapsed, cached
