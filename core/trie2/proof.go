@@ -544,12 +544,12 @@ func hasRightElement(node node, key Path) bool {
 	for node != nil {
 		switch n := node.(type) {
 		case *binaryNode:
-			for _, cn := range n.children {
-				if cn != nil {
-					return true
-				}
+			bit := key.MSB()
+			if bit == 0 && n.children[1] != nil {
+				// right sibling exists
+				return true
 			}
-			node = n.children[key.MSB()]
+			node = n.children[bit]
 			key.LSBs(&key, 1)
 		case *edgeNode:
 			if !n.pathMatches(&key) {
@@ -559,6 +559,7 @@ func hasRightElement(node node, key Path) bool {
 				return n.path.Cmp(&key) > 0
 			}
 			node = n.child
+			key.LSBs(&key, n.path.Len())
 		case *valueNode:
 			return false // resolved the whole path
 		default:
