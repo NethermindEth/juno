@@ -83,3 +83,18 @@ func (h *hasher) hashBinaryChildren(n *binaryNode) (collapsed, cached *binaryNod
 
 	return collapsed, cached
 }
+
+// Construct trie proofs and returns the collapsed node (i.e. nodes with hash children)
+// and the hashed node.
+func (h *hasher) proofHash(original node) (collapsed, hashed node) {
+	switch n := original.(type) {
+	case *edgeNode:
+		en, _ := h.hashEdgeChild(n)
+		return en, &hashNode{Felt: *en.hash(h.hashFn)}
+	case *binaryNode:
+		bn, _ := h.hashBinaryChildren(n)
+		return bn, &hashNode{Felt: *bn.hash(h.hashFn)}
+	default:
+		return n, n
+	}
+}
