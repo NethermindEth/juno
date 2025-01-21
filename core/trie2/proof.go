@@ -63,10 +63,16 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 
 	// TODO: ideally Hash() should be called before Prove() so that the hashes are cached
 	// There should be a better way to do this
-	h := newHasher(t.hashFn, false)
-	for _, n := range nodes {
-		hashed, cached := h.hash(n) // subsequent nodes are cached
-		proof.Put(hashed.(*hashNode).Felt, cached)
+	hasher := newHasher(t.hashFn, false)
+	for i, n := range nodes {
+		var hn node
+		n, hn = hasher.proofHash(n)
+		if hash, ok := hn.(*hashNode); ok || i == 0 {
+			if !ok {
+				hash = &hashNode{Felt: *n.hash(hasher.hashFn)}
+			}
+			proof.Put(hash.Felt, n)
+		}
 	}
 
 	return nil
@@ -244,21 +250,30 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 		return false, err
 	}
 
-	// TODO: unset internal
-	// empty, err := unsetInternal(root, firstKey, lastKey)
-	// if err != nil {
-	// 	return false, err
-	// }
+	fmt.Println("Before unsetInternal")
+	fmt.Println(root.String())
+
+	empty, err := unsetInternal(root, firstKey, lastKey)
+	if err != nil {
+		return false, err
+	}
+
+	fmt.Println("After unsetInternal")
+	fmt.Println(root.String())
 
 	tr := NewEmpty(contractClassTrieHeight, crypto.Pedersen)
-	// if !empty {
-	// 	tr.root = root
-	// }
+	if !empty {
+		tr.root = root
+	}
+
 	for i, key := range keys {
 		if err := tr.Update(key, values[i]); err != nil {
 			return false, err
 		}
 	}
+
+	fmt.Println("After update")
+	fmt.Println(tr.root.String())
 
 	newRoot := tr.Hash()
 
