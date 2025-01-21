@@ -207,6 +207,28 @@ func TestRangeProof(t *testing.T) {
 	}
 }
 
+func TestRangeProofNonRandom(t *testing.T) {
+	tr, records := nonRandomTrie(t, 6)
+	root := tr.Hash()
+
+	t.Log("Original trie")
+	t.Log(tr.root.String())
+
+	proof := NewProofNodeSet()
+	err := tr.GetRangeProof(records[0].key, records[3].key, proof)
+	require.NoError(t, err)
+
+	for i := 0; i < 4; i++ {
+		t.Logf("key %s: value %s", records[i].key.String(), records[i].value.String())
+	}
+
+	keys := []*felt.Felt{records[0].key, records[1].key, records[2].key, records[3].key}
+	values := []*felt.Felt{records[0].value, records[1].value, records[2].value, records[3].value}
+
+	_, err = VerifyRangeProof(&root, records[0].key, keys, values, proof)
+	require.NoError(t, err)
+}
+
 // TestRangeProofWithNonExistentProof tests normal range proof with non-existent proofs
 func TestRangeProofWithNonExistentProof(t *testing.T) {
 	n := 500

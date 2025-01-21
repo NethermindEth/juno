@@ -267,6 +267,9 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 		}
 	}
 
+	fmt.Println("After update")
+	fmt.Println(tr.root.String())
+
 	newRoot := tr.Hash()
 
 	// Verify that the recomputed root hash matches the provided root hash
