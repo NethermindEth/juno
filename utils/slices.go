@@ -38,7 +38,8 @@ func AnyOf[T comparable](e T, values ...T) bool {
 	return slices.Contains(values, e)
 }
 
-// Unique returns a new slice with duplicates removed
+// Unique returns a new slice with duplicates removed.
+// Panics if the slice contains pointer types.
 func Unique[T comparable](slice []T) []T {
 	if len(slice) == 0 {
 		return slice
@@ -46,7 +47,7 @@ func Unique[T comparable](slice []T) []T {
 
 	// do not support unique on pointer types, just return the slice as it is
 	if reflect.TypeOf(slice[0]).Kind() == reflect.Ptr {
-		return slice
+		panic("Unique does not support pointer types")
 	}
 
 	result := make([]T, 0, len(slice))
