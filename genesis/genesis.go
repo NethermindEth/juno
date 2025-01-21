@@ -209,7 +209,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 
-		traceSD := vm2core.AdaptStateDiff(&trace[0])
+		traceSD := vm2core.AdaptStateDiff(trace[0].StateDiff)
 		genesisSD, _ := genesisState.StateDiffAndClasses()
 		genesisSD.Merge(traceSD)
 		genesisState.SetStateDiff(genesisSD)

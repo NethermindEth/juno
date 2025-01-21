@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+var feltOne = new(felt.Felt).SetUint64(1)
+
 type Pending struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
@@ -97,8 +99,7 @@ func (p *PendingStateWriter) IncrementNonce(contractAddress *felt.Felt) error {
 	if err != nil {
 		return fmt.Errorf("get contract nonce: %v", err)
 	}
-	newNonce := new(felt.Felt).SetUint64(1)
-	p.stateDiff.Nonces[*contractAddress] = newNonce.Add(currentNonce, newNonce)
+	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(currentNonce, feltOne)
 	return nil
 }
 

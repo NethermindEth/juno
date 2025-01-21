@@ -41,11 +41,10 @@ func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 	return utils.Map(events, AdaptOrderedEvent)
 }
 
-func AdaptStateDiff(trace *vm.TransactionTrace) *core.StateDiff {
-	if trace.StateDiff == nil {
-		return nil
+func AdaptStateDiff(stateDiff *vm.StateDiff) *core.StateDiff {
+	if stateDiff == nil {
+		return core.EmptyStateDiff()
 	}
-	stateDiff := trace.StateDiff
 	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(stateDiff.StorageDiffs))
 	for _, sd := range stateDiff.StorageDiffs {
 		entries := make(map[felt.Felt]*felt.Felt)
