@@ -550,7 +550,13 @@ func hasRightElement(node node, key Path) bool {
 				// There's a divergence in the path, check if the node path is greater than the key
 				// If so, that means that this node comes after the search key, which indicates that
 				// there are elements with larger values
-				return n.path.Cmp(&key) > 0
+				var edgePath *Path
+				if key.Len() > n.path.Len() {
+					edgePath = new(Path).AppendZeros(n.path, key.Len()-n.path.Len())
+				} else {
+					edgePath = n.path
+				}
+				return edgePath.Cmp(&key) > 0
 			}
 			node = n.child
 			key.LSBs(&key, n.path.Len())
