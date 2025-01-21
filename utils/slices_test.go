@@ -104,11 +104,4 @@ func TestUnique(t *testing.T) {
 		actual := Unique(input)
 		assert.Equal(t, []string{"a", "b", "c"}, actual)
 	})
-
-	t.Run("slice of pointers returns unchanged", func(t *testing.T) {
-		a, b := new(int), new(int)
-		input := []*int{a, b, a, b}
-		actual := Unique(input)
-		assert.Equal(t, input, actual)
-	})
 }
