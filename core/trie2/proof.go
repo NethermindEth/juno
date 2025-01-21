@@ -491,15 +491,16 @@ findFork:
 func unset(parent node, child node, key *Path, pos uint8, removeLeft bool) error {
 	switch cld := child.(type) {
 	case *binaryNode:
+		keyBit := key.Bit(pos)
 		cld.flags = newFlag() // Mark dirty
 		if removeLeft {
 			// Remove left child if we're removing left side
-			if key.MSB() == 1 {
+			if keyBit == 1 {
 				cld.children[0] = nil
 			}
 		} else {
 			// Remove right child if we're removing right side
-			if key.MSB() == 0 {
+			if keyBit == 0 {
 				cld.children[1] = nil
 			}
 		}
@@ -507,22 +508,23 @@ func unset(parent node, child node, key *Path, pos uint8, removeLeft bool) error
 
 	case *edgeNode:
 		keyPos := new(Path).LSBs(key, pos)
+		keyBit := key.Bit(pos - 1)
 		if !cld.pathMatches(keyPos) {
 			// Found fork point, non-existent branch
 			if removeLeft {
 				if cld.path.Cmp(keyPos) < 0 {
 					// Edge node path is in range, unset entire branch
-					parent.(*binaryNode).children[key.Bit(pos-1)] = nil
+					parent.(*binaryNode).children[keyBit] = nil
 				}
 			} else {
 				if cld.path.Cmp(keyPos) > 0 {
-					parent.(*binaryNode).children[key.Bit(pos-1)] = nil
+					parent.(*binaryNode).children[keyBit] = nil
 				}
 			}
 			return nil
 		}
 		if _, ok := cld.child.(*valueNode); ok {
-			parent.(*binaryNode).children[key.Bit(pos-1)] = nil
+			parent.(*binaryNode).children[keyBit] = nil
 			return nil
 		}
 		cld.flags = newFlag()
