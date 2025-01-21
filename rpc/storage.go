@@ -165,6 +165,21 @@ func (h *Handler) StorageProof(id BlockID,
 	classes = utils.Unique(classes)
 	contracts = utils.Unique(contracts)
 
+	// Remove duplicates from the storage keys
+	mergedStorageKeys := make(map[felt.Felt][]felt.Felt)
+	for _, storageKey := range storageKeys {
+		if existing, ok := mergedStorageKeys[storageKey.Contract]; ok {
+			mergedStorageKeys[storageKey.Contract] = append(existing, storageKey.Keys...)
+		} else {
+			mergedStorageKeys[storageKey.Contract] = storageKey.Keys
+		}
+	}
+
+	uniqueStorageKeys := make([]StorageKeys, 0, len(mergedStorageKeys))
+	for contract, keys := range mergedStorageKeys {
+		uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: contract, Keys: utils.Unique(keys)})
+	}
+
 	classProof, err := getClassProof(classTrie, classes)
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
@@ -175,7 +190,7 @@ func (h *Handler) StorageProof(id BlockID,
 		return nil, ErrInternal.CloneWithData(err)
 	}
 
-	contractStorageProof, err := getContractStorageProof(state, storageKeys)
+	contractStorageProof, err := getContractStorageProof(state, uniqueStorageKeys)
 	if err != nil {
 		return nil, ErrInternal.CloneWithData(err)
 	}
@@ -261,8 +276,7 @@ func getContractStorageProof(state core.StateReader, storageKeys []StorageKeys) 
 		}
 
 		contractStorageProof := trie.NewProofNodeSet()
-		keys := utils.Unique(storageKey.Keys)
-		for _, key := range keys {
+		for _, key := range storageKey.Keys {
 			if err := contractStorageTrie.Prove(&key, contractStorageProof); err != nil {
 				return nil, err
 			}
