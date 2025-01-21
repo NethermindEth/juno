@@ -510,7 +510,7 @@ func calculateL1MsgHashes(txn db.Transaction, n *utils.Network) error {
 	return processBlocks(txn, processBlockFunc)
 }
 
-func bitset2Key(bs *bitset.BitSet) *trie.Key {
+func bitset2BitArray(bs *bitset.BitSet) *trie.BitArray {
 	bsWords := bs.Words()
 	if len(bsWords) > felt.Limbs {
 		panic("key too long to fit in Felt")
@@ -523,9 +523,7 @@ func bitset2Key(bs *bitset.BitSet) *trie.Key {
 	}
 
 	f := new(felt.Felt).SetBytes(bsBytes[:])
-	fBytes := f.Bytes()
-	k := trie.NewKey(uint8(bs.Len()), fBytes[:])
-	return &k
+	return new(trie.BitArray).SetFelt(uint8(bs.Len()), f)
 }
 
 func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []byte, _ *utils.Network) error {
@@ -534,8 +532,8 @@ func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.Transaction, key, value []by
 	if err := bs.UnmarshalBinary(value); err != nil {
 		return err
 	}
-	trieKey := bitset2Key(&bs)
-	_, err := trieKey.WriteTo(&tempBuf)
+	trieKey := bitset2BitArray(&bs)
+	_, err := trieKey.Write(&tempBuf)
 	if err != nil {
 		return err
 	}
@@ -573,8 +571,8 @@ func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc 
 			Value: n.Value,
 		}
 		if n.Left != nil {
-			trieNode.Left = bitset2Key(n.Left)
-			trieNode.Right = bitset2Key(n.Right)
+			trieNode.Left = bitset2BitArray(n.Left)
+			trieNode.Right = bitset2BitArray(n.Right)
 		}
 
 		if _, err := trieNode.WriteTo(&tempBuf); err != nil {
@@ -593,7 +591,7 @@ func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc 
 		}
 
 		var keyBuffer bytes.Buffer
-		if _, err := bitset2Key(&bs).WriteTo(&keyBuffer); err != nil {
+		if _, err := bitset2BitArray(&bs).Write(&keyBuffer); err != nil {
 			return err
 		}
 

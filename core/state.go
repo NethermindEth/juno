@@ -139,9 +139,9 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
-	var rootKey *trie.Key
+	var rootKey *trie.BitArray // TODO: use value instead of pointer
 	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(trie.Key)
+		rootKey = new(trie.BitArray)
 		return rootKey.UnmarshalBinary(val)
 	})
 
@@ -169,7 +169,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 		if resultingRootKey != nil {
 			var rootKeyBytes bytes.Buffer
-			_, marshalErr := resultingRootKey.WriteTo(&rootKeyBytes)
+			_, marshalErr := resultingRootKey.Write(&rootKeyBytes)
 			if marshalErr != nil {
 				return marshalErr
 			}
