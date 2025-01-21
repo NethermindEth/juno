@@ -323,7 +323,7 @@ func (b *BitArray) Append(x, y *BitArray) *BitArray {
 
 // Sets the bit array to the concatenation of x and a single bit.
 func (b *BitArray) AppendBit(x *BitArray, bit uint8) *BitArray {
-	return b.Append(b, new(BitArray).SetBit(bit))
+	return b.Append(x, new(BitArray).SetBit(bit))
 }
 
 // Sets the bit array to a subset of x from startPos (inclusive) to endPos (exclusive),
