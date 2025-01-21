@@ -110,6 +110,7 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 			Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
 			SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
 		},
+		DataAvailability: &DataAvailability{},
 	}
 	if da := resources.DataAvailability; da != nil {
 		res.DataAvailability = &DataAvailability{

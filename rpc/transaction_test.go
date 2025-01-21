@@ -582,7 +582,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0
+							"l1_gas": 0,
+							"l2_gas": 0
 						},
 						"steps": 29
 					}
@@ -615,7 +616,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0
+							"l1_gas": 0,
+							"l2_gas": 0
 						},
 						"steps": 31
 					}
@@ -658,7 +660,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0
+							"l1_gas": 0,
+							"l2_gas": 0
 						},
 						"steps": 31
 					}
@@ -698,7 +701,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0
+							"l1_gas": 0,
+							"l2_gas": 0
 						},
 						"steps": 31
 					}
@@ -733,7 +737,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"l2_gas": 0,
 				"data_availability": {
 					"l1_data_gas": 0,
-					"l1_gas": 0
+					"l1_gas": 0,
+					"l2_gas": 0
 				},
 				"steps": 0
 			}
@@ -800,7 +805,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"l2_gas": 0,
 				"data_availability": {
 					"l1_data_gas": 0,
-					"l1_gas": 0
+					"l1_gas": 0,
+					"l2_gas": 0
 				}
 			},
 			"actual_fee": {
@@ -861,11 +867,12 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"poseidon_builtin_applications": 4,
 				"range_check_builtin_applications": 157,
 				"l1_data_gas": 192,
-				"l1_gas": 0,
+				"l1_gas": 117620,
 				"l2_gas": 0,
 				"data_availability": {
 					"l1_gas": 0,
-					"l1_data_gas": 192
+					"l1_data_gas": 192,
+					"l2_gas": 0
 				}
 			}
 		}`
