@@ -65,15 +65,26 @@ func (n *hashNode) cache() (*hashNode, bool)   { return nil, true }
 func (n *valueNode) cache() (*hashNode, bool)  { return nil, true }
 
 func (n *binaryNode) String() string {
+	var left, right string
+	if n.children[0] != nil {
+		left = n.children[0].String()
+	}
+	if n.children[1] != nil {
+		right = n.children[1].String()
+	}
 	return fmt.Sprintf("Binary[\n  left: %s\n  right: %s\n]",
-		indent(n.children[0].String()),
-		indent(n.children[1].String()))
+		indent(left),
+		indent(right))
 }
 
 func (n *edgeNode) String() string {
+	var child string
+	if n.child != nil {
+		child = n.child.String()
+	}
 	return fmt.Sprintf("Edge{\n  path: %s\n  child: %s\n}",
 		n.path.String(),
-		indent(n.child.String()))
+		indent(child))
 }
 
 func (n hashNode) String() string {
