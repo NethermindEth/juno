@@ -110,8 +110,6 @@ func TestConfigPrecedence(t *testing.T) {
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"custom network config file": {
@@ -157,8 +155,6 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"default config with no flags": {
@@ -191,8 +187,6 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"config file path is empty string": {
@@ -225,8 +219,6 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"config file doesn't exist": {
@@ -264,8 +256,6 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -305,8 +295,6 @@ pprof: true
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -343,8 +331,6 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"all flags without config file": {
@@ -380,8 +366,6 @@ http-port: 4576
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
 				PendingPollInterval: defaultPendingPollInterval,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"some flags without config file": {
@@ -417,8 +401,6 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -478,8 +460,6 @@ db-cache-size: 1024
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -518,8 +498,6 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -554,8 +532,6 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"only set env variables": {
@@ -588,8 +564,6 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -623,8 +597,6 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -659,8 +631,6 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeout:      defaultGwTimeout,
-				P2PDenyList:         make([]string, 0),
-				P2PAllowList:        make([]string, 0),
 			},
 		},
 	}
@@ -668,6 +638,10 @@ network: sepolia
 	junoEnv := unsetJunoPrefixedEnv(t)
 
 	for name, tc := range tests {
+		if tc.expectedConfig != nil {
+			tc.expectedConfig.P2PAllowList = make([]string, 0)
+			tc.expectedConfig.P2PDenyList = make([]string, 0)
+		}
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
 				fileN := tempCfgFile(t, tc.cfgFileContents)
