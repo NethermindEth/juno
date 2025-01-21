@@ -326,6 +326,11 @@ func (b *BitArray) AppendBit(x *BitArray, bit uint8) *BitArray {
 	return b.Append(x, new(BitArray).SetBit(bit))
 }
 
+// Sets the bit array to the concatenation of x and n zeros.
+func (b *BitArray) AppendZeros(x *BitArray, n uint8) *BitArray {
+	return b.Append(x, new(BitArray).Zeros(n))
+}
+
 // Sets the bit array to a subset of x from startPos (inclusive) to endPos (exclusive),
 // where position 0 is the MSB. If startPos >= endPos or if startPos >= x.len,
 // returns an empty BitArray.
@@ -793,6 +798,15 @@ func (b *BitArray) Ones(length uint8) *BitArray {
 	b.words[2] = maxUint64
 	b.words[3] = maxUint64
 	b.truncateToLength()
+	return b
+}
+
+func (b *BitArray) Zeros(length uint8) *BitArray {
+	b.len = length
+	b.words[0] = 0
+	b.words[1] = 0
+	b.words[2] = 0
+	b.words[3] = 0
 	return b
 }
 
