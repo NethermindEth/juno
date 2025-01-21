@@ -34,6 +34,10 @@ const (
 	Temporary // used temporarily for migrations
 	SchemaIntermediateState
 	L1HandlerTxnHashByMsgHash // maps l1 handler msg hash to l1 handler txn hash
+	MempoolHead               // key of the head node
+	MempoolTail               // key of the tail node
+	MempoolLength             // number of transactions
+	MempoolNode
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
