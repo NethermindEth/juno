@@ -1,9 +1,15 @@
 package sync
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 )
+
+var feltOne = new(felt.Felt).SetUint64(1)
 
 type Pending struct {
 	Block       *core.Block
@@ -64,4 +70,80 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	}
 
 	return p.head.Class(classHash)
+}
+
+type PendingStateWriter struct {
+	*PendingState
+}
+
+func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) *PendingStateWriter {
+	return &PendingStateWriter{
+		PendingState: &PendingState{
+			stateDiff:  stateDiff,
+			newClasses: newClasses,
+			head:       head,
+		},
+	}
+}
+
+func (p *PendingStateWriter) SetStorage(contractAddress, key, value *felt.Felt) error {
+	if _, found := p.stateDiff.StorageDiffs[*contractAddress]; !found {
+		p.stateDiff.StorageDiffs[*contractAddress] = make(map[felt.Felt]*felt.Felt)
+	}
+	p.stateDiff.StorageDiffs[*contractAddress][*key] = value.Clone()
+	return nil
+}
+
+func (p *PendingStateWriter) IncrementNonce(contractAddress *felt.Felt) error {
+	currentNonce, err := p.ContractNonce(contractAddress)
+	if err != nil {
+		return fmt.Errorf("get contract nonce: %v", err)
+	}
+	p.stateDiff.Nonces[*contractAddress] = currentNonce.Add(currentNonce, feltOne)
+	return nil
+}
+
+func (p *PendingStateWriter) SetClassHash(contractAddress, classHash *felt.Felt) error {
+	if _, err := p.head.ContractClassHash(contractAddress); err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			p.stateDiff.DeployedContracts[*contractAddress] = classHash.Clone()
+			return nil
+		}
+		return fmt.Errorf("get latest class hash: %v", err)
+	}
+	p.stateDiff.ReplacedClasses[*contractAddress] = classHash.Clone()
+	return nil
+}
+
+// SetContractClass writes a new CairoV0 class to the PendingState
+// Assumption: SetCompiledClassHash should be called for CairoV1 contracts
+func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.Class) error {
+	if _, err := p.Class(classHash); err == nil {
+		return errors.New("class already declared")
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return fmt.Errorf("get class: %v", err)
+	}
+
+	p.newClasses[*classHash] = class
+	if class.Version() == 0 {
+		p.stateDiff.DeclaredV0Classes = append(p.stateDiff.DeclaredV0Classes, classHash.Clone())
+	}
+	return nil
+}
+
+// SetCompiledClassHash writes CairoV1 classes to the pending state
+// Assumption: SetContractClass was called for classHash and succeeded
+func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *felt.Felt) error {
+	p.stateDiff.DeclaredV1Classes[*classHash] = compiledClassHash.Clone()
+	return nil
+}
+
+// StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
+// read and modified by the pending state.
+func (p *PendingStateWriter) StateDiffAndClasses() (*core.StateDiff, map[felt.Felt]core.Class) {
+	return p.stateDiff, p.newClasses
+}
+
+func (p *PendingStateWriter) SetStateDiff(stateDiff *core.StateDiff) {
+	p.stateDiff = stateDiff
 }
