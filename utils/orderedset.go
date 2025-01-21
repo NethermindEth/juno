@@ -63,3 +63,15 @@ func (o *OrderedSet[K, V]) List() []V {
 	copy(values, o.items)
 	return values
 }
+
+// Keys returns a slice of keys in their insertion order
+func (o *OrderedSet[K, V]) Keys() []K {
+	o.lock.RLock()
+	defer o.lock.RUnlock()
+
+	keys := make([]K, len(o.items))
+	for k, pos := range o.itemPos {
+		keys[pos] = k
+	}
+	return keys
+}

@@ -1,6 +1,9 @@
 package utils
 
-import "slices"
+import (
+	"reflect"
+	"slices"
+)
 
 func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
 	if slice == nil {
@@ -33,4 +36,28 @@ func All[T any](slice []T, f func(T) bool) bool {
 
 func AnyOf[T comparable](e T, values ...T) bool {
 	return slices.Contains(values, e)
+}
+
+// Unique returns a new slice with duplicates removed.
+// Panics if the slice contains pointer types.
+func Unique[T comparable](slice []T) []T {
+	if len(slice) == 0 {
+		return slice
+	}
+
+	// do not support unique on pointer types, just return the slice as it is
+	if reflect.TypeOf(slice[0]).Kind() == reflect.Ptr {
+		panic("Unique does not support pointer types")
+	}
+
+	result := make([]T, 0, len(slice))
+	seen := make(map[T]struct{}, len(slice))
+	for _, e := range slice {
+		if _, ok := seen[e]; !ok {
+			result = append(result, e)
+			seen[e] = struct{}{}
+		}
+	}
+
+	return result
 }
