@@ -32,7 +32,7 @@ type Trie struct {
 	hashFn crypto.HashFn
 
 	// The underlying database to store and retrieve trie nodes
-	db *triedb.Database
+	db triedb.TrieDB
 
 	// Check if the trie has been committed. Trie is unusable once committed.
 	committed bool
@@ -74,6 +74,7 @@ func NewEmpty(height uint8, hashFn crypto.HashFn) *Trie {
 		hashFn:     hashFn,
 		root:       nil,
 		nodeTracer: newTracer(),
+		db:         triedb.EmptyDatabase{},
 	}
 }
 
@@ -280,9 +281,9 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 		// Otherwise branch out at the bit position where they differ
 		branch := &binaryNode{flags: newFlag()}
 		var err error
-		PathPrefix := new(Path).MSBs(n.path, match.Len()+1)
+		pathPrefix := new(Path).MSBs(n.path, match.Len()+1)
 		_, branch.children[n.path.Bit(match.Len())], err = t.insert(
-			nil, new(Path).Append(prefix, PathPrefix), new(Path).LSBs(n.path, match.Len()+1), n.child,
+			nil, new(Path).Append(prefix, pathPrefix), new(Path).LSBs(n.path, match.Len()+1), n.child,
 		)
 		if err != nil {
 			return false, n, err

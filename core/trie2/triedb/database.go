@@ -2,6 +2,7 @@ package triedb
 
 import (
 	"bytes"
+	"errors"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -9,10 +10,23 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+var ErrCallEmptyDatabase = errors.New("call to empty database")
+
 var dbBufferPool = sync.Pool{
 	New: func() any {
 		return new(bytes.Buffer)
 	},
+}
+
+var (
+	_ TrieDB = (*Database)(nil)
+	_ TrieDB = (*EmptyDatabase)(nil)
+)
+
+type TrieDB interface {
+	Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray) (int, error)
+	Put(owner felt.Felt, path trieutils.BitArray, blob []byte) error
+	Delete(owner felt.Felt, path trieutils.BitArray) error
 }
 
 type Database struct {
@@ -97,4 +111,18 @@ func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitA
 	}
 
 	return nil
+}
+
+type EmptyDatabase struct{}
+
+func (EmptyDatabase) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray) (int, error) {
+	return 0, ErrCallEmptyDatabase
+}
+
+func (EmptyDatabase) Put(owner felt.Felt, path trieutils.BitArray, blob []byte) error {
+	return ErrCallEmptyDatabase
+}
+
+func (EmptyDatabase) Delete(owner felt.Felt, path trieutils.BitArray) error {
+	return ErrCallEmptyDatabase
 }
