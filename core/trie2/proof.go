@@ -57,7 +57,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 			}
 			rn = resolved
 		default:
-			panic(fmt.Sprintf("unknown node type: %T", n))
+			panic(fmt.Sprintf("key: %s, unknown node type: %T", key.String(), n))
 		}
 	}
 
