@@ -481,7 +481,7 @@ func tipAndResourcesHash(tip uint64, resourceBounds map[Resource]ResourceBounds)
 	}
 
 	// l1_data_gas resource bounds were added in 0.13.4
-	if bounds, ok := resourceBounds[ResourceL1DataGas]; ok {
+	if bounds, ok := resourceBounds[ResourceL1DataGas]; ok && bounds.MaxPricePerUnit != nil {
 		l1DataBounds := new(felt.Felt).SetBytes(bounds.Bytes(ResourceL1DataGas))
 		elems = append(elems, l1DataBounds)
 	}
