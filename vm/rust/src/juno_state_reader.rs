@@ -4,23 +4,20 @@ use std::{
     sync::Mutex,
 };
 
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::RunnableCompiledClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::UpdatableState;
 use blockifier::{
-    execution::contract_class::{
-        ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1,
-    },
     state::cached_state::{ContractClassMapping, StateMaps},
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
+use starknet_api::contract_class::{ClassInfo as BlockifierClassInfo, SierraVersion};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
-use std::collections::{HashMap, HashSet};
 
 type StarkFelt = Felt;
 
@@ -47,12 +44,12 @@ extern "C" {
         -> *const c_char;
 }
 
-struct CachedContractClass {
-    pub definition: ContractClass,
+struct CachedRunnableCompiledClass {
+    pub definition: RunnableCompiledClass,
     pub cached_on_height: u64,
 }
 
-static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
+static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedRunnableCompiledClass>>> =
     Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
 
 pub struct JunoStateReader {
@@ -131,7 +128,7 @@ impl StateReader for JunoStateReader {
     }
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_class(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
@@ -157,24 +154,27 @@ impl StateReader for JunoStateReader {
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
             let class_info_res = class_info_from_json_str(json_str);
-            if let Ok(class_info) = &class_info_res {
-                CLASS_CACHE.lock().unwrap().cache_set(
-                    class_hash,
-                    CachedContractClass {
-                        definition: class_info.contract_class(),
-                        cached_on_height: self.height,
-                    },
-                );
-            }
 
             unsafe { JunoFree(ptr as *const c_void) };
 
-            class_info_res.map(|ci| ci.contract_class()).map_err(|err| {
-                StateError::StateReadError(format!(
+            match class_info_res {
+                Ok(class) => {
+                    CLASS_CACHE.lock().unwrap().cache_set(
+                        class_hash,
+                        CachedRunnableCompiledClass {
+                            // This clone is cheap, it is just a reference copy in the underlying
+                            // RunnableCompiledClass implementation
+                            definition: class.clone(),
+                            cached_on_height: self.height,
+                        },
+                    );
+                    Ok(class)
+                }
+                Err(e) => Err(StateError::StateReadError(format!(
                     "parsing JSON string for class hash {}: {}",
-                    class_hash.0, err
-                ))
-            })
+                    class_hash.0, e
+                ))),
+            }
         }
     }
 
@@ -185,12 +185,7 @@ impl StateReader for JunoStateReader {
 }
 
 impl UpdatableState for JunoStateReader {
-    fn apply_writes(
-        &mut self,
-        _writes: &StateMaps,
-        _class_hash_to_class: &ContractClassMapping,
-        _visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
-    ) {
+    fn apply_writes(&mut self, _writes: &StateMaps, _class_hash_to_class: &ContractClassMapping) {
         unimplemented!()
     }
 }
@@ -214,18 +209,22 @@ pub struct ClassInfo {
 pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
     let class_info: ClassInfo = serde_json::from_str(raw_json)
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
+
     let class_def = class_info.contract_class.to_string();
-    let mut sierra_len = class_info.sierra_program_length;
-    let mut abi_len = class_info.abi_length;
-    let class: ContractClass =
-        if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
-            sierra_len = 0;
-            abi_len = 0;
+
+    DeprecatedContractClass::
+
+    // todo(rdr): This implemenentation is incomplete!!! I should not assume SierraVersion for V1
+    let class: BlockifierClassInfo =
+        if let Ok(class) = Deprectade::try_from_json_string(class_def.as_str()) {
             class.into()
-        } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
+        } else if let Ok(class) =
+            CompiledClassV1::try_from_json_string(class_def.as_str(), SierraVersion::LATEST)
+        {
             class.into()
         } else {
             return Err("not a valid contract class".to_string());
         };
-    Ok(BlockifierClassInfo::new(&class, sierra_len, abi_len).unwrap())
+
+    Ok(class)
 }

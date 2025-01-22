@@ -8,24 +8,23 @@ use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
-    num::NonZeroU128,
     slice,
     sync::Arc,
 };
 
-use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
-use blockifier::blockifier::block::{
-    pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
-};
+use anyhow::Result;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
-use blockifier::transaction::objects::GasVector;
+use blockifier::{
+    abi::constants::STORED_BLOCK_HASH_BUFFER,
+    transaction::account_transaction::ExecutionFlags as AccountExecutionFlags,
+};
+use blockifier::{
+    blockifier::block::pre_process_block, execution::entry_point::SierraGasRevertTracker,
+};
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
-    execution::{
-        contract_class::ClassInfo,
-        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
-    },
+    execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     state::{cached_state::CachedState, state_api::State},
     transaction::{
         errors::TransactionExecutionError::{
@@ -37,14 +36,24 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::{
     block::BlockHash,
+    contract_class::{ClassInfo, EntryPointType},
     core::PatriciaKey,
-    deprecated_contract_class::EntryPointType,
-    transaction::{Calldata, Fee, Transaction as StarknetApiTransaction, TransactionHash},
+    execution_resources::GasVector,
+    transaction::{
+        fields::{Calldata, Fee, GasVectorComputationMode},
+        Transaction as StarknetApiTransaction, TransactionHash,
+    },
+};
+use starknet_api::{
+    block::{
+        BlockHashAndNumber, BlockInfo as BlockifierBlockInfo, GasPrice, GasPriceVector, GasPrices,
+        NonzeroGasPrice,
+    },
+    execution_resources::GasAmount,
 };
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
@@ -122,6 +131,10 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
+    // todo(rdr): initial gas should be different based on the execution method used: vm or native!
+    // There should be some check.
+    let mut initial_gas = get_versioned_constants(block_info.version).infinite_gas_for_vm_mode();
+
     let entry_point = CallEntryPoint {
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
@@ -131,13 +144,12 @@ pub extern "C" fn cairoVMCall(
         class_hash,
         code_address: None,
         caller_address: ContractAddress::default(),
-        initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
+        initial_gas,
     };
 
     let concurrency_mode = concurrency_mode == 1;
     let mut state = CachedState::new(reader);
-    let mut resources = ExecutionResources::default();
-    let context = EntryPointExecutionContext::new_invoke(
+    let mut context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
             block_context: build_block_context(
                 &mut state,
@@ -145,16 +157,14 @@ pub extern "C" fn cairoVMCall(
                 chain_id_str,
                 Some(max_steps),
                 concurrency_mode,
-            ),
+            )
+            .unwrap(),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
         false,
+        SierraGasRevertTracker::new(GasAmount::from(initial_gas)),
     );
-    if let Err(e) = context {
-        report_error(reader_handle, e.to_string().as_str(), -1);
-        return;
-    }
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
+    match entry_point.execute(&mut state, &mut context, &mut initial_gas) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
             for data in t.execution.retdata.0 {
@@ -166,11 +176,11 @@ pub extern "C" fn cairoVMCall(
     }
 }
 
-#[derive(Deserialize)]
 pub struct TxnAndQueryBit {
     pub txn: StarknetApiTransaction,
     pub txn_hash: TransactionHash,
-    pub query_bit: bool,
+    // Only required when deploying a new account
+    pub account_execution_flags: Option<AccountExecutionFlags>,
 }
 
 #[no_mangle]
@@ -229,7 +239,8 @@ pub extern "C" fn cairoVMExecute(
         chain_id_str,
         None,
         concurrency_mode,
-    );
+    )
+    .unwrap();
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -270,7 +281,7 @@ pub extern "C" fn cairoVMExecute(
             txn_and_query_bit.txn_hash,
             class_info,
             paid_fee_on_l1,
-            txn_and_query_bit.query_bit,
+            txn_and_query_bit.account_execution_flags,
         );
         if let Err(e) = txn {
             report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
@@ -281,16 +292,20 @@ pub extern "C" fn cairoVMExecute(
         let fee_type;
         let minimal_l1_gas_amount_vector: Option<GasVector>;
         let res = match txn.unwrap() {
-            Transaction::AccountTransaction(t) => {
+            Transaction::Account(t) => {
                 fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector =
-                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                minimal_l1_gas_amount_vector = Some(gas_usage::estimate_minimal_gas_vector(
+                    &block_context,
+                    &t,
+                    // todo(rdr): Which si the right gas vector, how to select it
+                    &GasVectorComputationMode::All,
+                ));
+                t.execute(&mut txn_state, &block_context)
             }
-            Transaction::L1HandlerTransaction(t) => {
+            Transaction::L1Handler(t) => {
                 fee_type = t.fee_type();
                 minimal_l1_gas_amount_vector = None;
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                t.execute(&mut txn_state, &block_context)
             }
         };
 
@@ -325,36 +340,40 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 // we are estimating fee, override actual fee calculation
-                if t.transaction_receipt.fee.0 == 0 {
+                if t.receipt.fee.0 == 0 {
                     let minimal_l1_gas_amount_vector =
                         minimal_l1_gas_amount_vector.unwrap_or_default();
                     let gas_consumed = t
-                        .transaction_receipt
+                        .receipt
                         .gas
                         .l1_gas
                         .max(minimal_l1_gas_amount_vector.l1_gas);
                     let data_gas_consumed = t
-                        .transaction_receipt
+                        .receipt
                         .gas
                         .l1_data_gas
                         .max(minimal_l1_gas_amount_vector.l1_data_gas);
 
-                    t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                    t.receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
                         GasVector {
                             l1_data_gas: data_gas_consumed,
                             l1_gas: gas_consumed,
+                            // todo(rdr): what goes here? Random value currently
+                            l2_gas: GasAmount(8),
                         },
                         &fee_type,
                     )
                 }
 
-                let actual_fee: Felt = t.transaction_receipt.fee.0.into();
-                let da_gas_l1_gas = t.transaction_receipt.da_gas.l1_gas.into();
-                let da_gas_l1_data_gas = t.transaction_receipt.da_gas.l1_data_gas.into();
+                let actual_fee: Felt = t.receipt.fee.0.into();
+                let da_gas_l1_gas = t.receipt.da_gas.l1_gas.into();
+                let da_gas_l1_data_gas = t.receipt.da_gas.l1_data_gas.into();
+                // todo(rdr): Are these resurce usage still valid?
                 let execution_steps = t
-                    .transaction_receipt
+                    .receipt
                     .resources
+                    .computation
                     .vm_resources
                     .n_steps
                     .try_into()
@@ -402,7 +421,7 @@ fn transaction_from_api(
     tx_hash: TransactionHash,
     class_info: Option<ClassInfo>,
     paid_fee_on_l1: Option<Fee>,
-    query_bit: bool,
+    execution_flags: ExecutionFlags,
 ) -> Result<Transaction, String> {
     match tx {
         StarknetApiTransaction::Deploy(_) => {
@@ -420,8 +439,15 @@ fn transaction_from_api(
         _ => {} // all ok
     };
 
-    Transaction::from_api(tx, tx_hash, class_info, paid_fee_on_l1, None, query_bit)
-        .map_err(|err| format!("failed to create transaction from api: {:?}", err))
+    Transaction::from_api(
+        tx,
+        tx_hash,
+        class_info,
+        paid_fee_on_l1,
+        None,
+        execution_flags,
+    )
+    .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
 fn append_trace(
@@ -453,18 +479,18 @@ fn build_block_context(
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
     _concurrency_mode: bool,
-) -> BlockContext {
+) -> Result<BlockContext> {
     let sequencer_addr = StarkFelt::from_bytes_be(&block_info.sequencer_address);
-    let gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.gas_price_wei);
-    let gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.gas_price_fri);
-    let data_gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_wei);
-    let data_gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_fri);
-    let default_gas_price = NonZeroU128::new(1).unwrap();
+    let gas_price_eth = StarkFelt::from_bytes_be(&block_info.gas_price_wei);
+    let gas_price_strk = StarkFelt::from_bytes_be(&block_info.gas_price_fri);
+    let data_gas_price_eth = StarkFelt::from_bytes_be(&block_info.data_gas_price_wei);
+    let data_gas_price_strk = StarkFelt::from_bytes_be(&block_info.data_gas_price_fri);
+    let default_gas_price = NonzeroGasPrice::new(GasPrice::from(1_u128)).unwrap();
 
-    let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
+    let mut old_block_number_and_hash: Option<BlockHashAndNumber> = None;
     // STORED_BLOCK_HASH_BUFFER const is 10 for now
     if block_info.block_number >= STORED_BLOCK_HASH_BUFFER {
-        old_block_number_and_hash = Some(BlockNumberHashPair {
+        old_block_number_and_hash = Some(BlockHashAndNumber {
             number: starknet_api::block::BlockNumber(
                 block_info.block_number - STORED_BLOCK_HASH_BUFFER,
             ),
@@ -483,14 +509,18 @@ fn build_block_context(
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_addr).unwrap()),
         gas_prices: GasPrices {
-            eth_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_wei_felt))
-                .unwrap_or(default_gas_price),
-            strk_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_fri_felt))
-                .unwrap_or(default_gas_price),
-            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_wei_felt))
-                .unwrap_or(default_gas_price),
-            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_fri_felt))
-                .unwrap_or(default_gas_price),
+            eth_gas_prices: GasPriceVector {
+                l1_gas_price: NonzeroGasPrice::new(felt_to_u128(gas_price_eth).into())?,
+                l1_data_gas_price: NonzeroGasPrice::new(felt_to_u128(data_gas_price_eth).into())?,
+                // todo(rdr): not sure what goes here?
+                l2_gas_price: default_gas_price,
+            },
+            strk_gas_prices: GasPriceVector {
+                l1_gas_price: NonzeroGasPrice::new(felt_to_u128(gas_price_strk).into())?,
+                l1_data_gas_price: NonzeroGasPrice::new(felt_to_u128(data_gas_price_strk).into())?,
+                // todo(rdr): not sure what goes here?
+                l2_gas_price: default_gas_price,
+            },
         },
         use_kzg_da: block_info.use_blob_data == 1,
     };
@@ -515,10 +545,23 @@ fn build_block_context(
         },
     };
 
-    pre_process_block(state, old_block_number_and_hash, block_info.block_number).unwrap();
-    BlockContext::new(block_info, chain_info, constants, BouncerConfig::max())
+    pre_process_block(
+        state,
+        old_block_number_and_hash,
+        block_info.block_number,
+        constants.os_constants.as_ref(),
+    )
+    .unwrap();
+
+    Ok(BlockContext::new(
+        block_info,
+        chain_info,
+        constants,
+        BouncerConfig::max(),
+    ))
 }
 
+// todo(rdr): Should I add versioned constants 13.4?. Where are 13.3?
 lazy_static! {
     static ref CONSTANTS: HashMap<String, VersionedConstants> = {
         let mut m = HashMap::new();
