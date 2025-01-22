@@ -17,6 +17,10 @@ func (r *Node) Blob() []byte {
 	return r.blob
 }
 
+func (r *Node) Hash() felt.Felt {
+	return r.hash
+}
+
 func NewNode(hash felt.Felt, blob []byte) *Node {
 	return &Node{hash: hash, blob: blob}
 }

@@ -2,6 +2,7 @@ package trie2
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -21,7 +22,20 @@ var bufferPool = sync.Pool{
 	},
 }
 
+// The initial idea was to differentiate between binary and edge nodes by the size of the buffer.
+// However, there may be a case where the size of the buffer is the same for both binary and edge nodes.
+// In this case, we need to prepend the buffer with a byte to indicate the type of the node.
+// Value and hash nodes do not need this because their size is fixed.
+const (
+	binaryNodeType byte = iota + 1
+	edgeNodeType
+)
+
 func (n *binaryNode) write(buf *bytes.Buffer) error {
+	if err := buf.WriteByte(binaryNodeType); err != nil {
+		return err
+	}
+
 	if err := n.children[0].write(buf); err != nil {
 		return err
 	}
@@ -34,6 +48,10 @@ func (n *binaryNode) write(buf *bytes.Buffer) error {
 }
 
 func (n *edgeNode) write(buf *bytes.Buffer) error {
+	if err := buf.WriteByte(edgeNodeType); err != nil {
+		return err
+	}
+
 	if err := n.child.write(buf); err != nil {
 		return err
 	}
@@ -79,6 +97,10 @@ func nodeToBytes(n node) []byte {
 }
 
 func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, error) {
+	if len(blob) == 0 {
+		return nil, errors.New("cannot decode empty blob")
+	}
+
 	var (
 		n      node
 		err    error
@@ -91,8 +113,7 @@ func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, e
 
 	isLeaf = pathLen == maxPathLen
 
-	switch len(blob) {
-	case hashOrValueNodeSize:
+	if len(blob) == hashOrValueNodeSize {
 		var f felt.Felt
 		f.SetBytes(blob)
 		if isLeaf {
@@ -100,7 +121,14 @@ func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, e
 		} else {
 			n = &hashNode{Felt: f}
 		}
-	case binaryNodeSize:
+		return n, nil
+	}
+
+	nodeType := blob[0]
+	blob = blob[1:]
+
+	switch nodeType {
+	case binaryNodeType:
 		binary := &binaryNode{flags: nodeFlag{hash: &hashNode{Felt: hash}}} // cache the hash
 		binary.children[0], err = decodeNode(blob[:hashOrValueNodeSize], hash, pathLen+1, maxPathLen)
 		if err != nil {
@@ -112,7 +140,7 @@ func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, e
 		}
 
 		n = binary
-	default:
+	case edgeNodeType:
 		// Ensure the blob length is within the valid range for an edge node
 		if len(blob) > edgeNodeMaxSize || len(blob) < hashOrValueNodeSize {
 			return nil, fmt.Errorf("invalid node size: %d", len(blob))
@@ -136,6 +164,8 @@ func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, e
 		}
 
 		n = edge
+	default:
+		panic(fmt.Sprintf("unknown decode node type: %d", nodeType))
 	}
 
 	return n, nil
