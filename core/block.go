@@ -34,13 +34,13 @@ type Header struct {
 	ProtocolVersion string
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
-	// Amount of WEI charged per Gas spent
-	GasPrice *felt.Felt
-	// Sequencer signatures
+	// Amount of WEI charged per Gas spent on L1
+	L1GasPriceETH *felt.Felt `cbor:"gasprice"`
+	// Amount of STRK charged per Gas spent on L2
 	Signatures [][]*felt.Felt
-	// Amount of STRK charged per Gas spent
-	GasPriceSTRK *felt.Felt
-	// The mode of the L1 data availability
+	// Amount of STRK charged per Gas spent on L1
+	L1GasPriceSTRK *felt.Felt `cbor:"gaspricestrk"`
+	// Amount of STRK charged per Gas spent on L2
 	L1DAMode L1DAMode
 	// The gas price for L1 data availability
 	L1DataGasPrice *GasPrice
@@ -221,8 +221,8 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 
 	pricesHash := gasPricesHash(
 		GasPrice{
-			PriceInFri: b.GasPriceSTRK,
-			PriceInWei: b.GasPrice,
+			PriceInFri: b.L1GasPriceSTRK,
+			PriceInWei: b.L1GasPriceETH,
 		},
 		*b.L1DataGasPrice,
 		*b.L2GasPrice,
@@ -290,18 +290,18 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 	// `crypto.PoseidonArray` panics if any of the values are nil
 	seqAddr := &felt.Zero
 	gasPriceStrk := &felt.Zero
-	l1DataGasPricrInWei := &felt.Zero
+	l1DataGasPriceInWei := &felt.Zero
 	l1DataGasPriceInFri := &felt.Zero
 
 	if b.SequencerAddress != nil {
 		seqAddr = b.SequencerAddress
 	}
-	if b.GasPriceSTRK != nil {
-		gasPriceStrk = b.GasPriceSTRK
+	if b.L1GasPriceSTRK != nil {
+		gasPriceStrk = b.L1GasPriceSTRK
 	}
 	if b.L1DataGasPrice != nil {
 		if b.L1DataGasPrice.PriceInWei != nil {
-			l1DataGasPricrInWei = b.L1DataGasPrice.PriceInWei
+			l1DataGasPriceInWei = b.L1DataGasPrice.PriceInWei
 		}
 		if b.L1DataGasPrice.PriceInFri != nil {
 			l1DataGasPriceInFri = b.L1DataGasPrice.PriceInFri
@@ -316,12 +316,12 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
 			concatCounts,
 			sdCommitment,
-			txCommitment, // transaction commitment
-			eCommitment,  // event commitment
-			rCommitment,  // receipt commitment
-			b.GasPrice,   // gas price in wei
-			gasPriceStrk, // gas price in fri
-			l1DataGasPricrInWei,
+			txCommitment,    // transaction commitment
+			eCommitment,     // event commitment
+			rCommitment,     // receipt commitment
+			b.L1GasPriceETH, // gas price in wei
+			gasPriceStrk,    // gas price in fri
+			l1DataGasPriceInWei,
 			l1DataGasPriceInFri,
 			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
 			&felt.Zero,   // reserved: extra data

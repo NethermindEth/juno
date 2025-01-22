@@ -358,7 +358,7 @@ func (s *Service) adaptAndSanityCheckBlock(ctx context.Context, header *gen.Sign
 				return
 			}
 
-			if blockVer.LessThan(core.Ver0_13_2) {
+			if blockVer.LessThan(core.Ver0_13_2) && s.network.L2ChainID == "SN_SEPOLIA" {
 				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
 				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff)
 				if err != nil {

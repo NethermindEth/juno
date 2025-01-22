@@ -112,13 +112,18 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 		},
 		DataAvailability: &DataAvailability{},
 	}
-	if resources.DataAvailability != nil {
+	if da := resources.DataAvailability; da != nil {
 		res.DataAvailability = &DataAvailability{
-			L1Gas:     resources.DataAvailability.L1Gas,
-			L1DataGas: resources.DataAvailability.L1DataGas,
+			L1Gas:     da.L1Gas,
+			L2Gas:     da.L2Gas,
+			L1DataGas: da.L1DataGas,
 		}
 	}
-
+	if tgc := resources.TotalGasConsumed; tgc != nil {
+		res.L1Gas = tgc.L1Gas
+		res.L2Gas = tgc.L2Gas
+		res.L1DataGas = tgc.L1DataGas
+	}
 	return res
 }
 

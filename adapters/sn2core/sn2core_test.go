@@ -21,21 +21,23 @@ func TestAdaptBlock(t *testing.T) {
 		protocolVersion string
 		network         utils.Network
 		sig             *starknet.Signature
-		gasPriceWEI     *felt.Felt
-		gasPriceSTRK    *felt.Felt
+		l1GasPriceWEI   *felt.Felt
+		l1GasPriceSTRK  *felt.Felt
 		l1DAGasPriceWEI *felt.Felt
 		l1DAGasPriceFRI *felt.Felt
+		l2GasPriceWEI   *felt.Felt
+		l2GasPriceFRI   *felt.Felt
 	}{
 		{
-			number:      147,
-			network:     utils.Mainnet,
-			gasPriceWEI: &felt.Zero,
+			number:        147,
+			network:       utils.Mainnet,
+			l1GasPriceWEI: &felt.Zero,
 		},
 		{
 			number:          11817,
 			protocolVersion: "0.10.1",
 			network:         utils.Mainnet,
-			gasPriceWEI:     utils.HexToFelt(t, "0x27ad16775"),
+			l1GasPriceWEI:   utils.HexToFelt(t, "0x27ad16775"),
 		},
 		{
 			number:          304740,
@@ -44,7 +46,7 @@ func TestAdaptBlock(t *testing.T) {
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{utils.HexToFelt(t, "0x44"), utils.HexToFelt(t, "0x37")},
 			},
-			gasPriceWEI: utils.HexToFelt(t, "0x3bb2acbc"),
+			l1GasPriceWEI: utils.HexToFelt(t, "0x3bb2acbc"),
 		},
 		{
 			number:          319132,
@@ -56,8 +58,8 @@ func TestAdaptBlock(t *testing.T) {
 					utils.HexToFelt(t, "0x6bef4745194c9447fdc8dd3aec4fc738ab0a560b0d2c7bf62fbf58aef3abfc5"),
 				},
 			},
-			gasPriceWEI:  utils.HexToFelt(t, "0x3b9aca08"),
-			gasPriceSTRK: utils.HexToFelt(t, "0x2540be400"),
+			l1GasPriceWEI:  utils.HexToFelt(t, "0x3b9aca08"),
+			l1GasPriceSTRK: utils.HexToFelt(t, "0x2540be400"),
 		},
 		{
 			number:          330363,
@@ -69,10 +71,27 @@ func TestAdaptBlock(t *testing.T) {
 					utils.HexToFelt(t, "0x343e605de3957e664746ba8ef82f2b0f9d53cda3d75dcb078290b8edd010165"),
 				},
 			},
-			gasPriceWEI:     utils.HexToFelt(t, "0x3b9aca0a"),
-			gasPriceSTRK:    utils.HexToFelt(t, "0x2b6fdb70"),
+			l1GasPriceWEI:   utils.HexToFelt(t, "0x3b9aca0a"),
+			l1GasPriceSTRK:  utils.HexToFelt(t, "0x2b6fdb70"),
 			l1DAGasPriceWEI: utils.HexToFelt(t, "0x5265a14ef"),
 			l1DAGasPriceFRI: utils.HexToFelt(t, "0x3c0c00c87"),
+		},
+		{
+			number:          64164,
+			network:         utils.SepoliaIntegration,
+			protocolVersion: "0.13.4",
+			sig: &starknet.Signature{
+				Signature: []*felt.Felt{
+					utils.HexToFelt(t, "0x2a1658d74c85266cec309b15fb623ae7b18854a8e08e84834067fd68f07d15a"),
+					utils.HexToFelt(t, "0x5304bd3e7151d87fabe5977a1d19c2cc9025cce27a2ce0b26a46633386add94"),
+				},
+			},
+			l1GasPriceWEI:   utils.HexToFelt(t, "0xcd62576b"),
+			l1GasPriceSTRK:  utils.HexToFelt(t, "0x17842b1d0815"),
+			l1DAGasPriceWEI: utils.HexToFelt(t, "0x31ea"),
+			l1DAGasPriceFRI: utils.HexToFelt(t, "0x5b70ba9"),
+			l2GasPriceWEI:   utils.HexToFelt(t, "0x15081"),
+			l2GasPriceFRI:   utils.HexToFelt(t, "0x268771a6"),
 		},
 	}
 
@@ -120,13 +139,19 @@ func TestAdaptBlock(t *testing.T) {
 				assert.Empty(t, block.Signatures)
 			}
 
-			assert.Equal(t, test.gasPriceSTRK, block.GasPriceSTRK)
-			assert.Equal(t, test.gasPriceWEI, block.GasPrice)
+			assert.Equal(t, test.l1GasPriceSTRK, block.L1GasPriceSTRK)
+			assert.Equal(t, test.l1GasPriceWEI, block.L1GasPriceETH)
 			if test.l1DAGasPriceFRI != nil {
 				assert.Equal(t, test.l1DAGasPriceFRI, block.L1DataGasPrice.PriceInFri)
 			}
 			if test.l1DAGasPriceFRI != nil {
 				assert.Equal(t, test.l1DAGasPriceWEI, block.L1DataGasPrice.PriceInWei)
+			}
+			if test.l2GasPriceFRI != nil {
+				assert.Equal(t, test.l2GasPriceFRI, block.L2GasPrice.PriceInFri)
+			}
+			if test.l2GasPriceWEI != nil {
+				assert.Equal(t, test.l2GasPriceWEI, block.L2GasPrice.PriceInWei)
 			}
 		})
 	}

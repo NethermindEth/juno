@@ -56,7 +56,6 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
-//nolint:funlen,gocyclo
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
@@ -125,37 +124,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	for i, overallFee := range overallFees {
 		feeUnit := feeUnit(txns[i])
 
-		gasPrice := header.GasPrice
-		if feeUnit == FRI {
-			if gasPrice = header.GasPriceSTRK; gasPrice == nil {
-				gasPrice = &felt.Zero
-			}
-		}
-
-		dataGasPrice := &felt.Zero
-		if header.L1DataGasPrice != nil {
-			switch feeUnit {
-			case FRI:
-				dataGasPrice = header.L1DataGasPrice.PriceInFri
-			case WEI:
-				dataGasPrice = header.L1DataGasPrice.PriceInWei
-			}
-		}
-
-		var gasConsumed *felt.Felt
-		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
-		dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
-		gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
-		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
-
-		estimate := FeeEstimate{
-			GasConsumed:     gasConsumed,
-			GasPrice:        gasPrice,
-			DataGasConsumed: daGasL1DataGas,
-			DataGasPrice:    dataGasPrice,
-			OverallFee:      overallFee,
-			Unit:            utils.Ptr(feeUnit),
-		}
+		estimate := calculateFeeEstimate(overallFee, daGas[i].L1DataGas, feeUnit, header)
 
 		trace := traces[i]
 		executionResources := trace.TotalExecutionResources()
@@ -172,6 +141,37 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	return result, httpHeader, nil
+}
+
+func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUnit, header *core.Header) FeeEstimate {
+	var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
+
+	switch feeUnit {
+	case FRI:
+		l1GasPrice = header.L1GasPriceSTRK
+		l2GasPrice = header.L2GasPrice.PriceInFri
+		l1DataGasPrice = header.L1DataGasPrice.PriceInFri
+	case WEI:
+		l1GasPrice = header.L1GasPriceETH
+		l2GasPrice = header.L2GasPrice.PriceInWei
+		l1DataGasPrice = header.L1DataGasPrice.PriceInWei
+	}
+
+	l1DataGasConsumed := new(felt.Felt).SetUint64(l1DataGas)
+	dataGasFee := new(felt.Felt).Mul(l1DataGasConsumed, l1DataGasPrice)
+	l1GasConsumed := new(felt.Felt).Sub(overallFee, dataGasFee)
+	l1GasConsumed = l1GasConsumed.Div(l1GasConsumed, l1GasPrice)
+
+	return FeeEstimate{
+		L1GasConsumed:     l1GasConsumed,
+		L2GasConsumed:     &felt.Zero, // TODO: Fix when we have l2 gas price
+		L1GasPrice:        l1GasPrice,
+		L2GasPrice:        l2GasPrice,
+		L1DataGasConsumed: l1DataGasConsumed,
+		L1DataGasPrice:    l1DataGasPrice,
+		OverallFee:        overallFee,
+		Unit:              utils.Ptr(feeUnit),
+	}
 }
 
 type TransactionExecutionErrorData struct {
