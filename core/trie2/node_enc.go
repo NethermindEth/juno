@@ -11,7 +11,7 @@ import (
 
 const (
 	binaryNodeSize      = 2 * hashOrValueNodeSize                         // LeftHash + RightHash
-	edgeNodeSize        = trieutils.MaxBitArraySize + hashOrValueNodeSize // Path + Child Hash (max size, could be less)
+	edgeNodeMaxSize     = trieutils.MaxBitArraySize + hashOrValueNodeSize // Path + Child Hash
 	hashOrValueNodeSize = felt.Bytes
 )
 
@@ -72,7 +72,10 @@ func nodeToBytes(n node) []byte {
 	if err := n.write(buf); err != nil {
 		panic(err)
 	}
-	return buf.Bytes()
+
+	res := make([]byte, buf.Len())
+	copy(res, buf.Bytes())
+	return res
 }
 
 func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, error) {
@@ -82,14 +85,20 @@ func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, e
 		isLeaf bool
 	)
 
+	if pathLen > maxPathLen {
+		return nil, fmt.Errorf("node path length (%d) is greater than max path length (%d)", pathLen, maxPathLen)
+	}
+
 	isLeaf = pathLen == maxPathLen
 
 	switch len(blob) {
 	case hashOrValueNodeSize:
+		var f felt.Felt
+		f.SetBytes(blob)
 		if isLeaf {
-			n = &valueNode{Felt: hash}
+			n = &valueNode{Felt: f}
 		} else {
-			n = &hashNode{Felt: hash}
+			n = &hashNode{Felt: f}
 		}
 	case binaryNodeSize:
 		binary := &binaryNode{flags: nodeFlag{hash: &hashNode{Felt: hash}}} // cache the hash
@@ -104,16 +113,22 @@ func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, e
 
 		n = binary
 	default:
-		// Edge node size is capped, if the blob is larger than the max size, it's invalid
-		if len(blob) > edgeNodeSize {
+		// Ensure the blob length is within the valid range for an edge node
+		if len(blob) > edgeNodeMaxSize || len(blob) < hashOrValueNodeSize {
 			return nil, fmt.Errorf("invalid node size: %d", len(blob))
 		}
-		edge := &edgeNode{flags: nodeFlag{hash: &hashNode{Felt: hash}}} // cache the hash
-		edge.child, err = decodeNode(blob[:hashOrValueNodeSize], hash, pathLen, maxPathLen)
+
+		edge := &edgeNode{
+			path:  &trieutils.BitArray{},
+			flags: nodeFlag{hash: &hashNode{Felt: hash}}, // cache the hash
+		}
+		edge.child, err = decodeNode(blob[:hashOrValueNodeSize], felt.Felt{}, pathLen, maxPathLen)
 		if err != nil {
 			return nil, err
 		}
-		edge.path.UnmarshalBinary(blob[hashOrValueNodeSize:])
+		if err := edge.path.UnmarshalBinary(blob[hashOrValueNodeSize:]); err != nil {
+			return nil, err
+		}
 
 		// We do another path length check to see if the node is a leaf
 		if pathLen+edge.path.Len() == maxPathLen {
