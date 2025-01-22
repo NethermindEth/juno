@@ -39,9 +39,7 @@ func (c *collector) collect(path *Path, n node, parallel bool) node {
 		// If the child is a binary node, recurse into it.
 		// Otherwise, it can only be a hashNode or valueNode.
 		// Combination of edge (parent) + edge (child) is not possible.
-		if _, ok := cn.child.(*binaryNode); ok {
-			collapsed.child = c.collect(new(Path).Append(path, cn.path), cn.child, parallel)
-		}
+		collapsed.child = c.collect(new(Path).Append(path, cn.path), cn.child, parallel)
 		return c.store(path, collapsed)
 	case *binaryNode:
 		collapsed := cn.copy()
@@ -70,7 +68,7 @@ func (c *collector) collectChildren(path *Path, n *binaryNode, parallel bool) [2
 		}
 
 		// Create child path
-		childPath := new(Path).Append(path, new(Path).SetBit(uint8(i)))
+		childPath := new(Path).AppendBit(path, uint8(i))
 
 		if !parallel {
 			children[i] = c.collect(childPath, child, parallel)
@@ -113,11 +111,12 @@ func (c *collector) collectChildren(path *Path, n *binaryNode, parallel bool) [2
 func (c *collector) store(path *Path, n node) node {
 	hash, _ := n.cache()
 
+	blob := nodeToBytes(n)
 	if hash == nil { // this is a value node
-		c.nodes.Add(*path, trienode.NewNode(felt.Felt{}, nodeToBytes(n)))
+		c.nodes.Add(*path, trienode.NewNode(felt.Felt{}, blob))
 		return n
 	}
 
-	c.nodes.Add(*path, trienode.NewNode(hash.Felt, nodeToBytes(n)))
+	c.nodes.Add(*path, trienode.NewNode(hash.Felt, blob))
 	return hash
 }

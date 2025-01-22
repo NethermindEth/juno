@@ -97,19 +97,16 @@ func (t *Trie) Update(key, value *felt.Felt) error {
 // Retrieves the value associated with the given key.
 // Returns felt.Zero if the key doesn't exist.
 // May update the trie's internal structure if nodes need to be resolved.
+// TODO(weiihann):
+// The State should keep track of the modified key and values, so that we can avoid traversing the trie
+// No action needed for the Trie, remove this once State provides the functionality
 func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
 	if t.committed {
 		return felt.Zero, ErrCommitted
 	}
 
 	k := t.FeltToPath(key)
-	// We first check if the value node exists in the trie database directly
-	v, err := t.resolveNode(&hashNode{}, k)
-	if _, ok := v.(*valueNode); ok && err == nil {
-		return v.(*valueNode).Felt, nil
-	}
 
-	// Otherwise, we need to traverse the trie to find the value node
 	var ret felt.Felt
 	val, root, didResolve, err := t.get(t.root, new(Path), &k)
 	// In Starknet, a non-existent key is mapped to felt.Zero
@@ -156,6 +153,25 @@ func (t *Trie) Commit() (felt.Felt, error) {
 		t.committed = true
 	}()
 
+	// Trie is empty and can be classified into two types of situations:
+	// (a) The trie was empty and no update happens => return empty root
+	// (b) The trie was non-empty and all nodes are dropped => commit and return empty root
+	if t.root == nil {
+		paths := t.nodeTracer.deletedNodes()
+		if len(paths) == 0 { // case (a)
+			return felt.Zero, nil
+		}
+		// case (b)
+		nodes := trienode.NewNodeSet(t.owner)
+		for _, path := range paths {
+			nodes.Add(path, trienode.NewDeleted())
+		}
+		err := nodes.ForEach(true, func(key trieutils.BitArray, node *trienode.Node) error {
+			return t.db.Delete(t.owner, key)
+		})
+		return felt.Zero, err
+	}
+
 	rootHash := t.Hash()
 	if hashedNode, dirty := t.root.cache(); !dirty {
 		t.root = hashedNode
@@ -174,6 +190,9 @@ func (t *Trie) Commit() (felt.Felt, error) {
 		if node.IsDeleted() {
 			return t.db.Delete(t.owner, key)
 		}
+		// decodeNode, _ := decodeNode(node.Blob(), node.Hash(), key.Len(), t.height)
+		// fmt.Printf("key: %v value: blob %v hash %v\n", key.String(), node.Blob(), node.Hash())
+		// fmt.Printf("decodeNode: %v\n", decodeNode.String())
 		return t.db.Put(t.owner, key, node.Blob())
 	})
 	if err != nil {
@@ -201,7 +220,7 @@ func (t *Trie) get(n node, prefix, key *Path) (*felt.Felt, node, bool, error) {
 	switch n := n.(type) {
 	case *edgeNode:
 		if !n.pathMatches(key) {
-			return nil, nil, false, nil
+			return nil, n, false, nil
 		}
 		val, child, didResolve, err := t.get(n.child, new(Path).Append(prefix, n.path), key.LSBs(key, n.path.Len()))
 		if err == nil && didResolve {
@@ -218,7 +237,7 @@ func (t *Trie) get(n node, prefix, key *Path) (*felt.Felt, node, bool, error) {
 		}
 		return val, n, didResolve, err
 	case *hashNode:
-		child, err := t.resolveNode(n, *key)
+		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
 			return nil, nil, false, err
 		}
@@ -258,7 +277,7 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 	if key.Len() == 0 {
 		if v, ok := n.(*valueNode); ok {
 			vFelt := value.(*valueNode).Felt
-			return v.Equal(&vFelt), value, nil
+			return !v.Equal(&vFelt), value, nil
 		}
 		return true, value, nil
 	}
@@ -330,7 +349,7 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 		// Otherwise, return a new edge node with the Path being the key and the value as the child
 		return true, &edgeNode{path: key, child: value, flags: newFlag()}, nil
 	case *hashNode:
-		child, err := t.resolveNode(n, *key)
+		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
 			return false, n, err
 		}
@@ -361,7 +380,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 		// Otherwise, key is longer than current node path, so we need to delete the child.
 		// Child can never be nil because it's guaranteed that we have at least 2 other values in the subtrie.
 		keyPrefix := new(Path).MSBs(key, n.path.Len())
-		dirty, child, err := t.delete(n.child, new(Path).Append(prefix, keyPrefix), key.LSBs(key, n.path.Len()))
+		dirty, child, err := t.delete(n.child, new(Path).Append(prefix, keyPrefix), new(Path).LSBs(key, n.path.Len()))
 		if !dirty || err != nil {
 			return false, n, err
 		}
@@ -389,9 +408,22 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 		}
 
 		// Otherwise, we need to combine this binary node with the other child
+		// If it's a hash node, we need to resolve it first.
+		// If the other child is an edge node, we prepend the bit prefix to the other child path
 		other := bit ^ 1
 		bitPrefix := new(Path).SetBit(other)
-		if cn, ok := n.children[other].(*edgeNode); ok { // other child is an edge node, append the bit prefix to the child Path
+
+		if hn, ok := n.children[other].(*hashNode); ok {
+			var cPath Path
+			cPath.Append(prefix, bitPrefix)
+			cNode, err := t.resolveNode(hn, cPath)
+			if err != nil {
+				return false, nil, err
+			}
+			n.children[other] = cNode
+		}
+
+		if cn, ok := n.children[other].(*edgeNode); ok {
 			t.nodeTracer.onDelete(new(Path).Append(prefix, bitPrefix))
 			return true, &edgeNode{
 				path:  new(Path).Append(bitPrefix, cn.path),
@@ -408,7 +440,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 	case nil:
 		return false, nil, nil
 	case *hashNode:
-		child, err := t.resolveNode(n, *key)
+		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
 			return false, nil, err
 		}
@@ -431,6 +463,8 @@ func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
 		bufferPool.Put(buf)
 	}()
 
+	// fmt.Printf("resolveNode: path %v\n", path.String())
+
 	_, err := t.db.Get(buf, t.owner, path)
 	if err != nil {
 		return nil, err
@@ -441,6 +475,9 @@ func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
 }
 
 func (t *Trie) hashRoot() (node, node) {
+	if t.root == nil {
+		return &hashNode{Felt: felt.Zero}, nil
+	}
 	h := newHasher(t.hashFn, t.pendingHashes > 100) // TODO(weiihann): 100 is arbitrary
 	hashed, cached := h.hash(t.root)
 	t.pendingHashes = 0
