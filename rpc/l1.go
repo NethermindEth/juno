@@ -87,6 +87,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 
 	receipt, err := h.l1Client.TransactionReceipt(ctx, *txHash)
 	if err != nil {
+		h.log.Debugw("l1 client couldn't find txn ", "hash", txHash.String())
 		return nil, ErrTxnHashNotFound
 	}
 
