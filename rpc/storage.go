@@ -280,10 +280,9 @@ type EdgeNode struct {
 func (e *EdgeNode) AsProofNode() trie.ProofNode {
 	f, _ := new(felt.Felt).SetString(e.Path)
 	pbs := f.Bytes()
-	path := trie.NewKey(uint8(e.Length), pbs[:])
 
 	return &trie.Edge{
-		Path:  &path,
+		Path:  new(trie.BitArray).SetBytes(uint8(e.Length), pbs[:]),
 		Child: e.Child,
 	}
 }
