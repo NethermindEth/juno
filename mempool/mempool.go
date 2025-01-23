@@ -133,15 +133,15 @@ func (p *Pool) LoadFromDB() error {
 		// loop through the persistent pool and push nodes to the in-memory pool
 		currentHash := headVal
 		for currentHash != nil {
-			curDBElem, err := readTxn(txn, currentHash)
+			curTxn, err := readTxn(txn, currentHash)
 			if err != nil {
 				return err
 			}
 			newMemPoolTxn := &memPoolTxn{
-				Txn: curDBElem.Txn,
+				Txn: curTxn.Txn,
 			}
-			if curDBElem.NextHash != nil {
-				nextDBTxn, err := readTxn(txn, curDBElem.NextHash)
+			if curTxn.NextHash != nil {
+				nextDBTxn, err := readTxn(txn, curTxn.NextHash)
 				if err != nil {
 					return err
 				}
@@ -150,7 +150,7 @@ func (p *Pool) LoadFromDB() error {
 				}
 			}
 			p.memTxnList.push(newMemPoolTxn)
-			currentHash = curDBElem.NextHash
+			currentHash = curTxn.NextHash
 		}
 		return nil
 	})
