@@ -9,11 +9,13 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
 
+// Contains a set of nodes, which are indexed by their path in the trie.
+// It is not thread safe.
 type NodeSet struct {
-	Owner   felt.Felt
+	Owner   felt.Felt // The owner (i.e. contract address)
 	Nodes   map[trieutils.BitArray]*Node
-	updates int
-	deletes int
+	updates int // the count of updated and inserted nodes
+	deletes int // the count of deleted nodes
 }
 
 func NewNodeSet(owner felt.Felt) *NodeSet {
@@ -29,6 +31,7 @@ func (ns *NodeSet) Add(key trieutils.BitArray, node *Node) {
 	ns.Nodes[key] = node
 }
 
+// Iterates over the nodes in a sorted order and calls the callback for each node.
 func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.BitArray, node *Node) error) error {
 	paths := make([]trieutils.BitArray, 0, len(ns.Nodes))
 	for key := range ns.Nodes {
@@ -54,6 +57,8 @@ func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.BitArray, node
 	return nil
 }
 
+// Merges the other node set into the current node set.
+// The owner of both node sets must be the same.
 func (ns *NodeSet) MergeSet(other *NodeSet) error {
 	if ns.Owner != other.Owner {
 		return fmt.Errorf("cannot merge node sets with different owners %x-%x", ns.Owner, other.Owner)
@@ -64,6 +69,7 @@ func (ns *NodeSet) MergeSet(other *NodeSet) error {
 	return nil
 }
 
+// Adds a set of nodes to the current node set.
 func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.BitArray]*Node) error {
 	if ns.Owner != owner {
 		return fmt.Errorf("cannot merge node sets with different owners %x-%x", ns.Owner, owner)
