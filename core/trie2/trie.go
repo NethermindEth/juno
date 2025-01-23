@@ -454,6 +454,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 	}
 }
 
+// Resolves the node at the given path from the database
 func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
 	buf := bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -471,6 +472,7 @@ func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
 	return decodeNode(blob, hash.Felt, path.Len(), t.height)
 }
 
+// Calculate the hash of the root node
 func (t *Trie) hashRoot() (node, node) {
 	if t.root == nil {
 		return &hashNode{Felt: felt.Zero}, nil

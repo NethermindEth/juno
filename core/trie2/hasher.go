@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 )
 
-// hasher handles node hashing for the trie. It supports both sequential and parallel
+// A tool for shashing nodes in the trie. It supports both sequential and parallel
 // hashing modes.
 type hasher struct {
 	hashFn   crypto.HashFn // The hash function to use
@@ -21,7 +21,7 @@ func newHasher(hash crypto.HashFn, parallel bool) hasher {
 	}
 }
 
-// hash computes the hash of a node and returns both the hash node and a cached
+// Computes the hash of a node and returns both the hash node and a cached
 // version of the original node. If the node already has a cached hash, returns
 // that instead of recomputing.
 func (h *hasher) hash(n node) (node, node) {
