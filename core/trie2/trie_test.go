@@ -325,12 +325,12 @@ func generateSteps(finished func() bool, r io.Reader) randTest {
 	random := []byte{0}
 
 	genKey := func() *felt.Felt {
-		r.Read(random)
+		_, _ = r.Read(random)
 		// Create a new key with 10% probability or when < 2 keys exist
 		if len(allKeys) < 2 || random[0]%100 > 90 {
 			size := random[0] % 32 // ensure key size is between 1 and 32 bytes
 			key := make([]byte, size)
-			r.Read(key)
+			_, _ = r.Read(key)
 			allKeys = append(allKeys, new(felt.Felt).SetBytes(key))
 		}
 		// 90% probability to return an existing key
@@ -340,7 +340,7 @@ func generateSteps(finished func() bool, r io.Reader) randTest {
 
 	var steps randTest
 	for !finished() {
-		r.Read(random)
+		_, _ = r.Read(random)
 		step := randTestStep{op: int(random[0]) % opMax}
 		switch step.op {
 		case opUpdate:
@@ -358,6 +358,7 @@ func runRandTestBool(rt randTest) bool {
 	return runRandTest(rt) == nil
 }
 
+//nolint:gocyclo
 func runRandTest(rt randTest) error {
 	txn := db.NewMemTransaction()
 	tr, err := New(TrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, txn)
@@ -368,24 +369,15 @@ func runRandTest(rt randTest) error {
 	values := make(map[felt.Felt]felt.Felt) // keeps track of the content of the trie
 
 	for i, step := range rt {
-		// fmt.Printf("Step %d: %d key=%s value=%s\n", i, step.op, step.key, step.value)
 		switch step.op {
 		case opUpdate:
 			err := tr.Update(step.key, step.value)
-			// fmt.Println("--------------------------------")
-			// fmt.Println(tr.root.String())
 			if err != nil {
 				rt[i].err = fmt.Errorf("update failed: key %s, %w", step.key.String(), err)
 			}
 			values[*step.key] = *step.value
 		case opDelete:
 			err := tr.Delete(step.key)
-			// fmt.Println("--------------------------------")
-			// if tr.root != nil {
-			// 	fmt.Println("trie", tr.root.String())
-			// } else {
-			// 	fmt.Println("nil root")
-			// }
 			if err != nil {
 				rt[i].err = fmt.Errorf("delete failed: key %s, %w", step.key.String(), err)
 			}
@@ -421,12 +413,6 @@ func runRandTest(rt randTest) error {
 				rt[i].err = fmt.Errorf("commit failed: %w", err)
 			}
 			newtr, err := New(TrieID(root), contractClassTrieHeight, crypto.Pedersen, txn)
-			// fmt.Println("--------------------------------")
-			// if newtr.root != nil {
-			// 	fmt.Println(newtr.root.String())
-			// } else {
-			// 	fmt.Println("nil root")
-			// }
 			if err != nil {
 				rt[i].err = fmt.Errorf("new trie failed: %w", err)
 			}
