@@ -203,6 +203,17 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
+func (h *Handler) BlockWithTxHashesV0_6(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	resp, err := h.BlockWithTxHashes(id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.L1DAMode = nil
+	resp.L1DataGasPrice = nil
+	return resp, nil
+}
+
 // BlockTransactionCount returns the number of transactions in a block
 // identified by the given BlockID.
 //
@@ -299,6 +310,17 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
+}
+
+func (h *Handler) BlockWithTxsV0_6(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	resp, err := h.BlockWithTxs(id)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.L1DAMode = nil
+	resp.L1DataGasPrice = nil
+	return resp, nil
 }
 
 func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {

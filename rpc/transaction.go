@@ -591,6 +591,37 @@ func (h *Handler) transactionReceiptByHash(hash felt.Felt, rpcVersion version) (
 	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, rpcVersion), nil
 }
 
+// TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
+func (h *Handler) TransactionReceiptByHashV0_6(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	txn, err := h.bcReader.TransactionByHash(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	status := TxnAcceptedOnL2
+
+	if blockHash != nil {
+		l1H, jsonErr := h.l1Head()
+		if jsonErr != nil {
+			return nil, jsonErr
+		}
+
+		if isL1Verified(blockNumber, l1H) {
+			status = TxnAcceptedOnL1
+		}
+	}
+
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, V0_6), nil
+}
+
 // AddTransaction relays a transaction to the gateway.
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {

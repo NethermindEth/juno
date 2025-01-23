@@ -62,6 +62,11 @@ func (h *Handler) SimulateTransactionsV0_7(id BlockID, transactions []Broadcaste
 	return h.simulateTransactions(id, transactions, simulationFlags, false, V0_7)
 }
 
+func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag,
+) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+	return h.simulateTransactions(id, transactions, simulationFlags, false, V0_6)
+}
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, errOnRevert bool, rpcVersion version,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
@@ -110,8 +115,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
+	useBlobData := rpcVersion != V0_6
 	overallFees, daGas, traces, numSteps, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
+		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, useBlobData)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
 
@@ -132,13 +138,17 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 		estimate := calculateFeeEstimate(overallFee, daGas[i].L1DataGas, feeUnit, header, rpcVersion)
 
-		trace := traces[i]
-		executionResources := trace.TotalExecutionResources()
-		executionResources.DataAvailability = &vm.DataAvailability{
-			L1Gas:     daGas[i].L1Gas,
-			L1DataGas: daGas[i].L1DataGas,
+		switch rpcVersion {
+		case V0_6:
+		default:
+			trace := traces[i]
+			executionResources := trace.TotalExecutionResources()
+			executionResources.DataAvailability = &vm.DataAvailability{
+				L1Gas:     daGas[i].L1Gas,
+				L1DataGas: daGas[i].L1DataGas,
+			}
+			traces[i].ExecutionResources = executionResources
 		}
-		traces[i].ExecutionResources = executionResources
 
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: &traces[i],
@@ -176,8 +186,14 @@ func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUn
 	}
 
 	l1DataGasConsumed := new(felt.Felt).SetUint64(l1DataGas)
-	dataGasFee := new(felt.Felt).Mul(l1DataGasConsumed, l1DataGasPrice)
-	l1GasConsumed := new(felt.Felt).Sub(overallFee, dataGasFee)
+	var l1GasConsumed *felt.Felt
+	switch rpcVersion {
+	case V0_6:
+		l1GasConsumed = overallFee.Clone()
+	default:
+		dataGasFee := new(felt.Felt).Mul(l1DataGasConsumed, l1DataGasPrice)
+		l1GasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
+	}
 	l1GasConsumed = l1GasConsumed.Div(l1GasConsumed, l1GasPrice)
 
 	return FeeEstimate{

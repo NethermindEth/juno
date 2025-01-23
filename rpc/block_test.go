@@ -546,7 +546,78 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			Timestamp:        coreBlock.Timestamp,
 		},
 		Status: rpc.BlockAcceptedL2,
-		Transactions: []*rpc.Transaction{
+		Transactions: []*rpc.Transaction{ //nolint:dupl
+			{
+				Hash:               tx.Hash(),
+				Type:               rpc.TxnInvoke,
+				Version:            tx.Version.AsFelt(),
+				Nonce:              tx.Nonce,
+				MaxFee:             tx.MaxFee,
+				ContractAddress:    tx.ContractAddress,
+				SenderAddress:      tx.SenderAddress,
+				Signature:          &tx.TransactionSignature,
+				CallData:           &tx.CallData,
+				EntryPointSelector: tx.EntryPointSelector,
+				ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
+					rpc.ResourceL1Gas: {
+						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
+						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
+					},
+					rpc.ResourceL2Gas: {
+						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
+						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
+					},
+				},
+				Tip:                   new(felt.Felt).SetUint64(tx.Tip),
+				PaymasterData:         &tx.PaymasterData,
+				AccountDeploymentData: &tx.AccountDeploymentData,
+				NonceDAMode:           utils.Ptr(rpc.DataAvailabilityMode(tx.NonceDAMode)),
+				FeeDAMode:             utils.Ptr(rpc.DataAvailabilityMode(tx.FeeDAMode)),
+			},
+		},
+	}, got)
+}
+
+func TestBlockWithTxHashesV013_V06(t *testing.T) {
+	n := utils.Ptr(utils.SepoliaIntegration)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, "", nil)
+
+	blockNumber := uint64(16350)
+	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
+	coreBlock, err := gw.BlockByNumber(context.Background(), blockNumber)
+	require.NoError(t, err)
+	tx, ok := coreBlock.Transactions[0].(*core.InvokeTransaction)
+	require.True(t, ok)
+
+	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(coreBlock, nil)
+	mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
+	got, rpcErr := handler.BlockWithTxsV0_6(rpc.BlockID{Number: blockNumber})
+	require.Nil(t, rpcErr)
+	got.Transactions = got.Transactions[:1]
+
+	require.Equal(t, &rpc.BlockWithTxs{
+		BlockHeader: rpc.BlockHeader{
+			Hash:            coreBlock.Hash,
+			StarknetVersion: coreBlock.ProtocolVersion,
+			NewRoot:         coreBlock.GlobalStateRoot,
+			Number:          &coreBlock.Number,
+			ParentHash:      coreBlock.ParentHash,
+			L1GasPrice: &rpc.ResourcePrice{
+				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
+				InWei: utils.HexToFelt(t, "0x3b9aca10"),
+			},
+			L2GasPrice: &rpc.ResourcePrice{
+				InFri: &felt.Zero,
+				InWei: &felt.Zero,
+			},
+			SequencerAddress: coreBlock.SequencerAddress,
+			Timestamp:        coreBlock.Timestamp,
+		},
+		Status: rpc.BlockAcceptedL2,
+		Transactions: []*rpc.Transaction{ //nolint:dupl
 			{
 				Hash:               tx.Hash(),
 				Type:               rpc.TxnInvoke,

@@ -43,6 +43,18 @@ type FeeEstimate struct {
 
 func (f FeeEstimate) MarshalJSON() ([]byte, error) {
 	switch f.rpcVersion {
+	case V0_6:
+		return json.Marshal(struct {
+			GasConsumed *felt.Felt `json:"gas_consumed"`
+			GasPrice    *felt.Felt `json:"gas_price"`
+			OverallFee  *felt.Felt `json:"overall_fee"`
+			Unit        *FeeUnit   `json:"unit,omitempty"`
+		}{
+			GasConsumed: f.L1GasConsumed,
+			GasPrice:    f.L1GasPrice,
+			OverallFee:  f.OverallFee,
+			Unit:        f.Unit,
+		})
 	case V0_7:
 		return json.Marshal(struct {
 			GasConsumed     *felt.Felt `json:"gas_consumed"`
@@ -77,6 +89,12 @@ func (h *Handler) EstimateFeeV0_7(broadcastedTxns []BroadcastedTransaction,
 	return h.estimateFee(broadcastedTxns, simulationFlags, id, V0_7)
 }
 
+func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, id BlockID,
+) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
+	return h.estimateFee(broadcastedTxns, simulationFlags, id, V0_6)
+}
+
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
@@ -94,6 +112,11 @@ func (h *Handler) estimateFee(broadcastedTxns []BroadcastedTransaction,
 	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
 		return tx.FeeEstimation
 	}), httpHeader, nil
+}
+
+//nolint:gocritic
+func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) {
+	return estimateMessageFee(msg, id, h.EstimateFeeV0_6)
 }
 
 //nolint:gocritic
