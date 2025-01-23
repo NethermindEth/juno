@@ -571,6 +571,8 @@ func hasRightElement(node node, key Path) bool {
 	return false
 }
 
+// Resolves the whole path of the given key and node.
+// If skipResolved is true, it will only return the immediate child node of the current node
 func get(rn node, key *Path, skipResolved bool) node {
 	for {
 		switch n := rn.(type) {

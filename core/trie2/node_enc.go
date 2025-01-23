@@ -31,6 +31,7 @@ const (
 	edgeNodeType
 )
 
+// Enc(binary) = binaryNodeType + HashNode(left) + HashNode(right)
 func (n *binaryNode) write(buf *bytes.Buffer) error {
 	if err := buf.WriteByte(binaryNodeType); err != nil {
 		return err
@@ -47,6 +48,7 @@ func (n *binaryNode) write(buf *bytes.Buffer) error {
 	return nil
 }
 
+// Enc(edge) = edgeNodeType + HashNode(child) + Path
 func (n *edgeNode) write(buf *bytes.Buffer) error {
 	if err := buf.WriteByte(edgeNodeType); err != nil {
 		return err
@@ -63,6 +65,7 @@ func (n *edgeNode) write(buf *bytes.Buffer) error {
 	return nil
 }
 
+// Enc(hash) = Felt
 func (n *hashNode) write(buf *bytes.Buffer) error {
 	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
 		return err
@@ -71,6 +74,7 @@ func (n *hashNode) write(buf *bytes.Buffer) error {
 	return nil
 }
 
+// Enc(value) = Felt
 func (n *valueNode) write(buf *bytes.Buffer) error {
 	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
 		return err
@@ -79,6 +83,7 @@ func (n *valueNode) write(buf *bytes.Buffer) error {
 	return nil
 }
 
+// Returns the encoded bytes of a node
 func nodeToBytes(n node) []byte {
 	buf := bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -96,6 +101,7 @@ func nodeToBytes(n node) []byte {
 	return res
 }
 
+// Decodes the encoded bytes and returns the corresponding node
 func decodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (node, error) {
 	if len(blob) == 0 {
 		return nil, errors.New("cannot decode empty blob")

@@ -21,6 +21,7 @@ type ID struct {
 	StorageRoot felt.Felt // The root hash of the storage trie of a contract.
 }
 
+// Returns the corresponding DB bucket for the trie
 func (id *ID) Bucket() db.Bucket {
 	switch id.TrieType {
 	case ClassTrie:
@@ -57,6 +58,7 @@ func ContractTrieID(root, owner, storageRoot felt.Felt) *ID {
 	}
 }
 
+// A general identifier, typically used for temporary trie
 func TrieID(root felt.Felt) *ID {
 	return &ID{
 		TrieType:    Empty,
