@@ -2,8 +2,6 @@ package rpc
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -71,65 +69,6 @@ type StorageProofResult struct {
 	ContractsProof         *ContractProof  `json:"contracts_proof"`
 	ContractsStorageProofs [][]*HashToNode `json:"contracts_storage_proofs"`
 	GlobalRoots            *GlobalRoots    `json:"global_roots"`
-}
-
-func (s *StorageProofResult) String() string {
-	var result strings.Builder
-
-	result.WriteString("StorageProofResult{\n")
-	result.WriteString(fmt.Sprintf("  ClassesProof: %d proofs\n", len(s.ClassesProof)))
-
-	if s.ContractsProof != nil {
-		result.WriteString(fmt.Sprintf("  ContractsProof: %d nodes, %d leaves\n",
-			len(s.ContractsProof.Nodes),
-			len(s.ContractsProof.LeavesData)))
-
-		// Print nodes
-		result.WriteString("    Nodes:\n")
-		for i, node := range s.ContractsProof.Nodes {
-			result.WriteString(fmt.Sprintf("      [%d] Hash: %v\n", i, node.Hash))
-			switch n := node.Node.(type) {
-			case *BinaryNode:
-				result.WriteString(fmt.Sprintf("          Binary{Left: %v, Right: %v}\n", n.Left, n.Right))
-			case *EdgeNode:
-				result.WriteString(fmt.Sprintf("          Edge{Path: %v, Length: %d, Child: %v}\n", n.Path, n.Length, n.Child))
-			}
-		}
-
-		// Print leaves
-		result.WriteString("    Leaves:\n")
-		for i, leaf := range s.ContractsProof.LeavesData {
-			if leaf != nil {
-				result.WriteString(fmt.Sprintf("      [%d] Nonce: %v, ClassHash: %v Root: %v\n", i, leaf.Nonce, leaf.ClassHash, leaf.StorageRoot))
-			}
-		}
-	}
-
-	result.WriteString(fmt.Sprintf("  ContractsStorageProofs: %d proofs\n", len(s.ContractsStorageProofs)))
-	// Print storage proofs
-	for i, proof := range s.ContractsStorageProofs {
-		result.WriteString(fmt.Sprintf("    Proof[%d]: %d nodes\n", i, len(proof)))
-		for j, node := range proof {
-			result.WriteString(fmt.Sprintf("      [%d] Hash: %v\n", j, node.Hash))
-			switch n := node.Node.(type) {
-			case *BinaryNode:
-				result.WriteString(fmt.Sprintf("          Binary{Left: %v, Right: %v}\n", n.Left, n.Right))
-			case *EdgeNode:
-				result.WriteString(fmt.Sprintf("          Edge{Path: %v, Length: %d, Child: %v}\n", n.Path, n.Length, n.Child))
-			}
-		}
-	}
-
-	if s.GlobalRoots != nil {
-		result.WriteString("  GlobalRoots: {\n")
-		result.WriteString(fmt.Sprintf("    ContractsTreeRoot: %v\n", s.GlobalRoots.ContractsTreeRoot))
-		result.WriteString(fmt.Sprintf("    ClassesTreeRoot: %v\n", s.GlobalRoots.ClassesTreeRoot))
-		result.WriteString(fmt.Sprintf("    BlockHash: %v\n", s.GlobalRoots.BlockHash))
-		result.WriteString("  }")
-	}
-
-	result.WriteString("\n}")
-	return result.String()
 }
 
 func (h *Handler) StorageProof(id BlockID,
