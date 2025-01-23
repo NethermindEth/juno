@@ -32,7 +32,7 @@ func AdaptReceipt(r *gen.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
 		L1ToL2Message:      nil,
 		L2ToL1Message:      utils.Map(common.MessagesSent, adaptMessageToL1),
 		TransactionHash:    txHash,
-		Reverted:           common.RevertReason != nil, // todo is it correct?
+		Reverted:           common.RevertReason != nil, // in case it's empty string we should treat it as reverted
 		RevertReason:       common.GetRevertReason(),
 	}
 }
@@ -58,14 +58,16 @@ func adaptExecutionResources(er *gen.Receipt_ExecutionResources) *core.Execution
 		},
 		DataAvailability: &core.DataAvailability{
 			L1Gas:     feltToUint64(er.L1Gas),
+			L2Gas:     feltToUint64(er.L2Gas),
 			L1DataGas: feltToUint64(er.L1DataGas),
 		},
 		MemoryHoles: uint64(er.MemoryHoles),
 		Steps:       uint64(er.Steps), // todo SPEC 32 -> 64 bytes
 		TotalGasConsumed: &core.GasConsumed{
 			L1Gas: feltToUint64(er.TotalL1Gas),
+			L2Gas: feltToUint64(er.L2Gas),
 			// total_l1_data_gas = l1_data_gas, because there's only one place that can generate l1_data_gas costs
-			L1DataGas: feltToUint64(er.L1DataGas),
+			L1DataGas: feltToUint64(er.TotalL1DataGas),
 		},
 	}
 }

@@ -94,7 +94,7 @@ install-mockgen:
 	go install go.uber.org/mock/mockgen@latest
 
 install-golangci-lint:
-	@which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2
+	@which golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
 
 lint: install-golangci-lint ## Run linter
 	golangci-lint run

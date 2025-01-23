@@ -137,14 +137,31 @@ func (h *Handler) onHeadersRequest(req *gen.BlockHeadersRequest) (iter.Seq[proto
 
 		h.log.Debugw("Created Header Iterator", "blockNumber", header.Number)
 
-		commitments, err := h.bcReader.BlockCommitmentsByNumber(header.Number)
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(header.Number)
 		if err != nil {
 			return nil, err
 		}
 
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(header.Number)
+		blockVer, err := core.ParseBlockVersion(header.ProtocolVersion)
 		if err != nil {
 			return nil, err
+		}
+
+		var commitments *core.BlockCommitments
+		if blockVer.LessThan(core.Ver0_13_2) {
+			block, err := it.Block()
+			if err != nil {
+				return nil, err
+			}
+			_, commitments, err = core.Post0132Hash(block, stateUpdate.StateDiff)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			commitments, err = h.bcReader.BlockCommitmentsByNumber(header.Number)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		return &gen.BlockHeadersResponse{

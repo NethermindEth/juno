@@ -355,17 +355,17 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_subscribeEvents",
-			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block_id", Optional: true}},
 			Handler: h.SubscribeEvents,
 		},
 		{
 			Name:    "starknet_subscribeNewHeads",
-			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
 			Handler: h.SubscribeNewHeads,
 		},
 		{
 			Name:    "starknet_subscribeTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block_id", Optional: true}},
 			Handler: h.SubscribeTransactionStatus,
 		},
 		{
@@ -511,12 +511,12 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
-			Handler: h.EstimateFee,
+			Handler: h.EstimateFeeV0_7,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.EstimateMessageFee,
+			Handler: h.EstimateMessageFeeV0_7,
 		},
 		{
 			Name:    "starknet_traceTransaction",

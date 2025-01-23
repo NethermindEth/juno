@@ -242,8 +242,8 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
 	cBlockInfo.block_timestamp = C.ulonglong(blockInfo.Header.Timestamp)
 	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
-	copyFeltIntoCArray(blockInfo.Header.GasPrice, &cBlockInfo.gas_price_wei[0])
-	copyFeltIntoCArray(blockInfo.Header.GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.gas_price_wei[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
 	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
 	copyFeltIntoCArray(blockInfo.BlockHashToBeRevealed, &cBlockInfo.block_hash_to_be_revealed[0])
 	if blockInfo.Header.L1DAMode == core.Blob {
@@ -399,7 +399,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	return context.actualFees, context.daGas, traces, receipts, context.executionSteps, nil
 }
 
-func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) { //nolint:lll
+func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
 	txnJSONs := make([]json.RawMessage, 0, len(txns))
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)

@@ -139,9 +139,9 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
-	var rootKey *trie.Key
+	var rootKey *trie.BitArray // TODO: use value instead of pointer
 	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(trie.Key)
+		rootKey = new(trie.BitArray)
 		return rootKey.UnmarshalBinary(val)
 	})
 
@@ -169,7 +169,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 		if resultingRootKey != nil {
 			var rootKeyBytes bytes.Buffer
-			_, marshalErr := resultingRootKey.WriteTo(&rootKeyBytes)
+			_, marshalErr := resultingRootKey.Write(&rootKeyBytes)
 			if marshalErr != nil {
 				return marshalErr
 			}
@@ -239,10 +239,11 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 }
 
 var (
-	noClassContractsClassHash = new(felt.Felt).SetUint64(0)
+	systemContractsClassHash = new(felt.Felt).SetUint64(0)
 
-	noClassContracts = map[felt.Felt]struct{}{
+	systemContracts = map[felt.Felt]struct{}{
 		*new(felt.Felt).SetUint64(1): {},
+		*new(felt.Felt).SetUint64(2): {},
 	}
 )
 
@@ -377,9 +378,9 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		addr *felt.Felt
 	}
 
-	// make sure all noClassContracts are deployed
+	// make sure all systemContracts are deployed
 	for addr := range diffs {
-		if _, ok := noClassContracts[addr]; !ok {
+		if _, ok := systemContracts[addr]; !ok {
 			continue
 		}
 
@@ -388,8 +389,8 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			if !errors.Is(err, ErrContractNotDeployed) {
 				return err
 			}
-			// Deploy noClassContract
-			err = s.putNewContract(stateTrie, &addr, noClassContractsClassHash, blockNumber)
+			// Deploy systemContract
+			err = s.putNewContract(stateTrie, &addr, systemContractsClassHash, blockNumber)
 			if err != nil {
 				return err
 			}
@@ -570,18 +571,18 @@ func (s *State) Revert(blockNumber uint64, update *StateUpdate) error {
 		}
 	}
 
-	if err = s.purgeNoClassContracts(); err != nil {
+	if err = s.purgesystemContracts(); err != nil {
 		return err
 	}
 
 	return s.verifyStateUpdateRoot(update.OldRoot)
 }
 
-func (s *State) purgeNoClassContracts() error {
-	// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
+func (s *State) purgesystemContracts() error {
+	// As systemContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
 	// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
-	// we can use the lack of key's existence as reason for purging noClassContracts.
-	for addr := range noClassContracts {
+	// we can use the lack of key's existence as reason for purging systemContracts.
+	for addr := range systemContracts {
 		noClassC, err := NewContractUpdater(&addr, s.txn)
 		if err != nil {
 			if !errors.Is(err, ErrContractNotDeployed) {

@@ -220,6 +220,7 @@ type ExecutionResources struct {
 type DataAvailability struct {
 	L1Gas     uint64 `json:"l1_gas"`
 	L1DataGas uint64 `json:"l1_data_gas"`
+	L2Gas     uint64 `json:"l2_gas"`
 }
 
 type BuiltinInstanceCounter struct {
@@ -240,6 +241,7 @@ type BuiltinInstanceCounter struct {
 type GasConsumed struct {
 	L1Gas     uint64 `json:"l1_gas"`
 	L1DataGas uint64 `json:"l1_data_gas"`
+	L2Gas     uint64 `json:"l2_gas"`
 }
 
 type TransactionReceipt struct {

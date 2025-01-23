@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
@@ -141,7 +142,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.Tr
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
-	if err != nil {
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, httpHeader, ErrTxnHashNotFound
 	}
 

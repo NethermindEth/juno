@@ -15,7 +15,7 @@ import (
 func TestStorage(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	prefix := []byte{37, 44}
-	key := trie.NewKey(44, nil)
+	key := trie.NewBitArray(44, 0)
 
 	value, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestStorage(t *testing.T) {
 		}), db.ErrKeyNotFound.Error())
 	})
 
-	rootKey := trie.NewKey(8, []byte{0x2})
+	rootKey := trie.NewBitArray(8, 2)
 
 	t.Run("put root key", func(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
@@ -91,7 +91,7 @@ func TestStorage(t *testing.T) {
 			tTxn := trie.NewStorage(txn, prefix)
 			gotRootKey, err := tTxn.RootKey()
 			require.NoError(t, err)
-			assert.Equal(t, rootKey, *gotRootKey)
+			assert.Equal(t, &rootKey, gotRootKey)
 			return nil
 		}))
 	})

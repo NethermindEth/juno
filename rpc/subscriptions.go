@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -14,6 +15,14 @@ import (
 )
 
 const subscribeEventsChunkSize = 1024
+
+// The function signature of SubscribeTransactionStatus cannot be changed since the jsonrpc package maps the number
+// of argument in the function to the parameters in the starknet spec, therefore, the following variables are not passed
+// as arguments, and they can be modified in the test to make them run faster.
+var (
+	subscribeTxStatusTimeout        = 5 * time.Minute
+	subscribeTxStatusTickerDuration = 5 * time.Second
+)
 
 type SubscriptionResponse struct {
 	Version string `json:"jsonrpc"`
@@ -98,7 +107,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 // Later updates are sent only when the transaction status changes.
 // The optional block_id parameter is ignored, as status changes are not stored and historical data cannot be sent.
 //
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Felt, blockID *BlockID) (*SubscriptionID,
 	*jsonrpc.Error,
 ) {
@@ -115,9 +124,37 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 		return nil, rpcErr
 	}
 
-	curStatus, rpcErr := h.TransactionStatus(context.Background(), txHash)
+	// If the error is transaction not found that means the transaction has not been submitted to the feeder gateway,
+	// therefore, we need to wait for a specified time and at regular interval check if the transaction has been found.
+	// If the transaction is found during the timout expiry, then we continue to keep track of its status otherwise the
+	// websocket connection is closed after the expiry.
+	curStatus, rpcErr := h.TransactionStatus(ctx, txHash)
 	if rpcErr != nil {
-		return nil, rpcErr
+		if rpcErr != ErrTxnHashNotFound {
+			return nil, rpcErr
+		}
+
+		timeout := time.NewTimer(subscribeTxStatusTimeout)
+		ticker := time.NewTicker(subscribeTxStatusTickerDuration)
+
+	txNotFoundLoop:
+		for {
+			select {
+			case <-timeout.C:
+				ticker.Stop()
+				return nil, rpcErr
+			case <-ticker.C:
+				curStatus, rpcErr = h.TransactionStatus(ctx, txHash)
+				if rpcErr != nil {
+					if rpcErr != ErrTxnHashNotFound {
+						return nil, rpcErr
+					}
+					continue
+				}
+				timeout.Stop()
+				break txNotFoundLoop
+			}
+		}
 	}
 
 	id := h.idgen()

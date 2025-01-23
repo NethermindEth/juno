@@ -13,14 +13,14 @@ import (
 // https://docs.starknet.io/architecture-and-concepts/network-architecture/starknet-state/#trie_construction
 type Node struct {
 	Value     *felt.Felt
-	Left      *Key
-	Right     *Key
+	Left      *BitArray
+	Right     *BitArray
 	LeftHash  *felt.Felt
 	RightHash *felt.Felt
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) Hash(path *Key, hashFn crypto.HashFn) *felt.Felt {
+func (n *Node) Hash(path *BitArray, hashFn crypto.HashFn) *felt.Felt {
 	if path.Len() == 0 {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -35,32 +35,32 @@ func (n *Node) Hash(path *Key, hashFn crypto.HashFn) *felt.Felt {
 }
 
 // Hash calculates the hash of a [Node]
-func (n *Node) HashFromParent(parentKey, nodeKey *Key, hashFn crypto.HashFn) *felt.Felt {
+func (n *Node) HashFromParent(parentKey, nodeKey *BitArray, hashFn crypto.HashFn) *felt.Felt {
 	path := path(nodeKey, parentKey)
 	return n.Hash(&path, hashFn)
 }
 
-func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
+func (n *Node) WriteTo(buf *bytes.Buffer) (int, error) {
 	if n.Value == nil {
 		return 0, errors.New("cannot marshal node with nil value")
 	}
 
-	totalBytes := int64(0)
+	var totalBytes int
 
 	valueB := n.Value.Bytes()
 	wrote, err := buf.Write(valueB[:])
-	totalBytes += int64(wrote)
+	totalBytes += wrote
 	if err != nil {
 		return totalBytes, err
 	}
 
 	if n.Left != nil {
-		wrote, errInner := n.Left.WriteTo(buf)
+		wrote, errInner := n.Left.Write(buf)
 		totalBytes += wrote
 		if errInner != nil {
 			return totalBytes, errInner
 		}
-		wrote, errInner = n.Right.WriteTo(buf) // n.Right is non-nil by design
+		wrote, errInner = n.Right.Write(buf) // n.Right is non-nil by design
 		totalBytes += wrote
 		if errInner != nil {
 			return totalBytes, errInner
@@ -75,14 +75,14 @@ func (n *Node) WriteTo(buf *bytes.Buffer) (int64, error) {
 
 	leftHashB := n.LeftHash.Bytes()
 	wrote, err = buf.Write(leftHashB[:])
-	totalBytes += int64(wrote)
+	totalBytes += wrote
 	if err != nil {
 		return totalBytes, err
 	}
 
 	rightHashB := n.RightHash.Bytes()
 	wrote, err = buf.Write(rightHashB[:])
-	totalBytes += int64(wrote)
+	totalBytes += wrote
 	if err != nil {
 		return totalBytes, err
 	}
@@ -110,14 +110,15 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 	}
 
 	if n.Left == nil {
-		n.Left = new(Key)
-		n.Right = new(Key)
+		n.Left = new(BitArray)
+		n.Right = new(BitArray)
 	}
 
 	if err := n.Left.UnmarshalBinary(data); err != nil {
 		return err
 	}
 	data = data[n.Left.EncodedLen():]
+
 	if err := n.Right.UnmarshalBinary(data); err != nil {
 		return err
 	}
@@ -157,11 +158,13 @@ func (n *Node) Update(other *Node) error {
 		return fmt.Errorf("conflicting Values: %v != %v", n.Value, other.Value)
 	}
 
-	if n.Left != nil && other.Left != nil && !n.Left.Equal(NilKey) && !other.Left.Equal(NilKey) && !n.Left.Equal(other.Left) {
+	if n.Left != nil && other.Left != nil && !n.Left.Equal(emptyBitArray) && !other.Left.Equal(emptyBitArray) && !n.Left.Equal(other.Left) {
 		return fmt.Errorf("conflicting Left keys: %v != %v", n.Left, other.Left)
 	}
 
-	if n.Right != nil && other.Right != nil && !n.Right.Equal(NilKey) && !other.Right.Equal(NilKey) && !n.Right.Equal(other.Right) {
+	if n.Right != nil && other.Right != nil &&
+		!n.Right.Equal(emptyBitArray) && !other.Right.Equal(emptyBitArray) &&
+		!n.Right.Equal(other.Right) {
 		return fmt.Errorf("conflicting Right keys: %v != %v", n.Right, other.Right)
 	}
 
@@ -177,10 +180,10 @@ func (n *Node) Update(other *Node) error {
 	if other.Value != nil {
 		n.Value = other.Value
 	}
-	if other.Left != nil && !other.Left.Equal(NilKey) {
+	if other.Left != nil && !other.Left.Equal(emptyBitArray) {
 		n.Left = other.Left
 	}
-	if other.Right != nil && !other.Right.Equal(NilKey) {
+	if other.Right != nil && !other.Right.Equal(emptyBitArray) {
 		n.Right = other.Right
 	}
 	if other.LeftHash != nil {

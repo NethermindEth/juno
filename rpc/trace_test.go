@@ -86,14 +86,28 @@ func TestTraceTransaction(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0xBBBB")
-		// Receipt() returns error related to db
-		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+		t.Run("key not found", func(t *testing.T) {
+			hash := utils.HexToFelt(t, "0xBBBB")
+			// Receipt() returns error related to db
+			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+			mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: &core.Block{}}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
-		assert.Nil(t, trace)
-		assert.Equal(t, rpc.ErrTxnHashNotFound, err)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+			trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+			assert.Nil(t, trace)
+			assert.Equal(t, rpc.ErrTxnHashNotFound, err)
+			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		})
+
+		t.Run("other error", func(t *testing.T) {
+			hash := utils.HexToFelt(t, "0xBBBB")
+			// Receipt() returns some other error
+			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
+
+			trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+			assert.Nil(t, trace)
+			assert.Equal(t, rpc.ErrTxnHashNotFound, err)
+			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		})
 	})
 	t.Run("ok", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
@@ -107,7 +121,7 @@ func TestTraceTransaction(t *testing.T) {
 			Hash:             utils.HexToFelt(t, "0xCAFEBABE"),
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			GasPrice:         utils.HexToFelt(t, "0x1"),
+			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
 		}
@@ -196,7 +210,7 @@ func TestTraceTransaction(t *testing.T) {
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
-			GasPrice:         utils.HexToFelt(t, "0x1"),
+			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 		}
 		require.Nil(t, header.Hash, "hash must be nil for pending block")
 
@@ -323,7 +337,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			// hash is not set because it's pending block
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
-			GasPrice:        utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
@@ -406,7 +420,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			GasPrice:         utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:    utils.HexToFelt(t, "0x777"),
 			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{

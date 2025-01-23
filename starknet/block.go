@@ -24,9 +24,9 @@ type Block struct {
 	Receipts              []*TransactionReceipt `json:"transaction_receipts"`
 	SequencerAddress      *felt.Felt            `json:"sequencer_address"`
 	L1GasPrice            *GasPrice             `json:"l1_gas_price"`
+	L2GasPrice            *GasPrice             `json:"l2_gas_price"`
 	L1DAMode              L1DAMode              `json:"l1_da_mode"`
 	L1DataGasPrice        *GasPrice             `json:"l1_data_gas_price"`
-	L2GasPrice            *GasPrice             `json:"l2_gas_price"`
 
 	// TODO we can remove the GasPrice method and the GasPriceLegacy field
 	// once v0.13 lands on mainnet. In the meantime, we include both to support
@@ -37,7 +37,7 @@ type Block struct {
 	GasPriceFRI *felt.Felt `json:"strk_l1_gas_price"`
 }
 
-func (b *Block) GasPriceETH() *felt.Felt {
+func (b *Block) L1GasPriceETH() *felt.Felt {
 	if b.L1GasPrice != nil {
 		return b.L1GasPrice.PriceInWei
 	} else if b.GasPriceWEI != nil {
@@ -46,7 +46,7 @@ func (b *Block) GasPriceETH() *felt.Felt {
 	return b.GasPriceLegacy
 }
 
-func (b *Block) GasPriceSTRK() *felt.Felt {
+func (b *Block) L1GasPriceSTRK() *felt.Felt {
 	if b.L1GasPrice != nil {
 		return b.L1GasPrice.PriceInFri
 	}

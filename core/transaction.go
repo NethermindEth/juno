@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -106,6 +105,7 @@ type ExecutionResources struct {
 type DataAvailability struct {
 	L1Gas     uint64
 	L1DataGas uint64
+	L2Gas     uint64
 }
 
 type BuiltinInstanceCounter struct {
@@ -481,7 +481,7 @@ func tipAndResourcesHash(tip uint64, resourceBounds map[Resource]ResourceBounds)
 	}
 
 	// l1_data_gas resource bounds were added in 0.13.4
-	if bounds, ok := resourceBounds[ResourceL1DataGas]; ok {
+	if bounds, ok := resourceBounds[ResourceL1DataGas]; ok && bounds.MaxPricePerUnit != nil {
 		l1DataBounds := new(felt.Felt).SetBytes(bounds.Bytes(ResourceL1DataGas))
 		elems = append(elems, l1DataBounds)
 	}
@@ -697,21 +697,6 @@ func transactionCommitmentPoseidon0132(transactions []Transaction) (*felt.Felt, 
 
 		return digest.Finish()
 	})
-}
-
-// ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
-func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
-	if protocolVersion == "" {
-		return semver.NewVersion("0.0.0")
-	}
-
-	sep := "."
-	digits := strings.Split(protocolVersion, sep)
-	// pad with 3 zeros in case version has less than 3 digits
-	digits = append(digits, []string{"0", "0", "0"}...)
-
-	// get first 3 digits only
-	return semver.NewVersion(strings.Join(digits[:3], sep))
 }
 
 type eventWithTxHash struct {

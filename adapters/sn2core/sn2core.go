@@ -50,8 +50,8 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
-			GasPrice:         response.GasPriceETH(),
-			GasPriceSTRK:     response.GasPriceSTRK(),
+			L1GasPriceETH:    response.L1GasPriceETH(),
+			L1GasPriceSTRK:   response.L1GasPriceSTRK(),
 			L1DAMode:         core.L1DAMode(response.L1DAMode),
 			L1DataGasPrice:   (*core.GasPrice)(response.L1DataGasPrice),
 			L2GasPrice:       (*core.GasPrice)(response.L2GasPrice),
@@ -88,6 +88,7 @@ func adaptGasConsumed(response *starknet.GasConsumed) *core.GasConsumed {
 	return &core.GasConsumed{
 		L1Gas:     response.L1Gas,
 		L1DataGas: response.L1DataGas,
+		L2Gas:     response.L2Gas,
 	}
 }
 
