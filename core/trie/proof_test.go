@@ -360,7 +360,7 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 }
 
-// TestAllElementsProof tests the range proof with all elements and nil proof.
+// TestAllElementsRangeProof tests the range proof with all elements and nil proof.
 func TestAllElementsRangeProof(t *testing.T) {
 	t.Parallel()
 
