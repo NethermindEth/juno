@@ -183,16 +183,13 @@ func (t *Trie) Commit() (felt.Felt, error) {
 		nodes.Add(Path, trienode.NewDeleted())
 	}
 
-	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) // TODO(weiihann): 100 is arbitrary
+	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
 
 	err := nodes.ForEach(true, func(key trieutils.BitArray, node *trienode.Node) error {
 		if node.IsDeleted() {
 			return t.db.Delete(t.owner, key)
 		}
-		// decodeNode, _ := decodeNode(node.Blob(), node.Hash(), key.Len(), t.height)
-		// fmt.Printf("key: %v value: blob %v hash %v\n", key.String(), node.Blob(), node.Hash())
-		// fmt.Printf("decodeNode: %v\n", decodeNode.String())
 		return t.db.Put(t.owner, key, node.Blob())
 	})
 	if err != nil {
@@ -272,6 +269,7 @@ func (t *Trie) update(key, value *felt.Felt) error {
 	return nil
 }
 
+//nolint:gocyclo,funlen
 func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error) {
 	// We reach the end of the key
 	if key.Len() == 0 {
@@ -363,6 +361,7 @@ func (t *Trie) insert(n node, prefix, key *Path, value node) (bool, node, error)
 	}
 }
 
+//nolint:gocyclo,funlen
 func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 	switch n := n.(type) {
 	case *edgeNode:
@@ -463,8 +462,6 @@ func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
 		bufferPool.Put(buf)
 	}()
 
-	// fmt.Printf("resolveNode: path %v\n", path.String())
-
 	_, err := t.db.Get(buf, t.owner, path)
 	if err != nil {
 		return nil, err
@@ -478,7 +475,7 @@ func (t *Trie) hashRoot() (node, node) {
 	if t.root == nil {
 		return &hashNode{Felt: felt.Zero}, nil
 	}
-	h := newHasher(t.hashFn, t.pendingHashes > 100) // TODO(weiihann): 100 is arbitrary
+	h := newHasher(t.hashFn, t.pendingHashes > 100) //nolint:mnd //TODO(weiihann): 100 is arbitrary
 	hashed, cached := h.hash(t.root)
 	t.pendingHashes = 0
 	return hashed, cached
