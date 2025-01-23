@@ -14,6 +14,8 @@ import (
 )
 
 func TestProve(t *testing.T) {
+	t.Parallel()
+
 	n := 1000
 	tempTrie, records := nonRandomTrie(t, n)
 
@@ -34,6 +36,8 @@ func TestProve(t *testing.T) {
 }
 
 func TestProveNonExistent(t *testing.T) {
+	t.Parallel()
+
 	n := 1000
 	tempTrie, _ := nonRandomTrie(t, n)
 
@@ -56,6 +60,7 @@ func TestProveNonExistent(t *testing.T) {
 }
 
 func TestProveRandom(t *testing.T) {
+	t.Parallel()
 	tempTrie, records := randomTrie(t, 1000)
 
 	for _, record := range records {
@@ -73,6 +78,8 @@ func TestProveRandom(t *testing.T) {
 }
 
 func TestProveCustom(t *testing.T) {
+	t.Parallel()
+
 	tests := []testTrie{
 		{
 			name:    "simple binary",
@@ -165,6 +172,8 @@ func TestProveCustom(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			tr, _ := test.buildFn(t)
 
 			for _, tc := range test.testKeys {
@@ -187,6 +196,8 @@ func TestProveCustom(t *testing.T) {
 
 // TestRangeProof tests normal range proof with both edge proofs
 func TestRangeProof(t *testing.T) {
+	t.Parallel()
+
 	n := 500
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
@@ -214,6 +225,8 @@ func TestRangeProof(t *testing.T) {
 
 // TestRangeProofWithNonExistentProof tests normal range proof with non-existent proofs
 func TestRangeProofWithNonExistentProof(t *testing.T) {
+	t.Parallel()
+
 	n := 500
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
@@ -246,8 +259,9 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 
 // TestRangeProofWithInvalidNonExistentProof tests range proof with invalid non-existent proofs.
 // One scenario is when there is a gap between the first element and the left edge proof.
-// TODO(weiihann): this is failing
 func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
+	t.Parallel()
+
 	n := 500
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
@@ -269,17 +283,20 @@ func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 	}
 
 	_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
-	t.Log(err)
 	require.Error(t, err)
 }
 
 func TestOneElementRangeProof(t *testing.T) {
+	t.Parallel()
+
 	n := 1000
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
 	require.NoError(t, err)
 
 	t.Run("both edge proofs with the same key", func(t *testing.T) {
+		t.Parallel()
+
 		start := 100
 		proof := trie.NewProofNodeSet()
 		err := tr.GetRangeProof(records[start].key, records[start].key, proof)
@@ -290,6 +307,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("left non-existent edge proof", func(t *testing.T) {
+		t.Parallel()
+
 		start := 100
 		proof := trie.NewProofNodeSet()
 		err := tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
@@ -300,6 +319,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("right non-existent edge proof", func(t *testing.T) {
+		t.Parallel()
+
 		end := 100
 		proof := trie.NewProofNodeSet()
 		err := tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
@@ -310,6 +331,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("both non-existent edge proofs", func(t *testing.T) {
+		t.Parallel()
+
 		start := 100
 		first, last := decrementFelt(records[start].key), incrementFelt(records[start].key)
 		proof := trie.NewProofNodeSet()
@@ -321,6 +344,8 @@ func TestOneElementRangeProof(t *testing.T) {
 	})
 
 	t.Run("1 key trie", func(t *testing.T) {
+		t.Parallel()
+
 		tr, records := build1KeyTrie(t)
 		root, err := tr.Root()
 		require.NoError(t, err)
@@ -336,6 +361,8 @@ func TestOneElementRangeProof(t *testing.T) {
 
 // TestAllElementsRangeProof tests the range proof with all elements and nil proof.
 func TestAllElementsRangeProof(t *testing.T) {
+	t.Parallel()
+
 	n := 1000
 	tr, records := randomTrie(t, n)
 	root, err := tr.Root()
@@ -362,6 +389,8 @@ func TestAllElementsRangeProof(t *testing.T) {
 
 // TestSingleSideRangeProof tests the range proof starting with zero.
 func TestSingleSideRangeProof(t *testing.T) {
+	t.Parallel()
+
 	tr, records := randomTrie(t, 1000)
 	root, err := tr.Root()
 	require.NoError(t, err)
@@ -383,8 +412,8 @@ func TestSingleSideRangeProof(t *testing.T) {
 	}
 }
 
-// TODO(weiihann): this is failing
 func TestGappedRangeProof(t *testing.T) {
+	t.Parallel()
 	t.Skip("gapped keys will sometimes succeed, the current proof format is not able to handle this")
 
 	tr, records := nonRandomTrie(t, 5)
@@ -412,6 +441,8 @@ func TestGappedRangeProof(t *testing.T) {
 }
 
 func TestEmptyRangeProof(t *testing.T) {
+	t.Parallel()
+
 	tr, records := randomTrie(t, 1000)
 	root, err := tr.Root()
 	require.NoError(t, err)
@@ -440,6 +471,8 @@ func TestEmptyRangeProof(t *testing.T) {
 }
 
 func TestHasRightElement(t *testing.T) {
+	t.Parallel()
+
 	tr, records := randomTrie(t, 500)
 	root, err := tr.Root()
 	require.NoError(t, err)
@@ -491,6 +524,8 @@ func TestHasRightElement(t *testing.T) {
 
 // TestBadRangeProof generates random bad proof scenarios and verifies that the proof is invalid.
 func TestBadRangeProof(t *testing.T) {
+	t.Parallel()
+
 	tr, records := randomTrie(t, 1000)
 	root, err := tr.Root()
 	require.NoError(t, err)
