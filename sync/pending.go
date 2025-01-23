@@ -118,7 +118,10 @@ func (p *PendingStateWriter) SetClassHash(contractAddress, classHash *felt.Felt)
 // SetContractClass writes a new CairoV0 class to the PendingState
 // Assumption: SetCompiledClassHash should be called for CairoV1 contracts
 func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.Class) error {
-	if _, err := p.Class(classHash); err == nil {
+	// Only declare the class if it has not already been declared, and return
+	// and unexepcted errors (ie any error that isn't db.ErrKeyNotFound)
+	_, err := p.Class(classHash)
+	if err == nil {
 		return errors.New("class already declared")
 	} else if !errors.Is(err, db.ErrKeyNotFound) {
 		return fmt.Errorf("get class: %v", err)

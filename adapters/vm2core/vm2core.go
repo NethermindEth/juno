@@ -57,8 +57,8 @@ func AdaptStateDiff(stateDiff *vm.StateDiff) *core.StateDiff {
 
 	newNonces := make(map[felt.Felt]*felt.Felt)
 	for _, nonce := range stateDiff.Nonces {
-		nonc := nonce.Nonce
-		newNonces[nonce.ContractAddress] = &nonc
+		newNonce := nonce.Nonce
+		newNonces[nonce.ContractAddress] = &newNonce
 	}
 
 	newDeployedContracts := make(map[felt.Felt]*felt.Felt)

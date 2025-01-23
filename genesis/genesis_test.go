@@ -1,6 +1,7 @@
 package genesis_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/genesis"
@@ -27,6 +28,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		genesisConfig.Classes = []string{"./classes/strk.json", "./classes/account.json", "./classes/universaldeployer.json", "./classes/udacnt.json"}
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), network, 40000000) //nolint:gomnd
 		require.NoError(t, err)
+		fmt.Println(stateDiff.DeployedContracts)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
 		for _, con := range genesisConfig.Contracts {
 			require.NotNil(t, stateDiff.DeclaredV1Classes[con.ClassHash])
@@ -34,7 +36,6 @@ func TestGenesisStateDiff(t *testing.T) {
 		}
 		require.Empty(t, stateDiff.ReplacedClasses)
 		require.Equal(t, len(genesisConfig.BootstrapAccounts)+3, len(stateDiff.DeployedContracts)) // num_accounts + strk token + udc + udacnt
-
 		numFundedAccounts := 0
 		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]

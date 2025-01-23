@@ -169,50 +169,51 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		}
 	}
 
-	for _, txn := range config.Txns {
-		var coreTxn core.Transaction
-		switch txn.Type {
-		case rpc.TxnInvoke:
-			coreTxn = &core.InvokeTransaction{
-				TransactionHash:      txn.Hash,
-				CallData:             *txn.CallData,
-				TransactionSignature: *txn.Signature,
-				MaxFee:               txn.MaxFee,
-				ContractAddress:      txn.ContractAddress,
-				Version:              (*core.TransactionVersion)(txn.Version),
-				EntryPointSelector:   txn.EntryPointSelector,
-				Nonce:                txn.Nonce,
-				SenderAddress:        txn.SenderAddress,
+	if len(config.Txns) != 0 {
+		coreTxns := make([]core.Transaction, len(config.Txns))
+		for i, txn := range config.Txns {
+			switch txn.Type {
+			case rpc.TxnInvoke:
+				coreTxns[i] = &core.InvokeTransaction{
+					TransactionHash:      txn.Hash,
+					CallData:             *txn.CallData,
+					TransactionSignature: *txn.Signature,
+					MaxFee:               txn.MaxFee,
+					ContractAddress:      txn.ContractAddress,
+					Version:              (*core.TransactionVersion)(txn.Version),
+					EntryPointSelector:   txn.EntryPointSelector,
+					Nonce:                txn.Nonce,
+					SenderAddress:        txn.SenderAddress,
+				}
+			case rpc.TxnDeployAccount:
+				coreTxns[i] = &core.DeployAccountTransaction{
+					DeployTransaction: core.DeployTransaction{
+						TransactionHash:     txn.Hash,
+						ContractAddressSalt: txn.ContractAddressSalt,
+						ContractAddress:     txn.SenderAddress,
+						ClassHash:           txn.ClassHash,
+						ConstructorCallData: *txn.ConstructorCallData,
+						Version:             (*core.TransactionVersion)(txn.Version),
+					},
+					MaxFee:               txn.MaxFee,
+					TransactionSignature: *txn.Signature,
+					Nonce:                txn.Nonce,
+				}
+			default:
+				return nil, nil, fmt.Errorf("unsupported transaction type: %v", txn.Type)
 			}
-		case rpc.TxnDeployAccount:
-			coreTxn = &core.DeployAccountTransaction{
-				DeployTransaction: core.DeployTransaction{
-					TransactionHash:     txn.Hash,
-					ContractAddressSalt: txn.ContractAddressSalt,
-					ContractAddress:     txn.SenderAddress,
-					ClassHash:           txn.ClassHash,
-					ConstructorCallData: *txn.ConstructorCallData,
-					Version:             (*core.TransactionVersion)(txn.Version),
-				},
-				MaxFee:               txn.MaxFee,
-				TransactionSignature: *txn.Signature,
-				Nonce:                txn.Nonce,
-			}
-
-		default:
-			return nil, nil, fmt.Errorf("unsupported transaction type: %v", txn.Type)
 		}
-
-		_, _, trace, _, _, err := v.Execute([]core.Transaction{coreTxn}, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
+		_, _, trace, _, _, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
 			&blockInfo, genesisState, network, true, false, true)
 		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
-
-		traceSD := vm2core.AdaptStateDiff(trace[0].StateDiff)
-		genesisSD, _ := genesisState.StateDiffAndClasses()
-		genesisSD.Merge(traceSD)
-		genesisState.SetStateDiff(genesisSD)
+		for i := range config.Txns {
+			traceSD := vm2core.AdaptStateDiff(trace[i].StateDiff)
+			genesisSD, _ := genesisState.StateDiffAndClasses()
+			genesisSD.Merge(traceSD)
+			genesisState.SetStateDiff(genesisSD)
+		}
 	}
 	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
 	return genesisStateDiff, genesisClasses, nil
