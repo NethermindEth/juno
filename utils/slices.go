@@ -46,7 +46,7 @@ func Set[T comparable](slice []T) []T {
 	}
 
 	if reflect.TypeOf(slice[0]).Kind() == reflect.Ptr {
-		panic("Unique does not support pointer types")
+		panic("Set does not support pointer types")
 	}
 
 	result := make([]T, 0, len(slice))
