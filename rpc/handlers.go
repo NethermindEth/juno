@@ -38,22 +38,20 @@ type l1Client interface {
 }
 
 var (
-	ErrContractNotFound          = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrBlockNotFound             = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrInvalidTxHash             = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
-	ErrInvalidBlockHash          = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}
-	ErrInvalidTxIndex            = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
-	ErrClassHashNotFound         = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
-	ErrTxnHashNotFound           = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
-	ErrPageSizeTooBig            = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
-	ErrNoBlock                   = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidContinuationToken  = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
-	ErrTooManyKeysInFilter       = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
-	ErrContractError             = &jsonrpc.Error{Code: 40, Message: "Contract error"}
-	ErrTransactionExecutionError = &jsonrpc.Error{Code: 41, Message: "Transaction execution error"}
-	ErrStorageProofNotSupported  = &jsonrpc.Error{
-		Code: 42, Message: "The node doesn't support storage proofs for blocks that are too far in the past",
-	}
+	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
+	ErrInvalidTxHash                   = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
+	ErrInvalidBlockHash                = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}
+	ErrInvalidTxIndex                  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
+	ErrClassHashNotFound               = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
+	ErrTxnHashNotFound                 = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
+	ErrPageSizeTooBig                  = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
+	ErrNoBlock                         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
+	ErrInvalidContinuationToken        = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
+	ErrTooManyKeysInFilter             = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
+	ErrContractError                   = &jsonrpc.Error{Code: 40, Message: "Contract error"}
+	ErrTransactionExecutionError       = &jsonrpc.Error{Code: 41, Message: "Transaction execution error"}
+	ErrStorageProofNotSupported        = &jsonrpc.Error{Code: 42, Message: "The node doesn't support storage proofs for blocks that are too far in the past"} //nolint:lll
 	ErrInvalidContractClass            = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
 	ErrClassAlreadyDeclared            = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
 	ErrInternal                        = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
