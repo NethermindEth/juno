@@ -18,7 +18,7 @@ const (
 	MaxBitArraySize = 33 // (1 + 4 * 8) bytes
 )
 
-var emptyBitArray = new(BitArray)
+var emptyBitArray = new(BitArray) //nolint:unused //TODO(weiihann): remove this nolint when we replace legacy trie
 
 // Represents a bit array with length representing the number of used bits.
 // It uses a little endian representation to do bitwise operations of the words efficiently.

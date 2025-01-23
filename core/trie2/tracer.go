@@ -32,11 +32,6 @@ func (t *nodeTracer) onDelete(key *Path) {
 	t.deletes[k] = struct{}{}
 }
 
-func (t *nodeTracer) reset() {
-	t.inserts = make(map[Path]struct{})
-	t.deletes = make(map[Path]struct{})
-}
-
 func (t *nodeTracer) copy() *nodeTracer {
 	return &nodeTracer{
 		inserts: maps.Clone(t.inserts),

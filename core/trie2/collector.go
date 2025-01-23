@@ -3,9 +3,7 @@ package trie2
 import (
 	"fmt"
 	"sync"
-)
 
-import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 )
