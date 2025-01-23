@@ -51,6 +51,7 @@ var (
 	ErrTooManyKeysInFilter             = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
 	ErrContractError                   = &jsonrpc.Error{Code: 40, Message: "Contract error"}
 	ErrTransactionExecutionError       = &jsonrpc.Error{Code: 41, Message: "Transaction execution error"}
+	ErrStorageProofNotSupported        = &jsonrpc.Error{Code: 42, Message: "The node doesn't support storage proofs for blocks that are too far in the past"} //nolint:lll
 	ErrInvalidContractClass            = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
 	ErrClassAlreadyDeclared            = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
 	ErrInternal                        = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
@@ -458,6 +459,16 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.StorageAt,
+		},
+		{
+			Name: "starknet_getStorageProof",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "class_hashes", Optional: true},
+				{Name: "contract_addresses", Optional: true},
+				{Name: "contracts_storage_keys", Optional: true},
+			},
+			Handler: h.StorageProof,
 		},
 		{
 			Name:    "starknet_getClassHashAt",
