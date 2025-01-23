@@ -4,6 +4,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// Represents a raw trie node, which contains the encoded blob and the hash of the node.
 type Node struct {
 	blob []byte
 	hash felt.Felt
