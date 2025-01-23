@@ -133,7 +133,7 @@ func (p *Pool) LoadFromDB() error {
 		// loop through the persistent pool and push nodes to the in-memory pool
 		currentHash := headVal
 		for currentHash != nil {
-			curDBElem, err := readDBElem(txn, currentHash)
+			curDBElem, err := readTxn(txn, currentHash)
 			if err != nil {
 				return err
 			}
@@ -141,7 +141,7 @@ func (p *Pool) LoadFromDB() error {
 				Txn: curDBElem.Txn,
 			}
 			if curDBElem.NextHash != nil {
-				nextDBTxn, err := readDBElem(txn, curDBElem.NextHash)
+				nextDBTxn, err := readTxn(txn, curDBElem.NextHash)
 				if err != nil {
 					return err
 				}
@@ -166,18 +166,18 @@ func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 			}
 			tailVal = nil
 		}
-		if err := setDBElem(dbTxn, &dbPoolTxn{Txn: *userTxn}); err != nil {
+		if err := setTxn(dbTxn, &dbPoolTxn{Txn: *userTxn}); err != nil {
 			return err
 		}
 		if tailVal != nil {
 			// Update old tail to point to the new item
 			var oldTailElem dbPoolTxn
-			oldTailElem, err := readDBElem(dbTxn, tailVal)
+			oldTailElem, err := readTxn(dbTxn, tailVal)
 			if err != nil {
 				return err
 			}
 			oldTailElem.NextHash = userTxn.Transaction.Hash()
-			if err = setDBElem(dbTxn, &oldTailElem); err != nil {
+			if err = setTxn(dbTxn, &oldTailElem); err != nil {
 				return err
 			}
 		} else {
