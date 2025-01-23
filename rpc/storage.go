@@ -101,8 +101,8 @@ func (h *Handler) StorageProof(id BlockID,
 	}
 
 	// Do a sanity check and remove duplicates from the keys
-	classes = utils.Unique(classes)
-	contracts = utils.Unique(contracts)
+	classes = utils.Set(classes)
+	contracts = utils.Set(contracts)
 
 	// Remove duplicates from the storage keys
 	mergedStorageKeys := make(map[felt.Felt][]felt.Felt)
@@ -116,7 +116,7 @@ func (h *Handler) StorageProof(id BlockID,
 
 	uniqueStorageKeys := make([]StorageKeys, 0, len(mergedStorageKeys))
 	for contract, keys := range mergedStorageKeys {
-		uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: contract, Keys: utils.Unique(keys)})
+		uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: contract, Keys: utils.Set(keys)})
 	}
 
 	classProof, err := getClassProof(classTrie, classes)

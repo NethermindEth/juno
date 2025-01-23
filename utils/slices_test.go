@@ -74,34 +74,34 @@ func TestAnyOf(t *testing.T) {
 	})
 }
 
-func TestUnique(t *testing.T) {
+func TestSet(t *testing.T) {
 	t.Run("nil slice", func(t *testing.T) {
 		var input []int
-		actual := Unique(input)
+		actual := Set(input)
 		assert.Nil(t, actual)
 	})
 
 	t.Run("empty slice", func(t *testing.T) {
 		input := []int{}
-		actual := Unique(input)
+		actual := Set(input)
 		assert.Empty(t, actual)
 	})
 
 	t.Run("slice with no duplicates", func(t *testing.T) {
 		input := []int{1, 2, 3, 4, 5}
-		actual := Unique(input)
+		actual := Set(input)
 		assert.Equal(t, []int{1, 2, 3, 4, 5}, actual)
 	})
 
 	t.Run("slice with duplicates", func(t *testing.T) {
 		input := []int{1, 2, 2, 3, 3, 3, 4, 5, 5}
-		actual := Unique(input)
+		actual := Set(input)
 		assert.Equal(t, []int{1, 2, 3, 4, 5}, actual)
 	})
 
 	t.Run("slice of strings with duplicates", func(t *testing.T) {
 		input := []string{"a", "b", "b", "c", "c", "c"}
-		actual := Unique(input)
+		actual := Set(input)
 		assert.Equal(t, []string{"a", "b", "c"}, actual)
 	})
 }
