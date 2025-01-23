@@ -355,6 +355,8 @@ func proofToPath(rootHash *felt.Felt, root node, keyBits Path, proof *ProofNodeS
 //
 // Note we have the assumption here the given boundary keys are different
 // and right is larger than left.
+//
+//nolint:gocyclo
 func unsetInternal(n node, left, right Path) (bool, error) {
 	// Step down to the fork point. There are two scenarios that can happen:
 	// - the fork point is an edgeNode: either the key of left proof or
@@ -479,7 +481,7 @@ findFork:
 }
 
 // unset removes all internal node references either the left most or right most.
-func unset(parent node, child node, key *Path, pos uint8, removeLeft bool) error {
+func unset(parent, child node, key *Path, pos uint8, removeLeft bool) error {
 	switch cld := child.(type) {
 	case *binaryNode:
 		keyBit := key.Bit(pos)
