@@ -1,46 +1,10 @@
 package vm
 
 /*
-#include <stdint.h>
-#include <stdlib.h>
-#include <stddef.h>
-
-#define FELT_SIZE 32
-
-typedef struct CallInfo {
-	unsigned char contract_address[FELT_SIZE];
-	unsigned char class_hash[FELT_SIZE];
-	unsigned char entry_point_selector[FELT_SIZE];
-	unsigned char** calldata;
-	size_t len_calldata;
-} CallInfo;
-
-typedef struct BlockInfo {
-	unsigned long long block_number;
-	unsigned long long block_timestamp;
-	unsigned char sequencer_address[FELT_SIZE];
-	unsigned char gas_price_wei[FELT_SIZE];
-	unsigned char gas_price_fri[FELT_SIZE];
-	char* version;
-	unsigned char block_hash_to_be_revealed[FELT_SIZE];
-	unsigned char data_gas_price_wei[FELT_SIZE];
-	unsigned char data_gas_price_fri[FELT_SIZE];
-	unsigned char use_blob_data;
-} BlockInfo;
-
-extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps, unsigned char concurrency_mode);
-
-extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
-					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
-					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
-					unsigned char concurrency_mode);
-
-extern char* setVersionedConstants(char* json);
-extern void freeString(char* str);
-
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -lbz2
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lbz2
+
+#include "vm_bridge.h"
 */
 import "C"
 
@@ -206,14 +170,18 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
 	cBlockInfo.block_timestamp = C.ulonglong(blockInfo.Header.Timestamp)
 	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
-	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.gas_price_wei[0])
-	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.l1_gas_price_wei[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.l1_gas_price_fri[0])
 	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
 	copyFeltIntoCArray(blockInfo.BlockHashToBeRevealed, &cBlockInfo.block_hash_to_be_revealed[0])
 	if blockInfo.Header.L1DAMode == core.Blob {
-		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.data_gas_price_wei[0])
-		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInFri, &cBlockInfo.data_gas_price_fri[0])
+		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.l1_data_gas_price_wei[0])
+		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInFri, &cBlockInfo.l1_data_gas_price_fri[0])
 		cBlockInfo.use_blob_data = 1
+	}
+	if blockInfo.Header.L2GasPrice != nil {
+		copyFeltIntoCArray(blockInfo.Header.L2GasPrice.PriceInWei, &cBlockInfo.l2_gas_price_wei[0])
+		copyFeltIntoCArray(blockInfo.Header.L2GasPrice.PriceInFri, &cBlockInfo.l2_gas_price_fri[0])
 	}
 	return cBlockInfo
 }
