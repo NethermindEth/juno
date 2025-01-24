@@ -220,10 +220,16 @@ func TestExecute(t *testing.T) {
 }
 
 func TestSetVersionedConstants(t *testing.T) {
-	t.Run("ok", func(t *testing.T) {
-		err := SetVersionedConstants("./rust/versioned_constants_13_1.json")
-		assert.NoError(t, err)
-	})
+	path := "rust/resources/"
+	f, err := os.Open(path)
+	require.NoError(t, err)
+	files, err := f.Readdir(0)
+	require.NoError(t, err)
+
+	for _, v := range files {
+		require.NoError(t, SetVersionedConstants(path+v.Name()))
+	}
+
 	t.Run("not valid json", func(t *testing.T) {
 		fd, err := os.CreateTemp(t.TempDir(), "versioned_constants_test*")
 		require.NoError(t, err)
