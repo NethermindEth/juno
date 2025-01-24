@@ -36,7 +36,7 @@ func Load(pluginPath string) (JunoPlugin, error) {
 
 	pluginInstance, ok := symPlugin.(JunoPlugin)
 	if !ok {
-		return nil, fmt.Errorf("the plugin does not staisfy the required interface")
+		return nil, fmt.Errorf("the plugin does not satisfy the required interface")
 	}
 
 	return pluginInstance, pluginInstance.Init()
