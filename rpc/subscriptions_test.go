@@ -824,130 +824,107 @@ func TestSubscriptionReorg(t *testing.T) {
 }
 
 func TestSubscribePendingTxs(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockChain := mocks.NewMockReader(mockCtrl)
-	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-
-	syncer := newFakeSyncer()
-	handler, server := setupRPC(t, ctx, mockChain, syncer)
-
-	t.Run("Basic subscription", func(t *testing.T) {
-		conn := createWsConn(t, ctx, server)
-
-		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
-		got := sendWsMessage(t, ctx, conn, subMsg)
-		require.Equal(t, subResp(id), got)
-
-		hash1 := new(felt.Felt).SetUint64(1)
-		addr1 := new(felt.Felt).SetUint64(11)
-
-		hash2 := new(felt.Felt).SetUint64(2)
-		addr2 := new(felt.Felt).SetUint64(22)
-
-		hash3 := new(felt.Felt).SetUint64(3)
-		hash4 := new(felt.Felt).SetUint64(4)
-		hash5 := new(felt.Felt).SetUint64(5)
-
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
-		})
-
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
-	})
-
-	t.Run("Filtered subscription", func(t *testing.T) {
-		conn := createWsConn(t, ctx, server)
-
-		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
-		got := sendWsMessage(t, ctx, conn, subMsg)
-		require.Equal(t, subResp(id), got)
-
-		hash1 := new(felt.Felt).SetUint64(1)
-		addr1 := new(felt.Felt).SetUint64(11)
-
-		hash2 := new(felt.Felt).SetUint64(2)
-		addr2 := new(felt.Felt).SetUint64(22)
-
-		hash3 := new(felt.Felt).SetUint64(3)
-		hash4 := new(felt.Felt).SetUint64(4)
-		hash5 := new(felt.Felt).SetUint64(5)
-
-		hash6 := new(felt.Felt).SetUint64(6)
-		addr6 := new(felt.Felt).SetUint64(66)
-
-		hash7 := new(felt.Felt).SetUint64(7)
-		addr7 := new(felt.Felt).SetUint64(77)
-
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
-			&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
-			&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
-		})
-
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
-	})
-
-	t.Run("Full details subscription", func(t *testing.T) {
-		conn := createWsConn(t, ctx, server)
-
-		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
-		got := sendWsMessage(t, ctx, conn, subMsg)
-		require.Equal(t, subResp(id), got)
-
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{
-				TransactionHash:       new(felt.Felt).SetUint64(1),
-				CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
-				TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-				MaxFee:                new(felt.Felt).SetUint64(4),
-				ContractAddress:       new(felt.Felt).SetUint64(5),
-				Version:               new(core.TransactionVersion).SetUint64(3),
-				EntryPointSelector:    new(felt.Felt).SetUint64(6),
-				Nonce:                 new(felt.Felt).SetUint64(7),
-				SenderAddress:         new(felt.Felt).SetUint64(8),
-				ResourceBounds:        map[core.Resource]core.ResourceBounds{},
-				Tip:                   9,
-				PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-				AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+	tests := []struct {
+		name         string
+		subscribeMsg string
+		expectedTxs  []core.Transaction
+		want         string
+	}{
+		{
+			name:         "Basic subscription",
+			subscribeMsg: `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`,
+			expectedTxs: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: new(felt.Felt).SetUint64(1), SenderAddress: new(felt.Felt).SetUint64(11)},
+				&core.DeclareTransaction{TransactionHash: new(felt.Felt).SetUint64(2), SenderAddress: new(felt.Felt).SetUint64(22)},
+				&core.DeployTransaction{TransactionHash: new(felt.Felt).SetUint64(3)},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: new(felt.Felt).SetUint64(4)}},
+				&core.L1HandlerTransaction{TransactionHash: new(felt.Felt).SetUint64(5)},
 			},
-		})
+			want: `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`,
+		},
+		{
+			name:         "Filtered subscription",
+			subscribeMsg: `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`,
+			expectedTxs: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: new(felt.Felt).SetUint64(1), SenderAddress: new(felt.Felt).SetUint64(11)},
+				&core.DeclareTransaction{TransactionHash: new(felt.Felt).SetUint64(2), SenderAddress: new(felt.Felt).SetUint64(22)},
+				&core.DeployTransaction{TransactionHash: new(felt.Felt).SetUint64(3)},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: new(felt.Felt).SetUint64(4)}},
+				&core.L1HandlerTransaction{TransactionHash: new(felt.Felt).SetUint64(5)},
+				&core.InvokeTransaction{TransactionHash: new(felt.Felt).SetUint64(6), SenderAddress: new(felt.Felt).SetUint64(66)},
+				&core.InvokeTransaction{TransactionHash: new(felt.Felt).SetUint64(7), SenderAddress: new(felt.Felt).SetUint64(77)},
+			},
+			want: `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`,
+		},
+		{
+			name:         "Full details subscription",
+			subscribeMsg: `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`,
+			expectedTxs: []core.Transaction{
+				&core.InvokeTransaction{
+					TransactionHash:       new(felt.Felt).SetUint64(1),
+					CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
+					TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+					MaxFee:                new(felt.Felt).SetUint64(4),
+					ContractAddress:       new(felt.Felt).SetUint64(5),
+					Version:               new(core.TransactionVersion).SetUint64(3),
+					EntryPointSelector:    new(felt.Felt).SetUint64(6),
+					Nonce:                 new(felt.Felt).SetUint64(7),
+					SenderAddress:         new(felt.Felt).SetUint64(8),
+					ResourceBounds:        map[core.Resource]core.ResourceBounds{},
+					Tip:                   9,
+					PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
+					AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+				},
+			},
+			want: `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`,
+		},
+	}
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
+
+			mockChain := mocks.NewMockReader(mockCtrl)
+			l1Feed := feed.New[*core.L1Head]()
+			mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+
+			syncer := newFakeSyncer()
+			handler, server := setupRPC(t, ctx, mockChain, syncer)
+
+			conn := createWsConn(t, ctx, server)
+
+			id := uint64(1)
+			handler.WithIDGen(func() uint64 { return id })
+			got := sendWsMessage(t, ctx, conn, tt.subscribeMsg)
+			require.Equal(t, subResp(id), got)
+
+			syncer.pendingTxs.Send(tt.expectedTxs)
+			_, pendingTxsGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			want := fmt.Sprintf(tt.want, id)
+			require.Equal(t, want, string(pendingTxsGot))
+		})
+	}
 
 	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		l1Feed := feed.New[*core.L1Head]()
+		mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+
+		syncer := newFakeSyncer()
+		handler, _ := setupRPC(t, ctx, mockChain, syncer)
+
 		addresses := make([]felt.Felt, 1024+1)
 
 		serverConn, _ := net.Pipe()
