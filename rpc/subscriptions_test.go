@@ -341,7 +341,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
 
@@ -352,48 +351,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 		assert.Nil(t, id)
 		assert.Equal(t, ErrTxnHashNotFound, rpcErr)
-	})
-
-	t.Run("Return error if block is too far back", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		blockID := &BlockID{Number: 0}
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		// Note the end of the window doesn't need to be tested because if requested block number is more than the
-		// head, a block not found error will be returned. This behaviour has been tested in various other tests, and we
-		// don't need to test it here again.
-		t.Run("head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
-
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
-			assert.Zero(t, id)
-			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
-		})
-
-		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
-
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
-			assert.Zero(t, id)
-			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
-		})
 	})
 
 	t.Run("Transaction status is final", func(t *testing.T) {
@@ -416,13 +376,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1111")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncer.EXPECT().PendingBlock().Return(nil)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			require.Nil(t, rpcErr)
 
 			b, err := TxnStatusRejected.MarshalText()
@@ -447,13 +406,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1010")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncer.EXPECT().PendingBlock().Return(nil)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			require.Nil(t, rpcErr)
 
 			b, err := TxnStatusAcceptedOnL1.MarshalText()
@@ -496,13 +454,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		txHash, err := new(felt.Felt).SetString("0x1001")
 		require.NoError(t, err)
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: block.Number}, nil)
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingBlock().Return(nil)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 		require.Nil(t, rpcErr)
 
 		b, err := TxnStatusReceived.MarshalText()
