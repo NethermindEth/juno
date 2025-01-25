@@ -415,7 +415,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_8"
 }
 
-func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen, dupl
+func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -584,7 +584,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen, d
 	}, "/v0_7"
 }
 
-func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen, dupl
+func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",

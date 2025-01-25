@@ -824,6 +824,7 @@ func TestSubscriptionReorg(t *testing.T) {
 }
 
 func TestSubscribePendingTxs(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		subscribeMsg string
