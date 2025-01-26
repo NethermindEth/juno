@@ -11,7 +11,7 @@ import (
 
 func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 	var classInfo struct {
-		ClassVersion  uint32 `json:"class_version"`
+		CairoVersion  uint32 `json:"cairo_version"`
 		Class         any    `json:"contract_class"`
 		AbiLength     uint32 `json:"abi_length"`
 		SierraLength  uint32 `json:"sierra_program_length"`
@@ -21,7 +21,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 	switch c := class.(type) {
 	case *core.Cairo0Class:
 		var err error
-		classInfo.ClassVersion = 0
+		classInfo.CairoVersion = 0
 		classInfo.Class, err = core2sn.AdaptCairo0Class(c)
 		if err != nil {
 			return nil, err
@@ -33,7 +33,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		}
 
 		// we adapt the core type to the feeder type to avoid using JSON tags in core.Class.CompiledClass
-		classInfo.ClassVersion = 1
+		classInfo.CairoVersion = 1
 		classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))

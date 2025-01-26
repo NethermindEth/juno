@@ -206,7 +206,7 @@ pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
 
 #[derive(Deserialize)]
 pub struct ClassInfo {
-    class_version: usize,
+    cairo_version: usize,
     contract_class: Box<serde_json::value::RawValue>,
     sierra_program_length: usize,
     abi_length: usize,
@@ -219,7 +219,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
 
     let class_def = class_info.contract_class.get();
     let sierra_version: SierraVersion;
-    let class: ContractClass = match class_info.class_version {
+    let class: ContractClass = match class_info.cairo_version {
         0 => {
             sierra_version = SierraVersion::DEPRECATED;
             match parse_deprecated_class_definition(class_def.to_string()) {
@@ -238,7 +238,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         _ => {
             return Err(format!(
                 "unsupported class version: {}",
-                class_info.class_version
+                class_info.cairo_version
             ))
         }
     };
