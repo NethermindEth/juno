@@ -633,7 +633,7 @@ func changeStateDiffStruct(txn db.Transaction, key, value []byte, _ *utils.Netwo
 		return fmt.Errorf("unmarshal: %v", err)
 	}
 
-	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(old.StateDiff.StorageDiffs))
+	storageDiffs := make(core.StorageDiff, len(old.StateDiff.StorageDiffs))
 	for addr, diff := range old.StateDiff.StorageDiffs {
 		newStorageDiffs := make(map[felt.Felt]*felt.Felt, len(diff))
 		for _, kv := range diff {

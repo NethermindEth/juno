@@ -369,7 +369,7 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StateDiff.StorageDiffs))
+	stateDiff.StorageDiffs = make(core.StorageDiff, len(response.StateDiff.StorageDiffs))
 	for addrStr, diffs := range response.StateDiff.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {

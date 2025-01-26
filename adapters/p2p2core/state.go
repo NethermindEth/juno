@@ -33,7 +33,7 @@ func AdaptStateDiff(reader core.StateReader, contractDiffs []*gen.ContractDiff, 
 
 	var deployedContracts, replacedClasses []addrToClassHash
 	// addr -> {key -> value, ...}
-	storageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt)
+	storageDiffs := make(core.StorageDiff)
 	nonces := make(map[felt.Felt]*felt.Felt)
 	for _, diff := range contractDiffs {
 		address := AdaptAddress(diff.Address)
