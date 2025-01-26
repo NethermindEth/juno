@@ -205,7 +205,7 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	}
 
 	// Ensure all keys are monotonically increasing and values contain no deletions
-	for i := 0; i < len(keys); i++ {
+	for i := range keys {
 		if i < len(keys)-1 && keys[i].Cmp(keys[i+1]) > 0 {
 			return false, errors.New("keys are not monotonic increasing")
 		}
