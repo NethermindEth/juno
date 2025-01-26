@@ -112,6 +112,9 @@ linters:
     - exhaustruct
     - usetesting
     - nilnesserr
+    - prealloc
+    - makezero
+    - intrange
 
   # don't enable:
   # - asciicheck

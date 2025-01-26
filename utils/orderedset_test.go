@@ -62,7 +62,7 @@ func TestOrderedSet(t *testing.T) {
 		var wg sync.WaitGroup
 
 		// Concurrent writes
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			wg.Add(1)
 			go func(n int) {
 				defer wg.Done()
@@ -71,7 +71,7 @@ func TestOrderedSet(t *testing.T) {
 		}
 
 		// Concurrent reads
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -105,14 +105,14 @@ func TestOrderedSet(t *testing.T) {
 		n := 10000
 
 		// Insert elements
-		for i := 0; i < n; i++ {
+		for i := range n {
 			set.Put(i, i*2)
 		}
 
 		assert.Equal(t, n, set.Size())
 
 		// Verify all elements
-		for i := 0; i < n; i++ {
+		for i := range n {
 			val, exists := set.Get(i)
 			assert.True(t, exists)
 			assert.Equal(t, i*2, val)
@@ -121,7 +121,7 @@ func TestOrderedSet(t *testing.T) {
 		// Verify order
 		keys := set.Keys()
 		values := set.List()
-		for i := 0; i < n; i++ {
+		for i := range n {
 			assert.Equal(t, i, keys[i])
 			assert.Equal(t, i*2, values[i])
 		}

@@ -24,7 +24,7 @@ func TestRevertReason(t *testing.T) {
 func TestAllEvents(t *testing.T) {
 	numEvents := uint64(10)
 	events := make([]vm.OrderedEvent, 0, numEvents)
-	for i := uint64(0); i < numEvents; i++ {
+	for i := range numEvents {
 		events = append(events, vm.OrderedEvent{Order: i})
 	}
 	tests := map[string]*vm.TransactionTrace{
@@ -83,7 +83,7 @@ func TestAllEvents(t *testing.T) {
 func TestAllMessages(t *testing.T) {
 	nummessages := uint64(10)
 	messages := make([]vm.OrderedL2toL1Message, 0, nummessages)
-	for i := uint64(0); i < nummessages; i++ {
+	for i := range nummessages {
 		messages = append(messages, vm.OrderedL2toL1Message{Order: i})
 	}
 	tests := map[string]*vm.TransactionTrace{

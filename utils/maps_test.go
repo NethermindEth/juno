@@ -10,7 +10,7 @@ import (
 func TestSortedMap(t *testing.T) {
 	m := map[int]string{3: "three", 1: "one", 4: "four", 2: "two", 0: "zero"}
 
-	var keys []int
+	keys := make([]int, 0, len(m))
 	for k, v := range SortedMap(m) {
 		keys = append(keys, k)
 		assert.Equal(t, m[k], v)

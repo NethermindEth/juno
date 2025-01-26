@@ -916,7 +916,7 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 		Number: blockNumber,
 	}
 	// remove txs and receipts
-	for i := uint64(0); i < numTxs; i++ {
+	for i := range numTxs {
 		blockIDAndIndex.Index = i
 		reorgedTxn, err := transactionByBlockNumberAndIndex(txn, &blockIDAndIndex)
 		if err != nil {
