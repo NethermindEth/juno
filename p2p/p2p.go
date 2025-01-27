@@ -35,6 +35,18 @@ const (
 	clientName                = "juno"
 )
 
+type BootnodeEvent uint8
+
+const (
+	Add BootnodeEvent = iota
+	Remove
+)
+
+type BootnodeRegistryEvent struct {
+	EventType BootnodeEvent
+	Address   string
+}
+
 type Service struct {
 	host host.Host
 
@@ -50,10 +62,12 @@ type Service struct {
 
 	feederNode bool
 	database   db.DB
+
+	l1events <-chan BootnodeRegistryEvent
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.DB, l1events <-chan BootnodeRegistryEvent,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -110,11 +124,11 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database, l1events)
 }
 
 func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.DB, l1events <-chan BootnodeRegistryEvent,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
@@ -156,6 +170,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		feederNode:   feederNode,
 		handler:      p2pPeers.NewHandler(bc, log),
 		database:     database,
+		l1events:     l1events,
 	}
 	return s, nil
 }
@@ -208,6 +223,10 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 
+	if s.l1events != nil {
+		go s.listenForL1Events(ctx)
+	}
+
 	err := s.dht.Bootstrap(ctx)
 	if err != nil {
 		return err
@@ -246,6 +265,63 @@ func (s *Service) Run(ctx context.Context) error {
 	if err := s.dht.Close(); err != nil {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
+	return nil
+}
+
+func (s *Service) listenForL1Events(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case registryEvent, ok := <-s.l1events:
+			if !ok {
+				s.log.Debugw("L1 events channel closed")
+				return
+			}
+
+			peerInfo, err := peer.AddrInfoFromP2pAddr(multiaddr.StringCast(registryEvent.Address))
+			if err != nil {
+				s.log.Warnw("Failed to parse peer address", "peer", registryEvent.Address, "err", err)
+				continue
+			}
+
+			switch registryEvent.EventType {
+			case Add:
+				if err := s.connectToPeer(ctx, peerInfo, registryEvent.Address); err != nil {
+					s.log.Warnw("Failed to handle Add event", "peer", registryEvent.Address, "err", err)
+				}
+
+			case Remove:
+				if err := s.disconnectFromPeer(peerInfo, registryEvent.Address); err != nil {
+					s.log.Warnw("Failed to handle Remove event", "peer", registryEvent.Address, "err", err)
+				}
+			}
+		}
+	}
+}
+
+func (s *Service) connectToPeer(ctx context.Context, peerInfo *peer.AddrInfo, address string) error {
+	if err := s.host.Connect(ctx, *peerInfo); err != nil {
+		s.log.Warnw("Failed to connect to peer", "peer", address, "err", err)
+		return err
+	}
+	s.log.Debugw("Connected to peer", "peer", address)
+	return nil
+}
+
+func (s *Service) disconnectFromPeer(peerInfo *peer.AddrInfo, address string) error {
+	if err := s.host.Network().ClosePeer(peerInfo.ID); err != nil {
+		s.log.Warnw("Failed to disconnect from peer", "peer", address, "err", err)
+		return err
+	}
+
+	s.log.Debugw("Disconnected from peer", "peer", address)
+	s.host.Peerstore().RemovePeer(peerInfo.ID)
+	s.log.Debugw("Removed peer from Peerstore", "peer", peerInfo.ID)
+
+	s.dht.RoutingTable().RemovePeer(peerInfo.ID)
+	s.log.Debugw("Removed peer from DHT", "peer", peerInfo.ID)
 	return nil
 }
 
