@@ -33,7 +33,7 @@ require (
 	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.32.0
-	google.golang.org/grpc v1.69.4
+	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.3
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -182,9 +182,9 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/otel v1.31.0 // indirect
-	go.opentelemetry.io/otel/metric v1.31.0 // indirect
-	go.opentelemetry.io/otel/trace v1.31.0 // indirect
+	go.opentelemetry.io/otel v1.32.0 // indirect
+	go.opentelemetry.io/otel/metric v1.32.0 // indirect
+	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.uber.org/dig v1.18.0 // indirect
 	go.uber.org/fx v1.23.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -196,7 +196,7 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.28.0 // indirect
 	gonum.org/v1/gonum v0.15.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
