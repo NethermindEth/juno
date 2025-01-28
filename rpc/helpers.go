@@ -90,41 +90,39 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	return header, nil
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
-	if resources == nil {
-		return &ExecutionResources{
-			DataAvailability: &DataAvailability{},
-		}
+func adaptExecutionResources(coreResources *core.ExecutionResources, rpcVersion version) *ExecutionResources {
+	resources := &ExecutionResources{
+		DataAvailability: &DataAvailability{},
+		rpcVersion:       rpcVersion,
+	}
+	if coreResources == nil {
+		return resources
 	}
 
-	res := &ExecutionResources{
-		ComputationResources: ComputationResources{
-			Steps:        resources.Steps,
-			MemoryHoles:  resources.MemoryHoles,
-			Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
-			RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
-			Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
-			Ecsda:        resources.BuiltinInstanceCounter.Ecsda,
-			EcOp:         resources.BuiltinInstanceCounter.EcOp,
-			Keccak:       resources.BuiltinInstanceCounter.Keccak,
-			Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
-			SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
-		},
-		DataAvailability: &DataAvailability{},
+	resources.ComputationResources = ComputationResources{
+		Steps:        coreResources.Steps,
+		MemoryHoles:  coreResources.MemoryHoles,
+		Pedersen:     coreResources.BuiltinInstanceCounter.Pedersen,
+		RangeCheck:   coreResources.BuiltinInstanceCounter.RangeCheck,
+		Bitwise:      coreResources.BuiltinInstanceCounter.Bitwise,
+		Ecsda:        coreResources.BuiltinInstanceCounter.Ecsda,
+		EcOp:         coreResources.BuiltinInstanceCounter.EcOp,
+		Keccak:       coreResources.BuiltinInstanceCounter.Keccak,
+		Poseidon:     coreResources.BuiltinInstanceCounter.Poseidon,
+		SegmentArena: coreResources.BuiltinInstanceCounter.SegmentArena,
 	}
-	if da := resources.DataAvailability; da != nil {
-		res.DataAvailability = &DataAvailability{
+	if da := coreResources.DataAvailability; da != nil {
+		resources.DataAvailability = &DataAvailability{
 			L1Gas:     da.L1Gas,
-			L2Gas:     da.L2Gas,
 			L1DataGas: da.L1DataGas,
 		}
 	}
-	if tgc := resources.TotalGasConsumed; tgc != nil {
-		res.L1Gas = tgc.L1Gas
-		res.L2Gas = tgc.L2Gas
-		res.L1DataGas = tgc.L1DataGas
+	if tgc := coreResources.TotalGasConsumed; tgc != nil {
+		resources.L1Gas = tgc.L1Gas
+		resources.L2Gas = tgc.L2Gas
+		resources.L1DataGas = tgc.L1DataGas
 	}
-	return res
+	return resources
 }
 
 func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {

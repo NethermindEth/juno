@@ -207,7 +207,15 @@ func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
 	return header.TransactionCount, nil
 }
 
+func (h *Handler) BlockWithReceiptsV0_7(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
+	return h.blockWithReceipts(id, V0_7)
+}
+
 func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
+	return h.blockWithReceipts(id, V0_8)
+}
+
+func (h *Handler) blockWithReceipts(id BlockID, rpcVersion version) (*BlockWithReceipts, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -232,7 +240,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		txsWithReceipts[index] = TransactionWithReceipt{
 			Transaction: t,
 			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
+			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0, rpcVersion),
 		}
 	}
 
