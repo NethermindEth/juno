@@ -111,6 +111,41 @@ type BlockHeader struct {
 	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
 	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
 	StarknetVersion  string         `json:"starknet_version"`
+	rpcVersion       version
+}
+
+func (h BlockHeader) MarshalJSON() ([]byte, error) { //nolint:gocritic
+	switch h.rpcVersion {
+	case V0_7:
+		return json.Marshal(struct {
+			Hash             *felt.Felt     `json:"block_hash,omitempty"`
+			ParentHash       *felt.Felt     `json:"parent_hash"`
+			Number           *uint64        `json:"block_number,omitempty"`
+			NewRoot          *felt.Felt     `json:"new_root,omitempty"`
+			Timestamp        uint64         `json:"timestamp"`
+			SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
+			L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
+			L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
+			L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
+			StarknetVersion  string         `json:"starknet_version"`
+		}{
+			Hash:             h.Hash,
+			ParentHash:       h.ParentHash,
+			Number:           h.Number,
+			NewRoot:          h.NewRoot,
+			Timestamp:        h.Timestamp,
+			SequencerAddress: h.SequencerAddress,
+			L1GasPrice:       h.L1GasPrice,
+			L1DataGasPrice:   h.L1DataGasPrice,
+			L1DAMode:         h.L1DAMode,
+			StarknetVersion:  h.StarknetVersion,
+		})
+	case V0_8:
+		type alias BlockHeader // avoid infinite recursion
+		return json.Marshal(alias(h))
+	default:
+		return nil, errors.New("unknown BlockHeader version")
+	}
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
@@ -172,6 +207,14 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
 func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	return h.blockWithTxHashes(id, V0_8)
+}
+
+func (h *Handler) BlockWithTxHashesV0_7(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	return h.blockWithTxHashes(id, V0_7)
+}
+
+func (h *Handler) blockWithTxHashes(id BlockID, rpcVersion version) (*BlockWithTxHashes, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -189,7 +232,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: adaptBlockHeader(block.Header, rpcVersion),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -246,7 +289,7 @@ func (h *Handler) blockWithReceipts(id BlockID, rpcVersion version) (*BlockWithR
 
 	return &BlockWithReceipts{
 		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  adaptBlockHeader(block.Header, rpcVersion),
 		Transactions: txsWithReceipts,
 	}, nil
 }
@@ -256,6 +299,14 @@ func (h *Handler) blockWithReceipts(id BlockID, rpcVersion version) (*BlockWithR
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
 func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	return h.blockWithTxs(id, V0_8)
+}
+
+func (h *Handler) BlockWithTxsV0_7(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	return h.blockWithTxs(id, V0_7)
+}
+
+func (h *Handler) blockWithTxs(id BlockID, rpcVersion version) (*BlockWithTxs, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -273,7 +324,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  adaptBlockHeader(block.Header, rpcVersion),
 		Transactions: txs,
 	}, nil
 }
@@ -294,7 +345,7 @@ func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *json
 	return status, nil
 }
 
-func adaptBlockHeader(header *core.Header) BlockHeader {
+func adaptBlockHeader(header *core.Header, rpcVersion version) BlockHeader {
 	var blockNumber *uint64
 	// if header.Hash == nil it's a pending block
 	if header.Hash != nil {
@@ -355,6 +406,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		L1DataGasPrice:  &l1DataGasPrice,
 		L1DAMode:        &l1DAMode,
 		StarknetVersion: header.ProtocolVersion,
+		rpcVersion:      rpcVersion,
 	}
 }
 
