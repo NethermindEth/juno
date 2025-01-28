@@ -74,19 +74,19 @@ func (f FeeEstimate) MarshalJSON() ([]byte, error) {
 func (h *Handler) EstimateFeeV0_7(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, V0_7)
-	if err != nil {
-		return nil, httpHeader, err
-	}
-
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
-		return tx.FeeEstimation
-	}), httpHeader, nil
+	return h.estimateFee(broadcastedTxns, simulationFlags, id, V0_7)
 }
+
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, V0_8)
+	return h.estimateFee(broadcastedTxns, simulationFlags, id, V0_8)
+}
+
+func (h *Handler) estimateFee(broadcastedTxns []BroadcastedTransaction,
+	simulationFlags []SimulationFlag, id BlockID, rpcVersion version,
+) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
+	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, rpcVersion)
 	if err != nil {
 		return nil, httpHeader, err
 	}

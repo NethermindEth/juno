@@ -427,7 +427,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxHashes,
+			Handler: h.BlockWithTxHashesV0_7,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
@@ -564,7 +564,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_subscribeNewHeads",
 			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
-			Handler: h.SubscribeNewHeads,
+			Handler: h.SubscribeNewHeadsV0_7,
 		},
 		{
 			Name:    "starknet_unsubscribe",

@@ -331,6 +331,14 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 
 // SubscribeNewHeads creates a WebSocket stream which will fire events when a new block header is added.
 func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*SubscriptionID, *jsonrpc.Error) {
+	return h.subscribeNewHeads(ctx, blockID, V0_8)
+}
+
+func (h *Handler) SubscribeNewHeadsV0_7(ctx context.Context, blockID *BlockID) (*SubscriptionID, *jsonrpc.Error) {
+	return h.subscribeNewHeads(ctx, blockID, V0_7)
+}
+
+func (h *Handler) subscribeNewHeads(ctx context.Context, blockID *BlockID, rpcVersion version) (*SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -367,7 +375,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 		var wg conc.WaitGroup
 
 		wg.Go(func() {
-			if err := h.sendHistoricalHeaders(subscriptionCtx, startHeader, latestHeader, w, id); err != nil {
+			if err := h.sendHistoricalHeaders(subscriptionCtx, startHeader, latestHeader, w, id, rpcVersion); err != nil {
 				h.log.Errorw("Error sending old headers", "err", err)
 				return
 			}
@@ -378,7 +386,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 		})
 
 		wg.Go(func() {
-			h.processNewHeaders(subscriptionCtx, headerSub, w, id)
+			h.processNewHeaders(subscriptionCtx, headerSub, w, id, rpcVersion)
 		})
 
 		wg.Wait()
@@ -546,6 +554,7 @@ func (h *Handler) sendHistoricalHeaders(
 	startHeader, latestHeader *core.Header,
 	w jsonrpc.Conn,
 	id uint64,
+	rpcVersion version,
 ) error {
 	var (
 		err       error
@@ -557,7 +566,7 @@ func (h *Handler) sendHistoricalHeaders(
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			if err := h.sendHeader(w, curHeader, id); err != nil {
+			if err := h.sendHeader(w, curHeader, id, rpcVersion); err != nil {
 				return err
 			}
 
@@ -573,13 +582,13 @@ func (h *Handler) sendHistoricalHeaders(
 	}
 }
 
-func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscription[*core.Header], w jsonrpc.Conn, id uint64) {
+func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscription[*core.Header], w jsonrpc.Conn, id uint64, rpcVersion version) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case header := <-headerSub.Recv():
-			if err := h.sendHeader(w, header, id); err != nil {
+			if err := h.sendHeader(w, header, id, rpcVersion); err != nil {
 				h.log.Warnw("Error sending header", "err", err)
 				return
 			}
@@ -588,13 +597,13 @@ func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscri
 }
 
 // sendHeader creates a request and sends it to the client
-func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
+func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64, rpcVersion version) error {
 	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionNewHeads",
 		Params: map[string]any{
 			"subscription_id": id,
-			"result":          adaptBlockHeader(header),
+			"result":          adaptBlockHeader(header, rpcVersion),
 		},
 	})
 	if err != nil {
