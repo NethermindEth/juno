@@ -150,17 +150,29 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 }
 
 func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUnit, header *core.Header, rpcVersion version) FeeEstimate {
-	var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
+	var l1GasPrice *felt.Felt
+	l2GasPrice := &felt.Zero
+	l1DataGasPrice := &felt.Zero
 
 	switch feeUnit {
 	case FRI:
-		l1GasPrice = header.L1GasPriceSTRK
-		l2GasPrice = header.L2GasPrice.PriceInFri
-		l1DataGasPrice = header.L1DataGasPrice.PriceInFri
+		if l1GasPrice = header.L1GasPriceSTRK; l1GasPrice == nil {
+			l1GasPrice = &felt.Zero
+		}
+		if gasPrice := header.L2GasPrice; gasPrice != nil {
+			l2GasPrice = gasPrice.PriceInFri
+		}
+		if gasPrice := header.L1DataGasPrice; gasPrice != nil {
+			l1DataGasPrice = gasPrice.PriceInFri
+		}
 	case WEI:
 		l1GasPrice = header.L1GasPriceETH
-		l2GasPrice = header.L2GasPrice.PriceInWei
-		l1DataGasPrice = header.L1DataGasPrice.PriceInWei
+		if gasPrice := header.L2GasPrice; gasPrice != nil {
+			l2GasPrice = gasPrice.PriceInWei
+		}
+		if gasPrice := header.L1DataGasPrice; gasPrice != nil {
+			l1DataGasPrice = gasPrice.PriceInWei
+		}
 	}
 
 	l1DataGasConsumed := new(felt.Felt).SetUint64(l1DataGas)
