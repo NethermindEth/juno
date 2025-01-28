@@ -442,7 +442,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionReceiptByHash,
+			Handler: h.TransactionReceiptByHashV0_7,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -550,7 +550,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_simulateTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.SimulateTransactions,
+			Handler: h.SimulateTransactionsV0_7,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
@@ -574,7 +574,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithReceipts,
+			Handler: h.BlockWithReceiptsV0_7,
 		},
 	}, "/v0_7"
 }

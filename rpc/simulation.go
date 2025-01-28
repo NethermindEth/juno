@@ -56,6 +56,12 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	return h.simulateTransactions(id, transactions, simulationFlags, false, V0_8)
 }
 
+func (h *Handler) SimulateTransactionsV0_7(id BlockID, transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag,
+) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+	return h.simulateTransactions(id, transactions, simulationFlags, false, V0_7)
+}
+
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, errOnRevert bool, rpcVersion version,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
