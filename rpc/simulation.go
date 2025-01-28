@@ -53,11 +53,11 @@ type TracedBlockTransaction struct {
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false)
+	return h.simulateTransactions(id, transactions, simulationFlags, false, V0_8)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, errOnRevert bool,
+	simulationFlags []SimulationFlag, errOnRevert bool, rpcVersion version,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -124,7 +124,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	for i, overallFee := range overallFees {
 		feeUnit := feeUnit(txns[i])
 
-		estimate := calculateFeeEstimate(overallFee, daGas[i].L1DataGas, feeUnit, header)
+		estimate := calculateFeeEstimate(overallFee, daGas[i].L1DataGas, feeUnit, header, rpcVersion)
 
 		trace := traces[i]
 		executionResources := trace.TotalExecutionResources()
@@ -143,7 +143,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	return result, httpHeader, nil
 }
 
-func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUnit, header *core.Header) FeeEstimate {
+func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUnit, header *core.Header, rpcVersion version) FeeEstimate {
 	var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
 
 	switch feeUnit {
@@ -171,6 +171,7 @@ func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUn
 		L1DataGasPrice:    l1DataGasPrice,
 		OverallFee:        overallFee,
 		Unit:              utils.Ptr(feeUnit),
+		rpcVersion:        rpcVersion,
 	}
 }
 

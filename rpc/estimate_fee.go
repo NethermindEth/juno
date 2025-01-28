@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,15 +29,6 @@ func (u FeeUnit) MarshalText() ([]byte, error) {
 	}
 }
 
-type FeeEstimateV0_7 struct {
-	GasConsumed     *felt.Felt `json:"gas_consumed"`
-	GasPrice        *felt.Felt `json:"gas_price"`
-	DataGasConsumed *felt.Felt `json:"data_gas_consumed"`
-	DataGasPrice    *felt.Felt `json:"data_gas_price"`
-	OverallFee      *felt.Felt `json:"overall_fee"`
-	Unit            *FeeUnit   `json:"unit,omitempty"`
-}
-
 type FeeEstimate struct {
 	L1GasConsumed     *felt.Felt `json:"l1_gas_consumed,omitempty"`
 	L1GasPrice        *felt.Felt `json:"l1_gas_price,omitempty"`
@@ -46,40 +38,55 @@ type FeeEstimate struct {
 	L1DataGasPrice    *felt.Felt `json:"l1_data_gas_price,omitempty"`
 	OverallFee        *felt.Felt `json:"overall_fee"`
 	Unit              *FeeUnit   `json:"unit,omitempty"`
+	rpcVersion        version
+}
+
+func (f FeeEstimate) MarshalJSON() ([]byte, error) {
+	switch f.rpcVersion {
+	case V0_7:
+		return json.Marshal(struct {
+			GasConsumed     *felt.Felt `json:"gas_consumed"`
+			GasPrice        *felt.Felt `json:"gas_price"`
+			DataGasConsumed *felt.Felt `json:"data_gas_consumed"`
+			DataGasPrice    *felt.Felt `json:"data_gas_price"`
+			OverallFee      *felt.Felt `json:"overall_fee"`
+			Unit            *FeeUnit   `json:"unit,omitempty"`
+		}{
+			GasConsumed:     f.L1GasConsumed,
+			GasPrice:        f.L1GasPrice,
+			DataGasConsumed: f.L1DataGasConsumed,
+			DataGasPrice:    f.L1DataGasPrice,
+			OverallFee:      f.OverallFee,
+			Unit:            f.Unit,
+		})
+	case V0_8:
+		type alias FeeEstimate // avoid infinite recursion
+		return json.Marshal(alias(f))
+	default:
+		return nil, errors.New("unknown FeeEstimate version")
+	}
 }
 
 /****************************************************
 		Estimate Fee Handlers
 *****************************************************/
 
-func feeEstimateToV0_7(feeEstimate FeeEstimate) FeeEstimateV0_7 {
-	return FeeEstimateV0_7{
-		GasConsumed:     feeEstimate.L1GasConsumed,
-		GasPrice:        feeEstimate.L1GasPrice,
-		DataGasConsumed: feeEstimate.L1DataGasConsumed,
-		DataGasPrice:    feeEstimate.L1DataGasPrice,
-		OverallFee:      feeEstimate.OverallFee,
-		Unit:            feeEstimate.Unit,
-	}
-}
-
 func (h *Handler) EstimateFeeV0_7(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
-) ([]FeeEstimateV0_7, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true)
+) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
+	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, V0_7)
 	if err != nil {
 		return nil, httpHeader, err
 	}
 
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimateV0_7 {
-		return feeEstimateToV0_7(tx.FeeEstimation)
+	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
+		return tx.FeeEstimation
 	}), httpHeader, nil
 }
-
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true)
+	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, V0_8)
 	if err != nil {
 		return nil, httpHeader, err
 	}
@@ -90,13 +97,8 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 }
 
 //nolint:gocritic
-func (h *Handler) EstimateMessageFeeV0_7(msg MsgFromL1, id BlockID) (*FeeEstimateV0_7, http.Header, *jsonrpc.Error) {
-	estimate, header, err := estimateMessageFee(msg, id, h.EstimateFee)
-	if err != nil {
-		return nil, header, err
-	}
-	estimateV0_7 := feeEstimateToV0_7(*estimate)
-	return &estimateV0_7, header, nil
+func (h *Handler) EstimateMessageFeeV0_7(msg MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) {
+	return estimateMessageFee(msg, id, h.EstimateFeeV0_7)
 }
 
 //nolint:gocritic

@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc"
 	"github.com/NethermindEth/juno/starknet"
@@ -519,15 +520,14 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 //nolint:dupl
 func TestTransactionReceiptByHash(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	n := utils.Ptr(utils.Mainnet)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
-
 	t.Run("transaction not found", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
+
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingBlock().Return(nil)
@@ -537,34 +537,53 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
 	})
 
-	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
-
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
-	require.NoError(t, err)
-
-	checkTxReceipt := func(t *testing.T, h *felt.Felt, expected string) {
-		t.Helper()
-
-		expectedMap := make(map[string]any)
-		require.NoError(t, json.Unmarshal([]byte(expected), &expectedMap))
-
-		receipt, err := handler.TransactionReceiptByHash(*h)
-		require.Nil(t, err)
-		receiptJSON, jsonErr := json.Marshal(receipt)
-		require.NoError(t, jsonErr)
-
-		receiptMap := make(map[string]any)
-		require.NoError(t, json.Unmarshal(receiptJSON, &receiptMap))
-		assert.Equal(t, expectedMap, receiptMap)
-	}
-
-	tests := map[string]struct {
-		index    int
-		expected string
+	tests := []struct {
+		name         string
+		network      *utils.Network
+		blockNumber  uint64
+		index        int
+		expected     string
+		mockBehavior func(*mocks.MockReader, int, *core.Block) *felt.Felt
+		rpcVersion   string
 	}{
-		"with contract addr": {
-			index: 0,
+		{
+			name:        "with contract addr 0.7",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       0,
+			expected: `{
+					"type": "DEPLOY",
+					"transaction_hash": "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
+					"actual_fee": {"amount": "0x0", "unit": "WEI"},
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCEEDED",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [],
+					"events": [],
+					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+					"execution_resources": {
+						"data_availability": {
+							"l1_data_gas": 0,
+							"l1_gas": 0
+						},
+						"steps": 29
+					}
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.7",
+		},
+		{
+			name:        "with contract addr 0.8",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       0,
 			expected: `{
 					"type": "DEPLOY",
 					"transaction_hash": "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
@@ -579,18 +598,65 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"execution_resources": {
 						"l1_data_gas": 0,
 						"l1_gas": 0,
-						"l2_gas": 0,
-						"data_availability": {
-							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
-						},
-						"steps": 29
+						"l2_gas": 0
 					}
 				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+
+			rpcVersion: "0.8",
 		},
-		"without contract addr": {
-			index: 2,
+		{
+			name:        "without contract addr 0.7",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       2,
+			expected: `{
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": {"amount": "0x0", "unit": "WEI"},
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCEEDED",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [
+						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": [],
+					"execution_resources": {
+						"data_availability": {
+							"l1_data_gas": 0,
+							"l1_gas": 0
+						},
+						"steps": 31
+					}
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.7",
+		},
+		{
+			name:        "without contract addr 0.8",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       2,
 			expected: `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
@@ -613,31 +679,62 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"execution_resources": {
 						"l1_data_gas": 0,
 						"l1_gas": 0,
-						"l2_gas": 0,
+						"l2_gas": 0
+					}
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.8",
+		},
+		{
+			name:        "pending receipt 0.7",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       2,
+			expected: `{
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": {"amount": "0x0", "unit": "WEI"},
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCEEDED",
+					"messages_sent": [
+						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": [],
+					"execution_resources": {
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
+							"l1_gas": 0
 						},
 						"steps": 31
 					}
 				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], nil, uint64(0), nil)
+				return txHash
+			},
+			rpcVersion: "0.7",
 		},
-	}
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			txHash := block0.Transactions[test.index].Hash()
-			mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[test.index], nil)
-			mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[test.index], block0.Hash, block0.Number, nil)
-			mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
-
-			checkTxReceipt(t, txHash, test.expected)
-		})
-	}
-
-	t.Run("pending receipt", func(t *testing.T) {
-		i := 2
-		expected := `{
+		{
+			name:        "pending receipt 0.8",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       2,
+			expected: `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
@@ -657,26 +754,68 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"execution_resources": {
 						"l1_data_gas": 0,
 						"l1_gas": 0,
-						"l2_gas": 0,
+						"l2_gas": 0
+					}
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], nil, uint64(0), nil)
+				return txHash
+			},
+			rpcVersion: "0.8",
+		},
+		{
+			name:        "accepted on l1 receipt 0.7",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       2,
+			expected: `{
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": {"amount": "0x0", "unit": "WEI"},
+					"finality_status": "ACCEPTED_ON_L1",
+					"execution_status": "SUCCEEDED",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [
+						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": [],
+					"execution_resources": {
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
+							"l1_gas": 0
 						},
 						"steps": 31
 					}
-				}`
-
-		txHash := block0.Transactions[i].Hash()
-		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
-		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], nil, uint64(0), nil)
-
-		checkTxReceipt(t, txHash, expected)
-	})
-
-	t.Run("accepted on l1 receipt", func(t *testing.T) {
-		i := 2
-		expected := `{
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(&core.L1Head{
+					BlockNumber: block.Number,
+					BlockHash:   block.Hash,
+					StateRoot:   block.GlobalStateRoot,
+				}, nil)
+				return txHash
+			},
+			rpcVersion: "0.7",
+		},
+		{
+			name:        "accepted on l1 receipt 0.8",
+			network:     &utils.Mainnet,
+			blockNumber: 0,
+			index:       2,
+			expected: `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
@@ -698,71 +837,106 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"execution_resources": {
 						"l1_data_gas": 0,
 						"l1_gas": 0,
-						"l2_gas": 0,
-						"data_availability": {
-							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
-						},
-						"steps": 31
+						"l2_gas": 0
 					}
-				}`
-
-		txHash := block0.Transactions[i].Hash()
-		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
-		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], block0.Hash, block0.Number, nil)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
-			BlockNumber: block0.Number,
-			BlockHash:   block0.Hash,
-			StateRoot:   block0.GlobalStateRoot,
-		}, nil)
-
-		checkTxReceipt(t, txHash, expected)
-	})
-	t.Run("reverted", func(t *testing.T) {
-		expected := `{
-			"type": "INVOKE",
-			"transaction_hash": "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
-			"actual_fee": {"amount": "0x247aff6e224", "unit": "WEI"},
-			"execution_status": "REVERTED",
-			"finality_status": "ACCEPTED_ON_L2",
-			"block_hash": "0x76e0229fd0c36dda2ee7905f7e4c9b3ebb78d98c4bfab550bcb3a03bf859a6",
-			"block_number": 304740,
-			"messages_sent": [],
-			"events": [],
-			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
-			"execution_resources": {
-				"l1_data_gas": 0,
-				"l1_gas": 0,
-				"l2_gas": 0,
-				"data_availability": {
-					"l1_data_gas": 0,
-					"l1_gas": 0,
-					"l2_gas": 0
-				},
-				"steps": 0
-			}
-		}`
-
-		integClient := feeder.NewTestClient(t, &utils.Integration)
-		integGw := adaptfeeder.New(integClient)
-
-		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
-		require.NoError(t, err)
-
-		revertedTxnIdx := 1
-		revertedTxnHash := blockWithRevertedTxn.Transactions[revertedTxnIdx].Hash()
-
-		mockReader.EXPECT().TransactionByHash(revertedTxnHash).Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
-		mockReader.EXPECT().Receipt(revertedTxnHash).Return(blockWithRevertedTxn.Receipts[revertedTxnIdx],
-			blockWithRevertedTxn.Hash, blockWithRevertedTxn.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
-
-		checkTxReceipt(t, revertedTxnHash, expected)
-	})
-
-	t.Run("v3 tx", func(t *testing.T) {
-		expected := `{
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(&core.L1Head{
+					BlockNumber: block.Number,
+					BlockHash:   block.Hash,
+					StateRoot:   block.GlobalStateRoot,
+				}, nil)
+				return txHash
+			},
+			rpcVersion: "0.8",
+		},
+		{
+			name:        "reverted 0.7",
+			network:     &utils.Integration,
+			blockNumber: 304740,
+			index:       1,
+			expected: `{
+					"type":"INVOKE",
+					"transaction_hash":"0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
+					"actual_fee":{
+						"amount":"0x247aff6e224",
+						"unit":"WEI"
+					},
+					"execution_status":"REVERTED",
+					"finality_status":"ACCEPTED_ON_L2",
+					"block_hash":"0x76e0229fd0c36dda2ee7905f7e4c9b3ebb78d98c4bfab550bcb3a03bf859a6",
+					"block_number":304740,
+					"messages_sent":[
+						
+					],
+					"events":[
+						
+					],
+					"revert_reason":"Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
+					"execution_resources":{
+						"data_availability":{
+							"l1_data_gas":0,
+							"l1_gas":0
+						},
+						"steps":0
+					}
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.7",
+		},
+		{
+			name:        "reverted 0.8",
+			network:     &utils.Integration,
+			blockNumber: 304740,
+			index:       1,
+			expected: `{
+					"type":"INVOKE",
+					"transaction_hash":"0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
+					"actual_fee":{
+						"amount":"0x247aff6e224",
+						"unit":"WEI"
+					},
+					"execution_status":"REVERTED",
+					"finality_status":"ACCEPTED_ON_L2",
+					"block_hash":"0x76e0229fd0c36dda2ee7905f7e4c9b3ebb78d98c4bfab550bcb3a03bf859a6",
+					"block_number":304740,
+					"messages_sent":[
+						
+					],
+					"events":[
+						
+					],
+					"revert_reason":"Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
+					"execution_resources":{
+						"l1_data_gas":0,
+						"l1_gas":0,
+						"l2_gas":0
+					}
+				}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index], block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.8",
+		},
+		{
+			name:        "v3 tx 0.7",
+			network:     &utils.Integration,
+			blockNumber: 319132,
+			index:       0,
+			expected: `{
 			"block_hash": "0x50e864db6b81ce69fbeb70e6a7284ee2febbb9a2e707415de7adab83525e9cd",
 			"block_number": 319132,
 			"execution_status": "SUCCEEDED",
@@ -800,13 +974,9 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"steps": 615,
 				"range_check_builtin_applications": 19,
 				"memory_holes": 4,
-				"l1_data_gas": 0,
-				"l1_gas": 0,
-				"l2_gas": 0,
 				"data_availability": {
 					"l1_data_gas": 0,
-					"l1_gas": 0,
-					"l2_gas": 0
+					"l1_gas": 0
 				}
 			},
 			"actual_fee": {
@@ -814,27 +984,83 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"unit": "FRI"
 			},
 			"type": "INVOKE"
-		}`
-
-		integClient := feeder.NewTestClient(t, &utils.Integration)
-		integGw := adaptfeeder.New(integClient)
-
-		block, err := integGw.BlockByNumber(context.Background(), 319132)
-		require.NoError(t, err)
-
-		index := 0
-		txnHash := block.Transactions[index].Hash()
-
-		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
-		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
-			block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
-
-		checkTxReceipt(t, txnHash, expected)
-	})
-
-	t.Run("tx with non empty data_availability", func(t *testing.T) {
-		expected := `{
+		}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index],
+					block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.7",
+		},
+		{
+			name:        "v3 tx 0.8",
+			network:     &utils.Integration,
+			blockNumber: 319132,
+			index:       0,
+			expected: `{
+			"block_hash": "0x50e864db6b81ce69fbeb70e6a7284ee2febbb9a2e707415de7adab83525e9cd",
+			"block_number": 319132,
+			"execution_status": "SUCCEEDED",
+			"finality_status": "ACCEPTED_ON_L2",
+			"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
+			"messages_sent": [],
+			"events": [
+				{
+					"from_address": "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+					"keys": [
+						"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+					],
+					"data": [
+						"0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41",
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						"0x16d8b4ad4000",
+						"0x0"
+					]
+				},
+				{
+					"from_address": "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+					"keys": [
+						"0xa9fa878c35cd3d0191318f89033ca3e5501a3d90e21e3cc9256bdd5cd17fdd"
+					],
+					"data": [
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						"0x18ad8494375bc00",
+						"0x0",
+						"0x18aef21f822fc00",
+						"0x0"
+					]
+				}
+			],
+			"execution_resources": {
+				"l1_data_gas": 0,
+				"l1_gas": 0,
+				"l2_gas": 0
+			},
+			"actual_fee": {
+				"amount": "0x16d8b4ad4000",
+				"unit": "FRI"
+			},
+			"type": "INVOKE"
+		}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index],
+					block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.8",
+		},
+		{
+			name:        "tx with non empty data_availability 0.7",
+			network:     &utils.SepoliaIntegration,
+			blockNumber: 35748,
+			index:       0,
+			expected: `{
 			"type": "DECLARE",
 			"transaction_hash": "0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747",
 			"actual_fee": {
@@ -866,32 +1092,109 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"pedersen_builtin_applications": 16,
 				"poseidon_builtin_applications": 4,
 				"range_check_builtin_applications": 157,
-				"l1_data_gas": 192,
-				"l1_gas": 117620,
-				"l2_gas": 0,
 				"data_availability": {
 					"l1_gas": 0,
-					"l1_data_gas": 192,
-					"l2_gas": 0
+					"l1_data_gas": 192
 				}
 			}
-		}`
+		}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index],
+					block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.7",
+		},
+		{
+			name:        "tx with non empty data_availability 0.8",
+			network:     &utils.SepoliaIntegration,
+			blockNumber: 35748,
+			index:       0,
+			expected: `{
+			"type": "DECLARE",
+			"transaction_hash": "0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747",
+			"actual_fee": {
+				"amount": "0xd07af45c84550",
+				"unit": "WEI"
+			},
+			"execution_status": "SUCCEEDED",
+			"finality_status": "ACCEPTED_ON_L2",
+			"block_hash": "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869",
+			"block_number": 35748,
+			"messages_sent": [],
+			"events": [
+				{
+					"from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+					"keys": [
+						"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+					],
+					"data": [
+						"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						"0xd07af45c84550",
+						"0x0"
+					]
+				}
+			],
+			"execution_resources": {
+				"l1_data_gas": 192,
+				"l1_gas": 117620,
+				"l2_gas": 0
+			}
+		}`,
+			mockBehavior: func(mockReader *mocks.MockReader, index int, block *core.Block) *felt.Felt {
+				txHash := block.Transactions[index].Hash()
+				mockReader.EXPECT().TransactionByHash(txHash).Return(block.Transactions[index], nil)
+				mockReader.EXPECT().Receipt(txHash).Return(block.Receipts[index],
+					block.Hash, block.Number, nil)
+				mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+				return txHash
+			},
+			rpcVersion: "0.8",
+		},
+	}
 
-		netClient := feeder.NewTestClient(t, utils.Ptr(utils.SepoliaIntegration))
-		netGW := adaptfeeder.New(netClient)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			t.Cleanup(mockCtrl.Finish)
 
-		block, err := netGW.BlockByNumber(context.Background(), 35748)
-		require.NoError(t, err)
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+			handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
-		index := 0
-		txnHash := block.Transactions[index].Hash()
-		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
-		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
-			block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+			client := feeder.NewTestClient(t, test.network)
+			mainnetGw := adaptfeeder.New(client)
 
-		checkTxReceipt(t, txnHash, expected)
-	})
+			block, err := mainnetGw.BlockByNumber(context.Background(), test.blockNumber)
+			require.NoError(t, err)
+
+			txHash := test.mockBehavior(mockReader, test.index, block)
+			expectedMap := make(map[string]any)
+			require.NoError(t, json.Unmarshal([]byte(test.expected), &expectedMap))
+
+			var receipt *rpc.TransactionReceipt
+			var rErr *jsonrpc.Error
+			switch test.rpcVersion {
+			case "0.7":
+				receipt, rErr = handler.TransactionReceiptByHashV0_7(*txHash)
+			case "0.8":
+				receipt, rErr = handler.TransactionReceiptByHash(*txHash)
+			default:
+				t.Fatalf("unsupported rpc version: %s", test.rpcVersion)
+			}
+			require.Nil(t, rErr)
+			receiptJSON, jsonErr := json.Marshal(receipt)
+			require.NoError(t, jsonErr)
+
+			receiptMap := make(map[string]any)
+			require.NoError(t, json.Unmarshal(receiptJSON, &receiptMap))
+			assert.Equal(t, expectedMap, receiptMap)
+		})
+	}
 }
 
 func TestAddTransactionUnmarshal(t *testing.T) {

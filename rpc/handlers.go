@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maps"
 	"math"
 	"strings"
 	stdsync "sync"
@@ -79,6 +80,13 @@ const (
 	maxEventFilterKeys = 1024
 	traceCacheSize     = 128
 	throttledVMErr     = "VM throughput limit reached"
+)
+
+type version uint32
+
+const (
+	V0_7 version = iota + 1
+	V0_8
 )
 
 type traceCacheKey struct {
@@ -195,7 +203,12 @@ func (h *Handler) Run(ctx context.Context) error {
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()
-	for _, sub := range h.subscriptions {
+
+	h.mu.Lock()
+	subscriptions := maps.Values(h.subscriptions)
+	h.mu.Unlock()
+
+	for sub := range subscriptions {
 		sub.wg.Wait()
 	}
 	return nil
