@@ -510,6 +510,7 @@ type fakeSyncer struct {
 	newHeads   *feed.Feed[*core.Header]
 	reorgs     *feed.Feed[*sync.ReorgBlockRange]
 	pendingTxs *feed.Feed[[]core.Transaction]
+	pending    *feed.Feed[*core.Block]
 }
 
 func newFakeSyncer() *fakeSyncer {
@@ -517,6 +518,7 @@ func newFakeSyncer() *fakeSyncer {
 		newHeads:   feed.New[*core.Header](),
 		reorgs:     feed.New[*sync.ReorgBlockRange](),
 		pendingTxs: feed.New[[]core.Transaction](),
+		pending:    feed.New[*core.Block](),
 	}
 }
 
@@ -530,6 +532,10 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 
 func (fs *fakeSyncer) SubscribePendingTxs() sync.PendingTxSubscription {
 	return sync.PendingTxSubscription{Subscription: fs.pendingTxs.Subscribe()}
+}
+
+func (fs *fakeSyncer) SubscribePending() sync.PendingSubscription {
+	return sync.PendingSubscription{Subscription: fs.pending.Subscribe()}
 }
 
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {

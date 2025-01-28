@@ -46,6 +46,10 @@ type PendingTxSubscription struct {
 	*feed.Subscription[[]core.Transaction]
 }
 
+type PendingSubscription struct {
+	*feed.Subscription[*core.Block]
+}
+
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
@@ -67,6 +71,7 @@ type Reader interface {
 	SubscribeNewHeads() HeaderSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePendingTxs() PendingTxSubscription
+	SubscribePending() PendingSubscription
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
@@ -96,6 +101,10 @@ func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
 	return PendingTxSubscription{feed.New[[]core.Transaction]().Subscribe()}
 }
 
+func (n *NoopSynchronizer) SubscribePending() PendingSubscription {
+	return PendingSubscription{feed.New[*core.Block]().Subscribe()}
+}
+
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
 	return nil
 }
@@ -119,6 +128,7 @@ type Synchronizer struct {
 	newHeads            *feed.Feed[*core.Header]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
 	pendingTxsFeed      *feed.Feed[[]core.Transaction]
+	pendingFeed         *feed.Feed[*core.Block]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -595,6 +605,10 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 
 func (s *Synchronizer) SubscribePendingTxs() PendingTxSubscription {
 	return PendingTxSubscription{s.pendingTxsFeed.Subscribe()}
+}
+
+func (s *Synchronizer) SubscribePending() PendingSubscription {
+	return PendingSubscription{s.pendingFeed.Subscribe()}
 }
 
 // StorePending stores a pending block given that it is for the next height
