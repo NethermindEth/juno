@@ -141,6 +141,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		newHeads:      feed.New[*core.Header](),
 		reorgs:        feed.New[*sync.ReorgBlockRange](),
 		pendingTxs:    feed.New[[]core.Transaction](),
+		pendingBlock:  feed.New[*core.Block](),
 		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 

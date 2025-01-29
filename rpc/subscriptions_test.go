@@ -862,12 +862,14 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+				&core.DeployTransaction{TransactionHash: hash3},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+				&core.L1HandlerTransaction{TransactionHash: hash5},
+			},
 		})
 
 		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
@@ -902,14 +904,16 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
-			&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
-			&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+				&core.DeployTransaction{TransactionHash: hash3},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+				&core.L1HandlerTransaction{TransactionHash: hash5},
+				&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
+				&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+			},
 		})
 
 		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
@@ -928,21 +932,23 @@ func TestSubscribePendingTxs(t *testing.T) {
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{
-				TransactionHash:       new(felt.Felt).SetUint64(1),
-				CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
-				TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-				MaxFee:                new(felt.Felt).SetUint64(4),
-				ContractAddress:       new(felt.Felt).SetUint64(5),
-				Version:               new(core.TransactionVersion).SetUint64(3),
-				EntryPointSelector:    new(felt.Felt).SetUint64(6),
-				Nonce:                 new(felt.Felt).SetUint64(7),
-				SenderAddress:         new(felt.Felt).SetUint64(8),
-				ResourceBounds:        map[core.Resource]core.ResourceBounds{},
-				Tip:                   9,
-				PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-				AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{
+					TransactionHash:       new(felt.Felt).SetUint64(1),
+					CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
+					TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+					MaxFee:                new(felt.Felt).SetUint64(4),
+					ContractAddress:       new(felt.Felt).SetUint64(5),
+					Version:               new(core.TransactionVersion).SetUint64(3),
+					EntryPointSelector:    new(felt.Felt).SetUint64(6),
+					Nonce:                 new(felt.Felt).SetUint64(7),
+					SenderAddress:         new(felt.Felt).SetUint64(8),
+					ResourceBounds:        map[core.Resource]core.ResourceBounds{},
+					Tip:                   9,
+					PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
+					AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+				},
 			},
 		})
 
