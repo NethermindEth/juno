@@ -46,7 +46,7 @@ func TestPendingState(t *testing.T) {
 				Nonces: map[felt.Felt]*felt.Felt{
 					*deployedAddr: new(felt.Felt).SetUint64(44),
 				},
-				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				StorageDiffs: core.StorageDiff{
 					*deployedAddr: {
 						*new(felt.Felt).SetUint64(44): new(felt.Felt).SetUint64(37),
 					},

@@ -15,13 +15,15 @@ type StateUpdate struct {
 	StateDiff *StateDiff
 }
 
+type StorageDiff map[felt.Felt]map[felt.Felt]*felt.Felt
+
 type StateDiff struct {
-	StorageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
-	Nonces            map[felt.Felt]*felt.Felt               // addr -> nonce
-	DeployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
-	DeclaredV0Classes []*felt.Felt                           // class hashes
-	DeclaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
-	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
+	StorageDiffs      StorageDiff              // addr -> {key -> value, ...}
+	Nonces            map[felt.Felt]*felt.Felt // addr -> nonce
+	DeployedContracts map[felt.Felt]*felt.Felt // addr -> class hash
+	DeclaredV0Classes []*felt.Felt             // class hashes
+	DeclaredV1Classes map[felt.Felt]*felt.Felt // class hash -> compiled class hash
+	ReplacedClasses   map[felt.Felt]*felt.Felt // addr -> class hash
 }
 
 func (d *StateDiff) Length() uint64 {
@@ -173,7 +175,7 @@ func deprecatedDeclaredClassesDigest(declaredV0Classes []*felt.Felt, digest *cry
 	digest.Update(declaredV0Classes...)
 }
 
-func storageDiffDigest(storageDiffs map[felt.Felt]map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest) {
+func storageDiffDigest(storageDiffs StorageDiff, digest *crypto.PoseidonDigest) {
 	numOfStorageDiffs := uint64(len(storageDiffs))
 	digest.Update(new(felt.Felt).SetUint64(numOfStorageDiffs))
 

@@ -58,7 +58,7 @@ func TestV0Call(t *testing.T) {
 		OldRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		NewRoot: utils.HexToFelt(t, "0x4a948783e8786ba9d8edaf42de972213bd2deb1b50c49e36647f1fef844890f"),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: core.StorageDiff{
 				*contractAddr: {
 					*utils.HexToFelt(t, "0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091"): new(felt.Felt).SetUint64(1337),
 				},
@@ -124,7 +124,7 @@ func TestV1Call(t *testing.T) {
 		OldRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
 		NewRoot: utils.HexToFelt(t, "0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552"),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: core.StorageDiff{
 				*contractAddr: {
 					*storageLocation: new(felt.Felt).SetUint64(37),
 				},

@@ -710,7 +710,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 
 func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
 	stateDiff := &core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+		StorageDiffs:      make(core.StorageDiff),
 		Nonces:            make(map[felt.Felt]*felt.Felt),
 		DeployedContracts: make(map[felt.Felt]*felt.Felt),
 		DeclaredV0Classes: make([]*felt.Felt, 0),

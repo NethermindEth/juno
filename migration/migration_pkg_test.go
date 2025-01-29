@@ -671,7 +671,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 					NewRoot:   utils.HexToFelt(t, "0x1"),
 					OldRoot:   utils.HexToFelt(t, "0x2"),
 					StateDiff: &core.StateDiff{
-						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+						StorageDiffs: core.StorageDiff{
 							*utils.HexToFelt(t, "0x3"): {
 								*utils.HexToFelt(t, "0x4"): utils.HexToFelt(t, "0x5"),
 							},
@@ -700,7 +700,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 					NewRoot:   utils.HexToFelt(t, "0x16"),
 					OldRoot:   utils.HexToFelt(t, "0x17"),
 					StateDiff: &core.StateDiff{
-						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+						StorageDiffs: core.StorageDiff{
 							*utils.HexToFelt(t, "0x18"): {
 								*utils.HexToFelt(t, "0x19"): utils.HexToFelt(t, "0x20"),
 							},

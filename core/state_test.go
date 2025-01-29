@@ -114,7 +114,7 @@ func TestUpdate(t *testing.T) {
 		OldRoot: su3.NewRoot,
 		NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr: {*scKey: scValue}},
+			StorageDiffs: core.StorageDiff{*scAddr: {*scKey: scValue}},
 		},
 	}
 
@@ -143,7 +143,7 @@ func TestUpdate(t *testing.T) {
 			OldRoot: su4.NewRoot,
 			NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
 			StateDiff: &core.StateDiff{
-				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr2: {*scKey: scValue}},
+				StorageDiffs: core.StorageDiff{*scAddr2: {*scKey: scValue}},
 			},
 		}
 		assert.ErrorIs(t, state.Update(5, su5, nil), core.ErrContractNotDeployed)
@@ -292,7 +292,7 @@ func TestStateHistory(t *testing.T) {
 		NewRoot: utils.HexToFelt(t, "0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c"),
 		OldRoot: su0.NewRoot,
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: core.StorageDiff{
 				*contractAddr: {
 					*changedLoc: utils.HexToFelt(t, "0x44"),
 				},
@@ -560,7 +560,7 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 		NewRoot:   utils.HexToFelt(t, "0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8"),
 		OldRoot:   new(felt.Felt),
 		StateDiff: &core.StateDiff{
-			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+			StorageDiffs: core.StorageDiff{
 				*addr: {
 					*key: value,
 				},

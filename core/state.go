@@ -389,7 +389,7 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 
 // updateContractStorages applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
+func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs StorageDiff,
 	blockNumber uint64, logChanges bool,
 ) error {
 	type bufferedTransactionWithAddress struct {
@@ -689,7 +689,7 @@ func (s *State) GetReverseStateDiff(blockNumber uint64, diff *StateDiff) (*State
 	reversed := *diff
 
 	// storage diffs
-	reversed.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(diff.StorageDiffs))
+	reversed.StorageDiffs = make(StorageDiff, len(diff.StorageDiffs))
 	for addr, storageDiffs := range diff.StorageDiffs {
 		reversedDiffs := make(map[felt.Felt]*felt.Felt, len(storageDiffs))
 		for key := range storageDiffs {
