@@ -155,14 +155,14 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 	}
 	h.subscriptions.Store(id, sub)
 
-	l2HeadSub := h.newHeads.Subscribe()
+	pendingSub := h.pendingBlock.Subscribe()
 	l1HeadSub := h.l1Heads.Subscribe()
 	reorgSub := h.reorgs.Subscribe()
 
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
-			l2HeadSub.Unsubscribe()
+			pendingSub.Unsubscribe()
 			l1HeadSub.Unsubscribe()
 			reorgSub.Unsubscribe()
 		}()
@@ -187,11 +187,13 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 				select {
 				case <-subscriptionCtx.Done():
 					return
-				case <-l2HeadSub.Recv():
-					// A new block has been added to the DB, hence, check if transaction has reached l2 finality,
-					// if not, check feeder.
-					// We could use a separate timer to periodically check for the transaction status at feeder
-					// gateway, however, for the time being new l2 head update is sufficient.
+				case <-pendingSub.Recv():
+					// Pending block has been updated, hence, check if transaction has reached l2 finality, if not,
+					// check feeder.
+					// TransactionStatus calls TransactionReceiptByHash which checks the pending block if it contains
+					// a transaction and if it does, then the appropriate transaction status is returned.
+					// Therefore, we don't need to explicitly find the transaction in the pending block received from
+					// the pendingSub.
 					if curStatus.Finality < TxnStatusAcceptedOnL2 {
 						prevStatus := curStatus
 						curStatus, rpcErr = h.TransactionStatus(subscriptionCtx, txHash)

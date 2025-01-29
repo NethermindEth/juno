@@ -436,9 +436,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(client)
-		l2Feed := feed.New[*core.Header]()
+		pendingFeed := feed.New[*core.Block]()
 		l1Feed := feed.New[*core.L1Head]()
-		handler.newHeads = l2Feed
+		handler.pendingBlock = pendingFeed
 		handler.l1Heads = l1Feed
 
 		block, err := gw.BlockByNumber(context.Background(), 38748)
@@ -475,7 +475,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		l2Feed.Send(&core.Header{Number: block.Number + 1})
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
 
 		b, err = TxnStatusAcceptedOnL2.MarshalText()
 		require.NoError(t, err)
