@@ -70,7 +70,6 @@ type Reader interface {
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
 	SubscribeReorg() ReorgSubscription
-	SubscribePendingTxs() PendingTxSubscription
 	SubscribePending() PendingSubscription
 
 	Pending() (*Pending, error)
@@ -95,10 +94,6 @@ func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
 
 func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
-}
-
-func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
-	return PendingTxSubscription{feed.New[[]core.Transaction]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) SubscribePending() PendingSubscription {
@@ -127,7 +122,6 @@ type Synchronizer struct {
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
-	pendingTxsFeed      *feed.Feed[[]core.Transaction]
 	pendingFeed         *feed.Feed[*core.Block]
 
 	log      utils.SimpleLogger
@@ -151,7 +145,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
 		reorgFeed:           feed.New[*ReorgBlockRange](),
-		pendingTxsFeed:      feed.New[[]core.Transaction](),
+		pendingFeed:         feed.New[*core.Block](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -603,10 +597,6 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{s.reorgFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePendingTxs() PendingTxSubscription {
-	return PendingTxSubscription{s.pendingTxsFeed.Subscribe()}
-}
-
 func (s *Synchronizer) SubscribePending() PendingSubscription {
 	return PendingSubscription{s.pendingFeed.Subscribe()}
 }
@@ -641,7 +631,7 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 	s.pending.Store(p)
 
 	// send the pending transactions to the feed
-	s.pendingTxsFeed.Send(p.Block.Transactions)
+	s.pendingFeed.Send(p.Block)
 
 	return nil
 }

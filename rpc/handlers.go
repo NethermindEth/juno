@@ -96,7 +96,6 @@ type Handler struct {
 	version      string
 	newHeads     *feed.Feed[*core.Header]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs   *feed.Feed[[]core.Transaction]
 	pendingBlock *feed.Feed[*core.Block]
 	l1Heads      *feed.Feed[*core.L1Head]
 
@@ -182,18 +181,15 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
 	pendingBlock := h.syncReader.SubscribePending().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingTxsSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
 	defer pendingBlock.Unsubscribe()
 
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingTxsSub, h.pendingTxs)
 	feed.Tee(l1HeadsSub, h.l1Heads)
 	feed.Tee(pendingBlock, h.pendingBlock)
 
