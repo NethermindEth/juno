@@ -566,7 +566,7 @@ func (h *Handler) sendHistoricalHeaders(
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			if err := h.sendHeader(w, curHeader, id, rpcVersion); err != nil {
+			if err := h.sendHeader(w, curHeader, id); err != nil {
 				return err
 			}
 
@@ -588,7 +588,7 @@ func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscri
 		case <-ctx.Done():
 			return
 		case header := <-headerSub.Recv():
-			if err := h.sendHeader(w, header, id, rpcVersion); err != nil {
+			if err := h.sendHeader(w, header, id); err != nil {
 				h.log.Warnw("Error sending header", "err", err)
 				return
 			}
@@ -597,13 +597,13 @@ func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscri
 }
 
 // sendHeader creates a request and sends it to the client
-func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64, rpcVersion version) error {
+func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
 	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionNewHeads",
 		Params: map[string]any{
 			"subscription_id": id,
-			"result":          adaptBlockHeader(header, rpcVersion),
+			"result":          adaptBlockHeader(header),
 		},
 	})
 	if err != nil {
