@@ -286,7 +286,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	sub.Unsubscribe()
 }
 
-func TestSubscribePendingTxs(t *testing.T) {
+func TestSubscribePending(t *testing.T) {
 	t.Parallel()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
@@ -298,15 +298,15 @@ func TestSubscribePendingTxs(t *testing.T) {
 	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 
-	sub := synchronizer.SubscribePendingTxs()
+	sub := synchronizer.SubscribePending()
 
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
 	pending, err := synchronizer.Pending()
 	require.NoError(t, err)
-	pendingTxs, ok := <-sub.Recv()
+	pendingBlock, ok := <-sub.Recv()
 	require.True(t, ok)
-	require.Equal(t, pending.Block.Transactions, pendingTxs)
+	require.Equal(t, pending.Block, pendingBlock)
 	sub.Unsubscribe()
 }

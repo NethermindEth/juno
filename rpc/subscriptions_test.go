@@ -507,18 +507,16 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs *feed.Feed[[]core.Transaction]
-	pending    *feed.Feed[*core.Block]
+	newHeads *feed.Feed[*core.Header]
+	reorgs   *feed.Feed[*sync.ReorgBlockRange]
+	pending  *feed.Feed[*core.Block]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads:   feed.New[*core.Header](),
-		reorgs:     feed.New[*sync.ReorgBlockRange](),
-		pendingTxs: feed.New[[]core.Transaction](),
-		pending:    feed.New[*core.Block](),
+		newHeads: feed.New[*core.Header](),
+		reorgs:   feed.New[*sync.ReorgBlockRange](),
+		pending:  feed.New[*core.Block](),
 	}
 }
 
@@ -528,10 +526,6 @@ func (fs *fakeSyncer) SubscribeNewHeads() sync.HeaderSubscription {
 
 func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
-}
-
-func (fs *fakeSyncer) SubscribePendingTxs() sync.PendingTxSubscription {
-	return sync.PendingTxSubscription{Subscription: fs.pendingTxs.Subscribe()}
 }
 
 func (fs *fakeSyncer) SubscribePending() sync.PendingSubscription {
