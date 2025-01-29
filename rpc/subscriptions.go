@@ -402,30 +402,28 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 	}
 	h.subscriptions.Store(id, sub)
 
-	pendingTxsSub := h.pendingTxs.Subscribe()
+	pendingSub := h.pendingBlock.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
-			pendingTxsSub.Unsubscribe()
+			pendingSub.Unsubscribe()
 		}()
 
-		h.processPendingTxs(subscriptionCtx, getDetails != nil && *getDetails, senderAddr, pendingTxsSub, w, id)
+		h.processPendingTxs(subscriptionCtx, getDetails != nil && *getDetails, senderAddr, pendingSub, w, id)
 	})
 
 	return &SubscriptionID{ID: id}, nil
 }
 
 func (h *Handler) processPendingTxs(ctx context.Context, getDetails bool, senderAddr []felt.Felt,
-	pendingTxsSub *feed.Subscription[[]core.Transaction],
-	w jsonrpc.Conn,
-	id uint64,
+	pendingSub *feed.Subscription[*core.Block], w jsonrpc.Conn, id uint64,
 ) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case pendingTxs := <-pendingTxsSub.Recv():
-			filteredTxs := h.filterTxs(pendingTxs, getDetails, senderAddr)
+		case pendingBlock := <-pendingSub.Recv():
+			filteredTxs := h.filterTxs(pendingBlock.Transactions, getDetails, senderAddr)
 			if err := h.sendPendingTxs(w, filteredTxs, id); err != nil {
 				h.log.Warnw("Error sending pending transactions", "err", err)
 				return
