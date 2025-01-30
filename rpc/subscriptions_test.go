@@ -268,7 +268,7 @@ func TestSubscribeEvents(t *testing.T) {
 		cancel()
 	})
 
-	t.Run("Events from new blocks", func(t *testing.T) {
+	t.Run("Events from pending block without duplicates", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
@@ -277,8 +277,8 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 
 		handler := New(mockChain, mockSyncer, nil, "", log)
-		headerFeed := feed.New[*core.Header]()
-		handler.newHeads = headerFeed
+		pendingFeed := feed.New[*core.Block]()
+		handler.pendingBlock = pendingFeed
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
@@ -306,14 +306,31 @@ func TestSubscribeEvents(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(resp), string(got))
 
+		// Pending block events, due to the use of mocks events which were sent before are resent.
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
 
-		headerFeed.Send(&core.Header{Number: b1.Number + 1})
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
 
 		resp, err = marshalSubEventsResp(emittedEvents[1], id.ID)
+		require.NoError(t, err)
+
+		got = make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, string(resp), string(got))
+
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.
+			FilteredEvent{filteredEvents[1], filteredEvents[0]}, nil, nil)
+
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
+
+		resp, err = marshalSubEventsResp(emittedEvents[0], id.ID)
 		require.NoError(t, err)
 
 		got = make([]byte, len(resp))
