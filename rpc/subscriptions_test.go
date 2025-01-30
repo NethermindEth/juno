@@ -352,7 +352,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 		assert.Nil(t, id)
 		assert.Equal(t, ErrTxnHashNotFound, rpcErr)
 	})
@@ -381,7 +381,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			assert.Zero(t, id)
 			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
 		})
@@ -390,7 +390,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			assert.Zero(t, id)
 			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
 		})
@@ -422,7 +422,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			require.Nil(t, rpcErr)
 
 			b, err := TxnStatusRejected.MarshalText()
@@ -453,7 +453,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			require.Nil(t, rpcErr)
 
 			b, err := TxnStatusAcceptedOnL1.MarshalText()
@@ -502,7 +502,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 		require.Nil(t, rpcErr)
 
 		b, err := TxnStatusReceived.MarshalText()

@@ -108,20 +108,12 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 // The optional block_id parameter is ignored, as status changes are not stored and historical data cannot be sent.
 //
 //nolint:gocyclo,funlen
-func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Felt, blockID *BlockID) (*SubscriptionID,
+func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Felt) (*SubscriptionID,
 	*jsonrpc.Error,
 ) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
-	}
-
-	// resolveBlockRange is only used to make sure that the requested block id is not older than 1024 block and check
-	// if the requested block is found. The range is inconsequential since we assume the provided transaction hash
-	// of a transaction is included in the block range: latest/pending - 1024.
-	_, _, rpcErr := h.resolveBlockRange(blockID)
-	if rpcErr != nil {
-		return nil, rpcErr
 	}
 
 	// If the error is transaction not found that means the transaction has not been submitted to the feeder gateway,
