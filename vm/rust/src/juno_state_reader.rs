@@ -219,9 +219,13 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
 
     let class_def = class_info.contract_class.get();
     let sierra_version: SierraVersion;
+    let sierra_len;
+    let abi_len;
     let class: ContractClass = match class_info.cairo_version {
         0 => {
             sierra_version = SierraVersion::DEPRECATED;
+            sierra_len = 0;
+            abi_len = 0;
             match parse_deprecated_class_definition(class_def.to_string()) {
                 Ok(class) => class,
                 Err(err) => return Err(format!("failed parsing deprecated class: {:?}", err)),
@@ -230,6 +234,8 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         1 => {
             sierra_version = SierraVersion::from_str(&class_info.sierra_version)
                 .map_err(|err| format!("failed parsing sierra version: {:?}", err))?;
+            sierra_len = class_info.sierra_program_length;
+            abi_len = class_info.abi_length;
             match parse_casm_definition(class_def.to_string(), sierra_version.clone()) {
                 Ok(class) => class,
                 Err(err) => return Err(format!("failed parsing casm class: {:?}", err)),
@@ -243,13 +249,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         }
     };
 
-    Ok(BlockifierClassInfo::new(
-        &class,
-        class_info.sierra_program_length,
-        class_info.abi_length,
-        sierra_version,
-    )
-    .unwrap())
+    Ok(BlockifierClassInfo::new(&class, sierra_len, abi_len, sierra_version).unwrap())
 }
 
 pub fn parse_deprecated_class_definition(
