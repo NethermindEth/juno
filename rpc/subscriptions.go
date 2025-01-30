@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/sync"
+	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/sourcegraph/conc"
 )
 
@@ -65,24 +65,46 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	h.subscriptions.Store(id, sub)
 
 	headerSub := h.newHeads.Subscribe()
-	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription
+	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription#
+	pendingSub := h.pendingBlock.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
 			headerSub.Unsubscribe()
 			reorgSub.Unsubscribe()
+			pendingSub.Unsubscribe()
 		}()
 
-		// The specification doesn't enforce ordering of events therefore events from new blocks can be sent before
+		// The specification doesn't enforce ordering of events, therefore, events from new blocks can be sent before
 		// old blocks.
 		var wg conc.WaitGroup
 		wg.Go(func() {
+			// Stores the transaction hash of the event
+			eventsPreviouslySent := make(map[felt.Felt]struct{})
+
 			for {
 				select {
 				case <-subscriptionCtx.Done():
 					return
 				case header := <-headerSub.Recv():
-					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys)
+					// During syncing the events from the new head still need to be sent as there is no pending block.
+					// However, it is not easy to tell when the node is syncing.
+					// To solve this issue, we can send the events regardless, and if the node is done syncing, then the
+					// latest header events would have been sent when the pending block was updated. Hence,
+					// trying to resend the event should be of no consequences and the map can be safely emptied.
+					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys, eventsPreviouslySent)
+
+					b, err := h.bcReader.BlockByNumber(header.Number)
+					if err != nil {
+						h.log.Warnw("Error retrieving block", "block number", header.Number, "err", err)
+						return
+					}
+
+					for _, t := range b.Transactions {
+						delete(eventsPreviouslySent, *t.Hash())
+					}
+				case pending := <-pendingSub.Recv():
+					h.processEvents(subscriptionCtx, w, id, pending.Number, pending.Number, fromAddr, keys, eventsPreviouslySent)
 				}
 			}
 		})
@@ -92,7 +114,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		})
 
 		wg.Go(func() {
-			h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys)
+			h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
 		})
 
 		wg.Wait()
@@ -248,7 +270,9 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 	return &SubscriptionID{ID: id}, nil
 }
 
-func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt, keys [][]felt.Felt) {
+func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt,
+	keys [][]felt.Felt, eventsPreviouslySent map[felt.Felt]struct{},
+) {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys)
 	if err != nil {
 		h.log.Warnw("Error creating event filter", "err", err)
@@ -268,7 +292,7 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 		return
 	}
 
-	err = sendEvents(ctx, w, filteredEvents, id)
+	err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id)
 	if err != nil {
 		h.log.Warnw("Error sending events", "err", err)
 		return
@@ -281,7 +305,7 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 			return
 		}
 
-		err = sendEvents(ctx, w, filteredEvents, id)
+		err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id)
 		if err != nil {
 			h.log.Warnw("Error sending events", "err", err)
 			return
@@ -289,12 +313,21 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 	}
 }
 
-func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent, id uint64) error {
+func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent,
+	eventsPreviouslySent map[felt.Felt]struct{}, id uint64,
+) error {
 	for _, event := range events {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
+			if eventsPreviouslySent != nil {
+				if _, exists := eventsPreviouslySent[*event.TransactionHash]; exists {
+					continue
+				}
+				eventsPreviouslySent[*event.TransactionHash] = struct{}{}
+			}
+
 			emittedEvent := &EmittedEvent{
 				BlockNumber:     &event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending block
 				BlockHash:       event.BlockHash,
@@ -596,7 +629,7 @@ func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) err
 	return err
 }
 
-func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription[*sync.ReorgBlockRange], w jsonrpc.Conn, id uint64) {
+func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription[*junoSync.ReorgBlockRange], w jsonrpc.Conn, id uint64) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -617,7 +650,7 @@ type ReorgEvent struct {
 	EndBlockNum    uint64     `json:"ending_block_number"`
 }
 
-func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id uint64) error {
+func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *junoSync.ReorgBlockRange, id uint64) error {
 	resp, err := json.Marshal(jsonrpc.Request{
 		Version: "2.0",
 		Method:  "starknet_subscriptionReorg",
