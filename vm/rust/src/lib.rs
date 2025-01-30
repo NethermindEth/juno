@@ -584,7 +584,6 @@ fn build_block_context(
     ))
 }
 
-// TODO: Should I add versioned constants 13.4?. Where are 13.3?
 lazy_static! {
     static ref CONSTANTS: HashMap<String, VersionedConstants> = {
         let mut m = HashMap::new();
