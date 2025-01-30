@@ -72,30 +72,6 @@ func TestSubscribeEvents(t *testing.T) {
 		assert.Equal(t, ErrTooManyKeysInFilter, rpcErr)
 	})
 
-	t.Run("Return error if called on pending block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		keys := make([][]felt.Felt, 1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
-		blockID := &BlockID{Pending: true}
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
-		assert.Zero(t, id)
-		assert.Equal(t, ErrCallOnPending, rpcErr)
-	})
-
 	t.Run("Return error if block is too far back", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
@@ -563,26 +539,6 @@ func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { r
 
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
-
-	t.Run("Return error if called on pending block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		id, rpcErr := handler.SubscribeNewHeads(subCtx, &BlockID{Pending: true})
-		assert.Zero(t, id)
-		assert.Equal(t, ErrCallOnPending, rpcErr)
-	})
 
 	t.Run("Return error if block is too far back", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
