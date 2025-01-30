@@ -70,7 +70,6 @@ var (
 	ErrInvalidSubscriptionID           = &jsonrpc.Error{Code: 66, Message: "Invalid subscription id"}
 	ErrTooManyAddressesInFilter        = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
 	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
-	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
 )
 
 const (

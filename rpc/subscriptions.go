@@ -47,10 +47,6 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		return nil, ErrTooManyKeysInFilter
 	}
 
-	if blockID != nil && blockID.Pending {
-		return nil, ErrCallOnPending
-	}
-
 	requestedHeader, headHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -365,10 +361,6 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
-	}
-
-	if blockID != nil && blockID.Pending {
-		return nil, ErrCallOnPending
 	}
 
 	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
