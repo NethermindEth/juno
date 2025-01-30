@@ -11,7 +11,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.3
 	github.com/coder/websocket v1.8.12
 	github.com/consensys/gnark-crypto v0.15.0
-	github.com/ethereum/go-ethereum v1.14.12
+	github.com/ethereum/go-ethereum v1.14.13
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.24.0
 	github.com/jinzhu/copier v0.4.0
