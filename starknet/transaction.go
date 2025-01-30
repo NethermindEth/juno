@@ -137,6 +137,8 @@ func (r Resource) MarshalText() ([]byte, error) {
 		return []byte("L1_GAS"), nil
 	case ResourceL2Gas:
 		return []byte("L2_GAS"), nil
+	case ResourceL1DataGas:
+		return []byte("L1_DATA_GAS"), nil
 	default:
 		return nil, errors.New("unknown resource")
 	}

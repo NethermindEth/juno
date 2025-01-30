@@ -1365,3 +1365,54 @@ func TestTransactionStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestResourceMarshalText(t *testing.T) {
+	tests := []struct {
+		resource rpc.Resource
+		text     string
+		hasError bool
+	}{
+		{rpc.ResourceL1Gas, "l1_gas", false},
+		{rpc.ResourceL2Gas, "l2_gas", false},
+		{rpc.ResourceL1DataGas, "l1_data_gas", false},
+		{rpc.Resource(999), "error", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.text, func(t *testing.T) {
+			b, err := test.resource.MarshalText()
+			if test.hasError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.text, string(b))
+		})
+	}
+}
+
+func TestResourceUnmarshalText(t *testing.T) {
+	tests := []struct {
+		resource rpc.Resource
+		text     string
+		hasError bool
+	}{
+		{rpc.ResourceL1Gas, `"l1_gas"`, false},
+		{rpc.ResourceL2Gas, `"l2_gas"`, false},
+		{rpc.ResourceL1DataGas, `"l1_data_gas"`, false},
+		{rpc.Resource(999), "error", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.text, func(t *testing.T) {
+			var r rpc.Resource
+			err := r.UnmarshalText([]byte(test.text))
+			if test.hasError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.resource, r)
+		})
+	}
+}

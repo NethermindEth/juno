@@ -43,3 +43,54 @@ func TestUnmarshalFinalityStatus(t *testing.T) {
 
 	require.ErrorContains(t, json.Unmarshal([]byte(`"ABC"`), fs), "unknown FinalityStatus")
 }
+
+func TestResourceMarshalText(t *testing.T) {
+	tests := []struct {
+		resource starknet.Resource
+		text     string
+		hasError bool
+	}{
+		{starknet.ResourceL1Gas, "L1_GAS", false},
+		{starknet.ResourceL2Gas, "L2_GAS", false},
+		{starknet.ResourceL1DataGas, "L1_DATA_GAS", false},
+		{starknet.Resource(999), "error", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.text, func(t *testing.T) {
+			b, err := test.resource.MarshalText()
+			if test.hasError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.text, string(b))
+		})
+	}
+}
+
+func TestResourceUnmarshalText(t *testing.T) {
+	tests := []struct {
+		resource starknet.Resource
+		text     string
+		hasError bool
+	}{
+		{starknet.ResourceL1Gas, "L1_GAS", false},
+		{starknet.ResourceL2Gas, "L2_GAS", false},
+		{starknet.ResourceL1DataGas, "L1_DATA_GAS", false},
+		{starknet.Resource(999), "error", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.text, func(t *testing.T) {
+			var r starknet.Resource
+			err := r.UnmarshalText([]byte(test.text))
+			if test.hasError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.resource, r)
+		})
+	}
+}
