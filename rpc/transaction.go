@@ -277,6 +277,12 @@ type ExecutionResources struct {
 
 func (r ExecutionResources) MarshalJSON() ([]byte, error) { //nolint:gocritic
 	switch r.rpcVersion {
+	case V0_6:
+		return json.Marshal(struct {
+			ComputationResources
+		}{
+			ComputationResources: r.ComputationResources,
+		})
 	case V0_7:
 		return json.Marshal(struct {
 			ComputationResources
