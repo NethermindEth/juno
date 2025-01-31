@@ -1,8 +1,9 @@
-version: v1beta1
+version: v2
+clean: true
 plugins:
-  - name: go
+  - remote: buf.build/protocolbuffers/go
     out: gen
     opt: paths=source_relative
-  - name: go-grpc
+  - remote: buf.build/grpc/go
     out: gen
-    opt: paths=source_relative,require_unimplemented_servers=false
+    opt: paths=source_relative
