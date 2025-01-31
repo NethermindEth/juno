@@ -301,14 +301,14 @@ pub extern "C" fn cairoVMExecute(
         }
 
         let mut txn_state = CachedState::create_transactional(&mut state);
-        let minimal_l1_gas_amount_vector: Option<GasVector>;
+        let minimal_gas_vector: Option<GasVector>;
         let fee_type;
         let txn = txn.unwrap();
         let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
 
         let res = match txn {
             Transaction::Account(t) => {
-                minimal_l1_gas_amount_vector = Some(gas_usage::estimate_minimal_gas_vector(
+                minimal_gas_vector = Some(gas_usage::estimate_minimal_gas_vector(
                     &block_context,
                     &t,
                     &gas_vector_computation_mode,
@@ -317,7 +317,7 @@ pub extern "C" fn cairoVMExecute(
                 t.execute(&mut txn_state, &block_context)
             }
             Transaction::L1Handler(t) => {
-                minimal_l1_gas_amount_vector = None;
+                minimal_gas_vector = None;
                 fee_type = t.fee_type();
                 t.execute(&mut txn_state, &block_context)
             }
@@ -354,23 +354,14 @@ pub extern "C" fn cairoVMExecute(
 
                 // we are estimating fee, override actual fee calculation
                 if t.receipt.fee.0 == 0 {
-                    let minimal_l1_gas_amount_vector =
-                        minimal_l1_gas_amount_vector.unwrap_or_default();
-                    let l1_gas_consumed = t
-                        .receipt
-                        .gas
-                        .l1_gas
-                        .max(minimal_l1_gas_amount_vector.l1_gas);
+                    let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
+                    let l1_gas_consumed = t.receipt.gas.l1_gas.max(minimal_gas_vector.l1_gas);
                     let l1_data_gas_consumed = t
                         .receipt
                         .gas
                         .l1_data_gas
-                        .max(minimal_l1_gas_amount_vector.l1_data_gas);
-                    let l2_gas_consumed = t
-                        .receipt
-                        .gas
-                        .l2_gas
-                        .max(minimal_l1_gas_amount_vector.l2_gas);
+                        .max(minimal_gas_vector.l1_data_gas);
+                    let l2_gas_consumed = t.receipt.gas.l2_gas.max(minimal_gas_vector.l2_gas);
 
                     t.receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
