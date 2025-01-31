@@ -249,7 +249,8 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         }
     };
 
-    Ok(BlockifierClassInfo::new(&class, sierra_len, abi_len, sierra_version).unwrap())
+    BlockifierClassInfo::new(&class, sierra_len, abi_len, sierra_version)
+        .map_err(|err| format!("failed creating BlockifierClassInfo: {:?}", err))
 }
 
 pub fn parse_deprecated_class_definition(
