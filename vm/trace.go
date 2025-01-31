@@ -269,3 +269,14 @@ func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DA
 
 	return da
 }
+
+// TODO: add RPC 0.6, 0.7 and 0.8 support
+func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ComputationResources
+		DataAvailability *DataAvailability `json:"data_availability,omitempty"`
+	}{
+		ComputationResources: r.ComputationResources,
+		DataAvailability:     r.DataAvailability,
+	})
+}
