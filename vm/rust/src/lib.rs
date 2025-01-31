@@ -366,7 +366,11 @@ pub extern "C" fn cairoVMExecute(
                         .gas
                         .l1_data_gas
                         .max(minimal_l1_gas_amount_vector.l1_data_gas);
-                    let l2_gas_consumed = t.receipt.gas.l2_gas;
+                    let l2_gas_consumed = t
+                        .receipt
+                        .gas
+                        .l2_gas
+                        .max(minimal_l1_gas_amount_vector.l2_gas);
 
                     t.receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
