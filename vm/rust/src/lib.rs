@@ -42,9 +42,11 @@ use starknet_api::{
     block::{BlockHash, GasPrice},
     contract_class::{ClassInfo, EntryPointType},
     core::PatriciaKey,
+    executable_transaction::AccountTransaction,
     execution_resources::GasVector,
     transaction::{
         fields::{Calldata, Fee, GasVectorComputationMode},
+        DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
         Transaction as StarknetApiTransaction, TransactionHash,
     },
 };
@@ -302,14 +304,14 @@ pub extern "C" fn cairoVMExecute(
         let minimal_l1_gas_amount_vector: Option<GasVector>;
         let fee_type;
         let txn = txn.unwrap();
+        let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
 
         let res = match txn {
             Transaction::Account(t) => {
                 minimal_l1_gas_amount_vector = Some(gas_usage::estimate_minimal_gas_vector(
                     &block_context,
                     &t,
-                    // TODO: Which si the right gas vector, how to select it
-                    &GasVectorComputationMode::All,
+                    &gas_vector_computation_mode,
                 ));
                 fee_type = t.fee_type();
                 t.execute(&mut txn_state, &block_context)
@@ -413,6 +415,28 @@ pub extern "C" fn cairoVMExecute(
             }
         }
         txn_state.commit();
+    }
+}
+
+fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
+    match &transaction {
+        Transaction::Account(account_tx) => match &account_tx.tx {
+            AccountTransaction::Declare(tx) => match &tx.tx {
+                DeclareTransaction::V3(tx) => tx.resource_bounds.get_gas_vector_computation_mode(),
+                _ => GasVectorComputationMode::NoL2Gas,
+            },
+            AccountTransaction::DeployAccount(tx) => match &tx.tx {
+                DeployAccountTransaction::V3(tx) => {
+                    tx.resource_bounds.get_gas_vector_computation_mode()
+                }
+                _ => GasVectorComputationMode::NoL2Gas,
+            },
+            AccountTransaction::Invoke(tx) => match &tx.tx {
+                InvokeTransaction::V3(tx) => tx.resource_bounds.get_gas_vector_computation_mode(),
+                _ => GasVectorComputationMode::NoL2Gas,
+            },
+        },
+        Transaction::L1Handler(_) => GasVectorComputationMode::NoL2Gas,
     }
 }
 
