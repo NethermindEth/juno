@@ -262,7 +262,6 @@ type ComputationResources struct {
 type DataAvailability struct {
 	L1Gas     uint64 `json:"l1_gas"`
 	L1DataGas uint64 `json:"l1_data_gas"`
-	L2Gas     uint64 `json:"l2_gas"`
 }
 
 type ExecutionResources struct {
@@ -273,6 +272,38 @@ type ExecutionResources struct {
 	// TODO: Remove this field once the API is updated.
 	ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
+	rpcVersion       version
+}
+
+func (r ExecutionResources) MarshalJSON() ([]byte, error) { //nolint:gocritic
+	switch r.rpcVersion {
+	case V0_6:
+		return json.Marshal(struct {
+			ComputationResources
+		}{
+			ComputationResources: r.ComputationResources,
+		})
+	case V0_7:
+		return json.Marshal(struct {
+			ComputationResources
+			DataAvailability *DataAvailability `json:"data_availability,omitempty"`
+		}{
+			ComputationResources: r.ComputationResources,
+			DataAvailability:     r.DataAvailability,
+		})
+	case V0_8:
+		return json.Marshal(struct {
+			L1Gas     uint64 `json:"l1_gas"`
+			L1DataGas uint64 `json:"l1_data_gas"`
+			L2Gas     uint64 `json:"l2_gas"`
+		}{
+			L1Gas:     r.L1Gas,
+			L1DataGas: r.L1DataGas,
+			L2Gas:     r.L2Gas,
+		})
+	default:
+		return nil, fmt.Errorf("unknown rpc version %v", r.rpcVersion)
+	}
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
@@ -498,6 +529,14 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	return h.transactionReceiptByHash(hash, V0_8)
+}
+
+func (h *Handler) TransactionReceiptByHashV0_7(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	return h.transactionReceiptByHash(hash, V0_7)
+}
+
+func (h *Handler) transactionReceiptByHash(hash felt.Felt, rpcVersion version) (*TransactionReceipt, *jsonrpc.Error) {
 	var (
 		pendingB      *core.Block
 		pendingBIndex int
@@ -555,7 +594,38 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, rpcVersion), nil
+}
+
+// TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
+func (h *Handler) TransactionReceiptByHashV0_6(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	txn, err := h.bcReader.TransactionByHash(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
+	if err != nil {
+		return nil, ErrTxnHashNotFound
+	}
+
+	status := TxnAcceptedOnL2
+
+	if blockHash != nil {
+		l1H, jsonErr := h.l1Head()
+		if jsonErr != nil {
+			return nil, jsonErr
+		}
+
+		if isL1Verified(blockNumber, l1H) {
+			status = TxnAcceptedOnL1
+		}
+	}
+
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, V0_6), nil
 }
 
 // AddTransaction relays a transaction to the gateway.
@@ -758,7 +828,7 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
 func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finalityStatus TxnFinalityStatus,
-	blockHash *felt.Felt, blockNumber uint64,
+	blockHash *felt.Felt, blockNumber uint64, rpcVersion version,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
@@ -817,7 +887,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 		Events:             events,
 		ContractAddress:    contractAddress,
 		RevertReason:       receipt.RevertReason,
-		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
+		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources, rpcVersion),
 		MessageHash:        messageHash,
 	}
 }

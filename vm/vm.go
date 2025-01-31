@@ -61,10 +61,9 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64) ([]*felt.Felt, error)
-	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
+	Call(*CallInfo, *BlockInfo, core.StateReader, *utils.Network, uint64, bool) ([]*felt.Felt, error)
+	Execute([]core.Transaction, []core.Class, []*felt.Felt, *BlockInfo,
+		core.StateReader, *utils.Network, bool, bool, bool, bool,
 	) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error)
 }
 
@@ -200,7 +199,7 @@ func makeCCallInfo(callInfo *CallInfo) (C.CallInfo, runtime.Pinner) {
 	return cCallInfo, pinner
 }
 
-func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
+func makeCBlockInfo(blockInfo *BlockInfo, useBlobData bool) C.BlockInfo {
 	var cBlockInfo C.BlockInfo
 
 	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
@@ -213,13 +212,17 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	if blockInfo.Header.L1DAMode == core.Blob {
 		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.data_gas_price_wei[0])
 		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInFri, &cBlockInfo.data_gas_price_fri[0])
-		cBlockInfo.use_blob_data = 1
+		if useBlobData {
+			cBlockInfo.use_blob_data = 1
+		} else {
+			cBlockInfo.use_blob_data = 0
+		}
 	}
 	return cBlockInfo
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64,
+	network *utils.Network, maxSteps uint64, useBlobData bool,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -236,7 +239,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	C.setVersionedConstants(C.CString("my_json"))
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
-	cBlockInfo := makeCBlockInfo(blockInfo)
+	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMCall(
 		&cCallInfo,
@@ -259,7 +262,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert bool,
+	skipChargeFee, skipValidate, errOnRevert, useBlobData bool,
 ) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error) {
 	context := &callContext{
 		state: state,
@@ -302,7 +305,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		concurrencyModeByte = 1
 	}
 
-	cBlockInfo := makeCBlockInfo(blockInfo)
+	cBlockInfo := makeCBlockInfo(blockInfo, useBlobData)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
