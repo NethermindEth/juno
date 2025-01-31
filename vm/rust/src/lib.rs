@@ -380,7 +380,6 @@ pub extern "C" fn cairoVMExecute(
                 let actual_fee: Felt = t.receipt.fee.0.into();
                 let da_gas_l1_gas = t.receipt.da_gas.l1_gas.into();
                 let da_gas_l1_data_gas = t.receipt.da_gas.l1_data_gas.into();
-                // TODO: Are these resurce usage still valid?
                 let execution_steps = t
                     .receipt
                     .resources
