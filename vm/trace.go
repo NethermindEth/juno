@@ -137,6 +137,11 @@ func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
 		total.MemoryHoles += r.MemoryHoles
 		total.Steps += r.Steps
 	}
+	if er := t.ExecutionResources; er != nil {
+		total.L1Gas = er.L1Gas
+		total.L1DataGas = er.L1DataGas
+		total.L2Gas = er.L2Gas
+	}
 	return total
 }
 
@@ -244,6 +249,10 @@ type DataAvailability struct {
 }
 
 type ExecutionResources struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+	L2Gas     uint64 `json:"l2_gas"`
+
 	ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
