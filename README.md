@@ -12,7 +12,7 @@
   <a href="https://goreportcard.com/report/github.com/NethermindEth/juno">
     <img src="https://goreportcard.com/badge/github.com/NethermindEth/juno">
   </a>
-  <a href="https://github.com/NethermindEth/juno/actions">
+  <a href="https://github.com/NethermindEth/juno/actions/workflows/juno-test.yml">
     <img src="https://github.com/NethermindEth/juno/actions/workflows/juno-test.yml/badge.svg">
   </a>
   <a href="https://codecov.io/gh/NethermindEth/juno">
