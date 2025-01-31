@@ -488,7 +488,7 @@ fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
 // the genesis block has a gas price of 0, but the blockifier
 // does not allow for this. This, however, is not critical
 // for consensus, and so the value of 1 is used instead.
-fn gas_price_from_bytes(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice, anyhow::Error> {
+fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice, anyhow::Error> {
     let u128_val = felt_to_u128(StarkFelt::from_bytes_be(bytes));
     Ok(NonzeroGasPrice::new(GasPrice(if u128_val == 0 {
         1
@@ -505,12 +505,12 @@ fn build_block_context(
     _concurrency_mode: bool,
 ) -> Result<BlockContext> {
     let sequencer_addr = StarkFelt::from_bytes_be(&block_info.sequencer_address);
-    let l1_gas_price_eth = gas_price_from_bytes(&block_info.l1_gas_price_wei)?;
-    let l1_gas_price_strk = gas_price_from_bytes(&block_info.l1_gas_price_fri)?;
-    let l1_data_gas_price_eth = gas_price_from_bytes(&block_info.l1_data_gas_price_wei)?;
-    let l1_data_gas_price_strk = gas_price_from_bytes(&block_info.l1_data_gas_price_fri)?;
-    let l2_gas_price_eth = gas_price_from_bytes(&block_info.l2_gas_price_wei)?;
-    let l2_gas_price_strk = gas_price_from_bytes(&block_info.l2_gas_price_fri)?;
+    let l1_gas_price_eth = gas_price_from_bytes_bonded(&block_info.l1_gas_price_wei)?;
+    let l1_gas_price_strk = gas_price_from_bytes_bonded(&block_info.l1_gas_price_fri)?;
+    let l1_data_gas_price_eth = gas_price_from_bytes_bonded(&block_info.l1_data_gas_price_wei)?;
+    let l1_data_gas_price_strk = gas_price_from_bytes_bonded(&block_info.l1_data_gas_price_fri)?;
+    let l2_gas_price_eth = gas_price_from_bytes_bonded(&block_info.l2_gas_price_wei)?;
+    let l2_gas_price_strk = gas_price_from_bytes_bonded(&block_info.l2_gas_price_fri)?;
 
     let mut old_block_number_and_hash: Option<BlockHashAndNumber> = None;
     // STORED_BLOCK_HASH_BUFFER const is 10 for now
