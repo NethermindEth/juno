@@ -4,7 +4,7 @@ package vm
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -lbz2
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lbz2
 
-#include "vm_bridge.h"
+#include "vm_ffi.h"
 */
 import "C"
 
