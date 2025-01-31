@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -165,6 +166,7 @@ type Resource uint32
 const (
 	ResourceL1Gas Resource = iota + 1
 	ResourceL2Gas
+	ResourceL1DataGas
 )
 
 func (r Resource) MarshalText() ([]byte, error) {
@@ -173,19 +175,25 @@ func (r Resource) MarshalText() ([]byte, error) {
 		return []byte("l1_gas"), nil
 	case ResourceL2Gas:
 		return []byte("l2_gas"), nil
+	case ResourceL1DataGas:
+		return []byte("l1_data_gas"), nil
 	default:
 		return nil, fmt.Errorf("unknown Resource %v", r)
 	}
 }
 
 func (r *Resource) UnmarshalJSON(data []byte) error {
-	switch string(data) {
-	case `"l1_gas"`:
+	str := string(data)
+	lowerStr := strings.ToLower(strings.Trim(str, `"`))
+	switch lowerStr {
+	case "l1_gas":
 		*r = ResourceL1Gas
-	case `"l2_gas"`:
+	case "l2_gas":
 		*r = ResourceL2Gas
+	case "l1_data_gas":
+		*r = ResourceL1DataGas
 	default:
-		return fmt.Errorf("unknown Resource: %q", string(data))
+		return fmt.Errorf("unknown Resource: %q", str)
 	}
 	return nil
 }
