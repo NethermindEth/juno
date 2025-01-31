@@ -162,7 +162,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 func MakeDHT(p2phost host.Host, addrInfos []peer.AddrInfo, snNetwork *utils.Network) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
-		dht.ProtocolPrefix(p2pSync.DHTPrefixPID(snNetwork)),
+		dht.V1ProtocolOverride(p2pSync.DHTPID(snNetwork)),
 		dht.BootstrapPeers(addrInfos...),
 		dht.RoutingTableRefreshPeriod(routingTableRefreshPeriod),
 		dht.Mode(dht.ModeServer),
@@ -250,11 +250,11 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 func (s *Service) setProtocolHandlers() {
-	s.SetProtocolHandler(p2pSync.HeadersPID(s.network), s.handler.HeadersHandler)
-	s.SetProtocolHandler(p2pSync.EventsPID(s.network), s.handler.EventsHandler)
-	s.SetProtocolHandler(p2pSync.TransactionsPID(s.network), s.handler.TransactionsHandler)
-	s.SetProtocolHandler(p2pSync.ClassesPID(s.network), s.handler.ClassesHandler)
-	s.SetProtocolHandler(p2pSync.StateDiffPID(s.network), s.handler.StateDiffHandler)
+	s.SetProtocolHandler(p2pSync.HeadersPID(), s.handler.HeadersHandler)
+	s.SetProtocolHandler(p2pSync.EventsPID(), s.handler.EventsHandler)
+	s.SetProtocolHandler(p2pSync.TransactionsPID(), s.handler.TransactionsHandler)
+	s.SetProtocolHandler(p2pSync.ClassesPID(), s.handler.ClassesHandler)
+	s.SetProtocolHandler(p2pSync.StateDiffPID(), s.handler.StateDiffHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {

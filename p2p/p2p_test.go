@@ -81,12 +81,12 @@ func TestMakeDHTProtocolName(t *testing.T) {
 		{
 			name:     "sepolia network",
 			network:  &utils.Sepolia,
-			expected: "/starknet/SN_SEPOLIA/sync/kad/1.0.0",
+			expected: "/starknet/kad/SN_SEPOLIA/1.0.0",
 		},
 		{
 			name:     "mainnet network",
 			network:  &utils.Mainnet,
-			expected: "/starknet/SN_MAIN/sync/kad/1.0.0",
+			expected: "/starknet/kad/SN_MAIN/1.0.0",
 		},
 	}
 
