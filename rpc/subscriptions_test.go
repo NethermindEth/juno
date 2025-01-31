@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -70,30 +71,6 @@ func TestSubscribeEvents(t *testing.T) {
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
 		assert.Zero(t, id)
 		assert.Equal(t, ErrTooManyKeysInFilter, rpcErr)
-	})
-
-	t.Run("Return error if called on pending block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		keys := make([][]felt.Felt, 1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
-		blockID := &BlockID{Pending: true}
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
-		assert.Zero(t, id)
-		assert.Equal(t, ErrCallOnPending, rpcErr)
 	})
 
 	t.Run("Return error if block is too far back", func(t *testing.T) {
@@ -268,7 +245,7 @@ func TestSubscribeEvents(t *testing.T) {
 		cancel()
 	})
 
-	t.Run("Events from new blocks", func(t *testing.T) {
+	t.Run("Events from pending block without duplicates", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
@@ -277,8 +254,8 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 
 		handler := New(mockChain, mockSyncer, nil, "", log)
-		headerFeed := feed.New[*core.Header]()
-		handler.newHeads = headerFeed
+		pendingFeed := feed.New[*core.Block]()
+		handler.pendingBlock = pendingFeed
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
@@ -306,14 +283,31 @@ func TestSubscribeEvents(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(resp), string(got))
 
+		// Pending block events, due to the use of mocks events which were sent before are resent.
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
 
-		headerFeed.Send(&core.Header{Number: b1.Number + 1})
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
 
 		resp, err = marshalSubEventsResp(emittedEvents[1], id.ID)
+		require.NoError(t, err)
+
+		got = make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, string(resp), string(got))
+
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.
+			FilteredEvent{filteredEvents[1], filteredEvents[0]}, nil, nil)
+
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
+
+		resp, err = marshalSubEventsResp(emittedEvents[0], id.ID)
 		require.NoError(t, err)
 
 		got = make([]byte, len(resp))
@@ -436,9 +430,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(client)
-		l2Feed := feed.New[*core.Header]()
+		pendingFeed := feed.New[*core.Block]()
 		l1Feed := feed.New[*core.L1Head]()
-		handler.newHeads = l2Feed
+		handler.pendingBlock = pendingFeed
 		handler.l1Heads = l1Feed
 
 		block, err := gw.BlockByNumber(context.Background(), 38748)
@@ -475,7 +469,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		l2Feed.Send(&core.Header{Number: block.Number + 1})
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
 
 		b, err = TxnStatusAcceptedOnL2.MarshalText()
 		require.NoError(t, err)
@@ -507,16 +501,16 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs *feed.Feed[[]core.Transaction]
+	newHeads *feed.Feed[*core.Header]
+	reorgs   *feed.Feed[*sync.ReorgBlockRange]
+	pending  *feed.Feed[*core.Block]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads:   feed.New[*core.Header](),
-		reorgs:     feed.New[*sync.ReorgBlockRange](),
-		pendingTxs: feed.New[[]core.Transaction](),
+		newHeads: feed.New[*core.Header](),
+		reorgs:   feed.New[*sync.ReorgBlockRange](),
+		pending:  feed.New[*core.Block](),
 	}
 }
 
@@ -528,8 +522,8 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
 }
 
-func (fs *fakeSyncer) SubscribePendingTxs() sync.PendingTxSubscription {
-	return sync.PendingTxSubscription{Subscription: fs.pendingTxs.Subscribe()}
+func (fs *fakeSyncer) SubscribePending() sync.PendingSubscription {
+	return sync.PendingSubscription{Subscription: fs.pending.Subscribe()}
 }
 
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
@@ -546,26 +540,6 @@ func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { r
 
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
-
-	t.Run("Return error if called on pending block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		id, rpcErr := handler.SubscribeNewHeads(subCtx, &BlockID{Pending: true})
-		assert.Zero(t, id)
-		assert.Equal(t, ErrCallOnPending, rpcErr)
-	})
 
 	t.Run("Return error if block is too far back", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -856,12 +830,14 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+				&core.DeployTransaction{TransactionHash: hash3},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+				&core.L1HandlerTransaction{TransactionHash: hash5},
+			},
 		})
 
 		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
@@ -896,14 +872,16 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
-			&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
-			&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+				&core.DeployTransaction{TransactionHash: hash3},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+				&core.L1HandlerTransaction{TransactionHash: hash5},
+				&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
+				&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+			},
 		})
 
 		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
@@ -922,21 +900,23 @@ func TestSubscribePendingTxs(t *testing.T) {
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{
-				TransactionHash:       new(felt.Felt).SetUint64(1),
-				CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
-				TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-				MaxFee:                new(felt.Felt).SetUint64(4),
-				ContractAddress:       new(felt.Felt).SetUint64(5),
-				Version:               new(core.TransactionVersion).SetUint64(3),
-				EntryPointSelector:    new(felt.Felt).SetUint64(6),
-				Nonce:                 new(felt.Felt).SetUint64(7),
-				SenderAddress:         new(felt.Felt).SetUint64(8),
-				ResourceBounds:        map[core.Resource]core.ResourceBounds{},
-				Tip:                   9,
-				PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-				AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{
+					TransactionHash:       new(felt.Felt).SetUint64(1),
+					CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
+					TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+					MaxFee:                new(felt.Felt).SetUint64(4),
+					ContractAddress:       new(felt.Felt).SetUint64(5),
+					Version:               new(core.TransactionVersion).SetUint64(3),
+					EntryPointSelector:    new(felt.Felt).SetUint64(6),
+					Nonce:                 new(felt.Felt).SetUint64(7),
+					SenderAddress:         new(felt.Felt).SetUint64(8),
+					ResourceBounds:        map[core.Resource]core.ResourceBounds{},
+					Tip:                   9,
+					PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
+					AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+				},
 			},
 		})
 
@@ -1051,4 +1031,56 @@ func marshalSubEventsResp(e *EmittedEvent, id uint64) ([]byte, error) {
 			"result":          e,
 		},
 	})
+}
+
+func TestEventEquality(t *testing.T) {
+	e1 := &Event{
+		From: new(felt.Felt).SetUint64(1),
+		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
+		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
+	}
+
+	e2 := &Event{
+		From: new(felt.Felt).SetUint64(1),
+		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
+		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
+	}
+
+	assert.True(t, reflect.DeepEqual(e1, e2))
+
+	e3 := &core.Event{
+		From: new(felt.Felt).SetUint64(1),
+		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
+		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
+	}
+
+	e4 := &core.Event{
+		From: new(felt.Felt).SetUint64(1),
+		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
+		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
+	}
+
+	assert.True(t, reflect.DeepEqual(e3, e4))
+
+	bn1 := uint64(10)
+	ee1 := EmittedEvent{
+		Event:           e1,
+		BlockNumber:     &bn1,
+		BlockHash:       new(felt.Felt).SetBytes([]byte("b hash")),
+		TransactionHash: new(felt.Felt).SetBytes([]byte("tx hash")),
+	}
+
+	bn2 := uint64(10)
+	ee2 := EmittedEvent{
+		Event:           e2,
+		BlockNumber:     &bn2,
+		BlockHash:       new(felt.Felt).SetBytes([]byte("b hash")),
+		TransactionHash: new(felt.Felt).SetBytes([]byte("tx hash")),
+	}
+
+	assert.True(t, reflect.DeepEqual(ee1, ee2))
+	// assert.True(t, *ee1.Event.Data == *ee2.Event.Data)
+	assert.True(t, *ee1.BlockNumber == *ee2.BlockNumber)
+	assert.True(t, *ee1.BlockHash == *ee2.BlockHash)
+	assert.True(t, *ee1.TransactionHash == *ee2.TransactionHash)
 }
