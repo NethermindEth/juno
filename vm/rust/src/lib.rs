@@ -354,24 +354,24 @@ pub extern "C" fn cairoVMExecute(
                 if t.receipt.fee.0 == 0 {
                     let minimal_l1_gas_amount_vector =
                         minimal_l1_gas_amount_vector.unwrap_or_default();
-                    let gas_consumed = t
+                    let l1_gas_consumed = t
                         .receipt
                         .gas
                         .l1_gas
                         .max(minimal_l1_gas_amount_vector.l1_gas);
-                    let data_gas_consumed = t
+                    let l1_data_gas_consumed = t
                         .receipt
                         .gas
                         .l1_data_gas
                         .max(minimal_l1_gas_amount_vector.l1_data_gas);
+                    let l2_gas_consumed = t.receipt.gas.l2_gas;
 
                     t.receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
                         GasVector {
-                            l1_data_gas: data_gas_consumed,
-                            l1_gas: gas_consumed,
-                            // TODO: what goes here? Random value currently
-                            l2_gas: GasAmount(8),
+                            l1_data_gas: l1_data_gas_consumed,
+                            l1_gas: l1_gas_consumed,
+                            l2_gas: l2_gas_consumed,
                         },
                         &fee_type,
                     )
