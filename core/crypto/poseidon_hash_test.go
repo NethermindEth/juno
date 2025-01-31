@@ -63,7 +63,7 @@ func BenchmarkPoseidonArray(b *testing.B) {
 			randomFeltSls := genRandomFeltSls(b, i)
 			var f *felt.Felt
 			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
+			for n := range b.N {
 				f = crypto.PoseidonArray(randomFeltSls[n]...)
 			}
 			benchHashR = f
@@ -76,7 +76,7 @@ func BenchmarkPoseidon(b *testing.B) {
 
 	var f *felt.Felt
 	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+	for n := range b.N {
 		f = crypto.Poseidon(randFelts[n][0], randFelts[n][1])
 	}
 	benchHashR = f

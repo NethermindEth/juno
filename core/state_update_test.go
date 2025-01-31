@@ -86,7 +86,7 @@ func BenchmarkStateDiffHash(b *testing.B) {
 	require.NoError(b, err)
 
 	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+	for range b.N {
 		su.StateDiff.Hash()
 	}
 }

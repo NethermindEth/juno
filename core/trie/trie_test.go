@@ -164,7 +164,7 @@ func TestPutZero(t *testing.T) {
 		var keys []*felt.Felt
 
 		// put random 64 keys and record roots
-		for i := 0; i < 64; i++ {
+		for range 64 {
 			key, value := new(felt.Felt), new(felt.Felt)
 
 			_, err = key.SetRandom()
@@ -238,7 +238,7 @@ func TestTrie(t *testing.T) {
 		var keys []*felt.Felt
 
 		// put random 64 keys and record roots
-		for i := 0; i < 64; i++ {
+		for range 64 {
 			key, value := new(felt.Felt), new(felt.Felt)
 
 			_, err = key.SetRandom()
@@ -433,7 +433,7 @@ var benchTriePutR *felt.Felt
 
 func BenchmarkTriePut(b *testing.B) {
 	keys := make([]*felt.Felt, 0, b.N)
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		rnd, err := new(felt.Felt).SetRandom()
 		require.NoError(b, err)
 		keys = append(keys, rnd)
@@ -444,7 +444,7 @@ func BenchmarkTriePut(b *testing.B) {
 		var f *felt.Felt
 		var err error
 		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			f, err = t.Put(keys[i], one)
 			if err != nil {
 				return err

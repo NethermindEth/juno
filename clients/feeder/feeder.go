@@ -232,7 +232,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
-	for i := 0; i <= c.maxRetries; i++ {
+	for range c.maxRetries + 1 {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()

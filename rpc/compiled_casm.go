@@ -78,7 +78,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		return nil, err
 	}
 
-	var bytecode []*felt.Felt
+	bytecode := make([]*felt.Felt, 0, len(cairo0.Data))
 	for _, str := range cairo0.Data {
 		f, err := new(felt.Felt).SetString(str)
 		if err != nil {
@@ -92,7 +92,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		return nil, err
 	}
 
-	var hints [][2]any // slice of 2-element tuples where first value is pc, and second value is slice of hints
+	hints := make([][2]any, 0, len(classHints)) // slice of 2-element tuples where first value is pc, and second value is slice of hints
 	for pc, hintItems := range utils.SortedMap(classHints) {
 		hints = append(hints, [2]any{pc, hintItems})
 	}

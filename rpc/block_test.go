@@ -278,7 +278,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		assert.Equal(t, latestBlock.SequencerAddress, b.SequencerAddress)
 		assert.Equal(t, latestBlock.Timestamp, b.Timestamp)
 		assert.Equal(t, len(latestBlock.Transactions), len(b.TxnHashes))
-		for i := 0; i < len(latestBlock.Transactions); i++ {
+		for i := range latestBlock.Transactions {
 			assert.Equal(t, latestBlock.Transactions[i].Hash(), b.TxnHashes[i])
 		}
 	}
