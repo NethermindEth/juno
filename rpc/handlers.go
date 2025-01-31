@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maps"
 	"math"
 	"strings"
 	stdsync "sync"
@@ -79,6 +80,13 @@ const (
 	maxEventFilterKeys = 1024
 	traceCacheSize     = 128
 	throttledVMErr     = "VM throughput limit reached"
+)
+
+type version uint32
+
+const (
+	V0_7 version = iota + 1
+	V0_8
 )
 
 type traceCacheKey struct {
@@ -195,7 +203,12 @@ func (h *Handler) Run(ctx context.Context) error {
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()
-	for _, sub := range h.subscriptions {
+
+	h.mu.Lock()
+	subscriptions := maps.Values(h.subscriptions)
+	h.mu.Unlock()
+
+	for sub := range subscriptions {
 		sub.wg.Wait()
 	}
 	return nil
@@ -414,12 +427,12 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxHashes,
+			Handler: h.BlockWithTxHashesV0_7,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithTxs,
+			Handler: h.BlockWithTxsV0_7,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
@@ -429,7 +442,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.TransactionReceiptByHash,
+			Handler: h.TransactionReceiptByHashV0_7,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -537,7 +550,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_simulateTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
-			Handler: h.SimulateTransactions,
+			Handler: h.SimulateTransactionsV0_7,
 		},
 		{
 			Name:    "starknet_traceBlockTransactions",
@@ -561,7 +574,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockWithReceipts,
+			Handler: h.BlockWithReceiptsV0_7,
 		},
 	}, "/v0_7"
 }

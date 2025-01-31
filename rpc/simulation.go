@@ -53,11 +53,17 @@ type TracedBlockTransaction struct {
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false)
+	return h.simulateTransactions(id, transactions, simulationFlags, false, V0_8)
+}
+
+func (h *Handler) SimulateTransactionsV0_7(id BlockID, transactions []BroadcastedTransaction,
+	simulationFlags []SimulationFlag,
+) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
+	return h.simulateTransactions(id, transactions, simulationFlags, false, V0_7)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, errOnRevert bool,
+	simulationFlags []SimulationFlag, errOnRevert bool, rpcVersion version,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -124,7 +130,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	for i, overallFee := range overallFees {
 		feeUnit := feeUnit(txns[i])
 
-		estimate := calculateFeeEstimate(overallFee, daGas[i].L1DataGas, feeUnit, header)
+		estimate := calculateFeeEstimate(overallFee, daGas[i].L1DataGas, feeUnit, header, rpcVersion)
 
 		trace := traces[i]
 		executionResources := trace.TotalExecutionResources()
@@ -143,18 +149,30 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	return result, httpHeader, nil
 }
 
-func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUnit, header *core.Header) FeeEstimate {
-	var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
+func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUnit, header *core.Header, rpcVersion version) FeeEstimate {
+	var l1GasPrice *felt.Felt
+	l2GasPrice := &felt.Zero
+	l1DataGasPrice := &felt.Zero
 
 	switch feeUnit {
 	case FRI:
-		l1GasPrice = header.L1GasPriceSTRK
-		l2GasPrice = header.L2GasPrice.PriceInFri
-		l1DataGasPrice = header.L1DataGasPrice.PriceInFri
+		if l1GasPrice = header.L1GasPriceSTRK; l1GasPrice == nil {
+			l1GasPrice = &felt.Zero
+		}
+		if gasPrice := header.L2GasPrice; gasPrice != nil {
+			l2GasPrice = gasPrice.PriceInFri
+		}
+		if gasPrice := header.L1DataGasPrice; gasPrice != nil {
+			l1DataGasPrice = gasPrice.PriceInFri
+		}
 	case WEI:
 		l1GasPrice = header.L1GasPriceETH
-		l2GasPrice = header.L2GasPrice.PriceInWei
-		l1DataGasPrice = header.L1DataGasPrice.PriceInWei
+		if gasPrice := header.L2GasPrice; gasPrice != nil {
+			l2GasPrice = gasPrice.PriceInWei
+		}
+		if gasPrice := header.L1DataGasPrice; gasPrice != nil {
+			l1DataGasPrice = gasPrice.PriceInWei
+		}
 	}
 
 	l1DataGasConsumed := new(felt.Felt).SetUint64(l1DataGas)
@@ -171,6 +189,7 @@ func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUn
 		L1DataGasPrice:    l1DataGasPrice,
 		OverallFee:        overallFee,
 		Unit:              utils.Ptr(feeUnit),
+		rpcVersion:        rpcVersion,
 	}
 }
 
