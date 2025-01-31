@@ -255,3 +255,14 @@ type ExecutionResources struct {
 	ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
+
+// TODO: add RPC 0.6, 0.7 and 0.8 support
+func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ComputationResources
+		DataAvailability *DataAvailability `json:"data_availability,omitempty"`
+	}{
+		ComputationResources: r.ComputationResources,
+		DataAvailability:     r.DataAvailability,
+	})
+}
