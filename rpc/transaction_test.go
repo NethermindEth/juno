@@ -582,8 +582,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
+							"l1_gas": 0
 						},
 						"steps": 29
 					}
@@ -616,8 +615,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
+							"l1_gas": 0
 						},
 						"steps": 31
 					}
@@ -660,8 +658,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
+							"l1_gas": 0
 						},
 						"steps": 31
 					}
@@ -701,8 +698,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						"l2_gas": 0,
 						"data_availability": {
 							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
+							"l1_gas": 0
 						},
 						"steps": 31
 					}
@@ -737,8 +733,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"l2_gas": 0,
 				"data_availability": {
 					"l1_data_gas": 0,
-					"l1_gas": 0,
-					"l2_gas": 0
+					"l1_gas": 0
 				},
 				"steps": 0
 			}
@@ -805,8 +800,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"l2_gas": 0,
 				"data_availability": {
 					"l1_data_gas": 0,
-					"l1_gas": 0,
-					"l2_gas": 0
+					"l1_gas": 0
 				}
 			},
 			"actual_fee": {
@@ -871,8 +865,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				"l2_gas": 0,
 				"data_availability": {
 					"l1_gas": 0,
-					"l1_data_gas": 192,
-					"l2_gas": 0
+					"l1_data_gas": 192
 				}
 			}
 		}`
@@ -1362,6 +1355,91 @@ func TestTransactionStatus(t *testing.T) {
 				require.NotNil(t, err)
 				require.Equal(t, err, rpc.ErrTxnHashNotFound)
 			})
+		})
+	}
+}
+
+func TestResourceMarshalText(t *testing.T) {
+	tests := []struct {
+		name     string
+		resource rpc.Resource
+		want     []byte
+		err      bool
+	}{
+		{
+			name:     "l1 gas",
+			resource: rpc.ResourceL1Gas,
+			want:     []byte("l1_gas"),
+		},
+		{
+			name:     "l2 gas",
+			resource: rpc.ResourceL2Gas,
+			want:     []byte("l2_gas"),
+		},
+		{
+			name:     "l1 data gas",
+			resource: rpc.ResourceL1DataGas,
+			want:     []byte("l1_data_gas"),
+		},
+		{
+			name:     "error",
+			resource: rpc.Resource(0),
+			err:      true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.resource.MarshalText()
+			if tt.err {
+				require.Error(t, err)
+				require.Nil(t, got)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestResourceUnmarshalJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+		want rpc.Resource
+		err  bool
+	}{
+		{
+			name: "l1 gas",
+			data: []byte("l1_gas"),
+			want: rpc.ResourceL1Gas,
+		},
+		{
+			name: "l2 gas",
+			data: []byte("l2_gas"),
+			want: rpc.ResourceL2Gas,
+		},
+		{
+			name: "l1 data gas",
+			data: []byte("l1_data_gas"),
+			want: rpc.ResourceL1DataGas,
+		},
+		{
+			name: "error",
+			data: []byte("unknown"),
+			err:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got rpc.Resource
+			err := got.UnmarshalJSON(tt.data)
+			if tt.err {
+				require.Error(t, err)
+				require.Zero(t, got)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
