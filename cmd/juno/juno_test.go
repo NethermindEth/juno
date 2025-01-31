@@ -638,6 +638,10 @@ network: sepolia
 	junoEnv := unsetJunoPrefixedEnv(t)
 
 	for name, tc := range tests {
+		if tc.expectedConfig != nil {
+			tc.expectedConfig.P2PAllowList = make([]string, 0)
+			tc.expectedConfig.P2PDenyList = make([]string, 0)
+		}
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
 				fileN := tempCfgFile(t, tc.cfgFileContents)

@@ -73,12 +73,14 @@ type Config struct {
 	MetricsHost string `mapstructure:"metrics-host"`
 	MetricsPort uint16 `mapstructure:"metrics-port"`
 
-	P2P           bool   `mapstructure:"p2p"`
-	P2PAddr       string `mapstructure:"p2p-addr"`
-	P2PPublicAddr string `mapstructure:"p2p-public-addr"`
-	P2PPeers      string `mapstructure:"p2p-peers"`
-	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
-	P2PPrivateKey string `mapstructure:"p2p-private-key"`
+	P2P           bool     `mapstructure:"p2p"`
+	P2PAddr       string   `mapstructure:"p2p-addr"`
+	P2PPublicAddr string   `mapstructure:"p2p-public-addr"`
+	P2PPeers      string   `mapstructure:"p2p-peers"`
+	P2PFeederNode bool     `mapstructure:"p2p-feeder-node"`
+	P2PPrivateKey string   `mapstructure:"p2p-private-key"`
+	P2PDenyList   []string `mapstructure:"p2p-deny-list"`
+	P2PAllowList  []string `mapstructure:"p2p-allow-list"`
 
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
@@ -182,7 +184,7 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 			synchronizer = nil
 		}
 		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-			chain, &cfg.Network, log, database)
+			chain, &cfg.Network, log, database, cfg.P2PDenyList, cfg.P2PAllowList)
 		if err != nil {
 			return nil, fmt.Errorf("set up p2p service: %w", err)
 		}
