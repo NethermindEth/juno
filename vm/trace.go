@@ -122,8 +122,8 @@ func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
-func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
-	total := new(ExecutionResources)
+func (t *TransactionTrace) TotalComputationResources() ComputationResources {
+	total := ComputationResources{}
 	for _, invocation := range t.allInvocations() {
 		r := invocation.ExecutionResources
 		total.Pedersen += r.Pedersen
@@ -136,11 +136,6 @@ func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
 		total.SegmentArena += r.SegmentArena
 		total.MemoryHoles += r.MemoryHoles
 		total.Steps += r.Steps
-	}
-	if er := t.ExecutionResources; er != nil {
-		total.L1Gas = er.L1Gas
-		total.L1DataGas = er.L1DataGas
-		total.L2Gas = er.L2Gas
 	}
 	return total
 }

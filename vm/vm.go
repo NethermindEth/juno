@@ -29,7 +29,7 @@ type VM interface {
 		maxSteps uint64) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
-	) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error)
+	) ([]*felt.Felt, []core.DataAvailability, []core.GasConsumed, []TransactionTrace, uint64, error)
 }
 
 type vm struct {
@@ -58,7 +58,8 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees     []*felt.Felt
 	traces         []json.RawMessage
-	daGas          []core.GasConsumed
+	daGas          []core.DataAvailability
+	gasConsumed    []core.GasConsumed
 	executionSteps uint64
 }
 
@@ -97,12 +98,22 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
 }
 
-//export JunoAppendGasConsumed
-func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
+//export JunoAppendDAGas
+func JunoAppendDAGas(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.daGas = append(context.daGas, core.GasConsumed{
+	context.daGas = append(context.daGas, core.DataAvailability{
 		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
 		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+	})
+}
+
+//export JunoAppendGasConsumed
+func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2, ptr3 unsafe.Pointer) {
+	context := unwrapContext(readerHandle)
+	context.gasConsumed = append(context.gasConsumed, core.GasConsumed{
+		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
+		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+		L2Gas:     makeFeltFromPtr(ptr3).Uint64(),
 	})
 }
 
@@ -225,10 +236,10 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
+func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, //nolint:gocritic
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert bool,
-) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, uint64, error) {
+) ([]*felt.Felt, []core.DataAvailability, []core.GasConsumed, []TransactionTrace, uint64, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
@@ -238,12 +249,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, nil, 0, err
 	}
 
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, nil, 0, err
 	}
 
 	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
@@ -292,21 +303,21 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	if context.err != "" {
 		if context.errTxnIndex >= 0 {
-			return nil, nil, nil, 0, TransactionExecutionError{
+			return nil, nil, nil, nil, 0, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),
 				Cause: errors.New(context.err),
 			}
 		}
-		return nil, nil, nil, 0, errors.New(context.err)
+		return nil, nil, nil, nil, 0, errors.New(context.err)
 	}
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
+			return nil, nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
-	return context.actualFees, context.daGas, traces, context.executionSteps, nil
+	return context.actualFees, context.daGas, context.gasConsumed, traces, context.executionSteps, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

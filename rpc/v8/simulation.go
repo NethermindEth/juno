@@ -20,6 +20,7 @@ type SimulationFlag int
 const (
 	SkipValidateFlag SimulationFlag = iota + 1
 	SkipFeeChargeFlag
+	throttledVMErr = "VM throughput limit reached"
 )
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
@@ -77,14 +78,48 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, httpHeader, rpcErr
 	}
 
+	network := h.bcReader.Network()
+	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
+	if rpcErr != nil {
+		return nil, httpHeader, rpcErr
+	}
+
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
+	if err != nil {
+		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+	}
+	blockInfo := vm.BlockInfo{
+		Header:                header,
+		BlockHashToBeRevealed: blockHashToBeRevealed,
+	}
+
+	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
+		state, network, skipFeeCharge, skipValidate, errOnRevert)
+	if err != nil {
+		return nil, httpHeader, handleExecutionError(err)
+	}
+
+	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
+
+	simulatedTransactions, err := createSimulatedTransactions(executionResults, txns, header)
+	if err != nil {
+		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	return simulatedTransactions, httpHeader, nil
+}
+
+func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
+	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
+) {
 	txns := make([]core.Transaction, 0, len(transactions))
 	var classes []core.Class
-
 	paidFeesOnL1 := make([]*felt.Felt, 0)
+
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.bcReader.Network())
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], network)
 		if aErr != nil {
-			return nil, httpHeader, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
+			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
 
 		if paidFeeOnL1 != nil {
@@ -97,81 +132,91 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 	}
 
-	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
-	if err != nil {
-		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
-	}
-	blockInfo := vm.BlockInfo{
-		Header:                header,
-		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}
-	overallFees, daGas, traces, numSteps, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
-	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
-
-	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
-		}
-		var txnExecutionError vm.TransactionExecutionError
-		if errors.As(err, &txnExecutionError) {
-			return nil, httpHeader, makeTransactionExecutionError(&txnExecutionError)
-		}
-		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
-	}
-
-	result := make([]SimulatedTransaction, 0, len(overallFees))
-	for i, overallFee := range overallFees {
-		feeUnit := feeUnit(txns[i])
-
-		estimate := calculateFeeEstimate(overallFee, daGas[i].L1DataGas, feeUnit, header)
-
-		trace := traces[i]
-		executionResources := trace.TotalExecutionResources()
-		executionResources.DataAvailability = &vm.DataAvailability{
-			L1Gas:     daGas[i].L1Gas,
-			L1DataGas: daGas[i].L1DataGas,
-		}
-		traces[i].ExecutionResources = executionResources
-
-		result = append(result, SimulatedTransaction{
-			TransactionTrace: &traces[i],
-			FeeEstimation:    estimate,
-		})
-	}
-
-	return result, httpHeader, nil
+	return txns, classes, paidFeesOnL1, nil
 }
 
-func calculateFeeEstimate(overallFee *felt.Felt, l1DataGas uint64, feeUnit FeeUnit, header *core.Header) FeeEstimate {
-	var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
+func handleExecutionError(err error) *jsonrpc.Error {
+	if errors.Is(err, utils.ErrResourceBusy) {
+		return rpccore.ErrInternal.CloneWithData(throttledVMErr)
+	}
+	var txnExecutionError vm.TransactionExecutionError
+	if errors.As(err, &txnExecutionError) {
+		return makeTransactionExecutionError(&txnExecutionError)
+	}
+	return rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+}
 
-	switch feeUnit {
-	case FRI:
-		l1GasPrice = header.L1GasPriceSTRK
-		l2GasPrice = header.L2GasPrice.PriceInFri
-		l1DataGasPrice = header.L1DataGasPrice.PriceInFri
-	case WEI:
-		l1GasPrice = header.L1GasPriceETH
-		l2GasPrice = header.L2GasPrice.PriceInWei
-		l1DataGasPrice = header.L1DataGasPrice.PriceInWei
+func createSimulatedTransactions(
+	executionResults vm.ExecutionResults, txns []core.Transaction, header *core.Header, //nolint: gocritic
+) ([]SimulatedTransaction, error) {
+	overallFees := executionResults.OverallFees
+	traces := executionResults.Traces
+	gasConsumed := executionResults.GasConsumed
+	daGas := executionResults.DataAvailability
+	if len(overallFees) != len(traces) || len(overallFees) != len(gasConsumed) ||
+		len(overallFees) != len(daGas) || len(overallFees) != len(txns) {
+		return nil, fmt.Errorf("inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns",
+			len(overallFees), len(traces), len(gasConsumed), len(daGas), len(txns))
 	}
 
-	l1DataGasConsumed := new(felt.Felt).SetUint64(l1DataGas)
-	dataGasFee := new(felt.Felt).Mul(l1DataGasConsumed, l1DataGasPrice)
-	l1GasConsumed := new(felt.Felt).Sub(overallFee, dataGasFee)
-	l1GasConsumed = l1GasConsumed.Div(l1GasConsumed, l1GasPrice)
+	l1GasPriceWei := header.L1GasPriceETH
+	l1GasPriceStrk := header.L1GasPriceSTRK
+	l2GasPriceWei := &felt.Zero
+	l2GasPriceStrk := &felt.Zero
+	l1DataGasPriceWei := &felt.Zero
+	l1DataGasPriceStrk := &felt.Zero
 
-	return FeeEstimate{
-		L1GasConsumed:     l1GasConsumed,
-		L2GasConsumed:     &felt.Zero, // TODO: Fix when we have l2 gas price
-		L1GasPrice:        l1GasPrice,
-		L2GasPrice:        l2GasPrice,
-		L1DataGasConsumed: l1DataGasConsumed,
-		L1DataGasPrice:    l1DataGasPrice,
-		OverallFee:        overallFee,
-		Unit:              utils.Ptr(feeUnit),
+	if gasPrice := header.L2GasPrice; gasPrice != nil {
+		l2GasPriceWei = gasPrice.PriceInWei
+		l2GasPriceStrk = gasPrice.PriceInFri
 	}
+	if gasPrice := header.L1DataGasPrice; gasPrice != nil {
+		l1DataGasPriceWei = gasPrice.PriceInWei
+		l1DataGasPriceStrk = gasPrice.PriceInFri
+	}
+
+	simulatedTransactions := make([]SimulatedTransaction, len(overallFees))
+	for i, overallFee := range overallFees {
+		trace := traces[i]
+		traces[i].ExecutionResources = &vm.ExecutionResources{
+			L1Gas:                gasConsumed[i].L1Gas,
+			L1DataGas:            gasConsumed[i].L1DataGas,
+			L2Gas:                gasConsumed[i].L2Gas,
+			ComputationResources: trace.TotalComputationResources(),
+			DataAvailability: &vm.DataAvailability{
+				L1Gas:     daGas[i].L1Gas,
+				L1DataGas: daGas[i].L1DataGas,
+			},
+		}
+
+		var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
+		feeUnit := feeUnit(txns[i])
+		switch feeUnit {
+		case WEI:
+			l1GasPrice = l1GasPriceWei
+			l2GasPrice = l2GasPriceWei
+			l1DataGasPrice = l1DataGasPriceWei
+		case FRI:
+			l1GasPrice = l1GasPriceStrk
+			l2GasPrice = l2GasPriceStrk
+			l1DataGasPrice = l1DataGasPriceStrk
+		}
+
+		simulatedTransactions[i] = SimulatedTransaction{
+			TransactionTrace: &traces[i],
+			FeeEstimation: FeeEstimate{
+				L1GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L1Gas),
+				L1GasPrice:        l1GasPrice,
+				L2GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L2Gas),
+				L2GasPrice:        l2GasPrice,
+				L1DataGasConsumed: new(felt.Felt).SetUint64(gasConsumed[i].L1DataGas),
+				L1DataGasPrice:    l1DataGasPrice,
+				OverallFee:        overallFee,
+				Unit:              utils.Ptr(feeUnit),
+			},
+		}
+	}
+	return simulatedTransactions, nil
 }
 
 type TransactionExecutionErrorData struct {

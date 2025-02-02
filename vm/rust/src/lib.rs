@@ -70,7 +70,13 @@ extern "C" {
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
-    fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar, ptr: *const c_uchar);
+    fn JunoAppendDAGas(reader_handle: usize, ptr: *const c_uchar, ptr: *const c_uchar);
+    fn JunoAppendGasConsumed(
+        reader_handle: usize,
+        ptr: *const c_uchar,
+        ptr: *const c_uchar,
+        ptr: *const c_uchar,
+    );
     fn JunoAddExecutionSteps(reader_handle: usize, execSteps: c_ulonglong);
 }
 
@@ -385,6 +391,9 @@ pub extern "C" fn cairoVMExecute(
                     .n_steps
                     .try_into()
                     .unwrap_or(u64::MAX);
+                let l1_gas_consumed = t.receipt.gas.l1_gas.into();
+                let l1_data_gas_consumed = t.receipt.gas.l1_data_gas.into();
+                let l2_gas_consumed = t.receipt.gas.l2_gas.into();
 
                 let trace =
                     jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
@@ -399,10 +408,16 @@ pub extern "C" fn cairoVMExecute(
 
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-                    JunoAppendGasConsumed(
+                    JunoAppendDAGas(
                         reader_handle,
                         felt_to_byte_array(&da_gas_l1_gas).as_ptr(),
                         felt_to_byte_array(&da_gas_l1_data_gas).as_ptr(),
+                    );
+                    JunoAppendGasConsumed(
+                        reader_handle,
+                        felt_to_byte_array(&l1_gas_consumed).as_ptr(),
+                        felt_to_byte_array(&l1_data_gas_consumed).as_ptr(),
+                        felt_to_byte_array(&l2_gas_consumed).as_ptr(),
                     );
                     JunoAddExecutionSteps(reader_handle, execution_steps)
                 }

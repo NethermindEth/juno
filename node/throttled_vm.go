@@ -15,7 +15,7 @@ type ThrottledVM struct {
 
 func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *ThrottledVM {
 	return &ThrottledVM{
-		Throttler: utils.NewThrottler[vm.VM](concurrenyBudget, &res).WithMaxQueueLen(maxQueueLen),
+		Throttler: utils.NewThrottler(concurrenyBudget, &res).WithMaxQueueLen(maxQueueLen),
 	}
 }
 
@@ -30,16 +30,17 @@ func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, sta
 	})
 }
 
-func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
+func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, //nolint:gocritic
 	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
-) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
+) ([]*felt.Felt, []core.DataAvailability, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
 	var ret []*felt.Felt
 	var traces []vm.TransactionTrace
-	var daGas []core.GasConsumed
+	var daGas []core.DataAvailability
+	var gasConsumed []core.GasConsumed
 	var numSteps uint64
-	return ret, daGas, traces, numSteps, tvm.Do(func(vm *vm.VM) error {
+	return ret, daGas, gasConsumed, traces, numSteps, tvm.Do(func(vm *vm.VM) error {
 		var err error
-		ret, daGas, traces, numSteps, err = (*vm).Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network,
+		ret, daGas, gasConsumed, traces, numSteps, err = (*vm).Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network,
 			skipChargeFee, skipValidate, errOnRevert)
 		return err
 	})

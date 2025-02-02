@@ -232,12 +232,13 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 
 			// add execution resources on root level
 			for index, trace := range result {
-				executionResources := trace.TraceRoot.TotalExecutionResources()
 				// fgw doesn't provide this data in traces endpoint
 				// some receipts don't have data availability data in this case we don't
 				da := txDataAvailability[*trace.TransactionHash]
-				executionResources.DataAvailability = &da
-				result[index].TraceRoot.ExecutionResources = executionResources
+				result[index].TraceRoot.ExecutionResources = &vm.ExecutionResources{
+					ComputationResources: trace.TraceRoot.TotalComputationResources(),
+					DataAvailability:     &da,
+				}
 			}
 
 			return result, httpHeader, err
@@ -298,7 +299,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	_, daGas, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+	_, daGas, gasConsumed, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
 		&blockInfo, state, network, false, false, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
@@ -314,12 +315,16 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 
 	result := make([]TracedBlockTransaction, 0, len(traces))
 	for index, trace := range traces {
-		executionResources := trace.TotalExecutionResources()
-		executionResources.DataAvailability = &vm.DataAvailability{
-			L1Gas:     daGas[index].L1Gas,
-			L1DataGas: daGas[index].L1DataGas,
+		traces[index].ExecutionResources = &vm.ExecutionResources{
+			L1Gas:                gasConsumed[index].L1Gas,
+			L1DataGas:            gasConsumed[index].L1DataGas,
+			L2Gas:                gasConsumed[index].L2Gas,
+			ComputationResources: trace.TotalComputationResources(),
+			DataAvailability: &vm.DataAvailability{
+				L1Gas:     daGas[index].L1Gas,
+				L1DataGas: daGas[index].L1DataGas,
+			},
 		}
-		traces[index].ExecutionResources = executionResources
 		result = append(result, TracedBlockTransaction{
 			TraceRoot:       &traces[index],
 			TransactionHash: block.Transactions[index].Hash(),

@@ -59,15 +59,16 @@ func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, network, maxSteps
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
+func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool) ([]*felt.Felt, []core.DataAvailability, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert)
 	ret0, _ := ret[0].([]*felt.Felt)
-	ret1, _ := ret[1].([]core.GasConsumed)
-	ret2, _ := ret[2].([]vm.TransactionTrace)
-	ret3, _ := ret[3].(uint64)
-	ret4, _ := ret[4].(error)
-	return ret0, ret1, ret2, ret3, ret4
+	ret1, _ := ret[1].([]core.DataAvailability)
+	ret2, _ := ret[2].([]core.GasConsumed)
+	ret3, _ := ret[3].([]vm.TransactionTrace)
+	ret4, _ := ret[4].(uint64)
+	ret5, _ := ret[5].(error)
+	return ret0, ret1, ret2, ret3, ret4, ret5
 }
 
 // Execute indicates an expected call of Execute.
