@@ -171,21 +171,21 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
 func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	fmt.Println("}]]]]]]]]]")
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-
+	fmt.Println("}]]]]]]]]]")
 	txnHashes := make([]*felt.Felt, len(block.Transactions))
 	for index, txn := range block.Transactions {
 		txnHashes[index] = txn.Hash()
 	}
-
+	fmt.Println("}]]]]]]]]]")
 	status, rpcErr := h.blockStatus(id, block)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-
 	return &BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: adaptBlockHeader(block.Header),

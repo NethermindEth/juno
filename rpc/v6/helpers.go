@@ -5,6 +5,7 @@ package rpcv6
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -40,21 +41,28 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 		block, err = h.bcReader.BlockByHash(id.Hash)
 	case id.Pending:
 		var pending *sync.Pending
+		fmt.Println("herer----")
 		pending, err = h.syncReader.Pending()
+		fmt.Println("herer----")
 		if err == nil {
+			fmt.Println("herer")
 			block = pending.Block
+			fmt.Println("herer")
 		}
 	default:
 		block, err = h.bcReader.BlockByNumber(id.Number)
 	}
-
+	fmt.Println("ssssssssssssss")
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		fmt.Println("herererrr", err)
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
 			return nil, ErrBlockNotFound
 		}
 		return nil, ErrInternal.CloneWithData(err)
 	}
+
 	if block == nil {
+		fmt.Println("ssssssssssssssssssssssssssssssssssssss")
 		return nil, ErrInternal.CloneWithData("nil block with no error")
 	}
 	return block, nil

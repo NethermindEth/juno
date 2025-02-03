@@ -28,6 +28,8 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
+// Todo:??
+//
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc/v8 Gateway
 type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)

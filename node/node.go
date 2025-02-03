@@ -210,18 +210,25 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	if err = jsonrpcServer.RegisterMethods(methods...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	legacyMethods, legacyPath := rpcHandler.MethodsV0_7()
-	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
+	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV07, pathV07 := rpcHandler.MethodsV0_7()
+	if err = jsonrpcServerV07.RegisterMethods(methodsV07...); err != nil {
+		return nil, err
+	}
+	jsonrpcServerV06 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV06, pathV06 := rpcHandler.MethodsV0_6()
+	if err = jsonrpcServerV06.RegisterMethods(methodsV06...); err != nil {
 		return nil, err
 	}
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":                 jsonrpcServer,
-		path:                jsonrpcServer,
-		legacyPath:          jsonrpcServerLegacy,
-		"/rpc":              jsonrpcServer,
-		"/rpc" + path:       jsonrpcServer,
-		"/rpc" + legacyPath: jsonrpcServerLegacy,
+		"/":              jsonrpcServer,
+		path:             jsonrpcServer,
+		pathV07:          jsonrpcServerV07,
+		pathV06:          jsonrpcServerV06,
+		"/rpc":           jsonrpcServer,
+		"/rpc" + path:    jsonrpcServer,
+		"/rpc" + pathV07: jsonrpcServerV07,
+		"/rpc" + pathV06: jsonrpcServerV06,
 	}
 	if cfg.HTTP {
 		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
@@ -242,9 +249,10 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
+		rpcMetrics, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(path, pathV07, pathV06)
 		jsonrpcServer.WithListener(rpcMetrics)
-		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
+		jsonrpcServerV07.WithListener(rpcMetricsV07)
+		jsonrpcServerV06.WithListener(rpcMetricsV06)
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
 		metricsService = makeMetrics(cfg.MetricsHost, cfg.MetricsPort)
