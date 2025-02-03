@@ -1,5 +1,5 @@
-#ifndef VM_BRIDGE_H
-#define VM_BRIDGE_H
+#ifndef VM_FFI_H
+#define VM_FFI_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -41,5 +41,5 @@ extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);
 
-#endif // VM_BRIDGE_H
+#endif // VM_FFI_H
 
