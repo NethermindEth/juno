@@ -87,32 +87,38 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
 func (h *Handler) WithFilterLimit(limit uint) *Handler {
-	h.filterLimit = limit
+	h.rpcv7Handler.WithFilterLimit(limit)
+	h.rpcv8Handler.WithFilterLimit(limit)
 	return h
 }
 
 func (h *Handler) WithL1Client(l1Client l1Client) *Handler {
-	h.l1Client = l1Client
+	h.rpcv7Handler.WithL1Client(l1Client)
+	h.rpcv8Handler.WithL1Client(l1Client)
 	return h
 }
 
 func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
-	h.callMaxSteps = maxSteps
+	h.rpcv7Handler.WithCallMaxSteps(maxSteps)
+	h.rpcv8Handler.WithCallMaxSteps(maxSteps)
 	return h
 }
 
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
-	h.idgen = idgen
+	h.rpcv7Handler.WithIDGen(idgen)
+	h.rpcv8Handler.WithIDGen(idgen)
 	return h
 }
 
 func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
-	h.feederClient = feederClient
+	h.rpcv7Handler.WithFeeder(feederClient)
+	h.rpcv8Handler.WithFeeder(feederClient)
 	return h
 }
 
 func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
-	h.gatewayClient = gatewayClient
+	h.rpcv7Handler.WithGateway(gatewayClient)
+	h.rpcv8Handler.WithGateway(gatewayClient)
 	return h
 }
 
