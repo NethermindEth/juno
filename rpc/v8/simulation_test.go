@@ -112,7 +112,7 @@ func TestSimulateTransactions(t *testing.T) {
 				}, mockState, n, false, true, false).
 					Return(vm.ExecutionResults{
 						OverallFees:      []*felt.Felt{&felt.Zero},
-						DataAvailability: []core.DataAvailability{{L1Gas: 0}},
+						DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},
 						GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
 						Traces:           []vm.TransactionTrace{{}},
 						NumSteps:         uint64(0),
