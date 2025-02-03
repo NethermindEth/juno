@@ -26,7 +26,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/automaxprocs v1.6.0
