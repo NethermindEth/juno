@@ -8,7 +8,7 @@ require (
 	github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4
 	github.com/bits-and-blooms/bitset v1.20.0
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
-	github.com/cockroachdb/pebble v1.1.3
+	github.com/cockroachdb/pebble v1.1.4
 	github.com/coder/websocket v1.8.12
 	github.com/consensys/gnark-crypto v0.15.0
 	github.com/ethereum/go-ethereum v1.14.13
