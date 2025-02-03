@@ -101,6 +101,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	simulatedTransactions, err := createSimulatedTransactions(executionResults, txns, header)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+
 	}
 
 	return simulatedTransactions, httpHeader, nil
