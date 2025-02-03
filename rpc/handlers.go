@@ -479,16 +479,6 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.rpcv7Handler.SpecVersion,
 		},
 		{
-			Name:    "starknet_subscribeNewHeads",
-			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
-			Handler: h.rpcv7Handler.SubscribeNewHeads,
-		},
-		{
-			Name:    "starknet_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "id"}},
-			Handler: h.rpcv7Handler.Unsubscribe,
-		},
-		{
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.rpcv7Handler.BlockWithReceipts,

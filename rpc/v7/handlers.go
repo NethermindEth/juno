@@ -180,7 +180,8 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 	return h
 }
 
-func (h *Handler) Run(ctx context.Context) error {
+// Currently only used for testing
+func (h *Handler) run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
@@ -209,7 +210,8 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "0.7.1", nil
 }
 
-func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
+// Currently only used for testing
+func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -359,16 +361,6 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.SpecVersion,
-		},
-		{
-			Name:    "starknet_subscribeNewHeads",
-			Params:  []jsonrpc.Parameter{{Name: "block", Optional: true}},
-			Handler: h.SubscribeNewHeads,
-		},
-		{
-			Name:    "starknet_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "id"}},
-			Handler: h.Unsubscribe,
 		},
 		{
 			Name:    "starknet_getBlockWithReceipts",

@@ -1019,12 +1019,12 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	handler := New(chain, syncer, nil, "", log)
 
 	go func() {
-		require.NoError(t, handler.Run(ctx))
+		require.NoError(t, handler.run(ctx))
 	}()
 	time.Sleep(50 * time.Millisecond)
 
 	server := jsonrpc.NewServer(1, log)
-	methods, _ := handler.Methods()
+	methods, _ := handler.methods()
 	require.NoError(t, server.RegisterMethods(methods...))
 
 	return handler, server
