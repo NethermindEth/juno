@@ -3,6 +3,7 @@ package rpcv6
 import (
 	"context"
 	"errors"
+	"net/http"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
@@ -11,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -18,6 +20,8 @@ import (
 var traceFallbackVersion = semver.MustParse("0.13.1")
 
 const excludedVersion = "0.13.1.1"
+
+const ExecutionStepsHeader string = "X-Cairo-Steps"
 
 func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
@@ -133,24 +137,22 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.Tra
 	return h.traceTransaction(ctx, &hash, false)
 }
 
-func (h *Handler) TraceTransactionV0_6(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash, true)
-}
-
 func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	if err != nil {
 		return nil, ErrTxnHashNotFound
 	}
+	httpHeader := http.Header{}
+	httpHeader.Set(ExecutionStepsHeader, "0")
 
 	var block *core.Block
 	isPendingBlock := blockHash == nil
 	if isPendingBlock {
-		var pending blockchain.Pending
-		pending, err = h.bcReader.Pending()
+		var pending *sync.Pending
+		pending, err = h.syncReader.Pending()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
-			return nil, ErrTxnHashNotFound
+			return nil, httpHeader, ErrTxnHashNotFound
 		}
 		block = pending.Block
 	} else {
@@ -225,7 +227,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		headStateCloser blockchain.StateCloser
 	)
 	if isPending {
-		headState, headStateCloser, err = h.bcReader.PendingState()
+		headState, headStateCloser, err = h.syncReader.PendingState()
 	} else {
 		headState, headStateCloser, err = h.bcReader.HeadState()
 	}
@@ -262,9 +264,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
-		false, false, useBlobData)
+	overallFees, dataGasConsumed, traces, _, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
+		false, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)
@@ -385,7 +386,7 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, useBlobData)
+	}, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)

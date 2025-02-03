@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,12 +26,19 @@ func TestStateUpdate(t *testing.T) {
 		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
 		"number":  {Number: 1},
 	}
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	var mockSyncReader *mocks.MockSyncReader
 
 	n := utils.Ptr(utils.Mainnet)
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", n, nil)
+			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			if description == "pending" {
+				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
+				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+			}
+			handler := rpc.New(chain, mockSyncReader, nil, "", n, nil)
 
 			update, rpcErr := handler.StateUpdate(id)
 			assert.Nil(t, update)
@@ -38,10 +46,8 @@ func TestStateUpdate(t *testing.T) {
 		})
 	}
 
-	mockCtrl := gomock.NewController(t)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
-
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
@@ -139,7 +145,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pending", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		mockReader.EXPECT().Pending().Return(blockchain.Pending{
+		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
 			StateUpdate: update21656,
 		}, nil)
 

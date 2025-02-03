@@ -105,9 +105,8 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
-	useBlobData := !v0_6Response
-	overallFees, dataGasConsumed, traces, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, useBlobData)
+	overallFees, dataGasConsumed, traces, _, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
+		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, ErrInternal.CloneWithData(throttledVMErr)

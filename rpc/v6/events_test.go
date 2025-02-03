@@ -25,9 +25,13 @@ import (
 )
 
 func TestEvents(t *testing.T) {
+	var pendingB *core.Block
+	pendingBlockFn := func() *core.Block {
+		return pendingB
+	}
 	testDB := pebble.NewMemTest(t)
 	n := utils.Ptr(utils.Sepolia)
-	chain := blockchain.New(testDB, n)
+	chain := blockchain.New(testDB, n, pendingBlockFn)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -43,10 +47,7 @@ func TestEvents(t *testing.T) {
 		} else {
 			b.Hash = nil
 			b.GlobalStateRoot = nil
-			require.NoError(t, chain.StorePending(&blockchain.Pending{
-				Block:       b,
-				StateUpdate: s,
-			}))
+			pendingB = b
 		}
 	}
 

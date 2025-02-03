@@ -442,7 +442,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 	}
 
 	if id.Pending {
-		pending, err := h.bcReader.Pending()
+		pending, err := h.syncReader.Pending()
 		if err != nil {
 			return nil, ErrBlockNotFound
 		}

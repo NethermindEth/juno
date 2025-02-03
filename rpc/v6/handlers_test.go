@@ -39,6 +39,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
 	handler := rpc.New(mockReader, nil, throttledVM, "", utils.Ptr(utils.Mainnet), nil)
@@ -90,7 +91,7 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 		_, rpcErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
