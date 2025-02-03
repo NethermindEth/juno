@@ -517,10 +517,7 @@ fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
     };
 }
 
-// The design of the API is problematic in this instance;
-// the genesis block has a gas price of 0, but the blockifier
-// does not allow for this. This, however, is not critical
-// for consensus, and so the value of 1 is used instead.
+// NonzeroGasPrice must be greater than zero to successfully execute transaction.
 fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice, anyhow::Error> {
     let u128_val = felt_to_u128(StarkFelt::from_bytes_be(bytes));
     Ok(NonzeroGasPrice::new(GasPrice(if u128_val == 0 {
