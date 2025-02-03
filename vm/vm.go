@@ -23,13 +23,21 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+type ExecutionResults struct {
+	OverallFees      []*felt.Felt
+	DataAvailability []core.DataAvailability
+	GasConsumed      []core.GasConsumed
+	Traces           []TransactionTrace
+	NumSteps         uint64
+}
+
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 		maxSteps uint64) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
-	) ([]*felt.Felt, []core.DataAvailability, []core.GasConsumed, []TransactionTrace, uint64, error)
+	) (ExecutionResults, error)
 }
 
 type vm struct {
@@ -236,10 +244,10 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, //nolint:gocritic
+func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert bool,
-) ([]*felt.Felt, []core.DataAvailability, []core.GasConsumed, []TransactionTrace, uint64, error) {
+) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
@@ -249,12 +257,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return nil, nil, nil, nil, 0, err
+		return ExecutionResults{}, err
 	}
 
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return nil, nil, nil, nil, 0, err
+		return ExecutionResults{}, err
 	}
 
 	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
@@ -303,21 +311,27 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	if context.err != "" {
 		if context.errTxnIndex >= 0 {
-			return nil, nil, nil, nil, 0, TransactionExecutionError{
+			return ExecutionResults{}, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),
 				Cause: errors.New(context.err),
 			}
 		}
-		return nil, nil, nil, nil, 0, errors.New(context.err)
+		return ExecutionResults{}, errors.New(context.err)
 	}
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return nil, nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
+			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
-	return context.actualFees, context.daGas, context.gasConsumed, traces, context.executionSteps, nil
+	return ExecutionResults{
+		OverallFees:      context.actualFees,
+		DataAvailability: context.daGas,
+		GasConsumed:      context.gasConsumed,
+		Traces:           traces,
+		NumSteps:         context.executionSteps,
+	}, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

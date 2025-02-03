@@ -299,10 +299,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	_, daGas, gasConsumed, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
 		&blockInfo, state, network, false, false, false)
 
-	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
+	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -313,20 +313,20 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]TracedBlockTransaction, 0, len(traces))
-	for index, trace := range traces {
-		traces[index].ExecutionResources = &vm.ExecutionResources{
-			L1Gas:                gasConsumed[index].L1Gas,
-			L1DataGas:            gasConsumed[index].L1DataGas,
-			L2Gas:                gasConsumed[index].L2Gas,
+	result := make([]TracedBlockTransaction, 0, len(executionResult.Traces))
+	for index, trace := range executionResult.Traces {
+		executionResult.Traces[index].ExecutionResources = &vm.ExecutionResources{
+			L1Gas:                executionResult.GasConsumed[index].L1Gas,
+			L1DataGas:            executionResult.GasConsumed[index].L1DataGas,
+			L2Gas:                executionResult.GasConsumed[index].L2Gas,
 			ComputationResources: trace.TotalComputationResources(),
 			DataAvailability: &vm.DataAvailability{
-				L1Gas:     daGas[index].L1Gas,
-				L1DataGas: daGas[index].L1DataGas,
+				L1Gas:     executionResult.DataAvailability[index].L1Gas,
+				L1DataGas: executionResult.DataAvailability[index].L1DataGas,
 			},
 		}
 		result = append(result, TracedBlockTransaction{
-			TraceRoot:       &traces[index],
+			TraceRoot:       &executionResult.Traces[index],
 			TransactionHash: block.Transactions[index].Hash(),
 		})
 	}

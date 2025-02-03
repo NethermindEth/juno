@@ -55,7 +55,13 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, n, true, false, false).
-					Return([]*felt.Felt{}, []core.DataAvailability{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil)
+					Return(vm.ExecutionResults{
+						OverallFees:      []*felt.Felt{},
+						DataAvailability: []core.DataAvailability{},
+						GasConsumed:      []core.GasConsumed{},
+						Traces:           []vm.TransactionTrace{},
+						NumSteps:         uint64(123),
+					}, nil)
 			},
 			simulationFlags: []rpc.SimulationFlag{rpc.SkipFeeChargeFlag},
 			simulatedTxs:    []rpc.SimulatedTransaction{},
@@ -68,7 +74,13 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, n, false, true, false).
-					Return([]*felt.Felt{}, []core.DataAvailability{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil)
+					Return(vm.ExecutionResults{
+						OverallFees:      []*felt.Felt{},
+						DataAvailability: []core.DataAvailability{},
+						GasConsumed:      []core.GasConsumed{},
+						Traces:           []vm.TransactionTrace{},
+						NumSteps:         uint64(123),
+					}, nil)
 			},
 			simulationFlags: []rpc.SimulationFlag{rpc.SkipValidateFlag},
 			simulatedTxs:    []rpc.SimulatedTransaction{},
@@ -80,7 +92,7 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, n, false, true, false).
-					Return(nil, nil, nil, nil, uint64(0), vm.TransactionExecutionError{
+					Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 						Index: 44,
 						Cause: errors.New("oops"),
 					})
@@ -98,12 +110,13 @@ func TestSimulateTransactions(t *testing.T) {
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
 				}, mockState, n, false, true, false).
-					Return([]*felt.Felt{&felt.Zero},
-						[]core.DataAvailability{{L1Gas: 0}, {L1DataGas: 0}},
-						[]core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
-						[]vm.TransactionTrace{{}},
-						uint64(0),
-						nil)
+					Return(vm.ExecutionResults{
+						OverallFees:      []*felt.Felt{&felt.Zero},
+						DataAvailability: []core.DataAvailability{{L1Gas: 0}},
+						GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
+						Traces:           []vm.TransactionTrace{{}},
+						NumSteps:         uint64(0),
+					}, nil)
 			},
 			simulationFlags: []rpc.SimulationFlag{rpc.SkipValidateFlag},
 			err: rpccore.ErrInternal.CloneWithData(errors.New(
@@ -136,4 +149,26 @@ func TestSimulateTransactions(t *testing.T) {
 			require.Equal(t, test.simulatedTxs, simulatedTxs)
 		})
 	}
+
+	//	t.Run("ok with non-zero values", func(t *testing.T) {
+	//		mockCtrl := gomock.NewController(t)
+	//		defer mockCtrl.Finish()
+	//
+	//		mockReader := mocks.NewMockReader(mockCtrl)
+	//		mockVM := mocks.NewMockVM(mockCtrl)
+	//		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	//
+	//		client := feeder.NewTestClient(t, &utils.Integration)
+	//		integGw := adaptfeeder.New(client)
+	//
+	//		block, err := integGw.BlockByNumber(context.Background(), 319132)
+	//		require.NoError(t, err)
+	//
+	//		txn := block.Transactions[index]
+	//		broadcastedTx := rpc.BroadcastedTransaction{
+	//	Transaction: txn,
+	//
+	// PaidFeeOnL1: &felt.Felt{Value: felt.NewBigInt(1)},
+	//
+	//	})
 }
