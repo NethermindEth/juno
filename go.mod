@@ -10,7 +10,7 @@ require (
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/cockroachdb/pebble v1.1.4
 	github.com/coder/websocket v1.8.12
-	github.com/consensys/gnark-crypto v0.15.0
+	github.com/consensys/gnark-crypto v0.16.0
 	github.com/ethereum/go-ethereum v1.14.13
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.24.0
