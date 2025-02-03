@@ -152,7 +152,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 		pending, err = h.syncReader.Pending()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
-			return nil, httpHeader, ErrTxnHashNotFound
+			return nil, ErrTxnHashNotFound
 		}
 		block = pending.Block
 	} else {
@@ -297,12 +297,13 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 				}
 			}
 
-			dataGasFee := new(felt.Felt).Mul(dataGasConsumed[index], dataGasPrice)
+			l1DAGas := new(felt.Felt).SetUint64(dataGasConsumed[index].L1DataGas)
+			dataGasFee := new(felt.Felt).Mul(l1DAGas, dataGasPrice)
 			gasConsumed := new(felt.Felt).Sub(overallFees[index], dataGasFee)
 			gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, dataGasConsumed[index],
+			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, l1DAGas,
 				header.L1DAMode)
 			traces[index].ExecutionResources = executionResources
 		}

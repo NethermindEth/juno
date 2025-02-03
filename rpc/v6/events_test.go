@@ -239,8 +239,10 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(client)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), n)
-	syncer := sync.New(chain, gw, log, 0, false)
+
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+	syncer := sync.New(chain, gw, log, time.Duration(0), false, testDB)
 	handler := rpc.New(chain, syncer, nil, "", n, log)
 
 	go func() {
@@ -321,8 +323,9 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	gw := adaptfeeder.New(feederClient)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	chain := blockchain.New(pebble.NewMemTest(t), n)
-	syncer := sync.New(chain, gw, log, 0, false)
+	testDB := pebble.NewMemTest(t)
+	chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+	syncer := sync.New(chain, gw, log, time.Duration(0), false, testDB)
 	handler := rpc.New(chain, syncer, nil, "", n, log)
 	go func() {
 		require.NoError(t, handler.Run(ctx))
@@ -350,7 +353,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 		Params:  []jsonrpc.Parameter{{Name: "id"}},
 		Handler: handler.Unsubscribe,
 	}))
-	ws := jsonrpc.NewWebsocket(server, log)
+	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
 	conn1, _, err := websocket.Dial(ctx, httpSrv.URL, nil)
 	require.NoError(t, err)

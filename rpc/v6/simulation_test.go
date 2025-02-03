@@ -76,7 +76,7 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: errors.New("oops"),
 			})
 
-		_, err = handler.SimulateTransactionsV0_6(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err = handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
 		require.Equal(t, rpc.ErrContractError.CloneWithData(rpc.ContractErrorData{
 			RevertError: "oops",
 		}), err)

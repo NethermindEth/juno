@@ -152,7 +152,7 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 	return h
 }
 
-func (h *Handler) run(ctx context.Context) error {
+func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee[*core.Header](newHeadsSub, h.newHeads)

@@ -46,14 +46,8 @@ type TracedBlockTransaction struct {
 		Simulate Handlers
 *****************************************************/
 
-func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag,
-) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false, false)
-}
-
 // pre 13.1
-func (h *Handler) SimulateTransactionsV0_6(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions, simulationFlags, true, true)
@@ -139,19 +133,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		var gasConsumed *felt.Felt
-		if !v0_6Response {
-			dataGasFee := new(felt.Felt).Mul(dataGasConsumed[i], dataGasPrice)
-			gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
-		} else {
-			gasConsumed = overallFee.Clone()
-		}
+		gasConsumed := overallFee.Clone()
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 		estimate := FeeEstimate{
 			GasConsumed:     gasConsumed,
 			GasPrice:        gasPrice,
-			DataGasConsumed: dataGasConsumed[i],
+			DataGasConsumed: new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas),
 			DataGasPrice:    dataGasPrice,
 			OverallFee:      overallFee,
 			Unit:            utils.Ptr(feeUnit),
@@ -161,7 +149,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		if !v0_6Response {
 			trace := traces[i]
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, dataGasConsumed[i], header.L1DAMode)
+			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas), header.L1DAMode)
 			traces[i].ExecutionResources = executionResources
 		}
 
