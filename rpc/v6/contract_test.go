@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
-	rpc "github.com/NethermindEth/juno/rpc/rpcv6"
+	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

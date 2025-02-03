@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
-	rpc "github.com/NethermindEth/juno/rpc/rpcv6"
+	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,11 +28,7 @@ func TestVersion(t *testing.T) {
 
 func TestSpecVersion(t *testing.T) {
 	handler := rpc.New(nil, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
-	version, rpcErr := handler.SpecVersion()
-	require.Nil(t, rpcErr)
-	require.Equal(t, "0.7.1", version)
-
-	legacyVersion, rpcErr := handler.SpecVersionV0_6()
+	legacyVersion, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0", legacyVersion)
 }

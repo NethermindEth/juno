@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
-	rpc "github.com/NethermindEth/juno/rpc/rpcv6"
+	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -36,7 +36,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, true, false, false, false).
+		}, mockState, n, true, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
@@ -46,7 +46,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, false, false, false).
+		}, mockState, n, false, false, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
@@ -56,7 +56,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("transaction execution error", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, false, false, false).
+		}, mockState, n, false, false, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -70,7 +70,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, true, false).
+		}, mockState, n, false, true, true).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),

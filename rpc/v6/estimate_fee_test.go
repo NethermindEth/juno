@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
-	rpc "github.com/NethermindEth/juno/rpc/rpcv6"
+	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
@@ -55,7 +55,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), &vm.BlockInfo{
 		Header: latestHeader,
-	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false).DoAndReturn(
+	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
 			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
 		) ([]*felt.Felt, []*felt.Felt, []vm.TransactionTrace, error) {
@@ -110,7 +110,7 @@ func TestEstimateFee(t *testing.T) {
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
@@ -118,7 +118,7 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false).
 			Return([]*felt.Felt{}, []vm.TransactionTrace{}, nil)
 
 		_, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
@@ -126,7 +126,7 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, false).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -138,7 +138,7 @@ func TestEstimateFee(t *testing.T) {
 			ExecutionError:   "oops",
 		}), err)
 
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, false, true, true, false).
+		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &blockInfo, mockState, n, false, true, true).
 			Return(nil, nil, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
