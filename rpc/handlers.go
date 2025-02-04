@@ -2,15 +2,9 @@ package rpc
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/binary"
-	"math"
-	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
@@ -19,39 +13,14 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/common/lru"
-	"github.com/sourcegraph/conc"
 )
 
 type Handler struct {
-	bcReader   blockchain.Reader
-	syncReader sync.Reader
-
-	version    string
-	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs *feed.Feed[[]core.Transaction]
-	l1Heads    *feed.Feed[*core.L1Head]
-
-	idgen         func() uint64
-	mu            stdsync.Mutex // protects subscriptions.
-	subscriptions map[uint64]*subscription
-
-	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []rpcv7.TracedBlockTransaction]
-	filterLimit     uint
-	callMaxSteps    uint64
-
-	l1Client rpccore.L1Client
-
+	bcReader     blockchain.Reader
+	syncReader   sync.Reader
 	rpcv6Handler *rpcv6.Handler
 	rpcv7Handler *rpcv7.Handler
 	rpcv8Handler *rpcv8.Handler
-}
-
-type subscription struct {
-	cancel func()
-	wg     conc.WaitGroup
-	conn   jsonrpc.Conn
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
@@ -62,26 +31,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger)
 
 	return &Handler{
-		bcReader:   bcReader,
-		syncReader: syncReader,
-		idgen: func() uint64 {
-			var n uint64
-			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
-			}
-			return n
-		},
-		version:       version,
-		newHeads:      feed.New[*core.Header](),
-		reorgs:        feed.New[*sync.ReorgBlockRange](),
-		pendingTxs:    feed.New[[]core.Transaction](),
-		l1Heads:       feed.New[*core.L1Head](),
-		subscriptions: make(map[uint64]*subscription),
-
-		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []rpcv7.TracedBlockTransaction](rpccore.TraceCacheSize),
-		filterLimit:     math.MaxUint,
-		rpcv6Handler:    handlerv6,
-		rpcv7Handler:    handlerv7,
-		rpcv8Handler:    handlerv8,
+		bcReader:     bcReader,
+		syncReader:   syncReader,
+		rpcv6Handler: handlerv6,
+		rpcv7Handler: handlerv7,
+		rpcv8Handler: handlerv8,
 	}
 }
 
@@ -107,7 +61,6 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 }
 
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
-	h.idgen = idgen
 	h.rpcv8Handler.WithIDGen(idgen)
 	return h
 }
@@ -127,24 +80,8 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
-	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
-	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
-	defer newHeadsSub.Unsubscribe()
-	defer reorgsSub.Unsubscribe()
-	defer pendingTxsSub.Unsubscribe()
-	defer l1HeadsSub.Unsubscribe()
-	feed.Tee(newHeadsSub, h.newHeads)
-	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingTxsSub, h.pendingTxs)
-	feed.Tee(l1HeadsSub, h.l1Heads)
-
-	<-ctx.Done()
-	for _, sub := range h.subscriptions {
-		sub.wg.Wait()
-	}
-	return nil
+	// currently only rpcv8 supports subscriptions
+	return h.rpcv8Handler.Run(ctx)
 }
 
 func (h *Handler) Methods0_8() ([]jsonrpc.Method, string) { //nolint: funlen
