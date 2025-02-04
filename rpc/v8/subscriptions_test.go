@@ -1019,7 +1019,7 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	handler := New(chain, syncer, nil, "", log)
 
 	go func() {
-		require.NoError(t, handler.run(ctx))
+		require.NoError(t, handler.Run(ctx))
 	}()
 	time.Sleep(50 * time.Millisecond)
 

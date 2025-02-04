@@ -183,7 +183,7 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 }
 
 // Currently only used for testing
-func (h *Handler) run(ctx context.Context) error {
+func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
@@ -210,10 +210,6 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "0.8.0", nil
-}
-
-func (h *Handler) SpecVersionV0_7() (string, *jsonrpc.Error) {
-	return "0.7.1", nil
 }
 
 // Currently only used for testing

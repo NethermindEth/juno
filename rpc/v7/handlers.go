@@ -183,7 +183,7 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 }
 
 // Currently only used for testing
-func (h *Handler) run(ctx context.Context) error {
+func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription

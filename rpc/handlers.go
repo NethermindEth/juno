@@ -2,7 +2,10 @@ package rpc
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
+	"math"
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -24,6 +27,8 @@ import (
 	"github.com/sourcegraph/conc"
 )
 
+var traceCacheSize = 128
+
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
 type Gateway interface {
 	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
@@ -38,12 +43,8 @@ type traceCacheKey struct {
 }
 
 type Handler struct {
-	bcReader      blockchain.Reader
-	syncReader    sync.Reader
-	gatewayClient Gateway
-	feederClient  *feeder.Client
-	vm            vm.VM
-	log           utils.Logger
+	bcReader   blockchain.Reader
+	syncReader sync.Reader
 
 	version    string
 	newHeads   *feed.Feed[*core.Header]
@@ -55,10 +56,9 @@ type Handler struct {
 	mu            stdsync.Mutex // protects subscriptions.
 	subscriptions map[uint64]*subscription
 
-	blockTraceCache *lru.Cache[traceCacheKey, []rpcv7.TracedBlockTransaction] // todo: is rpcv7 correct?
-
-	filterLimit  uint
-	callMaxSteps uint64
+	blockTraceCache *lru.Cache[traceCacheKey, []rpcv7.TracedBlockTransaction]
+	filterLimit     uint
+	callMaxSteps    uint64
 
 	l1Client        l1Client
 	coreContractABI abi.ABI
@@ -77,15 +77,31 @@ type subscription struct {
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger, network *utils.Network,
 ) *Handler {
-	// TODO: this is ugly
 	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, version, network, logger)
 	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, version, logger)
-	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger) // TODO: dlt repetitive code in rpcv8
+	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger)
 
 	return &Handler{
-		rpcv6Handler: handlerv6,
-		rpcv7Handler: handlerv7,
-		rpcv8Handler: handlerv8,
+		bcReader:   bcReader,
+		syncReader: syncReader,
+		idgen: func() uint64 {
+			var n uint64
+			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
+			}
+			return n
+		},
+		version:       version,
+		newHeads:      feed.New[*core.Header](),
+		reorgs:        feed.New[*sync.ReorgBlockRange](),
+		pendingTxs:    feed.New[[]core.Transaction](),
+		l1Heads:       feed.New[*core.L1Head](),
+		subscriptions: make(map[uint64]*subscription),
+
+		blockTraceCache: lru.NewCache[traceCacheKey, []rpcv7.TracedBlockTransaction](traceCacheSize),
+		filterLimit:     math.MaxUint,
+		rpcv6Handler:    handlerv6,
+		rpcv7Handler:    handlerv7,
+		rpcv8Handler:    handlerv8,
 	}
 }
 
