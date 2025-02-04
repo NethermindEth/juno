@@ -25,7 +25,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	logger utils.Logger, network *utils.Network,
 ) *Handler {
 	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, version, network, logger)
-	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, version, logger)
+	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, version, network, logger)
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger)
 
 	return &Handler{
@@ -44,7 +44,6 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 }
 
 func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
-	h.rpcv7Handler.WithL1Client(l1Client)
 	h.rpcv8Handler.WithL1Client(l1Client)
 	return h
 }
@@ -76,11 +75,11 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	// currently only rpcv8 supports subscriptions
+	// currently only rpcv8 supports subscriptions (jjuno subscriptions have been removed)
 	return h.rpcv8Handler.Run(ctx)
 }
 
-func (h *Handler) Methods0_8() ([]jsonrpc.Method, string) { //nolint: funlen
+func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -420,6 +419,15 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.rpcv7Handler.BlockWithReceipts,
 		},
+		{
+			Name:    "juno_subscribeNewHeads",
+			Handler: h.rpcv7Handler.SubscribeNewHeads,
+		},
+		{
+			Name:    "juno_unsubscribe",
+			Params:  []jsonrpc.Parameter{{Name: "id"}},
+			Handler: h.rpcv7Handler.Unsubscribe,
+		},
 	}, "/v0_7"
 }
 
@@ -563,6 +571,15 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.rpcv6Handler.SpecVersion,
+		},
+		{
+			Name:    "juno_subscribeNewHeads",
+			Handler: h.rpcv6Handler.SubscribeNewHeads,
+		},
+		{
+			Name:    "juno_unsubscribe",
+			Params:  []jsonrpc.Parameter{{Name: "id"}},
+			Handler: h.rpcv6Handler.Unsubscribe,
 		},
 	}, "/v0_6"
 }

@@ -21,7 +21,7 @@ func TestChainId(t *testing.T) {
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockReader.EXPECT().Network().Return(n)
-			handler := rpcv7.New(mockReader, nil, nil, "", nil)
+			handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)

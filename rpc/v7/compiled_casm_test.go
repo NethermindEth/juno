@@ -26,7 +26,7 @@ func TestCompiledCasm(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	rd := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(rd, nil, nil, "", nil)
+	handler := rpcv7.New(rd, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
 
 	t.Run("db failure", func(t *testing.T) {
 		rd.EXPECT().HeadState().Return(nil, nil, fmt.Errorf("error"))

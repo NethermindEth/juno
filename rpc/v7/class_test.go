@@ -38,7 +38,7 @@ func TestClass(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpcv7.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpcv7.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
 
 	latest := rpcv7.BlockID{Latest: true}
 
@@ -69,7 +69,7 @@ func TestClass(t *testing.T) {
 
 	t.Run("state by id error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpcv7.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+		handler := rpcv7.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
@@ -81,7 +81,7 @@ func TestClass(t *testing.T) {
 	t.Run("class hash not found error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-		handler := rpcv7.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+		handler := rpcv7.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(mockState, func() error {
 			return nil
@@ -121,7 +121,7 @@ func TestClassAt(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpcv7.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpcv7.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
 
 	latest := rpcv7.BlockID{Latest: true}
 
@@ -153,7 +153,7 @@ func TestClassHashAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpcv7.New(mockReader, nil, nil, "", log)
+	handler := rpcv7.New(mockReader, nil, nil, "", utils.Ptr(utils.Mainnet), log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)

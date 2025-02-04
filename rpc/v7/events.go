@@ -1,6 +1,9 @@
 package rpcv7
 
 import (
+	"context"
+	"encoding/json"
+
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -141,4 +144,76 @@ func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID,
 		return err
 	}
 	return set(blockchain.EventFilterTo, toID)
+}
+
+func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error) {
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+
+	id := h.idgen()
+	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
+	sub := &subscription{
+		cancel: subscriptionCtxCancel,
+		conn:   w,
+	}
+	h.mu.Lock()
+	h.subscriptions[id] = sub
+	h.mu.Unlock()
+	headerSub := h.newHeads.Subscribe()
+	sub.wg.Go(func() {
+		defer func() {
+			headerSub.Unsubscribe()
+			h.unsubscribe(sub, id)
+		}()
+		for {
+			select {
+			case <-subscriptionCtx.Done():
+				return
+			case header := <-headerSub.Recv():
+				resp, err := json.Marshal(jsonrpc.Request{
+					Version: "2.0",
+					Method:  "juno_subscribeNewHeads",
+					Params: map[string]any{
+						"result":       adaptBlockHeader(header),
+						"subscription": id,
+					},
+				})
+				if err != nil {
+					h.log.Warnw("Error marshalling a subscription reply", "err", err)
+					return
+				}
+				if _, err = w.Write(resp); err != nil {
+					h.log.Warnw("Error writing a subscription reply", "err", err)
+					return
+				}
+			}
+		}
+	})
+	return id, nil
+}
+
+func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+	}
+	h.mu.Lock()
+	sub, ok := h.subscriptions[id]
+	h.mu.Unlock() // Don't defer since h.unsubscribe acquires the lock.
+	if !ok || !sub.conn.Equal(w) {
+		return false, rpccore.ErrSubscriptionNotFound
+	}
+	sub.cancel()
+	sub.wg.Wait() // Let the subscription finish before responding.
+	return true, nil
+}
+
+// unsubscribe assumes h.mu is unlocked. It releases all subscription resources.
+func (h *Handler) unsubscribe(sub *subscription, id uint64) {
+	sub.cancel()
+	h.mu.Lock()
+	delete(h.subscriptions, id)
+	h.mu.Unlock()
 }

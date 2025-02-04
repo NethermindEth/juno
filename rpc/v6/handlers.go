@@ -1,11 +1,16 @@
 package rpcv6
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"math"
+	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
@@ -13,6 +18,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/hashicorp/go-set/v2"
+	"github.com/sourcegraph/conc"
 )
 
 type traceCacheKey struct {
@@ -21,11 +27,16 @@ type traceCacheKey struct {
 }
 
 type Handler struct {
-	bcReader                   blockchain.Reader
-	syncReader                 sync.Reader
-	gatewayClient              rpccore.Gateway
-	feederClient               *feeder.Client
-	vm                         vm.VM
+	bcReader      blockchain.Reader
+	syncReader    sync.Reader
+	gatewayClient rpccore.Gateway
+	feederClient  *feeder.Client
+	vm            vm.VM
+	idgen         func() uint64
+	mu            stdsync.Mutex // protects subscriptions.
+	subscriptions map[uint64]*subscription
+	newHeads      *feed.Feed[*core.Header]
+
 	log                        utils.Logger
 	version                    string
 	forceFeederTracesForBlocks *set.Set[uint64]
@@ -35,16 +46,30 @@ type Handler struct {
 	callMaxSteps uint64
 }
 
+type subscription struct {
+	cancel func()
+	wg     conc.WaitGroup
+	conn   jsonrpc.Conn
+}
+
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network *utils.Network,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
-		bcReader:                   bcReader,
-		syncReader:                 syncReader,
-		log:                        logger,
-		vm:                         virtualMachine,
+		bcReader:   bcReader,
+		syncReader: syncReader,
+		log:        logger,
+		vm:         virtualMachine,
+		idgen: func() uint64 {
+			var n uint64
+			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
+			}
+			return n
+		},
 		version:                    version,
 		forceFeederTracesForBlocks: set.From(network.BlockHashMetaInfo.ForceFetchingTracesForBlocks),
+		newHeads:                   feed.New[*core.Header](),
+		subscriptions:              make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,

@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
@@ -18,7 +19,7 @@ func TestSyncing(t *testing.T) {
 
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(mockReader, synchronizer, nil, "", nil)
+	handler := rpcv7.New(mockReader, synchronizer, nil, "", utils.Ptr(utils.Mainnet), nil)
 	defaultSyncState := false
 
 	startingBlock := uint64(0)
