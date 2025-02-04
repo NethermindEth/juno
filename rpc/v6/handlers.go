@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/hashicorp/go-set/v2"
-	"github.com/sourcegraph/conc"
 )
 
 type traceCacheKey struct {
@@ -39,12 +38,6 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
-}
-
-type subscription struct {
-	cancel func()
-	wg     conc.WaitGroup
-	conn   jsonrpc.Conn
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network *utils.Network,

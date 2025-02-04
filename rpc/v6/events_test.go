@@ -2,7 +2,6 @@ package rpcv6_test
 
 import (
 	"context"
-	"io"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -10,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -207,20 +205,4 @@ func TestEvents(t *testing.T) {
 		assert.Nil(t, events.Events[0].BlockNumber)
 		assert.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
 	})
-}
-
-type fakeConn struct {
-	w io.Writer
-}
-
-func (fc *fakeConn) Write(p []byte) (int, error) {
-	return fc.w.Write(p)
-}
-
-func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
-	fc2, ok := other.(*fakeConn)
-	if !ok {
-		return false
-	}
-	return fc.w == fc2.w
 }

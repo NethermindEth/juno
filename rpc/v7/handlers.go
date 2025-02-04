@@ -7,9 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -18,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/lru"
-	"github.com/sourcegraph/conc"
 )
 
 const (
@@ -42,10 +39,6 @@ type Handler struct {
 	log           utils.Logger
 
 	version         string
-	newHeads        *feed.Feed[*core.Header]
-	reorgs          *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs      *feed.Feed[[]core.Transaction]
-	l1Heads         *feed.Feed[*core.L1Head]
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
 	filterLimit  uint
@@ -53,12 +46,6 @@ type Handler struct {
 
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
-}
-
-type subscription struct {
-	cancel func()
-	wg     conc.WaitGroup
-	conn   jsonrpc.Conn
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
@@ -69,16 +56,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		log.Fatalf("Failed to parse ABI: %v", err)
 	}
 	return &Handler{
-		bcReader:   bcReader,
-		syncReader: syncReader,
-		log:        logger,
-		vm:         virtualMachine,
-		version:    version,
-		newHeads:   feed.New[*core.Header](),
-		reorgs:     feed.New[*sync.ReorgBlockRange](),
-		pendingTxs: feed.New[[]core.Transaction](),
-		l1Heads:    feed.New[*core.L1Head](),
-
+		bcReader:        bcReader,
+		syncReader:      syncReader,
+		log:             logger,
+		vm:              virtualMachine,
+		version:         version,
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,

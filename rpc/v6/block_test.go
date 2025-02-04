@@ -54,7 +54,6 @@ func TestBlockId(t *testing.T) {
 		},
 	}
 	for name, test := range tests {
-		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			var blockID rpc.BlockID
@@ -83,7 +82,6 @@ func TestBlockId(t *testing.T) {
 		},
 	}
 	for name, test := range failingTests {
-		test := test
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			var blockID rpc.BlockID
@@ -370,7 +368,7 @@ func TestBlockWithTxs(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
 			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
-			if description == "pending" { //nolint:goconst
+			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
 			}
