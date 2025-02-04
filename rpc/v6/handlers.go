@@ -1,6 +1,7 @@
 package rpcv6
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"math"
@@ -86,6 +87,10 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	h.callMaxSteps = maxSteps
 	return h
 }
+func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
+	h.idgen = idgen
+	return h
+}
 
 func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	h.feederClient = feederClient
@@ -103,4 +108,15 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "0.6.0", nil
+}
+
+func (h *Handler) Run(ctx context.Context) error {
+	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
+	defer newHeadsSub.Unsubscribe()
+	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	<-ctx.Done()
+	for _, sub := range h.subscriptions {
+		sub.wg.Wait()
+	}
+	return nil
 }

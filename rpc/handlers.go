@@ -56,6 +56,8 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 }
 
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
+	h.rpcv6Handler.WithIDGen(idgen)
+	h.rpcv7Handler.WithIDGen(idgen)
 	h.rpcv8Handler.WithIDGen(idgen)
 	return h
 }
@@ -75,8 +77,16 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	// currently only rpcv8 supports subscriptions (jjuno subscriptions have been removed)
-	return h.rpcv8Handler.Run(ctx)
+	if err := h.rpcv6Handler.Run(ctx); err != nil {
+		return err
+	}
+	if err := h.rpcv7Handler.Run(ctx); err != nil {
+		return err
+	}
+	if err := h.rpcv8Handler.Run(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
