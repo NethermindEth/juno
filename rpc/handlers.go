@@ -12,14 +12,13 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
-	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
+	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/sourcegraph/conc"
 )
@@ -38,12 +37,11 @@ type Handler struct {
 	mu            stdsync.Mutex // protects subscriptions.
 	subscriptions map[uint64]*subscription
 
-	blockTraceCache *lru.Cache[rpc_common.TraceCacheKey, []rpcv7.TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []rpcv7.TracedBlockTransaction]
 	filterLimit     uint
 	callMaxSteps    uint64
 
-	l1Client        rpc_common.L1Client
-	coreContractABI abi.ABI
+	l1Client rpccore.L1Client
 
 	rpcv6Handler *rpcv6.Handler
 	rpcv7Handler *rpcv7.Handler
@@ -79,7 +77,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
-		blockTraceCache: lru.NewCache[rpc_common.TraceCacheKey, []rpcv7.TracedBlockTransaction](rpc_common.TraceCacheSize),
+		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []rpcv7.TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		rpcv6Handler:    handlerv6,
 		rpcv7Handler:    handlerv7,
@@ -95,7 +93,7 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	return h
 }
 
-func (h *Handler) WithL1Client(l1Client rpc_common.L1Client) *Handler {
+func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
 	h.rpcv7Handler.WithL1Client(l1Client)
 	h.rpcv8Handler.WithL1Client(l1Client)
 	return h
@@ -109,8 +107,7 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 }
 
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
-	h.rpcv6Handler.WithIDGen(idgen)
-	h.rpcv7Handler.WithIDGen(idgen)
+	h.idgen = idgen
 	h.rpcv8Handler.WithIDGen(idgen)
 	return h
 }
@@ -122,7 +119,7 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	return h
 }
 
-func (h *Handler) WithGateway(gatewayClient rpc_common.Gateway) *Handler {
+func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	h.rpcv6Handler.WithGateway(gatewayClient)
 	h.rpcv7Handler.WithGateway(gatewayClient)
 	h.rpcv8Handler.WithGateway(gatewayClient)
@@ -633,15 +630,6 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_specVersion",
 			Handler: h.rpcv6Handler.SpecVersion,
-		},
-		{
-			Name:    "juno_subscribeNewHeads",
-			Handler: h.rpcv6Handler.SubscribeNewHeads,
-		},
-		{
-			Name:    "juno_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "id"}},
-			Handler: h.rpcv6Handler.Unsubscribe,
 		},
 	}, "/v0_6"
 }

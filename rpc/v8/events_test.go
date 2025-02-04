@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -71,7 +71,7 @@ func TestEvents(t *testing.T) {
 		t.Run("block hash", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Hash: new(felt.Felt).SetUint64(55)}
 			_, err := handler.Events(args)
-			require.Equal(t, rpc_common.ErrBlockNotFound, err)
+			require.Equal(t, rpccore.ErrBlockNotFound, err)
 		})
 	})
 
@@ -157,7 +157,7 @@ func TestEvents(t *testing.T) {
 	t.Run("large page size", func(t *testing.T) {
 		args.ChunkSize = 10240 + 1
 		events, err := handler.Events(args)
-		require.Equal(t, rpc_common.ErrPageSizeTooBig, err)
+		require.Equal(t, rpccore.ErrPageSizeTooBig, err)
 		require.Nil(t, events)
 	})
 
@@ -165,7 +165,7 @@ func TestEvents(t *testing.T) {
 		args.ChunkSize = 2
 		args.Keys = make([][]felt.Felt, 1024+1)
 		events, err := handler.Events(args)
-		require.Equal(t, rpc_common.ErrTooManyKeysInFilter, err)
+		require.Equal(t, rpccore.ErrTooManyKeysInFilter, err)
 		require.Nil(t, events)
 	})
 

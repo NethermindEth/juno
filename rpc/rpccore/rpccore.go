@@ -1,4 +1,4 @@
-package rpc_common
+package rpccore
 
 import (
 	"context"

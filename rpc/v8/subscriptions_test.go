@@ -19,7 +19,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -70,7 +70,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
 		assert.Zero(t, id)
-		assert.Equal(t, rpc_common.ErrTooManyKeysInFilter, rpcErr)
+		assert.Equal(t, rpccore.ErrTooManyKeysInFilter, rpcErr)
 	})
 
 	t.Run("Return error if called on pending block", func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
 		assert.Zero(t, id)
-		assert.Equal(t, rpc_common.ErrCallOnPending, rpcErr)
+		assert.Equal(t, rpccore.ErrCallOnPending, rpcErr)
 	})
 
 	t.Run("Return error if block is too far back", func(t *testing.T) {
@@ -125,7 +125,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
 			assert.Zero(t, id)
-			assert.Equal(t, rpc_common.ErrTooManyBlocksBack, rpcErr)
+			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
@@ -134,7 +134,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
 			assert.Zero(t, id)
-			assert.Equal(t, rpc_common.ErrTooManyBlocksBack, rpcErr)
+			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 	})
 
@@ -354,7 +354,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 		assert.Nil(t, id)
-		assert.Equal(t, rpc_common.ErrTxnHashNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
 	t.Run("Transaction status is final", func(t *testing.T) {
@@ -565,7 +565,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		id, rpcErr := handler.SubscribeNewHeads(subCtx, &BlockID{Pending: true})
 		assert.Zero(t, id)
-		assert.Equal(t, rpc_common.ErrCallOnPending, rpcErr)
+		assert.Equal(t, rpccore.ErrCallOnPending, rpcErr)
 	})
 
 	t.Run("Return error if block is too far back", func(t *testing.T) {
@@ -591,7 +591,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, blockID)
 			assert.Zero(t, id)
-			assert.Equal(t, rpc_common.ErrTooManyBlocksBack, rpcErr)
+			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
@@ -600,7 +600,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, blockID)
 			assert.Zero(t, id)
-			assert.Equal(t, rpc_common.ErrTooManyBlocksBack, rpcErr)
+			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 	})
 
@@ -960,7 +960,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 		id, rpcErr := handler.SubscribePendingTxs(subCtx, nil, addresses)
 		assert.Zero(t, id)
-		assert.Equal(t, rpc_common.ErrTooManyAddressesInFilter, rpcErr)
+		assert.Equal(t, rpccore.ErrTooManyAddressesInFilter, rpcErr)
 	})
 }
 

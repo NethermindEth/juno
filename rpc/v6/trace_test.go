@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
-	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
+	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -61,7 +61,7 @@ func TestTraceFallback(t *testing.T) {
 			}).Times(2)
 			handler := rpc.New(mockReader, nil, nil, "", n, nil)
 			_, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: test.blockNumber})
-			require.Equal(t, rpc_common.ErrInternal.Code, jErr.Code)
+			require.Equal(t, rpccore.ErrInternal.Code, jErr.Code)
 
 			handler = handler.WithFeeder(client)
 			trace, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: test.blockNumber})
@@ -91,7 +91,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		assert.Nil(t, trace)
-		assert.Equal(t, rpc_common.ErrTxnHashNotFound, err)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 	})
 	t.Run("ok", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
@@ -221,7 +221,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 			update, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
 			assert.Nil(t, update)
-			assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
 
@@ -380,7 +380,7 @@ func TestCall(t *testing.T) {
 
 		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
 		require.Nil(t, res)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -388,7 +388,7 @@ func TestCall(t *testing.T) {
 
 		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Hash: &felt.Zero})
 		require.Nil(t, res)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -396,7 +396,7 @@ func TestCall(t *testing.T) {
 
 		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Number: 0})
 		require.Nil(t, res)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -408,7 +408,7 @@ func TestCall(t *testing.T) {
 
 		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
 		require.Nil(t, res)
-		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
 	t.Run("ok", func(t *testing.T) {

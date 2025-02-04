@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -48,7 +48,7 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass
 	declaredClass, err := state.Class(classHash)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpc_common.ErrClassHashNotFound
+			return nil, rpccore.ErrClassHashNotFound
 		}
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}

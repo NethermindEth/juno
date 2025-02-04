@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -99,7 +99,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
-		return nil, httpHeader, rpc_common.ErrInternal.CloneWithData(err)
+		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
 	blockInfo := vm.BlockInfo{
 		Header:                header,
@@ -112,13 +112,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, httpHeader, rpc_common.ErrInternal.CloneWithData(rpc_common.ThrottledVMErr)
+			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
 		var txnExecutionError vm.TransactionExecutionError
 		if errors.As(err, &txnExecutionError) {
 			return nil, httpHeader, makeTransactionExecutionError(&txnExecutionError)
 		}
-		return nil, httpHeader, rpc_common.ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	result := make([]SimulatedTransaction, 0, len(overallFees))
@@ -181,7 +181,7 @@ type TransactionExecutionErrorData struct {
 }
 
 func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
-	return rpc_common.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
+	return rpccore.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
 		TransactionIndex: err.Index,
 		ExecutionError:   err.Cause.Error(),
 	})

@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -43,7 +43,7 @@ func TestCompiledCasm(t *testing.T) {
 
 		resp, err := handler.CompiledCasm(classHash)
 		assert.Nil(t, resp)
-		assert.Equal(t, rpc_common.ErrClassHashNotFound, err)
+		assert.Equal(t, rpccore.ErrClassHashNotFound, err)
 	})
 	t.Run("cairo0", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")

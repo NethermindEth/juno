@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -38,7 +38,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpcv7.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpcv7.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpcv7.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -65,7 +65,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpcv7.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
 	expectedNonce := new(felt.Felt).SetUint64(1)
@@ -111,7 +111,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Hash: &felt.Zero})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -127,7 +127,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Number: 0})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -138,7 +138,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
 	t.Run("non-existent key", func(t *testing.T) {
@@ -148,7 +148,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
 	expectedStorage := new(felt.Felt).SetUint64(1)
@@ -228,12 +228,12 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("error is returned whenever not latest block is requested", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpcv7.BlockID{Number: 1}, nil, nil, nil)
-		assert.Equal(t, rpc_common.ErrStorageProofNotSupported, rpcErr)
+		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("error is returned even when blknum matches head", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpcv7.BlockID{Number: blockNumber}, nil, nil, nil)
-		assert.Equal(t, rpc_common.ErrStorageProofNotSupported, rpcErr)
+		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("empty request", func(t *testing.T) {

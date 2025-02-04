@@ -3,7 +3,7 @@ package rpcv6
 import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
+	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 )
 
 /****************************************************
@@ -23,7 +23,7 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 
 	nonce, err := stateReader.ContractNonce(&address)
 	if err != nil {
-		return nil, rpc_common.ErrContractNotFound
+		return nil, rpccore.ErrContractNotFound
 	}
 
 	return nonce, nil
@@ -42,7 +42,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 
 	value, err := stateReader.ContractStorage(&address, &key)
 	if err != nil {
-		return nil, rpc_common.ErrContractNotFound
+		return nil, rpccore.ErrContractNotFound
 	}
 
 	return value, nil

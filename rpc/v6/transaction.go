@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
+	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -427,7 +427,7 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		return nil, rpc_common.ErrTxnHashNotFound
+		return nil, rpccore.ErrTxnHashNotFound
 	}
 	return AdaptTransaction(txn), nil
 }
@@ -439,17 +439,17 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
 func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
-		return nil, rpc_common.ErrInvalidTxIndex
+		return nil, rpccore.ErrInvalidTxIndex
 	}
 
 	if id.Pending {
 		pending, err := h.syncReader.Pending()
 		if err != nil {
-			return nil, rpc_common.ErrBlockNotFound
+			return nil, rpccore.ErrBlockNotFound
 		}
 
 		if uint64(txIndex) > pending.Block.TransactionCount {
-			return nil, rpc_common.ErrInvalidTxIndex
+			return nil, rpccore.ErrInvalidTxIndex
 		}
 
 		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
@@ -462,7 +462,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 
 	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint64(txIndex))
 	if err != nil {
-		return nil, rpc_common.ErrInvalidTxIndex
+		return nil, rpccore.ErrInvalidTxIndex
 	}
 
 	return AdaptTransaction(txn), nil
@@ -475,12 +475,12 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) { //nolint:dupl
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		return nil, rpc_common.ErrTxnHashNotFound
+		return nil, rpccore.ErrTxnHashNotFound
 	}
 
 	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
 	if err != nil {
-		return nil, rpc_common.ErrTxnHashNotFound
+		return nil, rpccore.ErrTxnHashNotFound
 	}
 
 	status := TxnAcceptedOnL2
@@ -504,7 +504,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
-			return nil, rpc_common.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
+			return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
 		}
 		sierraProg, ok := contractClass["sierra_program"]
 		if !ok {
@@ -524,7 +524,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		contractClass["sierra_program"] = gwSierraProg
 		newContractClass, err := json.Marshal(contractClass)
 		if err != nil {
-			return nil, rpc_common.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
+			return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
 		}
 		tx.ContractClass = newContractClass
 	}
@@ -537,11 +537,11 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		ContractClass: tx.ContractClass,
 	})
 	if err != nil {
-		return nil, rpc_common.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
+		return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
 	}
 
 	if h.gatewayClient == nil {
-		return nil, rpc_common.ErrInternal.CloneWithData("no gateway client configured")
+		return nil, rpccore.ErrInternal.CloneWithData("no gateway client configured")
 	}
 
 	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
@@ -573,7 +573,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			Finality:  TxnStatus(receipt.FinalityStatus),
 			Execution: receipt.ExecutionStatus,
 		}, nil
-	case rpc_common.ErrTxnHashNotFound:
+	case rpccore.ErrTxnHashNotFound:
 		if h.feederClient == nil {
 			break
 		}
@@ -592,7 +592,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		case starknet.Received:
 			status.Finality = TxnStatusReceived
 		default:
-			return nil, rpc_common.ErrTxnHashNotFound
+			return nil, rpccore.ErrTxnHashNotFound
 		}
 
 		switch txStatus.ExecutionStatus {
@@ -617,33 +617,33 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 
 	switch gatewayErr.Code {
 	case gateway.InvalidContractClass:
-		return rpc_common.ErrInvalidContractClass
+		return rpccore.ErrInvalidContractClass
 	case gateway.UndeclaredClass:
-		return rpc_common.ErrClassHashNotFound
+		return rpccore.ErrClassHashNotFound
 	case gateway.ClassAlreadyDeclared:
-		return rpc_common.ErrClassAlreadyDeclared
+		return rpccore.ErrClassAlreadyDeclared
 	case gateway.InsufficientMaxFee:
-		return rpc_common.ErrInsufficientMaxFee
+		return rpccore.ErrInsufficientMaxFee
 	case gateway.InsufficientAccountBalance:
-		return rpc_common.ErrInsufficientAccountBalance
+		return rpccore.ErrInsufficientAccountBalance
 	case gateway.ValidateFailure:
-		return rpc_common.ErrValidationFailure.CloneWithData(gatewayErr.Message)
+		return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
 	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
-		return rpc_common.ErrContractClassSizeTooLarge
+		return rpccore.ErrContractClassSizeTooLarge
 	case gateway.DuplicatedTransaction:
-		return rpc_common.ErrDuplicateTx
+		return rpccore.ErrDuplicateTx
 	case gateway.InvalidTransactionNonce:
-		return rpc_common.ErrInvalidTransactionNonce
+		return rpccore.ErrInvalidTransactionNonce
 	case gateway.CompilationFailed:
-		return rpc_common.ErrCompilationFailed
+		return rpccore.ErrCompilationFailed
 	case gateway.InvalidCompiledClassHash:
-		return rpc_common.ErrCompiledClassHashMismatch
+		return rpccore.ErrCompiledClassHashMismatch
 	case gateway.InvalidTransactionVersion:
-		return rpc_common.ErrUnsupportedTxVersion
+		return rpccore.ErrUnsupportedTxVersion
 	case gateway.InvalidContractClassVersion:
-		return rpc_common.ErrUnsupportedContractClassVersion
+		return rpccore.ErrUnsupportedContractClassVersion
 	default:
-		return rpc_common.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
+		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}
 }
 

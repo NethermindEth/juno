@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -70,7 +70,7 @@ func TestSimulateTransactions(t *testing.T) {
 				})
 
 			_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag})
-			require.Equal(t, rpc_common.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
+			require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   "oops",
 			}), err)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/crypto/sha3"
 )
@@ -88,7 +88,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 
 	receipt, err := h.l1Client.TransactionReceipt(ctx, *txHash)
 	if err != nil {
-		return nil, rpc_common.ErrTxnHashNotFound
+		return nil, rpccore.ErrTxnHashNotFound
 	}
 
 	var messageHashes []*common.Hash
@@ -99,7 +99,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		var event logMessageToL2
 		err = h.coreContractABI.UnpackIntoInterface(&event, "LogMessageToL2", vLog.Data)
 		if err != nil {
-			return nil, jsonrpc.Err(rpc_common.ErrInternal.Code, fmt.Errorf("failed to unpack log %v", err))
+			return nil, jsonrpc.Err(rpccore.ErrInternal.Code, fmt.Errorf("failed to unpack log %v", err))
 		}
 		// Extract indexed fields from topics
 		fromAddress := common.HexToAddress(vLog.Topics[1].Hex())

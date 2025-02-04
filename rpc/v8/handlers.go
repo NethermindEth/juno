@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/contract"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -27,7 +27,7 @@ import (
 type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
-	gatewayClient rpc_common.Gateway
+	gatewayClient rpccore.Gateway
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
@@ -42,12 +42,12 @@ type Handler struct {
 	mu            stdsync.Mutex // protects subscriptions.
 	subscriptions map[uint64]*subscription
 
-	blockTraceCache *lru.Cache[rpc_common.TraceCacheKey, []TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
 
 	filterLimit  uint
 	callMaxSteps uint64
 
-	l1Client        rpc_common.L1Client
+	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
 }
 
@@ -82,7 +82,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
-		blockTraceCache: lru.NewCache[rpc_common.TraceCacheKey, []TracedBlockTransaction](rpc_common.TraceCacheSize),
+		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
@@ -94,7 +94,7 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	return h
 }
 
-func (h *Handler) WithL1Client(l1Client rpc_common.L1Client) *Handler {
+func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
 	h.l1Client = l1Client
 	return h
 }
@@ -114,7 +114,7 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	return h
 }
 
-func (h *Handler) WithGateway(gatewayClient rpc_common.Gateway) *Handler {
+func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	h.gatewayClient = gatewayClient
 	return h
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -51,12 +51,12 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
-			return nil, rpc_common.ErrBlockNotFound
+			return nil, rpccore.ErrBlockNotFound
 		}
-		return nil, rpc_common.ErrInternal.CloneWithData(err)
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 	if block == nil {
-		return nil, rpc_common.ErrInternal.CloneWithData("nil block with no error")
+		return nil, rpccore.ErrInternal.CloneWithData("nil block with no error")
 	}
 	return block, nil
 }
@@ -81,12 +81,12 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
-			return nil, rpc_common.ErrBlockNotFound
+			return nil, rpccore.ErrBlockNotFound
 		}
-		return nil, rpc_common.ErrInternal.CloneWithData(err)
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 	if header == nil {
-		return nil, rpc_common.ErrInternal.CloneWithData("nil header with no error")
+		return nil, rpccore.ErrInternal.CloneWithData("nil header with no error")
 	}
 	return header, nil
 }
@@ -174,9 +174,9 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
-			return nil, nil, rpc_common.ErrBlockNotFound
+			return nil, nil, rpccore.ErrBlockNotFound
 		}
-		return nil, nil, rpc_common.ErrInternal.CloneWithData(err)
+		return nil, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 	return reader, closer, nil
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc/rpc_common"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -132,7 +132,7 @@ func estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEs
 	}
 	estimates, httpHeader, rpcErr := f([]BroadcastedTransaction{tx}, nil, id)
 	if rpcErr != nil {
-		if rpcErr.Code == rpc_common.ErrTransactionExecutionError.Code {
+		if rpcErr.Code == rpccore.ErrTransactionExecutionError.Code {
 			data := rpcErr.Data.(TransactionExecutionErrorData)
 			return nil, httpHeader, makeContractError(errors.New(data.ExecutionError))
 		}
@@ -146,7 +146,7 @@ type ContractErrorData struct {
 }
 
 func makeContractError(err error) *jsonrpc.Error {
-	return rpc_common.ErrContractError.CloneWithData(ContractErrorData{
+	return rpccore.ErrContractError.CloneWithData(ContractErrorData{
 		RevertError: err.Error(),
 	})
 }

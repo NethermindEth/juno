@@ -1,11 +1,7 @@
 package rpcv6
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"math"
-	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -13,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
-	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
+	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -30,7 +26,7 @@ type traceCacheKey struct {
 type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
-	gatewayClient rpc_common.Gateway
+	gatewayClient rpccore.Gateway
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
@@ -38,12 +34,7 @@ type Handler struct {
 	version                    string
 	forceFeederTracesForBlocks *set.Set[uint64]
 
-	newHeads *feed.Feed[*core.Header]
-
-	idgen         func() uint64
-	mu            stdsync.Mutex // protects subscriptions.
-	subscriptions map[uint64]*subscription
-
+	newHeads        *feed.Feed[*core.Header]
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
 	filterLimit  uint
@@ -60,22 +51,15 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
-		bcReader:   bcReader,
-		syncReader: syncReader,
-		log:        logger,
-		vm:         virtualMachine,
-		idgen: func() uint64 {
-			var n uint64
-			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
-			}
-			return n
-		},
+		bcReader:                   bcReader,
+		syncReader:                 syncReader,
+		log:                        logger,
+		vm:                         virtualMachine,
 		version:                    version,
 		forceFeederTracesForBlocks: set.From(network.BlockHashMetaInfo.ForceFetchingTracesForBlocks),
 		newHeads:                   feed.New[*core.Header](),
-		subscriptions:              make(map[uint64]*subscription),
 
-		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpc_common.TraceCacheSize),
+		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 	}
 }
@@ -91,30 +75,14 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	return h
 }
 
-func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
-	h.idgen = idgen
-	return h
-}
-
 func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	h.feederClient = feederClient
 	return h
 }
 
-func (h *Handler) WithGateway(gatewayClient rpc_common.Gateway) *Handler {
+func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	h.gatewayClient = gatewayClient
 	return h
-}
-
-func (h *Handler) Run(ctx context.Context) error {
-	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
-	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
-	<-ctx.Done()
-	for _, sub := range h.subscriptions {
-		sub.wg.Wait()
-	}
-	return nil
 }
 
 func (h *Handler) Version() (string, *jsonrpc.Error) {
