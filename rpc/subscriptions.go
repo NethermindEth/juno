@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -115,7 +113,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		var wg conc.WaitGroup
 		wg.Go(func() {
 			// Stores the transaction hash -> number of events
-			eventsPreviouslySent := make([]*blockchain.FilteredEvent, 0)
+			eventsPreviouslySent := make(map[blockchain.FilteredEvent]struct{})
 
 			for {
 				select {
@@ -135,34 +133,19 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 						return
 					}
 
-					fmt.Println("size of slice before", len(eventsPreviouslySent))
 					for i, r := range b.Receipts {
 						for _, e := range r.Events {
-							fe := &blockchain.FilteredEvent{
+							fe := blockchain.FilteredEvent{
 								Event:           e,
 								BlockNumber:     header.Number,
 								BlockHash:       header.Hash,
 								TransactionHash: b.Transactions[i].Hash(),
 							}
 
-							var deleteI int
-							var duplicateFound bool
-							for j, dupE := range eventsPreviouslySent {
-								if reflect.DeepEqual(fe, dupE) {
-									duplicateFound = true
-									deleteI = j
-									break
-								}
-							}
-
-							if duplicateFound {
-								eventsPreviouslySent = append(eventsPreviouslySent[:deleteI], eventsPreviouslySent[deleteI+1:]...)
-							}
+							delete(eventsPreviouslySent, fe)
 						}
 					}
-					fmt.Println("size of slice after", len(eventsPreviouslySent))
 				case pending := <-pendingSub.Recv():
-					fmt.Println("Found pending block", len(pending.Transactions))
 					h.processEvents(subscriptionCtx, w, id, pending.Number, pending.Number, fromAddr, keys, eventsPreviouslySent)
 				}
 			}
@@ -330,7 +313,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 }
 
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt,
-	keys [][]felt.Felt, eventsPreviouslySent []*blockchain.FilteredEvent,
+	keys [][]felt.Felt, eventsPreviouslySent map[blockchain.FilteredEvent]struct{},
 ) {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys)
 	if err != nil {
@@ -373,19 +356,18 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 }
 
 func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent,
-	eventsPreviouslySent []*blockchain.FilteredEvent, id uint64,
+	eventsPreviouslySent map[blockchain.FilteredEvent]struct{}, id uint64,
 ) error {
-eventsLoop:
 	for _, event := range events {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			for _, prevEvent := range eventsPreviouslySent {
-				if reflect.DeepEqual(event, prevEvent) {
-					continue eventsLoop
+			if eventsPreviouslySent != nil {
+				if _, ok := eventsPreviouslySent[*event]; ok {
+					continue
 				}
-				eventsPreviouslySent = append(eventsPreviouslySent, event)
+				eventsPreviouslySent[*event] = struct{}{}
 			}
 
 			emittedEvent := &EmittedEvent{
