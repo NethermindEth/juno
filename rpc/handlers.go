@@ -270,6 +270,16 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.rpcv8Handler.GetMessageStatus,
 		},
+		{
+			Name: "starknet_getStorageProof",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "class_hashes", Optional: true},
+				{Name: "contract_addresses", Optional: true},
+				{Name: "contracts_storage_keys", Optional: true},
+			},
+			Handler: h.rpcv8Handler.StorageProof,
+		},
 	}, "/v0_8"
 }
 
@@ -335,16 +345,6 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.rpcv7Handler.StorageAt,
-		},
-		{
-			Name: "starknet_getStorageProof",
-			Params: []jsonrpc.Parameter{
-				{Name: "block_id"},
-				{Name: "class_hashes", Optional: true},
-				{Name: "contract_addresses", Optional: true},
-				{Name: "contracts_storage_keys", Optional: true},
-			},
-			Handler: h.rpcv7Handler.StorageProof,
 		},
 		{
 			Name:    "starknet_getClassHashAt",
