@@ -16,8 +16,6 @@ import (
 )
 
 type Handler struct {
-	bcReader     blockchain.Reader
-	syncReader   sync.Reader
 	rpcv6Handler *rpcv6.Handler
 	rpcv7Handler *rpcv7.Handler
 	rpcv8Handler *rpcv8.Handler
@@ -31,8 +29,6 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger)
 
 	return &Handler{
-		bcReader:     bcReader,
-		syncReader:   syncReader,
 		rpcv6Handler: handlerv6,
 		rpcv7Handler: handlerv7,
 		rpcv8Handler: handlerv8,
